@@ -35,7 +35,7 @@ file_hash() {
     value=$(sha256sum < "$2") || return 1
     emit "$1" "${value:0:16}"
 }
-# Remove only the exact appended mandatory-cutover entry for preservation hashes.
+# Remove only exact mandatory-cutover entries for preservation hashes.
 # Original AbandonOldChart lines and every prior comment/byte remain in the
 # comparison; this does not broadly exempt that key from configuration checks.
 properties_without_cutover() {
@@ -50,7 +50,9 @@ ready = content.endswith(entry)
 if sys.argv[2] == "status":
     print("ready" if ready else "absent")
 else:
-    sys.stdout.buffer.write(content[:-len(entry)] if ready else content)
+    # A later init-config can append settings after an earlier cutover entry.
+    # Exempt those exact historical migration entries too, never arbitrary flags.
+    sys.stdout.buffer.write(content.replace(entry, b""))
 PYCUTOVER
 }
 admin_count=$(db_query "SELECT COUNT(*) FROM security WHERE user_name=$ADMIN_SQL")
@@ -160,6 +162,8 @@ else
 fi
 emit cfg.reportingGrantList "$([ -r "$CARLOS_SHARE_DIR/webapp/carlos/WEB-INF/classes/db/reporting/carlos_report_grants.sql" ] && echo present || echo absent)"
 value=$(properties_without_cutover status); emit cfg.modernChartCutover "$value"
+value=$(properties_without_cutover | sha256sum) || exit 1
+emit cfg.carlos.properties.withoutCutover.sha "${value:0:16}"
 value=$(properties_without_cutover | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | sha256sum) || exit 1
 emit cfg.carlos.properties.otherKeys.sha "${value:0:16}"
 # The ACTIVE settings, independent of layout: comments and blank lines dropped,

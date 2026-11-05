@@ -128,7 +128,8 @@ echo "== assertions =="
 # The postinst always appends this exact final entry after init-config. Its
 # presence proves older Properties readers see true without ignoring or
 # rewriting any prior operator definitions. Preservation hashes omit only
-# that exact suffix, retaining all original chart flags and comments.
+# exact migration entries (including previous configures), retaining original
+# operator chart flags and comments.
 if [ "$cutover_status" = ready ]; then
   ok "mandatory modern-chart cutover is durably configured for rollback"
 else
@@ -260,8 +261,17 @@ elif { [ -z "$rp_user_pre" ] || [ "$rp_user_pre" = db_reporting_username= ]; } \
     && [ -n "$rp_pw_post" ] && [ "$rp_pw_post" != none ]; then
   rp_ok=1; rp_changed=added
 fi
+cutover_normalized_pre=$(g "$PRE" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
+cutover_normalized_post=$(g "$POST" cfg.carlos.properties.withoutCutover.sha 2>/dev/null || true)
 if [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$(g "$POST" cfg.carlos.properties.sha)" ]; then
   ok "cfg.carlos.properties.sha preserved"
+elif [ -n "$cutover_normalized_post" ] && {
+    [ "$(g "$PRE" cfg.carlos.properties.sha)" = "$cutover_normalized_post" ] \
+    || { [ -n "$cutover_normalized_pre" ] && [ "$cutover_normalized_pre" = "$cutover_normalized_post" ]; }
+  }; then
+  # Exact whole-file equality after removing only known cutover entries. The
+  # first comparison also supports a receipt made before this metadata existed.
+  ok "cfg.carlos.properties.sha preserved apart from mandatory modern-chart cutover"
 elif [ "$ht_ok" = 1 ] && [ "$od_ok" = 1 ] && [ "$oa_ok" = 1 ] && [ "$lf_ok" = 1 ] && [ "$hu_ok" = 1 ] && [ "$rp_ok" = 1 ] \
     && [ -n "$(g "$PRE" cfg.carlos.properties.otherKeys.sha 2>/dev/null || true)" ] \
     && [ "$(g "$PRE" cfg.carlos.properties.otherKeys.sha)" = "$(g "$POST" cfg.carlos.properties.otherKeys.sha)" ]; then

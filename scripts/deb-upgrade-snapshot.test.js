@@ -671,7 +671,23 @@ test('upgrade verifier refuses a missing mandatory cutover even when other confi
 test('upgrade verifier accepts an older format-2 PRE receipt without cutover metadata', t => {
   const fixture = setup(t);
   const before = fixture.baseline();
-  fs.writeFileSync(fixture.env.PRE, before.replace(/^cfg\.modernChartCutover=.*\n/m, ''));
+  fs.writeFileSync(fixture.env.PRE, before.replace(/^cfg\.modernChartCutover=.*\n/m, '')
+    .replace(/^cfg\.carlos\.properties\.withoutCutover\.sha=.*\n/m, ''));
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /mandatory modern-chart cutover is durably configured/);
+});
+
+
+test('upgrade verifier preserves the contract when layout is appended after a prior cutover', t => {
+  const fixture = setup(t);
+  // Establish a pre-existing package cutover before taking the next PRE receipt.
+  fixture.baseline();
+  const initial = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(initial.status, 0, initial.stdout + initial.stderr);
+  fixture.baseline();
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  fs.appendFileSync(props, '\n# Regenerated operator configuration layout\n');
   const result = fixture.run('deb-upgrade-verify.sh');
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /mandatory modern-chart cutover is durably configured/);

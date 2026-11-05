@@ -127,7 +127,7 @@
 
     <p><strong><fmt:message key="encounter.historicalChart.title"/></strong><br/>
         <fmt:message key="encounter.historicalChart.notice"/>
-        <carlos:encode value='<%= bean.eChartTimeStamp %>'/>
+        <carlos:encode value='<%= bean.eChartTimeStamp == null ? "" : bean.eChartTimeStamp.toString() %>'/>
     </p>
 
     <table class="Header" style="width: 7in">
