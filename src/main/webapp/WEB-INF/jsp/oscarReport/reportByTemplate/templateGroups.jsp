@@ -317,11 +317,17 @@
             }
         }
 
+        // The database compares group names case- and accent-insensitively (utf8mb4_general_ci), so
+        // fold both the same way here; the server still refuses a duplicate this does not catch.
+        function foldName(text) {
+            return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+        }
+
         function checkRow(textInput) {
             var result = "";
             $('#groupListTbl tbody').find('tr').each(function () {
 
-                if ($("td:eq(0)", $(this)).attr("title") && $("td:eq(0)", $(this)).attr("title").trim().toUpperCase() === textInput.toUpperCase()) {
+                if ($("td:eq(0)", $(this)).attr("title") && foldName($("td:eq(0)", $(this)).attr("title").trim()) === foldName(textInput)) {
                     result = "exists";
                     return false;
                 }

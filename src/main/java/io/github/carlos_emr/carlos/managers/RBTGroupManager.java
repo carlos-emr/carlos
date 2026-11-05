@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.commn.dao.RBTGroupDao;
 import io.github.carlos_emr.carlos.commn.model.RBTGroup;
@@ -44,6 +45,9 @@ public class RBTGroupManager {
 
     /** Length of the {@code rbt_groups.group_name} column (varchar(255)). */
     public static final int MAX_GROUP_NAME_LENGTH = 255;
+
+    /** Leading/trailing whitespace as JavaScript's {@code String.trim()} defines it. */
+    private static final Pattern EDGE_WHITESPACE = Pattern.compile("^[\\s\\p{Z}\\uFEFF]+|[\\s\\p{Z}\\uFEFF]+$");
 
     @Autowired
     private RBTGroupDao rbtGroupDao;
@@ -70,8 +74,10 @@ public class RBTGroupManager {
      * @param loggedInInfo User current login information and credentials
      * @param groupName    Name of the template group to add the template to
      * @param tid          Template id of the group to be added
-     * @throws IllegalArgumentException if the trimmed group name is null, blank or longer than
-     *                                  {@link #MAX_GROUP_NAME_LENGTH} characters
+     * @throws IllegalArgumentException if the stripped group name is null, blank, longer than
+     *                                  {@link #MAX_GROUP_NAME_LENGTH} characters, contains control
+     *                                  characters, or (when {@code tid} is 0, creating the group)
+     *                                  names a group that already exists
      */
     public void addTemplateToGroup(LoggedInInfo loggedInInfo, String groupName, int tid) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
@@ -85,7 +91,10 @@ public class RBTGroupManager {
         if (groupName == null) {
             throw new IllegalArgumentException("Report by Template group name is required");
         }
-        groupName = groupName.trim();
+        // Not String.trim()/strip(): trim() ignores Unicode spaces and strip() leaves no-break spaces
+        // (NBSP) alone, while the page's JavaScript trim() removes both. Matching the browser keeps a
+        // label the page treats as blank from being stored as an invisible group.
+        groupName = EDGE_WHITESPACE.matcher(groupName).replaceAll("");
         if (groupName.isEmpty()) {
             throw new IllegalArgumentException("Report by Template group name is required");
         }
@@ -93,6 +102,20 @@ public class RBTGroupManager {
         if (groupName.length() > MAX_GROUP_NAME_LENGTH) {
             throw new IllegalArgumentException(
                     "Report by Template group name exceeds " + MAX_GROUP_NAME_LENGTH + " characters");
+        }
+        // Control characters (NUL, newline, ...) are not valid label text and cannot survive the
+        // HTML attribute round trip: the encoder replaces them, so the hidden groupName field would
+        // name a different group than the stored one.
+        if (groupName.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("Report by Template group name contains control characters");
+        }
+        // tid 0 is the "create group" marker row (RBTAddGroup2Action). rbt_groups uses a
+        // case- and accent-insensitive collation (utf8mb4_general_ci), so "Zoe" and "Zoë" address the
+        // same group in every lookup and delete; a second group that the database cannot tell apart
+        // would silently merge with, and be deleted with, the first. getByGroupName compares with the
+        // database collation, so it is the right test. The page's JavaScript check is feedback only.
+        if (tid == 0 && !rbtGroupDao.getByGroupName(groupName).isEmpty()) {
+            throw new IllegalArgumentException("A Report by Template group with this name already exists");
         }
 
         RBTGroup rbtGroup = new RBTGroup();

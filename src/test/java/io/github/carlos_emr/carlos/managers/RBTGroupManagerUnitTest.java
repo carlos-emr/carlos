@@ -128,6 +128,61 @@ class RBTGroupManagerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should strip Unicode spaces the browser also strips")
+    void shouldStripUnicodeSpaces_beforePersisting() {
+        allowAdminWrite();
+
+        manager.addTemplateToGroup(mockLoggedInInfo, "\u00A0\u3000Diabetes\u00A0", 0);
+
+        assertThat(persistedGroup().getGroupName()).isEqualTo("Diabetes");
+    }
+
+    @Test
+    @DisplayName("should refuse a name that is only Unicode spaces")
+    void shouldThrowIllegalArgument_whenNameOnlyUnicodeSpaces() {
+        allowAdminWrite();
+
+        assertThatThrownBy(() -> manager.addTemplateToGroup(mockLoggedInInfo, "\u00A0\u3000", 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(mockRbtGroupDao, never()).persist(any(RBTGroup.class));
+    }
+
+    @Test
+    @DisplayName("should refuse control characters that do not survive the HTML round trip")
+    void shouldThrowIllegalArgument_whenNameHasControlCharacters() {
+        allowAdminWrite();
+
+        assertThatThrownBy(() -> manager.addTemplateToGroup(mockLoggedInInfo, "Diab\netes", 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> manager.addTemplateToGroup(mockLoggedInInfo, "Diab\u0000etes", 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        verify(mockRbtGroupDao, never()).persist(any(RBTGroup.class));
+    }
+
+    @Test
+    @DisplayName("should refuse to create a group the database cannot tell apart from an existing one")
+    void shouldThrowIllegalArgument_whenGroupAlreadyExists() {
+        allowAdminWrite();
+        when(mockRbtGroupDao.getByGroupName("Zoe")).thenReturn(java.util.List.of(new RBTGroup()));
+
+        assertThatThrownBy(() -> manager.addTemplateToGroup(mockLoggedInInfo, " Zoe ", 0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("already exists");
+        verify(mockRbtGroupDao, never()).persist(any(RBTGroup.class));
+    }
+
+    @Test
+    @DisplayName("should not run the duplicate check when adding a template to an existing group")
+    void shouldSkipDuplicateCheck_whenAddingTemplate() {
+        allowAdminWrite();
+
+        manager.addTemplateToGroup(mockLoggedInInfo, "Diabetes", 12);
+
+        verify(mockRbtGroupDao, never()).getByGroupName(any());
+        assertThat(persistedGroup().getTemplateId()).isEqualTo(12);
+    }
+
+    @Test
     @DisplayName("should not touch the DAO without admin write privilege")
     void shouldThrowSecurityRuntimeException_whenPrivilegeMissing() {
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_admin", SecurityInfoManager.WRITE, null))
