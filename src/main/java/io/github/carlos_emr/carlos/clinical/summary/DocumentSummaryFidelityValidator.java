@@ -155,9 +155,32 @@ final class DocumentSummaryFidelityValidator {
                     + ")$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
-    /** The lines of {@code source} that read as addressed to an AI. */
+    /** Longest stretch of a line matched in one go, and how much consecutive stretches overlap. */
+    private static final int SCAN_WINDOW = 140;
+    private static final int SCAN_OVERLAP = 70;
+
+    /** The last source scanned and its result, so one validation scans the document once, not once per statement. */
+    private record Scanned(String source, List<String> lines) { }
+    private static volatile Scanned lastScan = new Scanned("", List.of());
+
+    /** The lines of {@code source} that read as addressed to an AI. Bounded scan for long lines. */
     static List<String> aiAddressedLines(String source) {
-        return source.lines().filter(line -> AI_ADDRESSED.matcher(line).matches()).toList();
+        Scanned known = lastScan;
+        if (known.source().equals(source)) return known.lines();
+        List<String> found = source.lines().filter(DocumentSummaryFidelityValidator::addressedToAi).toList();
+        lastScan = new Scanned(source, found);
+        return found;
+    }
+
+    /** Matches a line directly when short, else window by window, so the work grows with the length of the line. */
+    private static boolean addressedToAi(String line) {
+        if (line.length() <= SCAN_WINDOW) return AI_ADDRESSED.matcher(line).matches();
+        for (int start = 0; start < line.length(); start += SCAN_WINDOW - SCAN_OVERLAP) {
+            int end = Math.min(line.length(), start + SCAN_WINDOW);
+            if (AI_ADDRESSED.matcher(line.substring(start, end)).matches()) return true;
+            if (end == line.length()) break;
+        }
+        return false;
     }
 
     /**
