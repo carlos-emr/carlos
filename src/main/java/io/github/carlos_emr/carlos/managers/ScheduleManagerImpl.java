@@ -28,16 +28,19 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.managers;
 
 import java.text.SimpleDateFormat;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.TreeMap;
 
 import jakarta.ws.rs.WebApplicationException;
@@ -69,6 +72,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import io.github.carlos_emr.carlos.log.LogAction;
 
@@ -257,6 +261,46 @@ public class ScheduleManagerImpl implements ScheduleManager {
         oscarAppointmentDao.merge(appointment);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Legacy edits retain the privilege check, row lock and transactional archive;
+     * a supplied token additionally requires the client's read version to match.</p>
+     */
+    @Override
+    @Transactional
+    public Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
+            String expectedVersion, Consumer<Appointment> edit) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        }
+        // Legacy REST clients do not send a version. Keep their last-writer-wins
+        // contract while using the same locked, audited update path as versioned clients.
+        boolean hasVersion = expectedVersion != null && !expectedVersion.isBlank();
+        Appointment current = oscarAppointmentDao.findForUpdate(appointmentId);
+        if (current == null) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.NOT_FOUND);
+        }
+        if (hasVersion && !current.getEditVersion().equals(expectedVersion)) {
+            throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
+        }
+        if (!hasVersion) {
+            logger.warn("Appointment update without editVersion uses legacy last-writer-wins behavior; "
+                    + "clients should echo editVersion to enable conflict detection");
+        }
+        // Archive the unmodified locked row. Validation, archive and mutation share this
+        // transaction: a rejected edit or failed flush cannot leave a stray archive behind.
+        appointmentArchiveDao.archiveAppointment(current);
+        edit.accept(current);
+        current.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+        oscarAppointmentDao.merge(current);
+        // Run the version callback before serializing the response token.
+        oscarAppointmentDao.flush();
+        LogAction.addLogSynchronous(loggedInInfo, "AppointmentManager.updateAppointment",
+                "appointmentId=" + current.getId());
+        return current;
+    }
+
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo) {
         List<Appointment> appointments = oscarAppointmentDao.findByDateRangeAndProvider(startTime, endTime, providerNo);
 
@@ -345,8 +389,8 @@ public class ScheduleManagerImpl implements ScheduleManager {
         Date sDate = null;
         Date eDate = null;
         try {
-            sDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(sDateStr);
-            eDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(eDateStr);
+            sDate = IsoDates.parseIso8601Date(sDateStr);
+            eDate = IsoDates.parseIso8601Date(eDateStr);
         } catch (Exception e) {
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
         }

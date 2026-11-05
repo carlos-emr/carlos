@@ -42,8 +42,8 @@
 --%>
 
 
-<%@page import="io.github.carlos_emr.carlos.util.ConversionUtils"%>
-<%@page import="io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay"%>
+
+
 <%  long start = System.currentTimeMillis(); %>
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp"%>
 <fmt:setBundle basename="oscarResources"/>
@@ -58,7 +58,7 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.PartialDate"%>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.services.security.SecurityManager" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -68,7 +68,7 @@
 <%@ taglib prefix="c" uri="jakarta.tags.core" %>
 <%@ taglib prefix="fmt" uri="jakarta.tags.fmt" %>
 <%@ taglib prefix="fn" uri="jakarta.tags.functions" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
@@ -230,7 +230,8 @@
 		if (key.contains(" Date")) {
 		    val = readPartialDate(cme);
 		} else {
-		    val = SafeEncode.forJavaScript(cme.getValue());
+		    // Protect the semicolon-delimited transport; the outer tag encodes the onclick context.
+		    val = SafeEncode.forUriComponent(cme.getValue());
 		}
 		if (strcme.length()>0) strcme.append(";");
 		strcme.append(key + ";" + val);

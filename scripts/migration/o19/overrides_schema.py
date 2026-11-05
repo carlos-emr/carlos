@@ -40,9 +40,9 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-# Nullable Program flags no longer need primitive coercion during import.
+# Consent value expressions now retire undecided records and duplicate history.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-5"
+SCHEMA_MAP_VERSION = "o19map-6"
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -832,6 +832,15 @@ CARLOSDOC_SEED_DELETES = [
 # synthesizes for them (SQL over the staging row alias `s`). The ETL
 # pre-check aborts naming any such column that lacks an entry here.
 VALUE_EXPRS = {
+    # The CLI builds this helper from the actual source flags and remapped
+    # consent type before copying. Keep deleted history and retire undecided
+    # and surplus live records; never turn a missing decision into consent.
+    "Consent": {
+        "optout": "COALESCE(s.`optout`, 1)",
+        "deleted": "COALESCE((SELECT r.`deleted` FROM "
+                   "{archive}.`Consent__live` r "
+                   "WHERE r.`id` = s.`id`), 1)",
+    },
     # uid groups pharmacy record revisions in CARLOS; each imported O19
     # pharmacy heads its own group.
     "pharmacyInfo": {"uid": "s.`recordID`"},

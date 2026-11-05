@@ -109,7 +109,7 @@ life of the JVM, so a test must not extract a directory of its own (`TestFonts.s
 
 | Test | What it pins |
 | --- | --- |
-| `JasperTemplateFontPolicyUnitTest` | Compiles all 51 shipped templates through the default context: every text element resolves to an embedded bundled face, and every fixed-height box fits one line of it |
+| `JasperTemplateFontPolicyUnitTest` | Compiles all 42 shipped templates through the default context: every text element resolves to an embedded bundled face, and every fixed-height box fits one line of it |
 | `JasperReportTemplatesIntegrationTest` | Every packaged template compiles, now including the `.xml` ones |
 | `JasperBundledFontRenderingUnitTest` | Unnamed and logical-font text in 16/17pt boxes fills and exports intact; an unknown face fails |
 | `ClinicalFormJasperRenderingUnitTest` | Rourke 2017 (four pages) and BCAR 2020 print synthetic identifiers in their boxes, embedded |
@@ -154,15 +154,15 @@ are covered by the tests above.
 
 | Output | Disposition |
 | --- | --- |
-| All 51 shipped templates (labels, referral label, BC billing PDF/CSV reports and remittance, ON year-end statement, lab and billing day sheets, billing invoice, Dx research export, appointment receipt, Rourke 2017/2020, BCAR 2020) | **Fixed:** bundled embedded default and logical-name mapping; policy tests |
+| All 42 shipped templates (labels, referral label, BC billing PDF reports and remittance, ON year-end statement, lab and billing day sheets, billing invoice, appointment receipt, Rourke 2017/2020, BCAR 2020) | **Fixed:** bundled embedded default and logical-name mapping; policy tests |
+| BC accounting/remittance CSV and Dx Research XLSX | **Moved off Jasper (#5438):** Commons CSV / streaming Apache POI; the nine spreadsheet templates were removed; shared remittance PDF subreports remain |
 | ON year-end statement | **Fixed:** template pins DejaVu (port of `main` e2dc6d0d49, byte-identical to #5067) |
 | BC write-off and account-receivable PDFs | **Fixed:** six labels/fields and the insurer header were fixed 10pt boxes holding 10pt text, which no common face fits; they now stretch like their neighbours |
-| BC write-off and payment summary CSVs | **Fixed:** 8pt bundled default style, as #5067 does for the payment CSVs |
 | Lab and billing day sheets (`printLabDaySheetAction`), sample `label.xml` / `label-appt.xml` | **Fixed:** they kept JasperReports 6 header syntax and did not load at all; converted. The day-sheet route has no UI link |
 | `csv_rep_payref.xml`, `msppremsums23.jrxml` | **Removed:** unreferenced and outside the report allowlist |
 | Site templates in `user.home` (`label.xml`, `Addresslabel.xml`, `pdfLabelMRP`) and uploaded patient-letter templates | **Covered** by the default font and logical-name mapping; a name nobody provides now fails |
 | CJK characters in Jasper output | **Open:** DejaVu has no CJK and Jasper cannot load the bundled WenQuanYi `.ttc` as a font-extension face. Rourke 2020 refuses such characters; the other renderers still drop them, as they did before. Needs a TTF fallback face (Jasper font set) or a shared refusal |
-| `OscarDocumentCreator` error handling | **Open:** it logs and swallows `JRException`, so a failed fill can return a partial or empty document (BC reports, day sheets, Dx research export) |
+| `OscarDocumentCreator` error handling | **Open:** it logs and swallows `JRException`, so a failed fill can return a partial or empty document (BC PDFs and day sheets; spreadsheet downloads now own their error responses) |
 
 ### OpenPDF and PDFBox printers
 

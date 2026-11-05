@@ -25,6 +25,9 @@
  * back could never put the demo record back. The patient, its archive rows and its chart rows are deleted by the patient's key.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
+const { validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { buildArtifactPath } = require('./eform-local-playwright-utils');
@@ -47,29 +50,6 @@ const screenshotDir = process.env.SURFACE_SCREENSHOT_DIR || '/tmp';
 const badResponses = [];
 const consoleIssues = [];
 const recorder = h.createRecorder();
-
-function validateBaseUrl(rawBaseUrl) {
-  const parsed = new URL(rawBaseUrl);
-  if (parsed.username || parsed.password) {
-    throw new Error('BASE_URL must not embed a username or password');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error(`BASE_URL must use http or https, got ${parsed.protocol}`);
-  }
-
-  const host = parsed.hostname.toLowerCase();
-  const localHosts = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0', 'host.docker.internal', 'carlos']);
-  const octets = host.split('.');
-  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
-  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
-    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
-    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
-  if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
-    throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
-  }
-  parsed.pathname = parsed.pathname.replace(/\/$/, '');
-  return parsed;
-}
 
 function appUrl(appPath) {
   if (!appPath.startsWith('/') || appPath.startsWith('//')) {
@@ -280,7 +260,8 @@ async function checkAdminPage(context, appPath, label, requiredText) {
   await page.close();
 }
 
-(async () => {
+legacyHarness.runLegacyCheck('browser-surface',async context=>{
+  await (async({cancellation})=>{
   const launchOptions = {
     headless: true,
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
@@ -298,17 +279,26 @@ async function checkAdminPage(context, appPath, label, requiredText) {
     // The Master Record form refuses to save a blank Canadian postal code ("The entered Postal Code is not valid"), and the surface
     // step saves it; the demo patient this check used to open had one. A reserved real-format code, on the owned patient only.
     sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE demographic_no=${demographicNo} AND last_name=${h.sqlString(ownedMarker)}`);
-    browser = await chromium.launch(launchOptions);
+    browser = await chromium.launch({...(launchOptions),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     context.on('page', page => h.wireStrictPage(page, 'browser-surface-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
+    cancellation?.throwIfCancelled();
     const patientPage = await openPatientFromSearch(context, schedulePage);
+    cancellation?.throwIfCancelled();
 
     await checkDemographicCrud(context);
+    cancellation?.throwIfCancelled();
     await checkPatientPopups(context, patientPage);
+    cancellation?.throwIfCancelled();
     await checkAdminPage(context, '/admin/ViewAdminDisplayMyGroup', 'admin-my-group', 'Group');
+    cancellation?.throwIfCancelled();
     await checkAdminPage(context, '/admin/labForwardingRules', 'admin-lab-forwarding', 'Forwarding');
+    cancellation?.throwIfCancelled();
     await checkAdminPage(context, '/admin/ProviderPrivilege', 'admin-provider-privilege', 'Provider');
+    cancellation?.throwIfCancelled();
 
     const fatalConsoleIssues = consoleIssues.filter((issue) => issue.type !== 'dialog');
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
@@ -327,7 +317,7 @@ async function checkAdminPage(context, appPath, label, requiredText) {
       sql.dispose();
     }
   }
-})().catch((error) => {
+})(context).catch((error) => {
   console.error('FAIL browser surface Playwright check');
   console.error(error.stack || error.message);
   console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
@@ -337,5 +327,6 @@ async function checkAdminPage(context, appPath, label, requiredText) {
   if (consoleIssues.length) {
     console.error(`Console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
   }
-  process.exit(1);
+  {process.exitCode=1;return;}
+});
 });

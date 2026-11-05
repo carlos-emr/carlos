@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -33,6 +34,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import java.util.Collection;
 
 import jakarta.persistence.Query;
 
@@ -60,6 +62,14 @@ public class ConsultationRequestExtDaoImpl extends AbstractDaoImpl<ConsultationR
         if (results.size() > 0)
             return results.get(0);
         return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public List<ConsultationRequestExt> getConsultationRequestExts(Collection<Integer> requestIds) {
+        if (requestIds.isEmpty()) return List.of();
+        return entityManager.createQuery("select cre from ConsultationRequestExt cre where cre.requestId in :ids order by cre.id",
+                ConsultationRequestExt.class).setParameter("ids", requestIds).getResultList();
     }
 
     public void clear(int requestId) {

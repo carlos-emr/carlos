@@ -19,14 +19,15 @@ function setup() {
     signatureAssociationPending: false, signatureAssociationFailed: false,
     isSignatureSaved: false, hasStoredSignature: false,
     faxSubmissionPending: false, faxQueued: false, faxSubmissionUncertain: false,
-    faxPreviewReloading: false, hasPreview: true, hasFaxNumber: true,
+    faxPreviewReloading: false, hasPreview: true, hasFaxNumber: true, frames: {},
     hasFaxSenderAccount: true, canFaxScript: true,
     cancelPendingFax() {}, getCsrfToken: () => 'fixture',
     setFaxControlsDisabled(value) { disabled = value; },
     refreshImage() { refreshes++; },
     fetch(url, options) { return new Promise((resolve, reject) => requests.push({ url, options, resolve, reject })); },
   });
-  for (const [name, next] of [['shouldDisableFaxControls', 'resetFailedFaxSubmission'],
+  for (const [name, next] of [['printHalfLetter', 'onPrint2'],
+    ['shouldDisableFaxControls', 'resetFailedFaxSubmission'],
     ['updateSignatureAssociationControls', 'associateSavedSignature'],
     ['associateSavedSignature', 'setDigitalSignatureToRx'],
     ['setDigitalSignatureToRx', 'toggleFaxButtons']]) {
@@ -52,6 +53,49 @@ test('fax remains locked until the signature association is explicitly confirmed
   assert.equal(s.context.hasStoredSignature, true);
   assert.equal(s.disabled(), false);
   assert.equal(s.refreshes(), 1);
+});
+
+test('half-letter print and reprint wait for the signature association to finish', async () => {
+  for (const method of ['print', 'rePrint']) {
+    const s = setup();
+    const button = { disabled: false, style: {} };
+    s.context.frames = { preview: { document: { getElementById: () => button } } };
+    const submissions = [];
+    s.context.onPrint2 = (...args) => submissions.push(args);
+    const pending = s.save('12');
+    assert.equal(button.disabled, true);
+    assert.equal(button.style.opacity, '0.5');
+    s.context.printHalfLetter(method, '45');
+    assert.equal(submissions.length, 0, 'a PDF must not render the previous signature during the save');
+
+    await flush();
+    s.requests[0].resolve(confirmed());
+    await pending;
+    assert.equal(button.disabled, false);
+    assert.equal(button.style.opacity, '');
+    s.context.printHalfLetter(method, '45');
+    assert.equal(submissions.length, 1);
+    assert.equal(submissions[0][0], method);
+    assert.equal(submissions[0][1], '45');
+    assert.equal(submissions[0][6], 'PageSize.HALFLETTER');
+  }
+});
+
+test('preview reload reflects the pending signature save and unlocks after confirmation', async () => {
+  const s = setup();
+  const pending = s.save('12');
+  await flush();
+  const button = { disabled: false, style: {} };
+  s.context.frames.preview = { document: { getElementById: () => button } };
+  s.context.setComment = () => {};
+  const onload = jsp.match(/<iframe id='preview'[^>]*onload="([^"]+)"/)[1];
+  vm.runInContext(onload, s.context);
+  assert.equal(button.disabled, true);
+  assert.equal(button.style.cursor, 'wait');
+  s.requests[0].resolve(confirmed());
+  await pending;
+  assert.equal(button.disabled, false);
+  assert.equal(button.style.cursor, 'pointer');
 });
 
 for (const scenario of ['no-preview', 'missing-frame', 'loading-frame', 'missing-fields', 'inaccessible-frame', 'ready']) {
@@ -88,8 +132,12 @@ for (const scenario of ['no-preview', 'missing-frame', 'loading-frame', 'missing
 }
 
 for (const failure of ['http', 'redirect', 'missing-marker', 'network']) {
-  test(`signature ${failure} failure keeps fax locked even with an earlier stored signature`, async () => {
+  test(`signature ${failure} failure keeps fax and half-letter print locked even with an earlier stored signature`, async () => {
     const s = setup();
+    const button = { disabled: false, style: {} };
+    s.context.frames.preview = { document: { getElementById: () => button } };
+    const submissions = [];
+    s.context.onPrint2 = (...args) => submissions.push(args);
     s.context.hasStoredSignature = true;
     const pending = s.save('12');
     await flush();
@@ -101,6 +149,39 @@ for (const failure of ['http', 'redirect', 'missing-marker', 'network']) {
     assert.equal(s.context.signatureAssociationFailed, true);
     assert.equal(s.disabled(), true);
     assert.equal(s.warning.hidden, false);
+    assert.equal(button.disabled, true);
+    assert.equal(button.style.cursor, 'not-allowed');
+    s.context.printHalfLetter('print', '45');
+    s.context.printHalfLetter('rePrint', '45');
+    assert.equal(submissions.length, 0);
+  });
+}
+
+for (const method of ['print', 'rePrint']) {
+  test(`a successful signature retry unlocks half-letter ${method}`, async () => {
+    const s = setup();
+    const button = { disabled: false, style: {} };
+    s.context.frames.preview = { document: { getElementById: () => button } };
+    const submissions = [];
+    s.context.onPrint2 = (...args) => submissions.push(args);
+    const failed = s.save('12');
+    await flush();
+    s.requests[0].reject(new Error('signature association failed'));
+    await failed;
+    s.context.printHalfLetter(method, '45');
+    assert.equal(submissions.length, 0);
+
+    const retry = s.save('13');
+    await flush();
+    assert.equal(button.disabled, true);
+    s.requests[1].resolve(confirmed());
+    await retry;
+    assert.equal(s.context.signatureAssociationFailed, false);
+    assert.equal(button.disabled, false);
+    s.context.printHalfLetter(method, '45');
+    assert.equal(submissions.length, 1);
+    assert.equal(submissions[0][0], method);
+    assert.equal(submissions[0][6], 'PageSize.HALFLETTER');
   });
 }
 

@@ -8,6 +8,7 @@ const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
 async function workflow(s) {
   const { sql, patient } = s;
+  const quickList=require('./lib/provider-quick-list-fixture').providerQuickListFixture(sql,s.provider);s.cleanup(()=>quickList.cleanup());
   s.cleanup(() => sql.execute(`DELETE FROM dxresearch WHERE demographic_no=${patient};
     DELETE FROM measurements WHERE demographicNo=${patient}`));
   let chart = await s.chart();

@@ -74,7 +74,7 @@ public class DownloadInInterceptor extends AbstractPhaseInterceptor<Message> {
             InputStream is = message.getContent(InputStream.class);
             if (is != null) {
                 CachedOutputStream cos = new CachedOutputStream();
-                IOUtils.copy(is, cos);
+                is.transferTo(cos);
                 cos.flush();
 
                 // Put the stream back so CXF and later interceptors can still use it

@@ -43,8 +43,8 @@
     }
 %>
 
-<%@ page import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager" %>
-<%@ page import="io.github.carlos_emr.carlos.event.EventService, io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="java.sql.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@ page import="java.text.SimpleDateFormat" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>

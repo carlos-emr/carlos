@@ -493,6 +493,8 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/playwright-artifacts/screenshots" "$GITHUB_WORKSPACE/playwright-artifacts/files"
           cat > "$RUNNER_TEMP/suite-env.sh" <<'EOF'
           export BASE_URL=http://127.0.0.1:8080/carlos
+          # If using https://carlos or host.docker.internal instead, explicitly set
+          # ALLOW_NON_LOCAL_BASE_URL=true and trust that target certificate.
           export CHROME_PATH=/root/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome
           export TEST_USER=carlosdoc TEST_PASSWORD=carlos2026 TEST_PIN=2026
           export MYSQL_HOST=db MYSQL_USER=root MYSQL_PASSWORD=password MYSQL_DATABASE=carlos

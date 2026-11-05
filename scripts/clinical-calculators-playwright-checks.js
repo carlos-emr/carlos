@@ -181,12 +181,20 @@ const FRAMINGHAM_REFUSALS = [
   { field: 'cSystolic', value: '', says: /systolic blood pressure as a number from 60 to 300/, why: 'blank systolic' },
   { field: 'cCholesterol', value: '1,2', says: /total cholesterol as a number from 1 to 25/, why: 'comma decimal' },
   { field: 'cHDL', value: '0', says: /HDL cholesterol as a number from 0\.1 to 5/, why: 'zero HDL' },
+  { field: 'cHDL', value: '4', values: { cCholesterol: '4' }, says: /HDL cholesterol below the total cholesterol/,
+    why: 'HDL equals total cholesterol' },
+  { field: 'cHDL', value: '5', values: { cCholesterol: '4' }, says: /HDL cholesterol below the total cholesterol/,
+    why: 'HDL exceeds total cholesterol' },
 ];
 const UKPDS_REFUSALS = [
   { field: 'cSystolic', value: 'abc', says: /systolic blood pressure/, why: 'non-numeric systolic (used to throw)' },
   { field: 'cALC', value: '', says: /A1C as a number from 3 to 20/, why: 'blank A1C' },
   { field: 'cDuration', value: '55', says: /duration of diabetes as a number from 0 to 54 years \(it must be less than the patient's age\)/,
     why: 'a duration as long as the patient has lived' },
+  { field: 'cHDL', value: '4', values: { cCholesterol: '4' }, says: /HDL cholesterol below the total cholesterol/,
+    why: 'HDL equals total cholesterol' },
+  { field: 'cHDL', value: '5', values: { cCholesterol: '4' }, says: /HDL cholesterol below the total cholesterol/,
+    why: 'HDL exceeds total cholesterol' },
 ];
 
 /*
@@ -421,6 +429,7 @@ async function assertRiskComputed(page, values, cell, label, timeout) {
 /** Enter one unusable box and prove the page refused it and left no answer standing. */
 async function assertRiskRefused(page, valid, scenario, label, timeout) {
   await fillRiskInputs(page, valid);
+  for (const [field, value] of Object.entries(scenario.values || {})) await page.locator(`#${field}`).fill(value);
   await page.locator(`#${scenario.field}`).fill(scenario.value);
   await page.locator('input.btn[value="Calculate"]').click({ timeout });
   const table = await riskTable(page);

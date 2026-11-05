@@ -17,9 +17,9 @@ function eventPage(text = 'Working page') {
   return page;
 }
 function control(click) { return { scrollIntoViewIfNeeded: async () => {}, click }; }
-function noOutcomeListeners(page, context) {
+function noOutcomeListeners(page, context, navigationListeners = 0) {
   assert.equal(context.listenerCount('page'), 0, 'a later popup must not satisfy the old check');
-  assert.equal(page.listenerCount('framenavigated'), 0);
+  assert.equal(page.listenerCount('framenavigated'), navigationListeners);
   assert.equal(page.listenerCount('download'), 0);
 }
 
@@ -63,14 +63,15 @@ test('same-address main-frame navigation counts, subframes do not, and errors us
   const page = eventPage();
   const recorder = createRecorder();
   wireStrictPage(page, 'login', recorder);
+  const navigationListeners = page.listenerCount('framenavigated');
   const result = await clickOpensPopupOrNavigates(page, control(async () => {
     page.emit('framenavigated', {});
-    assert.equal(page.listenerCount('framenavigated'), 1, 'subframe must not settle the wait');
+    assert.equal(page.listenerCount('framenavigated'), navigationListeners + 1, 'subframe must not settle the wait');
     page.emit('framenavigated', page.mainFrame());
   }), { context, recorder, label: 'patient-search' });
   assert.equal(result.isPopup, false);
   assert.equal(result.page, page);
-  noOutcomeListeners(page, context);
+  noOutcomeListeners(page, context, navigationListeners);
   page.emit('pageerror', new Error('contextPath is not defined'));
   assert.throws(() => assertStrictPage(recorder, ['patient-search']), /contextPath is not defined/);
   const later = eventPage();

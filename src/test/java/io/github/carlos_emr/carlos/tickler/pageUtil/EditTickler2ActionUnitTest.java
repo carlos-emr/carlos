@@ -216,18 +216,25 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         verify(ticklerAttachmentService, never()).syncAttachments(any(), any(), any(), any());
     }
 
-    @Test
-    @DisplayName("should report an error when an attachment is refused")
-    void shouldReturnError_whenAttachmentRefused() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should return a client error and refusal result for forbidden or malformed attachments")
+    void shouldReturnBadRequest_whenAttachmentRefused(boolean malformed) {
         unchangedEditParameters();
         request.setParameter("attachmentsSubmitted", "1");
         request.addParameter("docNo", "11");
-        doThrow(new SecurityException("doc attachment does not belong to the patient"))
+        RuntimeException refusal = malformed
+                ? new IllegalArgumentException("malformed lab attachment id")
+                : new SecurityException("doc attachment does not belong to the patient");
+        doThrow(refusal)
                 .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
 
-        String result = new TestableEditTickler2Action().execute();
+        var action = new TestableEditTickler2Action();
+        String result = action.execute();
 
-        assertThat(result).isEqualTo("error");
+        assertThat(result).isEqualTo("attachmentsRefused");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(action.getActionErrors()).containsExactly("tickler.ticklerEdit.attachments.error");
     }
 
     @Test
@@ -241,7 +248,7 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         doThrow(new SecurityException("Document is not available"))
                 .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
 
-        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("attachmentsRefused");
 
         verify(ticklerManager, never()).updateTickler(any(), any());
         assertThat(tickler.getStatus()).isEqualTo(Tickler.STATUS.A);
@@ -310,9 +317,21 @@ class EditTickler2ActionUnitTest extends CarlosUnitTestBase {
         });
         doThrow(new IllegalArgumentException("Attachment does not belong to this patient"))
                 .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
-        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("attachmentsRefused");
         assertThat(jdbc.queryForObject("SELECT comment_count FROM edit_probe WHERE id=42", Integer.class)).isZero();
         jdbc.execute("DROP ALL OBJECTS");
+    }
+
+    @Test
+    @DisplayName("should keep unexpected attachment storage failures on the server error path")
+    void shouldReturnError_whenAttachmentStorageFails() {
+        unchangedEditParameters();
+        request.setParameter("attachmentsSubmitted", "1");
+        doThrow(new IllegalStateException("storage unavailable"))
+                .when(ticklerAttachmentService).syncAttachments(any(), any(), any(), any());
+
+        assertThat(new TestableEditTickler2Action().execute()).isEqualTo("error");
+        verify(ticklerManager, never()).updateTickler(any(), any());
     }
 
 

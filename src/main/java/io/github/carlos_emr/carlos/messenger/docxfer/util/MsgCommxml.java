@@ -233,7 +233,7 @@ public class MsgCommxml {
      * @return The Base64 encoded string
      */
     public static String encode64(String plainText) {
-        return (new String(Base64.encodeBase64(plainText.getBytes())));
+        return (new String(java.util.Base64.getEncoder().encode(plainText.getBytes())));
     }
 
     /**

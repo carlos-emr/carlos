@@ -11,13 +11,15 @@ relocates Xalan packages using the Maven Shade plugin. The original POM inside
 the JAR records `xalan:xalan:2.7.2`, and the embedded version class reports
 `Xalan Java 2.7.2`.
 
-The application's `dependencyManagement` pin for `xalan:xalan:2.7.3` controls
-only separately resolved Maven artifacts. It cannot replace classes already
-shaded into another artifact. The current dependency lock contains JSTL 3.0.1
-and the standalone `xalan:serializer:2.7.3`, with no standalone `xalan:xalan`
-entry. The serializer supplies classes used by Struts; it does not update
-JSTL's embedded compiler. A clean Maven dependency tree alone therefore does
-not establish that the embedded copy is fixed.
+At the assessment revision, the application's `dependencyManagement` pin for
+`xalan:xalan:2.7.3` controlled only separately resolved Maven artifacts. It
+could not replace classes already shaded into another artifact. The unused
+pin has since been removed from `release/2026.08`; this does not remove JSTL's
+embedded copy. The current dependency lock contains JSTL 3.0.1 and the
+standalone `xalan:serializer:2.7.3`, with no standalone `xalan:xalan` entry.
+The serializer supplies classes used by Struts; it does not update JSTL's
+embedded compiler. A clean Maven dependency tree alone therefore does not
+establish that the embedded copy is fixed.
 
 The [Maven Central metadata](https://repo.maven.apache.org/maven2/org/glassfish/web/jakarta.servlet.jsp.jstl/maven-metadata.xml)
 still lists 3.0.1 as the latest release on the assessment date. An ordinary

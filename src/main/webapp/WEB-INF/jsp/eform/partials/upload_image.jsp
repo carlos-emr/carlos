@@ -29,9 +29,9 @@
 
 --%>
 <!DOCTYPE html>
-<%@ page import="io.github.carlos_emr.carlos.eform.data.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.eform.*, java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 

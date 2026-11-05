@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -38,6 +39,7 @@ import java.util.Set;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
+import io.github.carlos_emr.carlos.commn.dao.projection.DemographicName;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
@@ -70,6 +72,9 @@ public interface DemographicDao {
     public List<Demographic> getActiveDemographics(final int offset, final int limit);
 
     public Demographic getDemographicById(Integer demographic_id);
+
+    /** Reads only ID and name columns, in batches of at most 500 distinct IDs. */
+    List<DemographicName> getDemographicNames(Collection<Integer> demographicIds);
 
     public List<Demographic> getDemographicByProvider(String providerNo);
 
@@ -383,6 +388,19 @@ public interface DemographicDao {
      * @since 2026-10-15
      */
     public Demographic findForUpdate(Integer demographicNo);
+
+    /**
+     * Locks an existing participant row for a merge inside the caller's transaction.
+     * The core implementation uses a scalar primary-key query to avoid eager relationship
+     * locks. The compatibility default may also lock eager relationships; extension DAOs
+     * should override it with a scalar lock when using concurrent merge operations.
+     *
+     * @param demographicNo patient number
+     * @return whether the patient exists and is locked
+     */
+    default boolean lockForMerge(Integer demographicNo) {
+        return findForUpdate(demographicNo) != null;
+    }
 
     public String getOrderField(String orderBy, boolean nativeQuery);
 

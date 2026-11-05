@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 
@@ -151,7 +152,7 @@ async function workflow(s) {
     await editor.locator(`#saveSuccess_${index}`).waitFor({ state: 'visible' });
     await editor.waitForLoadState('networkidle', { timeout: 20000 });
     const csrf = await editor.locator('input[name="CSRF-TOKEN"]').first().inputValue();
-    const rejected = await s.context.request.get(h.appUrl(s.config.baseUrl,
+    const rejected = await authenticatedProbe(s, h.appUrl(s.config.baseUrl,
       `/rx/updateFavorite2?method=ajaxEditFavorite&favoriteId=${ids[0]}&favoriteName=unsafe`),
     { headers: { 'CSRF-TOKEN': csrf } });
     h.assert(rejected.status() === 405, 'A GET request was allowed to edit a favorite');
