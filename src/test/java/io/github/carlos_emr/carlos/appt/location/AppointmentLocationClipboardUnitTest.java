@@ -19,6 +19,10 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
 import org.apache.struts2.ActionContext;
 import org.apache.struts2.ActionSupport;
@@ -129,6 +133,45 @@ class AppointmentLocationClipboardUnitTest extends CarlosUnitTestBase {
         resolver.applyPostedLocation(pasted, null, clipboard.getLocation());
         assertThat(pasted.getLocation()).isEqualTo("Booked room");
         assertThat(saved.getLocation()).isEqualTo("Booked room");
+    }
+
+    @Test
+    void shouldRetainCopiedAppointment_whenSessionClipboardSerialized() throws Exception {
+        item.setLabel("Renamed room");
+        request.setParameter("reasonCode", "-1");
+        request.setParameter("reason", "First line\nSecond line");
+        request.setParameter("notes", "Follow-up " + new String(Character.toChars(0x1F600)));
+        ApptUtil.copyAppointmentIntoSession(request);
+        ApptData copied = ApptUtil.getAppointmentFromSession(request);
+
+        byte[] serialized;
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+             ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(copied);
+            output.flush();
+            serialized = bytes.toByteArray();
+        }
+        ApptData restored;
+        try (ObjectInputStream input = new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+            restored = (ApptData) input.readObject();
+        }
+
+        request.getSession().setAttribute("apptBean", restored);
+        assertThat(ApptUtil.getAppointmentFromSession(request)).isSameAs(restored).isNotSameAs(copied);
+        assertThat(restored.getLocation()).isEqualTo("Booked room");
+        assertThat(restored.getLocationCode()).isEqualTo("11");
+        assertThat(restored.getName()).isEqualTo("Test appointment");
+        assertThat(restored.getDemographic_no()).isEqualTo("123");
+        assertThat(restored.getChart_no()).isEqualTo("AB-12345");
+        assertThat(restored.getAppointment_date()).isEqualTo("2026-11-05");
+        assertThat(restored.getStart_time()).isEqualTo("09:00");
+        assertThat(restored.getEnd_time()).isEqualTo("09:14");
+        assertThat(restored.getDuration()).isEqualTo("15");
+        assertThat(restored.getStatus()).isEqualTo("t");
+        assertThat(restored.getReasonCode()).isEqualTo("-1");
+        assertThat(restored.getReason()).isEqualTo(copied.getReason());
+        assertThat(restored.getNotes()).isEqualTo(copied.getNotes());
+        assertThat(restored.getResources()).isEqualTo("Test resources");
     }
 
     @ParameterizedTest

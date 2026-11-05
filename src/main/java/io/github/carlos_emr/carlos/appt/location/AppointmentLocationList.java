@@ -271,7 +271,7 @@ public final class AppointmentLocationList {
         try {
             int id = Integer.parseInt(posted.trim());
             return id > 0 ? id : null;
-        } catch (NumberFormatException e) {
+        } catch (NumberFormatException _) {
             return null;
         }
     }

@@ -343,8 +343,9 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addParameter("locationCode", "13");
 
-        assertThatThrownBy(() -> List.of(first, second).stream()
-                .map(saved -> AppointmentLocationResolver.resolvePostedLocation(saved, request)).toList())
+        var resolvedLocations = List.of(first, second).stream()
+                .map(saved -> AppointmentLocationResolver.resolvePostedLocation(saved, request));
+        assertThatThrownBy(resolvedLocations::toList)
                 .isInstanceOf(AppointmentLocationUnavailableException.class);
 
         assertThat(first.getLocationCode()).isEqualTo(13);

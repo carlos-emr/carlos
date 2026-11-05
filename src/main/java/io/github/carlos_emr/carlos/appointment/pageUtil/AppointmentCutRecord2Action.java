@@ -110,7 +110,7 @@ public final class AppointmentCutRecord2Action extends ActionSupport {
             ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_CONFLICT,
                     AppointmentLocationUnavailableException.MESSAGE_KEY);
             return NONE;
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException _) {
             // A stale/unavailable location must not remove the source appointment or replace
             // the prior clipboard. The helper's messages contain no request or patient data.
             ErrorPageMessage.sendError(request, response, HttpServletResponse.SC_CONFLICT,

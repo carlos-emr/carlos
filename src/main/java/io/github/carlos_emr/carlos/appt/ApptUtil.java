@@ -78,14 +78,13 @@ public class ApptUtil {
     // Numeric patterns for structured fields
     private static final Pattern SAFE_DURATION = Pattern.compile("\\d{1,4}");
 
-    private static String validateOptional(String value, Pattern pattern) {
+    private static void validateOptional(String value, Pattern pattern) {
         if (value == null || value.isEmpty()) {
-            return value;
+            return;
         }
         if (!pattern.matcher(value).matches()) {
             throw new AppointmentClipboardValidationException();
         }
-        return value;
     }
 
     private static String sanitizeText(String value, int maxLen) {
@@ -135,9 +134,9 @@ public class ApptUtil {
         return value;
     }
 
-    private static String validateOptionalNonNegativeInteger(String value) {
+    private static void validateOptionalNonNegativeInteger(String value) {
         if (value == null || value.isEmpty()) {
-            return value;
+            return;
         }
         try {
             if (!value.matches("\\d+") || Integer.parseInt(value) < 0) {
@@ -147,7 +146,6 @@ public class ApptUtil {
             // Never attach the parser exception: its message includes the submitted value.
             throw new AppointmentClipboardValidationException();
         }
-        return value;
     }
 
     public static void copyAppointmentIntoSession(HttpServletRequest request) {
@@ -162,7 +160,8 @@ public class ApptUtil {
         // Paste. Resolution uses a temporary appointment and never mutates the source row.
         AppointmentLocationResolver.ResolvedLocation location = AppointmentLocationResolver.resolvePostedLocation(source, request);
 
-        String demoNoParam = validateOptionalNonNegativeInteger(request.getParameter("demographic_no"));
+        String demoNoParam = request.getParameter("demographic_no");
+        validateOptionalNonNegativeInteger(demoNoParam);
         // Chart numbers are clinic-defined text (Demographic.chartNo), not patient database ids.
         String chartNo = sanitizeText(request.getParameter("chart_no"), MAX_FIELD_LEN);
 
@@ -173,11 +172,18 @@ public class ApptUtil {
         obj.setEnd_time(validateTime(request.getParameter(END_TIME)));
         obj.setDemographic_no(demoNoParam);
         obj.setChart_no(chartNo);
-        obj.setStatus(validateOptional(request.getParameter(STATUS), SAFE_STATUS));
-        obj.setDuration(validateOptional(request.getParameter(DURATION), SAFE_DURATION));
+        String status = request.getParameter(STATUS);
+        validateOptional(status, SAFE_STATUS);
+        obj.setStatus(status);
+        String duration = request.getParameter(DURATION);
+        validateOptional(duration, SAFE_DURATION);
+        obj.setDuration(duration);
         String reasonCode = request.getParameter("reasonCode");
         // The booking form uses -1 for an unspecified coded reason; other codes are Integer ids.
-        obj.setReasonCode("-1".equals(reasonCode) ? reasonCode : validateOptionalNonNegativeInteger(reasonCode));
+        if (!"-1".equals(reasonCode)) {
+            validateOptionalNonNegativeInteger(reasonCode);
+        }
+        obj.setReasonCode(reasonCode);
         obj.setLocationCode(location.code() == null ? null : String.valueOf(location.code()));
         // Refuse invalid text before replacing the clipboard; never silently shorten a cut booking.
         obj.setName(sanitizeText(request.getParameter("keyword"), MAX_FIELD_LEN));
