@@ -91,10 +91,17 @@ final class DocumentSummaryFidelityValidator {
         return kin.replace("œ", "oe").replace("é", "e").replace("è", "e").replaceAll("(?:es|e|s)$", "");
     }
 
+    /**
+     * Verbs that give an AI an order or ask it to change its instructions. A line is addressed to an AI
+     * only with one of these: a system-looking prefix or an "instructions" key alone also appears in
+     * ordinary documents ("System: Zimmer knee", a medication JSON {"instructions":"take with food"}).
+     */
+    private static final String OVERRIDE = "(?:ignore|ignorer|ignorez|disregard|override|replace|remplacer|remplacez|forget|oublie|oubliez|"
+            + "start|begin|commencer|commencez|stop|arr[êe]ter|arr[êe]tez|prescribe|prescrire|recommend|recommander|you must|vous devez|do not|ne pas)";
     private static final Pattern AI_ADDRESSED = Pattern.compile(
-            "^\\s*(?:(?:system|système|systeme|assistant|developer|developpeur|développeur|ai|ia|llm)\\s*[:>\\]-]"
+            "^\\s*(?:(?:system|système|systeme)\\s*[:>\\]-].*\\b" + OVERRIDE + "\\b.*"
                     + "|.*\\b(?:ignore|ignorer|ignorez|disregard|oublie|oubliez)\\b.*\\b(?:previous|prior|above|instructions?|consignes?|note|précédent|precedent)\\b.*"
-                    + "|[{\\[].*\"(?:instructions?|system|prompt|role|consignes?)\"\\s*:.*)$",
+                    + "|[{\\[].*\"(?:instructions?|system|prompt)\"\\s*:\\s*\"[^\"]*\\b" + OVERRIDE + "\\b.*)$",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
     /** The lines of {@code source} that read as addressed to an AI. */

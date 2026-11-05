@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.text.Normalizer;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -143,10 +144,23 @@ public final class DocumentSummaryService {
             }
             String status = statusWordWithoutSupport(statement, excerpts.toString());
             if (status != null) throw new IllegalArgumentException("Summary point adds a status its evidence does not state: " + status);
+            String possessor = DocumentSummaryFidelityValidator.addedPossessor(statement, excerpts.toString());
+            if (possessor != null) throw new IllegalArgumentException("Summary point resolves a possessor its evidence does not state: " + possessor);
+            List<String> quoted = new ArrayList<>();
+            evidence.forEach(item -> quoted.add(item.asText()));
+            if (DocumentSummaryFidelityValidator.evidenceInInjectedLine(quoted, source)) {
+                throw new IllegalArgumentException("Summary point cites text addressed to an AI");
+            }
+            String command = DocumentSummaryFidelityValidator.injectedCommandWord(statement, source);
+            if (command != null) throw new IllegalArgumentException("Summary point describes text addressed to an AI: " + command);
         }
         if (!sharesWord(overview, source)) throw new IllegalArgumentException("Overview lacks lexical support");
         String status = statusWordWithoutSupport(overview, source);
         if (status != null) throw new IllegalArgumentException("Overview adds a status the document does not state: " + status);
+        String possessor = DocumentSummaryFidelityValidator.addedPossessor(overview, source);
+        if (possessor != null) throw new IllegalArgumentException("Overview resolves a possessor the document does not state: " + possessor);
+        String command = DocumentSummaryFidelityValidator.injectedCommandWord(overview, source);
+        if (command != null) throw new IllegalArgumentException("Overview describes text addressed to an AI: " + command);
     }
 
     /** The first status word in {@code statement} whose family is absent from {@code reference}, else null. */
