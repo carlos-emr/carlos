@@ -223,12 +223,8 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
 
             assertThat(new FrmSetupForm2Action().execute()).isEqualTo(ActionSupport.NONE);
 
-            assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/form/formVTForm.jsp");
-            assertThat(request.getAttribute("formDemographicNo")).isEqualTo(patient);
-            assertThat(((Demographic) request.getAttribute("formPatient")).getDemographicNo()).isEqualTo(Integer.valueOf(patient));
-            assertThat(((Map<?, ?>) request.getAttribute("formValues")).get("visitCod")).isNotNull();
             Map<?, ?> values = (Map<?, ?>) request.getAttribute("formValues");
-            assertThat(values.get("formId")).isEqualTo(formId);
+            assertRenderedFormIdentity(patient, formId, values);
             // No measurement history must render as an empty cell, never JSP's literal "null"
             // (#4612). This is checked on both fresh setup and an existing form's redisplay.
             for (String type : List.of("WT", "iEx", "WHR")) {
@@ -257,6 +253,14 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
             verify(security).hasPrivilege(user, "_form", "r", patient);
             verify(measurements, never()).persist(any());
         }
+    }
+
+    private void assertRenderedFormIdentity(String patient, String formId, Map<?, ?> values) {
+        assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/form/formVTForm.jsp");
+        assertThat(request.getAttribute("formDemographicNo")).isEqualTo(patient);
+        assertThat(((Demographic) request.getAttribute("formPatient")).getDemographicNo()).isEqualTo(Integer.valueOf(patient));
+        assertThat(values.get("visitCod")).isNotNull();
+        assertThat(values.get("formId")).isEqualTo(formId);
     }
 
     @ParameterizedTest
