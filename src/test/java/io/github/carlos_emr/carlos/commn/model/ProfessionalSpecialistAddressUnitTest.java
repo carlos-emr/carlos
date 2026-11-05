@@ -121,6 +121,22 @@ class ProfessionalSpecialistAddressUnitTest {
     }
 
     @Test
+    void shouldKeepArrayComponentPositions_whenValuesContainCommasOrNulls() {
+        ProfessionalSpecialist specialist = new ProfessionalSpecialist();
+        String[] components = {"Suite 2, Synthetic street", "Synthetic, city", null, "O,N", "Can,ada"};
+        specialist.setStreetAddress(components);
+
+        assertThat(specialist.getStreetAddress()).isEqualTo("Suite 2 Synthetic street,Synthetic city,,ON,Canada,");
+        assertThat(specialist.getAddressArray()).containsExactly("Suite 2 Synthetic street", "Synthetic city", "", "ON", "Canada");
+        assertThat(components).containsExactly("Suite 2, Synthetic street", "Synthetic, city", null, "O,N", "Can,ada");
+
+        specialist.setPostal("A1A 1A1");
+        specialist.setCity("Replacement city");
+        assertThat(specialist.getStreetAddress()).isEqualTo("Suite 2 Synthetic street,Replacement city,A1A 1A1,ON,Canada,");
+        assertThat(specialist.getAddressArray()).containsExactly("Suite 2 Synthetic street", "Replacement city", "A1A 1A1", "ON", "Canada");
+    }
+
+    @Test
     void shouldRemoveEmbeddedDelimiters_whenEditingAddressComponents() {
         ProfessionalSpecialist specialist = new ProfessionalSpecialist();
         specialist.setStreetAddress("Old street,Old city,A1A 1A1,ON,Canada,");

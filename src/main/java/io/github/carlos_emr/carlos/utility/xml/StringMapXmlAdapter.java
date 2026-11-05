@@ -71,6 +71,7 @@ public final class StringMapXmlAdapter extends XmlCompatibilityAdapter<StringMap
      * @return Map&lt;String, String&gt; of entries, or null only when the element is absent
      */
     @Override
+    @SuppressWarnings("java:S1168") // JAXB null represents absent/nil XML, distinct from a present empty container.
     public Map<String, String> unmarshal(Entries value) {
         if (value == null) return null;
         Map<String, String> result = new LinkedHashMap<>();

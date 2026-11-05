@@ -26,7 +26,12 @@ import java.util.GregorianCalendar;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.XMLGregorianCalendar;
 
-/** Preserves MOXy's date-time lexical form, which removes trailing fractional-second zeroes. */
+/**
+ * Preserves MOXy's date-time lexical form, which removes trailing fractional-second zeroes.
+ * The Date boundary matches existing JAXB DTO properties; replacing it with java.time would
+ * change the adapter's bound type and stop it applying to those properties.
+ */
+@SuppressWarnings("java:S2143")
 public final class DateXmlAdapter extends XmlCompatibilityAdapter<XMLGregorianCalendar, Date> {
     /** Immutable and thread-safe; created once instead of once per marshalled value. */
     private static final DatatypeFactory DATATYPE_FACTORY = DatatypeFactory.newDefaultInstance();

@@ -43,15 +43,18 @@ import javax.xml.datatype.XMLGregorianCalendar;
  * Trailing fractional-second zeroes are removed and a zero fraction is omitted. A midnight value
  * with its time fields set stays {@code 2026-07-15T00:00:00-04:00}: the time is never dropped on
  * the strength of its value alone, because the published WSDLs declare these elements
- * {@code xs:dateTime}.
+ * {@code xs:dateTime}. Calendar is required by the existing DTO signatures and its field-set
+ * state is part of the compatibility contract; java.time values cannot carry that state.
  */
+@SuppressWarnings("java:S2143")
 public final class CalendarXmlAdapter extends XmlCompatibilityAdapter<String, Calendar> {
     /** Immutable and thread-safe; created once instead of once per marshalled value. */
     private static final DatatypeFactory DATATYPE_FACTORY = DatatypeFactory.newDefaultInstance();
 
     @Override
     public Calendar unmarshal(String value) {
-        return value == null ? null : DATATYPE_FACTORY.newXMLGregorianCalendar(value).toGregorianCalendar();
+        // xs:dateTime collapses XML whitespace; String-valued adapters receive it verbatim.
+        return value == null ? null : DATATYPE_FACTORY.newXMLGregorianCalendar(value.trim()).toGregorianCalendar();
     }
 
     @Override

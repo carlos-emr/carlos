@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.utility.xml;
 
+import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
@@ -28,16 +29,20 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeMap;
 import javax.xml.namespace.QName;
+import javax.xml.transform.stream.StreamSource;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentTransfer;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.CalendarScheduleCodePairTransfer;
 import jakarta.xml.bind.JAXBContext;
 import jakarta.xml.bind.JAXBElement;
 import jakarta.xml.bind.Marshaller;
+import jakarta.xml.bind.Unmarshaller;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -107,6 +112,27 @@ class CalendarXmlAdapterUnitTest {
         }
         assertThat(adapter.unmarshal(null)).isNull();
         assertThat(adapter.marshal(null)).isNull();
+    }
+
+    @Test
+    void shouldReadAppointmentDateTime_whenXmlContainsBoundaryWhitespace() throws Exception {
+        JAXBContext context = JAXBContext.newInstance(AppointmentTransfer.class);
+        Unmarshaller reader = context.createUnmarshaller();
+        reader.setEventHandler(event -> false);
+        String input = "<value><appointmentStartDateTime> \t\n2026-07-15T09:30:00-04:00\r\n "
+                + "</appointmentStartDateTime></value>";
+        AppointmentTransfer appointment = reader.unmarshal(new StreamSource(new StringReader(input)),
+                AppointmentTransfer.class).getValue();
+        assertThat(appointment.getAppointmentStartDateTime()).isNotNull();
+        assertThat(appointment.getAppointmentStartDateTime().toInstant())
+                .isEqualTo(java.time.Instant.parse("2026-07-15T13:30:00Z"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {" 2026-07-15T09:30:00-04:00 ", "\t2026-07-15T13:30:00Z\r\n"})
+    void shouldPreserveInstant_whenCalendarValueContainsBoundaryWhitespace(String value) {
+        assertThat(new CalendarXmlAdapter().unmarshal(value).toInstant())
+                .isEqualTo(java.time.Instant.parse("2026-07-15T13:30:00Z"));
     }
 
     @Test

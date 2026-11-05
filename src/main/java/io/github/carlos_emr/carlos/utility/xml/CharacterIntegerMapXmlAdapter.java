@@ -74,6 +74,7 @@ public final class CharacterIntegerMapXmlAdapter
      * @return Map&lt;Character, Integer&gt; of entries, or null only when the element is absent
      */
     @Override
+    @SuppressWarnings("java:S1168") // JAXB null represents absent/nil XML, distinct from a present empty container.
     public Map<Character, Integer> unmarshal(Entries value) {
         if (value == null) return null;
         Map<Character, Integer> result = new LinkedHashMap<>();

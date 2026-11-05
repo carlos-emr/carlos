@@ -37,7 +37,10 @@ is the set-state rule. `CalendarXmlAdapter` reads the set-state before copying t
 calendar and `CalendarXmlAdapterUnitTest` pins the strings captured from the
 unmodified release classes under MOXy. Date and Calendar values omit trailing
 fractional-second zeroes; schema annotations retain the existing `xs:dateTime`
-types. Two beans with lower-case accessor names also need explicit alphabetical
+types. The Calendar reader trims XML boundary whitespace before parsing, preserving
+the native JAXB acceptance of whitespace-surrounded date-times; the regression
+uses an appointment DTO and rejects any JAXB validation event. Two beans with
+lower-case accessor names also need explicit alphabetical
 XML ordering. Empty filter maps remain omitted.
 
 The frozen fixture's populated Calendar is built with `clear()` and therefore has
@@ -99,7 +102,9 @@ cases.
 The exact pre-existing MOXy context failures are recorded by root class in
 `jaxb-legacy-context-errors.json`. Most lead to the immutable
 `CdsTemporalNativeDateDto`; others involve `PreventionDateDTO`, immutable response
-wrappers, or `ConsultationAttachment`. A failed legacy context cannot produce XML
+wrappers, or `ConsultationAttachment`. The `Allergy` and `BpmhForm2Bean` contexts
+also fail on the incompatible `Allergy.setDemographicNo(int)` JavaBean accessor.
+A failed legacy context cannot produce XML
 to compare. The test requires the recorded cause and verifies Glassfish context
 creation and output where the type supports it. A context rejected by both
 providers remains explicitly identified; it is not silently removed from discovery.

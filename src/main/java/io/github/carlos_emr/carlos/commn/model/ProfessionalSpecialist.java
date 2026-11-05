@@ -462,12 +462,17 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     }
 
     /**
-     * Serializes plain components using the legacy comma-separated format and trailing delimiter.
+     * Serializes components using the legacy comma-separated format and trailing delimiter.
+     * Embedded commas are removed and null components become empty fields so subsequent
+     * parsing and component edits cannot shift the postal, province or country positions.
      *
-     * @param address String[] containing address components without delimiters
+     * @param address String[] containing address components
      */
     public void setStreetAddress(String[] address) {
-        this.setStreetAddress(String.join(",", address) + ",");
+        String[] components = java.util.Arrays.stream(address)
+                .map(value -> value == null ? "" : value.replace(",", ""))
+                .toArray(String[]::new);
+        this.setStreetAddress(String.join(",", components) + ",");
     }
 
     private void setAddressComponent(int index, String value) {
