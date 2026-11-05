@@ -9148,7 +9148,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "One Report by Template group named with the run marker; cleanup deletes rbt_groups rows carrying the marker and asserts none remain.",
-      "notes": "Expected to FAIL at its only step: RBTGroupManager.addTemplateToGroup stores the group name through Encode.forJava (O\\'Brien, Zo\\353, \\u5c71...)."
+      "notes": "Passes since #5639: RBTGroupManager.addTemplateToGroup stores the group name as typed (trimmed) and the group views encode it at output. Rows stored before that fix keep their Java-escaped text."
     },
     {
       "name": "boundary-document-text",

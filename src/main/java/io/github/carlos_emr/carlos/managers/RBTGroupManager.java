@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.util.List;
 
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.RBTGroupDao;
 import io.github.carlos_emr.carlos.commn.model.RBTGroup;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,6 +41,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class RBTGroupManager {
+
+    /** Length of the {@code rbt_groups.group_name} column (varchar(255)). */
+    public static final int MAX_GROUP_NAME_LENGTH = 255;
 
     @Autowired
     private RBTGroupDao rbtGroupDao;
@@ -68,14 +70,30 @@ public class RBTGroupManager {
      * @param loggedInInfo User current login information and credentials
      * @param groupName    Name of the template group to add the template to
      * @param tid          Template id of the group to be added
+     * @throws IllegalArgumentException if the trimmed group name is null, blank or longer than
+     *                                  {@link #MAX_GROUP_NAME_LENGTH} characters
      */
     public void addTemplateToGroup(LoggedInInfo loggedInInfo, String groupName, int tid) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("Unauthorised Access. Object[_admin]");
         }
 
+        // The label is persisted exactly as typed (trimmed). It is user text, not Java source, so it is
+        // NOT run through Encode.forJava (#5639): that rewrote apostrophes, accents and backslashes into
+        // escape sequences that every later render then showed. Output encoding belongs at render time
+        // (templateGroups.jsp / homePage.jsp use the CARLOS encoders), which is what keeps this safe.
+        if (groupName == null) {
+            throw new IllegalArgumentException("Report by Template group name is required");
+        }
         groupName = groupName.trim();
-        groupName = Encode.forJava(groupName);
+        if (groupName.isEmpty()) {
+            throw new IllegalArgumentException("Report by Template group name is required");
+        }
+        // rbt_groups.group_name is varchar(255); refuse rather than let the database truncate or fail.
+        if (groupName.length() > MAX_GROUP_NAME_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Report by Template group name exceeds " + MAX_GROUP_NAME_LENGTH + " characters");
+        }
 
         RBTGroup rbtGroup = new RBTGroup();
         rbtGroup.setTemplateId(tid);
