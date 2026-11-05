@@ -1022,13 +1022,16 @@
             <version>${twelvemonkeys.version}</version>
         </dependency>
 
-        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
+        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace).
+             Bundles shaded Xalan 2.7.2, unaffected by separately resolved Xalan artifacts.
+             See docs/security/jstl-shaded-xalan.md for CVE-2022-34169 triage. -->
         <dependency>
             <groupId>org.glassfish.web</groupId>
             <artifactId>jakarta.servlet.jsp.jstl</artifactId>
             <version>3.0.1</version>
         </dependency>
-        <!-- Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
+        <!-- Standalone Xalan serializer, separate from JSTL's shaded Xalan copy.
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
         <dependency>
             <groupId>xalan</groupId>
             <artifactId>serializer</artifactId>
