@@ -192,15 +192,18 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
             }
         }
 
-        // The document date every query shape selects: the received date when the clinic's Inbox
-        // date preference is "receivedCreated", otherwise the observation date.
-        String selectedDateColumn = dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate";
+        // The clinic's Inbox date preference: "receivedCreated" filters, shows and orders documents
+        // by the date they were received; anything else uses the observation date. Every query
+        // shape selects and orders by the same column.
+        boolean byReceivedDate = "receivedCreated".equals(dateSearchType);
+        String selectedDateColumn = byReceivedDate ? "doc.contentdatetime" : "doc.observationdate";
+        String documentOrderBy = " ORDER BY " + selectedDateColumn + " DESC, doc.document_no DESC ";
 
         String dateSql = "";
         SimpleDateFormat dateSqlFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         //Check if the startDate is null, if a date exists then creates the SQL for the startDate
         if (startDate != null) {
-            if (dateSearchType.equals("receivedCreated")) {
+            if (byReceivedDate) {
                 dateSql += " AND doc.contentdatetime >= :startDate";
             } else {
                 dateSql += " AND doc.observationdate >= :startDate";
@@ -209,7 +212,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
         //Check if the endDate is null, if a date exists then creates the SQL for the endDate
         if (endDate != null) {
-            if (dateSearchType.equals("receivedCreated")) {
+            if (byReceivedDate) {
                 dateSql += " AND doc.contentdatetime <= :endDate";
             } else {
                 dateSql += " AND doc.observationdate <= :endDate";
@@ -290,7 +293,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC "
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
 
                 } else if (demographicNo != null && !"".equals(demographicNo)) {
@@ -330,7 +333,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC "
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 } else if (patientSearch) { // N arg
                     docNoLoc = 1;
@@ -377,7 +380,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC "
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
 
                 } else {
@@ -405,7 +408,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no "
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC"
+                        + documentOrderBy
                         + (isPaged ? " LIMIT " + (page * pageSize) + "," + pageSize : "");
                 }
             } else { // Don't mix labs and docs.
@@ -432,7 +435,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC"
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 } else if (demographicNo != null && !"".equals(demographicNo)) {
                     docNoLoc = 1;
@@ -458,7 +461,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC"
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 } else if (patientSearch) {
                     docNoLoc = 1;
@@ -487,7 +490,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + isDocAbnormalSql
                         + dateSql
                         + " GROUP BY doc.document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime DESC," : "doc.observationdate DESC,") + " doc.document_no DESC"
+                        + documentOrderBy
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 } else {
                     docNoLoc = 1;
@@ -514,9 +517,9 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + dateSql
                         + " UNION "
                         + " SELECT X.id, X.lab_no as document_no, X.status, last_name, first_name, hin, sex, X.module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "X.contentdatetime" : "X.observationdate") + ", X.lab_type as doctype, docdesc, updatedatetime "
+                        + (byReceivedDate ? "X.contentdatetime" : "X.observationdate") + ", X.lab_type as doctype, docdesc, updatedatetime "
                         + " FROM (SELECT plr.id, plr.lab_no, plr.status, plr.lab_type, cd.module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "contentdatetime" : "observationdate") + ", docdesc, updatedatetime "
+                        + (byReceivedDate ? "contentdatetime" : "observationdate") + ", docdesc, updatedatetime "
                         + " FROM ctl_document cd, providerLabRouting plr, document d "
                         + " WHERE plr.lab_type = 'DOC' "
                         + " AND plr.status " + routingStatusSql
@@ -529,7 +532,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                         + " ON d.demographic_no = -1"
                         + ") AS X "
                         + " GROUP BY document_no"
-                        + " ORDER BY " + (dateSearchType.equals("receivedCreated") ? "contentdatetime DESC," : "observationdate DESC,") + " document_no DESC"
+                        + " ORDER BY " + (byReceivedDate ? "contentdatetime DESC," : "observationdate DESC,") + " document_no DESC"
                         + (isPaged ? "	LIMIT " + (page * pageSize) + "," + pageSize : "");
                 }
             }
@@ -598,11 +601,11 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 // Native query dates can be LocalDate/LocalDateTime in Hibernate 7.
                 // The document is already loaded above: use its mapped date values rather
                 // than parsing driver-dependent strings and silently dropping inbox rows.
-                Date selectedDate = dateSearchType.equals("receivedCreated")
+                Date selectedDate = byReceivedDate
                         ? contentDateTime : document.getObservationdate();
                 SimpleDateFormat dateOnlyFormatter = new SimpleDateFormat("yyyy-MM-dd");
                 if (selectedDate != null) {
-                    lbData.dateTime = dateSearchType.equals("receivedCreated")
+                    lbData.dateTime = byReceivedDate
                             ? dateSqlFormatter.format(selectedDate) : dateOnlyFormatter.format(selectedDate);
                     lbData.setDateObj(selectedDate);
                 } else if (document.getUpdatedatetime() != null) {
