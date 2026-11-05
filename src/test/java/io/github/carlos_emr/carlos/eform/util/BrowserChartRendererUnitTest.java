@@ -19,7 +19,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
-import org.mockito.MockedConstruction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -92,7 +91,7 @@ class BrowserChartRendererUnitTest {
                 driver, URI.create("http://127.0.0.1:9515"), "synthetic-session");
         int permits = EFormBrowserPdfService.RENDER_SLOTS.availablePermits();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try (MockedConstruction<EFormBrowserPdfService> _ = mockConstruction(EFormBrowserPdfService.class,
+        try (var _ = mockConstruction(EFormBrowserPdfService.class,
                 (service, ignored) -> when(service.createDriver(any())).thenReturn(session))) {
             assertThatThrownBy(() -> BrowserChartRenderer.write(context, output, chart(), 100, 100, "png"))
                     .isInstanceOf(IOException.class).hasMessage("Chart image is unavailable");
