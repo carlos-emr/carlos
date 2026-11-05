@@ -40,6 +40,25 @@ public final class DocumentSummaryReviewBinding {
             + "treatment based only on this summary. Contact your clinic if anything is unclear or differs "
             + "from the original. For urgent medical concerns, contact appropriate urgent or emergency "
             + "services; do not rely on this summary.";
+    /**
+     * The French patient notice (D8, 4 Nov 2026): a second versioned constant set, never a bundle
+     * key, so it cannot vary with the clinician's interface language. The language comes from the
+     * patient's record ({@link #noticeLanguage(String)}), not from the sender.
+     */
+    public static final String NOTICE_VERSION_FR = "carlos-5537-fr-1";
+    private static final String NOTICE_HEADING_FR = "Aide à la lecture générée par l’IA — ouvrez le document original";
+    private static final String NOTICE_BODY_FR =
+            "Ce résumé facultatif a été généré par une intelligence artificielle à partir du document lié. "
+            + "Il peut contenir des énoncés inexacts ou trompeurs, ou omettre des renseignements importants, "
+            + "y compris sur les médicaments, les doses et les résultats d’examens.\n\n"
+            + "Il ne remplace ni le document original ni les directives de votre équipe de soins. Ouvrez le "
+            + "document original pour obtenir l’information complète. Ne commencez pas, n’arrêtez pas, ne "
+            + "modifiez pas et ne retardez pas un traitement en vous fondant uniquement sur ce résumé. "
+            + "Communiquez avec votre clinique si quelque chose n’est pas clair ou diffère de l’original. "
+            + "En cas de problème médical urgent, communiquez avec les services d’urgence appropriés; "
+            + "ne vous fiez pas à ce résumé.";
+    /** The languages a reviewed notice exists in. */
+    public static final Set<String> NOTICE_LANGUAGES = Set.of("en", "fr");
     private final Clock clock;
 
     public DocumentSummaryReviewBinding() { this(Clock.systemUTC()); }
@@ -188,7 +207,7 @@ public final class DocumentSummaryReviewBinding {
             // length frame, preserving point/excerpt order and exact Unicode, not normalized prose.
             String pointsHash = fingerprint("points", ClinicalSummaryAgentProtocol.JSON.valueToTree(summary.points()).toString());
             version = fingerprint("draft", id.toString(), source.fingerprint, summary.overview(), pointsHash,
-                    modelIdentity, language, generatedAt.toString(), NOTICE_VERSION, NOTICE_HEADING, NOTICE_BODY,
+                    modelIdentity, language, generatedAt.toString(), noticeVersion(language), noticeHeading(language), noticeBody(language),
                     Objects.toString(revisedAt, null));
         }
 
@@ -201,7 +220,7 @@ public final class DocumentSummaryReviewBinding {
         public DocumentSummary summary() { return summary; }
         public boolean extractionComplete() { return source.extraction.complete(); }
         public String extractionDisclosure() { return source.extraction.reason(); }
-        public String previewNotice() { return unreviewedNotice(); }
+        public String previewNotice() { return unreviewedNotice(language); }
         /** Revalidation alone never records review or changes the draft. */
         public void requireCurrent(Source currentSource) {
             if (currentSource == null || !source.fingerprint.equals(currentSource.fingerprint)) throw changed();
@@ -214,8 +233,8 @@ public final class DocumentSummaryReviewBinding {
         Objects.requireNonNull(source);
         Objects.requireNonNull(summary);
         label(modelIdentity, 240);
-        // Do not publish an automatic translation of the approved English patient notice.
-        if (!"en".equals(language)) throw new IllegalArgumentException("Reviewed notice is unavailable for this language.");
+        // Only a reviewed, versioned notice ships: English and French. Never an automatic translation.
+        if (!NOTICE_LANGUAGES.contains(language)) throw new IllegalArgumentException("Reviewed notice is unavailable for this language.");
         if (source.extraction.text().isBlank()) {
             throw new IllegalStateException("Readable source text is required for review.");
         }
@@ -278,7 +297,9 @@ public final class DocumentSummaryReviewBinding {
         public boolean extractionComplete() { return draft.extractionComplete(); }
         public String extractionDisclosure() { return draft.extractionDisclosure(); }
         public String patientNotice() {
-            return notice("Reviewed by clinician " + reviewerName + " on " + reviewedAt);
+            return "fr".equals(draft.language)
+                    ? notice("fr", "révisé par le professionnel de la santé " + reviewerName + " le " + reviewedAt)
+                    : notice("en", "Reviewed by clinician " + reviewerName + " on " + reviewedAt);
         }
 
         /** Future send callers must freshly authorize/load both inputs; this does not authorize sending. */
@@ -322,10 +343,34 @@ public final class DocumentSummaryReviewBinding {
         return value;
     }
 
-    public static String unreviewedNotice() { return notice("Review not confirmed"); }
+    public static String unreviewedNotice() { return unreviewedNotice("en"); }
 
-    private static String notice(String reviewStatus) {
-        return NOTICE_HEADING + "\nReview status: " + reviewStatus + "\n\n" + NOTICE_BODY;
+    /** The unreviewed notice in a notice language; any other value renders English. */
+    public static String unreviewedNotice(String language) {
+        return "fr".equals(language) ? notice("fr", "révision non confirmée") : notice("en", "Review not confirmed");
+    }
+
+    /**
+     * The notice language for a patient record's official language ("English"/"French", also the
+     * import codes and tags such as "fr-CA"): French when it says French, English otherwise. The
+     * sender cannot choose it per send.
+     */
+    public static String noticeLanguage(String officialLanguage) {
+        if (officialLanguage == null) return "en";
+        String value = officialLanguage.strip().toLowerCase(java.util.Locale.ROOT);
+        // Exact tokens only: "fr", "fre", "fra", "fr-CA"/"fr_CA", "french", "français", "francais";
+        // never a value that merely starts with "fr" ("Frisian", "free text").
+        return value.matches("fr|fre|fra|fr[-_][a-z0-9]{2,8}|french|français|francais") ? "fr" : "en";
+    }
+
+    public static String noticeVersion(String language) { return "fr".equals(language) ? NOTICE_VERSION_FR : NOTICE_VERSION; }
+    private static String noticeHeading(String language) { return "fr".equals(language) ? NOTICE_HEADING_FR : NOTICE_HEADING; }
+    private static String noticeBody(String language) { return "fr".equals(language) ? NOTICE_BODY_FR : NOTICE_BODY; }
+
+    /** One language per notice: heading, status line and body all from the same set. */
+    private static String notice(String language, String reviewStatus) {
+        String label = "fr".equals(language) ? "\nStatut de la révision : " : "\nReview status: ";
+        return noticeHeading(language) + label + reviewStatus + "\n\n" + noticeBody(language);
     }
 
     private static String hash(byte[] bytes) { return HexFormat.of().formatHex(digest().digest(bytes)); }
