@@ -218,16 +218,16 @@
                     <td><input type="checkbox" id="referral-select-${carlos:forHtmlAttribute(referral.id)}"
                                name="checked_${carlos:forHtmlAttribute(referral.id)}"
                                onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/>
-                        <label class="table-selection-label" for="referral-select-${carlos:forHtmlAttribute(referral.id)}"><fmt:message key="dms.incomingDocs.select"/> <c:out value="${referral.firstName}"/> <c:out value="${referral.lastName}"/></label></td>
+                        <label class="table-selection-label" for="referral-select-${carlos:forHtmlAttribute(referral.id)}"><fmt:message key="dms.incomingDocs.select"/> ${carlos:forHtml(referral.firstName)} ${carlos:forHtml(referral.lastName)}</label></td>
                     <td><a href="javascript:void(0)"
                                        onclick="openEditSpecialist('${carlos:forJavaScriptAttribute(referral.id)}')"><carlos:encode value='<%= linkName %>'/>
                     </a></td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.firstName))}" data-sort-type="${carlos:tableSortType(referral.firstName)}"><c:out value="${referral.firstName}"/></td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.lastName))}" data-sort-type="${carlos:tableSortType(referral.lastName)}"><c:out value="${referral.lastName}"/></td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.specialtyType))}" data-sort-type="${carlos:tableSortType(referral.specialtyType)}"><c:out value="${referral.specialtyType}"/></td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.streetAddress))}" data-sort-type="${carlos:tableSortType(referral.streetAddress)}"><c:out value="${referral.streetAddress}"/></td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.phoneNumber))}" data-sort-type="${carlos:tableSortType(referral.phoneNumber)}"><c:out value="${referral.phoneNumber}"/></td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.faxNumber))}" data-sort-type="${carlos:tableSortType(referral.faxNumber)}"><c:out value="${referral.faxNumber}"/></td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.firstName))}" data-sort-type="${carlos:tableSortType(referral.firstName)}">${carlos:forHtml(referral.firstName)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.lastName))}" data-sort-type="${carlos:tableSortType(referral.lastName)}">${carlos:forHtml(referral.lastName)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.specialtyType))}" data-sort-type="${carlos:tableSortType(referral.specialtyType)}">${carlos:forHtml(referral.specialtyType)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.streetAddress))}" data-sort-type="${carlos:tableSortType(referral.streetAddress)}">${carlos:forHtml(referral.streetAddress)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.phoneNumber))}" data-sort-type="${carlos:tableSortType(referral.phoneNumber)}">${carlos:forHtml(referral.phoneNumber)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.faxNumber))}" data-sort-type="${carlos:tableSortType(referral.faxNumber)}">${carlos:forHtml(referral.faxNumber)}</td>
                     <td><c:url var="tableColumnUrl" value="/printReferralLabelAction"><c:param name="billingreferralNo" value="${referral.id}"/></c:url><a href="${carlos:forHtmlAttribute(tableColumnUrl)}"><fmt:message key="admin.billingreferralAdmin.label.link"/></a></td>
                 </tr></c:forEach></tbody>
 </table>

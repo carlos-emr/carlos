@@ -31,7 +31,6 @@
 	</tr>
 </table>
 </div>
-<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="restriction" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -46,12 +45,12 @@
 <tbody><c:forEach var="restriction" items="${service_restrictions}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
 
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.id))}" data-sort-type="${carlos:tableSortType(restriction.id)}"><c:out value="${restriction.id}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.client.formattedName))}" data-sort-type="${carlos:tableSortType(restriction.client.formattedName)}"><c:out value="${restriction.client.formattedName}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.provider.formattedName))}" data-sort-type="${carlos:tableSortType(restriction.provider.formattedName)}"><c:out value="${restriction.provider.formattedName}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.comments))}" data-sort-type="${carlos:tableSortType(restriction.comments)}"><c:out value="${restriction.comments}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.startDate))}" data-sort-type="${carlos:tableSortType(restriction.startDate)}"><c:out value="${restriction.startDate}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.endDate))}" data-sort-type="${carlos:tableSortType(restriction.endDate)}"><c:out value="${restriction.endDate}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.id))}" data-sort-type="${carlos:tableSortType(restriction.id)}">${carlos:forHtml(restriction.id)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.client.formattedName))}" data-sort-type="${carlos:tableSortType(restriction.client.formattedName)}">${carlos:forHtml(restriction.client.formattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.provider.formattedName))}" data-sort-type="${carlos:tableSortType(restriction.provider.formattedName)}">${carlos:forHtml(restriction.provider.formattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.comments))}" data-sort-type="${carlos:tableSortType(restriction.comments)}">${carlos:forHtml(restriction.comments)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.startDate))}" data-sort-type="${carlos:tableSortType(restriction.startDate)}">${carlos:forHtml(restriction.startDate)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(restriction.endDate))}" data-sort-type="${carlos:tableSortType(restriction.endDate)}">${carlos:forHtml(restriction.endDate)}</td>
 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty service_restrictions}"><p class="table-empty">No service restrictions currently in place for this program.</p></c:if>

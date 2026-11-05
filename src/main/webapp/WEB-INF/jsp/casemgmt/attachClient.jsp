@@ -53,8 +53,7 @@
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
-<%-- A whole document: CsrfGuardScriptInjectionFilter adds the CSRF client script before <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
-</head>,
+<%-- A whole document: CsrfGuardScriptInjectionFilter adds the CSRF client script before </head>,
      and that script is what gives the search form below its token. As a bare fragment the page got
      no script, so every search POST was refused as a CSRF violation (403). The stylesheets named
      ${request.contextPath}, which is not an EL object, and so loaded from outside the application. --%>
@@ -145,6 +144,7 @@
     });
 </script>
 <script src="${pageContext.request.contextPath}/share/javascript/carlosCsrfForm.js"></script>
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 </head>
 <body>
 <%-- Inside the body: included above the doctype, its markup put the page in quirks mode. --%>

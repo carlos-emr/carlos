@@ -97,9 +97,9 @@
             <th scope="col">Options</th>
         </tr></thead>
 <tbody><c:forEach var="tableRow" items="${test}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
-            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.serviceCode))}" data-sort-type="${carlos:tableSortType(tableRow.serviceCode)}"><c:out value="${tableRow.serviceCode}"/></td>
-            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.description))}" data-sort-type="${carlos:tableSortType(tableRow.description)}"><c:out value="${tableRow.description}"/></td>
-            <td data-sort-value="${carlos:forHtmlAttribute(tableRow.value)}" data-sort-type="number"><c:out value="${tableRow.value}"/></td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.serviceCode))}" data-sort-type="${carlos:tableSortType(tableRow.serviceCode)}">${carlos:forHtml(tableRow.serviceCode)}</td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.description))}" data-sort-type="${carlos:tableSortType(tableRow.description)}">${carlos:forHtml(tableRow.description)}</td>
+            <td data-sort-value="${carlos:forHtmlAttribute(tableRow.value)}" data-sort-type="number">${carlos:forHtml(tableRow.value)}</td>
             <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingserviceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingserviceNo)}"><a href="ViewBillingEditCode?codeId=${carlos:forUriComponent(tableRow.billingserviceNo)}&amp;code=${carlos:forUriComponent(tableRow.serviceCode)}&amp;desc=${carlos:forUriComponent(tableRow.description)}&amp;value=${carlos:forUriComponent(tableRow.value)}&amp;whereTo=private">Edit</a><br><a href="#" onclick="deletePrivateCode('${carlos:forJavaScriptAttribute(tableRow.billingserviceNo)}'); return false;">Delete</a></td>
         </tr></c:forEach></tbody>
 </table>

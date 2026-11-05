@@ -103,8 +103,8 @@
             <c:otherwise>${carlos:forHtml(program.name)}</c:otherwise>
         </c:choose>
     </td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.type))}" data-sort-type="${carlos:tableSortType(program.type)}"><c:out value="${program.type}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.queueSize))}" data-sort-type="${carlos:tableSortType(program.queueSize)}"><c:out value="${program.queueSize}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.type))}" data-sort-type="${carlos:tableSortType(program.type)}">${carlos:forHtml(program.type)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.queueSize))}" data-sort-type="${carlos:tableSortType(program.queueSize)}">${carlos:forHtml(program.queueSize)}</td>
 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty associatedPrograms}"><p class="table-empty">No programs.</p></c:if>

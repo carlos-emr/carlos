@@ -105,4 +105,14 @@ class OscarReportDxRegJspRegressionTest {
         }
         throw new IllegalStateException("Unable to locate " + relativePath);
     }
+
+    /** {@code listview} is a List on every path; a bean-property test on it throws in EL. */
+    @Test
+    @DisplayName("should treat the result list as a collection in every EL expression")
+    void shouldTreatResultList_asCollectionInEl() throws IOException {
+        String page = Files.readString(REPORT_JSP, StandardCharsets.UTF_8);
+
+        assertThat(page).doesNotContain("not empty listview.strCode");
+        assertThat(page).contains("test=\"${not empty listview}\"");
+    }
 }

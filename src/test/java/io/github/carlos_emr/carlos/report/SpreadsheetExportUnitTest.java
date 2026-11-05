@@ -13,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("report")
 class SpreadsheetExportUnitTest {
     @Test
-    void shouldRoundTripTypedCellsUnicodeWhitespaceAndFormulaLookingText() throws Exception {
+    void shouldRoundTripTypedCells_withUnicodeWhitespaceAndFormulaLookingText() throws Exception {
         Object[][] values = {{"Élodie 李 😀 & <report>", "00123", "1234567890123456789", "=1+2", "  spaced  ", "_x0041_", "a\u0001b\rc\r\nd", 23.5}};
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         SpreadsheetExport.write(output, values);
@@ -29,7 +29,7 @@ class SpreadsheetExportUnitTest {
     }
 
     @Test
-    void shouldRoundTripUnpairedSurrogatesWithoutCorruptingWorksheetXml() throws Exception {
+    void shouldRoundTripUnpairedSurrogates_withoutCorruptingWorksheetXml() throws Exception {
         Object[][] values = {{"before\uD800after", "before\uDC00after", "\uD800\uD800", "\uDC00\uD800", "😀\uD800😀", "_xD800_"}};
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         SpreadsheetExport.write(output, values);

@@ -37,7 +37,6 @@
 	</tr>
 </table>
 </div>
-<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="provider" data-carlos-table data-page-size="0" data-default-sort="3" data-default-order="ascending">
 <thead><tr>
 
@@ -57,9 +56,9 @@
 			</c:forEach>
 		</table>
     </td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.formattedName))}" data-sort-type="${carlos:tableSortType(provider.provider.formattedName)}"><c:out value="${provider.provider.formattedName}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.phone))}" data-sort-type="${carlos:tableSortType(provider.provider.phone)}"><c:out value="${provider.provider.phone}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.role.name))}" data-sort-type="${carlos:tableSortType(provider.role.name)}"><c:out value="${provider.role.name}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.formattedName))}" data-sort-type="${carlos:tableSortType(provider.provider.formattedName)}">${carlos:forHtml(provider.provider.formattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.phone))}" data-sort-type="${carlos:tableSortType(provider.provider.phone)}">${carlos:forHtml(provider.provider.phone)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.role.name))}" data-sort-type="${carlos:tableSortType(provider.role.name)}">${carlos:forHtml(provider.role.name)}</td>
 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty providers}"><p class="table-empty">Nothing found to display.</p></c:if>

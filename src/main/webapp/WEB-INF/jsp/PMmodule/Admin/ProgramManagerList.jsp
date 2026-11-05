@@ -143,10 +143,10 @@
             ${carlos:forHtml(program.name)}
         </a>
     </td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.description))}" data-sort-type="${carlos:tableSortType(program.description)}"><c:out value="${program.description}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.type))}" data-sort-type="${carlos:tableSortType(program.type)}"><c:out value="${program.type}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.programStatus))}" data-sort-type="${carlos:tableSortType(program.programStatus)}"><c:out value="${program.programStatus}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.location))}" data-sort-type="${carlos:tableSortType(program.location)}"><c:out value="${program.location}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.description))}" data-sort-type="${carlos:tableSortType(program.description)}">${carlos:forHtml(program.description)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.type))}" data-sort-type="${carlos:tableSortType(program.type)}">${carlos:forHtml(program.type)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.programStatus))}" data-sort-type="${carlos:tableSortType(program.programStatus)}">${carlos:forHtml(program.programStatus)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.location))}" data-sort-type="${carlos:tableSortType(program.location)}">${carlos:forHtml(program.location)}</td>
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.numOfMembers))}" data-sort-type="number">
         ${carlos:forHtml(program.numOfMembers)}/${carlos:forHtml(program.maxAllowed)}
         (${carlos:forHtml(program.queueSize)} waiting)

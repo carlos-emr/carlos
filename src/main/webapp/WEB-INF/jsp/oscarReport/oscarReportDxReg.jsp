@@ -218,9 +218,9 @@
                     <th scope="col"><span data-table-sort>Description</span></th>
                 </tr></thead>
 <tbody><c:forEach var="codeSearch" items="${codeSearch}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.type))}" data-sort-type="${carlos:tableSortType(codeSearch.type)}"><c:out value="${codeSearch.type}"/></td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.dxSearchCode))}" data-sort-type="${carlos:tableSortType(codeSearch.dxSearchCode)}"><c:out value="${codeSearch.dxSearchCode}"/></td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.description))}" data-sort-type="${carlos:tableSortType(codeSearch.description)}"><c:out value="${codeSearch.description}"/></td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.type))}" data-sort-type="${carlos:tableSortType(codeSearch.type)}">${carlos:forHtml(codeSearch.type)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.dxSearchCode))}" data-sort-type="${carlos:tableSortType(codeSearch.dxSearchCode)}">${carlos:forHtml(codeSearch.dxSearchCode)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.description))}" data-sort-type="${carlos:tableSortType(codeSearch.description)}">${carlos:forHtml(codeSearch.description)}</td>
                 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty codeSearch}"><p class="table-empty">Nothing found to display.</p></c:if>
@@ -320,24 +320,24 @@
                     <th scope="col">Status</th>
                 </tr></thead>
 <tbody><c:forEach var="listview" items="${listview}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
-                    <td><c:out value="${listview.strFirstName}"/></td>
-                    <td><c:out value="${listview.strLastName}"/></td>
-                    <td><c:out value="${listview.strSex}"/></td>
-                    <td><c:out value="${listview.strDOB}"/></td>
-                    <td><c:out value="${listview.strPhone}"/></td>
-                    <td><c:out value="${listview.strHIN}"/></td>
-                    <td><c:out value="${listview.strCodeSys}"/></td>
-                    <td><c:out value="${listview.strCode}"/></td>
-                    <td><c:out value="${listview.strStartDate}"/></td>
-                    <td><c:out value="${listview.strUpdateDate}"/></td>
-                    <td><c:out value="${listview.strStatus}"/></td>
+                    <td>${carlos:forHtml(listview.strFirstName)}</td>
+                    <td>${carlos:forHtml(listview.strLastName)}</td>
+                    <td>${carlos:forHtml(listview.strSex)}</td>
+                    <td>${carlos:forHtml(listview.strDOB)}</td>
+                    <td>${carlos:forHtml(listview.strPhone)}</td>
+                    <td>${carlos:forHtml(listview.strHIN)}</td>
+                    <td>${carlos:forHtml(listview.strCodeSys)}</td>
+                    <td>${carlos:forHtml(listview.strCode)}</td>
+                    <td>${carlos:forHtml(listview.strStartDate)}</td>
+                    <td>${carlos:forHtml(listview.strUpdateDate)}</td>
+                    <td>${carlos:forHtml(listview.strStatus)}</td>
                 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty listview}"><p class="table-empty">Nothing found to display.</p></c:if>
             </div>
 
 
-            <c:if test="${ not empty listview and not empty listview.strCode }">
+            <c:if test="${not empty listview}">
                 <input type="button" class="btn btn-secondary" value="Download Excel"
                        onclick="javascript:this.form.action='${pageContext.servletContext.contextPath}/report/DxresearchReport?method=patientExcelReport';this.form.submit()">
             </c:if>

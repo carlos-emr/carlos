@@ -32,7 +32,6 @@
 </table>
 </div>
 <!--  show current staff -->
-<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="team" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -44,7 +43,7 @@
 <tbody><c:forEach var="team" items="${teams}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
 
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(team.name))}" data-sort-type="${carlos:tableSortType(team.name)}"><c:out value="${team.name}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(team.name))}" data-sort-type="${carlos:tableSortType(team.name)}">${carlos:forHtml(team.name)}</td>
     <td>
 		<ul>
 			<c:forEach var="provider" items="${team.providers}">

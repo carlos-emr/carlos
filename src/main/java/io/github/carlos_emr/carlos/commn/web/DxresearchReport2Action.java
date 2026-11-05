@@ -239,7 +239,7 @@ public class DxresearchReport2Action extends ActionSupport {
             return getQuickListName();
         }
 
-        request.getSession().setAttribute("listview", new DxRegistedPTInfo()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new empty DxRegistedPTInfo object, no user input
+        request.getSession().setAttribute("listview", new ArrayList<DxRegistedPTInfo>()); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new empty result list; the page iterates it with <c:forEach>, which rejects a lone bean (former displaytag placeholder DxRegistedPTInfo object, no user input
         dxResearchCodingSystem codingSys = new dxResearchCodingSystem();
         request.getSession().setAttribute("codingSystem", codingSys); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- new coding system reference object, no user input
         // Whitelist-validate the existing session value before writing it back (CWE-501).

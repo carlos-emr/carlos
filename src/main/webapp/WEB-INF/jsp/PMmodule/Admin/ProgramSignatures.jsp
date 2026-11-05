@@ -54,9 +54,9 @@
     </tr></thead>
 <tbody><c:forEach var="ps" items="${programSignatures}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
-        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.providerName))}" data-sort-type="${carlos:tableSortType(ps.providerName)}"><c:out value="${ps.providerName}"/></td>
-        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.caisiRoleName))}" data-sort-type="${carlos:tableSortType(ps.caisiRoleName)}"><c:out value="${ps.caisiRoleName}"/></td>
-        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.updateDate))}" data-sort-type="${carlos:tableSortType(ps.updateDate)}"><c:out value="${ps.updateDate}"/></td>
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.providerName))}" data-sort-type="${carlos:tableSortType(ps.providerName)}">${carlos:forHtml(ps.providerName)}</td>
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.caisiRoleName))}" data-sort-type="${carlos:tableSortType(ps.caisiRoleName)}">${carlos:forHtml(ps.caisiRoleName)}</td>
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.updateDate))}" data-sort-type="${carlos:tableSortType(ps.updateDate)}">${carlos:forHtml(ps.updateDate)}</td>
     </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty programSignatures}"><p class="table-empty">Nothing found to display.</p></c:if>

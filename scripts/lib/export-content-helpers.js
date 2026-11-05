@@ -101,6 +101,43 @@ function xmlText(value) {
     .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, '\'').replace(/&amp;/g, '&');
 }
 
+/**
+ * The first worksheet of an .xlsx as rows of cells { type: 'text' | 'number', value }: a numeric
+ * cell reads as a Number, a shared or inline string as its text, a blank as { type: 'text', value: '' }.
+ */
+function xlsxCells(buffer) {
+  const entries = unzip(buffer);
+  h.assert(entries['xl/workbook.xml'], 'The file is a ZIP but not an Excel workbook');
+  const shared = [];
+  if (entries['xl/sharedStrings.xml']) {
+    for (const si of entries['xl/sharedStrings.xml'].toString('utf8').matchAll(/<si\b[^>]*>([\s\S]*?)<\/si>/g)) {
+      shared.push(xmlText([...si[1].matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('')));
+    }
+  }
+  const sheetName = Object.keys(entries).filter(name => /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort()[0];
+  h.assert(sheetName, 'The workbook has no worksheet');
+  const rows = [];
+  for (const row of entries[sheetName].toString('utf8').matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+    const cells = [];
+    for (const cell of row[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+      const ref = /\br="([A-Z]+)\d+"/.exec(cell[1]);
+      const type = /\bt="(\w+)"/.exec(cell[1]);
+      let column = 0;
+      for (const letter of ref[1]) column = column * 26 + letter.charCodeAt(0) - 64;
+      const body = cell[2] || '';
+      const v = /<v>([\s\S]*?)<\/v>/.exec(body);
+      let value;
+      if (type && type[1] === 's') value = { type: 'text', value: v ? shared[Number(v[1])] : '' };
+      else if (type && type[1] === 'inlineStr') value = { type: 'text', value: xmlText([...body.matchAll(/<t\b[^>]*>([\s\S]*?)<\/t>/g)].map(t => t[1]).join('')) };
+      else if (type && type[1] !== 'n') value = { type: 'text', value: v ? xmlText(v[1]) : '' };
+      else value = v ? { type: 'number', value: Number(v[1]) } : { type: 'text', value: '' };
+      cells[column - 1] = value;
+    }
+    rows.push(Array.from(cells, c => c === undefined ? { type: 'text', value: '' } : c));
+  }
+  return rows;
+}
+
 /** The first worksheet of an .xlsx as an array of rows of strings (blank cells are ''). */
 function xlsxRows(buffer) {
   const entries = unzip(buffer);
@@ -294,4 +331,4 @@ function squash(value) {
   return String(value).normalize('NFC').replace(/\s+/g, '');
 }
 
-module.exports = { scratchDir, saveDownload, parseCsv, unzip, xlsxRows, xlsCells, requirePoppler, pdfText, pdfTextBuffer, assertEmbeddedFonts, squash };
+module.exports = { scratchDir, saveDownload, parseCsv, unzip, xlsxRows, xlsxCells, xlsCells, requirePoppler, pdfText, pdfTextBuffer, assertEmbeddedFonts, squash };

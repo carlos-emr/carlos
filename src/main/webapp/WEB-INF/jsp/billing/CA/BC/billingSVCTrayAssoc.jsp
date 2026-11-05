@@ -116,8 +116,8 @@
         <th scope="col">Options</th>
     </tr></thead>
 <tbody><c:forEach var="tableRow" items="${list}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceNo)}"><c:out value="${tableRow.billingServiceNo}"/></td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceTrayNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceTrayNo)}"><c:out value="${tableRow.billingServiceTrayNo}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceNo)}">${carlos:forHtml(tableRow.billingServiceNo)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceTrayNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceTrayNo)}">${carlos:forHtml(tableRow.billingServiceTrayNo)}</td>
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.associationStatus))}" data-sort-type="${carlos:tableSortType(tableRow.associationStatus)}"><a href="#" onclick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</a><br><a href="#" onclick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</a></td>
     </tr></c:forEach></tbody>
 </table>

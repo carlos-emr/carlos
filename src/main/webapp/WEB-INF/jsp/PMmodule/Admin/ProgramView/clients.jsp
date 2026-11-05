@@ -129,7 +129,6 @@
     </table>
 </div>
 <!-- show current clients -->
-<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="admission" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -155,15 +154,15 @@
     <td>
         <input type="checkbox" name="checked_${carlos:forHtmlAttribute(admission.id)}">
     </td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.client.formattedName))}" data-sort-type="${carlos:tableSortType(admission.client.formattedName)}"><c:out value="${admission.client.formattedName}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.admissionDate))}" data-sort-type="${carlos:tableSortType(admission.admissionDate)}"><c:out value="${admission.admissionDate}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.client.formattedName))}" data-sort-type="${carlos:tableSortType(admission.client.formattedName)}">${carlos:forHtml(admission.client.formattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.admissionDate))}" data-sort-type="${carlos:tableSortType(admission.admissionDate)}">${carlos:forHtml(admission.admissionDate)}</td>
 
     <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.temporaryAdmission))}" data-sort-type="${carlos:tableSortType(admission.temporaryAdmission)}"><c:out value="${admission.temporaryAdmission}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.temporaryAdmission))}" data-sort-type="${carlos:tableSortType(admission.temporaryAdmission)}">${carlos:forHtml(admission.temporaryAdmission)}</td>
     </caisi:isModuleLoad>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.admissionNotes))}" data-sort-type="${carlos:tableSortType(admission.admissionNotes)}"><c:out value="${admission.admissionNotes}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.admissionNotes))}" data-sort-type="${carlos:tableSortType(admission.admissionNotes)}">${carlos:forHtml(admission.admissionNotes)}</td>
 
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.teamName))}" data-sort-type="${carlos:tableSortType(admission.teamName)}"><c:out value="${admission.teamName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(admission.teamName))}" data-sort-type="${carlos:tableSortType(admission.teamName)}">${carlos:forHtml(admission.teamName)}</td>
 
     <td>
         <select name="x"

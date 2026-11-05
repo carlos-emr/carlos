@@ -94,10 +94,10 @@
         </td>
 
 
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.name))}" data-sort-type="${carlos:tableSortType(facility.name)}"><c:out value="${facility.name}"/></td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.description))}" data-sort-type="${carlos:tableSortType(facility.description)}"><c:out value="${facility.description}"/></td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.contactName))}" data-sort-type="${carlos:tableSortType(facility.contactName)}"><c:out value="${facility.contactName}"/></td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.hic))}" data-sort-type="${carlos:tableSortType(facility.hic)}"><c:out value="${facility.hic}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.name))}" data-sort-type="${carlos:tableSortType(facility.name)}">${carlos:forHtml(facility.name)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.description))}" data-sort-type="${carlos:tableSortType(facility.description)}">${carlos:forHtml(facility.description)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.contactName))}" data-sort-type="${carlos:tableSortType(facility.contactName)}">${carlos:forHtml(facility.contactName)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.hic))}" data-sort-type="${carlos:tableSortType(facility.hic)}">${carlos:forHtml(facility.hic)}</td>
     </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty facilities}"><p class="table-empty">No facilities found.</p></c:if>

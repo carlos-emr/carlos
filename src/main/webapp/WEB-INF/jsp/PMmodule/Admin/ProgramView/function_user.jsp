@@ -40,7 +40,6 @@
         </tr>
     </table>
 </div>
-<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="functional" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -51,8 +50,8 @@
 <tbody><c:forEach var="functional" items="${functional_users}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
 
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.userType.name))}" data-sort-type="${carlos:tableSortType(functional.userType.name)}"><c:out value="${functional.userType.name}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.provider.formattedName))}" data-sort-type="${carlos:tableSortType(functional.provider.formattedName)}"><c:out value="${functional.provider.formattedName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.userType.name))}" data-sort-type="${carlos:tableSortType(functional.userType.name)}">${carlos:forHtml(functional.userType.name)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(functional.provider.formattedName))}" data-sort-type="${carlos:tableSortType(functional.provider.formattedName)}">${carlos:forHtml(functional.provider.formattedName)}</td>
 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty functional_users}"><p class="table-empty">No functional users defined for this program</p></c:if>

@@ -98,8 +98,8 @@
             <fmt:message key="admin.facility.list.msgNoFacilities" var="noFacilitiesMessage"/>
 
 
-            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.name))}" data-sort-type="${carlos:tableSortType(facility.name)}"><c:out value="${facility.name}"/></td>
-            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.description))}" data-sort-type="${carlos:tableSortType(facility.description)}"><c:out value="${facility.description}"/></td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.name))}" data-sort-type="${carlos:tableSortType(facility.name)}">${carlos:forHtml(facility.name)}</td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.description))}" data-sort-type="${carlos:tableSortType(facility.description)}">${carlos:forHtml(facility.description)}</td>
 
             <td>
                 <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${carlos:forHtmlAttribute(facility.id)}">
@@ -114,7 +114,7 @@
             -->
         </tr></c:forEach></tbody>
 </table>
-<c:if test="${empty facilities}"><p class="table-empty"><c:out value="${noFacilitiesMessage}"/></p></c:if>
+<c:if test="${empty facilities}"><p class="table-empty">${carlos:forHtml(noFacilitiesMessage)}</p></c:if>
     </form>
     <!--
             <p><a href="< tml:rewrite action="/FacilityManager"/>?method=add">

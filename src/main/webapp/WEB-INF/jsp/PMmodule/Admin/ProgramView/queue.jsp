@@ -131,7 +131,6 @@ String reason ="";
 	HashSet<Long> ageConflict=(HashSet<Long>)request.getAttribute("ageConflict");
 %>
 <!--  show current clients -->
-<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
 
@@ -194,7 +193,7 @@ String reason ="";
 	<!--Case Management Encounter-->
 	<!--</a>-->
     <%--</td>--%>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.clientFormattedName))}" data-sort-type="${carlos:tableSortType(queue_entry.clientFormattedName)}"><c:out value="${queue_entry.clientFormattedName}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.clientFormattedName))}" data-sort-type="${carlos:tableSortType(queue_entry.clientFormattedName)}">${carlos:forHtml(queue_entry.clientFormattedName)}</td>
 		
     <td>
 		<% 
@@ -220,11 +219,11 @@ String reason ="";
 	%>
     </td>
 	
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referralDate))}" data-sort-type="${carlos:tableSortType(queue_entry.referralDate)}"><c:out value="${queue_entry.referralDate}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.providerFormattedName))}" data-sort-type="${carlos:tableSortType(queue_entry.providerFormattedName)}"><c:out value="${queue_entry.providerFormattedName}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.notes))}" data-sort-type="${carlos:tableSortType(queue_entry.notes)}"><c:out value="${queue_entry.notes}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.presentProblems))}" data-sort-type="${carlos:tableSortType(queue_entry.presentProblems)}"><c:out value="${queue_entry.presentProblems}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.headRecord))}" data-sort-type="${carlos:tableSortType(queue_entry.headRecord)}"><c:out value="${queue_entry.headRecord}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referralDate))}" data-sort-type="${carlos:tableSortType(queue_entry.referralDate)}">${carlos:forHtml(queue_entry.referralDate)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.providerFormattedName))}" data-sort-type="${carlos:tableSortType(queue_entry.providerFormattedName)}">${carlos:forHtml(queue_entry.providerFormattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.notes))}" data-sort-type="${carlos:tableSortType(queue_entry.notes)}">${carlos:forHtml(queue_entry.notes)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.presentProblems))}" data-sort-type="${carlos:tableSortType(queue_entry.presentProblems)}">${carlos:forHtml(queue_entry.presentProblems)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.headRecord))}" data-sort-type="${carlos:tableSortType(queue_entry.headRecord)}">${carlos:forHtml(queue_entry.headRecord)}</td>
 </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty queue}"><p class="table-empty">Queue is empty.</p></c:if>
@@ -340,11 +339,11 @@ String reason ="";
         <td>
 			<input type="button" value="Reject" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.referral.referralId)}')" />
         </td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.clientName))}" data-sort-type="${carlos:tableSortType(queue_entry.clientName)}"><c:out value="${queue_entry.clientName}"/></td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.referralDate))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.referralDate)}"><c:out value="${queue_entry.referral.referralDate}"/></td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.providerName))}" data-sort-type="${carlos:tableSortType(queue_entry.providerName)}"><c:out value="${queue_entry.providerName}"/></td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.reasonForReferral))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.reasonForReferral)}"><c:out value="${queue_entry.referral.reasonForReferral}"/></td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.presentingProblem))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.presentingProblem)}"><c:out value="${queue_entry.referral.presentingProblem}"/></td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.clientName))}" data-sort-type="${carlos:tableSortType(queue_entry.clientName)}">${carlos:forHtml(queue_entry.clientName)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.referralDate))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.referralDate)}">${carlos:forHtml(queue_entry.referral.referralDate)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.providerName))}" data-sort-type="${carlos:tableSortType(queue_entry.providerName)}">${carlos:forHtml(queue_entry.providerName)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.reasonForReferral))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.reasonForReferral)}">${carlos:forHtml(queue_entry.referral.reasonForReferral)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referral.presentingProblem))}" data-sort-type="${carlos:tableSortType(queue_entry.referral.presentingProblem)}">${carlos:forHtml(queue_entry.referral.presentingProblem)}</td>
     </tr></c:forEach></tbody>
 </table>
 <c:if test="${empty remoteQueue}"><p class="table-empty">Queue is empty.</p></c:if>

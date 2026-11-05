@@ -22,6 +22,7 @@ const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
 const {runWorkflow} = require('./lib/workflow-session');
+const {xlsxRows} = require('./lib/export-content-helpers');
 
 const ERROR_PAGE = /CARLOS has encountered an unexpected error|HTTP Status \d{3}|Exception Report/i;
 
@@ -229,13 +230,13 @@ async function workflow(s) {
     h.assert(JSON.stringify(parsed) === JSON.stringify(expected), 'CSV export differs from the SQL rows');
   });
 
-  await s.step('Export to XLS downloads an OLE2 workbook carrying the result values', async () => {
+  await s.step('Export to XLSX downloads an OOXML workbook carrying the result values', async () => {
     const file = await download('input[name="getXLS"]');
-    h.assert(file.name === 'oscarReport.xls', 'XLS export used an unexpected file name');
-    h.assert(file.bytes.subarray(0, 8).equals(Buffer.from('d0cf11e0a1b11ae1', 'hex')), 'XLS export is not an OLE2 workbook');
-    const text = file.bytes.toString('latin1');
-    h.assert(text.includes(s.marker) && text.includes('Workflow') && text.includes('last_name'),
-      'XLS workbook does not carry the result values');
+    h.assert(file.name === 'oscarReport.xlsx', 'XLSX export used an unexpected file name');
+    h.assert(file.bytes.subarray(0, 4).equals(Buffer.from('504b0304', 'hex')), 'XLSX export is not a ZIP package');
+    const cells = xlsxRows(file.bytes).flat();
+    h.assert(cells.includes(s.marker) && cells.includes('Workflow') && cells.includes('last_name'),
+      'XLSX workbook does not carry the result values');
   });
 
   await s.step('Back fires the ViewClearSession beacon and returns to the configuration', async () => {

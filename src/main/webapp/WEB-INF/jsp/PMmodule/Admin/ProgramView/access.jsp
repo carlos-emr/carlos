@@ -31,7 +31,6 @@
 	</tr>
 </table>
 </div>
-<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
 <c:if test="${not empty accesses}">
 <table class="simple" cellspacing="2" cellpadding="3" id="access" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
@@ -45,9 +44,9 @@
 <tbody><c:forEach var="access" items="${accesses}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
 
 
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.accessType.name))}" data-sort-type="${carlos:tableSortType(access.accessType.name)}"><c:out value="${access.accessType.name}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.accessType.type))}" data-sort-type="${carlos:tableSortType(access.accessType.type)}"><c:out value="${access.accessType.type}"/></td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.allRoles))}" data-sort-type="${carlos:tableSortType(access.allRoles)}"><c:out value="${access.allRoles}"/></td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.accessType.name))}" data-sort-type="${carlos:tableSortType(access.accessType.name)}">${carlos:forHtml(access.accessType.name)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.accessType.type))}" data-sort-type="${carlos:tableSortType(access.accessType.type)}">${carlos:forHtml(access.accessType.type)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(access.allRoles))}" data-sort-type="${carlos:tableSortType(access.allRoles)}">${carlos:forHtml(access.allRoles)}</td>
     <td>
 		<ul>
 			<c:forEach var="role" items="${access.roles}">
