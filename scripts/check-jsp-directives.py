@@ -24,7 +24,7 @@ import re
 import shutil
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
+from xml.parsers import expat
 import zipfile
 
 
@@ -49,6 +49,53 @@ def reachable(start, edges):
     return seen
 
 
+def check_web_xml(descriptor):
+    """Read JSP settings without accepting DTDs or custom entity declarations."""
+    parser = expat.ParserCreate(namespace_separator='}')
+    xml_value = None
+
+    def start_element(name, attrs):
+        nonlocal xml_value
+        name = name.rsplit('}', 1)[-1]
+        if xml_value is not None:
+            raise ValueError('web.xml is-xml configuration must contain only text')
+        if name in ('include-prelude', 'include-coda'):
+            raise ValueError('implicit web.xml includes need analysis support before this check can run')
+        if name == 'is-xml':
+            xml_value = []
+
+    def text(data):
+        if xml_value is not None:
+            xml_value.append(data)
+
+    def end_element(name):
+        nonlocal xml_value
+        if name.rsplit('}', 1)[-1] == 'is-xml':
+            if ''.join(xml_value).strip() in ('true', '1'):
+                raise ValueError('XML JSP configuration in web.xml needs analysis support before this check can run')
+            xml_value = None
+
+    def reject_dtd_or_entity(*_args):
+        raise ValueError('web.xml DTDs and entity declarations are unsupported by the JSP directive audit')
+
+    # Abort at the DOCTYPE opening, before internal declarations can expand or
+    # an external subset can be read. Reject entity callbacks independently as
+    # defense in depth; this parser never creates an external-entity parser.
+    parser.StartDoctypeDeclHandler = reject_dtd_or_entity
+    parser.EntityDeclHandler = reject_dtd_or_entity
+    parser.ExternalEntityRefHandler = reject_dtd_or_entity
+    parser.SkippedEntityHandler = reject_dtd_or_entity
+    parser.SetParamEntityParsing(expat.XML_PARAM_ENTITY_PARSING_NEVER)
+    parser.StartElementHandler = start_element
+    parser.CharacterDataHandler = text
+    parser.EndElementHandler = end_element
+    try:
+        with descriptor.open('rb') as stream:
+            parser.ParseFile(stream)
+    except expat.ExpatError as error:
+        raise ValueError(f'cannot parse JSP configuration in {descriptor}: {error}') from error
+
+
 def translation_units(webapp):
     """Return each page/fragment and all source that can use its directives."""
     webapp = webapp.resolve()
@@ -56,16 +103,7 @@ def translation_units(webapp):
         raise ValueError(f'webapp does not exist: {webapp}')
     descriptor = webapp / 'WEB-INF/web.xml'
     if descriptor.exists():
-        try:
-            configuration = ET.parse(descriptor)
-        except ET.ParseError as error:
-            raise ValueError(f'cannot parse JSP configuration in {descriptor}: {error}') from error
-        for element in configuration.iter():
-            name = element.tag.rsplit('}', 1)[-1]
-            if name in ('include-prelude', 'include-coda'):
-                raise ValueError('implicit web.xml includes need analysis support before this check can run')
-            if name == 'is-xml' and (element.text or '').strip() in ('true', '1'):
-                raise ValueError('XML JSP configuration in web.xml needs analysis support before this check can run')
+        check_web_xml(descriptor)
     texts = {p: p.read_bytes().decode('latin1') for p in webapp.rglob('*')
              if p.suffix in ('.jsp', '.jspf', '.jspx', '.tag', '.tagf', '.tagx')}
     if not texts:

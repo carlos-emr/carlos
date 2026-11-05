@@ -21,7 +21,10 @@ class Directives(unittest.TestCase):
             for name, text in pages.items():
                 target = root/name
                 target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_text(text)
+                if isinstance(text, bytes):
+                    target.write_bytes(text)
+                else:
+                    target.write_text(text)
             index = checker.ClassIndex()
             for name in classes:
                 index.add(name)
@@ -149,6 +152,33 @@ class Directives(unittest.TestCase):
     def test_malformed_web_xml_fails_closed(self):
         with self.assertRaisesRegex(ValueError, 'cannot parse JSP configuration'):
             self.audit({'page.jsp': '', 'WEB-INF/web.xml': '<web-app><jsp-config></web-app>'})
+
+    def test_web_xml_rejects_dtds_before_entity_expansion_or_external_resolution(self):
+        documents = (
+            '<!DOCTYPE web-app><web-app/>',
+            '<!DOCTYPE web-app SYSTEM "https://example.invalid/web-app.dtd"><web-app/>',
+            '<!DOCTYPE web-app [<!ENTITY mode "false">]>'
+            '<web-app><is-xml>&mode;</is-xml></web-app>',
+            '<!DOCTYPE web-app [<!ENTITY secret SYSTEM "file:///unreadable-local-entity">]>'
+            '<web-app><is-xml>&secret;</is-xml></web-app>',
+            '<!DOCTYPE web-app [<!ENTITY % remote SYSTEM "https://example.invalid/remote.dtd">%remote;]>'
+            '<web-app/>',
+            '<!DOCTYPE web-app [<!ENTITY a "0123456789"><!ENTITY b "&a;&a;&a;&a;">'
+            '<!ENTITY c "&b;&b;&b;&b;">]><web-app><is-xml>&c;</is-xml></web-app>',
+        )
+        for document in documents:
+            for encoding in ('utf-8', 'utf-16'):
+                with self.subTest(document=document, encoding=encoding):
+                    encoded = ('<?xml version="1.0" encoding="' + encoding + '"?>' + document).encode(encoding)
+                    with self.assertRaisesRegex(ValueError, 'DTDs and entity declarations are unsupported'):
+                        self.audit({'page.jsp': '', 'WEB-INF/web.xml': encoded})
+
+    def test_web_xml_preserves_predefined_entities_character_references_and_cdata(self):
+        self.assertEqual(self.audit({'page.jsp': '', 'WEB-INF/web.xml':
+            '<web-app><display-name>A &amp; B</display-name><is-xml>&#102;alse</is-xml></web-app>'}), [])
+        with self.assertRaisesRegex(ValueError, 'XML JSP configuration'):
+            self.audit({'page.jsp': '', 'WEB-INF/web.xml':
+                '<web-app><is-xml><![CDATA[true]]></is-xml></web-app>'})
 
     def test_xml_namespace_character_references_cannot_bypass_rejection(self):
         for namespace in ('http://java.sun.com/JSP/&#80;age', 'http://java.sun.com/JSP/&#x50;age'):
