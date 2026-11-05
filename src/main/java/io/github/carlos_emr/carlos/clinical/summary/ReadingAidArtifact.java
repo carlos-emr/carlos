@@ -39,8 +39,12 @@ public final class ReadingAidArtifact {
     private static final Pattern UUID_V4 = Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}");
     private static final Pattern HEX64 = Pattern.compile("[0-9a-f]{64}");
     private static final Pattern LANGUAGE = Pattern.compile("[a-z]{2,3}(-[A-Za-z0-9]{2,8})*");
-    /** A notice version is {@code <scheme>-<language>-<n>}; the language tag must be the aid's. */
-    private static final Pattern NOTICE_VERSION = Pattern.compile("[a-z0-9-]+-([a-z]{2,3})-[0-9]+");
+    /**
+     * A notice version is {@code <scheme>-<language>-<n>}; the language tag (the lower-case primary
+     * subtag, before an upper-case two-letter region such as {@code carlos-5537-pt-BR-1}) must be the
+     * aid's primary subtag.
+     */
+    private static final Pattern NOTICE_VERSION = Pattern.compile("[a-z0-9-]+-([a-z]{2,3})(?:-[A-Z]{2})?-[0-9]+");
     /** The contract's lifetime bound for a pair: at most seven days from created_at to expires_at. */
     public static final long MAX_LIFETIME_SECONDS = 7L * 24 * 60 * 60;
     private static final Base64.Encoder B64URL = Base64.getUrlEncoder().withoutPadding();

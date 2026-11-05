@@ -57,8 +57,47 @@ public final class DocumentSummaryReviewBinding {
             + "Communiquez avec votre clinique si quelque chose n’est pas clair ou diffère de l’original. "
             + "En cas de problème médical urgent, communiquez avec les services d’urgence appropriés; "
             + "ne vous fiez pas à ce résumé.";
+    /**
+     * The Spanish, Polish and Brazilian Portuguese patient notices (4 Nov 2026): the same reviewed
+     * meaning as the English and French text, written out in full, each its own versioned constant
+     * set. "Health professional" is profesional de la salud, pracownik ochrony zdrowia and
+     * profissional de saúde; Polish says przychodnia for the clinic, never klinika.
+     */
+    public static final String NOTICE_VERSION_ES = "carlos-5537-es-1";
+    public static final String NOTICE_VERSION_PL = "carlos-5537-pl-1";
+    public static final String NOTICE_VERSION_PT_BR = "carlos-5537-pt-BR-1";
+    private static final String NOTICE_HEADING_ES = "Ayuda de lectura generada por IA — abra el documento original";
+    private static final String NOTICE_BODY_ES =
+            "Este resumen opcional fue generado por inteligencia artificial a partir del documento vinculado. "
+            + "Puede contener afirmaciones incorrectas o engañosas, u omitir información importante, "
+            + "incluida la relativa a medicamentos, dosis y resultados de pruebas.\n\n"
+            + "No sustituye al documento original ni las indicaciones de su equipo de atención médica. Abra el "
+            + "documento original para obtener la información completa. No inicie, suspenda, cambie ni retrase "
+            + "un tratamiento basándose únicamente en este resumen. Comuníquese con su clínica si algo no está "
+            + "claro o difiere del original. Ante un problema médico urgente, comuníquese con los servicios de "
+            + "urgencias correspondientes; no confíe en este resumen.";
+    private static final String NOTICE_HEADING_PL = "Pomoc w czytaniu wygenerowana przez AI — proszę otworzyć oryginalny dokument";
+    private static final String NOTICE_BODY_PL =
+            "To opcjonalne streszczenie zostało wygenerowane przez sztuczną inteligencję na podstawie "
+            + "powiązanego dokumentu. Może zawierać nieprawidłowe lub wprowadzające w błąd stwierdzenia albo "
+            + "pomijać ważne informacje, w tym dotyczące leków, dawek i wyników badań.\n\n"
+            + "Nie zastępuje oryginalnego dokumentu ani zaleceń zespołu opieki zdrowotnej. Proszę otworzyć "
+            + "oryginalny dokument, aby uzyskać pełne informacje. Nie należy rozpoczynać, przerywać, zmieniać "
+            + "ani odkładać leczenia wyłącznie na podstawie tego streszczenia. Jeśli coś jest niejasne lub "
+            + "różni się od oryginału, proszę skontaktować się z przychodnią. W nagłych problemach zdrowotnych "
+            + "proszę skontaktować się z odpowiednimi służbami ratunkowymi; nie należy polegać na tym streszczeniu.";
+    private static final String NOTICE_HEADING_PT_BR = "Auxílio de leitura gerado por IA — abra o documento original";
+    private static final String NOTICE_BODY_PT_BR =
+            "Este resumo opcional foi gerado por inteligência artificial a partir do documento vinculado. "
+            + "Ele pode conter afirmações incorretas ou enganosas, ou deixar de fora informações importantes, "
+            + "inclusive sobre medicamentos, doses e resultados de exames.\n\n"
+            + "Ele não substitui o documento original nem as orientações da sua equipe de saúde. Abra o "
+            + "documento original para obter as informações completas. Não comece, interrompa, altere nem "
+            + "adie um tratamento com base somente neste resumo. Entre em contato com a sua clínica se algo "
+            + "não estiver claro ou for diferente do original. Em caso de problema médico urgente, procure "
+            + "os serviços de urgência ou emergência apropriados; não confie neste resumo.";
     /** The languages a reviewed notice exists in. */
-    public static final Set<String> NOTICE_LANGUAGES = Set.of("en", "fr");
+    public static final Set<String> NOTICE_LANGUAGES = Set.of("en", "fr", "es", "pl", "pt-BR");
     private final Clock clock;
 
     public DocumentSummaryReviewBinding() { this(Clock.systemUTC()); }
@@ -233,7 +272,7 @@ public final class DocumentSummaryReviewBinding {
         Objects.requireNonNull(source);
         Objects.requireNonNull(summary);
         label(modelIdentity, 240);
-        // Only a reviewed, versioned notice ships: English and French. Never an automatic translation.
+        // Only a reviewed, versioned notice ships: English, French, Spanish, Polish and Brazilian Portuguese. Never an automatic translation.
         if (!NOTICE_LANGUAGES.contains(language)) throw new IllegalArgumentException("Reviewed notice is unavailable for this language.");
         if (source.extraction.text().isBlank()) {
             throw new IllegalStateException("Readable source text is required for review.");
@@ -299,9 +338,7 @@ public final class DocumentSummaryReviewBinding {
         public boolean extractionComplete() { return draft.extractionComplete(); }
         public String extractionDisclosure() { return draft.extractionDisclosure(); }
         public String patientNotice() {
-            return "fr".equals(draft.language)
-                    ? notice("fr", "révisé par le professionnel de la santé " + reviewerName + " le " + reviewedAt)
-                    : notice("en", "Reviewed by clinician " + reviewerName + " on " + reviewedAt);
+            return notice(known(draft.language), reviewed(draft.language, reviewerName, reviewedAt));
         }
 
         /** Future send callers must freshly authorize/load both inputs; this does not authorize sending. */
@@ -349,32 +386,97 @@ public final class DocumentSummaryReviewBinding {
 
     /** The unreviewed notice in a notice language; any other value renders English. */
     public static String unreviewedNotice(String language) {
-        return "fr".equals(language) ? notice("fr", "révision non confirmée") : notice("en", "Review not confirmed");
+        String known = known(language);
+        return notice(known, unconfirmed(known));
     }
+
+    /** The patient notice's language for a record: {@link #noticeLanguage(String, String)} with no spoken language. */
+    public static String noticeLanguage(String officialLanguage) { return noticeLanguage(officialLanguage, null); }
 
     /**
-     * The notice language for a patient record's official language ("English"/"French", also the
-     * import codes and tags such as "fr-CA"): French when it says French, English otherwise. The
-     * sender cannot choose it per send.
+     * The notice language for a patient record ("en", "fr", "es", "pl" or "pt-BR"). French when the
+     * official language says French (the values "English"/"French", the import codes and tags such as
+     * "fr-CA"); otherwise the spoken language on file when it names Spanish, Polish or Portuguese;
+     * English for everything else. Exact tokens only, never a prefix match ("Frisian", "free text",
+     * "Spanglish" are English). Portuguese of any region gets the Brazilian Portuguese notice, the only
+     * one reviewed. The sender cannot choose it per send, and neither can the browser.
      */
-    public static String noticeLanguage(String officialLanguage) {
-        if (officialLanguage == null) return "en";
-        String value = officialLanguage.strip().toLowerCase(java.util.Locale.ROOT);
-        // Exact tokens only: "fr", "fre", "fra", "fr-CA"/"fr_CA", "french", "français", "francais";
-        // never a value that merely starts with "fr" ("Frisian", "free text").
-        return value.matches("fr|fre|fra|fr[-_][a-z0-9]{2,8}|french|français|francais") ? "fr" : "en";
+    public static String noticeLanguage(String officialLanguage, String spokenLanguage) {
+        if (matches(officialLanguage, "fr|fre|fra|fr[-_][a-z0-9]{2,8}|french|français|francais")) return "fr";
+        if (matches(spokenLanguage, "es|spa|es[-_][a-z0-9]{2,8}|spanish|spanish; castilian|castilian|español|espanol|castellano")) return "es";
+        if (matches(spokenLanguage, "pl|pol|pl[-_][a-z0-9]{2,8}|polish|polski")) return "pl";
+        if (matches(spokenLanguage, "pt|por|pt[-_][a-z0-9]{2,8}|portuguese|português|portugues|brazilian portuguese")) return "pt-BR";
+        return "en";
     }
 
-    public static String noticeVersion(String language) { return "fr".equals(language) ? NOTICE_VERSION_FR : NOTICE_VERSION; }
-    /** The notice heading in a notice language; any other value renders English. */
-    public static String noticeHeading(String language) { return "fr".equals(language) ? NOTICE_HEADING_FR : NOTICE_HEADING; }
-    /** The notice body in a notice language; any other value renders English. */
-    public static String noticeBody(String language) { return "fr".equals(language) ? NOTICE_BODY_FR : NOTICE_BODY; }
+    private static boolean matches(String value, String tokens) {
+        if (value == null) return false;
+        // Tolerate the list's "^" mark for a preferred entry and surrounding space; nothing else.
+        // NFC first, so "Español" typed with a combining tilde matches the same as the precomposed form.
+        String composed = java.text.Normalizer.normalize(value.strip(), java.text.Normalizer.Form.NFC);
+        return composed.replaceFirst("^\\^", "").toLowerCase(java.util.Locale.ROOT).matches(tokens);
+    }
+
+    private static String known(String language) { return language != null && NOTICE_LANGUAGES.contains(language) ? language : "en"; }
+
+    public static String noticeVersion(String language) {
+        return switch (known(language)) {
+            case "fr" -> NOTICE_VERSION_FR;
+            case "es" -> NOTICE_VERSION_ES;
+            case "pl" -> NOTICE_VERSION_PL;
+            case "pt-BR" -> NOTICE_VERSION_PT_BR;
+            default -> NOTICE_VERSION;
+        };
+    }
+    public static String noticeHeading(String language) {
+        return switch (known(language)) {
+            case "fr" -> NOTICE_HEADING_FR;
+            case "es" -> NOTICE_HEADING_ES;
+            case "pl" -> NOTICE_HEADING_PL;
+            case "pt-BR" -> NOTICE_HEADING_PT_BR;
+            default -> NOTICE_HEADING;
+        };
+    }
+    public static String noticeBody(String language) {
+        return switch (known(language)) {
+            case "fr" -> NOTICE_BODY_FR;
+            case "es" -> NOTICE_BODY_ES;
+            case "pl" -> NOTICE_BODY_PL;
+            case "pt-BR" -> NOTICE_BODY_PT_BR;
+            default -> NOTICE_BODY;
+        };
+    }
+    private static String statusLabel(String language) {
+        return switch (known(language)) {
+            case "fr" -> "\nStatut de la révision : ";
+            case "es" -> "\nEstado de la revisión: ";
+            case "pl" -> "\nStatus weryfikacji: ";
+            case "pt-BR" -> "\nSituação da revisão: ";
+            default -> "\nReview status: ";
+        };
+    }
+    private static String unconfirmed(String language) {
+        return switch (known(language)) {
+            case "fr" -> "révision non confirmée";
+            case "es" -> "revisión sin confirmar";
+            case "pl" -> "weryfikacja niepotwierdzona";
+            case "pt-BR" -> "revisão não confirmada";
+            default -> "Review not confirmed";
+        };
+    }
+    private static String reviewed(String language, String reviewer, Instant at) {
+        return switch (known(language)) {
+            case "fr" -> "révisé par le professionnel de la santé " + reviewer + " le " + at;
+            case "es" -> "revisado por el profesional de la salud " + reviewer + " el " + at;
+            case "pl" -> "zweryfikowano przez pracownika ochrony zdrowia " + reviewer + " w dniu " + at;
+            case "pt-BR" -> "revisado pelo profissional de saúde " + reviewer + " em " + at;
+            default -> "Reviewed by clinician " + reviewer + " on " + at;
+        };
+    }
 
     /** One language per notice: heading, status line and body all from the same set. */
     private static String notice(String language, String reviewStatus) {
-        String label = "fr".equals(language) ? "\nStatut de la révision : " : "\nReview status: ";
-        return noticeHeading(language) + label + reviewStatus + "\n\n" + noticeBody(language);
+        return noticeHeading(language) + statusLabel(language) + reviewStatus + "\n\n" + noticeBody(language);
     }
 
     private static String hash(byte[] bytes) { return HexFormat.of().formatHex(digest().digest(bytes)); }

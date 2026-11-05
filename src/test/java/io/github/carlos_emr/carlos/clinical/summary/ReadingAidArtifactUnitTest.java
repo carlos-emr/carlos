@@ -195,11 +195,33 @@ class ReadingAidArtifactUnitTest {
     }
 
     @Test
+    void spanishPolishAndPortugueseApprovalsGiveTheirOwnNoticeAndVersion() throws Exception {
+        for (String[] c : new String[][]{{"es", "carlos-5537-es-1"}, {"pl", "carlos-5537-pl-1"}, {"pt-BR", "carlos-5537-pt-BR-1"}}) {
+            var artifact = ReadingAidArtifact.of(approval(summary(VECTORS.get("reading_aid")), c[0]), ORIGINAL, "apr-FAKE0003-" + c[0].toLowerCase());
+            assertThat(artifact.language()).as(c[0]).isEqualTo(c[0]);
+            JsonNode json = ClinicalSummaryAgentProtocol.JSON.readTree(artifact.json());
+            assertThat(json.get("language").asText()).isEqualTo(c[0]);
+            assertThat(json.get("notice").get("version").asText()).isEqualTo(c[1])
+                    .isEqualTo(DocumentSummaryReviewBinding.noticeVersion(c[0]));
+            assertThat(json.get("notice").get("heading").asText()).isEqualTo(DocumentSummaryReviewBinding.noticeHeading(c[0]))
+                    .isNotEqualTo(DocumentSummaryReviewBinding.noticeHeading("en"));
+            assertThat(json.get("notice").get("body").asText()).isEqualTo(DocumentSummaryReviewBinding.noticeBody(c[0]))
+                    .isNotEqualTo(DocumentSummaryReviewBinding.noticeBody("en"));
+            JsonNode v = VECTORS.get("manifest_claims");
+            var pair = new ReadingAidArtifact.Pair(v.get("pair").get("pair_id").asText(), v.get("pair").get("original_delivery_id").asText());
+            Map<String, Object> claims = artifact.manifestClaims(pair, routing(v), v.get("created_at").asLong(), v.get("expires_at").asLong(), "k");
+            @SuppressWarnings("unchecked") Map<String, Object> aidClaim = (Map<String, Object>) claims.get("reading_aid");
+            assertThat(aidClaim).containsEntry("language", c[0]).containsEntry("notice_version", c[1]);
+        }
+    }
+
+    @Test
     void refusesALanguageWithoutAPatientNoticeAndALifetimeBeyondSevenDays() {
-        // English and French have a notice; the review binding refuses a draft in any other language,
-        // so no such approval can exist, and the artifact's own check of the notice tag against the
-        // language is a guard for the day a notice version and its language drift apart.
-        assertThatThrownBy(() -> approval(summary(VECTORS.get("reading_aid")), "es"))
+        // English, French, Spanish, Polish and Brazilian Portuguese have a notice; the review binding
+        // refuses a draft in any other language, so no such approval can exist, and the artifact's own
+        // check of the notice tag against the language is a guard for the day a notice version and its
+        // language drift apart.
+        assertThatThrownBy(() -> approval(summary(VECTORS.get("reading_aid")), "de"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("language");
         var artifact = ReadingAidArtifact.of(approval(summary(VECTORS.get("reading_aid"))), ORIGINAL, "apr-1");
         JsonNode v = VECTORS.get("manifest_claims");
@@ -255,6 +277,21 @@ class ReadingAidArtifactUnitTest {
         assertThat(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION)).isEqualTo("en");
         assertThat(ReadingAidArtifact.noticeLanguage("clinic-notice-fr-12")).isEqualTo("fr");
         assertThat(ReadingAidArtifact.noticeLanguage("x-yue-3")).isEqualTo("yue");
+        // A region follows the primary subtag, upper case and two letters, and is not part of the tag.
+        assertThat(ReadingAidArtifact.noticeLanguage("carlos-5537-pt-BR-1")).isEqualTo("pt");
+        assertThat(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION_PT_BR)).isEqualTo("pt");
+        assertThat(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION_ES)).isEqualTo("es");
+        assertThat(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.NOTICE_VERSION_PL)).isEqualTo("pl");
+        // A lower-case "br" is a language of its own, not a region: scheme "carlos-5537-pt", tag "br".
+        assertThat(ReadingAidArtifact.noticeLanguage("carlos-5537-pt-br-1")).isEqualTo("br");
+        // So a pt-BR aid carrying that version fails the equality with its primary subtag "pt": the
+        // tag reads "br" (Breton), never "pt". (of() derives the version from the language, so the
+        // mismatch cannot be built through the public API; this is the guard's own comparison.)
+        assertThat("pt-BR".split("-", 2)[0]).isNotEqualTo(ReadingAidArtifact.noticeLanguage("carlos-5537-pt-br-1"));
+        assertThat("pt-BR".split("-", 2)[0]).isEqualTo(ReadingAidArtifact.noticeLanguage(DocumentSummaryReviewBinding.noticeVersion("pt-BR")));
+        for (String bad : List.of("carlos-5537-pt-BRA-1", "carlos-5537-pt-B-1", "carlos-5537-PT-1")) {
+            assertThat(ReadingAidArtifact.noticeLanguage(bad)).as(bad).isNull();
+        }
         for (String bad : List.of("carlos-5537-1", "carlos-5537-en", "CARLOS-5537-en-1", "en-1", "", "carlos-5537-english-1")) {
             assertThat(ReadingAidArtifact.noticeLanguage(bad)).as(bad).isNull();
         }
