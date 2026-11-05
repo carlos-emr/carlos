@@ -45,9 +45,9 @@
 --%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
 <%@ taglib prefix="s" uri="/struts-tags" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message key="oscarResearch.oscarDxResearch.dxCustomization.issueList" var="i18nIssueList"/>
 <fmt:message key="global.disease" var="i18nDiseaseRegistry"/>

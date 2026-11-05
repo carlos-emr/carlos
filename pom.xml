@@ -82,7 +82,7 @@
             justification comment. The procedure for adding or dropping an entry is in
             docs/static-analysis-workflows.md ("SonarCloud path-traversal exclusions").
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,s2083BillingsMSPDocumentTeleplanReportUploadServlet,s2083BillingsBcMSPDocumentTeleplanReportUploadServlet,s2083GenTa2Action,s2083TeleplanCodesManager,s2083TeleplanResponse,s2083DownloadBilling2Action,s2083ManageTeleplan2Action,s2083BillingOnRaService,s2083OhipClaimExtractService,s2083BillingDocumentErrorReportUpload2Action,s2083BillingLegacyReport2Action,s2083MoveMohFiles2Action,s2083ScheduleOfBenefitsUpload2Action,s2083CreateHRMFile,s2083Util,s2083EDoc,s2083IncomingDocUtil,s2083IncomingDocumentMutationLock,s2083IncomingDocumentPublication,s2083IncomingDocumentScratch,s2083StoredDocumentRevision,s2083AddEditDocument2Action,s2083DocumentUpload2Action,s2083ManageDocument2Action,s2083DxResearchLoadAssociations2Action,s2083EFormExportZip,s2083DelImage2Action,s2083DisplayImage2Action,s2083ManageEForm2Action,s2083HtmlUpload2Action,s2083ImageUpload2Action,s2083EFormImageViewForPdfGenerationServlet,s2083MeasurementFlowSheet,s2083EctAddMeasurementStyleSheet2Action,s2083FaxImporter,s2083FrmSetupForm2Action,s2083FrmXmlUpload2Action,s2083FrmCustomedPDFServlet,s2083FrmPDFServlet,s2083PhsStarHandler,s2083Update2Action,s2083ActionUtils,s2083Download2Action,s2083Upload2Action,s2083FileUploadCheck,s2083LabAllLabUpload2Action,s2083DefaultHandler,s2083ExcellerisOntarioHandler,s2083FHIRCommunicationRequestHandler,s2083IHAPOIHandler,s2083MEDITECHHandler,s2083PDFHandler,s2083Utilities,s2083LabBcPathNetLabUpload2Action,s2083LabOnCMLUploadLabUpload2Action,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008,mariaJdbcLegacyDates</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria>pvuSelf,s2083BillingsMSPDocumentTeleplanReportUploadServlet,s2083BillingsBcMSPDocumentTeleplanReportUploadServlet,s2083GenTa2Action,s2083TeleplanCodesManager,s2083TeleplanResponse,s2083DownloadBilling2Action,s2083ManageTeleplan2Action,s2083BillingOnRaService,s2083OhipClaimExtractService,s2083BillingDocumentErrorReportUpload2Action,s2083BillingLegacyReport2Action,s2083MoveMohFiles2Action,s2083ScheduleOfBenefitsUpload2Action,s2083CreateHRMFile,s2083Util,s2083EDoc,s2083IncomingDocUtil,s2083IncomingDocumentMutationLock,s2083IncomingDocumentPublication,s2083IncomingDocumentScratch,s2083StoredDocumentRevision,s2083AddEditDocument2Action,s2083DocumentUpload2Action,s2083ManageDocument2Action,s2083DxResearchLoadAssociations2Action,s2083EFormExportZip,s2083DelImage2Action,s2083DisplayImage2Action,s2083ManageEForm2Action,s2083HtmlUpload2Action,s2083ImageUpload2Action,s2083EFormImageViewForPdfGenerationServlet,s2083MeasurementFlowSheet,s2083EctAddMeasurementStyleSheet2Action,s2083FaxImporter,s2083FrmSetupForm2Action,s2083FrmXmlUpload2Action,s2083FrmCustomedPDFServlet,s2083FrmPDFServlet,s2083PhsStarHandler,s2083Update2Action,s2083ActionUtils,s2083Download2Action,s2083Upload2Action,s2083FileUploadCheck,s2083LabAllLabUpload2Action,s2083DefaultHandler,s2083ExcellerisOntarioHandler,s2083FHIRCommunicationRequestHandler,s2083IHAPOIHandler,s2083MEDITECHHandler,s2083PDFHandler,s2083Utilities,s2083LabBcPathNetLabUpload2Action,s2083LabOnCMLUploadLabUpload2Action,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008,jaxbCalendarS2143,jaxbDateS2143,mariaJdbcLegacyDates</sonar.issue.ignore.multicriteria>
         <!-- PathValidationUtils itself: it IS the sanitizer, so its own file operations take the unvalidated input by design -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/io/github/carlos_emr/carlos/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
@@ -287,6 +287,17 @@
              S2143 is a file-level modernization suggestion, so suppress only this rule for this adapter. -->
         <sonar.issue.ignore.multicriteria.mariaJdbcLegacyDates.ruleKey>java:S2143</sonar.issue.ignore.multicriteria.mariaJdbcLegacyDates.ruleKey>
         <sonar.issue.ignore.multicriteria.mariaJdbcLegacyDates.resourceKey>**/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java</sonar.issue.ignore.multicriteria.mariaJdbcLegacyDates.resourceKey>
+        <!--
+            These two JAXB compatibility boundaries must bind the existing Date/Calendar DTO
+            properties. Calendar.isSet also carries the legacy MOXy lexical-form contract that
+            java.time cannot represent. S2143 reports on the file, so class-level suppression
+            does not apply. Exclude only this recommendation for these two exact files; every
+            other rule and every other date/time class stays analyzed.
+        -->
+        <sonar.issue.ignore.multicriteria.jaxbCalendarS2143.ruleKey>java:S2143</sonar.issue.ignore.multicriteria.jaxbCalendarS2143.ruleKey>
+        <sonar.issue.ignore.multicriteria.jaxbCalendarS2143.resourceKey>src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapter.java</sonar.issue.ignore.multicriteria.jaxbCalendarS2143.resourceKey>
+        <sonar.issue.ignore.multicriteria.jaxbDateS2143.ruleKey>java:S2143</sonar.issue.ignore.multicriteria.jaxbDateS2143.ruleKey>
+        <sonar.issue.ignore.multicriteria.jaxbDateS2143.resourceKey>src/main/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapter.java</sonar.issue.ignore.multicriteria.jaxbDateS2143.resourceKey>
         <!-- Empty default so @{argLine} in surefire resolves even if JaCoCo prepare-agent hasn't run -->
         <argLine/>
         <!-- Extra JVM options for forked test JVMs, set with -Dtest.jvmArgs="...". Unlike
@@ -1538,20 +1549,6 @@
             <version>${hapifhir.version}</version>
         </dependency>
 
-        <!-- JAX-WS RI (used at runtime for SOAP web services) -->
-        <dependency>
-           <groupId>com.sun.xml.ws</groupId>
-           <artifactId>jaxws-ri</artifactId>
-           <version>4.0.5</version>
-           <type>pom</type>
-           <exclusions>
-                <!-- Not being used, excluded to avoid triggering security issue -->
-                <exclusion>
-                    <groupId>com.fasterxml.woodstox</groupId>
-                    <artifactId>woodstox-core</artifactId>
-                </exclusion>
-           </exclusions>
-        </dependency>
         <!-- Annotations 3.0 (@PostConstruct, @Resource, @Nonnull): Tomcat 11 always
              loads jakarta.annotation.* from its own lib/annotations-api.jar, so a WAR
              copy was dead weight. Provided, like the other container APIs above. -->
@@ -1583,6 +1580,18 @@
         <dependency>
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
+        </dependency>
+        <!-- The former production JAXB provider is retained only as an XML compatibility oracle.
+             CXF supplies JAX-WS; Glassfish is the sole packaged JAXB implementation (#5476).
+             Declared after jaxb-runtime on purpose: both jars register a
+             jakarta.xml.bind.JAXBContextFactory service, and ServiceLoader takes the first one on
+             the class path, so this order is what keeps Glassfish the discovered provider in
+             surefire, IDE runners and ad hoc mvn goals alike. JaxbProviderDiscoveryUnitTest pins it. -->
+        <dependency>
+            <groupId>org.eclipse.persistence</groupId>
+            <artifactId>org.eclipse.persistence.moxy</artifactId>
+            <version>5.0.0</version>
+            <scope>test</scope>
         </dependency>
 
         <!-- ==================== Web Framework (Struts) ==================== -->
@@ -2015,6 +2024,11 @@
                          encoding (sun.jnu.encoding) from the locale and it cannot be overridden
                          by a system property, so under a POSIX/C shell non-ASCII document names
                          fail with InvalidPathException in tests but never in production. -->
+                    <!-- MOXy is a test oracle only; ordinary JAXB calls exercise production Glassfish
+                         because jaxb-runtime is declared before MOXy (JaxbProviderDiscoveryUnitTest).
+                         Do not force it with a jakarta.xml.bind.JAXBContextFactory system property:
+                         ContextFinder then forwards a caller's own JAXBContextFactory map entry to the
+                         provider, which rejects it (RestJaxbContextUnitTest selects providers that way). -->
                     <environmentVariables>
                         <LANG>C.UTF-8</LANG>
                         <LC_ALL>C.UTF-8</LC_ALL>

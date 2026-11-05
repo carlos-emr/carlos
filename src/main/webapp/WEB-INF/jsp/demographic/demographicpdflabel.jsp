@@ -60,7 +60,7 @@
     }
 %>
 <%@ page
-        import="java.util.*, java.sql.*, java.net.*,java.text.DecimalFormat, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
+        import="java.util.*, java.text.DecimalFormat, io.github.carlos_emr.*, io.github.carlos_emr.carlos.demographic.data.ProvinceNames, io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao" %>

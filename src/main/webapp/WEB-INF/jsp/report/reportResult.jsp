@@ -1,5 +1,5 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -18,7 +18,9 @@
     if (request.getParameter("submit") != null && request.getParameter("submit").equals("Report in CSV")) {
         if (true) {
             out.clearBuffer();
-            request.getRequestDispatcher("reportDownload").include(request, response); //forward request&response to the target page
+            // This JSP lives below WEB-INF; use the registered servlet name so relocation and
+            // the Struts URL mapper cannot turn the authenticated CSV export into a 404.
+            request.getServletContext().getNamedDispatcher("reportDownload").forward(request, response);
             return;
         }
     }
@@ -26,7 +28,7 @@
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
          import="java.util.*, io.github.carlos_emr.carlos.report.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.report.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportConfigData" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportCreator" %>
 <%@ page import="io.github.carlos_emr.carlos.report.data.RptReportItem" %>

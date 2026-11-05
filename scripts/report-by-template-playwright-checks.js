@@ -291,6 +291,8 @@ async function workflow(s) {
     await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Result report (write)');
     await frame.locator('.alert-danger', {hasText: 'Only SELECT statements are allowed'}).waitFor();
     h.assert(await frame.locator('table#report2').count() === 0, 'A write statement produced a result table');
+    h.assert(await frame.locator('input[name="csv"],input[name="getCSV"],input[name="getXLS"]').count() === 0,
+      'A refused query offered an empty export');
     h.assert(JSON.stringify([templateRow(writeId), templateRow()]) === before,
       'Running the write-statement template changed the database');
     await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (write)');
@@ -302,6 +304,20 @@ async function workflow(s) {
     await openFromLibrary(deleteTitle, deleteId);
     await deleteFromConfiguration(deleteId, deleteTitle);
     h.assert(templateRow().length === 1, 'Deleting one template removed another');
+  });
+
+  await s.step('oversized template results show their limit and offer no empty export', async () => {
+    const limitTitle = `${s.marker} RBT limit`;
+    const select = "SELECT REPEAT('x', 5242881) AS synthetic_limit";
+    const id = await uploadTemplate(templateXml(limitTitle, `${s.marker} limit probe`, select), limitTitle);
+    await openFromLibrary(limitTitle, id);
+    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Result report (limit)');
+    await frame.locator('.alert-danger', {hasText: 'Please narrow your search criteria.'}).waitFor();
+    h.assert(await frame.locator('input[name="getCSV"],input[name="getXLS"]').count() === 0,
+      'An oversized result offered an empty export');
+    h.assert(await frame.locator('table#report2').count() === 0, 'An oversized result rendered partial rows');
+    await frame.locator('input[type="submit"][value="Run Query"]').waitFor();
+    await deleteFromConfiguration(id, limitTitle);
   });
 
   // Last: saving XML that carries <param> through the front door was refused by the WAF before
@@ -356,7 +372,7 @@ async function workflow(s) {
       await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), `${budget} budget refusal`);
       await frame.locator('.alert-danger', {hasText: 'Please narrow your search criteria.'}).waitFor();
       h.assert(await frame.locator('table#report2').count() === 0, 'An oversized report exposed partial result rows');
-      h.assert(await frame.locator('input[name="csv"], input[name="getCSV"]').count() === 0,
+      h.assert(await frame.locator('input[name="csv"], input[name="getCSV"], input[name="getXLS"]').count() === 0,
         'An oversized report exposed a CSV download');
       await deleteFromConfiguration(id, budgetTitle);
     });

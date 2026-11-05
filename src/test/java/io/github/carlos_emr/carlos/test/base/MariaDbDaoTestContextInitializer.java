@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.test.base;
 
 import io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect;
+import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -86,7 +87,8 @@ public class MariaDbDaoTestContextInitializer
         }
         context.addBeanFactoryPostProcessor(factory -> {
             factory.getBeanDefinition("dataSource").getPropertyValues()
-                    .add("driverClassName", "org.mariadb.jdbc.Driver")
+                    // Exercise production's JDBC conversion and report-streaming contract.
+                    .add("driverClassName", MariaDbCompatibilityDriver.class.getName())
                     .add("url", jdbcUrl)
                     .add("username", credentials.getProperty("user"))
                     .add("password", credentials.getProperty("password"))

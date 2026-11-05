@@ -24711,15 +24711,9 @@
    "reportgroup"
   ],
   "reportConfig": [
-   "order_no",
    "report_id"
   ],
   "reportFilter": [
-   "order_no",
-   "report_id",
-   "status"
-  ],
-  "reportItem": [
    "status"
   ],
   "reportTemplates": [
@@ -58956,15 +58950,9 @@
      "reportgroup"
     ],
     "reportConfig": [
-     "order_no",
      "report_id"
     ],
     "reportFilter": [
-     "order_no",
-     "report_id",
-     "status"
-    ],
-    "reportItem": [
      "status"
     ],
     "reportTemplates": [

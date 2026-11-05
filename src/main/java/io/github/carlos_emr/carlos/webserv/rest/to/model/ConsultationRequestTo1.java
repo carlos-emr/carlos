@@ -31,7 +31,7 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.io.Serializable;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -81,7 +81,7 @@ public class ConsultationRequestTo1 implements Serializable {
     private String letterheadAddress;
     private String letterheadPhone;
     private String letterheadFax;
-    private List<ConsultationAttachmentTo1> attachments = Collections.emptyList();
+    private List<ConsultationAttachmentTo1> attachments = new ArrayList<>();
     private boolean attachmentSelectionProvided;
 
     private List<LetterheadTo1> letterheadList;
@@ -89,7 +89,7 @@ public class ConsultationRequestTo1 implements Serializable {
     private List<ConsultationServiceTo1> serviceList;
     private List<String> sendToList;
 
-    private List<ConsultationRequestExtTo1> extras = Collections.emptyList();
+    private List<ConsultationRequestExtTo1> extras = new ArrayList<>();
 
 
     public Integer getId() {
