@@ -151,6 +151,10 @@ public final class RequestNegotiation {
      * so a filter encoding a notice or a replay at the end of an already-written response must
      * not let an unusable name become that response's failure. Illegal, unsupported, empty and
      * missing names all fall back.</p>
+     *
+     * @param response ServletResponse the response whose declared character encoding is read
+     * @return Charset the declared charset when the JRE supports it, otherwise
+     *         {@link StandardCharsets#UTF_8}
      */
     public static Charset responseCharset(ServletResponse response) {
         String name = response.getCharacterEncoding();
