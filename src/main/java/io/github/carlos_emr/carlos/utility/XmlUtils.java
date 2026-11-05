@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -52,6 +53,7 @@ import javax.xml.transform.sax.SAXSource;
 
 import java.util.Base64;
 import org.apache.logging.log4j.Logger;
+import org.jdom2.JDOMException;
 import org.jdom2.input.SAXBuilder;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -95,42 +97,29 @@ public final class XmlUtils {
      * <p>Disables DOCTYPE declarations and external entity resolution to prevent XXE attacks.
      * Use this factory method instead of {@code new SAXBuilder()} throughout the codebase.
      *
-     * <p>The critical {@code disallow-doctype-decl} feature is required — an
-     * {@link IllegalStateException} is thrown if it cannot be applied so that callers
-     * never receive an unprotected parser. The remaining defense-in-depth features are
-     * applied on a best-effort basis; a warning is logged if any of them cannot be set.
+     * <p>All security features are required. JDOM defers feature application until it
+     * creates a parsing engine, so a fixed empty document is parsed here to verify the
+     * configuration and cache the engine before returning the builder. Each subsequent
+     * engine uses the same restrictions.
+     * A provider that cannot apply them causes an {@link IllegalStateException}.
      *
      * @return SAXBuilder configured with XXE protections
-     * @throws IllegalStateException if the critical disallow-doctype-decl protection cannot be enabled
+     * @throws IllegalStateException if a parsing engine with the required protections cannot be created
      */
     public static SAXBuilder createSecureSAXBuilder() {
         SAXBuilder parser = new SAXBuilder();
-        // Critical protection — fail closed if it cannot be applied
+        parser.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+        parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        parser.setExpandEntities(false);
         try {
-            parser.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        } catch (Exception ex) {
-            throw new IllegalStateException("Failed to enable required XXE protection (disallow-doctype-decl)", ex);
-        }
-        // Defense-in-depth features — warn individually if unavailable
-        try {
-            parser.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        } catch (Exception ex) {
-            logger.warn("Could not disable external-general-entities on SAXBuilder", ex);
-        }
-        try {
-            parser.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        } catch (Exception ex) {
-            logger.warn("Could not disable external-parameter-entities on SAXBuilder", ex);
-        }
-        try {
-            parser.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        } catch (Exception ex) {
-            logger.warn("Could not disable load-external-dtd on SAXBuilder", ex);
-        }
-        try {
-            parser.setExpandEntities(false);
-        } catch (Exception ex) {
-            logger.warn("Could not disable entity expansion on SAXBuilder", ex);
+            // buildEngine() alone does not cache its result. A fixed, trusted document
+            // validates the protections and lets JDOM reuse the engine for caller input.
+            parser.build(new StringReader("<root/>"));
+        } catch (JDOMException | IOException ex) {
+            throw new IllegalStateException("Failed to configure secure JDOM XML parsing", ex);
         }
         return parser;
     }
