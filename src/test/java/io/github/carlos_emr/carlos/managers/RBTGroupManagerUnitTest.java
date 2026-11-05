@@ -18,8 +18,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -155,6 +158,18 @@ class RBTGroupManagerUnitTest extends CarlosUnitTestBase {
         allowAdminWrite();
 
         manager.addTemplateToGroup(mockLoggedInInfo, "\u00A0\u3000Diabetes\u00A0", 0);
+
+        assertThat(persistedGroup().getGroupName()).isEqualTo("Diabetes");
+    }
+
+    @Test
+    @DisplayName("should strip a very long whitespace run in linear time")
+    void shouldStripLongWhitespaceRun_inLinearTime() {
+        allowAdminWrite();
+        String padding = " ".repeat(300_000);
+
+        assertTimeoutPreemptively(Duration.ofSeconds(5),
+                () -> manager.addTemplateToGroup(mockLoggedInInfo, padding + "Diabetes" + padding + "\uFEFF", 0));
 
         assertThat(persistedGroup().getGroupName()).isEqualTo("Diabetes");
     }

@@ -31,7 +31,6 @@
 package io.github.carlos_emr.carlos.managers;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 import io.github.carlos_emr.carlos.commn.dao.RBTGroupDao;
 import io.github.carlos_emr.carlos.commn.model.RBTGroup;
@@ -45,9 +44,6 @@ public class RBTGroupManager {
 
     /** Length of the {@code rbt_groups.group_name} column (varchar(255)), counted in Unicode code points. */
     public static final int MAX_GROUP_NAME_LENGTH = 255;
-
-    /** Leading/trailing whitespace as JavaScript's {@code String.trim()} defines it. */
-    private static final Pattern EDGE_WHITESPACE = Pattern.compile("^[\\s\\p{Z}\\uFEFF]+|[\\s\\p{Z}\\uFEFF]+$");
 
     @Autowired
     private RBTGroupDao rbtGroupDao;
@@ -94,7 +90,7 @@ public class RBTGroupManager {
         // Not String.trim()/strip(): trim() ignores Unicode spaces and strip() leaves no-break spaces
         // (NBSP) alone, while the page's JavaScript trim() removes both. Matching the browser keeps a
         // label the page treats as blank from being stored as an invisible group.
-        groupName = EDGE_WHITESPACE.matcher(groupName).replaceAll("");
+        groupName = stripEdgeWhitespace(groupName);
         if (groupName.isEmpty()) {
             throw new IllegalArgumentException("Report by Template group name is required");
         }
@@ -166,6 +162,31 @@ public class RBTGroupManager {
         }
 
         return rbtGroupDao.getByGroupName(groupName);
+    }
+
+    /**
+     * Removes leading and trailing whitespace the way JavaScript's {@code String.trim()} does.
+     *
+     * <p>Not {@code String.trim()}/{@code strip()} (they miss Unicode spaces / no-break spaces) and not
+     * a regular expression: the input is an unbounded request parameter, and an anchored
+     * {@code [\s...]+$} pattern is quadratic on a long run of spaces followed by another character.
+     * This is a single linear scan.</p>
+     */
+    private static String stripEdgeWhitespace(String text) {
+        int start = 0;
+        int end = text.length();
+        while (start < end && isEdgeWhitespace(text.charAt(start))) {
+            start++;
+        }
+        while (end > start && isEdgeWhitespace(text.charAt(end - 1))) {
+            end--;
+        }
+        return text.substring(start, end);
+    }
+
+    private static boolean isEdgeWhitespace(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\f' || c == '\r'
+                || Character.isSpaceChar(c) || c == '\uFEFF';
     }
 
 }
