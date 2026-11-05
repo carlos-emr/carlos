@@ -45,7 +45,7 @@ public class AppointmentTo1 implements Serializable {
 
     private String editVersion;
 
-    /** Echo the token from the last read; omitting it cannot authorize an unconditional update. */
+    /** Echo the last read token to detect conflicts; null or blank retains legacy last-writer-wins updates. */
     public String getEditVersion() {
         return editVersion;
     }

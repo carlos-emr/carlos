@@ -44,15 +44,15 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="java.util.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%

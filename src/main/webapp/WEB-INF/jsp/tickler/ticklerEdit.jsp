@@ -69,7 +69,7 @@
 <%@page import="java.util.Locale" %>
 <%@page import="java.text.DateFormat" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -94,7 +94,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib prefix="e" uri="owasp.encoder.jakarta.advanced" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%

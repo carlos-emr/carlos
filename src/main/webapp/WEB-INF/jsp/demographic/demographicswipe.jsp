@@ -46,7 +46,7 @@
     }
 %>
 
-<%@page import="java.util.Date" %>
+
 <%@page import="io.github.carlos_emr.carlos.integration.mchcv.HCMagneticStripe" %>
 <%@page import="io.github.carlos_emr.carlos.integration.mchcv.HCValidationResult" %>
 

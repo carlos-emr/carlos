@@ -24,6 +24,8 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -57,7 +59,7 @@ class SQLReporterCsvUnitTest extends CarlosUnitTestBase {
              MockedConstruction<ReportManager> managers = mockConstruction(ReportManager.class,
                      (manager, context) -> when(manager.getReportTemplateNoParam("1")).thenReturn(report));
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class))).thenReturn(rows);
+            jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong())).thenReturn(rows);
 
             assertThat(new SQLReporter().generateReport(request)).isTrue();
             String csv = (String) request.getAttribute(sequenced ? "csv-0" : "csv");

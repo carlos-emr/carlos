@@ -37,6 +37,21 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.ReportConfig;
 
 public interface ReportConfigDao extends AbstractDao<ReportConfig> {
+    /** Ordered configuration, including shadow fields, for a saved report. */
+    List<ReportConfig> findByReportIdAndSave(int reportId, String save);
+
+    /** All configured fields in report order. */
+    List<ReportConfig> findByReportId(int reportId);
+
+    /** Distinct configured table names, descending as required by report joins. */
+    List<String> findTableNames(int reportId);
+
+    /** Form tables only, ascending as required by the configuration editor. */
+    List<String> findFormTableNames(int reportId);
+
+    /** The next order across all saved variants; an empty report starts at one. */
+    int nextOrder(int reportId);
+
     List<ReportConfig> findByReportIdAndNameAndCaptionAndTableNameAndSave(int reportId, String name, String caption, String tableName, String save);
 
     List<ReportConfig> findByReportIdAndSaveAndGtOrderNo(int reportId, String save, int orderNo);

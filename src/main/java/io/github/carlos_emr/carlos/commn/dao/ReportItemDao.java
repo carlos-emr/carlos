@@ -35,4 +35,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.ReportItem;
 
 public interface ReportItemDao extends AbstractDao<ReportItem> {
+    /** Reports with the requested active/deleted status, in identifier order. */
+    java.util.List<ReportItem> findByStatus(int status);
 }

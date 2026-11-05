@@ -30,7 +30,7 @@
 --%>
 <!DOCTYPE HTML>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
     boolean authed = true;
@@ -49,7 +49,7 @@
 
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib prefix="c" uri="jakarta.tags.core" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
