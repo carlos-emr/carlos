@@ -432,6 +432,8 @@
                 font-size: 11px;
             }
 
+            .tickler-date-picker { background: none; border: 0; padding: 0; font: 11px tahoma, sans-serif; color: #0000ee; text-decoration: underline; cursor: pointer; }
+
             TD.black {
                 font-weight: bold;
                 font-size: 8pt;
@@ -802,15 +804,13 @@
                 <td width="30%">
                     <div align="center"><input type="text" name="xml_vdate"
                                                value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"> <font size="1"
-                                                                             face="Arial, Helvetica, sans-serif"> <a
-                            href="#"
-                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
+                                                                             face="Arial, Helvetica, sans-serif"> <button type="button" class="tickler-date-picker"
+                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</button></font></div>
                 </td>
                 <td width="30%"><input type="text" name="xml_appointment_date"
                                        value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"> <font size="1"
-                                                                                face="Arial, Helvetica, sans-serif"><a
-                        href="#"
-                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
+                                                                                face="Arial, Helvetica, sans-serif"><button type="button" class="tickler-date-picker"
+                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</button></font></td>
                 <td width="20%">
                     <div align="right"><input type="hidden" name="demoview"
                                               value="<carlos:encode value='<%= demoview %>' context="htmlAttribute"/>"> <input type="hidden" name="Submit"

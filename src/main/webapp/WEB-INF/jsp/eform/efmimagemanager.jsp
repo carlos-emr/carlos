@@ -194,8 +194,8 @@
             </td>
 
             <td>
-                <a href="javascript:void(0);" onclick="deleteImg('<carlos:encode value='<%= curimage %>' context="javaScriptAttribute"/>');"
-                   class="contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></a>
+                <button type="button" onclick="deleteImg('<carlos:encode value='<%= curimage %>' context="javaScriptAttribute"/>');"
+                   class="btn btn-link p-0 border-0 align-baseline contentLink"><fmt:message key="eform.uploadimages.btnDelete"/></button>
             </td>
         </tr>
         <% } %>

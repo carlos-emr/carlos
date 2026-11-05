@@ -725,8 +725,8 @@
                                        objectName="_admin,_admin.messenger" rights="r" reverse="<%=false%>">
                         <li><a href="#"
                                onclick='popupOscarRx(600,1024, "${pageContext.request.contextPath}/messenger/DisplayMessages?providerNo=<%=curProvider_no%>");return false;'><fmt:message key="admin.admin.messages"/></a></li>
-                        <li><a href="#"
-                               onclick='popupOscarRx(600,900, "${pageContext.request.contextPath}/messenger");return false;'><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
+                        <li><a href="<%=io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath())%>/messenger"
+                               onclick='popupOscarRx(600,900, "<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(request.getContextPath())%>/messenger");return false;'><fmt:message key="admin.admin.btnMessengerAdmin"/></a></li>
 
                     </security:oscarSec>
 

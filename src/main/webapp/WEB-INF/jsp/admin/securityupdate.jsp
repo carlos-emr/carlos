@@ -77,11 +77,11 @@
         <title><fmt:message key="admin.securityupdate.title"/></title>
     </head>
     <link rel="stylesheet" href="<%= request.getContextPath() %>/web.css"/>
-    <body topmargin="0" leftmargin="0" rightmargin="0">
-    <center>
-        <table border="0" cellspacing="0" cellpadding="0" width="100%">
-            <tr bgcolor="#486ebd">
-                <th align="CENTER"><font face="Helvetica" color="#FFFFFF"><fmt:message key="admin.securityupdate.description"/></font></th>
+    <body style="margin-top: 0; margin-left: 0; margin-right: 0;">
+    <div style="text-align: center;">
+        <table style="border: 0; border-spacing: 0; width: 100%;">
+            <tr style="background-color: #486ebd;">
+                <th style="padding: 0; text-align: center;"><span style="font-family: Helvetica; color: #FFFFFF;"><fmt:message key="admin.securityupdate.description"/></span></th>
             </tr>
         </table>
         <%
@@ -165,6 +165,6 @@
         </p>
         <p></p>
 
-    </center>
+    </div>
     </body>
 </html>

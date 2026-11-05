@@ -30,6 +30,7 @@
 --%>
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="org.owasp.encoder.Encode" %>
 
 <!DOCTYPE html>
 
@@ -75,7 +76,7 @@
 
         <title>MCEDT: Upload</title>
 
-        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
+        <base href="<%= Encode.forHtmlAttribute(request.getContextPath() + "/") %>">
     </head>
 
     <body>
