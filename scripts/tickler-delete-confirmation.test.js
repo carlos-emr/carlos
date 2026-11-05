@@ -86,3 +86,28 @@ for (const [page, key] of Object.entries(PAGES)) {
     });
   }
 }
+
+// A browser check that clicks the task list's Delete without answering its prompt would have the strict harness
+// dismiss the dialog, so the click changes nothing and the step times out (this is how tickler-crud was first missed).
+// Any check that drives the task-list form and selects a Delete control must go through the shared helper.
+test('every browser check that clicks the task-list Delete control answers the prompt through the shared helper', () => {
+  const scriptsDir = __dirname;
+  const DRIVES_LIST = /tickler/i;
+  const SELECTS_DELETE = /input\.btn-danger|submit_form\.value='(?:Delete|\$\{)|\[onclick\*="Delete"\]/;
+  const offenders = [];
+  const covered = [];
+  for (const name of fs.readdirSync(scriptsDir).filter(file => /-playwright-checks\.js$/.test(file))) {
+    const source = fs.readFileSync(path.join(scriptsDir, name), 'utf8');
+    if (!DRIVES_LIST.test(source) || !SELECTS_DELETE.test(source)) continue;
+    (source.includes('withTicklerConfirmations') ? covered : offenders).push(name);
+  }
+  assert.deepEqual(offenders, [], `these checks click task-list Delete without withTicklerConfirmations: ${offenders.join(', ')}`);
+  assert.deepEqual(covered.sort(), [
+    'concurrency-tickler-list-status-playwright-checks.js',
+    'tickler-bulk-actions-playwright-checks.js',
+    'tickler-crud-playwright-checks.js',
+    'tickler-demo-main-status-playwright-checks.js',
+    'tickler-main-list-lifecycle-playwright-checks.js',
+    'tickler-paged-selection-playwright-checks.js',
+  ].sort(), 'the set of checks driving the task-list Delete changed; confirm each one answers the prompt, then update this list');
+});

@@ -26,6 +26,7 @@
 const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
+const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
 const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -462,15 +463,19 @@ async function deleteTicklerFromList(page, message) {
   const selectedTicklerNo = await checkbox.getAttribute('value');
   assert(selectedTicklerNo, 'tickler delete checkbox had no tickler id');
   await checkbox.check();
-  const [deleteResponse] = await Promise.all([
-    page.waitForResponse((response) => {
-      const request = response.request();
-      return request.method() === 'POST'
-        && new URL(response.url()).pathname.endsWith('/tickler/DbTicklerMain');
-    }, { timeout: 30000 }),
-    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
-    page.locator("form[name='ticklerform'] input.btn-danger").click(),
-  ]);
+  // Delete asks for confirmation (#5683); the helper accepts the one prompt and fails if it is missing or repeated.
+  let deleteResponse;
+  await withTicklerConfirmations(page, 1, async () => {
+    [deleteResponse] = await Promise.all([
+      page.waitForResponse((response) => {
+        const request = response.request();
+        return request.method() === 'POST'
+          && new URL(response.url()).pathname.endsWith('/tickler/DbTicklerMain');
+      }, { timeout: 30000 }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
+      page.locator("form[name='ticklerform'] input.btn-danger").click(),
+    ]);
+  });
   assert(deleteResponse.status() < 400, `tickler delete returned HTTP ${deleteResponse.status()}`);
   const deleteForm = new URLSearchParams(deleteResponse.request().postData() || '');
   assert(deleteForm.getAll('checkbox').includes(selectedTicklerNo),
