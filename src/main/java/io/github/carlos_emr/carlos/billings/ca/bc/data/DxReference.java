@@ -39,7 +39,8 @@ import java.util.List;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billings.ca.bc.service.BillingDiagnosisService;
 import org.springframework.dao.DataAccessException;
-import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionException;
+import org.springframework.core.NestedExceptionUtils;
 import jakarta.persistence.PersistenceException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -67,8 +68,13 @@ public class DxReference {
 +----------+----------+----------+--------------+
      */
 
-    /*
-     * method looks in a paitnest
+    /**
+     * Returns the patient's recent distinct billing diagnoses in legacy picker order.
+     * Dates are parsed as {@code yyyyMMdd} and sorted newest first, with null or invalid
+     * dates first. Database and transaction failures produce an empty result.
+     *
+     * @param demo String patient identifier bound by the diagnosis query
+     * @return {@code List<DxCode>} containing diagnoses and nullable descriptions
      */
     @SuppressWarnings("unchecked")
     public List<DxCode> getLatestDxCodes(String demo) {
@@ -79,8 +85,11 @@ public class DxReference {
                 code.setDesc(diagnosis.description());
                 list.add(code);
             }
-        } catch (DataAccessException | PersistenceException | CannotCreateTransactionException e) {
-            _log.error("Unable to read recent billing diagnoses ({})", e.getClass().getSimpleName());
+        } catch (DataAccessException | PersistenceException | TransactionException e) {
+            // Cause types aid diagnosis without logging SQL, bound values or exception messages.
+            Throwable cause = NestedExceptionUtils.getMostSpecificCause(e);
+            _log.error("Unable to read recent billing diagnoses ({}; cause={})",
+                    e.getClass().getSimpleName(), cause.getClass().getSimpleName());
         }
         Collections.sort(list, Collections.reverseOrder());
 

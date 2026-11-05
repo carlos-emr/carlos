@@ -89,7 +89,15 @@ public class BillingmasterDAO {
     public BillingmasterDAO() {
     }
 
-    /** Values used by the diagnosis picker, preserving nullable legacy columns. */
+    /**
+     * Typed values from one of the diagnosis picker's selected bills.
+     * All components preserve nullable legacy column values and original whitespace.
+     *
+     * @param firstCode String first diagnosis code, or null
+     * @param secondCode String second diagnosis code, or null
+     * @param thirdCode String third diagnosis code, or null
+     * @param serviceDate String unparsed legacy service date, or null
+     */
     public record DiagnosisRow(String firstCode, String secondCode, String thirdCode, String serviceDate) { }
 
     /**
@@ -97,6 +105,9 @@ public class BillingmasterDAO {
      * Keep the native comparison and string binding used by the legacy query, including
      * MariaDB's handling of demographic numbers. The service owns the transaction;
      * inheriting this DAO's REQUIRES_NEW would hide the caller's uncommitted bills.
+     *
+     * @param demographicNo String patient identifier bound using legacy database comparison semantics
+     * @return {@code List<DiagnosisRow>} of up to ten non-deleted bills in descending service-date order
      */
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
     public List<DiagnosisRow> findRecentDiagnosisRows(String demographicNo) {

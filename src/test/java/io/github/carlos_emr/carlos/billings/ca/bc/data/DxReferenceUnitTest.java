@@ -8,6 +8,8 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
 import java.util.List;
 
@@ -40,6 +42,7 @@ class DxReferenceUnitTest extends CarlosUnitTestBase {
         when(service.findRecentDiagnoses("42")).thenThrow(new DataAccessResourceFailureException("synthetic failure"));
         assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
     }
+
     @Test
     void shouldReturnEmptyList_whenDatabaseTransactionCannotStart() {
         BillingDiagnosisService service = mock(BillingDiagnosisService.class);
@@ -47,6 +50,31 @@ class DxReferenceUnitTest extends CarlosUnitTestBase {
         when(service.findRecentDiagnoses("42"))
                 .thenThrow(new CannotCreateTransactionException("synthetic connection failure"));
         assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
+    }
+
+    @Test
+    void shouldReturnEmptyList_whenDatabaseTransactionCannotComplete() {
+        BillingDiagnosisService service = mock(BillingDiagnosisService.class);
+        registerMock(BillingDiagnosisService.class, service);
+        when(service.findRecentDiagnoses("42"))
+                .thenThrow(new TransactionSystemException("synthetic completion failure"));
+        assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
+    }
+
+    @Test
+    void shouldLogCauseTypeWithoutSensitiveMessages_whenPersistenceReadFails() {
+        BillingDiagnosisService service = mock(BillingDiagnosisService.class);
+        registerMock(BillingDiagnosisService.class, service);
+        when(service.findRecentDiagnoses("42")).thenThrow(new DataAccessResourceFailureException(
+                "synthetic patient payload", new IllegalStateException("synthetic query payload")));
+        try (LogCapture logs = LogCapture.forLogger(DxReference.class)) {
+            assertThat(new DxReference().getLatestDxCodes("42")).isEmpty();
+            assertThat(logs.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("DataAccessResourceFailureException", "cause=IllegalStateException"));
+            assertThat(logs.messages()).allSatisfy(message -> assertThat(message)
+                    .doesNotContain("synthetic patient payload", "synthetic query payload"));
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
     }
 
 }

@@ -20,13 +20,35 @@ public class BillingDiagnosisService {
     private final BillingmasterDAO bills;
     private final DiagnosticCodeDao codes;
 
+    /**
+     * Creates the diagnosis reader from managed persistence collaborators.
+     *
+     * @param bills BillingmasterDAO for bounded diagnosis projections
+     * @param codes DiagnosticCodeDao for existing diagnosis descriptions
+     */
     public BillingDiagnosisService(@Qualifier("billingmasterDAO") BillingmasterDAO bills, DiagnosticCodeDao codes) {
         this.bills = bills;
         this.codes = codes;
     }
 
+    /**
+     * A distinct diagnosis with the date of its first occurrence in the selected bills.
+     *
+     * @param serviceDate String unparsed legacy service date, or null
+     * @param code String nonblank diagnosis code with its original whitespace
+     * @param description String diagnosis description, or null when the code is unknown
+     */
     public record DiagnosisDto(String serviceDate, String code, String description) { }
 
+    /**
+     * Expands diagnoses from the patient's ten most recent non-deleted bills.
+     * Null and blank codes are skipped; exact duplicate codes keep their first date.
+     * Codes and dates remain untrimmed and unparsed. Results follow bill order and then
+     * diagnosis-column order, with descriptions supplied by the existing code lookup.
+     *
+     * @param demographicNo String patient identifier bound by the billing query
+     * @return {@code List<DiagnosisDto>} of distinct nonblank codes, empty when no bills match
+     */
     public List<DiagnosisDto> findRecentDiagnoses(String demographicNo) {
         List<DiagnosisDto> diagnoses = new ArrayList<>();
         Set<String> seen = new HashSet<>();

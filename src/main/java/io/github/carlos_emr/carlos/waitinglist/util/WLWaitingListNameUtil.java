@@ -99,7 +99,16 @@ public class WLWaitingListNameUtil {
         return;
     }
 
-    /** Updates the current name through the existing waiting-list DAOs. */
+    /**
+     * Updates the current name through the existing waiting-list DAOs.
+     * Invalid or missing required values leave the record unchanged.
+     *
+     * @param wlNameId String identifier of the waiting-list name to update
+     * @param wlName String replacement name
+     * @param groupNo String group used to check for a duplicate name
+     * @param providerNo String provider identifier required by the legacy validation contract
+     * @throws Exception when the proposed name already exists in the group
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     static public void updateWaitingListName(String wlNameId, String wlName, String groupNo, String providerNo)
