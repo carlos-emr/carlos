@@ -1084,6 +1084,29 @@ class LogoutBroadcastFilterUnitTest {
     }
 
     @Test
+    @DisplayName("should publish a stream length declared after the stream when no type is ever set")
+    void shouldPublishStreamLength_whenItIsDeclaredAfterTheStreamWithoutAType() throws Exception {
+        MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        byte[] body = {0, 1, -1, 42};
+
+        FilterChain chain = (servletRequest, servletResponse) -> {
+            var stream = servletResponse.getOutputStream();
+            servletResponse.setContentLength(body.length);
+            // This filter never appends to a stream, so a stream's length is published as soon
+            // as it is known, whatever the type: holding it past a flush would only lose it.
+            assertThat(response.getHeader("Content-Length")).isEqualTo(String.valueOf(body.length));
+            stream.write(body);
+        };
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getContentType()).isNull();
+        assertThat(response.getContentAsByteArray()).isEqualTo(body);
+        assertThat(response.getHeader("Content-Length")).isEqualTo(String.valueOf(body.length));
+    }
+
+    @Test
     @DisplayName("should replay deferred content length only once when output stream is used")
     void shouldReplayDeferredContentLengthOnlyOnce_whenOutputStreamIsUsed() throws Exception {
         MockHttpServletRequest request = authenticatedRequest("/provider/providercontrol");
