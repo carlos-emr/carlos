@@ -259,7 +259,7 @@
                     String specialist = (String) theRequests.vSpecialist.get(i);
                     String date     = (String) theRequests.date.get(i);
                     String urgency  = (String) theRequests.urgency.get(i);
-                    Provider cProv  = (Provider) theRequests.consultProvider.get(i);
+                    io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO cProv = theRequests.consultProvider.get(i);
 
                     // Determine i18n key for status
                     String statusKey = "";
@@ -301,7 +301,7 @@
                     </a>
                 </td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><carlos:encode value='<%= provider %>' context="html"/></td>
-                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtml(cProv.getFormattedName()) : "" %></td>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtmlContent(cProv.getLastName() + ", " + cProv.getFirstName()) : "" %></td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                     <a href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>')">
                         <carlos:encode value='<%= StringUtils.trimToEmpty(service) %>' context="html"/>

@@ -65,12 +65,13 @@ public final class FlywayRunner {
     }
 
     /**
-     * Silence one INFO line OpenTelemetry emits on first use.
+     * Silence one INFO line OpenTelemetry emits on first use when an SDK is present.
      *
-     * <p>This runner's classpath is the deployed WAR's, which carries the
-     * OpenTelemetry SDK as a transitive Flyway dependency. Merely touching the
-     * API makes GlobalOpenTelemetry announce that it found the autoconfigure
-     * SDK and is not using it:
+     * <p>This runner's classpath is the deployed WAR's. The OpenTelemetry SDK
+     * used to arrive transitively through Selenium's remote driver, until
+     * #5474 excluded it. Without the SDK this line no longer occurs. If it is
+     * reintroduced, merely touching the API makes GlobalOpenTelemetry announce
+     * that it found the autoconfigure SDK and is not using it:
      *
      * <pre>
      * INFO: AutoConfiguredOpenTelemetrySdk found on classpath but automatic

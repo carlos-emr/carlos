@@ -242,15 +242,21 @@ public class DemographicService extends AbstractServiceImpl {
     /**
      * Finds all demographics.
      * <p/>
-     * In case limit or offset parameters are set to null or zero, the entire result set is returned.
+     * A null or zero offset starts at the first row; a null or zero limit uses the DAO
+     * maximum (500). Negative values and limits above the maximum are rejected with HTTP 400.
      *
      * @param offset First record in the entire result set to be returned
      * @param limit  Maximum total number of records that should be returned
      * @return Returns all demographics.
+     * @throws BadRequestException if pagination is negative or the limit exceeds the DAO maximum
      */
     @GET
     public OscarSearchResponse<DemographicTo1> getAllDemographics(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r");
+        if ((offset != null && offset < 0)
+                || (limit != null && (limit < 0 || limit > DemographicDao.MAX_SEARCH_RESULT_SIZE))) {
+            throw new BadRequestException("Invalid demographic list pagination");
+        }
         OscarSearchResponse<DemographicTo1> result = new OscarSearchResponse<DemographicTo1>();
 
         if (offset == null) {
@@ -632,6 +638,7 @@ public class DemographicService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body is required").build());
         }
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
+        validateFieldLengths(demographic);
         demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
     }
@@ -651,6 +658,9 @@ public class DemographicService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body with demographicNo is required").build());
         }
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("u", data.getDemographicNo());
+        Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
+        // Reject the whole request before custom fields or waiting-list entries can be changed.
+        validateFieldLengths(demographic);
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
             DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
@@ -671,10 +681,18 @@ public class DemographicService extends AbstractServiceImpl {
             WLWaitingListUtil.updateWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null);
         }
 
-        Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         demographicManager.updateDemographic(loggedInInfo, demographic);
 
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
+    }
+
+    private static void validateFieldLengths(Demographic demographic) {
+        List<String> errors = demographic.validateFieldLengths();
+        if (!errors.isEmpty()) {
+            // The validator names fields and limits; it never includes submitted patient values.
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN).entity(String.join("; ", errors)).build());
+        }
     }
 
     /**

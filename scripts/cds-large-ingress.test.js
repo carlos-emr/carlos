@@ -8,6 +8,46 @@ const path = require('node:path');
 const {createHash} = require('node:crypto');
 const {journalRow,rawPost,interruptPost,assertMetadataVersion,verifyUploadedBody} = require('./demographic-cds-large-ingress-playwright-checks');
 
+for(const status of [200,409,'transport failure'])test(`cancellation after a chunk settles retains its upload ID and starts no next request (${status})`,async t=>{
+  const vm=require('node:vm');
+  const sourceText=fs.readFileSync(path.join(__dirname,'demographic-cds-large-ingress-playwright-checks.js'),'utf8');
+  const start=sourceText.indexOf('    for (const chunked of [false,true]) {',sourceText.indexOf('const original = fs.openSync'));
+  const end=sourceText.indexOf('    cancellation?.throwIfCancelled();\n    const begin =',start);
+  assert(start>0&&end>start);
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'ingress-cancel-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const source=path.join(root,'body.xml');fs.writeFileSync(source,Buffer.alloc(131072));
+  const cancelled=new Error('injected cancellation'),events=[],report={source:{bytes:131072},ownedUploads:[]};let interrupted=false;
+  await assert.rejects(vm.runInNewContext('(async()=>{'+sourceText.slice(start,end)+'})()',{
+    URL,Buffer,fs,source,report,performance,createHash,journalRow,MiB:1048576,
+    h:require('./lib/playwright-harness'),page:{},headers:{},url:new URL('https://127.0.0.1/carlos/form/cdsUpload'),
+    save(){events.push('saved');},cancellation:{throwIfCancelled(){if(interrupted)throw cancelled;}},
+    async importApi(_page,route,options){
+      events.push(options?.operation||route);
+      if(route==='cdsImportStatus')return {body:{upload:{receivedBytes:0,committedChunks:0,runId:null}}};
+      assert.equal(options.operation,'begin');return {status:200,body:{ok:true,upload:{id:'owned-upload-id',state:'OPEN',chunkBytes:65536}}};
+    },async interruptPost(){return {};},async rawPost(){events.push('chunk settled');interrupted=true;
+      if(status==='transport failure')throw new Error('injected transport failure');return {status};},
+    assertMetadataVersion(){assert.fail('Cancellation must be observed before retrying or advancing the transfer');},
+  }),error=>error===cancelled);
+  assert.equal(events.filter(value=>value==='chunk settled').length,1);
+  assert.equal(report.ownedUploads[0].uploadId,'owned-upload-id');
+  assert(events.indexOf('saved')<events.indexOf('chunk settled'));
+});
+
+for(const phase of ['qualification','browser shutdown'])test(`cancellation during final ${phase} cannot publish a passing ingress proof`,async()=>{
+  const vm=require('node:vm'),source=fs.readFileSync(path.join(__dirname,'demographic-cds-large-ingress-playwright-checks.js'),'utf8');
+  const finalStart=source.lastIndexOf('    await qualify();'),end=source.indexOf('\n}\nif (require.main',finalStart);
+  assert(finalStart>0&&end>finalStart);
+  const interrupted=new Error('cancelled during final qualification'),report={status:'RUNNING'};let saved=false,cancelled=false;
+  await assert.rejects(vm.runInNewContext('(async()=>{try {try {'+source.slice(finalStart,end)+'})()',{
+    report,metricTimer:undefined,clearInterval(){},sql:{dispose(){}},console:{log(){}},
+    browser:{async close(){if(phase==='browser shutdown')cancelled=true;}},
+    async qualify(){if(phase==='qualification')cancelled=true;},
+    cancellation:{throwIfCancelled(){if(cancelled)throw interrupted;},isCancellation:error=>error===interrupted},save(){saved=true;},
+  }),error=>error===interrupted);
+  assert.equal(report.status,'INTERRUPTED');assert.equal(saved,true);
+});
+
 function observeRawPostListeners(t) {
   const observations=[];const warnings=[];const original=http.request;
   t.mock.method(http,'request',function(...args){

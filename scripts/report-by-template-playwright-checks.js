@@ -17,6 +17,7 @@
 // asserts they are gone. Group membership and upload validation live in
 // report-by-template-groups-playwright-checks.js.
 const fs = require('node:fs');
+const assert = require('node:assert/strict');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -317,6 +318,49 @@ async function workflow(s) {
     const [row] = templateRow();
     h.assert(row[0] === title && row[1] === `${s.marker} edited roster` && row[2] === query, 'Edited template was not persisted');
   });
+
+  await s.step('CSV download guards formula headers and text while preserving negative amounts and CSV syntax', async () => {
+    const guardedTitle = `${s.marker} RBT spreadsheet`;
+    // MariaDB trims leading spaces from column aliases; exercise those spaces in data below.
+    const headers = ['=header', '+header', '-header', '@header', '=spacedHeader',
+      '＝header', '＋header', '－header', '＠header', 'control', 'quoted', 'multiline', 'amount', 'scientific', 'spacedAmount'];
+    const values = ['=1+1', '+1+1', '-cmd', '@SUM(A1)', '  =1+1', '＝1+1', '＋1+1', '－cmd', '＠SUM(A1)', '\t\r\n=1+1',
+      '=HYPERLINK("synthetic","quoted,\r\nvalue")', 'Zoë,"text"\r\nnext', '-12.50', '-1.2E-7', '  -12.50'];
+    // Hex literals preserve the synthetic control characters through XML and SQL parsing.
+    const select = 'SELECT ' + values.map((value, i) =>
+      `CONVERT(0x${Buffer.from(value).toString('hex')} USING utf8mb4) AS \`${headers[i]}\``).join(', ');
+    const id = await uploadTemplate(templateXml(guardedTitle, `${s.marker} spreadsheet probe`, select), guardedTitle);
+    await openFromLibrary(guardedTitle, id);
+    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Spreadsheet result');
+    await frame.locator('table#report2').waitFor();
+    h.assert(await frame.locator('table#report2 tbody tr').first().locator('td').first().innerText() === values[0],
+      'The CSV guard changed the visible HTML result');
+    const file = await download('input[name="getCSV"]');
+    const expected = [headers.map((v, i) => i < 9 ? `\t${v}` : v), values.map((v, i) => i < 11 ? `\t${v}` : v)];
+    h.assert(file.bytes.toString('utf8').startsWith('"\t=header"'), 'Formula guard tab was not CSV quoted');
+    assert.deepEqual(parseCsv(file.bytes.toString('utf8')), expected,
+      'Downloaded spreadsheet CSV lost its guards, numeric text, quotes, line breaks or Unicode');
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (spreadsheet)');
+    await deleteFromConfiguration(id, guardedTitle);
+  });
+
+  for (const [budget, sql] of [
+    ['row', 'SELECT seq FROM seq_1_to_10001'],
+    ['cell', "SELECT REPEAT('x', 65537) AS sample"],
+    ['CSV byte', "SELECT REPEAT('é', 32768) AS sample FROM seq_1_to_81"],
+  ]) {
+    await s.step(`${budget} budget refuses oversized output with a narrow-your-search response`, async () => {
+      const budgetTitle = `${s.marker} RBT ${budget} budget`;
+      const id = await uploadTemplate(templateXml(budgetTitle, `${s.marker} bounded report probe`, sql), budgetTitle);
+      await openFromLibrary(budgetTitle, id);
+      await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), `${budget} budget refusal`);
+      await frame.locator('.alert-danger', {hasText: 'Please narrow your search criteria.'}).waitFor();
+      h.assert(await frame.locator('table#report2').count() === 0, 'An oversized report exposed partial result rows');
+      h.assert(await frame.locator('input[name="csv"], input[name="getCSV"]').count() === 0,
+        'An oversized report exposed a CSV download');
+      await deleteFromConfiguration(id, budgetTitle);
+    });
+  }
 }
 
 if (require.main === module) runWorkflow('report-by-template', workflow, {openPatient: true, openMaster: false});

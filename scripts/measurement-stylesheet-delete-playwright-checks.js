@@ -3,6 +3,7 @@
 // Drive the real Administration > Customize Measurements > View All Style Sheet form.
 // A competing removal of an owned CSS location leaves the already-open form holding
 // a valid mapping selection. Deleting that orphan must not remove a detached entity.
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const {clickOpensPopupOrNavigates} = require('./lib/playwright-ui');
 const {revealAuditLink} = require('./lib/playwright-link-audit');
@@ -10,26 +11,28 @@ const {runWorkflow} = require('./lib/workflow-session');
 
 async function workflow(s) {
   const {sql, marker} = s;
-  const q = h.sqlString;
   const cssName = `${marker}.css`;
   const peerName = `${marker}-peer.css`;
+  const unusedName = `${marker}-unused.css`;
   const group = `${marker} orphan`;
   const peer = `${marker} peer`;
   const owned = () => sql.value(`SELECT
-    (SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN (${q(group)},${q(peer)})) +
-    (SELECT COUNT(*) FROM measurementCSSLocation WHERE location IN (${q(cssName)},${q(peerName)}))`);
+    (SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName IN (?,?)) +
+    (SELECT COUNT(*) FROM measurementCSSLocation WHERE location IN (?,?,?))`,
+    [group, peer, cssName, peerName, unusedName]);
   h.assert(owned() === '0', 'Per-run style fixtures already exist');
   s.cleanup(() => {
-    sql.execute(`DELETE FROM measurementGroupStyle WHERE groupName IN (${q(group)},${q(peer)});
-      DELETE FROM measurementCSSLocation WHERE location IN (${q(cssName)},${q(peerName)})`);
+    sql.execute('DELETE FROM measurementGroupStyle WHERE groupName IN (?,?)', [group, peer]);
+    sql.execute('DELETE FROM measurementCSSLocation WHERE location IN (?,?,?)', [cssName, peerName, unusedName]);
     h.assert(owned() === '0', 'Owned stylesheet fixtures remain after cleanup');
   });
-  const css = sql.value(`INSERT INTO measurementCSSLocation(location) VALUES (${q(cssName)}); SELECT LAST_INSERT_ID()`);
-  const peerCss = sql.value(`INSERT INTO measurementCSSLocation(location) VALUES (${q(peerName)}); SELECT LAST_INSERT_ID()`);
-  h.assert(/^[1-9]\d*$/.test(css) && /^[1-9]\d*$/.test(peerCss), 'CSS fixture IDs are invalid');
-  sql.execute(`INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (${q(group)},${css}),(${q(peer)},${peerCss})`);
+  const css = sql.insertId('INSERT INTO measurementCSSLocation(location) VALUES (?)', [cssName]);
+  const peerCss = sql.insertId('INSERT INTO measurementCSSLocation(location) VALUES (?)', [peerName]);
+  const unusedCss = sql.insertId('INSERT INTO measurementCSSLocation(location) VALUES (?)', [unusedName]);
+  h.assert([css, peerCss, unusedCss].every(id => /^[1-9]\d*$/.test(id)), 'CSS fixture IDs are invalid');
+  sql.execute('INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (?,?),(?,?)', [group, css, peer, peerCss]);
   const snapshot = () => sql.rows(`SELECT groupID,groupName,cssID FROM measurementGroupStyle
-    WHERE groupName IN (${q(group)},${q(peer)}) ORDER BY groupID`);
+    WHERE groupName IN (?,?) ORDER BY groupID`, [group, peer]);
   const initial = JSON.stringify(snapshot());
   const peerInitial = JSON.stringify(snapshot().filter(row => row[1] === peer));
 
@@ -42,19 +45,19 @@ async function workflow(s) {
   await iframe.waitFor();
   const menu = await (await iframe.elementHandle()).contentFrame();
   h.assert(menu, 'Customize Measurements frame is missing');
-  const open = async () => {
+  const open = async (selectedCss = css) => {
     const page = await s.popup(admin, menu.getByRole('link', {name: 'View All Style Sheet', exact: true}), 'stylesheet-list');
     await page.waitForLoadState('load');
-    await page.locator(`input[name="deleteCheckbox"][value="${css}"]`).check();
+    await page.locator(`input[name="deleteCheckbox"][value="${selectedCss}"]`).check();
     return page;
   };
-  const submit = async page => {
+  const submit = async (page, selectedCss = css) => {
     const response = page.waitForResponse(r => r.request().method() === 'POST'
       && new URL(r.url()).pathname.endsWith('/oscarMeasurements/DeleteMeasurementStyleSheet'));
     await page.getByRole('button', {name: 'Delete', exact: true}).click();
     const result = await response;
     const params = new URLSearchParams(result.request().postData() || '');
-    h.assert(params.getAll('deleteCheckbox').join(',') === css, 'Form submitted an unowned selection');
+    h.assert(params.getAll('deleteCheckbox').join(',') === selectedCss, 'Form submitted an unowned selection');
     h.assert(result.status() < 400, `Stylesheet deletion returned HTTP ${result.status()}`);
     await page.waitForLoadState('load');
     await h.assertNotErrorPage(page, 'stylesheet deletion');
@@ -68,16 +71,31 @@ async function workflow(s) {
     await page.close();
   });
 
+  await s.step('deleting an unused stylesheet removes the stylesheet row and preserves both used mappings', async () => {
+    // Finding 170's ordinary deletion is independent of orphan cleanup below:
+    // deleting a stale mapping alone never proves that a stylesheet can go away.
+    const page = await open(unusedCss);
+    await submit(page, unusedCss);
+    h.assert(sql.value('SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID=?', [unusedCss]) === '0',
+      'The unused stylesheet survived Delete');
+    h.assert(await page.locator(`input[name="deleteCheckbox"][value="${unusedCss}"]`).count() === 0,
+      'The deleted stylesheet is still offered by the native list');
+    h.assert(JSON.stringify(snapshot()) === initial, 'Deleting the unused stylesheet changed a used mapping');
+    h.assert(sql.value('SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID IN (?,?)', [css, peerCss]) === '2',
+      'Deleting the unused stylesheet removed a used stylesheet');
+    await page.close();
+  });
+
   let postedUrl;
   let postedForm;
   await s.step('an already-open selection removes its orphan mapping without a detached-entity error', async () => {
     const page = await open();
-    sql.execute(`DELETE FROM measurementCSSLocation WHERE cssID=${css} AND location=${q(cssName)}`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID=${css}`) === '0', 'Competing removal did not occur');
+    sql.execute('DELETE FROM measurementCSSLocation WHERE cssID=? AND location=?', [css, cssName]);
+    h.assert(sql.value('SELECT COUNT(*) FROM measurementCSSLocation WHERE cssID=?', [css]) === '0', 'Competing removal did not occur');
     const result = await submit(page);
     postedUrl = result.url();
     postedForm = Object.fromEntries(new URLSearchParams(result.request().postData() || ''));
-    h.assert(sql.value(`SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName=${q(group)}`) === '0', 'The orphan mapping survived deletion');
+    h.assert(sql.value('SELECT COUNT(*) FROM measurementGroupStyle WHERE groupName=?', [group]) === '0', 'The orphan mapping survived deletion');
     h.assert(JSON.stringify(snapshot()) === peerInitial, 'Deleting the orphan changed another mapping');
     await page.close();
   });
@@ -86,10 +104,10 @@ async function workflow(s) {
     const replay = await s.context.request.post(postedUrl, {form: postedForm});
     h.assert(replay.status() < 400, `Repeated deletion returned HTTP ${replay.status()}`);
     h.assert(JSON.stringify(snapshot()) === peerInitial, 'Repeated deletion changed another mapping');
-    sql.execute(`INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (${q(group)},${css})`);
+    sql.execute('INSERT INTO measurementGroupStyle(groupName,cssID) VALUES (?,?)', [group, css]);
     const before = JSON.stringify(snapshot());
     for (const method of ['GET', 'HEAD']) {
-      const response = await s.context.request.fetch(postedUrl, {method, params: {deleteCheckbox: css}, maxRedirects: 0});
+      const response = await authenticatedProbe(s, postedUrl, {method, params: {deleteCheckbox: css}, maxRedirects: 0});
       h.assert(response.status() === 405 && response.headers().allow === 'POST', `${method} must return 405 with Allow: POST`);
       h.assert(JSON.stringify(snapshot()) === before, `${method} changed stylesheet mappings`);
     }

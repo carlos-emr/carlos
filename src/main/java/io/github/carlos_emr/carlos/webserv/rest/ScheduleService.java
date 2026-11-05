@@ -25,6 +25,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -35,6 +36,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.UUID;
 
 import jakarta.ws.rs.Consumes;
@@ -49,7 +51,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.Status;
 
 import org.apache.logging.log4j.Logger;
-import org.apache.tools.ant.util.DateUtils;
+import io.github.carlos_emr.carlos.utility.IsoDates;
 import io.github.carlos_emr.carlos.appointment.search.FilterDefinition;
 import io.github.carlos_emr.carlos.appointment.search.FilterRegistry;
 import io.github.carlos_emr.carlos.appointment.search.Provider;
@@ -64,6 +66,7 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentType;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.LookupListItem;
 import io.github.carlos_emr.carlos.commn.model.ScheduleTemplateCode;
+import io.github.carlos_emr.carlos.managers.AppointmentUpdateException;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
@@ -152,7 +155,7 @@ public class ScheduleService extends AbstractServiceImpl {
             if ("today".equals(date)) {
                 dateObj = new Date();
             } else {
-                dateObj = DateUtils.parseIso8601Date(date);
+                dateObj = IsoDates.parseIso8601Date(date);
             }
 
             if ("".equals(providerNo)) {
@@ -160,13 +163,20 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             List<Appointment> appts = scheduleManager.getDayAppointments(loggedInInfo, providerNo, dateObj);
+            List<Integer> demographicIds = new ArrayList<>();
+            for (Appointment appt : appts) {
+                if (appt.getDemographicNo() != 0) {
+                    demographicIds.add(appt.getDemographicNo());
+                }
+            }
+            Map<Integer, String> patientNames = demographicManager.getDemographicFormattedNames(loggedInInfo, demographicIds);
             for (Appointment appt : appts) {
                 PatientListApptItemBean item = new PatientListApptItemBean();
                 item.setDemographicNo(appt.getDemographicNo());
                 if (appt.getDemographicNo() == 0) {
                     item.setName(appt.getName());
                 } else {
-                    item.setName(demographicManager.getDemographicFormattedName(loggedInInfo, appt.getDemographicNo()));
+                    item.setName(patientNames.get(appt.getDemographicNo()));
                 }
                 item.setStartTime(timeFormatter.format(appt.getStartTime()));
                 item.setReason(appt.getReason());
@@ -267,27 +277,33 @@ public class ScheduleService extends AbstractServiceImpl {
                     .entity("Appointment id is required").build());
         }
 
-        // Load the persisted appointment and apply only client-editable fields onto it, so the
-        // server-managed identity/audit fields (createDateTime, creator, creatorSecurityId,
-        // bookingSource) are preserved rather than overwritten by the request payload, and the
-        // updating provider is stamped server-side. A blind DTO->entity merge here would corrupt
-        // the creation audit trail and allow over-posting.
-        Appointment appt = appointmentManager.getAppointment(getLoggedInInfo(), appointmentTo.getId());
-        if (appt == null) {
-            throw new WebApplicationException(Response.status(Status.NOT_FOUND)
-                    .entity("Appointment not found").build());
-        }
-
         SchedulingResponse response = new SchedulingResponse();
         AppointmentConverter converter = new AppointmentConverter();
-
-        converter.applyEditableProperties(appointmentTo, appt);
-        appt.setLastUpdateUser(getLoggedInInfo().getLoggedInProviderNo());
-
-        scheduleManager.updateAppointment(getLoggedInInfo(), appt);
+        Appointment appt = updateVersionedAppointment(appointmentTo.getId(), appointmentTo,
+                current -> converter.applyEditableProperties(appointmentTo, current));
 
         response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appt));
         return response;
+    }
+
+    private Appointment updateVersionedAppointment(Integer id, AppointmentTo1 submitted, Consumer<Appointment> edit) {
+        if (submitted == null) {
+            throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
+                    .entity("Appointment payload is required").build());
+        }
+        try {
+            // Validation and all mutations run under the shared manager's row lock.
+            return scheduleManager.updateAppointment(getLoggedInInfo(), id, submitted.getEditVersion(), edit);
+        } catch (AppointmentUpdateException e) {
+            Status status = switch (e.getReason()) {
+                case MISSING_VERSION -> Status.BAD_REQUEST;
+                case NOT_FOUND -> Status.NOT_FOUND;
+                case STALE_VERSION -> Status.CONFLICT;
+            };
+            throw new WebApplicationException(Response.status(status)
+                    .entity(Map.of("code", "APPOINTMENT_" + e.getReason().name(),
+                            "message", e.getMessage())).build());
+        }
     }
 
     @POST
@@ -351,14 +367,10 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
+        Appointment appointment = updateVersionedAppointment(id, appt,
+                current -> current.setStatus(appt.getStatus()));
         SchedulingResponse response = new SchedulingResponse();
-        AppointmentConverter converter = new AppointmentConverter();
-        String status = appt.getStatus();
-
-        Appointment appointment = appointmentManager.updateAppointmentStatus(getLoggedInInfo(), id, status);
-
-        response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appointment));
-
+        response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));
         return response;
     }
 
@@ -371,14 +383,10 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
+        Appointment appointment = updateVersionedAppointment(id, appt,
+                current -> current.setType(appt.getType()));
         SchedulingResponse response = new SchedulingResponse();
-        AppointmentConverter converter = new AppointmentConverter();
-        String type = appt.getType();
-
-        Appointment appointment = appointmentManager.updateAppointmentType(getLoggedInInfo(), id, type);
-
-        response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appointment));
-
+        response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));
         return response;
     }
 
@@ -391,21 +399,10 @@ public class ScheduleService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.FORBIDDEN).build());
         }
 
-        // This route was previously unrouted (missing @POST); now that it is reachable, guard a
-        // null/empty request body rather than NPE-ing on appt.getUrgency().
-        if (appt == null) {
-            throw new WebApplicationException(Response.status(Status.BAD_REQUEST)
-                    .entity("Appointment payload is required").build());
-        }
-
+        Appointment appointment = updateVersionedAppointment(id, appt,
+                current -> current.setUrgency(appt.getUrgency()));
         SchedulingResponse response = new SchedulingResponse();
-        AppointmentConverter converter = new AppointmentConverter();
-        String urgency = appt.getUrgency();
-
-        Appointment appointment = appointmentManager.updateAppointmentUrgency(getLoggedInInfo(), id, urgency);
-
-        response.setAppointment(converter.getAsTransferObject(getLoggedInInfo(), appointment));
-
+        response.setAppointment(new AppointmentConverter().getAsTransferObject(getLoggedInInfo(), appointment));
         return response;
     }
 
@@ -516,8 +513,8 @@ public class ScheduleService extends AbstractServiceImpl {
             Date sDate = null;
             Date eDate = null;
             try {
-                sDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(sDateStr);
-                eDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(eDateStr);
+                sDate = IsoDates.parseIso8601Date(sDateStr);
+                eDate = IsoDates.parseIso8601Date(eDateStr);
             } catch (Exception e) {
                 throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
             }
@@ -623,6 +620,8 @@ public class ScheduleService extends AbstractServiceImpl {
      * @param sDateStr start date in format "yyyy-MM-dd"
      * @param eDateStr end date in format "yyyy-MM-dd"
      * @return ProviderApptsCountResponse containing appointment counts
+     * @throws WebApplicationException with HTTP 400 for missing or malformed dates,
+     *         or an HTTP error response if the appointment count lookup fails
      */
     @GET
     @Path("/fetchProvidersApptsCount/{sDate}/{eDate}")
@@ -653,6 +652,8 @@ public class ScheduleService extends AbstractServiceImpl {
             }
 
             return response;
+        } catch (WebApplicationException e) {
+            throw e;
         } catch (Exception e) {
             logger.error("ScheduleService.listProviderAppointmentCounts error", e);
             throw new WebApplicationException(Response.status(Status.INTERNAL_SERVER_ERROR).entity("Internal server error").build());
@@ -676,8 +677,8 @@ public class ScheduleService extends AbstractServiceImpl {
             Date sDate = null;
             Date eDate = null;
             try {
-                sDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(sDateStr);
-                eDate = org.apache.tools.ant.util.DateUtils.parseIso8601Date(eDateStr);
+                sDate = IsoDates.parseIso8601Date(sDateStr);
+                eDate = IsoDates.parseIso8601Date(eDateStr);
             } catch (Exception e) {
                 throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
             }
@@ -766,12 +767,12 @@ public class ScheduleService extends AbstractServiceImpl {
             forNewId.setSearchName(appointmentSearch.getSearchName());
             forNewId.setSearchType(appointmentSearch.getSearchType());
 
-            if (currentAppointmentSearch != null) {
-                currentAppointmentSearch.setActive(false);
-                appointmentSearchDao.merge(currentAppointmentSearch);
-            }
+            currentAppointmentSearch.setActive(false);
+            appointmentSearchDao.merge(currentAppointmentSearch);
 
-            logger.info("searchConfig\n" + XmlUtils.toString(d, true));
+            if (logger.isInfoEnabled()) {
+                logger.info("searchConfig\n{}", XmlUtils.toString(d, true));
+            }
         } catch (Exception e) {
             logger.error("save Search Config Error ", e);
             return Response.status(Status.INTERNAL_SERVER_ERROR)

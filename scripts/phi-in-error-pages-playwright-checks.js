@@ -76,8 +76,9 @@ const FAMILIES = [
   {
     name: 'demographic',
     probes: [
-      // The label action rejects an identifier it cannot read; the HIN is the bad identifier.
-      { status: 400, path: 'demographic/printDemoLabelAction', query: { ...PATIENT, demographic_no: '{HIN}', demographicNo: '{N}' } },
+      // A 10-digit HIN can fit in a Java int and reach PDF generation. The suffix
+      // makes validation fail for every HIN while still carrying it to the error page.
+      { status: 400, path: 'demographic/printDemoLabelAction', query: { ...PATIENT, demographic_no: '{HIN}x', demographicNo: '{N}' } },
       { status: 403, as: 'locked', path: 'demographic/DemographicEdit', query: PATIENT },
       { status: 403, as: 'clerk', path: 'demographic/DemographicEdit', query: PATIENT },
       { status: 404, path: 'demographic/NoSuchDemographicAction', query: PATIENT },
@@ -168,7 +169,8 @@ const FAMILIES = [
   {
     name: 'admin',
     probes: [
-      { status: 400, path: 'admin/DemographicMergeRecord', query: { limit1: '{HIN}', keyword: '{LAST}', search_mode: 'search_name', demographic_no: '{N}' } },
+      // As with the label identifier, a numeric HIN can be a valid int offset.
+      { status: 400, path: 'admin/DemographicMergeRecord', query: { limit1: '{HIN}x', keyword: '{LAST}', search_mode: 'search_name', demographic_no: '{N}' } },
       { status: 403, as: 'clerk', path: 'admin/SecuritySearchResults', query: { keyword: '{LAST}', hin: '{HIN}', demographic_no: '{N}' } },
       { status: 404, path: 'admin/NoSuchAdminAction', query: PATIENT },
       { status: 405, path: 'admin/SecurityDelete', query: PATIENT },
@@ -353,7 +355,9 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient} AND hin=${h.sqlString(hin)}`) === '1',
       'The patient fixture did not take its health number');
     h.assert(fixture.roleHoldsNothing('er_clerk'), 'er_clerk is expected to hold no sec object');
-    clerk = await signIn(s, fixture.addLogin('er_clerk'));
+    // This role has no appointment read privilege either. Verify its schedule
+    // landing is an authenticated application 403 before probing other routes.
+    clerk = await signIn(s, fixture.addLogin('er_clerk'), { allowForbiddenSchedule: true });
     const login = fixture.addLogin('doctor');
     h.assert(fixture.lockPatient(login, patient).length === 2, 'The patient lock rows were not written');
     doctor = await signIn(s, login);

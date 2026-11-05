@@ -26,6 +26,9 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Calendar;
@@ -40,15 +43,19 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 
 import io.github.carlos_emr.carlos.commn.dao.AppointmentSearchDao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.AppointmentStatus;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.AppointmentManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
+import io.github.carlos_emr.carlos.managers.ScheduleManagerImpl;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -57,7 +64,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * CXF local-transport endpoint tests for {@link ScheduleService} using CXF local transport.
  *
  * <p>These tests verify path routing, JSON serialization, and HTTP status codes
- * for the schedule/appointment REST API. All dependencies are mocked.</p>
+ * for the schedule/appointment REST API. Persistence and authorization dependencies are mocked.</p>
  *
  * @since 2026-03-31
  * @see CarlosRestTestBase
@@ -81,9 +88,11 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private BillingONCHeader1Dao mockBillingONCHeader1Dao;
 
+    private ScheduleService service;
+
     @Override
     protected Object getServiceBean() {
-        ScheduleService service = new ScheduleService();
+        service = new ScheduleService();
         injectDependency(service, "scheduleManager", mockScheduleManager);
         injectDependency(service, "appointmentManager", mockAppointmentManager);
         injectDependency(service, "demographicManager", mockDemographicManager);
@@ -97,6 +106,162 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
     void setUpSecurityDefaults() {
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
+    }
+
+    /** Exercises legacy JSON payloads through CXF and the real update manager. */
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("legacyAppointmentEdits")
+    void shouldAcceptLegacyPayload_whenEditVersionIsAbsentOrBlank(String path, String versionField) {
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+        registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
+                mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+        var appointments = mock(OscarAppointmentDao.class);
+        var archives = mock(io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao.class);
+        var manager = new ScheduleManagerImpl();
+        injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
+        injectDependency(manager, "oscarAppointmentDao", appointments);
+        injectDependency(manager, "appointmentArchiveDao", archives);
+        injectDependency(service, "scheduleManager", manager);
+        var current = new io.github.carlos_emr.carlos.commn.model.Appointment();
+        current.setId(42);
+        current.setUpdateDateTime(new Date(1000));
+        current.setCreator("FAKE-creator");
+        current.setStatus("old-status");
+        current.setType("old-type");
+        current.setUrgency("old-urgency");
+        current.setReason("FAKE-original");
+        when(appointments.findForUpdate(42)).thenReturn(current);
+        var archivedState = new java.util.concurrent.atomic.AtomicReference<List<String>>();
+        org.mockito.Mockito.doAnswer(call -> {
+            io.github.carlos_emr.carlos.commn.model.Appointment archived = call.getArgument(0);
+            archivedState.set(List.of(archived.getStatus(), archived.getType(), archived.getUrgency(),
+                    archived.getReason(), archived.getCreator(), archived.getEditVersion()));
+            return null;
+        }).when(archives).archiveAppointment(any(io.github.carlos_emr.carlos.commn.model.Appointment.class));
+        org.mockito.Mockito.doAnswer(call -> {
+            current.setUpdateDateTime(new Date(2000));
+            return null;
+        }).when(appointments).flush();
+
+        try (Response response = request().path(path).post("{\"id\":42," + versionField
+                        + "\"status\":\"new\",\"type\":\"new\",\"urgency\":\"new\","
+                        + "\"reason\":\"FAKE-edit\",\"creator\":\"over-posted\"}")) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            var body = response.readEntity(io.github.carlos_emr.carlos.webserv.rest.to.SchedulingResponse.class);
+            assertThat(body.getAppointment().getEditVersion()).isEqualTo("2000");
+        }
+        boolean fullEdit = path.endsWith("updateAppointment");
+        assertThat(current.getStatus()).isEqualTo(fullEdit || path.endsWith("updateStatus") ? "new" : "old-status");
+        assertThat(current.getType()).isEqualTo(fullEdit || path.endsWith("updateType") ? "new" : "old-type");
+        assertThat(current.getUrgency()).isEqualTo(fullEdit || path.endsWith("updateUrgency") ? "new" : "old-urgency");
+        assertThat(current.getReason()).isEqualTo(fullEdit ? "FAKE-edit" : "FAKE-original");
+        assertThat(current.getCreator()).isEqualTo("FAKE-creator");
+        assertThat(archivedState.get()).containsExactly("old-status", "old-type", "old-urgency",
+                "FAKE-original", "FAKE-creator", "1000");
+        var order = org.mockito.Mockito.inOrder(appointments, archives);
+        order.verify(appointments).findForUpdate(42);
+        order.verify(archives).archiveAppointment(current);
+        order.verify(appointments).merge(current);
+        order.verify(appointments).flush();
+        verifyNoInteractions(mockAppointmentManager);
+    }
+
+    /** Covers every update route with omitted, JSON null, empty and whitespace-only tokens. */
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> legacyAppointmentEdits() {
+        return java.util.stream.Stream.of("/schedule/updateAppointment", "/schedule/appointment/42/updateStatus",
+                "/schedule/appointment/42/updateType", "/schedule/appointment/42/updateUrgency").flatMap(path ->
+                java.util.stream.Stream.of("", "\"editVersion\":null,", "\"editVersion\":\"\",",
+                        "\"editVersion\":\"   \",").map(version ->
+                        org.junit.jupiter.params.provider.Arguments.of(path, version)));
+    }
+
+    /** Verifies that version failures survive CXF routing and JSON serialization. */
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.MethodSource("versionedEditFailures")
+    void shouldReturnStableJsonError_whenVersionedAppointmentEditIsRefused(
+            String path, io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason reason,
+            int status, String code) {
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+        registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
+                mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+        when(mockScheduleManager.updateAppointment(any(), eq(42), eq("1000"), any()))
+                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(reason));
+        try (Response response = request().path(path)
+                .post("{\"id\":42,\"editVersion\":\"1000\",\"reason\":\"FAKE-edit\"}")) {
+            assertThat(response.getStatus()).isEqualTo(status);
+            java.util.Map<?, ?> error = response.readEntity(java.util.Map.class);
+            assertThat(error.get("code")).isEqualTo(code);
+            assertThat(response.getMediaType().toString()).startsWith("application/json");
+        }
+        verifyNoInteractions(mockAppointmentManager);
+    }
+
+    static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> versionedEditFailures() {
+        return java.util.stream.Stream.of("/schedule/updateAppointment", "/schedule/appointment/42/updateStatus",
+                "/schedule/appointment/42/updateType", "/schedule/appointment/42/updateUrgency").flatMap(path ->
+                java.util.stream.Stream.of(
+                    org.junit.jupiter.params.provider.Arguments.of(path,
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.STALE_VERSION,
+                        409, "APPOINTMENT_STALE_VERSION"),
+                    org.junit.jupiter.params.provider.Arguments.of(path,
+                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.NOT_FOUND,
+                        404, "APPOINTMENT_NOT_FOUND")));
+    }
+
+    /** Tests the appointment-count endpoint's HTTP success and error responses. */
+    @Nested
+    @DisplayName("GET /schedule/fetchProvidersApptsCount/{sDate}/{eDate}")
+    class GetProviderAppointmentCounts {
+
+        @ParameterizedTest
+        @CsvSource({
+            "not-a-date, 2026-11-30",
+            "2026-11-01, not-a-date",
+            "not-a-date, not-a-date"
+        })
+        @DisplayName("should return the manager's 400 and message when either date is malformed")
+        void shouldReturnBadRequest_whenEitherDateIsMalformed(String startDate, String endDate) {
+            ScheduleManagerImpl manager = new ScheduleManagerImpl();
+            OscarAppointmentDao appointmentDao = mock(OscarAppointmentDao.class);
+            injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
+            injectDependency(manager, "oscarAppointmentDao", appointmentDao);
+            injectDependency(service, "scheduleManager", manager);
+
+            try (Response response = request().path("/schedule/fetchProvidersApptsCount/" + startDate + "/" + endDate).get()) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class)).isEqualTo("Path parameter has the wrong format");
+            }
+            verifyNoInteractions(appointmentDao);
+        }
+
+        @Test
+        @DisplayName("should keep unexpected failures as a generic 500")
+        void shouldReturnInternalServerError_whenManagerFailsUnexpectedly() {
+            when(mockScheduleManager.listProviderAppointmentCounts(any(LoggedInInfo.class), eq("2026-11-01"), eq("2026-11-30")))
+                    .thenThrow(new IllegalStateException("Internal database details"));
+
+            try (Response response = request().path("/schedule/fetchProvidersApptsCount/2026-11-01/2026-11-30").get()) {
+                assertThat(response.getStatus()).isEqualTo(500);
+                assertThat(response.readEntity(String.class)).isEqualTo("Internal server error");
+            }
+        }
+
+        @Test
+        @DisplayName("should return appointment counts when the date range is valid")
+        void shouldReturnAppointmentCounts_withValidDates() {
+            when(mockScheduleManager.listProviderAppointmentCounts(any(LoggedInInfo.class), eq("2026-11-01"), eq("2026-11-30")))
+                    .thenReturn(Collections.singletonList(new Object[]{"999001", "Test", "Provider", 3L}));
+
+            try (Response response = request().path("/schedule/fetchProvidersApptsCount/2026-11-01/2026-11-30").get()) {
+                assertThat(response.getStatus()).isEqualTo(200);
+                var json = responseJson(response);
+                assertThat(json.at("/ProviderApptsCount")).hasSize(1);
+                assertThat(json.at("/ProviderApptsCount/0/providerNo").textValue()).isEqualTo("999001");
+                assertThat(json.at("/ProviderApptsCount/0/appointmentCount").longValue()).isEqualTo(3L);
+            }
+        }
     }
 
     /** Tests for GET /schedule/statuses endpoint. */
@@ -144,6 +309,52 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
     @Nested
     @DisplayName("GET /schedule/day/{date}")
     class GetAppointmentsForDay {
+
+        @Test
+        @DisplayName("should preserve names, blank slots, missing patients and ordering with bulk names")
+        void shouldPreserveResponse_whenNamesAreBulkLoaded() {
+            var appointments = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.model.Appointment>();
+            int[] patientIds = {42, 0, 99, 42};
+            for (int i = 0; i < patientIds.length; i++) {
+                var appointment = new io.github.carlos_emr.carlos.commn.model.Appointment();
+                appointment.setId(20 - i);
+                appointment.setDemographicNo(patientIds[i]);
+                appointment.setName("Reserved clinic time");
+                appointment.setAppointmentDate(java.sql.Date.valueOf("2026-10-31"));
+                appointment.setStartTime(java.sql.Time.valueOf("09:00:00"));
+                appointment.setEndTime(java.sql.Time.valueOf("09:30:00"));
+                appointment.setReason("Follow-up");
+                appointment.setStatus("t");
+                appointment.setNotes("Synthetic notes");
+                appointment.setType("Follow-up");
+                appointments.add(appointment);
+            }
+            when(mockScheduleManager.getDayAppointments(any(LoggedInInfo.class), anyString(), any(Date.class)))
+                .thenReturn(appointments);
+            when(mockDemographicManager.getDemographicFormattedNames(any(LoggedInInfo.class), any()))
+                .thenReturn(java.util.Map.of(42, "O'Neil, Zoë"));
+
+            Response response = request().path("/schedule/999001/day/2026-10-31").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var json = responseJson(response);
+            assertThat(json).hasSize(4);
+            assertThat(json.at("/0/name").textValue()).isEqualTo("O'Neil, Zoë");
+            assertThat(json.at("/1/name").textValue()).isEqualTo("Reserved clinic time");
+            assertThat(json.at("/2/name").isMissingNode() || json.at("/2/name").isNull()).isTrue();
+            assertThat(json.at("/3/name").textValue()).isEqualTo("O'Neil, Zoë");
+            for (int i = 0; i < patientIds.length; i++) {
+                assertThat(json.at("/" + i + "/appointmentNo").intValue()).isEqualTo(20 - i);
+                assertThat(json.at("/" + i + "/demographicNo").intValue()).isEqualTo(patientIds[i]);
+                assertThat(json.at("/" + i + "/reason").textValue()).isEqualTo("Follow-up");
+                assertThat(json.at("/" + i + "/notes").textValue()).isEqualTo("Synthetic notes");
+                assertThat(json.at("/" + i + "/duration").textValue()).isEqualTo("30m ");
+            }
+            verify(mockDemographicManager)
+                .getDemographicFormattedNames(any(LoggedInInfo.class), eq(List.of(42, 99, 42)));
+            verify(mockDemographicManager, never())
+                .getDemographicFormattedName(any(), any());
+        }
 
         @Test
         @DisplayName("should return 200 with appointments for today")

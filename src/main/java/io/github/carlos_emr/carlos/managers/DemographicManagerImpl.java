@@ -1,4 +1,5 @@
 /**
+ * Modifications by CARLOS Contributors, 2026.
  * Copyright (c) 2024. Magenta Health. All Rights Reserved.
  * Copyright (c) 2001-2002. Department of Family Medicine, McMaster University. All Rights Reserved.
  * This software is published under the GPL GNU General Public License.
@@ -41,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Demographic.PatientStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DemographicExtKey;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicHeaderDTO;
+import io.github.carlos_emr.carlos.commn.dao.projection.DemographicName;
 import io.github.carlos_emr.carlos.demographic.dto.DemographicListItemDTO;
 import io.github.carlos_emr.carlos.utility.DemographicContactCreator;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -188,6 +190,26 @@ public class DemographicManagerImpl implements DemographicManager {
     }
 
     @Override
+    public Map<Integer, String> getDemographicFormattedNames(LoggedInInfo loggedInInfo,
+                                                            Collection<Integer> demographicIds) {
+        Set<Integer> ids = new LinkedHashSet<>(demographicIds);
+        ids.remove(null);
+        ids.remove(0);
+        // Check every patient before reading any names. Keep the patient-specific
+        // privilege path (including directives/session effects), rather than a global check.
+        if (!ids.isEmpty() && !securityInfoManager.hasDemographicReadPrivileges(loggedInInfo, ids)) {
+            throw new RuntimeException("missing required sec object (_demographic)");
+        }
+        Map<Integer, String> names = new HashMap<>();
+        if (!ids.isEmpty()) {
+            for (DemographicName patient : demographicDao.getDemographicNames(ids)) {
+                names.put(patient.demographicNo(), patient.formattedName());
+            }
+        }
+        return names;
+    }
+
+    @Override
     public String getDemographicEmail(LoggedInInfo loggedInInfo, Integer demographicId) {
         Demographic result = getDemographic(loggedInInfo, demographicId);
         String email = null;
@@ -289,11 +311,11 @@ public class DemographicManagerImpl implements DemographicManager {
             // Archive previous demoCust
             DemographicCust prevCust = demographicCustDao.find(demoCust.getId());
             if (prevCust != null) {
-                if (!(StringUtils.nullSafeEquals(prevCust.getAlert(), demoCust.getAlert())
-                        && StringUtils.nullSafeEquals(prevCust.getMidwife(), demoCust.getMidwife())
-                        && StringUtils.nullSafeEquals(prevCust.getNurse(), demoCust.getNurse())
-                        && StringUtils.nullSafeEquals(prevCust.getResident(), demoCust.getResident())
-                        && StringUtils.nullSafeEquals(prevCust.getNotes(), demoCust.getNotes()))) {
+                if (!(Objects.equals(prevCust.getAlert(), demoCust.getAlert())
+                        && Objects.equals(prevCust.getMidwife(), demoCust.getMidwife())
+                        && Objects.equals(prevCust.getNurse(), demoCust.getNurse())
+                        && Objects.equals(prevCust.getResident(), demoCust.getResident())
+                        && Objects.equals(prevCust.getNotes(), demoCust.getNotes()))) {
                     demographicCustArchiveDao.archiveDemographicCust(prevCust);
                 }
             }
@@ -449,8 +471,8 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            // Callers may log this exception: neither the message nor a cause may contain patient data.
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         demographic.setPatientStatus(PatientStatus.AC.name());
@@ -489,8 +511,7 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         // Archive previous demo
@@ -572,8 +593,7 @@ public class DemographicManagerImpl implements DemographicManager {
         try {
             demographic.getBirthDay();
         } catch (Exception e) {
-            throw new IllegalArgumentException("Birth date was specified for " + demographic.getFullName() + ": "
-                    + demographic.getBirthDayAsString());
+            throw new IllegalArgumentException("Invalid birth date.");
         }
 
         // save current demo
@@ -666,7 +686,10 @@ public class DemographicManagerImpl implements DemographicManager {
     }
 
     @Override
+    @Transactional
     public void mergeDemographics(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        lockMergeParticipants(parentId, children);
+        children = new ArrayList<>(new LinkedHashSet<>(children));
         // Reject before the first write: merging a record into itself, or involving a record that is already
         // merged into another, can close a loop in demographic_merged that getHead cannot resolve.
         if (parentId == null || !demographicMergedDao.findCurrentByDemographicNo(parentId).isEmpty()) {
@@ -685,13 +708,15 @@ public class DemographicManagerImpl implements DemographicManager {
             demographicMergedDao.persist(dm);
 
             // --- log action ---
-            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.mergeDemographics", "id=" + dm.getId());
+            LogAction.addLogStrict(loggedInInfo, "DemographicManager.mergeDemographics", null, null, Integer.toString(dm.getDemographicNo()), "id=" + dm.getId());
         }
 
     }
 
     @Override
+    @Transactional
     public void unmergeDemographics(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        lockMergeParticipants(parentId, children);
         for (Integer childId : children) {
             List<DemographicMerged> dms = demographicMergedDao.findByParentAndChildIds(parentId, childId);
             if (dms.isEmpty()) {
@@ -703,7 +728,21 @@ public class DemographicManagerImpl implements DemographicManager {
                 demographicMergedDao.merge(dm);
 
                 // --- log action ---
-                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.unmergeDemographics", "id=" + dm.getId());
+                LogAction.addLogStrict(loggedInInfo, "DemographicManager.unmergeDemographics", null, null, Integer.toString(dm.getDemographicNo()), "id=" + dm.getId());
+            }
+        }
+    }
+
+    /** Lock the same patients in the same order before inspecting merge heads. */
+    private void lockMergeParticipants(Integer parentId, List<Integer> children) {
+        if (parentId == null || children == null || children.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Merge participants must be patient records");
+        }
+        var ids = new TreeSet<Integer>(children);
+        ids.add(parentId);
+        for (Integer id : ids) {
+            if (!demographicDao.lockForMerge(id)) {
+                throw new IllegalArgumentException("Merge participant does not exist");
             }
         }
     }

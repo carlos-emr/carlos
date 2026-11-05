@@ -28,6 +28,7 @@ import org.apache.cxf.ext.logging.LoggingInInterceptor;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
+import org.apache.cxf.ws.security.SecurityConstants;
 import org.apache.cxf.ws.security.wss4j.WSS4JOutInterceptor;
 import org.apache.wss4j.dom.WSConstants;
 import org.apache.wss4j.dom.handler.WSHandlerConstants;
@@ -161,7 +162,7 @@ public class EdtClientBuilder {
         T port = newDelegate(clientClass);
 
         Client client = ClientProxy.getClient(port);
-        // Set up SSL trust-all if needed
+        // Configure TLS with the JVM's trusted certificate authorities.
         configureSsl((HTTPConduit) client.getConduit());
 
         // Add sec interceptors
@@ -170,6 +171,11 @@ public class EdtClientBuilder {
 
         // Enable MTOM on SOAPBinding if configured
         BindingProvider bp = (BindingProvider) port;
+        // EBS needs URLConnection's TLS protocol handling and socket read timeout,
+        // including while receiving signed/encrypted MTOM bodies. Keep this per
+        // client: unrelated CXF clients must retain their default transport.
+        bp.getRequestContext().put("use.async.http.conduit", Boolean.FALSE);
+        bp.getRequestContext().put("force.urlconnection.http.conduit", Boolean.TRUE);
         SOAPBinding sb = (SOAPBinding) bp.getBinding();
         if (getConfig().isMtomEnabled()) {
             sb.setMTOMEnabled(true);
@@ -185,6 +191,8 @@ public class EdtClientBuilder {
 
         // Point WS-Security signature properties to our keystore
         bp.getRequestContext().put("signaturePropFile", clientKeystore);
+        bp.getRequestContext().put(SecurityConstants.PASSWORD_ENCRYPTOR_INSTANCE,
+                PlaintextCryptoPasswordEncryptor.INSTANCE);
 
         // Add EBS/IDP SOAP headers
         try {
@@ -251,6 +259,8 @@ public class EdtClientBuilder {
         client.getEndpoint().getInInterceptors().add(new DynamicWSS4JInInterceptor(this));
 
         client.getEndpoint().getInInterceptors().add(new AttachmentCleanupInterceptor());
+        // A valid SOAP Fault switches chains without invoking normal-chain handleFault callbacks.
+        client.getEndpoint().getInFaultInterceptors().add(new AttachmentCleanupInterceptor());
     }
 
     /**
@@ -260,6 +270,7 @@ public class EdtClientBuilder {
         Map<String, Object> props = new HashMap<>();
         props.put(WSHandlerConstants.ACTION, getCxfInHandlerDirectives());
         props.put(WSHandlerConstants.PW_CALLBACK_REF, newCallback());
+        props.put(WSHandlerConstants.PASSWORD_ENCRYPTOR_INSTANCE, PlaintextCryptoPasswordEncryptor.INSTANCE);
         
         // Decryption properties - more explicit in CXF 3.5+
         props.put(WSHandlerConstants.DEC_PROP_FILE, clientKeystore);
@@ -301,6 +312,7 @@ public class EdtClientBuilder {
         props.put(WSHandlerConstants.USER, getConfig().getKeystoreUser());
         props.put(WSHandlerConstants.PASSWORD_TYPE, WSConstants.PW_TEXT);
         props.put(WSHandlerConstants.PW_CALLBACK_REF, newCallback());
+        props.put(WSHandlerConstants.PASSWORD_ENCRYPTOR_INSTANCE, PlaintextCryptoPasswordEncryptor.INSTANCE);
         props.put(WSHandlerConstants.SIGNATURE_PARTS, SIGNED_MESSAGE_ELEMENTS);
         props.put(WSHandlerConstants.SIG_PROP_FILE, clientKeystore);
         props.put(WSHandlerConstants.SIG_KEY_ID, "DirectReference");

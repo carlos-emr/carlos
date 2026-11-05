@@ -29,6 +29,8 @@
  * Environment: same as allergy-add-penicillin-playwright-checks.js.
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
@@ -128,14 +130,7 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
 async function fillStartDate(page, form, value) {
   const date = form.locator('#startDate');
@@ -188,27 +183,37 @@ function countRows(reaction) {
 
 const isSave = (url) => new URL(url).pathname.endsWith('/rx/addAllergy2');
 
-(async () => {
+legacyHarness.runLegacyCheck('allergy-save-retry',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   try {
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl), viewport: { width: 1200, height: 1000 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
     const page = await context.newPage();
+    cancellation?.throwIfCancelled();
     await page.addInitScript(() => { window.confirm = () => true; });
+    cancellation?.throwIfCancelled();
     wirePage(page, 'allergies', recorder);
 
     // A. request never reaches the server.
     const reactionA = `${reactionMarker} A`;
     let form = await openPenicillinDialogue(page);
+    cancellation?.throwIfCancelled();
     await fillDialogue(page, form, reactionA);
+    cancellation?.throwIfCancelled();
     let failNext = true;
     await page.route(isSave, async (route) => {
       if (failNext) { failNext = false; await route.abort('connectionreset'); } else { await route.continue(); }
     });
+    cancellation?.throwIfCancelled();
     await form.locator('input[type="submit"][value="Add Allergy"]').click();
+    cancellation?.throwIfCancelled();
     await assertValuesKept(page, form, reactionA, 'A (aborted)');
+    cancellation?.throwIfCancelled();
     assert(countRows(reactionA) === 0, 'A: a row exists although the save never reached the server');
     // The page already sits on /rx/showAllergy, so waiting for the URL would return at once and
     // count rows before the retry's POST completes: wait for the save, then for the dialogue to go.
@@ -216,15 +221,21 @@ const isSave = (url) => new URL(url).pathname.endsWith('/rx/addAllergy2');
       page.waitForResponse((response) => response.request().method() === 'POST' && isSave(response.url()), { timeout: 30000 }),
       form.locator('input[type="submit"][value="Add Allergy"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await form.waitFor({ state: 'detached', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     assert(countRows(reactionA) === 1, `A: retry persisted ${countRows(reactionA)} rows, expected exactly 1`);
     await page.unroute(isSave);
+    cancellation?.throwIfCancelled();
 
     // B. server persists, response is lost.
     const reactionB = `${reactionMarker} B`;
     form = await openPenicillinDialogue(page);
+    cancellation?.throwIfCancelled();
     await fillDialogue(page, form, reactionB);
+    cancellation?.throwIfCancelled();
     let loseNext = true;
     await page.route(isSave, async (route) => {
       if (loseNext) {
@@ -235,8 +246,11 @@ const isSave = (url) => new URL(url).pathname.endsWith('/rx/addAllergy2');
         await route.continue();
       }
     });
+    cancellation?.throwIfCancelled();
     await form.locator('input[type="submit"][value="Add Allergy"]').click();
+    cancellation?.throwIfCancelled();
     await assertValuesKept(page, form, reactionB, 'B (lost response)');
+    cancellation?.throwIfCancelled();
     assert(countRows(reactionB) === 1, 'B: first attempt should have persisted one row server-side');
     // The page already sits on /rx/showAllergy, so waiting for the URL would return at once and
     // count rows before the retry's POST completes: wait for the save, then for the dialogue to go.
@@ -244,8 +258,11 @@ const isSave = (url) => new URL(url).pathname.endsWith('/rx/addAllergy2');
       page.waitForResponse((response) => response.request().method() === 'POST' && isSave(response.url()), { timeout: 30000 }),
       form.locator('input[type="submit"][value="Add Allergy"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await form.waitFor({ state: 'detached', timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     assert(countRows(reactionB) === 1, `B: retry produced ${countRows(reactionB)} rows, expected exactly 1 (duplicate)`);
 
     assertNoPageErrors(recorder);
@@ -261,4 +278,4 @@ const isSave = (url) => new URL(url).pathname.endsWith('/rx/addAllergy2');
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

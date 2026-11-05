@@ -54,7 +54,7 @@ permissions:
 jobs:
   build:
     name: Build and analyze
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     if: >
       github.actor != 'dependabot[bot]' &&
@@ -179,18 +179,21 @@ jobs:
                 \"-Dsonar.pullrequest.base=\$PR_BASE\" \
                             "
 
-      - name: Report PR security and reliability after server processing
+      - name: Report PR quality findings after server processing
         if: always() && github.event_name == 'pull_request'
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPORT_COMMIT: ${{ github.event.pull_request.head.sha }}
           SONAR_REPORT_PATH: ${{ runner.temp }}/sonar-quality-after-analysis.json
+          # The authoritative gate also includes maintainability. Preserve its
+          # complete findings so the uploaded diagnostics explain every failure.
+          SONAR_INCLUDE_MAINTAINABILITY: 'true'
         run: python3 scripts/sonar_reliability_report.py
 
       - name: Preserve complete Sonar PR diagnostics
         if: always() && github.event_name == 'pull_request'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: sonar-pr-quality-findings
           path: |

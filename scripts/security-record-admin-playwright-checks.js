@@ -20,6 +20,7 @@
  * and one doctor role, all seeded by SQL and removed by cleanup, which asserts they
  * are gone. No demo row is touched.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const h = require('./lib/playwright-harness');
 const { clickOpensPopupOrNavigates, dataTableRows } = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
@@ -181,11 +182,11 @@ async function workflow(s) {
   });
   await s.step('SecurityUpdate and SecurityDelete refuse GET without writing', async () => {
     const after = snapshot();
-    const update = await context.request.get(h.appUrl(config.baseUrl, '/admin/SecurityUpdate'), {
+    const update = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/SecurityUpdate'), {
       params: { security_no: securityNo, user_name: userName + 'g', provider_no: providerNo, password: 'Rejected1!', conPassword: 'Rejected1!',
         pin: '0000', conPin: '0000', b_ExpireSet: '1', date_ExpireDate: '2000-01-01' }, maxRedirects: 0 });
     h.assert(update.status() === 405, `SecurityUpdate answered GET with HTTP ${update.status()}, expected 405`);
-    const remove = await context.request.get(h.appUrl(config.baseUrl, '/admin/SecurityDelete'), { params: { keyword: securityNo }, maxRedirects: 0 });
+    const remove = await authenticatedProbe({context, config}, h.appUrl(config.baseUrl, '/admin/SecurityDelete'), { params: { keyword: securityNo }, maxRedirects: 0 });
     h.assert(remove.status() === 405 && remove.headers().allow === 'POST', 'SecurityDelete must reject GET with Allow: POST');
     h.assert(JSON.stringify(snapshot()) === JSON.stringify(after), 'A rejected GET changed the security record');
   });
