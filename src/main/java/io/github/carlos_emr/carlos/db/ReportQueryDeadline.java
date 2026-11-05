@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.db;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -83,37 +84,14 @@ final class ReportQueryDeadline implements AutoCloseable {
                             return null;
                         }
                         try {
-                            CompletableFuture<Void> abort = deadline.stop(!exhausted.get());
-                            if (abort == null) {
-                                owned.close();
-                            } else {
-                                // Never drain unread rows or return the connection to its pool
-                                // before abort finishes. Slow driver cleanup cannot stall refusal.
-                                abort.thenRunAsync(() -> {
-                                    try {
-                                        owned.close();
-                                    } catch (SQLException | RuntimeException e) {
-                                        MiscUtils.getLogger().warn("Could not close aborted report resources", e);
-                                    }
-                                }, Thread::startVirtualThread);
-                            }
+                            closeOwned(owned, deadline, exhausted.get());
                             return null;
                         } finally {
                             LegacyJdbcQuery.unregisterThreadResource((AutoCloseable) proxy);
                         }
                     }
-                    if (deadline.expired) {
-                        throw new SQLTimeoutException("Report query deadline exceeded");
-                    }
                     try {
-                        Object result = method.invoke(owned, args);
-                        if ("next".equals(method.getName()) && Boolean.FALSE.equals(result)) {
-                            exhausted.set(true);
-                        }
-                        if (deadline.expired) {
-                            throw new SQLTimeoutException("Report query deadline exceeded");
-                        }
-                        return result;
+                        return invokeOwned(owned, deadline, exhausted, method, args);
                     } catch (InvocationTargetException e) {
                         if (deadline.expired && e.getCause() instanceof SQLException) {
                             throw new SQLTimeoutException("Report query deadline exceeded", e.getCause());
@@ -121,6 +99,41 @@ final class ReportQueryDeadline implements AutoCloseable {
                         throw e.getCause();
                     }
                 });
+    }
+
+    private static void closeOwned(ResultSet owned, ReportQueryDeadline deadline, boolean exhausted)
+            throws SQLException {
+        CompletableFuture<Void> abort = deadline.stop(!exhausted);
+        if (abort == null) {
+            owned.close();
+        } else {
+            // Never drain unread rows or return the connection to its pool before abort
+            // finishes. Slow driver cleanup cannot stall the report refusal response.
+            abort.thenRunAsync(() -> closeAborted(owned), Thread::startVirtualThread);
+        }
+    }
+
+    private static void closeAborted(ResultSet owned) {
+        try {
+            owned.close();
+        } catch (SQLException | RuntimeException e) {
+            MiscUtils.getLogger().warn("Could not close aborted report resources", e);
+        }
+    }
+
+    private static Object invokeOwned(ResultSet owned, ReportQueryDeadline deadline, AtomicBoolean exhausted,
+            Method method, Object[] args) throws ReflectiveOperationException, SQLTimeoutException {
+        if (deadline.expired) {
+            throw new SQLTimeoutException("Report query deadline exceeded");
+        }
+        Object result = method.invoke(owned, args);
+        if ("next".equals(method.getName()) && Boolean.FALSE.equals(result)) {
+            exhausted.set(true);
+        }
+        if (deadline.expired) {
+            throw new SQLTimeoutException("Report query deadline exceeded");
+        }
+        return result;
     }
 
     @Override
