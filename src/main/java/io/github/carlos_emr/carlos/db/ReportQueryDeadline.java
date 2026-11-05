@@ -32,7 +32,7 @@ final class ReportQueryDeadline implements AutoCloseable {
         cancellation.orTimeout(remainingNanos, TimeUnit.NANOSECONDS).exceptionallyAsync(failure -> {
             expire();
             return null;
-        }, task -> Thread.startVirtualThread(task));
+        }, Thread::startVirtualThread);
     }
 
     private void expire() {
@@ -50,11 +50,12 @@ final class ReportQueryDeadline implements AutoCloseable {
         return expired;
     }
 
-    ResultSet wrap(ResultSet owned) {
+    /** Transfers ownership of the cursor and its cancellation timer to the returned cursor. */
+    static ResultSet wrap(ResultSet owned, ReportQueryDeadline deadline) {
         return (ResultSet) Proxy.newProxyInstance(ResultSet.class.getClassLoader(), new Class<?>[]{ResultSet.class},
                 (proxy, method, args) -> {
                     if ("close".equals(method.getName())) {
-                        close();
+                        deadline.close();
                         try {
                             return method.invoke(owned, args);
                         } catch (InvocationTargetException e) {
@@ -63,17 +64,17 @@ final class ReportQueryDeadline implements AutoCloseable {
                             LegacyJdbcQuery.unregisterThreadResource((AutoCloseable) proxy);
                         }
                     }
-                    if (expired) {
+                    if (deadline.expired) {
                         throw new SQLTimeoutException("Report query deadline exceeded");
                     }
                     try {
                         Object result = method.invoke(owned, args);
-                        if (expired) {
+                        if (deadline.expired) {
                             throw new SQLTimeoutException("Report query deadline exceeded");
                         }
                         return result;
                     } catch (InvocationTargetException e) {
-                        if (expired && e.getCause() instanceof SQLException) {
+                        if (deadline.expired && e.getCause() instanceof SQLException) {
                             throw new SQLTimeoutException("Report query deadline exceeded", e.getCause());
                         }
                         throw e.getCause();

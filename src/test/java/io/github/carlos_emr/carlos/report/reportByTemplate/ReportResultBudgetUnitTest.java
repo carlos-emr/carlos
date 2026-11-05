@@ -98,6 +98,7 @@ class ReportResultBudgetUnitTest {
 
             @Override
             public void close() {
+                // The synthetic reader has no external resources to release.
             }
         };
         when(rs.getCharacterStream(1)).thenReturn(enormous);

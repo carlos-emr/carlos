@@ -25,7 +25,7 @@ class ReportQueryDeadlineUnitTest {
         CountDownLatch cancelled = new CountDownLatch(1);
         doAnswer(ignored -> { cancelled.countDown(); return null; }).when(statement).cancel();
         try (ReportQueryDeadline deadline = new ReportQueryDeadline(statement, System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
-             ResultSet rs = deadline.wrap(delegate)) {
+             ResultSet rs = ReportQueryDeadline.wrap(delegate, deadline)) {
             assertThat(cancelled.await(5, TimeUnit.SECONDS)).isTrue();
             assertThatThrownBy(rs::next).isInstanceOf(SQLTimeoutException.class);
         }
@@ -45,7 +45,7 @@ class ReportQueryDeadlineUnitTest {
         }).when(statement).cancel();
         try (ReportQueryDeadline deadline = new ReportQueryDeadline(statement,
                 System.nanoTime() + TimeUnit.SECONDS.toNanos(1));
-             ResultSet rs = deadline.wrap(delegate)) {
+             ResultSet rs = ReportQueryDeadline.wrap(delegate, deadline)) {
             assertThat(cancelling.await(5, TimeUnit.SECONDS)).isTrue();
             try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
                 try {

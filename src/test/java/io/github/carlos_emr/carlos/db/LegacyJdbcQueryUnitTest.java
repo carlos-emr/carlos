@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -346,14 +347,18 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
                 .noneMatch(method -> "statement".equals(method.getName()));
     }
 
-    @Test
-    void shouldSetStreamingReportBudgets_beforeExecutingAndReleaseResources() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"MySQL,-2147483648", "MariaDB,-2147483648", "H2,100"})
+    void shouldSetStreamingReportBudgets_beforeExecutingAndReleaseResources(String product, int fetchSize) throws Exception {
         DataSource source = mock(DataSource.class);
         Connection connection = mock(Connection.class);
         PreparedStatement statement = mock(PreparedStatement.class);
         ResultSet rs = mock(ResultSet.class);
         registerMock(DataSource.class, source);
         when(source.getConnection()).thenReturn(connection);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn(product);
         when(connection.prepareStatement("select ?", ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
                 .thenReturn(statement);
         when(statement.executeQuery()).thenReturn(rs);
@@ -363,7 +368,7 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
             assertThat(owned).isNotNull();
             InOrder order = inOrder(statement);
             order.verify(statement).setMaxRows(101);
-            order.verify(statement).setFetchSize(Integer.MIN_VALUE);
+            order.verify(statement).setFetchSize(fetchSize);
             order.verify(statement).setObject(1, "synthetic");
             order.verify(statement).setQueryTimeout(7);
             order.verify(statement).executeQuery();
@@ -380,6 +385,9 @@ class LegacyJdbcQueryUnitTest extends CarlosUnitTestBase {
         PreparedStatement statement = mock(PreparedStatement.class);
         registerMock(DataSource.class, source);
         when(source.getConnection()).thenReturn(connection);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn("MySQL");
         when(connection.prepareStatement("select 1", ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY))
                 .thenReturn(statement);
         when(statement.executeQuery()).thenThrow(new java.sql.SQLTimeoutException("synthetic timeout"));

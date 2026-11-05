@@ -157,8 +157,11 @@ public final class LegacyJdbcQuery {
         try {
             ps = prepareStreamingReportStatement(connection, trusted);
             ps.setMaxRows(maxRows);
-            // Connector/J's supported streaming mode avoids buffering the entire result.
-            ps.setFetchSize(Integer.MIN_VALUE);
+            // The negative streaming sentinel is specific to Connector/J. Other
+            // JDBC drivers (including H2) require a non-negative fetch size.
+            String product = connection.getMetaData().getDatabaseProductName();
+            ps.setFetchSize("MySQL".equals(product) || "MariaDB".equals(product)
+                    ? Integer.MIN_VALUE : Math.min(100, maxRows));
             bindParams(ps, sql.getParamsArray());
             long remainingNanos = deadlineNanos - System.nanoTime();
             if (remainingNanos <= 0) {
@@ -166,11 +169,13 @@ public final class LegacyJdbcQuery {
             }
             // JDBC uses integer seconds; only this fallback rounds up. The timer
             // retains the original absolute deadline, including acquisition/setup.
-            ps.setQueryTimeout((int) Math.min(Integer.MAX_VALUE, Math.max(1,
-                    (remainingNanos + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1))));
+            ps.setQueryTimeout(Math.clamp(
+                    (remainingNanos + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1),
+                    1, Integer.MAX_VALUE));
             deadline = new ReportQueryDeadline(ps, deadlineNanos);
             ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- validated, parameterized report boundary
-            return registerThreadResource(deadline.wrap(StatementClosingResultSet.wrap(rs, ps, connection, dataSource)));
+            return registerThreadResource(ReportQueryDeadline.wrap(
+                    StatementClosingResultSet.wrap(rs, ps, connection, dataSource), deadline));
         } catch (SQLException | RuntimeException e) {
             if (deadline != null) {
                 deadline.close();

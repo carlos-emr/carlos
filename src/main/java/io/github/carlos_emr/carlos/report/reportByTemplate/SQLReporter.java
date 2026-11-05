@@ -207,31 +207,41 @@ public class SQLReporter implements Reporter {
 
     /** Null CSV denotes budget failure or a failed sequence; ordinary single-query errors retain result navigation. */
     private String[] executeQuery(ParameterizedSql query, boolean sequenced, ReportResultBudget budget) {
-        try {
-            budget.startQuery();
-            try (ResultSet rs = LegacyJdbcQuery.getBoundedReportResultSet(
-                    query, budget.remainingRows() + 1, budget.deadlineNanos())) {
-                try {
-                    return budget.render(rs, sequenced ? query.getSql() : null);
-                } catch (IOException | SQLException e) {
-                    // Cancel before closing: a streaming cursor may still have unread rows.
-                    try {
-                        if (rs.getStatement() != null) {
-                            rs.getStatement().cancel();
-                        }
-                    } catch (SQLException cancelFailure) {
-                        e.addSuppressed(cancelFailure);
-                    }
-                    throw e;
-                }
-            }
+        try (ResultSet rs = openReportQuery(query, budget)) {
+            return renderReport(rs, sequenced ? query.getSql() : null, budget);
         } catch (ReportResultBudget.LimitExceededException e) {
             return new String[]{e.getMessage(), null};
-        } catch (SQLTimeoutException e) {
+        } catch (SQLTimeoutException _) {
             return new String[]{REPORT_LIMIT_MESSAGE, null};
         } catch (SQLException | IOException e) {
             MiscUtils.getLogger().error("Error generating template report", e);
             return new String[]{"An SQL query error has occured " + Encode.forHtml(e.getMessage()), sequenced ? null : ""};
+        }
+    }
+
+    private ResultSet openReportQuery(ParameterizedSql query, ReportResultBudget budget) throws IOException, SQLException {
+        budget.startQuery();
+        return LegacyJdbcQuery.getBoundedReportResultSet(query, budget.remainingRows() + 1, budget.deadlineNanos());
+    }
+
+    private String[] renderReport(ResultSet rs, String sqlOnEmpty, ReportResultBudget budget) throws IOException, SQLException {
+        try {
+            return budget.render(rs, sqlOnEmpty);
+        } catch (IOException | SQLException e) {
+            cancelReport(rs, e);
+            throw e;
+        }
+    }
+
+    private void cancelReport(ResultSet rs, Exception failure) {
+        // Cancel before closing: a streaming cursor may still have unread rows.
+        try {
+            var statement = rs.getStatement();
+            if (statement != null) {
+                statement.cancel();
+            }
+        } catch (SQLException cancelFailure) {
+            failure.addSuppressed(cancelFailure);
         }
     }
 }

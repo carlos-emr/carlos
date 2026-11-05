@@ -29,6 +29,8 @@ parameters before execution. It sets a JDBC row ceiling with one overflow row,
 a query timeout derived from the remaining request deadline, and Connector/J's
 supported streaming fetch size. A cancellation timer remains armed through result
 consumption, since the JDBC execution timeout alone may end before streaming does.
+The Connector/J streaming sentinel is used only for MySQL/MariaDB; other JDBC
+drivers receive a positive fetch hint bounded by the row ceiling.
 Connection acquisition and JDBC setup retain the Spring datasource's existing
 limits (`db_max_wait`, 20 seconds by default, controls pool waits). Their elapsed
 time is charged to the same absolute monotonic deadline; an expired deadline

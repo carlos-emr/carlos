@@ -79,16 +79,16 @@ final class ReportResultBudget {
             throw new LimitExceededException(SQLReporter.REPORT_LIMIT_MESSAGE);
         }
         LimitedOutput html = new LimitedOutput(false);
-        Writer htmlWriter = new OutputStreamWriter(html, StandardCharsets.UTF_8);
-        if (!rs.next()) {
-            checkDeadline();
-            htmlWriter.write(sqlOnEmpty == null ? "" : Encode.forHtml(sqlOnEmpty) + "<br/>");
-            htmlWriter.write("The query returned no results.");
-            htmlWriter.flush();
-            return new String[]{html.text(), ""};
-        }
         LimitedOutput csv = new LimitedOutput(true);
-        try (CSVPrinter printer = new CSVPrinter(new OutputStreamWriter(csv, StandardCharsets.UTF_8), CSVFormat.DEFAULT)) {
+        try (Writer htmlWriter = new OutputStreamWriter(html, StandardCharsets.UTF_8);
+             CSVPrinter printer = new CSVPrinter(new OutputStreamWriter(csv, StandardCharsets.UTF_8), CSVFormat.DEFAULT)) {
+            if (!rs.next()) {
+                checkDeadline();
+                htmlWriter.write(sqlOnEmpty == null ? "" : Encode.forHtml(sqlOnEmpty) + "<br/>");
+                htmlWriter.write("The query returned no results.");
+                htmlWriter.flush();
+                return new String[]{html.text(), ""};
+            }
             htmlWriter.write("<table id=\"report2\" class=\"reportTable display compact\"><thead><tr>");
             for (int column = 1; column <= columns; column++) {
                 String label = checkedCell(metadata.getColumnLabel(column));

@@ -155,7 +155,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
     }
     @Test
     @DisplayName("should retain result-page navigation for an ordinary SQL refusal")
-    void shouldKeepResultPageNavigation_whenStoredSqlIsRejected() throws Exception {
+    void shouldKeepResultPageNavigation_whenStoredSqlIsRejected() {
         ReportTemplatesDao dao = mock(ReportTemplatesDao.class);
         registerMock(ReportTemplatesDao.class, dao);
         ReportTemplates template = new ReportTemplates();
@@ -172,6 +172,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
                     .thenThrow(new java.sql.SQLException("Only SELECT statements are allowed"));
             assertThat(new SQLReporter().generateReport(request)).isTrue();
+            verify(managers.constructed().getFirst()).getReportTemplateNoParam("1");
             assertThat(request.getAttribute("reportobject")).isSameAs(report);
             assertThat(request.getAttribute("csv")).isEqualTo("");
             assertThat(request.getAttribute("resultsethtml").toString()).contains("Only SELECT statements are allowed");
@@ -208,6 +209,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             jdbc.when(() -> LegacyJdbcQuery.getBoundedReportResultSet(any(ParameterizedSql.class), anyInt(), anyLong()))
                     .thenReturn(rs).thenThrow(new java.sql.SQLException("synthetic query failure"));
             assertThat(new SQLReporter().generateReport(request)).isFalse();
+            assertThat(managers.constructed()).hasSize(2);
             assertThat(request.getAttribute("csv-0")).isNull();
             assertThat(request.getAttribute("sql-0")).isNull();
             assertThat(request.getAttribute("resultsethtml-0")).isNull();
