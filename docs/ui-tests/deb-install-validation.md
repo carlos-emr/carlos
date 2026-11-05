@@ -1,5 +1,8 @@
 # Deb Install Validation Runbook
 
+See [modern chart cutover and rollback](../modern-chart-cutover.md) before upgrading
+or rolling back a deployment with historical chart data.
+
 This runbook builds the CARLOS Debian packages from source, installs them into a
 disposable Ubuntu 26.04 VM with the demo dataset, and drives the full
 `scripts/*-playwright-checks.js` suite against the packaged deployment — through
@@ -1147,14 +1150,17 @@ proved. The helper skips when `LAB_ROLLBACK_FAULT_ARTIFACT_DIR` is unset.
 Since #4793, `AbandonOldChart` is forced to `true` in the application, whether the
 property is absent or explicitly set to `false`. Devcontainer and Debian installs
 therefore both use the modern chart and do not mirror modern notes/CPP into `eChart`.
-Existing legacy records are retained. The legacy editor/print path is unsupported:
-non-Exit save requests return HTTP 410 before changing clinical data or layout;
-Exit retains its layout-only behavior. The print beans do not load legacy clinical
-text, and changing this property cannot restore it. A loaded `false`, `no` or `off`
-value is reported once at startup as ignored (`AbandonOldChart=... is ignored` at
-WARN); remove the obsolete setting rather than trust it. Use the modern chart and its
-print workflow. Permanent removal of the
-legacy routes and a retrieval plan for historical-only records are tracked in #5599.
+Existing legacy records are retained as historical snapshots. Non-Exit legacy editor
+save requests return HTTP 410 before changing clinical data or layout; Exit retains
+its layout-only behavior. Authorized report readers can open Historical chart from
+the modern chart header and view or print patient-owned historical revisions. These
+prints are labeled historical and do not include subsequent modern notes or CPP;
+use the modern chart print workflow for current care. Messaging offers historical
+encounter PDFs only when a retained row contains clinical text. A loaded `false`,
+`no` or `off` value is reported once at startup as ignored (`AbandonOldChart=... is
+ignored` at WARN) before the cutover appends `AbandonOldChart=true` to the external
+configuration. Permanent removal
+of the legacy routes and further migration decisions are tracked in #5599.
 The manual `legacy-encounter-editor-isolation` check's legacy-content expectations
 are historical and cannot be qualified on this forced-modern release. Its entrypoint
 reports SKIP before database/browser setup, including on CAISI-enabled deployments.

@@ -35,11 +35,11 @@
                 patient and encounter context are supplied by the containing view.
     @since 2026-09-12 (promotion documentation and safe paste diagnostics)
 --%>
-    <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty"%>
-    <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo"%>
-    <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
-    <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO"%>
-    <%@page import="io.github.carlos_emr.CarlosProperties"%>
+
+
+
+
+
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

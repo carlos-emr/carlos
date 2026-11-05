@@ -33,9 +33,9 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.DateUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar"%>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite"%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%

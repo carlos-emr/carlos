@@ -141,10 +141,10 @@ Ontario, Canada
 <fmt:message key="Appointment.formNotes" var="appointmentTextNotes"/>
 <fmt:message key="Appointment.formResources" var="appointmentTextResources"/>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>

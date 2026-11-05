@@ -53,7 +53,7 @@
 </head>
 <body bgcolor="#FFFFFF" text="#000000" topmargin="5" leftmargin="0"
       rightmargin="0">
-<%@ page import="io.github.carlos_emr.*,java.text.*, java.util.*" %>
+<%@ page import="io.github.carlos_emr.*, java.util.*" %>
 <%@ page import="io.github.carlos_emr.BillingItemBean" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

@@ -91,6 +91,8 @@
 		<property name="receiveTimeout" value="300000"/>
 	</bean>
 
+    <!-- Published schemas are the pre-Metro-removal MOXy contract (#5476). CXF rewrites
+         service addresses for the request host; the binding schemas remain stable across JAXB providers. -->
 	<!-- www service endpoints -->
 	<!-- SystemInfoService is a liveness / system-info endpoint. It previously ran
 	     with no interceptor, so an unauthenticated off-host caller could read
@@ -101,7 +103,7 @@
 	     through nginx (which presents the real client IP via RemoteIpValve) is
 	     refused. The debian nginx config also 404s this path at the edge, so
 	     neither gate is load-bearing on its own. -->
-	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService">
+	<jaxws:endpoint implementor="#systemInfoWs" address="/SystemInfoService" wsdlLocation="classpath:wsdl/published/SystemInfoService.wsdl">
 		<jaxws:inInterceptors>
 			<ref bean="loopbackOnlyInInterceptor"/>
 		</jaxws:inInterceptors>
@@ -109,75 +111,75 @@
 	<!-- LoginService MUST stay unauthenticated: it is how SOAP clients obtain a
 	     security token. Its brute-force exposure is bounded by the front-door
 	     rate limit on /carlos/ws/LoginService (see debian nginx config). -->
-	<jaxws:endpoint implementor="#loginWs" address="/LoginService" />
+	<jaxws:endpoint implementor="#loginWs" address="/LoginService" wsdlLocation="classpath:wsdl/published/LoginService.wsdl" />
 	
-	<jaxws:endpoint implementor="#scheduleWs" address="/ScheduleService">
+	<jaxws:endpoint implementor="#scheduleWs" address="/ScheduleService" wsdlLocation="classpath:wsdl/published/ScheduleService.wsdl">
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
 
-	<jaxws:endpoint implementor="#bookingWs" address="/BookingService">
+	<jaxws:endpoint implementor="#bookingWs" address="/BookingService" wsdlLocation="classpath:wsdl/published/BookingService.wsdl">
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
 	
-	<jaxws:endpoint implementor="#providerWs" address="/ProviderService" >
+	<jaxws:endpoint implementor="#providerWs" address="/ProviderService" wsdlLocation="classpath:wsdl/published/ProviderService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
 	
-	<jaxws:endpoint implementor="#demographicWs" address="/DemographicService" >
+	<jaxws:endpoint implementor="#demographicWs" address="/DemographicService" wsdlLocation="classpath:wsdl/published/DemographicService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>
 		
-	<jaxws:endpoint implementor="#facilityWs" address="/FacilityService" >
+	<jaxws:endpoint implementor="#facilityWs" address="/FacilityService" wsdlLocation="classpath:wsdl/published/FacilityService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
   
-	<jaxws:endpoint implementor="#programWs" address="/ProgramService" >
+	<jaxws:endpoint implementor="#programWs" address="/ProgramService" wsdlLocation="classpath:wsdl/published/ProgramService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
      	
-	<jaxws:endpoint implementor="#allergyWs" address="/AllergyService" >
+	<jaxws:endpoint implementor="#allergyWs" address="/AllergyService" wsdlLocation="classpath:wsdl/published/AllergyService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
      	
-	<jaxws:endpoint implementor="#preventionWs" address="/PreventionService" >
+	<jaxws:endpoint implementor="#preventionWs" address="/PreventionService" wsdlLocation="classpath:wsdl/published/PreventionService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
 
-	<jaxws:endpoint implementor="#measurementWs" address="/MeasurementService" >
+	<jaxws:endpoint implementor="#measurementWs" address="/MeasurementService" wsdlLocation="classpath:wsdl/published/MeasurementService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
 
-	<jaxws:endpoint implementor="#documentWs" address="/DocumentService" >
+	<jaxws:endpoint implementor="#documentWs" address="/DocumentService" wsdlLocation="classpath:wsdl/published/DocumentService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
 
-	<jaxws:endpoint implementor="#prescriptionWs" address="/PrescriptionService" >
+	<jaxws:endpoint implementor="#prescriptionWs" address="/PrescriptionService" wsdlLocation="classpath:wsdl/published/PrescriptionService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
 	</jaxws:endpoint>	
 
-	<jaxws:endpoint implementor="#labUploadWs" address="/LabUploadService" >
+	<jaxws:endpoint implementor="#labUploadWs" address="/LabUploadService" wsdlLocation="classpath:wsdl/published/LabUploadService.wsdl" >
 		<jaxws:inInterceptors>
 			<ref bean="authenticationInWSS4JInterceptor"/>
 		</jaxws:inInterceptors>
@@ -317,7 +319,7 @@
                     <bean class="com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector"/>
                 </constructor-arg>
                 <constructor-arg>
-                    <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
+                    <bean class="io.github.carlos_emr.carlos.webserv.rest.util.RestXmlAnnotationIntrospector">
                         <constructor-arg>
                             <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
                         </constructor-arg>

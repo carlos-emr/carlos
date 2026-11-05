@@ -59,7 +59,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.encounter.data.EctEChartBean;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
+import io.github.carlos_emr.carlos.casemgmt.service.CppTextLoader;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementTypesBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
@@ -186,8 +187,19 @@ public final class FrmSetupForm2Action extends ActionSupport {
         }
         request.setAttribute("formPatient", patient);
         request.setAttribute("formDemographicNo", demo);
-        EctEChartBean chartBean = new EctEChartBean();
-        chartBean.setEChartBean(demo);
+        String ongoingConcerns = "";
+        if ("VTForm".equals(formName)) {
+            if (securityInfoManager().hasPrivilege(loggedInInfo, "_demographic", "r", demo)
+                    && securityInfoManager().hasPrivilege(loggedInInfo, "_eChart", "r", demo)
+                    && securityInfoManager().hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demo)) {
+                ongoingConcerns = new CppTextLoader(SpringUtils.getBean(CaseManagementManager.class), securityInfoManager())
+                        .load(request, loggedInInfo, demo, CaseManagementManager.IssueType.CONCERNS);
+            } else {
+                // Form-only access remains useful, but missing chart rights must not look like
+                // an empty clinical history. Do not query clinical notes in this branch.
+                ongoingConcerns = "Unavailable (chart access required)";
+            }
+        }
         
         String today = UtilDateUtilities.DateToString(new Date(), _dateFormat);
         String visitCod = UtilDateUtilities.DateToString(new Date(), "yyyy-MM-dd");
@@ -199,7 +211,7 @@ public final class FrmSetupForm2Action extends ActionSupport {
         //specifically for VT Form
         request.setAttribute("drugs", drugLists);
         request.setAttribute("allergies", allergyList);
-        request.setAttribute("ongoingConcerns", chartBean.ongoingConcerns == null || chartBean.ongoingConcerns.isEmpty() ? "None" : chartBean.ongoingConcerns);
+        request.setAttribute("ongoingConcerns", ongoingConcerns.isEmpty() ? "None" : ongoingConcerns);
         if (currentRec != null) {
             this.setValue("visitCod", currentRec.getProperty("visitCod", ""));
             this.setValue("diagnosisVT", currentRec.getProperty("Diagnosis", ""));

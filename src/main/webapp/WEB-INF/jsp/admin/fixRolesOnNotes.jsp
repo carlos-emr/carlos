@@ -36,10 +36,10 @@
 <%@page import="io.github.carlos_emr.carlos.db.*" %>
 <%@page import="java.sql.*" %>
 <%@page import="java.util.*" %>
-<%@page import="org.owasp.encoder.Encode" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.log.LogAction" %>
+
+
+
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>

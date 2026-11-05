@@ -29,16 +29,16 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ProviderPreferenceDao" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="java.util.List" %>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="org.apache.commons.lang3.time.DateFormatUtils" %>
+
 <script type="text/javascript">
     var remote = null;
     var awnd = null;
