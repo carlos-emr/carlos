@@ -1,0 +1,251 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="MeasurementWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="addMeasurement">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="ns0:measurementTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="addMeasurementResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurement">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurementMaps"/>
+  <xsd:complexType name="getMeasurementMapsResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:measurementMapTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurementResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:measurementTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurementsByDemographicIdAfter">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="lastUpdate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurementsByDemographicIdAfterResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:measurementTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurementsByProgramProviderDemographicDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg2" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg3" type="xsd:dateTime"/>
+      <xsd:element name="arg4" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurementsByProgramProviderDemographicDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:measurementTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurementsCreatedAfterDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:dateTime"/>
+      <xsd:element name="arg1" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getMeasurementsCreatedAfterDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:measurementTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="measurementMapTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="identCode" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="labType" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="loincCode" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="name" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="measurementTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="appointmentNo" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="comments" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="createDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="dataField" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="dateObserved" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="measuringInstruction" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="type" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="addMeasurement" type="ns0:addMeasurement"/>
+  <xsd:element name="addMeasurementResponse" type="ns0:addMeasurementResponse"/>
+  <xsd:element name="getMeasurement" type="ns0:getMeasurement"/>
+  <xsd:element name="getMeasurementMaps" type="ns0:getMeasurementMaps"/>
+  <xsd:element name="getMeasurementMapsResponse" type="ns0:getMeasurementMapsResponse"/>
+  <xsd:element name="getMeasurementResponse" type="ns0:getMeasurementResponse"/>
+  <xsd:element name="getMeasurementsByDemographicIdAfter" type="ns0:getMeasurementsByDemographicIdAfter"/>
+  <xsd:element name="getMeasurementsByDemographicIdAfterResponse" type="ns0:getMeasurementsByDemographicIdAfterResponse"/>
+  <xsd:element name="getMeasurementsByProgramProviderDemographicDate" type="ns0:getMeasurementsByProgramProviderDemographicDate"/>
+  <xsd:element name="getMeasurementsByProgramProviderDemographicDateResponse" type="ns0:getMeasurementsByProgramProviderDemographicDateResponse"/>
+  <xsd:element name="getMeasurementsCreatedAfterDate" type="ns0:getMeasurementsCreatedAfterDate"/>
+  <xsd:element name="getMeasurementsCreatedAfterDateResponse" type="ns0:getMeasurementsCreatedAfterDateResponse"/>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="getMeasurementMapsResponse">
+    <wsdl:part element="tns:getMeasurementMapsResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurementResponse">
+    <wsdl:part element="tns:getMeasurementResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addMeasurementResponse">
+    <wsdl:part element="tns:addMeasurementResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurement">
+    <wsdl:part element="tns:getMeasurement" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurementsCreatedAfterDate">
+    <wsdl:part element="tns:getMeasurementsCreatedAfterDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurementsByDemographicIdAfter">
+    <wsdl:part element="tns:getMeasurementsByDemographicIdAfter" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurementsCreatedAfterDateResponse">
+    <wsdl:part element="tns:getMeasurementsCreatedAfterDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurementsByProgramProviderDemographicDate">
+    <wsdl:part element="tns:getMeasurementsByProgramProviderDemographicDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurementsByDemographicIdAfterResponse">
+    <wsdl:part element="tns:getMeasurementsByDemographicIdAfterResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurementsByProgramProviderDemographicDateResponse">
+    <wsdl:part element="tns:getMeasurementsByProgramProviderDemographicDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getMeasurementMaps">
+    <wsdl:part element="tns:getMeasurementMaps" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="addMeasurement">
+    <wsdl:part element="tns:addMeasurement" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="MeasurementWs">
+    <wsdl:operation name="getMeasurement">
+      <wsdl:input message="tns:getMeasurement" name="getMeasurement">
+    </wsdl:input>
+      <wsdl:output message="tns:getMeasurementResponse" name="getMeasurementResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getMeasurementsCreatedAfterDate">
+      <wsdl:input message="tns:getMeasurementsCreatedAfterDate" name="getMeasurementsCreatedAfterDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getMeasurementsCreatedAfterDateResponse" name="getMeasurementsCreatedAfterDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getMeasurementsByDemographicIdAfter">
+      <wsdl:input message="tns:getMeasurementsByDemographicIdAfter" name="getMeasurementsByDemographicIdAfter">
+    </wsdl:input>
+      <wsdl:output message="tns:getMeasurementsByDemographicIdAfterResponse" name="getMeasurementsByDemographicIdAfterResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getMeasurementsByProgramProviderDemographicDate">
+      <wsdl:input message="tns:getMeasurementsByProgramProviderDemographicDate" name="getMeasurementsByProgramProviderDemographicDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getMeasurementsByProgramProviderDemographicDateResponse" name="getMeasurementsByProgramProviderDemographicDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getMeasurementMaps">
+      <wsdl:input message="tns:getMeasurementMaps" name="getMeasurementMaps">
+    </wsdl:input>
+      <wsdl:output message="tns:getMeasurementMapsResponse" name="getMeasurementMapsResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addMeasurement">
+      <wsdl:input message="tns:addMeasurement" name="addMeasurement">
+    </wsdl:input>
+      <wsdl:output message="tns:addMeasurementResponse" name="addMeasurementResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="MeasurementWsServiceSoapBinding" type="tns:MeasurementWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getMeasurement">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getMeasurement">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getMeasurementResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getMeasurementsCreatedAfterDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getMeasurementsCreatedAfterDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getMeasurementsCreatedAfterDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getMeasurementsByDemographicIdAfter">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getMeasurementsByDemographicIdAfter">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getMeasurementsByDemographicIdAfterResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getMeasurementsByProgramProviderDemographicDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getMeasurementsByProgramProviderDemographicDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getMeasurementsByProgramProviderDemographicDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getMeasurementMaps">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getMeasurementMaps">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getMeasurementMapsResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="addMeasurement">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="addMeasurement">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="addMeasurementResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="MeasurementWsService">
+    <wsdl:port binding="tns:MeasurementWsServiceSoapBinding" name="MeasurementWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/MeasurementService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

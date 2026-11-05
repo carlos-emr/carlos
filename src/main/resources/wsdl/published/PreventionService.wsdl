@@ -1,0 +1,187 @@
+<?xml version='1.0' encoding='UTF-8'?><wsdl:definitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:tns="http://ws.oscarehr.org/" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:ns1="http://schemas.xmlsoap.org/soap/http" name="PreventionWsService" targetNamespace="http://ws.oscarehr.org/">
+  <wsdl:types>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:ns0="http://ws.oscarehr.org/" targetNamespace="http://ws.oscarehr.org/">
+  <xsd:complexType name="getPrevention">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPreventionResponse">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="return" type="ns0:preventionTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPreventionsByDemographicIdAfter">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="lastUpdate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPreventionsByDemographicIdAfterResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:preventionTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPreventionsByProgramProviderDemographicDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg1" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="arg2" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="arg3" type="xsd:dateTime"/>
+      <xsd:element name="arg4" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPreventionsByProgramProviderDemographicDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:preventionTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPreventionsUpdatedAfterDate">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="arg0" type="xsd:dateTime"/>
+      <xsd:element name="arg1" type="xsd:int"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="getPreventionsUpdatedAfterDateResponse">
+    <xsd:sequence>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="return" type="ns0:preventionTransfer"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="preventionExtTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="key" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="preventionId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="value" type="xsd:string"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="preventionTransfer">
+    <xsd:sequence>
+      <xsd:element minOccurs="0" name="creationDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="creatorProviderNo" type="xsd:string"/>
+      <xsd:element name="deleted" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="demographicId" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="id" type="xsd:int"/>
+      <xsd:element minOccurs="0" name="lastUpdateDate" type="xsd:dateTime"/>
+      <xsd:element name="never" type="xsd:boolean"/>
+      <xsd:element minOccurs="0" name="nextDate" type="xsd:dateTime"/>
+      <xsd:element minOccurs="0" name="preventionDate" type="xsd:dateTime"/>
+      <xsd:element maxOccurs="unbounded" minOccurs="0" name="preventionExts" nillable="true" type="ns0:preventionExtTransfer"/>
+      <xsd:element minOccurs="0" name="preventionType" type="xsd:string"/>
+      <xsd:element minOccurs="0" name="providerNo" type="xsd:string"/>
+      <xsd:element name="refused" type="xsd:boolean"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:element name="getPrevention" type="ns0:getPrevention"/>
+  <xsd:element name="getPreventionResponse" type="ns0:getPreventionResponse"/>
+  <xsd:element name="getPreventionsByDemographicIdAfter" type="ns0:getPreventionsByDemographicIdAfter"/>
+  <xsd:element name="getPreventionsByDemographicIdAfterResponse" type="ns0:getPreventionsByDemographicIdAfterResponse"/>
+  <xsd:element name="getPreventionsByProgramProviderDemographicDate" type="ns0:getPreventionsByProgramProviderDemographicDate"/>
+  <xsd:element name="getPreventionsByProgramProviderDemographicDateResponse" type="ns0:getPreventionsByProgramProviderDemographicDateResponse"/>
+  <xsd:element name="getPreventionsUpdatedAfterDate" type="ns0:getPreventionsUpdatedAfterDate"/>
+  <xsd:element name="getPreventionsUpdatedAfterDateResponse" type="ns0:getPreventionsUpdatedAfterDateResponse"/>
+</xsd:schema>
+  </wsdl:types>
+  <wsdl:message name="getPreventionsUpdatedAfterDateResponse">
+    <wsdl:part element="tns:getPreventionsUpdatedAfterDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPreventionsByDemographicIdAfter">
+    <wsdl:part element="tns:getPreventionsByDemographicIdAfter" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPrevention">
+    <wsdl:part element="tns:getPrevention" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPreventionResponse">
+    <wsdl:part element="tns:getPreventionResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPreventionsByProgramProviderDemographicDate">
+    <wsdl:part element="tns:getPreventionsByProgramProviderDemographicDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPreventionsUpdatedAfterDate">
+    <wsdl:part element="tns:getPreventionsUpdatedAfterDate" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPreventionsByDemographicIdAfterResponse">
+    <wsdl:part element="tns:getPreventionsByDemographicIdAfterResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:message name="getPreventionsByProgramProviderDemographicDateResponse">
+    <wsdl:part element="tns:getPreventionsByProgramProviderDemographicDateResponse" name="parameters">
+    </wsdl:part>
+  </wsdl:message>
+  <wsdl:portType name="PreventionWs">
+    <wsdl:operation name="getPreventionsUpdatedAfterDate">
+      <wsdl:input message="tns:getPreventionsUpdatedAfterDate" name="getPreventionsUpdatedAfterDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getPreventionsUpdatedAfterDateResponse" name="getPreventionsUpdatedAfterDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPreventionsByDemographicIdAfter">
+      <wsdl:input message="tns:getPreventionsByDemographicIdAfter" name="getPreventionsByDemographicIdAfter">
+    </wsdl:input>
+      <wsdl:output message="tns:getPreventionsByDemographicIdAfterResponse" name="getPreventionsByDemographicIdAfterResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPrevention">
+      <wsdl:input message="tns:getPrevention" name="getPrevention">
+    </wsdl:input>
+      <wsdl:output message="tns:getPreventionResponse" name="getPreventionResponse">
+    </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPreventionsByProgramProviderDemographicDate">
+      <wsdl:input message="tns:getPreventionsByProgramProviderDemographicDate" name="getPreventionsByProgramProviderDemographicDate">
+    </wsdl:input>
+      <wsdl:output message="tns:getPreventionsByProgramProviderDemographicDateResponse" name="getPreventionsByProgramProviderDemographicDateResponse">
+    </wsdl:output>
+    </wsdl:operation>
+  </wsdl:portType>
+  <wsdl:binding name="PreventionWsServiceSoapBinding" type="tns:PreventionWs">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="getPreventionsUpdatedAfterDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getPreventionsUpdatedAfterDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getPreventionsUpdatedAfterDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPreventionsByDemographicIdAfter">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getPreventionsByDemographicIdAfter">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getPreventionsByDemographicIdAfterResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPrevention">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getPrevention">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getPreventionResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+    <wsdl:operation name="getPreventionsByProgramProviderDemographicDate">
+      <soap:operation soapAction="" style="document"/>
+      <wsdl:input name="getPreventionsByProgramProviderDemographicDate">
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output name="getPreventionsByProgramProviderDemographicDateResponse">
+        <soap:body use="literal"/>
+      </wsdl:output>
+    </wsdl:operation>
+  </wsdl:binding>
+  <wsdl:service name="PreventionWsService">
+    <wsdl:port binding="tns:PreventionWsServiceSoapBinding" name="PreventionWsPort">
+      <soap:address location="http://127.0.0.1:18080/carlos/ws/PreventionService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

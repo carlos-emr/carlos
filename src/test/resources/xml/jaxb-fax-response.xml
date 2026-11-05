@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FaxJob>
+  <id>7</id>
+  <status>SENT</status>
+  <stamp>2026-07-15T13:14:15.12-04:00</stamp>
+  <recipient>FICTITIOUS</recipient>
+</FaxJob>

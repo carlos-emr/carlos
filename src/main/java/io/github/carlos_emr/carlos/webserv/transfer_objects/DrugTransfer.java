@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsMedicationCo
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
+@jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 public class DrugTransfer {
 
     private Integer id;

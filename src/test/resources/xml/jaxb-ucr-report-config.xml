@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<report-config>
+  <data-sources>
+    <data-source>
+      <type>form</type>
+      <bean>syntheticReport</bean>
+      <forms><form><name>Synthetic report</name></form></forms>
+    </data-source>
+  </data-sources>
+</report-config>

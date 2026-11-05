@@ -70,7 +70,7 @@
                     <bean class="com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector"/>
                 </constructor-arg>
                 <constructor-arg>
-                    <bean class="com.fasterxml.jackson.module.jakarta.xmlbind.JakartaXmlBindAnnotationIntrospector">
+                    <bean class="io.github.carlos_emr.carlos.webserv.rest.util.RestXmlAnnotationIntrospector">
                         <constructor-arg>
                             <bean class="com.fasterxml.jackson.databind.type.TypeFactory" factory-method="defaultInstance"/>
                         </constructor-arg>

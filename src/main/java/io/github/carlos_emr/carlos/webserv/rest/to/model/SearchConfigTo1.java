@@ -155,6 +155,8 @@ public class SearchConfigTo1 {
         this.bookingAppointmentTypes = bookingAppointmentTypes;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CharacterIntegerMapXmlAdapter.class)
     public Map<Character, Integer> getAppointmentCodeDurations() {
         return appointmentCodeDurations;
     }

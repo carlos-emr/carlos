@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
+@jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 public class AppointmentExtTo {
     private Integer appointmentNo;
     private String providerNo;
@@ -231,10 +232,11 @@ public class AppointmentExtTo {
     @Override
     public String toString() {
         SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-        SimpleDateFormat dft = new SimpleDateFormat("yyyy-MM-dd");
+        String formattedDate = appointmentDate == null ? "null" : df.format(appointmentDate);
+        String formattedStart = startTime == null ? "null" : df.format(startTime);
         return "AppointmentExtTo2 [appointmentNo=" + appointmentNo + ", providerNo=" + providerNo
-                + ", appointmentDate=" + appointmentDate != null ? df.format(appointmentDate) : "null"
-                + ", startTime=" + startTime != null ? dft.format(startTime) : "null"
+                + ", appointmentDate=" + formattedDate
+                + ", startTime=" + formattedStart
                 + ", demographicNo=" + demographicNo + ", notes=" + notes
                 + ", location=" + location + ", resources=" + resources + ", status=" + status
                 + ", lastName=" + lastName + ", firstName=" + firstName + ", phone=" + phone + ", phone2=" + phone2

@@ -190,6 +190,7 @@ public class LookupCodeValue {
     }
     @jakarta.persistence.Transient
 
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getLastUpdateDate() {
         return lastUpdateDate;
     }
