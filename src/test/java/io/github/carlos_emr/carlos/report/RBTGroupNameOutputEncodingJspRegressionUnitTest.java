@@ -40,9 +40,8 @@ class RBTGroupNameOutputEncodingJspRegressionUnitTest extends CarlosUnitTestBase
     private static final Path MANAGER_JAVA =
             Path.of("src/main/java/io/github/carlos_emr/carlos/managers/RBTGroupManager.java");
 
-    /** Any EL expression that prints a group name: the loop variable or an RBTGroup's groupName. */
-    private static final Pattern GROUP_NAME_EL =
-            Pattern.compile("\\$\\{[^}]*(?:\\bgroupName\\b|\\.groupName)[^}]*}");
+    /** Any EL expression; the ones that print a group name are picked out by text, not by a backtracking pattern. */
+    private static final Pattern EL_EXPRESSION = Pattern.compile("\\$\\{[^}]*}");
 
     @Test
     @DisplayName("should keep the manager from Java-escaping the stored label")
@@ -57,11 +56,14 @@ class RBTGroupNameOutputEncodingJspRegressionUnitTest extends CarlosUnitTestBase
     void shouldEncodeEveryGroupNameExpression_inTemplateGroupsJsp() throws IOException {
         String jsp = Files.readString(GROUPS_JSP, StandardCharsets.UTF_8);
 
-        Matcher matcher = GROUP_NAME_EL.matcher(jsp);
+        Matcher matcher = EL_EXPRESSION.matcher(jsp);
         int found = 0;
         while (matcher.find()) {
-            found++;
-            assertThat(matcher.group()).as("group name output must be encoded").contains("carlos:for");
+            // The loop variable is named groupName and an RBTGroup exposes .groupName.
+            if (matcher.group().contains("groupName")) {
+                found++;
+                assertThat(matcher.group()).as("group name output must be encoded").contains("carlos:for");
+            }
         }
         assertThat(found).isGreaterThanOrEqualTo(8);
     }
