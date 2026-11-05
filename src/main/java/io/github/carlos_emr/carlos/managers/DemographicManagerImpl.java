@@ -686,7 +686,10 @@ public class DemographicManagerImpl implements DemographicManager {
     }
 
     @Override
+    @Transactional
     public void mergeDemographics(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        lockMergeParticipants(parentId, children);
+        children = new ArrayList<>(new LinkedHashSet<>(children));
         // Reject before the first write: merging a record into itself, or involving a record that is already
         // merged into another, can close a loop in demographic_merged that getHead cannot resolve.
         if (parentId == null || !demographicMergedDao.findCurrentByDemographicNo(parentId).isEmpty()) {
@@ -705,13 +708,15 @@ public class DemographicManagerImpl implements DemographicManager {
             demographicMergedDao.persist(dm);
 
             // --- log action ---
-            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.mergeDemographics", "id=" + dm.getId());
+            LogAction.addLogStrict(loggedInInfo, "DemographicManager.mergeDemographics", null, null, Integer.toString(dm.getDemographicNo()), "id=" + dm.getId());
         }
 
     }
 
     @Override
+    @Transactional
     public void unmergeDemographics(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        lockMergeParticipants(parentId, children);
         for (Integer childId : children) {
             List<DemographicMerged> dms = demographicMergedDao.findByParentAndChildIds(parentId, childId);
             if (dms.isEmpty()) {
@@ -723,7 +728,21 @@ public class DemographicManagerImpl implements DemographicManager {
                 demographicMergedDao.merge(dm);
 
                 // --- log action ---
-                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.unmergeDemographics", "id=" + dm.getId());
+                LogAction.addLogStrict(loggedInInfo, "DemographicManager.unmergeDemographics", null, null, Integer.toString(dm.getDemographicNo()), "id=" + dm.getId());
+            }
+        }
+    }
+
+    /** Lock the same patients in the same order before inspecting merge heads. */
+    private void lockMergeParticipants(Integer parentId, List<Integer> children) {
+        if (parentId == null || children == null || children.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Merge participants must be patient records");
+        }
+        var ids = new TreeSet<Integer>(children);
+        ids.add(parentId);
+        for (Integer id : ids) {
+            if (!demographicDao.lockForMerge(id)) {
+                throw new IllegalArgumentException("Merge participant does not exist");
             }
         }
     }
