@@ -20,15 +20,16 @@ public class SmsProviderRateLimitDaoImpl extends AbstractDaoImpl<SmsProviderRate
 
     @Override
     @Transactional
-    public void insertIfMissing(SmsProviderType providerType, Date now) {
+    public void ensureExists(SmsProviderType providerType, Date now) {
         if (providerType == null) {
             return;
         }
         Date safeNow = now == null ? new Date() : new Date(now.getTime());
         entityManager.createNativeQuery(
-                        "INSERT IGNORE INTO sms_provider_rate_limit "
+                        "INSERT INTO sms_provider_rate_limit "
                                 + "(provider_type, send_count, window_started_at, created_at, updated_at) "
                                 + "VALUES (?1, 0, ?2, ?3, ?4)"
+                                + " ON DUPLICATE KEY UPDATE provider_type = provider_type"
                 )
                 .setParameter(1, providerType.name())
                 .setParameter(2, safeNow)

@@ -29,7 +29,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.TicklerDaoImpl;
-import io.github.carlos_emr.carlos.commn.dao.TicklerLinkDao;
+import io.github.carlos_emr.carlos.commn.dao.TicklerDocsDao;
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -231,7 +231,7 @@ class TicklerLazyFetchMigrationUnitTest extends CarlosUnitTestBase {
         DemographicDao demographicDao = mock(DemographicDao.class);
         registerMock(ProviderDao.class, providerDao);
         registerMock(DemographicDao.class, demographicDao);
-        registerMock(TicklerLinkDao.class, mock(TicklerLinkDao.class));
+        registerMock(TicklerDocsDao.class, mock(TicklerDocsDao.class));
         registerMock(ProgramDao.class, mock(ProgramDao.class));
 
         Tickler tickler = new Tickler();

@@ -40,9 +40,9 @@ ran those updates they surface through preflight's unknown-table flow (B2,
 archive-by-default).
 """
 
-# The nullable consultation booking field no longer needs primitive coercion.
+# Nullable Program flags no longer need primitive coercion during import.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-3"
+SCHEMA_MAP_VERSION = "o19map-4"
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -213,6 +213,8 @@ MERGE_EXCLUDE = {
 # Seed rows a later Flyway migration DELETEs again (the static tuple count
 # over-counts them): table -> rows to subtract from the P0 floor.
 SEED_COUNT_DELETIONS = {
+    # V1.0.59.2 retires the worksheet menu entry in both provinces.
+    "encounterForm": 1,
     # common/V1.0.9 removes the carlosdoc-scoped _admin.schedule.groupCreate
     # denial the on_data baseline seeded
     "secObjPrivilege": 1,
@@ -374,7 +376,16 @@ BY_PROVINCE = {
         # plus the nine MSP has added since (B, J, K, L, N, Q, U, V, W).
         # So it is the textbook union: CARLOS's codes win, anything the
         # clinic added appends.
-        "CLASS_MERGE": {"billingvisit": ["visittype", "region"]},
+        "CLASS_MERGE": {
+            "billingvisit": ["visittype", "region"],
+            # V1.0.59.3 seeds WorkSafeBC catalogs by these natural codes.
+            # Forms store codes, not the lookup surrogate IDs. Keep the
+            # CARLOS reference wording and append clinic-only codes;
+            # original clinic rows remain in the merge archive.
+            "wcb_bp_code": ["code"],
+            "wcb_noi_code": ["code"],
+            "wcb_side": ["sidetype"],
+        },
         # Three directories CARLOS seeds ONLY in the BC migration set
         # (V1.0.6, INSERT IGNORE without the surrogate column, so the
         # seeded rows take auto_increment ids 1..N):
@@ -708,6 +719,14 @@ NOT_RENAMES = {
         "are additions",
         ("oneIdKey", "oneIdEmail", "delegateOneIdEmail", "usingMfa",
          "mfaSecret")),
+    # The archive mirrors `security`, so the same pair recurs one table
+    # over. CARLOS's archived usingMfa (V1.0.59, #5120) is the MFA on/off
+    # setting O19 never had; an imported O19 archive row keeps NULL there
+    # ("not recorded"), which is the truth about it.
+    ("SecurityArchive", "storageVersion"): (
+        "O19 storage-scheme marker; CARLOS's archived usingMfa is an "
+        "addition",
+        ("usingMfa",)),
 }
 
 # The same question one level up: (o19_table, carlos_table) -> why the pair
@@ -828,6 +847,21 @@ VALUE_EXPRS = {
     # property merges on (name, provider_no); O19 writes '' where CARLOS
     # writes NULL for a global key, so both spell the key the same way
     "property": {"provider_no": "NULLIF(s.`provider_no`, '')"},
+    # CARLOS keeps one LIVE Consent row per patient and consent type
+    # (uq_consent_live_type, #3845); an OSCAR 19 clinic can hold several,
+    # and NULL flags. `deleted` is read from the o19_archive helper the
+    # ETL builds before this copy (o19etl.consent_live_statements), which
+    # ranks the live rows by the application's own rule and retires the
+    # rest; `{archive}` is filled by o19etl.source_expr. A NULL optout is
+    # no recorded decision: the helper retires the row and it is stored
+    # as an opt-out, so a row restored by hand later fails safe. So does
+    # the lookup: a row the helper does not know arrives retired (the
+    # ETL refuses to copy at all when there is one).
+    "Consent": {
+        "optout": "IFNULL(s.`optout`, 1)",
+        "deleted": "IFNULL((SELECT r.`deleted` FROM "
+                   "{archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)",
+    },
 }
 
 SEED_PROVIDER_NO = "999998"

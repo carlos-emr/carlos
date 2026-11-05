@@ -65,6 +65,7 @@ public class ProviderTo1 implements Serializable {
     private String email;
     private String title;
     private String lastUpdateUser;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate;
 
     public String getProviderNo() {

@@ -142,6 +142,11 @@
      * @param {string} demographic_no - Patient demographic number
      */
     function write2Parent(keyword, demographic_no) {
+        // The compose window may be gone (closed, or this page reached by a redirect with
+        // no opener); there is then nothing to write back to.
+        if (!opener || opener.closed || !opener.document.forms[0]) {
+            return;
+        }
         // Update parent window's message form with selected patient
         opener.document.forms[0].demographic_no.value = demographic_no;
         opener.document.forms[0].selectedDemo.value = keyword;
@@ -215,8 +220,11 @@
     </form>
 </table>
 <script>
-    // Auto-close window and write selection back to parent if demographic was selected
-    if ("<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>" != "null") {
+    // Auto-close window and write selection back to parent if demographic was selected.
+    // carlos:encode renders a missing parameter as "", so both "" and a literal "null" mean
+    // no patient was chosen (the Save Attachments hand-over arrives with none).
+    var chosenDemographicNo = "<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>";
+    if (chosenDemographicNo !== "" && chosenDemographicNo !== "null") {
         write2Parent("<carlos:encode value='<%= keyword %>' context="javaScriptBlock"/>", "<carlos:encode value='<%= demographic_no %>' context="javaScriptBlock"/>");
         self.window.close();
     }

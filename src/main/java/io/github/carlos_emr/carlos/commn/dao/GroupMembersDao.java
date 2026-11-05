@@ -54,5 +54,11 @@ public interface GroupMembersDao extends AbstractDao<GroupMembers> {
 
     public List<GroupMembers> findByFacilityId(Integer facilityId);
 
+    /** Serialize membership writes, including an absent group-0 registry row, until commit. */
+    void lockMembershipChanges();
+
+    /** Current, locking read; either filter may be null to include all values. */
+    List<GroupMembers> findMembershipsForUpdate(Integer groupId, ContactIdentifier contact);
+
     public GroupMembers findByIdentity(ContactIdentifier contactIdentifier);
 }

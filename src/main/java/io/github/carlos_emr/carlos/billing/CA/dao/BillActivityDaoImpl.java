@@ -74,4 +74,16 @@ public class BillActivityDaoImpl extends AbstractDaoImpl<BillActivity> implement
 
         return results;
     }
+
+    @Override
+    public List<BillActivity> findCurrentByFilename(String filename) {
+        Query q = entityManager.createQuery(
+                "SELECT b FROM BillActivity b WHERE (b.ohipFilename = ?1 OR b.htmlFilename = ?1) AND b.status != 'D' ORDER BY b.id");
+        q.setParameter(1, filename);
+
+        @SuppressWarnings("unchecked")
+        List<BillActivity> results = q.getResultList();
+
+        return results;
+    }
 }

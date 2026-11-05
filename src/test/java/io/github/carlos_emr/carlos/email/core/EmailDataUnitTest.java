@@ -116,6 +116,141 @@ class EmailDataUnitTest {
         assertThat(emailData.getAttachments()).hasSize(1);
     }
     @Test
+    @DisplayName("should send the body exactly as today when there is no footer")
+    void shouldReturnBodyUnchanged_whenFooterEmptyOrNull() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Hello\n");
+
+        assertThat(emailData.getFooter()).isEmpty();
+        assertThat(emailData.getTransmittedBody()).isEqualTo("Hello\n");
+        emailData.setFooter(null);
+        assertThat(emailData.getFooter()).isEmpty();
+        assertThat(emailData.getTransmittedBody()).isEqualTo("Hello\n");
+    }
+
+    @Test
+    @DisplayName("should add no trailing blank lines for a footer of only whitespace")
+    void shouldReturnBodyUnchanged_whenFooterWhitespaceOnly() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Hello\n");
+        emailData.setFooter(" \r\n\t\u2003 ");
+
+        assertThat(emailData.getTransmittedBody()).isEqualTo("Hello\n");
+        // what the log keeps is what was sent: no footer
+        assertThat(emailData.getSentFooter()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should put the footer's plain text after exactly one blank line")
+    void shouldAppendTrimmedFooter_afterOneBlankLine() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Hello\n\n\n");
+        emailData.setFooter("<b>Riverside Clinic</b><br>Not monitored for urgent issues.  <br><br>");
+
+        assertThat(emailData.getTransmittedBody())
+                .isEqualTo("Hello\n\nRiverside Clinic\nNot monitored for urgent issues.");
+        assertThat(emailData.getBody()).isEqualTo("Hello\n\n\n");
+        // The log keeps the formatted footer, without the editor's trailing line breaks.
+        assertThat(emailData.getSentFooter()).isEqualTo("<b>Riverside Clinic</b><br>Not monitored for urgent issues.");
+    }
+
+    @Test
+    @DisplayName("should send and log a footer without anything outside the footer's allow-list")
+    void shouldCleanFooter_whenFooterCarriesScriptOrUnsafeLink() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Hello");
+        emailData.setFooter("<script>alert(1)</script><a href=\"javascript:alert(1)\" onclick=\"x()\">Clinic</a>"
+                + "<img src=\"https://tracker.example/p.gif\"><a href=\"https://clinic.example\">Website</a>");
+
+        assertThat(emailData.getFooter()).contains("<script>");
+        assertThat(emailData.getSentFooter()).isSameAs(emailData.getSentFooter());
+        assertThat(emailData.getSentFooter())
+                .isEqualTo("<a>Clinic</a><a href=\"https://clinic.example\">Website</a>")
+                .doesNotContain("script", "javascript", "onclick", "img");
+        assertThat(emailData.getTransmittedBody()).isEqualTo("Hello\n\nClinicWebsite <https://clinic.example>");
+        assertThat(emailData.getTransmittedHtml()).doesNotContain("<script", "javascript:", "tracker.example");
+    }
+
+    @Test
+    @DisplayName("should return an empty footer when direct hydration leaves its field null")
+    void shouldReturnEmptyFooter_whenHydratedFieldNull() {
+        EmailData emailData = new EmailData();
+        org.springframework.test.util.ReflectionTestUtils.setField(emailData, "footer", null);
+        assertThat(emailData.getFooter()).isEmpty();
+        assertThat(emailData.getSentFooter()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should clean the footer when derived state is absent in an older object")
+    void shouldRebuildCleanFooter_whenCachedStateAbsent() {
+        EmailData emailData = new EmailData();
+        org.springframework.test.util.ReflectionTestUtils.setField(emailData, "footer", "<script>x()</script><b>Clinic</b>");
+
+        assertThat(emailData.getSentFooter()).isEqualTo("<b>Clinic</b>");
+        assertThat(emailData.getTransmittedHtml()).doesNotContain("<script>");
+        emailData.setFooter("<i>Changed</i>");
+        assertThat(emailData.getSentFooter()).isEqualTo("<i>Changed</i>");
+    }
+
+    @Test
+    @DisplayName("should send plain text only, with no logo, when there is no footer")
+    void shouldReturnNoHtmlAndNoLogo_whenFooterEmpty() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Hello");
+        emailData.setFooterLogo(new EmailInlineImage("clinic-logo-1@carlos-emr", "image/png", new byte[] {1}));
+        emailData.setFooter("<br> &nbsp; <b></b>");
+
+        assertThat(emailData.getSentFooter()).isEmpty();
+        assertThat(emailData.getTransmittedHtml()).isNull();
+        assertThat(emailData.getFooterLogo()).isNull();
+    }
+
+    @Test
+    @DisplayName("should compare inline pictures by content and never print their bytes")
+    void shouldCompareInlineImageByContent_andHideBytes() {
+        EmailInlineImage one = new EmailInlineImage("clinic-logo-ab@carlos-emr", "image/png", new byte[] {1, 2});
+        EmailInlineImage same = new EmailInlineImage("clinic-logo-ab@carlos-emr", "image/png", new byte[] {1, 2});
+
+        assertThat(one).isEqualTo(same).hasSameHashCodeAs(same)
+                .isNotEqualTo(new EmailInlineImage("clinic-logo-ab@carlos-emr", "image/png", new byte[] {1, 3}));
+        assertThat(one.toString()).contains("bytes=2").doesNotContain("[B@");
+        assertThat(one.fileName()).isEqualTo("clinic-logo-ab.png");
+    }
+
+    @Test
+    @DisplayName("should build the formatted version from the escaped message, the logo and the cleaned footer")
+    void shouldBuildHtmlVersion_whenFooterAndLogoSet() {
+        EmailData emailData = new EmailData();
+        emailData.setBody("Results are <ready>\nCall us");
+        EmailInlineImage logo = new EmailInlineImage("clinic-logo-ab12@carlos-emr", "image/png", new byte[] {1, 2});
+        emailData.setFooterLogo(logo);
+        emailData.setFooter("<i>Riverside Clinic</i>");
+
+        String html = emailData.getTransmittedHtml();
+
+        assertThat(html).contains("Results are &lt;ready&gt;<br>Call us")
+                .contains("<img src=\"cid:clinic-logo-ab12@carlos-emr\"")
+                .contains("<i>Riverside Clinic</i>");
+        assertThat(html.indexOf("cid:")).isLessThan(html.indexOf("Riverside Clinic"));
+        assertThat(emailData.getFooterLogo()).isSameAs(logo);
+    }
+
+    @Test
+    @DisplayName("should put the footer after the encrypted-message notice and never in the PDF content")
+    void shouldAppendFooterAfterNotice_whenMessageEncrypted() {
+        EmailData emailData = new EmailData();
+        emailData.setIsEncrypted(true);
+        emailData.setBody("You have a secure message.");
+        emailData.setEncryptedMessage("Confidential result");
+        emailData.setFooter("Riverside Clinic");
+
+        assertThat(emailData.getTransmittedBody()).isEqualTo("You have a secure message.\n\nRiverside Clinic");
+        assertThat(emailData.getTransmittedHtml()).contains("You have a secure message.").doesNotContain("Confidential result");
+        assertThat(emailData.getEncryptedMessage()).isEqualTo("Confidential result");
+        assertThat(emailData.getBody()).isEqualTo("You have a secure message.");
+    }
+
+    @Test
     void shouldDefaultToWithoutNote_whenChartOptionIsAbsentOrNull() {
         EmailData data = new EmailData();
         assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITHOUT_NOTE);
@@ -126,5 +261,96 @@ class EmailDataUnitTest {
         assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITH_FULL_NOTE);
         data.setChartDisplayOption((String) null);
         assertThat(data.getChartDisplayOption()).isEqualTo(ChartDisplayOption.WITHOUT_NOTE);
+    }
+
+    @Test
+    void shouldTransmitPersonalAboveMandatoryClinic_inBothVersions() {
+        EmailData data = new EmailData();
+        data.setBody("Body");
+        data.setFooter("<b>Dr Example</b>");
+        data.freezeFooter(new ClinicEmailFooterSnapshot("<i>FAKE Clinic</i>", null));
+        assertThat(data.getTransmittedBody()).isEqualTo("Body\n\nDr Example\n\nFAKE Clinic");
+        assertThat(data.getTransmittedHtml()).containsSubsequence("Body", "<b>Dr Example</b>", "<i>FAKE Clinic</i>");
+        assertThat(data.getSentFooter()).containsSubsequence("Dr Example", "FAKE Clinic");
+    }
+
+    @Test
+    void shouldKeepClinic_whenPersonalFooterIsCleared() {
+        EmailData data = new EmailData();
+        data.setFooter("<b> </b>");
+        data.freezeFooter(new ClinicEmailFooterSnapshot("FAKE Clinic", null));
+        assertThat(data.getSentFooter()).isEqualTo("FAKE Clinic");
+        assertThat(data.getTransmittedBody()).endsWith("FAKE Clinic");
+    }
+
+    @Test
+    void shouldRefuseBlankClinic_evenWhenPersonalExists() {
+        EmailData data = new EmailData();
+        data.setFooter("Personal");
+        assertThatThrownBy(() -> data.freezeFooter(new ClinicEmailFooterSnapshot("<b> </b>", null)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThat(data.isFooterFrozen()).isFalse();
+    }
+
+    @Test
+    void shouldSendOnlyThePersonalFooter_andNoLogo_whenTheClinicFooterIsOff() {
+        EmailData data = new EmailData();
+        data.setBody("Body");
+        data.setFooter("<b>Dr Example</b>");
+        data.freezeFooter(ClinicEmailFooterSnapshot.OFF);
+        assertThat(data.getSentFooter()).isEqualTo("<b>Dr Example</b>");
+        assertThat(data.getTransmittedBody()).isEqualTo("Body\n\nDr Example");
+        assertThat(data.getFooterLogo()).isNull();
+    }
+
+    @Test
+    void shouldSendWithoutAnyFooter_whenTheClinicFooterIsOffAndThereIsNoPersonalOne() {
+        EmailData data = new EmailData();
+        data.setBody("Body");
+        data.freezeFooter(ClinicEmailFooterSnapshot.OFF);
+        assertThat(data.getSentFooter()).isEmpty();
+        assertThat(data.isFooterFrozen()).isTrue();
+    }
+
+    @Test
+    void shouldCarryNothingFromTheClinic_whenTheSnapshotIsOff() {
+        var off = new ClinicEmailFooterSnapshot("FAKE Clinic", new EmailInlineImage("logo@test", "image/png", new byte[] {1}), true);
+        assertThat(off).isEqualTo(ClinicEmailFooterSnapshot.OFF);
+        assertThat(off.html()).isEmpty();
+        assertThat(off.logo()).isNull();
+        assertThat(off.missingRequiredFooter()).isFalse();
+        assertThat(new ClinicEmailFooterSnapshot("", null).missingRequiredFooter()).isTrue();
+    }
+
+    @Test
+    void shouldFreezeFooterAndDefensivelyCopyLogo() {
+        byte[] bytes = {1, 2, 3};
+        var clinic = new ClinicEmailFooterSnapshot("FAKE Clinic", new EmailInlineImage("logo@test", "image/png", bytes));
+        bytes[0] = 9;
+        EmailData data = new EmailData();
+        data.setFooter("Personal");
+        data.freezeFooter(clinic);
+        String plain = data.getTransmittedBody();
+        String html = data.getTransmittedHtml();
+        String logged = data.getSentFooter();
+        clinic.logo().bytes()[0] = 8;
+        data.getFooterLogo().bytes()[0] = 7;
+        assertThatThrownBy(() -> data.setFooter("Changed")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> data.setClinicFooterSnapshot(new ClinicEmailFooterSnapshot("Changed", null)))
+                .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> data.setFooterLogo(null)).isInstanceOf(IllegalStateException.class);
+        assertThat(data.getFooterLogo().bytes()).containsExactly((byte) 1, (byte) 2, (byte) 3);
+        assertThat(data.getTransmittedBody()).isEqualTo(plain);
+        assertThat(data.getTransmittedHtml()).isEqualTo(html);
+        assertThat(data.getSentFooter()).isEqualTo(logged);
+    }
+
+    @Test
+    void shouldRefuseCombinedUtf8Base64Overflow_beforeItIsFrozen() {
+        EmailData data = new EmailData();
+        data.setFooter("Personal");
+        assertThatThrownBy(() -> data.freezeFooter(new ClinicEmailFooterSnapshot("界".repeat(17_000), null)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("storage capacity");
+        assertThat(data.isFooterFrozen()).isFalse();
     }
 }

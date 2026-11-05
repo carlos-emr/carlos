@@ -60,6 +60,9 @@ public interface BillingONItemDao extends AbstractDao<BillingONItem> {
     /** Bulk-load active items for several headers while excluding deleted and settled statuses. */
     List<BillingONItem> findByCh1IdsExcludingDeletedAndSettled(List<Integer> ch1Ids);
 
+    /** Bulk-load statement items, including settled items and excluding deleted ones. */
+    List<BillingONItem> findByCh1IdsExcludingDeleted(List<Integer> ch1Ids);
+
     /** Load item rows for one header while excluding a caller-specified status value. */
     List<BillingONItem> findByCh1IdAndStatusNotEqual(Integer chId, String string);
 

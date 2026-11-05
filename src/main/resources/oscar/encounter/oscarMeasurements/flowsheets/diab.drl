@@ -709,6 +709,39 @@ rule "FTLS 3"
         m.addWarning("FTLS","A loss of sensation test has not been recorded");
 end
 
+// Tuning fork screening follows the existing annual neurological-exam reminders.
+// This shared DRL also serves non-diabetes flowsheets: only warn when NRTF is loaded.
+rule "NRTF 1"
+    when
+        m : MeasurementInfo()
+        eval( m.getMeasurementData("NRTF") != null )
+        eval( m.getLastDateRecordedInMonths("NRTF") >= 10 )
+        eval( m.getLastDateRecordedInMonths("NRTF") < 12 )
+    then
+        m.log("NRTF 1 getting called");
+        m.addRecommendation("NRTF","A 128Hz tuning fork exam hasn't been recorded in "+m.getLastDateRecordedInMonths("NRTF")+" months");
+end
+
+rule "NRTF 2"
+    when
+        m : MeasurementInfo()
+        eval( m.getMeasurementData("NRTF") != null )
+        eval( m.getLastDateRecordedInMonths("NRTF") >= 12 )
+    then
+        m.log("NRTF 2 getting called");
+        m.addWarning("NRTF","A 128Hz tuning fork exam hasn't been recorded in "+m.getLastDateRecordedInMonths("NRTF")+" months");
+end
+
+rule "NRTF 3"
+    when
+        m : MeasurementInfo()
+        eval( m.getMeasurementData("NRTF") != null )
+        eval( m.getLastDateRecordedInMonths("NRTF") ==  -1 )
+    then
+        m.log("NRTF 3 getting called");
+        m.addWarning("NRTF","A 128Hz tuning fork exam has not been recorded");
+end
+
 // ---------------------------------------------------------------------------
 // Painful Neuropathy (PANE)
 // Tracks whether painful neuropathy assessment has been recorded.

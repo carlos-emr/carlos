@@ -32,6 +32,7 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -64,15 +65,22 @@ public class PopulationReport2Action extends ActionSupport {
 
     private PopulationReportManager populationReportManager = SpringUtils.getBean(PopulationReportManager.class);
 
-    private static long lastDataRetrievedTime = 0;
-    private static Date currentDateTime = null;
-    private static ShelterPopulation shelterPopulation = null;
-    private static ShelterUsage shelterUsage = null;
-    private static Mortalities mortalities = null;
-    private static Map<String, ReportStatistic> majorMedicalConditions = null;
-    private static Map<String, ReportStatistic> majorMentalIllnesses = null;
-    private static Map<String, ReportStatistic> seriousMedicalConditions = null;
-    private static Map<String, Map<String, String>> categoryCodeDescriptions = null;
+    /**
+     * One complete computation of the report, cached for an hour. It is published as a whole, so a
+     * request never reads figures from two different computations, and only once every figure has
+     * been computed: stamping the cache before computing let one failed compute serve an hour of
+     * partial figures to everyone (issue #4855).
+     */
+    private record Figures(Date computedAt, ShelterPopulation shelterPopulation,
+                           ShelterUsage shelterUsage, Mortalities mortalities,
+                           Map<String, ReportStatistic> majorMedicalConditions,
+                           Map<String, ReportStatistic> majorMentalIllnesses,
+                           Map<String, ReportStatistic> seriousMedicalConditions,
+                           Map<String, Map<String, String>> categoryCodeDescriptions,
+                           long retrievedAt) {
+    }
+
+    private static final AtomicReference<Figures> CACHED_FIGURES = new AtomicReference<>();
 
     @Override
     public String execute() {
@@ -87,30 +95,39 @@ public class PopulationReport2Action extends ActionSupport {
     public String report() {
 
         // simple caching mechanism (because this report is open to the public and we don't want the public smacking our server around)
-        if (System.currentTimeMillis() - lastDataRetrievedTime > DateUtils.MILLIS_PER_HOUR) {
-            lastDataRetrievedTime = System.currentTimeMillis();
-
-            // get attributes
-            currentDateTime = Calendar.getInstance().getTime();
-            shelterPopulation = populationReportManager.getShelterPopulation();
-            shelterUsage = populationReportManager.getShelterUsage();
-            mortalities = populationReportManager.getMortalities();
-            majorMedicalConditions = populationReportManager.getMajorMedicalConditions();
-            majorMentalIllnesses = populationReportManager.getMajorMentalIllnesses();
-            seriousMedicalConditions = populationReportManager.getSeriousMedicalConditions();
-            categoryCodeDescriptions = populationReportManager.getCategoryCodeDescriptions();
+        Figures figures = CACHED_FIGURES.get();
+        if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
+            // Keep one refresh in flight. Atomic publication alone lets every concurrent cache
+            // miss run all of the report's expensive queries before any result has been cached.
+            synchronized (CACHED_FIGURES) {
+                figures = CACHED_FIGURES.get();
+                if (figures == null || System.currentTimeMillis() - figures.retrievedAt() > DateUtils.MILLIS_PER_HOUR) {
+                    // Arguments are evaluated left to right: the cache time is taken after every
+                    // figure, and a failing figure leaves nothing published.
+                    figures = new Figures(Calendar.getInstance().getTime(),
+                            populationReportManager.getShelterPopulation(),
+                            populationReportManager.getShelterUsage(),
+                            populationReportManager.getMortalities(),
+                            populationReportManager.getMajorMedicalConditions(),
+                            populationReportManager.getMajorMentalIllnesses(),
+                            populationReportManager.getSeriousMedicalConditions(),
+                            populationReportManager.getCategoryCodeDescriptions(),
+                            System.currentTimeMillis());
+                    CACHED_FIGURES.set(figures);
+                }
+            }
         }
 
         // set attributes
-        request.setAttribute("date", DateTimeFormatUtils.getStringFromDate(currentDateTime, DATE_FORMAT));
-        request.setAttribute("time", DateTimeFormatUtils.getStringFromTime(currentDateTime));
-        request.setAttribute("shelterPopulation", shelterPopulation);
-        request.setAttribute("shelterUsage", shelterUsage);
-        request.setAttribute("mortalities", mortalities);
-        request.setAttribute("majorMedicalConditions", majorMedicalConditions);
-        request.setAttribute("majorMentalIllnesses", majorMentalIllnesses);
-        request.setAttribute("seriousMedicalConditions", seriousMedicalConditions);
-        request.setAttribute("categoryCodeDescriptions", categoryCodeDescriptions);
+        request.setAttribute("date", DateTimeFormatUtils.getStringFromDate(figures.computedAt(), DATE_FORMAT));
+        request.setAttribute("time", DateTimeFormatUtils.getStringFromTime(figures.computedAt()));
+        request.setAttribute("shelterPopulation", figures.shelterPopulation());
+        request.setAttribute("shelterUsage", figures.shelterUsage());
+        request.setAttribute("mortalities", figures.mortalities());
+        request.setAttribute("majorMedicalConditions", figures.majorMedicalConditions());
+        request.setAttribute("majorMentalIllnesses", figures.majorMentalIllnesses());
+        request.setAttribute("seriousMedicalConditions", figures.seriousMedicalConditions());
+        request.setAttribute("categoryCodeDescriptions", figures.categoryCodeDescriptions());
 
         // forward to view page
         return REPORT;

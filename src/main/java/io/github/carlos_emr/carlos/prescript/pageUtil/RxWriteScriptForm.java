@@ -262,10 +262,7 @@ public final class RxWriteScriptForm {
     }
 
     public void setSpecial(String RHS) {
-
-        if (RHS == null || RHS.length() < 6)
-            MiscUtils.getLogger().error("drug special is either null or empty : " + RHS, new IllegalArgumentException("special is null or empty"));
-
+        // Short directions such as "1 od" are valid; binding prescription text is not an error to log.
         this.special = RHS;
     }
 

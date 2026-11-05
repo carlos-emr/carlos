@@ -29,10 +29,21 @@
 
 --%>
 
+<%--
+    Field Note resident detail: displays counts and note contents, or downloads the same
+    report as a Word-compatible document. The view gate requires _admin.fieldnote read
+    access. Only the requested resident's current notes are loaded for this request.
+    Parameters: residentId identifies the resident; residentName labels the report;
+    method=download selects an attachment (otherwise render the view); date_start and
+    date_end are required inclusive ISO calendar dates. Invalid/reversed dates return 400.
+    @since 2026-10-02 (request-local resident reporting and strict date validation)
+--%>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.EFormValue" %>
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.service.FieldNoteDateRange" %>
 <%@ page import="org.owasp.encoder.Encode" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
@@ -42,6 +53,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%
+    FieldNoteManager fieldNoteManager = new FieldNoteManager();
     String residentId = request.getParameter("residentId");
     String residentName = request.getParameter("residentName");
     String method = request.getParameter("method");
@@ -107,7 +119,20 @@
     clinicalDomains.put("vulnerable population", "Vulnerable Population");
     clinicalDomains.put("women's health", "Women's Health");
 
-    HashMap<Integer, List<EFormValue>> residentFieldNoteValues = FieldNoteManager.getResidentFieldNoteValues(residentId);
+    // Rebuild this request's report; another viewer must never determine its contents.
+    Date reportStart;
+    Date reportEnd;
+    try {
+        FieldNoteDateRange range = FieldNoteDateRange.parse(dateStart, dateEnd);
+        reportStart = range.startDate();
+        reportEnd = range.endExclusiveDate();
+    } catch (IllegalArgumentException ex) {
+        response.sendError(400, "Invalid report date range");
+        return;
+    }
+    fieldNoteManager.loadResidentReport(residentId, reportStart, reportEnd);
+
+    HashMap<Integer, List<EFormValue>> residentFieldNoteValues = fieldNoteManager.getResidentFieldNoteValues(residentId);
 %>
 <html>
     <head>
@@ -134,26 +159,26 @@
             <td>
                 Resident : <carlos:encode value='<%= residentName %>' context="html"/><br/>
                 Report dates : <carlos:encode value='<%= dateStart %>' context="html"/> ~ <carlos:encode value='<%= dateEnd %>' context="html"/><br/>
-                Total field notes : <%= FieldNoteManager.getTotalNumberOfFieldNotes(residentId) %><br/>
+                Total field notes : <%= fieldNoteManager.getTotalNumberOfFieldNotes(residentId) %><br/>
                 <br/>
                 <% for (String purpose : purposes.keySet()) {
                 %>            <%= purposes.get(purpose) %>
-                : <%= FieldNoteManager.countItem(residentFieldNoteValues, purpose) %><br/>
+                : <%= fieldNoteManager.countItem(residentFieldNoteValues, purpose) %><br/>
                 <% }
                 %>            MHBS tutorial
-                : <%= FieldNoteManager.countItem(residentFieldNoteValues, "location", "BS tutorial") %>
+                : <%= fieldNoteManager.countItem(residentFieldNoteValues, "location", "BS tutorial") %>
             </td>
             <td>
                 <% for (String roleSkill : roleSkills.keySet()) {
                 %>        <%= roleSkills.get(roleSkill) %>
-                : <%= FieldNoteManager.countItem(residentFieldNoteValues, roleSkill) %><br/>
+                : <%= fieldNoteManager.countItem(residentFieldNoteValues, roleSkill) %><br/>
                 <% }
                 %></td>
         </tr>
     </table>
 
     <% for (String impression : impressions.keySet()) {
-        HashMap<Integer, List<EFormValue>> fieldNoteValues_impression = FieldNoteManager.filterResidentFieldNoteValues(residentFieldNoteValues, impression);
+        HashMap<Integer, List<EFormValue>> fieldNoteValues_impression = fieldNoteManager.filterResidentFieldNoteValues(residentFieldNoteValues, impression);
     %>
     <hr/>
     <%= impressions.get(impression) %> (<%= fieldNoteValues_impression.size() %>)<br/>
@@ -164,7 +189,7 @@
     <% continue;
     }
         for (String clinicalDomain : clinicalDomains.keySet()) {
-            HashMap<Integer, List<EFormValue>> fieldNoteValues_clinicalDomain = FieldNoteManager.filterResidentFieldNoteValues(fieldNoteValues_impression, "clinical_domain", clinicalDomain);
+            HashMap<Integer, List<EFormValue>> fieldNoteValues_clinicalDomain = fieldNoteManager.filterResidentFieldNoteValues(fieldNoteValues_impression, "clinical_domain", clinicalDomain);
             if (fieldNoteValues_clinicalDomain.isEmpty()) continue;
     %>
     <div style="font-weight: bold;" colspan="2">
@@ -172,11 +197,11 @@
     </div>
 
     <% for (Integer fdid : fieldNoteValues_clinicalDomain.keySet()) {
-        String topic = FieldNoteManager.getValues(fieldNoteValues_clinicalDomain.get(fdid), "clinical.topic", "clinical.topic2", "clinical.topic3", "clinical.topic4");
-        String doneWell = FieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "done.well");
-        String workOn = FieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "work.on");
-        String followUp = FieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "follow-up");
-        String apptDate = FieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "dateField");
+        String topic = fieldNoteManager.getValues(fieldNoteValues_clinicalDomain.get(fdid), "clinical.topic", "clinical.topic2", "clinical.topic3", "clinical.topic4");
+        String doneWell = fieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "done.well");
+        String workOn = fieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "work.on");
+        String followUp = fieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "follow-up");
+        String apptDate = fieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "dateField");
 
         String residentRoleSkill = new String();
         for (EFormValue eformValue : fieldNoteValues_clinicalDomain.get(fdid)) {
@@ -255,7 +280,7 @@
                     <tr>
                         <td>Total field notes</td>
                         <td>:</td>
-                        <td><%= FieldNoteManager.getTotalNumberOfFieldNotes(residentId) %>
+                        <td><%= fieldNoteManager.getTotalNumberOfFieldNotes(residentId) %>
                         </td>
                     </tr>
                 </table>
@@ -268,7 +293,7 @@
                         <td><%= purposes.get(purpose) %>
                         </td>
                         <td>:</td>
-                        <td><%= FieldNoteManager.countItem(residentFieldNoteValues, purpose) %>
+                        <td><%= fieldNoteManager.countItem(residentFieldNoteValues, purpose) %>
                         </td>
                     </tr>
                     <% }
@@ -276,7 +301,7 @@
                     <tr>
                         <td>MHBS tutorial</td>
                         <td>:</td>
-                        <td><%= FieldNoteManager.countItem(residentFieldNoteValues, "location", "BS tutorial") %>
+                        <td><%= fieldNoteManager.countItem(residentFieldNoteValues, "location", "BS tutorial") %>
                         </td>
                     </tr>
                 </table>
@@ -290,7 +315,7 @@
                         <td><%= roleSkills.get(roleSkill) %>
                         </td>
                         <td>:</td>
-                        <td><%= FieldNoteManager.countItem(residentFieldNoteValues, roleSkill) %>
+                        <td><%= fieldNoteManager.countItem(residentFieldNoteValues, roleSkill) %>
                         </td>
                     </tr>
                     <% }
@@ -302,7 +327,7 @@
 
     <table width="100%">
         <% for (String impression : impressions.keySet()) {
-            HashMap<Integer, List<EFormValue>> fieldNoteValues_impression = FieldNoteManager.filterResidentFieldNoteValues(residentFieldNoteValues, impression);
+            HashMap<Integer, List<EFormValue>> fieldNoteValues_impression = fieldNoteManager.filterResidentFieldNoteValues(residentFieldNoteValues, impression);
         %>
         <tr>
             <td class="eformInputHeadingActive" colspan="2">
@@ -328,7 +353,7 @@
         }
 
             for (String clinicalDomain : clinicalDomains.keySet()) {
-                HashMap<Integer, List<EFormValue>> fieldNoteValues_clinicalDomain = FieldNoteManager.filterResidentFieldNoteValues(fieldNoteValues_impression, "clinical_domain", clinicalDomain);
+                HashMap<Integer, List<EFormValue>> fieldNoteValues_clinicalDomain = fieldNoteManager.filterResidentFieldNoteValues(fieldNoteValues_impression, "clinical_domain", clinicalDomain);
                 if (fieldNoteValues_clinicalDomain.isEmpty()) continue;
         %>
         <tr>
@@ -338,11 +363,11 @@
             </td>
         </tr>
         <% for (Integer fdid : fieldNoteValues_clinicalDomain.keySet()) {
-            String topic = FieldNoteManager.getValues(fieldNoteValues_clinicalDomain.get(fdid), "clinical.topic", "clinical.topic2", "clinical.topic3", "clinical.topic4");
-            String doneWell = FieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "done.well");
-            String workOn = FieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "work.on");
-            String followUp = FieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "follow-up");
-            String apptDate = FieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "dateField");
+            String topic = fieldNoteManager.getValues(fieldNoteValues_clinicalDomain.get(fdid), "clinical.topic", "clinical.topic2", "clinical.topic3", "clinical.topic4");
+            String doneWell = fieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "done.well");
+            String workOn = fieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "work.on");
+            String followUp = fieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "follow-up");
+            String apptDate = fieldNoteManager.getValue(fieldNoteValues_clinicalDomain.get(fdid), "dateField");
 
             String residentRoleSkill = new String();
             for (EFormValue eformValue : fieldNoteValues_clinicalDomain.get(fdid)) {

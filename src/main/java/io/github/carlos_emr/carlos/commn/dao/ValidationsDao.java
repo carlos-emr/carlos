@@ -44,6 +44,9 @@ public interface ValidationsDao extends AbstractDao<Validations> {
                                        Integer minLengthParam, Integer maxLengthParam, Boolean isNumericParam,
                                        Boolean isDateParam);
 
+    /** Matches every rule field, including absent bounds; the descriptive name is not part of the rule. */
+    List<Validations> findByDefinition(Validations definition);
+
     public List<Validations> findByName(String name);
 
     public List<Object[]> findValidationsBy(Integer demo, String type, Integer validationId);

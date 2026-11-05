@@ -809,6 +809,50 @@ public class BillingCorrectionRecordService {
         return ret;
     }
 
+    /** Result of {@link #unbillClaim(int, String)}. */
+    public enum UnbillOutcome {
+        /** The claim header and its items were marked deleted. */
+        DELETED,
+        /** The stored claim is billed (B) or settled (S); nothing was changed. */
+        REFUSED_BILLED_OR_SETTLED,
+        /** No claim has that id, or it could not be updated; nothing was deleted. */
+        NOT_FOUND
+    }
+
+    /**
+     * Unbills (soft-deletes) one claim and its items, unless the claim is already billed or
+     * settled.
+     *
+     * <p>The decision is made from the status <em>stored</em> on the claim header, read with a
+     * row lock ({@code SELECT ... FOR UPDATE}) inside the same transaction as the write, so a
+     * claim that is submitted or settled concurrently is either seen as such here or makes this
+     * call wait until that change commits; the stale status cannot be written over with D.
+     * Callers must not pass a browser-supplied status in: the Billing History page posts one,
+     * but a hand-built request can post any value, so it can only ever be a hint (issue #4538).
+     * Billed and settled claims are the ones the history page does not offer Unbill for
+     * ({@link BillingStatus#isSubmittedOrSettled(String)}).</p>
+     *
+     * @param headerId   {@code billing_on_cheader1.id} of the claim
+     * @param providerNo provider recorded in the billing audit rows
+     * @return what happened; only {@link UnbillOutcome#DELETED} changed any data
+     */
+    public UnbillOutcome unbillClaim(int headerId, String providerNo) {
+        BillingONCHeader1 header = cheader1Dao.findForUpdate(headerId);
+        if (header == null) {
+            return UnbillOutcome.NOT_FOUND;
+        }
+        if (BillingStatus.isSubmittedOrSettled(header.getStatus())) {
+            if (_logger.isWarnEnabled()) {
+                _logger.warn("Refused to unbill claim {}: its stored status {} is billed or settled",
+                        LogSafe.sanitize(String.valueOf(headerId)), LogSafe.sanitize(header.getStatus()));
+            }
+            return UnbillOutcome.REFUSED_BILLED_OR_SETTLED;
+        }
+        return deleteBilling(String.valueOf(headerId), BillingONCHeader1.DELETED, providerNo)
+                ? UnbillOutcome.DELETED
+                : UnbillOutcome.NOT_FOUND;
+    }
+
     // for appt unbill;
     /**
      * Deletes billing.

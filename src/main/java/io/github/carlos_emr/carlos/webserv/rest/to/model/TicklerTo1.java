@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.commn.model.Tickler;
@@ -57,8 +59,10 @@ public class TicklerTo1 implements Serializable {
 
     private Tickler.STATUS status;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updateDate;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date serviceDate;
 
     private String creator;

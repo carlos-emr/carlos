@@ -78,6 +78,9 @@ public class SecurityManager {
         }
 
         Security dbSecurity = securityDao.find(security.getId());
+        // Read before the merge: inside a caller's transaction the merge copies the new state onto
+        // this same managed instance.
+        String mfaChange = mfaChangeNote(dbSecurity, security);
 
         securityArchiveDao.archiveRecord(dbSecurity);
 
@@ -86,7 +89,19 @@ public class SecurityManager {
 
         securityDao.merge(security);
 
-        LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.updateSecurityRecord", "id=" + security.getId());
+        LogAction.addLogSynchronous(loggedInInfo, "SecurityManager.updateSecurityRecord",
+                "id=" + security.getId() + mfaChange);
+    }
+
+    /**
+     * The audit note for an MFA switch, empty when it did not change. The security archive has no
+     * MFA column, so this log line is the only record of who turned MFA on or off, and when.
+     */
+    private static String mfaChangeNote(Security before, Security after) {
+        if (before == null || before.isUsingMfa() == after.isUsingMfa()) {
+            return "";
+        }
+        return after.isUsingMfa() ? ", mfa off->on" : ", mfa on->off";
     }
 
     @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",

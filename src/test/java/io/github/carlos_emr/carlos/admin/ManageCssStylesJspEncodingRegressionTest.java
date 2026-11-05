@@ -54,9 +54,10 @@ class ManageCssStylesJspEncodingRegressionTest {
         String savedStylesSelect = jsp.substring(selectStart, selectEnd);
         assertThat(jsp).contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>");
         assertThat(savedStylesSelect)
-                .contains("<option value=\"${carlos:forHtmlAttribute(style.style)}\">${carlos:forHtml(style.name)}</option>")
+                .contains("value=\"${carlos:forHtmlAttribute(styleId)}\"", "data-style=\"${carlos:forHtmlAttribute(style.style)}\"", ">${carlos:forHtml(style.name)}</option>")
                 .doesNotContain("<option value=\"${style.style}\">${style.name}</option>")
                 .doesNotContain("value=\"${style.style}")
+                .doesNotContain("data-style=\"${style.style}")
                 .doesNotContain(">${style.name}</option>");
     }
 

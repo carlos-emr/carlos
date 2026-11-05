@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -44,20 +45,25 @@ import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 
 public final class BillingAddCode2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     private HttpServletRequest request = ServletActionContext.getRequest();
+    private HttpServletResponse response = ServletActionContext.getResponse();
 
-    public String execute() {        if (request.getSession().getAttribute("user") == null) {
-            return "Logout";
-        }
-
-
+    public String execute() {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+        // The add-code forms post; a GET or HEAD is refused before a billing code is added.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
+        }
+        if (request.getSession().getAttribute("user") == null) {
+            return "Logout";
         }
 
         String pCode = code;

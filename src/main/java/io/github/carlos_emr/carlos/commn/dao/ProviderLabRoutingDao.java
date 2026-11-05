@@ -41,6 +41,9 @@ public interface ProviderLabRoutingDao extends AbstractDao<ProviderLabRoutingMod
      */
     void lockRoutingReport(int labNo);
 
+    /** Reserved coordination key for the clinic-wide routing switch; clinical report IDs are positive. */
+    int PROVIDER_LINKING_RULES_LOCK = Integer.MIN_VALUE;
+
     /**
      * Reads current routing rows with pessimistic write locks, refreshing managed instances.
      * Requires an existing transaction and the report coordination lock.
@@ -58,7 +61,7 @@ public interface ProviderLabRoutingDao extends AbstractDao<ProviderLabRoutingMod
     }
 
     public enum STATUS {
-        X, N, A, D
+        X, N, A, D, F
     }
 
     public List<ProviderLabRoutingModel> findByLabNoAndLabTypeAndProviderNo(int labNo, String labType,

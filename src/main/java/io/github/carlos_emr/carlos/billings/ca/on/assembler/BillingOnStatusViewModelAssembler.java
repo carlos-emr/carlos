@@ -142,8 +142,9 @@ public class BillingOnStatusViewModelAssembler {
         // scriptlet's behavior. Once normalized to "%"/"---" the original
         // intent is no longer recoverable, so capture it before defaulting.
         String rawServiceCode = request.getParameter("serviceCode");
-        boolean serviceCodeFilterAbsent = rawServiceCode == null || rawServiceCode.isEmpty();
-        String serviceCode = serviceCodeFilterAbsent ? "%" : rawServiceCode;
+        boolean serviceCodeFilterAbsent = rawServiceCode == null;
+        // A cleared form control means any service code, just like the displayed wildcard.
+        String serviceCode = rawServiceCode == null || rawServiceCode.isBlank() ? "%" : rawServiceCode;
 
         // Legacy "any billing form" sentinel is three dashes; a single "-" is a
         // real value in some installations and would mis-filter the search.

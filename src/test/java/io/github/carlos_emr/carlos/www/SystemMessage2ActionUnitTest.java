@@ -54,25 +54,18 @@ class SystemMessage2ActionUnitTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);
         replaceSpringUtilsBean(SystemMessageDao.class, mockSystemMessageDao);
 
-        // Spied so getText() can be stubbed. ActionSupport.getText() resolves its TextProvider
-        // through the Struts Container, and these tests invoke the action method directly rather
-        // than through a Struts dispatch, so getContainer() is null and any getText() call NPEs.
-        // Returning the key keeps assertions readable and keeps the test about the action's own
-        // behaviour rather than about message-bundle resolution.
-        action = spy(new SystemMessage2Action());
-        doAnswer(invocation -> invocation.getArgument(0)).when(action).getText(anyString());
-        injectField("systemMessageDao", mockSystemMessageDao);
-        injectField("securityInfoManager", mockSecurityInfoManager);
-    }
-
-    private void injectField(String fieldName, Object value) {
-        try {
-            java.lang.reflect.Field f = SystemMessage2Action.class.getDeclaredField(fieldName);
-            f.setAccessible(true);
-            f.set(action, value);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to inject " + fieldName, e);
-        }
+        // ActionSupport.getText() resolves its TextProvider through the Struts Container, and
+        // these tests invoke the action method directly rather than through a Struts dispatch,
+        // so getContainer() is null and any getText() call NPEs. Returning the key keeps message
+        // keys observable while exercising the real lookup/session flow.
+        action = new SystemMessage2Action() {
+            @Override
+            public String getText(String key) {
+                return key;
+            }
+        };
+        injectField(action, "systemMessageDao", mockSystemMessageDao);
+        injectField(action, "securityInfoManager", mockSecurityInfoManager);
     }
 
     @Nested
@@ -111,6 +104,7 @@ class SystemMessage2ActionUnitTest extends CarlosWebTestBase {
             // Then - must NOT store the untrusted ID in session
             assertThat(result).isEqualTo("list");
             assertThat(getMockSession().getAttribute("systemMessageId")).isNull();
+            assertThat(action.getActionMessages()).contains("system_message.missing");
         }
 
         @Test

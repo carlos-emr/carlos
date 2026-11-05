@@ -32,18 +32,36 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.factory.annotation.Autowired;
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
+import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
+import io.github.carlos_emr.carlos.managers.MfaManager;
+import io.github.carlos_emr.carlos.managers.SecurityManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.Date;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Security gate for the Security Update admin page.
+ * Applies security-record edits only against the original state, under a refreshed row lock.
  *
  * <p>Requires either {@code _admin} or {@code _admin.userAdmin} write privilege.
  * POST method is enforced; non-POST requests receive HTTP 405.
- * All update logic is handled by the JSP.</p>
+ * A confirmed transaction commit precedes success; refusals retain the submitted draft.</p>
  *
- * <p>The gate also rejects a {@code security_no} that is not a positive integer. The
- * JSP behind this route parses that parameter with {@code Integer.parseInt} before it
- * loads the record, so an unparseable value would otherwise surface as a raw
- * {@code NumberFormatException} error page instead of a 400.</p>
+ * <p>A {@code security_no} that is not a positive integer is refused with HTTP 400 before any
+ * lookup. The accepted edit is saved through {@link SecurityManager#updateSecurityRecord}, so the
+ * previous state is written to the security archive and an MFA switch is audited, inside the same
+ * transaction that holds the row lock.</p>
  *
  * @since 2026-04-05
  */
@@ -75,14 +93,136 @@ public class SecurityUpdate2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }
+        response.setHeader("Cache-Control", "no-store");
 
         // -1 sentinel covers missing, blank, non-numeric and out-of-range input alike.
-        if (NumberUtils.toInt(request.getParameter("security_no"), -1) <= 0) {
+        int id = NumberUtils.toInt(request.getParameter("security_no"), -1);
+        if (id <= 0) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST,
                     "security_no is required and must be a positive integer");
             return NONE;
         }
+        int[] completion = {TransactionSynchronization.STATUS_UNKNOWN};
+        try {
+            TransactionTemplate transaction = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+            transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            String result = transaction.execute(status -> {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int value) { completion[0] = value; }
+                });
+                String outcome = update(request, response, id);
+                if (!SUCCESS.equals(outcome)) status.setRollbackOnly();
+                return outcome;
+            });
+            if (SUCCESS.equals(result)) {
+                if (completion[0] != TransactionSynchronization.STATUS_COMMITTED) {
+                    throw new IllegalStateException("Security edit did not confirm a commit");
+                }
+                request.setAttribute("securityUpdateCommitted", true);
+            }
+            return result;
+        } catch (RuntimeException e) {
+            // Exception messages can contain submitted credentials or database values.
+            MiscUtils.getLogger().error("Failed to confirm security edit: {}", e.getClass().getSimpleName());
+            return refuse(request, response, id, 500, "admin.securityupdate.msgUnconfirmed");
+        }
+    }
 
+    private String update(HttpServletRequest request, HttpServletResponse response, int id) {
+        SecurityDao dao = SpringUtils.getBean(SecurityDao.class);
+        Security row = dao.findForUpdate(id);
+        if (row == null) return refuse(request, response, id, 404, "admin.securityupdate.msgMissing");
+        if (!SecurityEditVersion.of(row).equals(request.getParameter(SecurityEditVersion.PARAMETER))) {
+            return refuse(request, response, id, 409, "admin.securityupdate.msgStale");
+        }
+        String userName = request.getParameter("user_name");
+        if (userName == null || !userName.trim().matches("[a-zA-Z0-9]{1,30}")) {
+            return refuse(request, response, id, 400, "admin.securityupdate.msgUserNameInvalid");
+        }
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String password = request.getParameter("password");
+        String error = SecurityUpdatePasswordValidator.validate(password, request.getParameter("conPassword"), properties);
+        if (error != null) return refuse(request, response, id, 400, error);
+        // SecurityManager refuses a record without a password; a login with no stored hash must
+        // be given a new password in the same edit rather than fail inside the save.
+        if (SecurityUpdatePasswordValidator.isUnchanged(password)
+                && (row.getPassword() == null || row.getPassword().isEmpty())) {
+            return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
+        }
+        String provider = request.getParameter("provider_no");
+        if (provider == null || provider.isBlank()) {
+            return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
+        }
+        String pin = request.getParameter("pin");
+        if (pin != null && !pin.equals(request.getParameter("conPin"))) {
+            return refuse(request, response, id, 400, "admin.securityrecord.msgPinNotConfirmed");
+        }
+        Date expiry;
+        try {
+            String raw = request.getParameter("date_ExpireDate");
+            expiry = raw == null || raw.isBlank() ? null : java.sql.Date.valueOf(LocalDate.parse(raw));
+            if (checked(request, "b_ExpireSet") && expiry == null) throw new IllegalArgumentException();
+        } catch (IllegalArgumentException | DateTimeParseException e) {
+            return refuse(request, response, id, 400, "admin.securityupdate.msgUpdateFailure");
+        }
+        // The row lock belongs to this transaction, not to the entity, so it holds after detaching.
+        // Detaching keeps the edits below off the managed copy, which SecurityManager must read in
+        // its original state to archive it.
+        dao.detach(row);
+        SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
+        row.setUserName(userName.trim());
+        row.setProviderNo(provider);
+        row.setBExpireset(checked(request, "b_ExpireSet") ? 1 : 0);
+        row.setDateExpiredate(expiry);
+        if (!SecurityUpdatePasswordValidator.isUnchanged(password)) {
+            row.setPassword(securityManager.encodePassword(password));
+            row.setPasswordUpdateDate(new Date());
+        }
+        // Controls hidden by policy or disabled by MFA must not silently clear existing protection.
+        if (!properties.getBooleanProperty("mandatory_password_reset", "false")
+                && request.getParameter("forcePasswordReset") != null) {
+            row.setForcePasswordReset(checked(request, "forcePasswordReset"));
+        }
+        if (MfaManager.isOscarMfaEnabled()) row.setUsingMfa(checked(request, "enableMfa"));
+        if (MfaManager.isOscarLegacyPinEnabled() && !row.isUsingMfa()) {
+            row.setBLocallockset(checked(request, "b_LocalLockSet") ? 1 : 0);
+            row.setBRemotelockset(checked(request, "b_RemoteLockSet") ? 1 : 0);
+            // "****" is the unchanged-PIN sentinel the form renders and a null PIN means the control
+            // was omitted: both keep the stored PIN and its update date. A blank PIN clears it; any
+            // other value is stored only as a salted hash (legacy PIN encodings are read-only).
+            if (pin != null && !"****".equals(pin)) {
+                String hashed = pin.isEmpty() ? null : securityManager.encodePin(pin);
+                row.setPin(hashed);
+                row.setPinUpdateDate(hashed == null ? null : new Date());
+            }
+        }
+        // The manager reads the pre-edit row (detached above) for the archive and MFA audit, then
+        // merges this edit onto it. Its completeness preconditions were checked above, so any
+        // exception here is a failure, logged and refused by execute() with the transaction rolled back.
+        securityManager.updateSecurityRecord(LoggedInInfo.getLoggedInInfoFromSession(request), row);
+        LogAction.addLogSynchronous((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_SECURITY,
+                id + "->" + row.getUserName(), request.getRemoteAddr());
         return SUCCESS;
+    }
+
+    private static boolean checked(HttpServletRequest request, String name) {
+        return "1".equals(request.getParameter(name));
+    }
+
+    private static String refuse(HttpServletRequest request, HttpServletResponse response, int id, int status, String key) {
+        response.setStatus(status);
+        Security draft = new Security();
+        draft.setId(id);
+        draft.setUserName(request.getParameter("user_name"));
+        draft.setProviderNo(request.getParameter("provider_no"));
+        draft.setBExpireset(checked(request, "b_ExpireSet") ? 1 : 0);
+        draft.setBLocallockset(checked(request, "b_LocalLockSet") ? 1 : 0);
+        draft.setBRemotelockset(checked(request, "b_RemoteLockSet") ? 1 : 0);
+        draft.setForcePasswordReset(checked(request, "forcePasswordReset"));
+        draft.setUsingMfa(checked(request, "enableMfa"));
+        request.setAttribute("securityEditDraft", draft);
+        request.setAttribute("securityEditErrorKey", key);
+        request.setAttribute("securityReviewAvailable", status != 404);
+        return "conflict";
     }
 }

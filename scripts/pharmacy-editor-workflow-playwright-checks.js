@@ -3,6 +3,7 @@
 // Requires _rx and _rx.editPharmacy write access on an isolated synthetic login.
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const name = `${s.marker} Pharmacy`;
@@ -18,7 +19,7 @@ async function workflow(s) {
       h.assert(s.sql.value(`SELECT COUNT(*) FROM pharmacyInfo WHERE recordID=${owned}`) === '0', 'Owned pharmacy cleanup failed');
     }
   });
-  const rx = await s.popup(s.master, s.master.locator('a[onclick*="rx/choosePatient"]').first(), 'pharmacy-editor-rx');
+  const rx = await s.popup(s.master, masterRecordLink(s.master, 'rx/choosePatient').first(), 'pharmacy-editor-rx');
   await rx.locator('a[href$="/rx/managePharmacy"]').click();
   await rx.waitForURL(/\/rx\/managePharmacy(?:\?|$)/);
   h.assert(await rx.locator('#demographicNo').inputValue() === s.patient, 'Pharmacy editor lost its owned patient');

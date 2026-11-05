@@ -13,6 +13,9 @@
 package io.github.carlos_emr.carlos.mds.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
+import io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -28,7 +31,8 @@ import org.apache.struts2.ServletActionContext;
  * vendor lab inbox) security-hardening migration (2Action gate pattern
  * from #1109, #1629, #1632, #1644, #1662, #1663, #1665, #1666, #1667, #1668).
  *
- * <p>HTTP method is not enforced; only {@code _lab} read privilege is required.
+ * <p>HTTP method is not enforced. Every patient linked to the document must be
+ * accessible before the JSP reads its metadata or renders its page inventory.
  *
  * @since 2026-04-13
  */
@@ -45,6 +49,25 @@ public final class ViewSplit2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_lab)");
         }
 
+        HttpServletResponse response = ServletActionContext.getResponse();
+        response.setHeader("Cache-Control", "no-store");
+        int documentNo;
+        try {
+            documentNo = Integer.parseInt(request.getParameter("document"));
+            if (documentNo <= 0) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+        } catch (NumberFormatException e) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        try {
+            IncomingDocumentCapacityResponse.requireStoredDocumentReadAccess(securityInfoManager, loggedInInfo, documentNo);
+        } catch (SecurityException e) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            throw e;
+        }
         return SUCCESS;
     }
 }

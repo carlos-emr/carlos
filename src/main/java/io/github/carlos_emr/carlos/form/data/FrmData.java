@@ -281,7 +281,8 @@ public class FrmData {
         } else if ("".equals(table)) {
             ret[1] = "0";
         } else {
-            String sql = "SELECT ID FROM " + table + " WHERE demographic_no=? order by formEdited desc limit 0,1";
+            // Form edits can share timestamp precision; prefer the newest revision on a tie.
+            String sql = "SELECT ID FROM " + table + " WHERE demographic_no=? order by formEdited desc, ID desc limit 0,1";
             try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
                 while (rs.next()) {
                     ret[1] = Misc.getString(rs, "ID");

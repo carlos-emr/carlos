@@ -29,6 +29,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
@@ -40,6 +42,7 @@ import io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo;
 import io.github.carlos_emr.carlos.commn.model.LabReportInformation;
 import io.github.carlos_emr.carlos.commn.model.LabTestResults;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.demographic.data.DemographicMerged;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -172,7 +175,7 @@ public class ABCDParser {
             }
             count = countHolder[0];
         } catch (SQLException sqlE) {
-            MiscUtils.getLogger().error("Error", sqlE);
+            throw new IllegalStateException("CML patient lookup failed", sqlE);
         }
 
 
@@ -201,9 +204,23 @@ public class ABCDParser {
                 pstmt.setString(i + 1, params[i]);
             }
             try (ResultSet rs = pstmt.executeQuery()) {
+                // A merged source record and its head share the patient's HIN: count distinct heads, not rows.
+                // A row inside a merge cycle has no head to deliver to, so it makes the whole match unresolved.
+                DemographicMerged mergeChain = new DemographicMerged();
+                Set<Integer> matchedHeads = new HashSet<>();
+                boolean unresolvedChain = false;
                 while (rs.next()) {
-                    countHolder[0]++;
-                    demo = Misc.getString(rs, "demographic_no");
+                    Integer head = mergeChain.findHead(Integer.valueOf(Misc.getString(rs, "demographic_no")));
+                    if (head == null) {
+                        unresolvedChain = true;
+                    } else if (matchedHeads.add(head)) {
+                        countHolder[0]++;
+                        demo = head.toString();
+                    }
+                }
+                if (unresolvedChain) {
+                    countHolder[0] = 0;
+                    demo = "0";
                 }
             }
         }
@@ -211,13 +228,12 @@ public class ABCDParser {
     }
 
 
-    private HashMap<String, String> getProviderHash(Connection conn) {
+    private HashMap<String, String> getProviderHash(Connection conn) throws SQLException {
         logger.info("Init - provider Hash table");
         HashMap<String, String> htable = new HashMap<String, String>();
-        try {
-            String sql = "select provider_no, ohip_no from provider where ohip_no != '' ";
-            PreparedStatement pstmt = conn.prepareStatement(sql);
-            ResultSet rs = pstmt.executeQuery();
+        String sql = "select provider_no, ohip_no from provider where ohip_no != '' ";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql);
+                ResultSet rs = pstmt.executeQuery()) {
 
             while (rs.next()) {
                 String key = Misc.getString(rs, "ohip_no");
@@ -228,9 +244,6 @@ public class ABCDParser {
                     logger.info("Adding  to provider HashMap key " + key + " lab " + value);
                 }
             }
-            pstmt.close();
-        } catch (SQLException sqlE) {
-            MiscUtils.getLogger().error("Error", sqlE);
         }
         logger.info("providers hash table :" + htable);
         return htable;
@@ -242,8 +255,9 @@ public class ABCDParser {
         while ((str = in.readLine()) != null) {
             process(str);
         }
-        in.close();
-        MiscUtils.getLogger().debug("sss " + reportFile.btypes.size());
+        if (atypes.isEmpty() || atypes.stream().allMatch(report -> report.btypes.isEmpty())) {
+            throw new IllegalArgumentException("CML upload contains no patient reports");
+        }
     }
 
 

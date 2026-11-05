@@ -28,6 +28,7 @@
 
 package io.github.carlos_emr.carlos.casemgmt.model;
 
+import java.io.Serializable;
 import java.util.Date;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -35,7 +36,9 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @jakarta.persistence.Entity
 @jakarta.persistence.Table(name = "casemgmt_note_ext")
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
-public class CaseManagementNoteExt {
+public class CaseManagementNoteExt implements Serializable {
+    private static final long serialVersionUID = 1L;
+
 
     // Key Value constants ***All date value key must be in format "XXX Date"
     public static String STARTDATE = "Start Date";

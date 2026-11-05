@@ -87,7 +87,7 @@ Comprehensive billing management for various Canadian provinces.
 | billing/CA/BC/ManageTeleplan | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ManageTeleplan2Action | Manages Teleplan billing configurations |
 | billing/CA/BC/ProcessRemittance | io.github.carlos_emr.carlos.billings.ca.bc.MSP.GenTa2Action | Processes MSP remittance files |
 | billing/CA/BC/receivePaymentAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ReceivePayment2Action | Records payment receipts |
-| billing/CA/BC/reprocessBill | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action | Reprocesses rejected bills |
+| billing/CA/BC/reprocessBill | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingReProcessBill2Action | GET opens Bill Status, or a bill's adjust page with `billingmaster_no`; POST saves an adjusted bill (`billingmasterNo`) or a Bill Status mass edit (`billCheck`) |
 | billing/CA/BC/saveAssocAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action | Saves code associations |
 | billing/CA/BC/SaveBilling | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingSaveBilling2Action | Saves billing records |
 | billing/CA/BC/saveBillingPreferencesAction | io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveBillingPreferences2Action | Saves billing preferences |
@@ -368,9 +368,8 @@ Hospital report management and integration.
 | hospitalReportManager/hrm | io.github.carlos_emr.carlos.hospitalReportManager.v2018.HRM2Action | Main HRM interface |
 | hospitalReportManager/HRMPreferences | io.github.carlos_emr.carlos.hospitalReportManager.HRMPreferences2Action | Manages HRM preferences |
 | hospitalReportManager/Mapping | io.github.carlos_emr.carlos.hospitalReportManager.HRMMapping2Action | Maps HRM data fields |
-| hospitalReportManager/Modify | io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action | Modifies HRM documents |
+| hospitalReportManager/Modify | io.github.carlos_emr.carlos.hospitalReportManager.HRMModifyDocument2Action | Modifies HRM documents (POST-only; replies `application/json` and returns `NONE`) |
 | hospitalReportManager/PrintHRMReport | io.github.carlos_emr.carlos.hospitalReportManager.PrintHRMReport2Action | Prints HRM reports |
-| hospitalReportManager/Statement | io.github.carlos_emr.carlos.hospitalReportManager.HRMStatementModify2Action | Modifies HRM statements |
 | hospitalReportManager/UploadLab | io.github.carlos_emr.carlos.hospitalReportManager.HRMUploadLab2Action | Uploads lab results to HRM |
 
 ## Indivica Module
@@ -539,6 +538,8 @@ Clinical encounter management and workflow.
 | encounter/displayConReport | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConReport2Action | Displays consultation reports |
 | encounter/displayConsultation | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConsult2Action | Displays consultations |
 | encounter/displayContacts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayContacts2Action | Displays patient contacts |
+| encounter/displayFamilyDoctor | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayFamilyDoctor2Action | eChart Family Doctor panel (provider eChart preference) |
+| encounter/displayReferringDoctor | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayReferringDoctor2Action | eChart Referring Doctor panel (provider eChart preference) |
 | encounter/displayDecisionSupportAlerts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDecisionSupportAlerts2Action | Displays decision support alerts |
 | encounter/displayDiagrams | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDiagram2Action | Displays clinical diagrams |
 | encounter/displayDisease | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDx2Action | Displays diagnoses |
@@ -908,7 +909,6 @@ General reporting functionality.
 | report/DxresearchReport | io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action | Generates diagnostic research reports |
 | report/GenerateEnvelopes | io.github.carlos_emr.carlos.report.pageUtil.GenerateEnvelopes2Action | Generates mailing envelopes |
 | report/GenerateLetters | io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientLetters2Action | Generates patient letters |
-| report/GenerateSpreadsheet | io.github.carlos_emr.carlos.report.pageUtil.GeneratePatientSpreadSheetList2Action | Generates patient spreadsheets |
 | report/ManageLetters | io.github.carlos_emr.carlos.report.pageUtil.ManagePatientLetters2Action | Manages patient letters |
 | report/printLabDaySheetAction | io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action | Prints lab day sheets |
 | report/RemoveClinicalReport | io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil.RemoveClinicalReportFromHistory2Action | Removes clinical reports from history |

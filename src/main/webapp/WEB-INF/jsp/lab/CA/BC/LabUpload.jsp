@@ -93,8 +93,8 @@
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewHelp')"><fmt:message key="global.help"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"><fmt:message key="global.about"/></a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"><fmt:message key="global.license"/></a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"><fmt:message key="global.about"/></a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"><fmt:message key="global.license"/></a></td>
                     </tr>
                 </table>
             </td>
@@ -106,6 +106,7 @@
                     onsubmit="javascript: return displayAndDisable()">
                 <input type="file" name="importFile" value="">
                 <input type="submit" name="Submit" value="Import">
+                <output id="waitingMessage" style="display:none">Uploading lab file...</output>
             </form> <%--
                 Multipart rejections reach this page through the action's
                 "input" result, before the action runs, so "outcome" below is

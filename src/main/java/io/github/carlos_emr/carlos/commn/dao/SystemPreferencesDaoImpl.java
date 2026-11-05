@@ -49,6 +49,28 @@ public class SystemPreferencesDaoImpl extends AbstractDaoImpl<SystemPreferences>
         return findPreferenceByName(name.name());
     }
 
+    @Override
+    public <T extends Enum<T>> void upsertPreference(Enum<T> name, String value) {
+        Date now = new Date();
+        int updated = entityManager.createQuery(
+                        "UPDATE SystemPreferences sp SET sp.value = ?1, sp.updateDate = ?2 WHERE sp.name = ?3")
+                .setParameter(1, value)
+                .setParameter(2, now)
+                .setParameter(3, name.name())
+                .executeUpdate();
+        if (updated == 0) {
+            // Some JDBC configurations report changed rather than matched rows, so an identical
+            // re-save can report 0; count explicitly before inserting (same as OceanSettingDaoImpl).
+            Long rows = entityManager.createQuery(
+                            "SELECT COUNT(sp) FROM SystemPreferences sp WHERE sp.name = ?1", Long.class)
+                    .setParameter(1, name.name())
+                    .getSingleResult();
+            if (rows == 0L) {
+                persist(new SystemPreferences(name.name(), value));
+            }
+        }
+    }
+
     /**
      * DEPRECATED: use enumerator
      */
