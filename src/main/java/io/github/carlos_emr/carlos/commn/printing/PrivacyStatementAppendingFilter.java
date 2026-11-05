@@ -320,9 +320,9 @@ public class PrivacyStatementAppendingFilter implements Filter {
         private boolean responseOutputStreamObtained;
 
         private DelegatingWriter writer;
-        /** The shared defer/publish/retract rules; the two lambdas are its only delegate calls. */
+        /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
         private final DeferredContentLength contentLength = new DeferredContentLength(
-                length -> super.setContentLengthLong(length),
+                super::setContentLengthLong,
                 () -> super.setHeader(DeferredContentLength.HEADER, null));
 
         public DelegatingServletResponse(HttpServletResponse response) {
@@ -439,7 +439,7 @@ public class PrivacyStatementAppendingFilter implements Filter {
             OptionalLong parsed = DeferredContentLength.parse(value);
             if (parsed.isPresent()) {
                 setContentLengthLong(parsed.getAsLong());
-            } else {
+            } else if (logger.isWarnEnabled()) {
                 logger.warn("Ignoring malformed Content-Length header value before the privacy notice: {}",
                         LogSafe.sanitize(value));
             }

@@ -740,7 +740,7 @@ public class LogoutBroadcastFilter implements Filter {
 
         private boolean responseWriterObtained;
         private boolean responseOutputStreamObtained;
-        /** The shared defer/publish/retract rules; the two lambdas are its only delegate calls. */
+        /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
         private final DeferredContentLength contentLength = new DeferredContentLength(
                 this::publishContentLength,
                 () -> super.setHeader(DeferredContentLength.HEADER, null));
@@ -1066,7 +1066,7 @@ public class LogoutBroadcastFilter implements Filter {
             java.util.OptionalLong parsed = DeferredContentLength.parse(value);
             if (parsed.isPresent()) {
                 setContentLengthLong(parsed.getAsLong());
-            } else {
+            } else if (logger.isWarnEnabled()) {
                 logger.warn("Ignoring malformed Content-Length header value from downstream response: {}",
                         LogSafe.sanitize(value));
             }

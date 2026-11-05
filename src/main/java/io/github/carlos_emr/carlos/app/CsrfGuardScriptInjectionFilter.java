@@ -419,9 +419,9 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean usingWriter;
         private boolean writerPassthrough;
         private boolean committed;
-        /** The shared defer/publish/retract rules; the two lambdas are its only delegate calls. */
+        /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
         private final DeferredContentLength contentLength = new DeferredContentLength(
-                length -> super.setContentLengthLong(length),
+                super::setContentLengthLong,
                 () -> super.setHeader(DeferredContentLength.HEADER, null));
         private final String requestUri;
 
@@ -729,7 +729,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             java.util.OptionalLong parsed = DeferredContentLength.parse(value);
             if (parsed.isPresent()) {
                 setContentLengthLong(parsed.getAsLong());
-            } else {
+            } else if (LOGGER.isWarnEnabled()) {
                 LOGGER.warn("Ignoring malformed Content-Length header value during CSRF capture: uri={}, value={}",
                         requestUri, LogSafe.sanitize(value));
             }
