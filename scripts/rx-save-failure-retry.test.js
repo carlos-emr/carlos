@@ -24,3 +24,11 @@ test('lost-response warning must express uncertainty rather than a false unsaved
   assert(uncertainWarning('Some changes may already be saved. Review the medication record before trying again.',refused));
   for(const message of [refused+' Check the session.','HTTP 0',null,'Unexpected server error'])assert.equal(uncertainWarning(message,refused),false);
 });
+test('the shipped uncertain-save message satisfies the lost-response warning check (#5686)',()=>{
+  const fs=require('node:fs'),path=require('node:path');
+  const text=fs.readFileSync(path.join(__dirname,'../src/main/resources/oscarResources_en.properties'),'utf8');
+  const message=key=>{const match=new RegExp(`^SearchDrug\\.js\\.${key}=(.*)$`,'m').exec(text);assert(match,`missing ${key}`);return match[1];};
+  const refused=message('saveRefused'),uncertain=message('saveUncertain');
+  // The page appends the status only when a response arrived (none for a lost response).
+  for(const shown of [uncertain,uncertain+' (HTTP 502)'])assert(uncertainWarning(shown,refused),shown);
+});

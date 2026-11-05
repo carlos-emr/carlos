@@ -127,6 +127,7 @@
       "area": "Prescription batch atomicity and ambiguous saves",
       "sources": [
         "scripts/rx-save-failure-retry-playwright-checks.js",
+        "scripts/rx-save-check.test.js",
         "src/test/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxCorrectionSaveRollbackIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2ActionCardCorrectionUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2ActionIntegrationTest.java"
