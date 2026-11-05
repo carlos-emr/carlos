@@ -283,6 +283,21 @@ class ResponseFilterLifecycleIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"/development", "/packaged"})
+    void shouldPublishStreamLength_whenNoContentTypeIsEverSet(String context) throws Exception {
+        for (String dispatch : new String[] {"direct", "forward", "nested"}) {
+            // The privacy wrapper can never decorate a response that declares no type, so holding
+            // the length until the chain unwinds only loses it once the explicit flush commits.
+            HttpResponse<byte[]> response = get(context + "/" + dispatch + "?output=binary&noType=true&flush=true");
+            assertThat(response.statusCode()).isEqualTo(200);
+            assertThat(response.body()).isEqualTo(BINARY);
+            assertThat(response.headers().firstValue("Content-Type")).isEmpty();
+            assertThat(response.headers().firstValueAsLong("Content-Length"))
+                    .as("explicit length for untyped %s at %s", dispatch, context).hasValue(BINARY.length);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/development", "/packaged"})
     void shouldKeepSuppliedLength_whenNullLengthHeaderIsAdded(String context) throws Exception {
         HttpResponse<byte[]> response = get(context + "/direct?output=binary&addNullLength=true&flush=true");
         assertThat(response.statusCode()).isEqualTo(200);
@@ -589,7 +604,10 @@ class ResponseFilterLifecycleIntegrationTest {
                 String lateType = request.getParameter("lateType");
                 jakarta.servlet.ServletOutputStream stream;
                 if (lateType == null) {
-                    response.setContentType("application/octet-stream");
+                    // noType: a download that declares its length but never a Content-Type.
+                    if (!"true".equals(request.getParameter("noType"))) {
+                        response.setContentType("application/octet-stream");
+                    }
                     if (!"true".equals(request.getParameter("noLength"))) {
                         response.setContentLength(BINARY.length);
                     }
