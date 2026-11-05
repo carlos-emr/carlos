@@ -463,29 +463,33 @@ public class DemographicAddRecord2Action extends ActionSupport {
         if (listId == null || listId.isEmpty() || listId.equals("0")) {
             return;
         }
+        final int listIdInt;
         try {
-            int listIdInt = Integer.parseInt(listId);
-            Integer maxPosition = waitingListDao.getMaxPosition(listIdInt);
-            if (maxPosition == null) {
-                maxPosition = 0;
+            listIdInt = Integer.parseInt(listId);
+        } catch (NumberFormatException _) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry",
+                        LogSafe.sanitize(listId));
             }
-            io.github.carlos_emr.carlos.commn.model.WaitingList waitingList =
-                    new io.github.carlos_emr.carlos.commn.model.WaitingList();
-            waitingList.setListId(listIdInt);
-            waitingList.setDemographicNo(demographic.getDemographicNo());
-            waitingList.setNote(request.getParameter("waiting_list_note"));
-            waitingList.setPosition((long) maxPosition + 1L);
-            Date referralDate = MyDateFormat.getSysDate(request.getParameter("waiting_list_referral_date"));
-            if (referralDate == null) {
-                referralDate = new Date();
-            }
-            waitingList.setOnListSince(referralDate);
-            waitingList.setIsHistory("N");
-            waitingListDao.persist(waitingList);
-        } catch (NumberFormatException e) {
-            logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry",
-                    LogSafe.sanitize(listId), e);
+            return;
         }
+        Integer maxPosition = waitingListDao.getMaxPosition(listIdInt);
+        if (maxPosition == null) {
+            maxPosition = 0;
+        }
+        io.github.carlos_emr.carlos.commn.model.WaitingList waitingList =
+                new io.github.carlos_emr.carlos.commn.model.WaitingList();
+        waitingList.setListId(listIdInt);
+        waitingList.setDemographicNo(demographic.getDemographicNo());
+        waitingList.setNote(request.getParameter("waiting_list_note"));
+        waitingList.setPosition((long) maxPosition + 1L);
+        Date referralDate = MyDateFormat.getSysDate(request.getParameter("waiting_list_referral_date"));
+        if (referralDate == null) {
+            referralDate = new Date();
+        }
+        waitingList.setOnListSince(referralDate);
+        waitingList.setIsHistory("N");
+        waitingListDao.persist(waitingList);
     }
 
     private void admitToProgram(String providerNo, String dem, Demographic demographic) {
@@ -499,8 +503,11 @@ public class DemographicAddRecord2Action extends ActionSupport {
             }
         }
         if (rps != null && !rps.trim().isEmpty()) {
+            Integer programId = parseProgramId(rps, dem);
+            if (programId == null) {
+                return;
+            }
             try {
-                Integer programId = Integer.parseInt(rps);
                 Admission admission = new Admission();
                 admission.setClientId(demographic.getDemographicNo());
                 admission.setProgramId(programId);
@@ -513,6 +520,18 @@ public class DemographicAddRecord2Action extends ActionSupport {
             } catch (Exception e) {
                 logger.warn("Failed to create program admission for demographic {}", dem, e);
             }
+        }
+    }
+
+    private static Integer parseProgramId(String submitted, String demographicNo) {
+        try {
+            return Integer.valueOf(submitted);
+        } catch (NumberFormatException _) {
+            if (logger.isWarnEnabled()) {
+                logger.warn("DemographicAddRecord2Action: invalid rps={}, skipping admission for demographic {}",
+                        LogSafe.sanitize(submitted), LogSafe.sanitize(demographicNo));
+            }
+            return null;
         }
     }
 
