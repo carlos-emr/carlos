@@ -265,6 +265,11 @@ class RptDownloadCSVServletTest {
 
         assertThat(firstResponse.getStatus()).isEqualTo(200);
         assertThat(secondResponse.getStatus()).isEqualTo(200);
+        for (var response : List.of(firstResponse, secondResponse)) {
+            assertThat(response.getContentType()).isEqualTo("text/csv; charset=UTF-8");
+            assertThat(response.getCharacterEncoding()).isEqualTo("UTF-8");
+            assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        }
         assertThat(firstResponse.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"report-1.csv\"");
         assertThat(secondResponse.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"report-2.csv\"");
         assertThat(firstResponse.getContentAsString()).contains("select 1").doesNotContain("select 2");

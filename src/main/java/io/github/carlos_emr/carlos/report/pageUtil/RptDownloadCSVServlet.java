@@ -99,7 +99,8 @@ public class RptDownloadCSVServlet extends HttpServlet {
         try (OutputStream out = new BufferedOutputStream(response.getOutputStream())) {
             response.setContentType("text/csv; charset=UTF-8");
             response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-            out.write(bytes);
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            out.write(bytes); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- bounded UTF-8 CSV attachment with text/csv and nosniff headers; not HTML
         }
     }
 
