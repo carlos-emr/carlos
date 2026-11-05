@@ -88,7 +88,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="/WEB-INF/special_tag.tld" prefix="special" %>
-<%@ taglib uri="carlos" prefix="carlos" %>
+<%-- The shared demographic-field-length-limits.jspf static include declares carlos. --%>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve all variables from request attributes (set by DemographicEdit2Action) --%>
 <%
@@ -281,6 +281,7 @@
         <script defer src="${carlos:forHtmlAttribute(ctx)}/demographic/eligibilityDialog.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/check_hin.js"></script>
+        <%@ include file="/WEB-INF/jspf/demographic-field-length-limits.jspf" %>
 
         <script type="text/javascript" src="<%=request.getContextPath() %>/js/popup.js"></script>
 

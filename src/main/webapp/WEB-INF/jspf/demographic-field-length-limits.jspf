@@ -43,6 +43,8 @@
             first_name: <%= Demographic.FIRST_NAME_MAX_LENGTH %>,
             middleNames: <%= Demographic.MIDDLE_NAMES_MAX_LENGTH %>,
             nameUsed: <%= Demographic.ALIAS_MAX_LENGTH %>,
+            pronouns: <%= Demographic.PRONOUN_MAX_LENGTH %>,
+            gender: <%= Demographic.GENDER_MAX_LENGTH %>,
             address: <%= Demographic.ADDRESS_MAX_LENGTH %>,
             city: <%= Demographic.CITY_MAX_LENGTH %>,
             year_of_birth: <%= Demographic.YEAR_OF_BIRTH_MAX_LENGTH %>,
@@ -69,21 +71,21 @@
             var fields = document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]');
             for (var i = 0; i < fields.length; i++) {
                 var maximum = fieldLengthLimits[fieldName];
-                if (fieldName === 'first_name' || fieldName === 'last_name') {
-                    // HTML counts UTF-16 units; native VARCHAR/XSD names count Unicode code points.
+                if (fieldName === 'first_name' || fieldName === 'last_name' || fieldName === 'pronouns' || fieldName === 'gender') {
+                    // HTML counts UTF-16 units; native VARCHAR/XSD values count Unicode code points.
                     fields[i].setAttribute('maxlength', maximum * 2);
                     fields[i].setAttribute('data-max-codepoints', maximum);
                     (function (field, limit) {
-                        function validateNameLength() {
+                        function validateFieldLength() {
                             var valid = Array.from(field.value || '').length <= limit;
                             field.setCustomValidity(valid ? '' : '${carlos:forJavaScript(demographicCodePointLimitMessage)}'.replace('{0}', limit));
                             return valid;
                         }
-                        field.addEventListener('input', validateNameLength);
+                        field.addEventListener('input', validateFieldLength);
                         if (field.form) field.form.addEventListener('submit', function (event) {
-                            if (!validateNameLength()) { event.preventDefault(); field.reportValidity(); }
+                            if (!validateFieldLength()) { event.preventDefault(); field.reportValidity(); }
                         });
-                        validateNameLength();
+                        validateFieldLength();
                     })(fields[i], maximum);
                 } else {
                     fields[i].setAttribute('maxlength', maximum);
