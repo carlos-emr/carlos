@@ -387,18 +387,20 @@ class ScheduleServiceUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(appointmentManager);
     }
 
+    /** Pins the response token returned to an unchanged legacy client after a successful write. */
     @Test
-    void shouldReturnBadRequest_whenEditVersionIsMissing() {
+    void shouldReturnUpdatedAppointment_whenEditVersionIsMissing() {
         registerMock(DemographicDao.class, Mockito.mock(DemographicDao.class));
         registerMock(ProviderDao.class, Mockito.mock(ProviderDao.class));
         AppointmentTo1 to = new AppointmentTo1();
         to.setId(42);
+        Appointment updated = new Appointment();
+        updated.setId(42);
+        updated.setUpdateDateTime(new Date(2000));
         when(scheduleManager.updateAppointment(any(), eq(42), isNull(), any()))
-                .thenThrow(new io.github.carlos_emr.carlos.managers.AppointmentUpdateException(
-                        io.github.carlos_emr.carlos.managers.AppointmentUpdateException.Reason.MISSING_VERSION));
-        assertThatThrownBy(() -> service.updateAppointment(to))
-                .isInstanceOf(WebApplicationException.class)
-                .satisfies(e -> assertThat(((WebApplicationException) e).getResponse().getStatus()).isEqualTo(400));
+                .thenReturn(updated);
+        assertThat(service.updateAppointment(to).getAppointment().getEditVersion()).isEqualTo("2000");
+        verifyNoInteractions(appointmentManager);
     }
 
     @org.junit.jupiter.params.ParameterizedTest

@@ -184,6 +184,30 @@ class AppointmentUpdateDaoIntegrationTest {
         assertState("FAKE-fresh", 2);
     }
 
+    /** Verifies that a legacy write archives newer data and invalidates the previous read token. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {" ", "\t\n"})
+    void shouldPreserveLegacyLastWriterWins_whenVersionIsAbsentOrBlank(String version) {
+        String originalVersion = read().getEditVersion();
+        Appointment first = save(clientA, originalVersion, row -> row.setReason("FAKE-first"));
+        Appointment legacy = save(clientB, version, row -> row.setReason("FAKE-legacy"));
+        assertState("FAKE-legacy", 2);
+        assertThat(legacy.getEditVersion()).isNotEqualTo(first.getEditVersion())
+                .isEqualTo(read().getEditVersion());
+        assertThat(read().getLastUpdateUser()).isEqualTo("FAKE-B");
+        tx(em -> {
+            assertThat(em.createQuery("from AppointmentArchive order by id", AppointmentArchive.class)
+                    .getResultList()).extracting(AppointmentArchive::getReason)
+                    .containsExactly("FAKE-original", "FAKE-first");
+            return null;
+        });
+        assertThatThrownBy(() -> save(clientA, first.getEditVersion(), row -> row.setReason("FAKE-stale")))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class,
+                        e -> assertThat(e.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+        assertState("FAKE-legacy", 2);
+    }
+
     @Test
     void shouldSerializeConcurrentEdits_andRejectTheWaitingStaleWriter() throws Exception {
         String version = read().getEditVersion();
@@ -290,17 +314,18 @@ class AppointmentUpdateDaoIntegrationTest {
         assertThat(read().getEditVersion()).isEqualTo(version);
     }
 
-    @Test
-    void shouldRequireReadToken_andSupportLegacyNullTimestamps() {
-        assertThatThrownBy(() -> save(clientA, null, row -> row.setReason("FAKE-rejected")))
-                .isInstanceOf(AppointmentUpdateException.class);
+    /** Exercises optional tokens on imported rows that have no update timestamp. */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"unversioned", " "})
+    void shouldSupportLegacyNullTimestamps_withOptionalVersion(String version) {
         tx(em -> {
             em.createNativeQuery("update appointment set updatedatetime=null where appointment_no=:id")
                     .setParameter("id", id).executeUpdate();
             return null;
         });
         assertThat(read().getEditVersion()).isEqualTo("unversioned");
-        save(clientA, "unversioned", row -> row.setReason("FAKE-upgraded"));
+        save(clientA, version, row -> row.setReason("FAKE-upgraded"));
         assertState("FAKE-upgraded", 1);
         assertThatThrownBy(() -> save(clientB, "unversioned", row -> row.setReason("FAKE-stale")))
                 .isInstanceOf(AppointmentUpdateException.class);
