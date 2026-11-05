@@ -83,7 +83,7 @@ def translation_units(webapp):
     def directive_body(match):
         # Other page attributes may reference an imported type (extends="Base").
         if match[1] == 'page':
-            return ' '.join(value for name, value in attributes(match[0]).items() if name != 'import')
+            return attributes(match[0]).get('extends', '')
         return ''
 
     bodies = {p: DIRECTIVE.sub(directive_body, COMMENT.sub('', data)) for p, data in texts.items()}

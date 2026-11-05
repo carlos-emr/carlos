@@ -52,6 +52,10 @@ class Directives(unittest.TestCase):
     def test_page_superclass_is_a_use_of_an_import(self):
         self.assertEqual(self.audit({'page.jsp': '<%@ page import="app.Base" extends="Base" %>'}), [])
 
+    def test_non_type_page_attributes_do_not_hide_dead_imports(self):
+        self.assertEqual(self.audit({'page.jsp': '<%@ page import="app.UTF" contentType="text/html; charset=UTF-8" %>'}),
+                         [('page.jsp', 'unused import', 'app.UTF')])
+
     def test_directives_and_jsp_comments_are_not_uses(self):
         findings = self.audit({'page.jsp': '''<%@ page import="app.Dead, app.Kept" %>
             <%-- Dead.class <dead:tag/> <%@ include file="absent.jsp" %> --%>
