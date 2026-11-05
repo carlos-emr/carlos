@@ -192,6 +192,10 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
             }
         }
 
+        // The document date every query shape selects: the received date when the clinic's Inbox
+        // date preference is "receivedCreated", otherwise the observation date.
+        String selectedDateColumn = dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate";
+
         String dateSql = "";
         SimpleDateFormat dateSqlFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         //Check if the startDate is null, if a date exists then creates the SQL for the startDate
@@ -257,7 +261,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT X.id, X.lab_no as document_no, X.status, X.lab_type as doctype, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", doc.docdesc as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM document doc, "
                         + " (SELECT plr.id, plr.lab_type, plr.lab_no, plr.status "
                         + "  FROM patientLabRouting plr2, providerLabRouting plr, hl7TextInfo info "
@@ -301,7 +305,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc, "
                         + " (SELECT * FROM "
                         + " (SELECT DISTINCT plr.id, plr.lab_type FROM providerLabRouting plr, ctl_document cd "
@@ -343,7 +347,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // out-of-province or imported patients) never satisfies LIKE, so a blank search
                     // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = " SELECT plr.id, doc.document_no, plr.status, d.last_name, d.first_name, hin, sex, d.demographic_no as module_id, "
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + " FROM demographic d, providerLabRouting plr, document doc,  "
                         + " (SELECT * FROM "
                         + "	 (SELECT * FROM  "
@@ -390,7 +394,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // N
                     // document_no, status, last_name, first_name, hin, sex, module_id, observationdate
                     sql = "SELECT doc.document_no, plr.status, d.last_name, d.first_name, d.hin, d.sex, cd.module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type, doc.docdesc as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM document doc "
                         + "LEFT JOIN providerLabRouting plr ON doc.document_no = plr.lab_no "
                         + "LEFT JOIN ctl_document cd ON cd.document_no = doc.document_no "
@@ -417,7 +421,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = "SELECT plr.id, doc.document_no, plr.status, demographic_no as module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, last_name, first_name, hin, sex, docdesc, date(doc.updatedatetime) as updateDateLoc"
+                        + selectedDateColumn + ", plr.lab_type as doctype, last_name, first_name, hin, sex, docdesc, date(doc.updatedatetime) as updateDateLoc"
                         + " FROM providerLabRouting plr"
                         + " LEFT JOIN document doc ON doc.document_no = plr.lab_no"
                         + " RIGHT JOIN ctl_document cd ON cd.document_no = plr.lab_no AND cd.module_id = -1"
@@ -442,7 +446,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     descriptionLoc = 10;
                     updateDateLoc = 11;
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
                         + "WHERE d.demographic_no = :demographicNo "
                         + "	AND cd.module_id = d.demographic_no "
@@ -471,7 +475,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     // out-of-province or imported patients) never satisfies LIKE, so a blank search
                     // field ("%%") would otherwise drop those patients from every Inbox search.
                     sql = "SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
+                        + selectedDateColumn + ", plr.lab_type as doctype, doc.docdesc as description, date(doc.updatedatetime) "
                         + "FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
                         + "WHERE COALESCE(d.first_name, '') like :patientFirstName AND COALESCE(d.last_name, '') like :patientLastName AND COALESCE(d.hin, '') like :patientHealthNumber "
                         + "	AND cd.module_id = d.demographic_no "
@@ -498,7 +502,7 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                     updateDateLoc = 11;
                     sql = " SELECT * "
                         + " FROM (SELECT plr.id, doc.document_no, plr.status, last_name, first_name, hin, sex, module_id,"
-                        + (dateSearchType.equals("receivedCreated") ? "doc.contentdatetime" : "doc.observationdate") + ", plr.lab_type as doctype, docdesc, updatedatetime "
+                        + selectedDateColumn + ", plr.lab_type as doctype, docdesc, updatedatetime "
                         + " FROM ctl_document cd, demographic d, providerLabRouting plr, document doc "
                         + " WHERE (cd.module_id = d.demographic_no) "
                         + " 	AND cd.document_no = plr.lab_no "
