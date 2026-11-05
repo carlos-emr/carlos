@@ -11,6 +11,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.io.File;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -89,6 +97,36 @@ class CarlosPropertiesModernChartUnitTest {
         try (LogCapture logs = LogCapture.forLogger(CarlosProperties.class)) {
             assertThat(properties.warnIfLegacyChartSettingIgnored()).isNull();
             assertThat(logs.messages()).isEmpty();
+        }
+    }
+
+    /**
+     * The singleton is built while the class initializes, so the startup warning must not read a
+     * static field declared after it. With a stored setting this once failed the static
+     * initializer, which left the class unloadable and the application unable to start.
+     */
+    @Test
+    void shouldInitializeSingleton_whenStoredSettingIsPresentAtStartup() throws Exception {
+        Path config = Files.createTempDirectory("carlos-properties-4793");
+        try {
+            Files.writeString(config.resolve("carlos.properties"), KEY + "=false\n");
+            List<URL> classpath = new ArrayList<>();
+            classpath.add(config.toUri().toURL());
+            String entries = System.getProperty("surefire.test.class.path", System.getProperty("java.class.path"));
+            for (String entry : entries.split(File.pathSeparator)) {
+                if (!entry.isBlank()) classpath.add(Path.of(entry).toUri().toURL());
+            }
+            try (URLClassLoader isolated = new URLClassLoader(classpath.toArray(URL[]::new),
+                    ClassLoader.getPlatformClassLoader())) {
+                Class<?> type = Class.forName(CarlosProperties.class.getName(), true, isolated);
+                assertThat(type.getClassLoader()).isSameAs(isolated);
+                Object instance = type.getMethod("getInstance").invoke(null);
+                assertThat(type.getMethod("get", Object.class).invoke(instance, KEY)).isEqualTo("false");
+                assertThat(type.getMethod("getProperty", String.class).invoke(instance, KEY)).isEqualTo("true");
+            }
+        } finally {
+            Files.deleteIfExists(config.resolve("carlos.properties"));
+            Files.deleteIfExists(config);
         }
     }
 

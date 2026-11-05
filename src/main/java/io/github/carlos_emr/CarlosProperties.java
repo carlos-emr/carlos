@@ -97,8 +97,10 @@ public class CarlosProperties extends Properties {
     // Keep file descriptors and their locks serialized among instances in this class loader.
     // The filesystem locks additionally coordinate separate application processes.
     private static final Object CONFIGURATION_FILE_LOCK = new Object();
-    private static CarlosProperties carlosProperties = new CarlosProperties();
+    // Declared before the singleton: its constructor reads the loaded file and compares the stored
+    // AbandonOldChart value against these markers, and static initializers run in textual order.
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
+    private static CarlosProperties carlosProperties = new CarlosProperties();
     /**
      * Keys already reported as "missing or not configured". That warning is per key per JVM, not
      * per lookup: several of these keys are read on every page render, and at the WARN root default
