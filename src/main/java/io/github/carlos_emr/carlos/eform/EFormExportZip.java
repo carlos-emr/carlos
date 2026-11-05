@@ -390,17 +390,23 @@ public class EFormExportZip {
         }
         if (newEForm.getFormFileName() == null || newEForm.getFormFileName().isEmpty()) {
             errors.add("Skipped form titled '" + newEForm.getFormName() + "' because it has no form filename.");
-            _log.info("Skipped form titled '{}' because it has no form filename.", LogSafe.sanitize(newEForm.getFormName()));
+            if (_log.isInfoEnabled()) {
+                _log.info("Skipped form titled '{}' because it has no form filename.", LogSafe.sanitize(newEForm.getFormName()));
+            }
             return textBytes;
         }
         if (EFormUtil.formExistsInDB(newEForm.getFormName())) {
             errors.add("Skipped form '" + newEForm.getFormName() + "', form already exists");
-            _log.info("Skipped form '{}', form already exists", LogSafe.sanitize(newEForm.getFormName()));
+            if (_log.isInfoEnabled()) {
+                _log.info("Skipped form '{}', form already exists", LogSafe.sanitize(newEForm.getFormName()));
+            }
             eformTableFailed.put(newEForm.getFormFileName(), newEForm);
             return textBytes;
         }
         eformTable.put(newEForm.getFormFileName(), newEForm);
-        _log.debug("going in eform table >{}<", LogSafe.sanitize(newEForm.getFormFileName()));
+        if (_log.isDebugEnabled()) {
+            _log.debug("going in eform table >{}<", LogSafe.sanitize(newEForm.getFormFileName()));
+        }
         zis.closeEntry();
         return textBytes;
     }
