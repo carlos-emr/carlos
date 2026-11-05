@@ -26,6 +26,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.app.CarlosCsrfGuardFilter;
+import io.github.carlos_emr.carlos.app.CsrfGuardFixture;
 import io.github.carlos_emr.carlos.app.CsrfGuardScriptInjectionFilter;
 import io.github.carlos_emr.carlos.app.LogoutBroadcastFilter;
 import io.github.carlos_emr.carlos.commn.printing.PrivacyStatementAppendingFilter;
@@ -81,7 +82,7 @@ class ResponseFilterLifecycleIntegrationTest {
     private static final byte[] BINARY = new byte[100_123];
     private static final ConcurrentHashMap<String, Boolean> FINISHED_AFTER_FORWARD = new ConcurrentHashMap<>();
     private static final Properties ORIGINAL_PROPERTIES = new Properties();
-    private static final Properties CSRF_PROPERTIES = new Properties();
+    private static CsrfGuardFixture csrfGuard;
     private static boolean originalCsrfEnabled;
     @TempDir
     static Path baseDir;
@@ -95,16 +96,11 @@ class ResponseFilterLifecycleIntegrationTest {
         CarlosProperties.getInstance().keySet().removeIf(key -> key.toString().startsWith("confidentiality_statement.v"));
         CarlosProperties.getInstance().setProperty("confidentiality_statement.v1", NOTICE);
         CarlosProperties.getInstance().setProperty("response.sanitization.enabled", "true");
-        try (var in = Files.newInputStream(Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties"))) {
-            CSRF_PROPERTIES.load(in);
-        }
-        CSRF_PROPERTIES.setProperty("org.owasp.csrfguard.configuration.provider.factory",
-                "org.owasp.csrfguard.config.PropertiesConfigurationProviderFactory");
-        // The CsrfGuard singleton is JVM-wide and Surefire reuses forks: remember what later
-        // tests in this fork would otherwise have seen, and put it back in stopTomcat().
+        // The CsrfGuard singleton is JVM-wide and Surefire reuses forks: the fixture remembers
+        // what later tests in this fork would otherwise have seen and puts it back in stopTomcat().
         originalCsrfEnabled = CsrfGuard.getInstance().isEnabled();
-        CsrfGuard.load(CSRF_PROPERTIES);
-        assertThat(CsrfGuard.getInstance().isEnabled()).isTrue();
+        csrfGuard = CsrfGuardFixture.loadShippedConfiguration();
+        assertThat(csrfGuard.guard().isEnabled()).isTrue();
         for (int i = 0; i < BINARY.length; i++) {
             BINARY[i] = (byte) i;
         }
@@ -145,16 +141,9 @@ class ResponseFilterLifecycleIntegrationTest {
         } finally {
             CarlosProperties.getInstance().clear();
             CarlosProperties.getInstance().putAll(ORIGINAL_PROPERTIES);
-            Properties restore = new Properties();
-            restore.putAll(CSRF_PROPERTIES);
-            if (!originalCsrfEnabled) {
-                // PropertiesConfigurationProviderFactory pins its first provider in a static
-                // field, so "Enabled=false" through it would be ignored; the null provider
-                // factory is the way back to the disabled guard other tests started from.
-                restore.setProperty("org.owasp.csrfguard.configuration.provider.factory",
-                        "org.owasp.csrfguard.config.NullConfigurationProviderFactory");
+            if (csrfGuard != null) {
+                csrfGuard.close();
             }
-            CsrfGuard.load(restore);
         }
         assertThat(CsrfGuard.getInstance().isEnabled())
                 .as("CsrfGuard singleton restored for later tests in this fork").isEqualTo(originalCsrfEnabled);
