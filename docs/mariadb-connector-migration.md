@@ -44,7 +44,7 @@ properties. Supported single-host address options retain their host-specific
 precedence. Legacy multi-host failover URLs use MariaDB's
 sequential host selection. CDS maintenance connections continue to require one
 host and finite, validated network timeouts.
-For native URLs, conflicting case variants or aliases recognized by the adapter
+For native URLs, conflicting case variants or aliases canonicalized by the adapter
 fail with a configuration error: MariaDB otherwise chooses between them by property-map
 iteration order. Equivalent normalized values remain accepted. Native URL
 normalization preserves option spelling so this check still applies when
@@ -65,7 +65,8 @@ Normalized MySQL URLs retain their original TLS flag semantics. For native
 `jdbc:mariadb:` URLs, explicit `useSsl`/`useSSL` flags retain MariaDB's exact
 case-sensitive names and values: `true`, `1`, or an empty value enable verified
 TLS, with `trustServerCertificate` or `disableSslHostnameVerification` selecting
-the corresponding native policy. An enabled native flag overrides the global
+the corresponding native policy. These two modifiers do not enable TLS without
+an enabled `useSsl`/`useSSL` flag. An enabled native flag overrides the global
 `sslMode`; an explicit host `sslMode` overrides the global policy. Native address
 descriptors retain MariaDB's supported host, port, type, SSL mode, pipe and local
 socket fields, including their literal path spelling. Other native descriptor
