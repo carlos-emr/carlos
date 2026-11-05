@@ -10,6 +10,11 @@
  *   4. A series observed within one day labels its date axis with the time, not the same date on
  *      every tick.
  *   5. A medication started and stopped on the same day still draws a visible bar.
+ *   6. Date axes keep a margin beyond the first and last value, so a bar never sits on the axis
+ *      line or runs off the plot, and their ticks fall on calendar boundaries (midnight, the first
+ *      of a month) in the chart's time zone rather than on round numbers of milliseconds.
+ *   7. Each medication keeps its own colour and a legend entry; the first medication listed is
+ *      drawn at the bottom, as the former chart's symbol axis did.
  */
 'use strict';
 const assert = require('node:assert/strict');
@@ -25,6 +30,11 @@ async function draw(page, spec, width, height) {
         const charts = window.carlosDrawChart(spec, width, height);
         return {
             canvases: [...document.querySelectorAll('canvas')].map(c => ({ width: c.width, height: c.height })),
+            xRange: charts.map(chart => ({ min: chart.scales.x.min, max: chart.scales.x.max })),
+            xTicks: charts.map(chart => chart.scales.x.ticks.map(tick => tick.value)),
+            legend: charts.length ? charts[charts.length - 1].legend.legendItems.map(item => ({ text: item.text, fill: item.fillStyle })) : [],
+            colours: charts.length ? [].concat(charts[charts.length - 1].data.datasets[0].backgroundColor) : [],
+            rowPixels: charts.length ? charts[charts.length - 1].data.labels.map((_, i) => charts[charts.length - 1].scales.y.getPixelForValue(i)) : [],
             barWidths: charts.length ? charts[charts.length - 1].getDatasetMeta(0).data.map(bar => Math.abs(bar.x - bar.base)) : [],
             labels: charts.map(chart => Object.values(chart.scales).map(scale => ({
                 id: scale.id, ticks: scale.ticks.map(tick => String(tick.label ?? tick.value)) }))),
@@ -68,18 +78,32 @@ async function main() {
         const sameDay = await draw(page, { ...base, datasets: [series], medications: [] }, 1000, 600);
         const dateTicks = sameDay.labels[0].find(scale => scale.id === 'x').ticks;
         assert.ok(dateTicks.some(label => /\d{2}:\d{2}/.test(label)), `a same-day series shows times on its date axis: ${dateTicks}`);
+        assert.ok(dateTicks.every(label => label.includes(',')), `hourly ticks carry the date and the time on separate lines: ${dateTicks}`);
 
         const oneDay = await draw(page, { ...base, medications: [
             { name: 'SYNTHETIC LONG COURSE', start: t0, end: t0 + 90 * day },
             { name: 'SYNTHETIC SINGLE DOSE', start: t0 + 30 * day, end: t0 + 30 * day }] }, 1000, 360);
         assert.ok(oneDay.barWidths[1] >= 2, `a same-day medication interval still draws a visible bar: widths ${oneDay.barWidths}`);
 
+        const first = Math.min(...medications.flatMap(m => [m.start, m.end]));
+        const last = Math.max(...medications.flatMap(m => [m.start, m.end]));
+        const range = medsOnly.xRange[0];
+        assert.ok(range.min < first && range.max > last, `the date axis keeps a margin around the data: ${JSON.stringify(range)} vs ${first}..${last}`);
+        assert.ok(medsOnly.xTicks[0].every(value => value % day === 0), `ticks over four months fall on midnight boundaries (UTC zone): ${medsOnly.xTicks[0]}`);
+        assert.ok(medsOnly.xTicks[0].length >= 4, 'the axis still shows several ticks');
+        assert.equal(new Set(medsOnly.colours).size, 12, 'each medication keeps its own colour');
+        assert.deepEqual(medsOnly.legend.map(item => item.text.length <= 33), Array(12).fill(true), 'the legend lists every medication with a shortened name');
+        assert.ok(medsOnly.rowPixels[0] > medsOnly.rowPixels[11], 'the first medication listed is drawn at the bottom');
+
         const twoYears = { ...base, datasets: [{ ...series, data: [{ x: t0, y: 61 }, { x: t0 + 700 * day, y: 63 }] }], medications: [] };
         const long = await draw(page, twoYears, 1000, 600);
         const longTicks = long.labels[0].find(scale => scale.id === 'x').ticks;
-        assert.ok(longTicks.every(label => /^\d{4}-\d{2}-\d{2}$/.test(label)), `a multi-year series shows dates only: ${longTicks}`);
+        assert.ok(longTicks.every(label => /^\d{4}-\d{2}$/.test(label)), `a multi-year series ticks on months: ${longTicks}`);
+        assert.ok(long.xTicks[0].every(value => new Date(value).getUTCDate() === 1 && value % day === 0), `month ticks fall on the first of the month: ${long.xTicks[0]}`);
+        const seriesRange = long.xRange[0];
+        assert.ok(seriesRange.min < t0 && seriesRange.max > t0 + 700 * day && seriesRange.min > t0 - 60 * day, `a series axis keeps a modest margin: ${JSON.stringify(seriesRange)}`);
         assert.deepEqual(errors, []);
-        console.log('PASS: medication-only layout, aligned panels, shortened names, time-aware date ticks, visible same-day intervals');
+        console.log('PASS: medication-only layout, aligned panels, shortened names, calendar ticks with margins, per-drug colours and legend, visible same-day intervals');
     } finally {
         if (browser) await browser.close();
     }
