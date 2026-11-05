@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.app;
 
 import io.github.carlos_emr.carlos.web.eform.EformViewForPdfGenerationServlet;
 
+import io.github.carlos_emr.carlos.utility.DeferredContentLength;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import org.owasp.csrfguard.CsrfGuard;
@@ -418,8 +419,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
         private boolean usingWriter;
         private boolean writerPassthrough;
         private boolean committed;
-        private Integer deferredContentLength;
-        private Long deferredContentLengthLong;
+        /** The shared defer/publish/retract rules; its two delegate calls are its only access to the response. */
+        private final DeferredContentLength contentLength = new DeferredContentLength(
+                super::setContentLengthLong,
+                () -> super.setHeader(DeferredContentLength.HEADER, null));
         private final String requestUri;
 
         public CaptureResponseWrapper(HttpServletResponse response, String requestUri) {
@@ -460,7 +463,27 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             return writer;
         }
 
-        /** Drops the abandoned capture and channel selection after a successful full reset. */
+        /**
+         * Discards the uncommitted capture when a nested forward resets its response.
+         *
+         * <p>Every CARLOS wrapper applies one rule to an accepted {@code resetBuffer()}: a length that
+         * predates the reset, pending or published, described the discarded body and is dropped. A
+         * forward always replaces the body, so a pre-forward length is stale by definition. A length
+         * still pending is cleared; one this wrapper already passed through on a stream or
+         * non-HTML writer channel is removed from the delegate, so the wrappers beneath this
+         * FORWARD-only one never see it again. A rejected reset (the delegate throws) leaves the
+         * capture and both kinds of length as they were.</p>
+         */
+        @Override
+        public void resetBuffer() {
+            super.resetBuffer();
+            if (captureWriter != null) {
+                captureWriter.reset();
+            }
+            contentLength.onBufferReset();
+        }
+
+        /** Reset channel/capture state only after the underlying response accepts the full reset. */
         @Override
         public void reset() {
             super.reset();
@@ -470,38 +493,19 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
             usingWriter = false;
             writerPassthrough = false;
             committed = false;
-            deferredContentLength = null;
-            deferredContentLengthLong = null;
+            contentLength.onReset();
         }
 
         @Override
         public void setContentLength(int len) {
-            if (usingOutputStream) {
-                // Output-stream passthrough: the real response owns the content, so pass through
-                super.setContentLength(len);
-                return;
-            }
-            if (writerPassthrough) {
-                super.setContentLength(len);
-                return;
-            }
-            if (usingWriter) {
-                // Writer-capture path: suppress — final length is recomputed in writeToResponse()
-                return;
-            }
-            // Mode not yet determined — defer until getOutputStream() or getWriter() is called
-            deferredContentLength = len;
+            setContentLengthLong(len);
         }
 
         @Override
         public void setContentLengthLong(long len) {
-            if (usingOutputStream) {
-                // Output-stream passthrough: the real response owns the content, so pass through
-                super.setContentLengthLong(len);
-                return;
-            }
-            if (writerPassthrough) {
-                super.setContentLengthLong(len);
+            if (usingOutputStream || writerPassthrough) {
+                // Passthrough: the real response owns the content, so pass the length through
+                contentLength.publishNow(len);
                 return;
             }
             if (usingWriter) {
@@ -509,12 +513,12 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
                 return;
             }
             // Mode not yet determined — defer until getOutputStream() or getWriter() is called
-            deferredContentLengthLong = len;
+            contentLength.defer(len);
         }
 
         @Override
         public void setHeader(String name, String value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 deferContentLengthHeader(value);
                 return;
             }
@@ -523,7 +527,10 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void addHeader(String name, String value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
+                if (value == null) {
+                    return;
+                }
                 deferContentLengthHeader(value);
                 return;
             }
@@ -532,7 +539,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void setIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
                 return;
             }
@@ -541,7 +548,7 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
 
         @Override
         public void addIntHeader(String name, int value) {
-            if (isContentLengthHeader(name)) {
+            if (DeferredContentLength.isContentLengthHeader(name)) {
                 setContentLength(value);
                 return;
             }
@@ -711,29 +718,21 @@ public class CsrfGuardScriptInjectionFilter implements Filter {
          * Applies Content-Length values deferred while the response mode was still unknown.
          */
         private void applyDeferredContentLength() {
-            if (deferredContentLength != null) {
-                super.setContentLength(deferredContentLength);
-                deferredContentLength = null;
-            }
-            if (deferredContentLengthLong != null) {
-                super.setContentLengthLong(deferredContentLengthLong);
-                deferredContentLengthLong = null;
-            }
+            contentLength.publishPending();
         }
 
         private void deferContentLengthHeader(String value) {
-            try {
-                setContentLengthLong(Long.parseLong(value));
-            } catch (NumberFormatException e) {
-                LOGGER.warn("Ignoring malformed Content-Length header value during CSRF capture: uri={}, value={}",
-                        requestUri, LogSafe.sanitize(value), e);
+            if (value == null) {
+                contentLength.remove();
+                return;
             }
-        }
-
-        // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-        @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-        private boolean isContentLengthHeader(String name) {
-            return "Content-Length".equalsIgnoreCase(name);
+            java.util.OptionalLong parsed = DeferredContentLength.parse(value);
+            if (parsed.isPresent()) {
+                setContentLengthLong(parsed.getAsLong());
+            } else if (LOGGER.isWarnEnabled()) {
+                LOGGER.warn("Ignoring malformed Content-Length header value during CSRF capture: uri={}, value={}",
+                        requestUri, LogSafe.sanitize(value));
+            }
         }
 
         /**
