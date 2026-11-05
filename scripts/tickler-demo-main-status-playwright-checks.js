@@ -140,6 +140,13 @@ async function workflow(s) {
     return list;
   }
   const box = label => list.locator(`${FORM} input[name="checkbox"][value="${tickler[label]}"]`);
+  /**
+   * Clicks one of the patient list's actions (or posts the retired legacy erase form) and waits for the
+   * return to that patient's list. Delete raises one native confirmation that is accepted; Complete and
+   * the legacy erase raise none.
+   *
+   * @param {'complete'|'delete'|'legacyErase'} button the action to run
+   */
   async function press(button) {
     // Only Delete asks for confirmation (#5683); the helper accepts it and fails if Delete stops asking
     // or Complete / the legacy erase submission start to.

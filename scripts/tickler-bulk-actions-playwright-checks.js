@@ -56,6 +56,13 @@ async function workflow(s) {
     }
     await waitForTicklerTable(list);
   }
+  /**
+   * Clicks Complete or Delete on the main task list and checks the posted form carries exactly the
+   * ticked ids and a CSRF token. Delete raises one native confirmation that is accepted; Complete none.
+   *
+   * @param {'Complete'|'Delete'} action the button to press
+   * @param {string[]} selected the task ids that must be in the POST
+   */
   async function submit(action, selected) {
     // Delete asks for confirmation (#5683) and Complete does not; the helper answers it and counts it.
     let response;

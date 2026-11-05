@@ -455,6 +455,14 @@ async function completeTicklerViaEdit(context, listPage, ticklerNo) {
   assert(rows.length === 1 && rows[0].status === 'C', `completed tickler status was ${rows[0] && rows[0].status}`);
 }
 
+/**
+ * Deletes the tickler carrying `message` from the Completed view of the task list. The ticked row is
+ * submitted through Delete, which asks for one native confirmation (#5683) that is accepted here, and
+ * the POST to DbTicklerMain must carry the selected id with a Delete submit_form.
+ *
+ * @param {import('playwright').Page} page the wired task-list page
+ * @param {string} message the unique tickler message that identifies the row
+ */
 async function deleteTicklerFromList(page, message) {
   await setTicklerListStatus(page, 'C');
   await findRowInList(page, message, 'C');

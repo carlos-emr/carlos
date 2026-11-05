@@ -104,6 +104,13 @@ async function workflow(s) {
     h.assert(JSON.stringify(found) === JSON.stringify(expected),
       `The footer offers ${JSON.stringify(found)}; expected ${JSON.stringify(expected)}`);
   }
+  /**
+   * Clicks one of the list's bulk actions (or posts the retired legacy erase form) and waits for the
+   * return to the task list. Delete raises one native confirmation that is accepted; Complete and the
+   * legacy erase raise none.
+   *
+   * @param {'complete'|'delete'|'legacyErase'} button the action to run
+   */
   async function press(button) {
     // Only Delete asks for confirmation (#5683); the helper accepts it and fails if Delete stops asking
     // or Complete / the legacy erase submission start to.
