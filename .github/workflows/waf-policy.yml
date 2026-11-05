@@ -82,6 +82,7 @@ jobs:
             2>&1 | tee "$WAF_EVIDENCE/self-tests.log"
 
       - name: Validate policy configuration and inventory
+        if: ${{ !cancelled() && steps.dependencies.outcome == 'success' && steps.checkout.outcome == 'success' }}
         run: |
           set -euo pipefail
           python3 scripts/waf/check-clinical-policy.py --check-config 2>&1 | tee "$WAF_EVIDENCE/config.log"

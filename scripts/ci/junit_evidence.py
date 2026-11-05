@@ -2,6 +2,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Read test identities/outcomes without publishing configuration or test output."""
 from dataclasses import dataclass
+import json
 import os
 from pathlib import Path
 import stat
@@ -64,7 +65,18 @@ def read_surefire(path: Path, expected_suite: str, suffix: str = "", diagnostics
             raise EvidenceError("Test case has no usable identity")
         if classname != suite and not classname.startswith(suite + "$"):
             if re.fullmatch(r"[^\W\d][\w$]*(?:\.[^\W\d][\w$]*)+", classname):
-                raise EvidenceError("Test case belongs to another suite")
+                # Some real @DisplayName labels look exactly like binary names
+                # (MSPReconcile.updateStat). Accept only labels declared in the
+                # owning source, rather than guessing from package casing.
+                source_root = Path(__file__).resolve().parents[2] / "src/test/java"
+                source = source_root.joinpath(*suite.split("$", 1)[0].split(".")).with_suffix(".java")
+                labels = set()
+                if source.resolve().is_relative_to(source_root) and source.is_file():
+                    for literal in re.findall(r'@(?:org\.junit\.jupiter\.api\.)?DisplayName\s*\(\s*("(?:[^"\\]|\\.)*")\s*\)',
+                                              source.read_text(encoding="utf-8")):
+                        labels.add(json.loads(literal))
+                if classname not in labels:
+                    raise EvidenceError("Test case belongs to another suite")
             # Surefire/JUnit 6 puts @DisplayName text in testcase@classname,
             # while testsuite@name and the filename retain the binary class.
             # Bind those human labels to the verified owning suite; they are

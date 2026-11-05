@@ -807,7 +807,9 @@ if (require.main === module) {
       && !selectedProfile.list && !selectedProfile.dryRun && !selectedProfile.help) {
     if(process.env.CARLOS_PROPERTY_PROFILE_ACTIVE===selectedProfile.profile) PROPERTY_PROFILES.verifyActiveProfile(selectedProfile.profile).then(
       ()=>{process.exitCode=main();},error=>{console.error(error.message);process.exitCode=EXIT_FAIL;});
-    else if ((process.exitCode=main([...process.argv.slice(2),'--dry-run'])) === EXIT_PASS) PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile,
+    // This internal selection/target preflight is diagnostic. The supervised
+    // child below still receives the original strict-release arguments.
+    else if ((process.exitCode=main([...process.argv.slice(2).filter(arg => arg !== '--strict-release'),'--dry-run'])) === EXIT_PASS) PROPERTY_PROFILES.withPropertyProfile(selectedProfile.profile,
       async ({signal}) => {
         if(selectedProfile.profile==='caisi-admin' && selectChecks(loadManifest(),selectedProfile).some(check =>
           ['admin-issue-editor'].includes(check.name))) {

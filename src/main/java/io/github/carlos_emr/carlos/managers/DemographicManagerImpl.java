@@ -708,7 +708,7 @@ public class DemographicManagerImpl implements DemographicManager {
             demographicMergedDao.persist(dm);
 
             // --- log action ---
-            LogAction.addLogStrict(loggedInInfo, "DemographicManager.mergeDemographics", null, null, null, "id=" + dm.getId());
+            LogAction.addLogStrict(loggedInInfo, "DemographicManager.mergeDemographics", null, null, Integer.toString(dm.getDemographicNo()), "id=" + dm.getId());
         }
 
     }
@@ -728,7 +728,7 @@ public class DemographicManagerImpl implements DemographicManager {
                 demographicMergedDao.merge(dm);
 
                 // --- log action ---
-                LogAction.addLogStrict(loggedInInfo, "DemographicManager.unmergeDemographics", null, null, null, "id=" + dm.getId());
+                LogAction.addLogStrict(loggedInInfo, "DemographicManager.unmergeDemographics", null, null, Integer.toString(dm.getDemographicNo()), "id=" + dm.getId());
             }
         }
     }

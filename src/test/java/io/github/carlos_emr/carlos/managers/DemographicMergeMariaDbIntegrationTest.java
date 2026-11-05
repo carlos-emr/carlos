@@ -123,6 +123,15 @@ class DemographicMergeMariaDbIntegrationTest {
         }
     }
 
+    private long patientAudits(String action, int child) throws Exception {
+        try (var connection = dataSource.getConnection();
+             var query = connection.prepareStatement("SELECT COUNT(*) FROM log WHERE action=? AND demographic_no=?")) {
+            query.setString(1, action);
+            query.setInt(2, child);
+            try (var rows = query.executeQuery()) { rows.next(); return rows.getLong(1); }
+        }
+    }
+
     @Test
     void shouldPersistMergeAndUnmergeAudits_whenObservedAfterCommit() throws Exception {
         String merge = "DemographicManager.mergeDemographics";
@@ -133,10 +142,14 @@ class DemographicMergeMariaDbIntegrationTest {
         assertThat(active(first)).isEqualTo(1);
         assertThat(audits(merge)).isEqualTo(beforeMerge + 1);
         assertThat(audits(unmerge)).isEqualTo(beforeUnmerge);
+        assertThat(patientAudits(merge, first)).isEqualTo(1);
+        assertThat(patientAudits(merge, parent)).isZero();
         manager.unmergeDemographics(actor, parent, List.of(first));
         assertThat(active(first)).isZero();
         assertThat(audits(merge)).isEqualTo(beforeMerge + 1);
         assertThat(audits(unmerge)).isEqualTo(beforeUnmerge + 1);
+        assertThat(patientAudits(unmerge, first)).isEqualTo(1);
+        assertThat(patientAudits(unmerge, parent)).isZero();
     }
 
     @AfterEach

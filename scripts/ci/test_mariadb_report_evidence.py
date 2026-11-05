@@ -87,8 +87,10 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     reason = ("Broad MariaDB DAO selection unexpectedly lost coverage"
                               if mode == "generated" and family == "MeasurementDaoIntegrationTest"
                               else f"Required MariaDB {mode} coverage missing: {family}")
-                    self.assert_refused(self.invoke(), reason)
-                    path.write_bytes(original)
+                    try:
+                        self.assert_refused(self.invoke(), reason)
+                    finally:
+                        path.write_bytes(original)
 
     def test_duplicates_and_suite_binding_are_refused(self):
         self.seed(duplicate=True)
@@ -144,6 +146,20 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             with self.subTest(classname=classname):
                 path.write_text(re.sub(r'classname="[^"]+"', f'classname="{classname}"', original))
                 self.assert_refused(self.invoke(), "Test case belongs to another suite")
+
+    def test_dotted_display_names_must_be_declared_in_the_owning_source(self):
+        suite = "io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcileUpdateStatUnitTest"
+        path = self.root / ("TEST-" + suite + ".xml")
+        def report(label):
+            path.write_text(f'<testsuite name="{suite}" tests="1" failures="0" errors="0" skipped="0">'
+                            f'<testcase classname="{label}" name="shouldUpdate_forStatus"/></testsuite>')
+        report("MSPReconcile.updateStat")
+        case = read_surefire(path, suite)[0]
+        self.assertEqual(case.classname, suite)
+        self.assertEqual(case.container, "MSPReconcile.updateStat")
+        report("MSPReconcile.notDeclared")
+        with self.assertRaisesRegex(ValueError, "belongs to another suite"):
+            read_surefire(path, suite)
 
     def test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename(self):
         self.seed()
