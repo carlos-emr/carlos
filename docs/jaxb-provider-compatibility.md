@@ -8,11 +8,14 @@ it and its dependencies must not appear in `WEB-INF/lib` (#5476).
 Provider discovery depended on classpath order: the issue's deployed application
 selected MOXy, while a fresh package made from release commit
 `112feaecb7b` selected Glassfish. Reproducing the old deployment requires explicitly
-selecting `org.eclipse.persistence.jaxb.JAXBContextFactory`. Ordinary Maven tests
-explicitly select Glassfish so the test oracle cannot become the default provider,
-and the test dependency is declared after `jaxb-runtime` so `ServiceLoader` also
-finds Glassfish first where that system property is not applied;
-`JaxbProviderDiscoveryUnitTest` pins both.
+selecting `org.eclipse.persistence.jaxb.JAXBContextFactory`. The test dependency is
+declared after `jaxb-runtime`, so `ServiceLoader` finds Glassfish first and the
+test oracle cannot become the default provider in surefire, IDE runners or ad hoc
+Maven goals; `JaxbProviderDiscoveryUnitTest` pins that order. The build does not
+force the provider through the `jakarta.xml.bind.JAXBContextFactory` system
+property: with it set, `ContextFinder` forwards a caller's own
+`JAXBContextFactory` map entry to the provider, which rejects it, and
+`RestJaxbContextUnitTest` selects providers exactly that way.
 
 ## Preserved XML and JSON contracts
 
@@ -102,6 +105,17 @@ creation and output where the type supports it. A context rejected by both
 providers remains explicitly identified; it is not silently removed from discovery.
 Four DTOs have null-unboxing getters on their constructor defaults. Both providers'
 exceptions are checked before testing their populated form.
+
+`release/2026.08` later made several of those contexts constructible (#5632 added
+JAXB adapters to `PreventionDateDTO` and `CdsTemporalNativeDateDto`). The recorded
+failures are kept as the list of types for which no MOXy representation ever
+shipped: when MOXy can now build such a context, the test still exercises
+Glassfish but does not compare against live MOXy, which differs by design (it
+omits an empty `@XmlElementWrapper` and cannot marshal a class-level-adapter root).
+Fields the release line adds to a baselined type are added to the frozen entry
+with their synthetic value (`AppointmentTo1.editVersion`, #5561), and a type the
+release line makes a root element is added to the published WSDLs that reference
+it (`ProviderTransfer`, #5632).
 
 The migration permits the documented provider XML response to change from 500
 under MOXy to 200 under Glassfish. Three other existing defects exposed by the

@@ -34,8 +34,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * MOXy is on the test class path only as a compatibility oracle (#5476). Both it and
  * {@code jaxb-runtime} register a {@link JAXBContextFactory} service, and {@code ContextFinder}
  * takes the first registration on the class path unless the {@code jakarta.xml.bind.JAXBContextFactory}
- * system property names one. Surefire sets that property; this test also pins the class-path order
- * so an IDE runner or an ad hoc Maven goal without the property still validates production Glassfish.
+ * system property names one. The build relies on the class-path order (jaxb-runtime is declared
+ * before MOXy) rather than that system property: with the property set, {@code ContextFinder}
+ * forwards a caller's own {@code JAXBContextFactory} map entry to the provider, which rejects it,
+ * and tests that select a provider through the properties map (such as {@code RestJaxbContextUnitTest})
+ * fail. This test pins the order so surefire, IDE runners and ad hoc Maven goals all validate
+ * production Glassfish.
  */
 @Tag("unit")
 @Tag("xml")
@@ -55,7 +59,7 @@ class JaxbProviderDiscoveryUnitTest {
     void shouldCreateGlassfishContexts_forOrdinaryJaxbCalls() throws Exception {
         String property = System.getProperty("jakarta.xml.bind.JAXBContextFactory");
         if (property != null) {
-            assertThat(property).as("surefire selects production Glassfish").startsWith(GLASSFISH);
+            assertThat(property).as("a forced provider must at least be production Glassfish").startsWith(GLASSFISH);
         }
         assertThat(JAXBContext.newInstance(AppointmentTransfer.class).getClass().getName()).startsWith(GLASSFISH);
     }

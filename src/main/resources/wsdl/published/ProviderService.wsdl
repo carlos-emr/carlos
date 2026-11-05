@@ -80,6 +80,7 @@
   <xsd:element name="getProviders2" type="ns0:getProviders2"/>
   <xsd:element name="getProviders2Response" type="ns0:getProviders2Response"/>
   <xsd:element name="getProvidersResponse" type="ns0:getProvidersResponse"/>
+  <xsd:element name="providerTransfer" type="ns0:providerTransfer"/>
 </xsd:schema>
   </wsdl:types>
   <wsdl:message name="getLoggedInProviderTransferResponse">

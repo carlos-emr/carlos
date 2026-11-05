@@ -1564,9 +1564,8 @@
              CXF supplies JAX-WS; Glassfish is the sole packaged JAXB implementation (#5476).
              Declared after jaxb-runtime on purpose: both jars register a
              jakarta.xml.bind.JAXBContextFactory service, and ServiceLoader takes the first one on
-             the class path, so this order keeps Glassfish the discovered provider even where the
-             surefire system property below is not applied (IDE runners, ad hoc mvn goals).
-             JaxbProviderDiscoveryUnitTest pins it. -->
+             the class path, so this order is what keeps Glassfish the discovered provider in
+             surefire, IDE runners and ad hoc mvn goals alike. JaxbProviderDiscoveryUnitTest pins it. -->
         <dependency>
             <groupId>org.eclipse.persistence</groupId>
             <artifactId>org.eclipse.persistence.moxy</artifactId>
@@ -2002,10 +2001,11 @@
                          encoding (sun.jnu.encoding) from the locale and it cannot be overridden
                          by a system property, so under a POSIX/C shell non-ASCII document names
                          fail with InvalidPathException in tests but never in production. -->
-                    <!-- MOXy is a test oracle only; ordinary JAXB calls must exercise production Glassfish. -->
-                    <systemPropertyVariables>
-                        <jakarta.xml.bind.JAXBContextFactory>org.glassfish.jaxb.runtime.v2.JAXBContextFactory</jakarta.xml.bind.JAXBContextFactory>
-                    </systemPropertyVariables>
+                    <!-- MOXy is a test oracle only; ordinary JAXB calls exercise production Glassfish
+                         because jaxb-runtime is declared before MOXy (JaxbProviderDiscoveryUnitTest).
+                         Do not force it with a jakarta.xml.bind.JAXBContextFactory system property:
+                         ContextFinder then forwards a caller's own JAXBContextFactory map entry to the
+                         provider, which rejects it (RestJaxbContextUnitTest selects providers that way). -->
                     <environmentVariables>
                         <LANG>C.UTF-8</LANG>
                         <LC_ALL>C.UTF-8</LC_ALL>

@@ -68,6 +68,7 @@
   <xsd:element name="login2Response" type="ns0:login2Response"/>
   <xsd:element name="loginResponse" type="ns0:loginResponse"/>
   <xsd:element name="NotAuthorisedException" type="ns0:NotAuthorisedException"/>
+  <xsd:element name="providerTransfer" type="ns0:providerTransfer"/>
   <xsd:complexType name="NotAuthorisedException">
     <xsd:sequence>
       <xsd:element minOccurs="0" name="message" type="xsd:string"/>
