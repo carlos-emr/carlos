@@ -86,7 +86,7 @@ public class Growth0To36FormService {
         forms.flush();
         // Refresh applies the database timestamp precision before preparing the XML snapshot.
         forms.refresh(form);
-        if ("true".equalsIgnoreCase(CarlosProperties.getInstance().getProperty("save_as_xml", "false"))) {
+        if (Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("save_as_xml", "false"))) {
             Map<String, String> columns = Growth0To36FormFields.columns(form);
             String fileName = "formGrowth0_36_" + patient + "_"
                     + UtilDateUtilities.DateToString(new Date(), "yyyyMMddHHmmss") + ".xml";

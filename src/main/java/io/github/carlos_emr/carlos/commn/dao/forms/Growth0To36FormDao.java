@@ -20,10 +20,12 @@ public class Growth0To36FormDao extends AbstractDaoImpl<Growth0To36Form> {
     /** Returns the requested patient's version, or null for a missing or foreign version. */
     @Transactional(readOnly = true)
     public Growth0To36Form findForPatient(int demographicNo, int id) {
-        return entityManager.createQuery("SELECT f FROM Growth0To36Form f WHERE f.demographicNo = :patient AND f.id = :id",
+        List<Growth0To36Form> results = entityManager.createQuery("SELECT f FROM Growth0To36Form f WHERE f.demographicNo = :patient AND f.id = :id",
                         Growth0To36Form.class)
                 .setParameter("patient", demographicNo).setParameter("id", id)
-                .getResultStream().findFirst().orElse(null);
+                .getResultList();
+        // The primary key limits this to one row; fully consume the query before returning.
+        return results.isEmpty() ? null : results.getFirst();
     }
 
     /** Header projection for encounter history and the Rourke/eForm growth consumers. */
