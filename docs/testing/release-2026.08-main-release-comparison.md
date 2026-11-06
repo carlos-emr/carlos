@@ -30,7 +30,11 @@ JSON boolean/number distinctions, arbitrary numeric precision, nulls and array o
 and rejects duplicate keys, nonfinite values and unsafe XML. New public Java API
 checks also compare unchanged clients' available signatures over every changed
 production type, including deletions, renames and public nested types. Additive
-members cannot conceal removed or changed signatures. These are API compatibility
+members cannot conceal removed or changed signatures. Public types' protected
+methods, fields and constructors are included because existing clients may
+subclass them. Added abstract methods, enum constants and competing overloads
+also require client review; a pure subset comparison would silently accept those
+potential breaks. Reflection does not initialize application classes. These are API compatibility
 candidates; intentional internal API removals still need a reviewed disposition.
 
 ## Development observations

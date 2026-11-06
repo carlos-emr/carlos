@@ -100,6 +100,13 @@ migrations and the branch version/SCM metadata are preserved.
   control that exposes canaries. A real `find -P` traversal checks the shipped
   purge predicate against nested credentials, retained ledgers and outside
   symlinks. Full installed backup/recovery qualification remains required.
+  T36 follows `debian/carlos-emr.README.Debian` section 7: named staging,
+  TLS and bootstrap paths are excluded; operational configuration needed for
+  recovery is intentionally retained under restic encryption. Verify that the
+  application account cannot read backup credentials or repository storage,
+  and that recovery preserves the encryption key. A blanket assertion that
+  every credential must be absent from encrypted snapshots is an invalid oracle.
+  Keep its failed diagnostic attempt visible when correcting that scope.
 * Chromium runs the unchanged calculator HTML/JS and exports source hashes and
   V8 execution ranges. This is explicitly an isolated fixture, separate from
   installed navigation, authorization and persistence acceptance.

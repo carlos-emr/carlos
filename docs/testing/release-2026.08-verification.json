@@ -660,7 +660,9 @@
       "area": "Debian installation, reinstall and dependency locks",
       "sources": [
         "scripts/deb-upgrade-verify.sh",
-        "scripts/ci/run-pinned-carlos-ctl-suite.py"
+        "scripts/ci/run-pinned-carlos-ctl-suite.py",
+        "scripts/ci/run-installed-first-login.py",
+        "scripts/ci/test_installed_first_login.py"
       ],
       "implementation": "Run real clean-install, predecessor-upgrade, reconfigure and data-preserving reinstall on the supported packaged OS; reconcile main-only host/MariaDB recovery fixes. Test both app and DrugRef locks and pinned carlos-ctl 1.3.0.",
       "cases": "Installed version/build identity; MariaDB system tables and existing clinical datadir; IPv4/IPv6 nginx default sites; ports in use; cert renewal, service user/modes/paths; paused import guard; dependency-lock enforcement; app/DrugRef startup; failed configure and recovery; published predecessor version layouts; no source-copied fixtures substituted for package files.",
@@ -929,9 +931,9 @@
         "debian/assets/tests/test_packaging.py",
         "debian/assets/tests/test_backup_restic.py"
       ],
-      "implementation": "Exercise real restic snapshots, list and restore with nested credential canaries and non-secret import ledgers; check retention and symlink-safe purge in a disposable installed package.",
-      "cases": "Fresh/partial/failed snapshots; literal and recursive exclusion globs; repository/password/database credential exclusion; immutable source snapshots and migration ledgers retained; restore equality; retention, interruption and outside-root symlinks.",
-      "acceptance": "Restored files match synthetic originals, no credential canary enters any snapshot, and failed backups/purge do not mutate unrelated state.",
+      "implementation": "Exercise real restic snapshots, list and restore against the documented README.Debian section 7 recovery contract. Distinguish named staging/TLS/bootstrap exclusions from operational configuration intentionally protected inside encrypted backups; check retention and symlink-safe purge in a disposable installed package.",
+      "cases": "Fresh/partial/failed snapshots; literal and recursive named exclusions in the shipped backup command; allowed immutable source snapshots and migration ledgers retained; SQL/file bytes and file ownership/modes restored; operational configuration and encryption key retained under restic encryption; application-account read denial for backup credentials and repository; no plaintext canaries in repository storage; retention, interruption and outside-root symlinks.",
+      "acceptance": "Named excluded canaries never enter a snapshot; allowed data, migration ledger and recovery configuration restore exactly. Encrypted operational configuration is not misclassified as a plaintext disclosure or exclusion failure. Application account cannot read backup credentials/repository, and failed backups/purge do not mutate unrelated state. Preserve every failed attempt and oracle correction.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",
@@ -3262,7 +3264,7 @@
     },
     {
       "id": "manual-deb-login",
-      "kind": "external",
+      "kind": "command",
       "profiles": [
         "ON",
         "BC"
@@ -3274,14 +3276,40 @@
       "packaged": true,
       "requiresEnvironment": [
         "BASE_URL",
-        "MYSQL_HOST"
+        "MYSQL_HOST",
+        "ADMIN_FILE",
+        "NEW_PASSWORD",
+        "CARLOS_DISPOSABLE_HOST",
+        "CARLOS_SUITE_PROVINCE"
       ],
       "runtimeConstraints": {
         "node": "22",
         "npm": "10.9.9"
       },
       "timeoutSeconds": 420,
-      "reason": "Requires candidate-bound first-login installation-stage evidence before the shared administrator has been reset; post-install browser runs cannot supply this proof."
+      "reason": "Installation-stage adapter refuses an already-reset administrator and independently verifies real reset/identity/PIN state and locked browser. Run before ordinary suite authentication.",
+      "command": [
+        "python3",
+        "scripts/ci/run-installed-first-login.py",
+        "--profile",
+        "{profile}",
+        "--output",
+        "{run}/first-login-result.json"
+      ],
+      "requiresExecutables": [
+        "mariadb",
+        "node"
+      ],
+      "resultContract": {
+        "file": "first-login-result.json",
+        "assertions": [
+          "installer-reset-required",
+          "browser-first-login-passed",
+          "password-changed-reset-cleared",
+          "identity-and-pin-preserved",
+          "locked-chromium"
+        ]
+      }
     },
     {
       "id": "manual-account-unlock-address-mode",

@@ -104,3 +104,27 @@ class BinaryClientComparisonTest(unittest.TestCase):
         self.assertFalse(probe.compare(before,after)['ready'])
         after['cases'][name]['value'] = '{"example.Missing":["not-public"]}'
         self.assertTrue(probe.compare(before,after)['ready'])
+
+    def test_added_abstract_methods_enum_constants_and_overloads_require_client_review(self):
+        old = ['type:public abstract', 'method:public abstract java.lang.String example.Fake.read(java.lang.String)',
+               'constructor:protected example.Fake(java.lang.String)', 'enum-constant:OLD']
+        additions = [
+            'method:public abstract void example.Fake.close()',
+            'method:public java.lang.String example.Fake.read(java.lang.Integer)',
+            'constructor:public example.Fake(java.lang.Integer)',
+            'enum-constant:NEW']
+        before = self.report(); after = self.report(); name = 'changed-public-java-api'
+        import json
+        before['cases'][name]['value'] = json.dumps({'example.Fake': old})
+        after['cases'][name]['value'] = json.dumps({'example.Fake': old + additions})
+        result = probe.compare(before, after)
+        self.assertFalse(result['ready'])
+        self.assertEqual(result['problems'][0]['reason'], 'public-api-addition-needs-client-review')
+        self.assertEqual(result['problems'][0]['addedMembers'], sorted(additions))
+
+    def test_new_named_concrete_method_and_new_types_are_not_competing_overloads(self):
+        self.assertEqual(probe.risky_additions(
+            ['method:public void example.Fake.read()'],
+            ['method:public void example.Fake.read()', 'method:public void example.Fake.write()']), [])
+        self.assertIsNone(probe.callable_name('field:public java.lang.String example.Fake.read'))
+        self.assertEqual(probe.callable_name('method:public <T> T example.Fake.read(T) throws java.io.IOException'), 'read')

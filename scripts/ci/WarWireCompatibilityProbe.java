@@ -124,9 +124,25 @@ public final class WarWireCompatibilityProbe {
         for (var member : type.getMethods()) {
             if (!member.isSynthetic() && !member.isBridge()) members.add("method:" + member.toGenericString());
         }
-        for (var member : type.getConstructors()) members.add("constructor:" + member.toGenericString());
+        // Existing clients can subclass public types and call protected members.
+        for (var base = type; base != null; base = base.getSuperclass()) {
+            for (var member : base.getDeclaredMethods()) {
+                if (java.lang.reflect.Modifier.isProtected(member.getModifiers())
+                        && !member.isSynthetic() && !member.isBridge()) members.add("method:" + member.toGenericString());
+            }
+            for (var member : base.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isProtected(member.getModifiers()) && !member.isSynthetic())
+                    members.add("field:" + member.toGenericString());
+            }
+        }
+        for (var member : type.getDeclaredConstructors()) {
+            if (java.lang.reflect.Modifier.isPublic(member.getModifiers())
+                    || java.lang.reflect.Modifier.isProtected(member.getModifiers()))
+                members.add("constructor:" + member.toGenericString());
+        }
         for (var member : type.getFields()) {
             if (!member.isSynthetic()) members.add("field:" + member.toGenericString());
+            if (member.isEnumConstant()) members.add("enum-constant:" + member.getName());
         }
         // Include inherited interfaces: removing an implemented contract can break an unchanged client.
         var interfaces = new java.util.ArrayDeque<Class<?>>();

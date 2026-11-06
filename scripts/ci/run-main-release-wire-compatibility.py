@@ -6,6 +6,7 @@ from decimal import Decimal
 import io
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
@@ -28,6 +29,26 @@ EXPECTED_CASES |= {'legacy-input:' + name + ':' + sample + ':xml'
                    for name, samples in gate.read_json(CORPUS).items() for sample in samples}
 LIMIT = 1 << 30
 TOMCAT_CORE_SHA256 = 'b71785ff101c0df501064b3e3b8c4a02e4f9cc3047a7fa686c41fc4edc2f0cb4'
+
+
+def callable_name(member):
+    if not member.startswith(('method:', 'constructor:')) or '(' not in member:
+        return None
+    # toGenericString uses the fully qualified declaring type before the name.
+    return member.split('(', 1)[0].rsplit(' ', 1)[-1].rsplit('.', 1)[-1]
+
+
+def risky_additions(before, after):
+    """Additive APIs can break implementors, exhaustive switches or overload resolution.
+
+    This conservatively requests client review; it does not claim each candidate
+    is a confirmed regression. Entirely new types have no pre-existing clients.
+    """
+    old_names = {callable_name(member) for member in before} - {None}
+    return sorted(member for member in set(after) - set(before)
+                  if member.startswith('enum-constant:')
+                  or (member.startswith('method:') and re.search(r'\babstract\b', member))
+                  or callable_name(member) in old_names)
 
 
 def canonical(row):
@@ -128,6 +149,9 @@ def compare(main, release):
                 removed = sorted(set(members) - set(new.get(owner, [])))
                 if removed: problems.append({'case': name, 'reason': 'public-api-removed-or-changed',
                                              'type': owner, 'removedMembers': removed})
+                added = risky_additions(members, new.get(owner, [])) if members else []
+                if added: problems.append({'case': name, 'reason': 'public-api-addition-needs-client-review',
+                                           'type': owner, 'addedMembers': added})
             if not any(p['case'] == name for p in problems): matched.append(name)
         elif name == 'opt-in-soap-payload-leaked':
             if old or new:

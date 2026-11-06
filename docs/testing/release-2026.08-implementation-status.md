@@ -21,8 +21,11 @@ and qualification below are complete. No release-ready verdict has been produced
   native invocations each. The development native generated lane executed 3,069 cases without failures or skips; the focused JDBC suite executed 32. Final source-bound receipts remain required.
 - All 16 manual manifest checks have explicit required owners and province
   selections. Plan validation rejects removing required manual coverage.
-  First-login qualification stays external until its installation-stage adapter
-  exists; it cannot be run against an already-reset shared account as a substitute.
+  First-login qualification now has an installation-stage command adapter. It
+  requires the private installer file and an independently observed forced-reset
+  flag before driving the browser, then verifies password change, reset clearance,
+  preserved identity/PIN and locked browser. An already-reset account fails before
+  another browser login. Province and final source-bound acceptance remain required.
 - Browser acceptance checks require reported Chromium identity to match the
   installed Playwright metadata and committed lock. Missing/mixed/wrong versions
   fail instead of silently qualifying an arbitrary installed browser.
@@ -138,6 +141,24 @@ and qualification below are complete. No release-ready verdict has been produced
 - Strict Node validation passed all 7,308 cases with zero skips, TODOs,
   cancellations or failures after providing the pinned CLI source prerequisite.
   Focused production mapper tests and binary/signal adapter negative controls pass.
+
+- Fresh `bdce201` Java qualification passed 33,501 cases; all additional generated,
+  ON/BC Flyway, date-zone, legacy-library, PDF and seed lanes passed. The CDS native
+  first attempt failed before tests because its builder was attached to Docker's
+  `none` network. After disconnecting that network, the separately linked diagnostic
+  run passed all 91 cases. The original failure remains in its immutable root.
+- Tightened API comparison for protected subclass contracts and potentially
+  breaking additions (abstract methods, enum constants and competing overloads).
+  Conservative flags require client review; they are not automatic regression verdicts.
+- Corrected T36's backup oracle to match the public documented recovery contract:
+  named exclusions and encrypted operational recovery configuration have distinct
+  requirements. The initial overly broad exclusion failure remains preserved.
+- The clean `bdce201` candidate installed successfully on the minimal Ubuntu 26.04
+  runtime image and passed `carlos-ctl check`. The new installation-stage adapter
+  passed its seven browser steps and all five independent assertions using locked
+  Chromium. All 239 tooling cases passed on Python 3.14. The host Python 3.12
+  diagnostic retains two errors in 3.14-specific ZIP/scaling fixtures; it is not
+  substituted for the required interpreter.
 
 ## Remaining work before this PR can complete issue 5700
 
