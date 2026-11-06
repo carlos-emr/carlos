@@ -12,6 +12,26 @@ const save = 'http://127.0.0.1:8080/carlos/encounter/SaveEncounter2';
 const script = 'http://127.0.0.1:8080/carlos/csrfguard';
 const context = 'FAKE-own-signed-context';
 
+test('retired legacy editor check skips before database or browser setup', () => {
+  const { spawnSync } = require('node:child_process');
+  const result = spawnSync(process.execPath, [path.join(__dirname, 'legacy-encounter-editor-isolation-playwright-checks.js')], {
+    encoding: 'utf8',
+    timeout: 5000,
+    env: {
+      PATH: process.env.PATH,
+      BASE_URL: 'http://127.0.0.1:1/carlos',
+      MYSQL_HOST: '127.0.0.1',
+      MYSQL_PORT: '1',
+      MYSQL_USER: 'issue4793_missing',
+      MYSQL_PASSWORD: '',
+      CHROME_PATH: '/issue4793-missing-browser',
+    },
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, h.EXIT_SKIP, result.stdout + result.stderr);
+  assert.match(result.stdout, /SKIP legacy-encounter-editor-isolation.*#4793.*#5599/);
+});
+
 function setup({ strict = true } = {}) {
   const recorder = h.createRecorder();
   const page = new EventEmitter();

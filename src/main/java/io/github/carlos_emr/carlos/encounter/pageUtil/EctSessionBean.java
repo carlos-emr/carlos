@@ -221,8 +221,8 @@ public class EctSessionBean implements java.io.Serializable {
     }
 
     /**
-     * Sets up this bean to print one revision of one patient's legacy chart. Callers print a
-     * request-owned bean for the patient their request names, never the login-wide session bean
+     * Sets up this bean to print one retained historical revision of one patient's legacy chart.
+     * Callers print a request-owned bean for the patient their request names, never the login-wide session bean
      * (issue #4673).
      *
      * @param loggedInInfo the user printing; reading the patient record checks {@code _demographic} read
@@ -234,10 +234,12 @@ public class EctSessionBean implements java.io.Serializable {
         resetAll();
         requireRecordAccess(loggedInInfo, demographicNo);
 
-        CarlosProperties properties = CarlosProperties.getInstance();
-        if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
+        // Modern chart policy retires legacy editing, not access to retained clinical history.
+        // This explicit revision path is read-only and verifies ownership before copying fields.
+        int revisionId = ConversionUtils.fromIntString(echartid);
+        if (revisionId > 0) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
-            EChart ec = ecDao.find(ConversionUtils.fromIntString(echartid));
+            EChart ec = ecDao.find(revisionId);
             if (ec != null && ec.getDemographicNo() != ConversionUtils.fromIntString(demographicNo)) {
                 ec = null;
             }

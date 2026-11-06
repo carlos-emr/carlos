@@ -1,10 +1,16 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.form.pageUtil;
 
+import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
+import io.github.carlos_emr.carlos.casemgmt.model.Issue;
+import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
+import io.github.carlos_emr.carlos.encounter.data.EctProgramManager;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.StaticWebApplicationContext;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.form.FrmRecordHelp;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
@@ -43,6 +49,7 @@ import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.AdditionalMatchers.aryEq;
 
 /** Actual form actions must keep the requesting window's patient at every persistence boundary. */
 @Tag("unit")
@@ -66,6 +73,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
     private MeasurementDao measurements;
     private DemographicManager demographics;
     private EChartDao charts;
+    private CaseManagementManager caseManagement;
     private EctSessionBean lastChart;
 
     @BeforeEach
@@ -79,6 +87,9 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
                 return definition();
             }
         };
+        var application = new StaticWebApplicationContext();
+        application.getBeanFactory().registerSingleton("ectProgramManager", mock(EctProgramManager.class));
+        context.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, application);
         request = new MockHttpServletRequest(context);
         request.setMethod("POST");
         request.setContextPath("/carlos");
@@ -110,6 +121,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(AllergyDao.class);
         createAndRegisterMock(CdsTemporalReadService.class);
         charts = createAndRegisterMock(EChartDao.class);
+        caseManagement = createAndRegisterMock(CaseManagementManager.class);
         demographics = createAndRegisterMock(DemographicManager.class);
         for (String id : List.of("101", "202")) {
             Demographic patient = new Demographic();
@@ -190,6 +202,16 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         when(rxPatient.getPrescribedDrugsUnique()).thenReturn(new RxPrescriptionData.Prescription[0]);
         when(rxPatient.getActiveAllergies()).thenReturn(new Allergy[0]);
         ResultSet owned = ownedForm(patient);
+        Issue concerns = new Issue();
+        concerns.setId(17L);
+        when(caseManagement.getIssueByCode(CaseManagementManager.IssueType.CONCERNS)).thenReturn(concerns);
+        CaseManagementNote currentConcern = new CaseManagementNote();
+        currentConcern.setNote("Current concern for " + patient);
+        when(caseManagement.getActiveNotes(eq(user), eq(patient), aryEq(new String[]{"17"})))
+                .thenReturn(List.of(currentConcern));
+        EChart historical = new EChart();
+        historical.setOngoingConcerns("Superseded legacy concern");
+        when(charts.getLatestChart(Integer.valueOf(patient))).thenReturn(historical);
         try (var servlet = servlet();
              var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
              var rx = mockStatic(RxPatientData.class);
@@ -201,12 +223,8 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
 
             assertThat(new FrmSetupForm2Action().execute()).isEqualTo(ActionSupport.NONE);
 
-            assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/form/formVTForm.jsp");
-            assertThat(request.getAttribute("formDemographicNo")).isEqualTo(patient);
-            assertThat(((Demographic) request.getAttribute("formPatient")).getDemographicNo()).isEqualTo(Integer.valueOf(patient));
-            assertThat(((Map<?, ?>) request.getAttribute("formValues")).get("visitCod")).isNotNull();
             Map<?, ?> values = (Map<?, ?>) request.getAttribute("formValues");
-            assertThat(values.get("formId")).isEqualTo(formId);
+            assertRenderedFormIdentity(patient, formId, values);
             // No measurement history must render as an empty cell, never JSP's literal "null"
             // (#4612). This is checked on both fresh setup and an existing form's redisplay.
             for (String type : List.of("WT", "iEx", "WHR")) {
@@ -227,11 +245,42 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
             }
             assertThat(request.getSession().getAttribute("EctSessionBean")).isSameAs(lastChart);
             assertThat(lastChart.getDemographicNo()).isEqualTo(other);
-            verify(charts).getLatestChart(Integer.valueOf(patient));
+            assertThat(request.getAttribute("ongoingConcerns")).isEqualTo("Current concern for " + patient);
+            verify(caseManagement).getActiveNotes(eq(user), eq(patient), aryEq(new String[]{"17"}));
+            verifyNoInteractions(charts);
             verify(demographics, never()).getDemographic(user, other);
             verify(security).hasPrivilege(user, "_demographic", "w", patient);
             verify(security).hasPrivilege(user, "_form", "r", patient);
             verify(measurements, never()).persist(any());
+        }
+    }
+
+    private void assertRenderedFormIdentity(String patient, String formId, Map<?, ?> values) {
+        assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/form/formVTForm.jsp");
+        assertThat(request.getAttribute("formDemographicNo")).isEqualTo(patient);
+        assertThat(((Demographic) request.getAttribute("formPatient")).getDemographicNo()).isEqualTo(Integer.valueOf(patient));
+        assertThat(values.get("visitCod")).isNotNull();
+        assertThat(values.get("formId")).isEqualTo(formId);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"_demographic", "_eChart", "_casemgmt.notes"})
+    void shouldRenderFormWithUnavailableConcerns_whenUserLacksChartReadScope(String object) throws Exception {
+        request.setMethod("GET");
+        request.setParameter("demographic_no", "101");
+        when(security.hasPrivilege(user, object, "r", "101")).thenReturn(false);
+        RxPatientData.Patient rxPatient = mock(RxPatientData.Patient.class);
+        when(rxPatient.getPrescribedDrugsUnique()).thenReturn(new RxPrescriptionData.Prescription[0]);
+        when(rxPatient.getActiveAllergies()).thenReturn(new Allergy[0]);
+        var types = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition());
+        try (var _ = servlet(); var rx = mockStatic(RxPatientData.class);
+                var definitions = mockStatic(EctFindMeasurementTypeUtil.class)) {
+            rx.when(() -> RxPatientData.getPatient(user, 101)).thenReturn(rxPatient);
+            definitions.when(() -> EctFindMeasurementTypeUtil.checkMeasurmentTypes(any(), eq("VTForm"))).thenReturn(types);
+            assertThat(new FrmSetupForm2Action().execute()).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getForwardedUrl()).isEqualTo("/WEB-INF/jsp/form/formVTForm.jsp");
+            assertThat(request.getAttribute("ongoingConcerns")).isEqualTo("Unavailable (chart access required)");
+            verifyNoInteractions(caseManagement, charts);
         }
     }
 
@@ -462,9 +511,15 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
     void shouldRetainFormOnlyAccess_withoutAChartProgramOrEchartModuleGrant(boolean setup) throws Exception {
         when(security.hasPrivilege(eq(user), anyString(), anyString(), anyString())).thenAnswer(call ->
                 List.of("_form", "_demographic").contains(call.getArgument(1)));
-        if (setup) shouldRenderRequestedPatient_whenAnotherChartWasOpenedLast("101", "202", "0");
-        else shouldSaveOnlyRequestedPatient_whenSessionPointsAtAnotherChart("101", "202", "exit", "0");
-        verify(security, never()).hasPrivilege(eq(user), eq("_eChart"), anyString(), anyString());
+        if (setup) {
+            shouldRenderFormWithUnavailableConcerns_whenUserLacksChartReadScope("_eChart");
+            // Checking whether a prefill is readable must not turn into loading that data.
+            verify(security).hasPrivilege(user, "_eChart", "r", "101");
+            verifyNoInteractions(caseManagement, charts);
+        } else {
+            shouldSaveOnlyRequestedPatient_whenSessionPointsAtAnotherChart("101", "202", "exit", "0");
+            verify(security, never()).hasPrivilege(eq(user), eq("_eChart"), anyString(), anyString());
+        }
         verify(security, never()).hasPrivilege(eq(user), eq("_casemgmt.notes"), anyString(), anyString());
     }
 

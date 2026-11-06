@@ -4,6 +4,10 @@
  * The legacy encounter editor saves, signs and prints only the patient its own window was
  * opened for (issue #4673).
  *
+ * HISTORICAL CHECK: since #4793 AbandonOldChart is forced true in code. The legacy
+ * content expectations below cannot be qualified on that release; neither caisi=on
+ * nor an AbandonOldChart=false override restores them. Kept pending removal in #5599.
+ *
  * The legacy editor (encounter/Index2.jsp) renders only with the CAISI module (caisi=on in
  * carlos.properties) and only for an IncomingEncounter request carrying casetoEncounter. Nothing in
  * the application links there; once open, the editor re-renders itself after each save through its
@@ -15,9 +19,10 @@
  * The save action itself is reachable in every configuration; echart-two-patient-isolation drives
  * it directly. This check drives the editor a clinician actually sees.
  *
- * OPERATOR PREREQUISITE: caisi=on in /etc/carlos-emr/carlos.properties, then `carlos-ctl restart`
- * (restore the property and restart afterwards). Without it the editor does not render and the
- * check reports SKIP. The CAISI module changes clinic-wide behaviour, so this is a manual check.
+ * CURRENT ENTRYPOINT: reports SKIP before database/browser setup because the mandatory modern
+ * policy cannot qualify the historical assertions. The body and shared Exit observer remain
+ * until #5599. Its historical prerequisite was caisi=on followed by a restart; enabling CAISI
+ * cannot restore the retired legacy-content contract on this release.
  *
  * User path: two windows of one login, each opened from the day sheet with
  * IncomingEncounter?demographicNo=...&providerNo=...&casetoEncounter=true; A's window also names A's
@@ -164,6 +169,12 @@ function observeLegacyExit(page, recorder, { base, patient, chartContext, timeou
   };
 }
 
+/**
+ * Historical editor interaction matrix retained for legacy-removal reference (#5599).
+ * The executable entrypoint skips before setup on releases enforcing the modern chart policy.
+ * @param {object} s Initialized synthetic-patient workflow session for historical deployments.
+ * @returns {Promise<void>} Resolves after the historical interaction assertions complete.
+ */
 async function run(s) {
   const { sql, patient: A, provider, marker, context, recorder, schedule } = s;
   const q = h.sqlString;
@@ -647,5 +658,12 @@ async function run(s) {
   await checkLegacyMessageHandoff(s, { patient: A, otherPatient: B, trackEditorModules });
 }
 
-if (require.main === module) runWorkflow('legacy-encounter-editor-isolation', run, { openPatient: true, openMaster: false });
+if (require.main === module) runWorkflow('legacy-encounter-editor-isolation', run, {
+  openPatient: true,
+  openMaster: false,
+  /** Reject obsolete editor expectations before creating fixtures or opening a browser. */
+  preflightConfig() {
+    throw new h.SkipCheck('mandatory modern-chart policy (#4793) retires this legacy editor check; removal is tracked in #5599');
+  },
+});
 module.exports = { run, observeLegacyExit };

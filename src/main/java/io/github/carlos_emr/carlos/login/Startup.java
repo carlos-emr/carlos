@@ -182,6 +182,10 @@ public class Startup implements ServletContextListener {
 						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
 
+            // Modern saves no longer mirror to eChart. A rollback binary must keep reading
+            // modern data, so require the same durable flag before startup can complete.
+            p.ensureModernChartRollbackSafety();
+
 			// CHECK FOR DEFAULT PROPERTIES
 			String baseDocumentDir = p.getProperty("BASE_DOCUMENT_DIR");
 			if (baseDocumentDir != null) {

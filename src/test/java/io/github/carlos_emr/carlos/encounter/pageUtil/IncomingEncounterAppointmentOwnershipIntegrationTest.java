@@ -216,8 +216,11 @@ class IncomingEncounterAppointmentOwnershipIntegrationTest extends CarlosTestBas
         EctSessionBean bean = (EctSessionBean) request.getAttribute("EctSessionBean");
         assertEntry(bean, a, aVisit, "FAKE reason A");
         assertThat(bean.patientFirstName).isEqualTo("Entry A");
+        // #4793 disables legacy chart loading, while retaining this visit's own metadata.
+        assertThat(bean.eChartId).isEmpty();
         assertThat(request.getAttribute("encounterText")).asString()
-                .contains("FAKE chart text A").doesNotContain("FAKE chart text B");
+                .contains("FAKE reason A")
+                .doesNotContain("FAKE chart text A", "FAKE chart text B", "FAKE reason B");
         assertEntry(EncounterPatientContext.findEncounter(request, Integer.toString(a)), a, aVisit, "FAKE reason A");
         assertThat(EncounterPatientContext.findEncounter(request, Integer.toString(b))).isNull();
     }
@@ -263,7 +266,8 @@ class IncomingEncounterAppointmentOwnershipIntegrationTest extends CarlosTestBas
         when(security.isAllowedAccessToPatientRecord(login, a)).thenReturn(false);
         clearInvocations(security, demographics);
 
-        assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        assertThatThrownBy(() -> execute(request, response))
                 .isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
 
         verify(security).isAllowedAccessToPatientRecord(login, a);

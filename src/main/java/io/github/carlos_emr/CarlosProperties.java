@@ -88,6 +88,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
+    /** The retired legacy-chart switch; the modern chart is mandatory (#4793). */
+    private static final String ABANDON_OLD_CHART = "AbandonOldChart";
     @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED",
             justification = "Deserialized properties must not inherit a writable source; only readFromFile establishes provenance.")
     private transient File loadedPropertiesFile;
@@ -97,8 +99,9 @@ public class CarlosProperties extends Properties {
     // Keep file descriptors and their locks serialized among instances in this class loader.
     // The filesystem locks additionally coordinate separate application processes.
     private static final Object CONFIGURATION_FILE_LOCK = new Object();
-    private static CarlosProperties carlosProperties = new CarlosProperties();
+    // Keep shared boolean markers available before any singleton startup initialization.
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
+    private static CarlosProperties carlosProperties = new CarlosProperties();
     /**
      * Keys already reported as "missing or not configured". That warning is per key per JVM, not
      * per lookup: several of these keys are read on every page render, and at the WARN root default
@@ -156,9 +159,13 @@ public class CarlosProperties extends Properties {
      * 
      * <p>This method applies validation to detect and ignore deprecated namespace
      * values (org.oscarehr.*, oscar.*), returning configured defaults when applicable.</p>
+     * <p>{@code AbandonOldChart} always returns {@code "true"}, including when absent or
+     * explicitly disabled, because the modern chart is mandatory.</p>
      *
      * @param key the property key
-     * @return the validated property value, or null if not found
+     * @return String the effective property value or configured default, or null if neither exists;
+     *         {@code AbandonOldChart} always returns {@code "true"}
+     * @throws IllegalArgumentException if the key is null or blank
      */
     public String getProperty(String key) {
         if (key == null || key.trim().isEmpty()) {
@@ -168,6 +175,13 @@ public class CarlosProperties extends Properties {
 
         if (key.equals("FORMS_PROMOTEXT")) {
             return "";
+        }
+
+        // The modern chart is mandatory (#4793), including on installs with an old false
+        // override. Keep this at the shared reader so getProperty(key, defaultValue) and
+        // boolean accessors agree. Remove the obsolete flag and legacy branches in #5599.
+        if (ABANDON_OLD_CHART.equals(key)) {
+            return "true";
         }
 
         String value = super.getProperty(key);
@@ -244,13 +258,37 @@ public class CarlosProperties extends Properties {
 
             String overrideProperties = System.getProperty("carlos_override_properties");
             if (overrideProperties != null) {
-                String overrideLocation = LogSafe.sanitize(overrideProperties);
-                MiscUtils.getLogger().info("Applying override properties : {}", overrideLocation);
+                if (MiscUtils.getLogger().isInfoEnabled()) {
+                    MiscUtils.getLogger().info("Applying override properties : {}", LogSafe.sanitize(overrideProperties));
+                }
                 readFromFile(overrideProperties);
             }
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
+    }
+
+    /**
+     * Reports a final loaded {@code AbandonOldChart} value ignored by the mandatory modern-chart
+     * policy (#4793), immediately before the startup cutover guard persists the safe setting.
+     * The guard runs after all configuration sources, including the Tomcat-user home file, load.
+     *
+     * @return String the ignored stored value, or null when the setting is absent or agrees with the policy
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of a configuration boolean; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of a configuration boolean; not a security or authorization decision")
+    String warnIfLegacyChartSettingIgnored() {
+        String stored = super.getProperty(ABANDON_OLD_CHART);
+        if (stored == null || activeMarkers.contains(stored.trim().toLowerCase(Locale.ROOT))) {
+            return null;
+        }
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn("AbandonOldChart={} in the loaded configuration is ignored: the modern chart is"
+                    + " mandatory (#4793) and the legacy eChart editor is retired. Set AbandonOldChart=true in the"
+                    + " external configuration and retain it on rollback.",
+                    LogSafe.sanitize(stored));
+        }
+        return stored;
     }
 
     /**
@@ -333,6 +371,64 @@ public class CarlosProperties extends Properties {
                 throw new IOException("Unable to update loaded configuration file " + loadedPropertiesFile
                         + ". Set " + keyName + " in that file before restarting; restore the original key "
                         + "if encrypted data already exists.", e);
+            }
+        }
+    }
+
+    /**
+     * Persists the mandatory modern-chart setting before this deployment accepts writes.
+     * Older binaries must read the same external configuration on rollback, because modern
+     * saves no longer mirror into historical eChart rows. Existing true settings need only
+     * read access; otherwise a final entry is appended without rewriting operator content.
+     *
+     * @throws IOException if durable external configuration cannot be verified or updated
+     */
+    public void ensureModernChartRollbackSafety() throws IOException {
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            if (loadedPropertiesFile == null) {
+                throw new IOException("Configuration source " + loadedPropertiesLocation
+                        + " is not a durable external properties file. Set AbandonOldChart=true in an external "
+                        + "configuration loaded by both this release and any rollback release, using "
+                        + "-Dcarlos_override_properties=/path/to/carlos.properties; refusing to start. "
+                        + "See docs/modern-chart-cutover.md.");
+            }
+            warnIfLegacyChartSettingIgnored();
+            try {
+                // Read-only deployments with an explicit true setting need no write permission.
+                try (FileInputStream input = new FileInputStream(loadedPropertiesFile);
+                     FileChannel channel = input.getChannel();
+                     var _ = channel.lock(0, Long.MAX_VALUE, true)) {
+                    Properties persisted = new Properties();
+                    persisted.load(input);
+                    if (Boolean.parseBoolean(persisted.getProperty(ABANDON_OLD_CHART))) {
+                        super.setProperty(ABANDON_OLD_CHART, "true");
+                        return;
+                    }
+                }
+                // Re-read under the exclusive lock: another process may have completed the
+                // cutover or initialized the encryption key since the read-only check.
+                try (FileChannel channel = FileChannel.open(loadedPropertiesFile.toPath(),
+                             StandardOpenOption.READ, StandardOpenOption.WRITE);
+                     Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
+                     var _ = channel.lock()) {
+                    Properties persisted = new Properties();
+                    persisted.load(reader);
+                    if (!Boolean.parseBoolean(persisted.getProperty(ABANDON_OLD_CHART))) {
+                        // Two terminators safely end a trailing properties continuation.
+                        ByteBuffer entry = StandardCharsets.ISO_8859_1.encode(
+                                "\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\nAbandonOldChart=true\n");
+                        channel.position(channel.size());
+                        while (entry.hasRemaining()) {
+                            channel.write(entry);
+                        }
+                        channel.force(true);
+                    }
+                }
+                super.setProperty(ABANDON_OLD_CHART, "true");
+            } catch (IOException e) {
+                throw new IOException("Unable to persist AbandonOldChart=true in loaded configuration file "
+                        + loadedPropertiesFile + ". Set that property in this external file before restarting "
+                        + "and retain it when rolling back; refusing to start. See docs/modern-chart-cutover.md.", e);
             }
         }
     }

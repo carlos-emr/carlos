@@ -104,7 +104,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType" %>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.EctInformation" %>
+<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CppTextLoader" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.RxInformation" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.LabResultData" %>
@@ -2444,8 +2444,18 @@ if (userAgent != null) {
 
                         if ("true".equalsIgnoreCase(props.getProperty("CONSULTATION_AUTO_INCLUDE_MEDICATIONS", "true"))) {
                             if (props.getProperty("currentMedications", "").equalsIgnoreCase("otherMedications")) {
-                                EctInformation EctInfo = new EctInformation(loggedInInfo, demo);
-                                thisForm.setCurrentMedications(EctInfo.getFamilyHistory());
+                                if (!securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demo))) {
+                                    throw new SecurityException("Patient record access denied");
+                                }
+                                if (securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demo)
+                                        && securityInfoManager.hasPrivilege(loggedInInfo, "_eChart", "r", demo)
+                                        && securityInfoManager.hasPrivilege(loggedInInfo, "_casemgmt.notes", "r", demo)) {
+                                    String otherMedications = new CppTextLoader(SpringUtils.getBean(CaseManagementManager.class), securityInfoManager)
+                                            .load(request, loggedInInfo, demo, CaseManagementManager.IssueType.OMEDS);
+                                    thisForm.setCurrentMedications(otherMedications);
+                                } else {
+                                    request.setAttribute("consultationCppUnavailable", Boolean.TRUE);
+                                }
                             } else {
                                 thisForm.setCurrentMedications(RxInfo.getCurrentMedication(demo));
                             }
@@ -3421,6 +3431,9 @@ if (userAgent != null) {
                                 </div>
                         </div>
                                 <div class="collapse show" id="collapseMedications">
+                                <c:if test="${requestScope.consultationCppUnavailable}">
+                                    <output class="alert alert-warning d-block"><fmt:message key="encounter.oscarConsultationRequest.cppPrefillUnavailable"/></output>
+                                </c:if>
                                 <textarea rows="6" id="currentMedications" class="form-control"
                                                name="currentMedications"><carlos:encode value='<%= thisForm.getCurrentMedications() %>' context="html"/></textarea>
                                 </div>

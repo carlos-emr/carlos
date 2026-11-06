@@ -40,6 +40,10 @@ maintainer-script-calls-systemctl [postinst:*]
 # Keep the expression specific while allowing unrelated script edits to move it.
 possible-bashism-in-maintainer-script 'sys.stdin.read().strip()' [postinst:*]
 
+# Embedded Python in the MODERN_CHART_CUTOVER heredoc (#4793): a method call
+# whose dotted name checkbashisms reads as a function declaration.
+possible-bashism-in-maintainer-script 'configuration.flush()' [postinst:*]
+
 # The eForm renderer (folded in from the former carlos-emr-eform-renderer
 # package): an upstream Chromium build, unpacked under
 # /usr/lib/carlos-emr/chromium. Both tags below are properties of that binary,

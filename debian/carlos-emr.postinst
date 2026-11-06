@@ -1621,6 +1621,7 @@ OAUTH_ACCESS_DEFAULTS
         fi
         unset CARLOS_CONFIGURE_FIRST_RUN
 
+
         # (The mariadb start + wait that used to sit here is hoisted above
         # the db-name migration check — see the comment there.)
 
@@ -2001,6 +2002,48 @@ OAUTH_ACCESS_DEFAULTS
             # no marker and nothing for finish-install to retry.
             mark_incomplete "the nginx configuration test failed"
         fi
+
+        # BEGIN MODERN_CHART_CUTOVER
+        # init-config and database-user provisioning may rewrite this file. Persist the mandatory setting
+        # afterwards, as root: the normal root:carlos 0640 configuration cannot
+        # be changed by Tomcat. This is not an optional default or a one-time
+        # sentinel: every configure must leave rollback binaries in modern mode.
+        # Use the same POSIX record lock as Java's FileChannel, not flock(1).
+        # Append in place rather than rename: an encryption-key initializer
+        # already waiting on this inode must not write its key to an unlinked file.
+        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then
+            if ! python3 - "${PROPERTIES}" <<'MODERN_CHART_CUTOVER'
+import fcntl
+import os
+import stat
+import sys
+
+path = sys.argv[1]
+entry = (b"\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\n"
+         b"AbandonOldChart=true\n")
+try:
+    # Never create a stub if init-config failed or the operator file disappeared.
+    with open(path, "r+b") as configuration:
+        if not stat.S_ISREG(os.fstat(configuration.fileno()).st_mode):
+            raise OSError("the configuration source is not a regular file")
+        fcntl.lockf(configuration, fcntl.LOCK_EX)
+        if not configuration.read().endswith(entry):
+            configuration.seek(0, os.SEEK_END)
+            configuration.write(entry)
+            configuration.flush()
+            os.fsync(configuration.fileno())
+except OSError as error:
+    print("carlos-emr: ERROR: could not persist AbandonOldChart=true in "
+          + path + ": " + str(error), file=sys.stderr)
+    sys.exit(1)
+MODERN_CHART_CUTOVER
+            then
+                echo "carlos-emr: ERROR: modern-chart cutover failed; the application will not be started." >&2
+                echo "carlos-emr: ERROR: fix ${PROPERTIES}, then run: sudo dpkg --configure -a" >&2
+                exit 1
+            fi
+        fi
+        # END MODERN_CHART_CUTOVER
         ;;
 
     triggered)

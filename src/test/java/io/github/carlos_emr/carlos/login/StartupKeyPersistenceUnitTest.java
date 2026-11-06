@@ -246,7 +246,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReuseConfiguredKey_whenOnlyClasspathConfigurationWasLoaded() throws Exception {
+    void shouldRefuseRollbackUnsafeStartup_whenOnlyClasspathConfigurationWasLoaded() throws Exception {
         String resource = "/WEB-INF/startup-configured-encryption-key.properties";
         byte[] originalResource;
         try (var input = getClass().getResourceAsStream(resource)) {
@@ -257,16 +257,13 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         properties.readFromFile(resource);
         String configuredKey = properties.getProperty(KEY);
 
-        startApplication();
-        String ciphertext = EncryptionUtils.encrypt("classpath-configuration");
+        assertThatThrownBy(this::startApplication)
+                .hasMessageContaining("AbandonOldChart=true")
+                .hasMessageContaining("durable external properties file")
+                .hasMessageContaining("-Dcarlos_override_properties=")
+                .hasMessageContaining("refusing to start");
 
-        CarlosProperties secondBoot = reloadProperties();
-        secondBoot.clear();
-        secondBoot.readFromFile(resource);
-        startApplication();
-
-        assertThat(secondBoot.getProperty(KEY)).isEqualTo(configuredKey);
-        assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("classpath-configuration");
+        assertThat(properties.getProperty(KEY)).isEqualTo(configuredKey);
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
         try (var input = getClass().getResourceAsStream(resource)) {
             assertThat(input.readAllBytes()).isEqualTo(originalResource);
@@ -400,12 +397,30 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
             assertThat(Files.readString(override).lines()
                     .filter(line -> line.startsWith(KEY + "=") && !line.substring(KEY.length() + 1).isBlank()))
                     .hasSize(1);
+            // Both JVMs also pass the durable cutover guard against this shared file.
+            assertThat(Files.readString(override).lines()
+                    .filter(line -> line.equals("AbandonOldChart=true"))).hasSize(1);
         } finally {
             workers.forEach(Process::destroyForcibly);
             for (Process worker : workers) {
                 assertThat(worker.waitFor(10, TimeUnit.SECONDS)).isTrue();
             }
         }
+    }
+
+    @Test
+    void shouldRefuseStartup_whenModernChartCutoverCannotBePersisted() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("cutover.properties"),
+                "AAAAAAAAAAAAAAAAAAAAAA==");
+        System.setProperty(OVERRIDE, override.toString());
+        reloadProperties();
+        Files.delete(override);
+        Files.createDirectory(override);
+
+        assertThatThrownBy(this::startApplication)
+                .hasMessageContaining("AbandonOldChart=true")
+                .hasMessageContaining(override.toString())
+                .hasMessageContaining("refusing to start");
     }
 
     /**

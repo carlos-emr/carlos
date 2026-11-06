@@ -53,6 +53,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 
 /**
  * The legacy encounter prints show the patient their own request names (issue #4673).
@@ -63,8 +64,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
  * (a revision from the split chart, the eChart history report and the messenger's encounter
  * attachment) loaded the requested revision into that shared bean, overwriting another window's
  * entry, and failed when the login had not entered any chart. Both now load a request-owned bean
- * through {@link EctSessionBean#setUpEncounterPage(LoggedInInfo, String, String)}, which shows a
- * revision only when it belongs to the printed patient.</p>
+ * through {@link EctSessionBean#setUpEncounterPage(LoggedInInfo, String, String)}. The mandatory
+ * modern policy retires legacy writes while keeping explicit historical revisions readable and printable. Permanent migration/removal is tracked in #5599.</p>
  *
  * @since 2026-10-16
  */
@@ -119,24 +120,30 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        @DisplayName("should print the requested revision when it is this patient's")
-        void shouldPrintRequestedRevision_whenItBelongsToThePatient() {
-            when(charts.find((Object) 41)).thenReturn(revision(41, Integer.parseInt(A), "Alpha history"));
+        @DisplayName("should print the requested historical revision while the modern chart is mandatory")
+        void shouldPrintHistoricalRevision_whenModernChartIsMandatory() {
+            when(charts.find(41)).thenReturn(revision(41, Integer.parseInt(A), "Alpha history"));
 
             EctSessionBean printed = new EctSessionBean();
             printed.setUpEncounterPage(login, "41", A);
 
+            assertThat(io.github.carlos_emr.CarlosProperties.getInstance().isPropertyActive("AbandonOldChart")).isTrue();
             assertThat(printed.eChartId).isEqualTo("41");
             assertThat(printed.socialHistory).isEqualTo("Alpha history");
+            assertThat(printed.familyHistory).isEqualTo("Alpha history family");
+            assertThat(printed.medicalHistory).isEqualTo("Alpha history medical");
+            assertThat(printed.ongoingConcerns).isEqualTo("Alpha history concerns");
+            assertThat(printed.reminders).isEqualTo("Alpha history reminders");
             assertThat(printed.encounter).isEqualTo("Alpha history encounter");
             assertThat(printed.patientLastName).isEqualTo("FAKE-Alpha");
             assertThat(printed.familyDoctorNo).isEqualTo("111111");
+            verify(charts).find(41);
         }
 
         @Test
         @DisplayName("should not print another patient's revision under this patient's name")
         void shouldIgnoreRevision_whenItBelongsToAnotherPatient() {
-            when(charts.find((Object) 42)).thenReturn(revision(42, B, "Beta history"));
+            when(charts.find(42)).thenReturn(revision(42, B, "Beta history"));
 
             EctSessionBean printed = new EctSessionBean();
             printed.setUpEncounterPage(login, "42", A);
@@ -145,11 +152,12 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(printed.socialHistory).isEmpty();
             assertThat(printed.encounter).isEmpty();
             assertThat(printed.patientLastName).isEqualTo("FAKE-Alpha");
+            verify(charts).find(42);
         }
 
         @ParameterizedTest(name = "[{0}]")
         @NullSource
-        @ValueSource(strings = {"", "not-a-revision", "43"})
+        @ValueSource(strings = {"", "not-a-revision", "43", "9999999999", "-1", "0"})
         @DisplayName("should print only the patient's header when the revision is missing or unknown")
         void shouldPrintHeaderOnly_whenRevisionIsMissingOrUnknown(String echartId) {
             EctSessionBean printed = new EctSessionBean();
@@ -178,10 +186,10 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
             chart.setId(id);
             chart.setDemographicNo(patient);
             chart.setSocialHistory(history);
-            chart.setFamilyHistory("");
-            chart.setMedicalHistory("");
-            chart.setOngoingConcerns("");
-            chart.setReminders("");
+            chart.setFamilyHistory(history + " family");
+            chart.setMedicalHistory(history + " medical");
+            chart.setOngoingConcerns(history + " concerns");
+            chart.setReminders(history + " reminders");
             chart.setEncounter(history + " encounter");
             chart.setSubject("");
             return chart;
@@ -199,6 +207,14 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
         private String source(String page) throws IOException {
             String jsp = Files.readString(ENCOUNTER.resolve(page), StandardCharsets.UTF_8);
             return JAVA_LINE_COMMENT.matcher(JSP_COMMENT.matcher(jsp).replaceAll("")).replaceAll("");
+        }
+
+        @Test
+        void shouldOfferHistoricalRecords_fromModernChartWithReportPermission() throws IOException {
+            assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp")))
+                    .contains("hasPrivilege(loggedInInfo, \"_report\", \"r\", null)")
+                    .contains("id=\"chartHistoricalRecordsLink\"")
+                    .contains("/report/ViewReportecharthistory?demographic_no=${carlos:forUriComponent(popupDemographicNo)}");
         }
 
         @ParameterizedTest(name = "{0}")
