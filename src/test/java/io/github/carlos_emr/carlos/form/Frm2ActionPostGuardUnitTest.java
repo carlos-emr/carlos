@@ -78,7 +78,7 @@ class Frm2ActionPostGuardUnitTest extends CarlosWebTestBase {
         when(record.createActionURL(eq(submit), eq(submit), eq("123"), eq("7"))).thenReturn(submit + "?formId=7");
         try (var factory = mockConstruction(FrmRecordFactory.class, (created, context) -> when(created.factory("Rourke2017")).thenReturn(record))) {
             assertThat(new Frm2Action().execute()).isEqualTo(submit); assertThat(mockResponse.getStatus()).isEqualTo(200);
-            verify(record, never()).saveFormRecord(any());
+            verify(record, never()).saveFormRecord(any(), any());
             if (submit.equals("graph")) verify(record).getGraph(any(), eq(123), eq(7));
             else verify(record).getFormRecord(any(), eq(123), eq(7));
         }
@@ -92,13 +92,13 @@ class Frm2ActionPostGuardUnitTest extends CarlosWebTestBase {
         if (operation.equals("update")) addRequestParameter("update", "true");
         addRequestParameter("weight", "5.5"); addRequestParameter("form_link", "formrourke2017p1.jsp");
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
-        FrmRecord record = mock(FrmRecord.class); when(record.saveFormRecord(any())).thenReturn(99);
+        FrmRecord record = mock(FrmRecord.class); when(record.saveFormRecord(any(), any())).thenReturn(99);
         when(record.findActionValue(submit)).thenReturn("save");
         when(record.createActionURL(eq("save"), eq("save"), eq("123"), eq("99"))).thenReturn("save?demographic_no=123&formId=99");
         try (var log = mockStatic(LogAction.class);
              var factory = mockConstruction(FrmRecordFactory.class, (created, context) -> when(created.factory("Rourke2017")).thenReturn(record))) {
             assertThat(new Frm2Action().execute()).isNull();
-            ArgumentCaptor<Properties> saved = ArgumentCaptor.forClass(Properties.class); verify(record).saveFormRecord(saved.capture());
+            ArgumentCaptor<Properties> saved = ArgumentCaptor.forClass(Properties.class); verify(record).saveFormRecord(eq(mockLoggedInInfo), saved.capture());
             assertThat(saved.getValue().getProperty("weight")).isEqualTo("5.5");
             assertThat(saved.getValue().getProperty("provider_no")).isEqualTo("999998");
             if (operation.equals("autosaveAjax")) assertThat(mockResponse.getContentAsString()).contains("\"success\":true", "99");
