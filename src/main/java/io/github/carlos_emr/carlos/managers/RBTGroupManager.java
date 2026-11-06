@@ -184,6 +184,10 @@ public class RBTGroupManager {
         return text.substring(start, end);
     }
 
+    /**
+     * Whitespace as JavaScript's {@code String.trim()} defines it: ASCII whitespace, every Unicode space
+     * separator (including no-break spaces), line/paragraph separators and the byte order mark.
+     */
     private static boolean isEdgeWhitespace(char c) {
         return c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\f' || c == '\r'
                 || Character.isSpaceChar(c) || c == '\uFEFF';

@@ -62,11 +62,13 @@ class RBTGroupManagerUnitTest extends CarlosUnitTestBase {
         injectDependency(manager, "securityInfoManager", mockSecurityInfoManager);
     }
 
+    /** Grants the {@code _admin} write privilege that {@code addTemplateToGroup} requires. */
     private void allowAdminWrite() {
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_admin", SecurityInfoManager.WRITE, null))
                 .thenReturn(true);
     }
 
+    /** Captures the single group the manager persisted, failing if it persisted none or several. */
     private RBTGroup persistedGroup() {
         ArgumentCaptor<RBTGroup> captor = ArgumentCaptor.forClass(RBTGroup.class);
         verify(mockRbtGroupDao).persist(captor.capture());

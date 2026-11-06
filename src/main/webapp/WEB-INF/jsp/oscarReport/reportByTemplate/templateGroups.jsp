@@ -321,10 +321,13 @@
             }
         }
 
-        // The database compares group names case- and accent-insensitively (utf8mb4_general_ci), so
-        // fold both the same way here; the server still refuses a duplicate this does not catch.
+        // The database compares group names case- and accent-insensitively (utf8mb4_general_ci), so the
+        // page folds both the same way to warn about duplicates before the server refuses them. Lower
+        // case, not upper case: toUpperCase() expands "ß" to "SS", which would block a name such as
+        // "Strassé" next to "Straße" that the database treats as a different group. This is feedback
+        // only; the server-side duplicate check in RBTGroupManager stays authoritative.
         function foldName(text) {
-            return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+            return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
         }
 
         function checkRow(textInput) {
