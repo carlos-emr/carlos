@@ -377,19 +377,11 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
             raw.setAutoCommit(false); implicit=true; // Metadata-only autocommit mutation owns its statement transaction.
         }
         if (originalSqlMode!=null) return;
-        // SET NAMES can spoof server variables while a latin1 JDBC encoder still replaces Unicode
-        // with '?'. Verify the actual shipped driver's parameter encoder as well as the session.
-        if (!raw.isWrapperFor(com.mysql.cj.jdbc.JdbcConnection.class)) {
+        // MariaDB Connector/J always encodes string parameters as UTF-8. Require the
+        // shipped implementation rather than trusting server variables alone: another
+        // driver's latin1 encoder can otherwise be hidden behind SET NAMES utf8mb4.
+        if (!raw.isWrapperFor(org.mariadb.jdbc.Connection.class)) {
             throw refused("CDS import requires the verified UTF-8 JDBC encoder and utf8mb4 session charsets");
-        }
-        String encoder=raw.unwrap(com.mysql.cj.jdbc.JdbcConnection.class).getPropertySet()
-                .getStringProperty(com.mysql.cj.conf.PropertyKey.characterEncoding).getValue();
-        try {
-            if (encoder==null || !java.nio.charset.Charset.forName(encoder).equals(java.nio.charset.StandardCharsets.UTF_8)) {
-                throw refused("CDS import requires the verified UTF-8 JDBC encoder and utf8mb4 session charsets");
-            }
-        } catch (IllegalArgumentException unsupported) {
-            throw refused("CDS import JDBC parameter encoder cannot be verified");
         }
         try (Statement query=raw.createStatement(); ResultSet rows=query.executeQuery(
                 "SELECT @@SESSION.sql_mode,@@SESSION.character_set_client,@@SESSION.character_set_connection,@@SESSION.character_set_results")) {

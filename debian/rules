@@ -391,9 +391,10 @@ override_dh_auto_install:
 ifeq ($(SKIP_DRUGREF),)
 	install -d debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2
 	cd debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2 && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/drugref2.war
-	# Exact, validated datasource transform; preserve private db_url/credentials.
-	python3 debian/apply-drugref-jdbc-default.py \
-	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/spring_config.xml
+	# The application owns MariaDB/legacy URL compatibility. Reject old prebuilt
+	# WARs instead of reintroducing the removed MySQL-only metadata parser.
+	python3 debian/check-drugref-jdbc.py \
+	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2
 	# Retain the explicit MariaDB dialect, independently of datasource metadata.
 	install -m 0644 debian/assets/drugref-hibernate.properties \
 	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/hibernate.properties

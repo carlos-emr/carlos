@@ -190,6 +190,34 @@ public class WebappShutdownResourcesUnitTest {
     }
 
     @Test
+    void shouldStopOnlyOwnedMariaDbScheduler_withIsolatedDriverClassLoader() throws Exception {
+        try (ChildFirstTestClassLoader webappClassLoader = new ChildFirstTestClassLoader(
+                testClassesUrl(), mainClassesUrl(), getClass().getClassLoader())) {
+            Class<?> providerClass = webappClassLoader.loadClass(org.mariadb.jdbc.client.util.SchedulerProvider.class.getName());
+            assertThat(providerClass.getClassLoader()).isSameAs(webappClassLoader);
+            Class<?> helperClass = webappClassLoader.loadClass(MariaDbSchedulerHelper.class.getName());
+            Method schedulerMethod = providerClass.getMethod("getTimeoutScheduler");
+            Method closeMethod = helperClass.getMethod("closeScheduler", ClassLoader.class);
+            var scheduler = (java.util.concurrent.ScheduledThreadPoolExecutor) schedulerMethod.invoke(null);
+            try {
+                assertThat(closeMethod.invoke(null, new ClassLoader(webappClassLoader) { })).isEqualTo(0);
+                assertThat(scheduler.isShutdown()).isFalse();
+                assertThat(closeMethod.invoke(null, webappClassLoader)).isEqualTo(1);
+                assertThat(scheduler.isShutdown()).isTrue();
+                closeMethod.invoke(null, webappClassLoader);
+
+                // Connector/J close resets its singleton; later use creates a working scheduler.
+                var restarted = (java.util.concurrent.ScheduledThreadPoolExecutor) schedulerMethod.invoke(null);
+                assertThat(restarted).isNotSameAs(scheduler);
+                assertThat(restarted.schedule(() -> "still running", 1, TimeUnit.MILLISECONDS)
+                        .get(5, TimeUnit.SECONDS)).isEqualTo("still running");
+            } finally {
+                closeMethod.invoke(null, webappClassLoader);
+            }
+        }
+    }
+
+    @Test
     void shouldRunAllShutdownSteps_whenEarlierStepThrows() {
         ClassLoader unrelatedClassLoader = new ClassLoader(null) {
         };
@@ -312,6 +340,20 @@ public class WebappShutdownResourcesUnitTest {
                 .toURL();
     }
 
+    /** Invokes package-private cleanup from the same isolated loader as the utility. */
+    public static final class MariaDbSchedulerHelper {
+        private MariaDbSchedulerHelper() { }
+
+        /**
+         * Runs real scheduler ownership and cleanup against the isolated driver singleton.
+         * @param webappClassLoader loader whose resources are being released
+         * @return number of owned schedulers selected for cleanup
+         */
+        public static int closeScheduler(ClassLoader webappClassLoader) {
+            return WebappShutdownResources.closeMariaDbScheduler(webappClassLoader);
+        }
+    }
+
     public static final class DriverRegistrationHelper {
 
         private DriverRegistrationHelper() {
@@ -379,15 +421,20 @@ public class WebappShutdownResourcesUnitTest {
                 WebappShutdownResourcesUnitTest.class.getName() + "$DriverRegistrationHelper";
         private static final String WEBAPP_SHUTDOWN_RESOURCES_CLASS =
                 WebappShutdownResources.class.getName();
+        private static final String MARIADB_SCHEDULER_CLASS =
+                org.mariadb.jdbc.client.util.SchedulerProvider.class.getName();
 
         private ChildFirstTestClassLoader(URL testClassesUrl, URL mainClassesUrl, ClassLoader parent) {
-            super(new URL[]{testClassesUrl, mainClassesUrl}, parent);
+            super(new URL[]{testClassesUrl, mainClassesUrl,
+                    org.mariadb.jdbc.client.util.SchedulerProvider.class.getProtectionDomain().getCodeSource().getLocation()}, parent);
         }
 
         @Override
         protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
             if (name.startsWith(CHILD_FIRST_CLASS_PREFIX)
-                    || WEBAPP_SHUTDOWN_RESOURCES_CLASS.equals(name)) {
+                    || WEBAPP_SHUTDOWN_RESOURCES_CLASS.equals(name)
+                    || MARIADB_SCHEDULER_CLASS.equals(name)
+                    || MariaDbSchedulerHelper.class.getName().equals(name)) {
                 synchronized (getClassLoadingLock(name)) {
                     Class<?> loadedClass = findLoadedClass(name);
                     if (loadedClass == null) {

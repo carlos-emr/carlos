@@ -466,8 +466,8 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
     private static OscarTrackingBasicDataSource dataSource(Properties jdbc) {
         var source = new OscarTrackingBasicDataSource();
         source.setBoundedCdsConnections(true);
-        source.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        source.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:", "jdbc:mysql:"));
+        source.setDriverClassName("org.mariadb.jdbc.Driver");
+        source.setUrl(jdbc.getProperty("jdbcUrl"));
         source.setUsername(jdbc.getProperty("jdbcUser"));
         source.setPassword(jdbc.getProperty("jdbcPassword"));
         source.setMaxTotal(4);
