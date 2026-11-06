@@ -85,11 +85,14 @@ Only a hand-made request, or a form opened before an item was disabled, can post
 a disabled location is refused on the server as well as hidden from the dropdown. Native Add and
 Update return HTTP 409 with the submitted draft and a message to choose again. Legacy record and
 group writers validate the location before any write and return an explicit error; group validation
-finishes for every selected appointment before any member is archived, deleted or saved. The Repeat page
+finishes before any member is archived, deleted or saved. The Repeat page
 seeds its template from the saved appointment the same way, and treats typed text linked to the item
 with that name (see below) as unchanged, so "Save changes first" is not asked for a form nobody
-changed. Group Update (`appointmentgrouprecords.jsp`) recreates each appointment, so its preflight
-starts from the location of the one it replaces and the writer reuses that validated snapshot.
+changed. Group Update (`appointmentgrouprecords.jsp`) recreates each appointment from the edit form of
+one of them (`appointment_no`), so it resolves the posted location once against that appointment, as
+the Repeat page does, and gives every member the one validated snapshot: leaving the location
+unchanged keeps it even if its item was disabled since, including for a provider ticked for the first
+time. Add Group books new appointments, so it accepts only an active location.
 
 Every booking-form writer goes through `AppointmentLocationResolver.applyPostedLocation`:
 `AppointmentAddRecord2Action`, `AppointmentUpdateRecord2Action`, `RecurringAppointmentService`,
@@ -116,7 +119,11 @@ posted choice against the source appointment before filling the clipboard. Its l
 if the final active item is disabled before paste and the screen returns to free text. An unavailable
 choice refuses copy or cut before replacing the clipboard or removing the source. The choice survives a patient search and
 the add-patient detour (`demographicsearch2apptresults.jsp`, `add-form-personal.jsp`,
-`demographicaddarecord.jsp`). `AppointmentEditVersion` includes the code.
+`demographicaddarecord.jsp`), which forward `locationCode` only when the booking form posted one.
+No code means the form showed free text, for example because the first location was enabled while
+it was open; the screen then re-renders in location mode with that text selected as the legacy
+option (`AppointmentLocationList.Choice.posted`), so the next save keeps it rather than clearing it.
+`AppointmentEditVersion` includes the code.
 
 Copy and cut also refuse malformed identifiers, invalid Unicode/control characters, and text that
 cannot fit a new booking; they never silently drop or truncate fields before removing the source.

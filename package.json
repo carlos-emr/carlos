@@ -72,6 +72,7 @@
     "test:schedule-links-playwright": "node scripts/schedule-links-playwright-checks.js",
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
     "test:appointment-settings-playwright": "node scripts/appointment-settings-playwright-checks.js",
+    "test:appointment-location-booking-playwright": "node scripts/appointment-location-booking-playwright-checks.js",
     "test:portal-booking-playwright": "node scripts/portal-booking-prompt-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",
