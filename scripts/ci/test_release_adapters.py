@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import release_verification as gate
 from junit_evidence import EvidenceError
@@ -116,6 +117,37 @@ class ResultInventoryTest(unittest.TestCase):
 
 
 class ScopeInventoryTest(unittest.TestCase):
+    def test_scope_command_retains_real_unowned_paths_and_cannot_qualify_inventory_only(self):
+        scope = module_from("scope_command", "release-scope-audit.py")
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
+            git("init", "--quiet")
+            git("config", "user.email", "synthetic@example.invalid")
+            git("config", "user.name", "Synthetic test")
+            (root / "baseline").write_text("synthetic")
+            git("add", "."); git("commit", "--quiet", "-m", "test: baseline")
+            baseline = git("rev-parse", "HEAD")
+            source = root / "src/main/java/example/Guard.java"
+            source.parent.mkdir(parents=True)
+            source.write_text("class Guard {}")
+            git("add", "."); git("commit", "--quiet", "-m", "test: changed guard")
+            plan = {"baselines": {"currentMain": baseline}, "checks": [], "workstreams": []}
+            out = root / "run"; out.mkdir()
+            details = out / "scope-details.json"; result = out / "scope-result.json"
+            inventory = scope.inventory
+            with patch.object(scope, "load_plan", return_value=plan), patch.object(
+                    scope, "inventory", side_effect=lambda p: inventory(p, root)):
+                self.assertEqual(scope.main(["--output", str(details), "--result-output", str(result)]), 1)
+                contract = {"id": "scope-and-main-disposition", "kind": "command", "resultContract": {"file": "scope-result.json",
+                    "assertions": ["complete-production-ownership", "main-only-migration-dispositions"]}}
+                self.assertFalse(gate.summarize(contract, out, 0)["ready"])
+                self.assertEqual(gate.read_json(details)["unownedProductionPaths"], ["src/main/java/example/Guard.java"])
+                result.unlink()
+                self.assertEqual(scope.main(["--output", str(details), "--result-output", str(result), "--inventory-only"]), 1)
+                self.assertFalse(result.exists())
+
     def test_scope_requires_baseline_workstreams_and_hash_bound_migration_dispositions(self):
         scope = module_from("release_scope", "release-scope-audit.py")
         with tempfile.TemporaryDirectory() as temporary:

@@ -1059,7 +1059,10 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 140
+      "minimumCases": 140,
+      "runtimeConstraints": {
+        "python": "3.14"
+      }
     },
     {
       "id": "coverage-self-tests",
@@ -1076,7 +1079,10 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 17
+      "minimumCases": 17,
+      "runtimeConstraints": {
+        "python": "3.14"
+      }
     },
     {
       "id": "node-all",
@@ -1637,7 +1643,18 @@
             },
             {
               "name": "shouldAcceptEveryExactSupportedKind_throughRealServiceAndMigratedOrm(String)",
-              "container": ""
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldAcceptEveryExactSupportedKind_throughRealServiceAndMigratedOrm(String)[1]"
+                },
+                {
+                  "name": "shouldAcceptEveryExactSupportedKind_throughRealServiceAndMigratedOrm(String)[2]"
+                },
+                {
+                  "name": "shouldAcceptEveryExactSupportedKind_throughRealServiceAndMigratedOrm(String)[3]"
+                }
+              ]
             },
             {
               "name": "shouldPreservePrimaryFailure_whenEvidenceDeliveryAlsoFails",
@@ -2068,18 +2085,23 @@
         "-ntp",
         "jacoco:prepare-agent",
         "surefire:test",
-        "-Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest,RestBirthDateMapperConfigurationUnitTest,RestJaxbContextUnitTest",
+        "jacoco:report",
+        "-Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest,RestBirthDateMapperConfigurationUnitTest,RestJaxbContextUnitTest,DateXmlAdapterUnitTest,CharacterIntegerMapXmlAdapterUnitTest,StringMapXmlAdapterUnitTest,RestXmlAnnotationIntrospectorUnitTest,FilterDefinitionTransferXmlUnitTest,AppointmentArchiveTransferXmlUnitTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
-        "-Djacoco.destFile={run}/jacoco.exec"
+        "-Djacoco.destFile={run}/jacoco.exec",
+        "-Djacoco.dataFile={run}/jacoco.exec",
+        "-Dtest.coverageDirectory={run}/coverage"
       ],
       "environment": {
-        "JAVA_TOOL_OPTIONS": "-Duser.timezone={profile}"
+        "JAVA_TOOL_OPTIONS": "-Duser.timezone={profile} -Duser.language=en -Duser.country=CA"
       },
       "minimumCases": 100,
       "runtimeConstraints": {
         "java": "25"
-      }
+      },
+      "requireCoverage": true,
+      "requireClassIdentity": true
     },
     {
       "id": "java-native-generated",
@@ -2256,7 +2278,10 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 1
+      "minimumCases": 1,
+      "runtimeConstraints": {
+        "python": "3.14"
+      }
     },
     {
       "id": "debian-python",
@@ -2273,7 +2298,10 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 1
+      "minimumCases": 1,
+      "runtimeConstraints": {
+        "python": "3.14"
+      }
     },
     {
       "id": "waf-config",
@@ -2868,13 +2896,28 @@
     },
     {
       "id": "scope-and-main-disposition",
-      "kind": "external",
+      "kind": "command",
       "profiles": [
         "all"
       ],
       "repetitions": 1,
-      "reason": "Every older-main/current-main/release-only changed path needs named executable coverage or an individually reviewed disposition. Main-only migrations are zero at the pinned baselines.",
-      "packaged": false
+      "packaged": false,
+      "command": [
+        "python3",
+        "scripts/ci/release-scope-audit.py",
+        "--output",
+        "{run}/scope-details.json",
+        "--result-output",
+        "{run}/scope-result.json"
+      ],
+      "timeoutSeconds": 300,
+      "resultContract": {
+        "file": "scope-result.json",
+        "assertions": [
+          "complete-production-ownership",
+          "main-only-migration-dispositions"
+        ]
+      }
     },
     {
       "id": "installed-service-restart",
@@ -2903,7 +2946,7 @@
         "all"
       ],
       "repetitions": 1,
-      "reason": "Packaged TLS SOAP/MTOM/WS-Security, actual CXF-owned spill cache and vendor staging using authorized test credentials.",
+      "reason": "User-directed blocker: EBS Ministry staging qualification remains blocked pending authorized access. Owner: release maintainer. Required packaged TLS SOAP/MTOM/WS-Security and CXF-owned spill/cache/privacy cases remain outstanding.",
       "packaged": true
     },
     {
@@ -3000,11 +3043,14 @@
         "-ntp",
         "jacoco:prepare-agent",
         "surefire:test",
+        "jacoco:report",
         "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
-        "-Dwebdriver.chrome.driver={chromedriver}"
+        "-Dwebdriver.chrome.driver={chromedriver}",
+        "-Djacoco.dataFile={run}/jacoco.exec",
+        "-Dtest.coverageDirectory={run}/coverage"
       ],
       "timeoutSeconds": 600,
       "requiresEnvironment": [
@@ -3016,7 +3062,9 @@
       },
       "runtimeConstraints": {
         "java": "25"
-      }
+      },
+      "requireCoverage": true,
+      "requireClassIdentity": true
     },
     {
       "id": "java-legacy-compat",
@@ -3032,11 +3080,14 @@
         "-ntp",
         "jacoco:prepare-agent",
         "surefire:test",
+        "jacoco:report",
         "-Dtest=LegacyDependencyCompatibilityUnitTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
-        "-Dlegacy.compatibility.repo={legacyRepository}"
+        "-Dlegacy.compatibility.repo={legacyRepository}",
+        "-Djacoco.dataFile={run}/jacoco.exec",
+        "-Dtest.coverageDirectory={run}/coverage"
       ],
       "timeoutSeconds": 600,
       "requiresEnvironment": [
@@ -3047,7 +3098,9 @@
       },
       "runtimeConstraints": {
         "java": "25"
-      }
+      },
+      "requireCoverage": true,
+      "requireClassIdentity": true
     },
     {
       "id": "java-development-seed",
@@ -3111,7 +3164,10 @@
       "minimumCases": 1,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
-      ]
+      ],
+      "runtimeConstraints": {
+        "python": "3.14"
+      }
     },
     {
       "id": "carlos-ctl-pinned-suite",
@@ -3126,11 +3182,16 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 1,
+      "minimumCases": 1969,
       "requiresEnvironment": [
-        "CARLOS_CTL_SRC"
+        "CARLOS_CTL_SRC",
+        "CARLOS_TEST_MARIADB_SOCKET",
+        "CARLOS_TEST_O19_REFERENCE_DB"
       ],
-      "timeoutSeconds": 600
+      "timeoutSeconds": 600,
+      "runtimeConstraints": {
+        "python": "3.14"
+      }
     },
     {
       "id": "manual-consultation-attachment-query-reuse",
@@ -3472,7 +3533,7 @@
     },
     {
       "id": "manual-fax-backbone-loopback",
-      "kind": "browser",
+      "kind": "external",
       "profiles": [
         "ON",
         "BC"
@@ -3503,11 +3564,12 @@
         "--junit",
         "{run}/browser.xml"
       ],
-      "requireLockedChromium": true
+      "requireLockedChromium": true,
+      "reason": "User-directed blocker: SRFax vendor qualification remains blocked pending authorized staging access. Owner: release maintainer. Retained browser command/selection/province requirements describe the work to resume after access; no vendor call is authorized by this receipt."
     },
     {
       "id": "manual-fax-inbox-lifecycle",
-      "kind": "browser",
+      "kind": "external",
       "profiles": [
         "ON",
         "BC"
@@ -3538,11 +3600,12 @@
         "--junit",
         "{run}/browser.xml"
       ],
-      "requireLockedChromium": true
+      "requireLockedChromium": true,
+      "reason": "User-directed blocker: SRFax vendor qualification remains blocked pending authorized staging access. Owner: release maintainer. Retained browser command/selection/province requirements describe the work to resume after access; no vendor call is authorized by this receipt."
     },
     {
       "id": "manual-fax-dedup-no-reimport",
-      "kind": "browser",
+      "kind": "external",
       "profiles": [
         "ON",
         "BC"
@@ -3573,11 +3636,12 @@
         "--junit",
         "{run}/browser.xml"
       ],
-      "requireLockedChromium": true
+      "requireLockedChromium": true,
+      "reason": "User-directed blocker: SRFax vendor qualification remains blocked pending authorized staging access. Owner: release maintainer. Retained browser command/selection/province requirements describe the work to resume after access; no vendor call is authorized by this receipt."
     },
     {
       "id": "manual-fax-prescription-drugref",
-      "kind": "browser",
+      "kind": "external",
       "profiles": [
         "ON",
         "BC"
@@ -3608,7 +3672,8 @@
         "--junit",
         "{run}/browser.xml"
       ],
-      "requireLockedChromium": true
+      "requireLockedChromium": true,
+      "reason": "User-directed blocker: SRFax vendor qualification remains blocked pending authorized staging access. Owner: release maintainer. Retained browser command/selection/province requirements describe the work to resume after access; no vendor call is authorized by this receipt."
     },
     {
       "id": "manual-legacy-encounter-editor-isolation",

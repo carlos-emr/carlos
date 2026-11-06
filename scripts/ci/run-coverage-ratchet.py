@@ -13,14 +13,14 @@ import release_verification as gate
 from junit_evidence import EvidenceError
 
 
-def resolve_lane(evidence, check, plan_path, root=gate.ROOT):
+def resolve_lane(evidence, check, plan_path, root=gate.ROOT, profile='all', iteration=1):
     source = gate.source_identity(root)
     if not source['clean']:
         raise EvidenceError('Coverage requires a frozen clean source tree')
     matches = []
     for path in evidence.glob('*/receipt.json'):
         receipt = gate.read_json(path)
-        if receipt.get('checkId') == check['id']:
+        if (receipt.get('checkId'), receipt.get('profile'), receipt.get('iteration')) == (check['id'], profile, iteration):
             matches.append((path, receipt))
     if len(matches) != 1:
         raise EvidenceError('Coverage lane is missing or ambiguous: ' + check['id'])
@@ -31,7 +31,7 @@ def resolve_lane(evidence, check, plan_path, root=gate.ROOT):
         raise EvidenceError('Coverage lane did not pass')
     if receipt.get('command') != check['command'] or not gate.runtime_matches(receipt.get('runtimes', {}), check.get('runtimeConstraints', {})):
         raise EvidenceError('Coverage command or runtime is unqualified')
-    if receipt.get('runId') != path.parent.name or receipt.get('profile') != 'all' or receipt.get('iteration') != 1:
+    if receipt.get('runId') != path.parent.name:
         raise EvidenceError('Coverage receipt has the wrong execution identity')
     names = set()
     inputs = receipt.get('inputs', [])
@@ -44,7 +44,7 @@ def resolve_lane(evidence, check, plan_path, root=gate.ROOT):
         raise EvidenceError('Coverage lane omitted required inputs')
     if names != {file.relative_to(path.parent).as_posix() for file in gate.evidence_files(check, path.parent)}:
         raise EvidenceError('Coverage receipt omitted underlying lane evidence')
-    if gate.summarize(check, path.parent, 0, root) != receipt['summary']:
+    if gate.summarize(dict(check, selectedProfile=profile), path.parent, 0, root) != receipt['summary']:
         raise EvidenceError('Coverage counters disagree with the underlying report')
     if gate.read_json(path.parent / 'classes.json') != gate.production_class_identity(root):
         raise EvidenceError('Cannot merge JaCoCo executions from different production classes')
@@ -68,9 +68,11 @@ def main():
     directory = args.output.parent
     retained = []
     merged_inputs = []
-    for check in checks:
-        lane = resolve_lane(args.evidence, check, args.plan)
-        destination = directory / 'coverage-inputs' / check['id']
+    executions = [(check, profile, iteration) for check in checks for profile in check['profiles']
+                  for iteration in range(1, check.get('repetitions', 1) + 1)]
+    for check, profile, iteration in executions:
+        lane = resolve_lane(args.evidence, check, args.plan, profile=profile, iteration=iteration)
+        destination = directory / 'coverage-inputs' / check['id'] / lane.name
         destination.mkdir(parents=True, mode=0o700)
         for name in ['receipt.json', *(row['path'] for row in gate.read_json(lane / 'receipt.json')['inputs'])]:
             target = destination / name

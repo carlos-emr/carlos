@@ -51,11 +51,27 @@ and qualification below are complete. No release-readiness verdict has been prod
   references. The separate production-JS/view requirement remains blocking;
   baseline floors alone do not prove all security refusals are covered.
 - Added the CDS native JUnit/JaCoCo lane, fresh output-directory mapping and
-  pre/post source binding. Routed every previously unowned H2 skip to an explicit
-  native destination, including case-management lock parameter invocations.
+  pre/post source binding. Its development run passed all 91 cases across twelve
+  suites with zero skips. Routed every previously unowned H2 skip to an explicit
+  native destination, including case-management lock and CDS review parameter
+  invocations observed in actual native reports.
 - Added independent MOXy DTO fixtures, attachment cleanup/default transport and
   stream-failure tests, typed billing validation, clinical report result/privilege
   tests, three lab helpers, demographic ISO dates and six encounter heading keys.
+- The scope audit now emits hashed structured assertions and refuses
+  inventory-only qualification. Unowned production paths remain failures.
+- Java coverage aggregation includes each required date-zone, legacy-library and
+  real-browser PDF execution in addition to H2 and native lanes, by profile and
+  iteration. Source-only Java checks remain separate discovery requirements.
+- The pinned CLI suite passed all 1,969 cases on Python 3.14 with MariaDB and an
+  actually migrated reference schema. These prerequisites are explicit matrix
+  requirements; missing access cannot silently skip database cases.
+- Fixed strict standalone execution to avoid contacting an application for the
+  fixture-only tier. Mixed tiers, database and mutation declarations still require
+  deployment identity. All five standalone browser checks passed using locked
+  Chromium 149.0.7827.55; 157 affected harness cases passed.
+- Kept EBS and all four SRFax staging selections explicitly BLOCKED per the
+  user's access disposition, retaining their commands and province selections.
 - Added 24 individually reviewed path bindings for these direct proofs. This is
   not a blanket ownership assignment for the remaining production scope.
 - Added concrete workflow amendments to the CI proposal. No workflow or migration

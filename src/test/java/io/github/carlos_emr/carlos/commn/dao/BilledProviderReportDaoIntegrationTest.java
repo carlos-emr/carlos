@@ -57,25 +57,25 @@ class BilledProviderReportDaoIntegrationTest extends CarlosTestBase {
         patient.setDateOfBirth("01");
         entityManager.persist(patient);
         entityManager.flush();
-        Billing included = billing(patient.getDemographicNo(), "report5549", "O", "2026-08-01");
+        Billing included = billing(patient.getDemographicNo(), "R55491", "O", "2026-08-01");
         detail(included.getId(), "O", "2026-07-31");
         detail(included.getId(), "O", "2026-08-01"); // Duplicate details count as one visit and one patient.
-        detail(billing(patient.getDemographicNo(), "other5549", "O", "2026-08-01").getId(), "O", "2026-08-01");
-        detail(billing(patient.getDemographicNo(), "report5549", "D", "2026-08-01").getId(), "O", "2026-08-01");
-        detail(billing(patient.getDemographicNo(), "report5549", "O", "2026-08-02").getId(), "O", "2026-08-01");
-        detail(billing(patient.getDemographicNo(), "report5549", "O", "2026-08-01").getId(), "D", "2026-08-01");
+        detail(billing(patient.getDemographicNo(), "R55492", "O", "2026-08-01").getId(), "O", "2026-08-01");
+        detail(billing(patient.getDemographicNo(), "R55491", "D", "2026-08-01").getId(), "O", "2026-08-01");
+        detail(billing(patient.getDemographicNo(), "R55491", "O", "2026-08-02").getId(), "O", "2026-08-01");
+        detail(billing(patient.getDemographicNo(), "R55491", "O", "2026-08-01").getId(), "D", "2026-08-01");
         entityManager.flush();
-        Map<String, Long> service = reports.counts(false, "report5549", "2026-08-01", "2026-08-01", "S5549", "Synthetic service")
+        Map<String, Long> service = reports.counts(false, "R55491", "2026-08-01", "2026-08-01", "S5549", "Synthetic service")
                 .stream().collect(Collectors.toMap(BilledProviderReportDao.MetricCount::key, BilledProviderReportDao.MetricCount::value));
         assertThat(service).containsEntry("pat", 1L).containsEntry("vis", 1L)
                 .containsEntry("patSexF", 1L).containsEntry("visSexF", 1L)
                 .containsEntry("patSexM", 0L).containsEntry("pat21_34", 1L).containsEntry("pat71_", 0L);
-        Map<String, Long> diagnosis = reports.counts(true, "report5549", "2026-08-01", "2026-08-01", "D5549", "ignored")
+        Map<String, Long> diagnosis = reports.counts(true, "R55491", "2026-08-01", "2026-08-01", "549", "ignored")
                 .stream().collect(Collectors.toMap(BilledProviderReportDao.MetricCount::key, BilledProviderReportDao.MetricCount::value));
         assertThat(diagnosis).isEqualTo(service);
         assertThat(reports.codes(false, "2026-07-31", "2026-07-31"))
                 .contains(new BilledProviderReportDao.Code("S5549", "Synthetic service"));
-        assertThat(reports.counts(false, "report5549' OR '1'='1", "2026-08-01", "2026-08-01", "S5549", "Synthetic service"))
+        assertThat(reports.counts(false, "R55491' OR '1'='1", "2026-08-01", "2026-08-01", "S5549", "Synthetic service"))
                 .allMatch(count -> count.value() == 0);
     }
 
@@ -105,6 +105,7 @@ class BilledProviderReportDaoIntegrationTest extends CarlosTestBase {
         Billing row = new Billing();
         row.setDemographicNo(patient);
         row.setCreator(provider);
+        row.setProviderNo(provider);
         row.setStatus(status);
         row.setBillingDate(Date.valueOf(date));
         entityManager.persist(row);
@@ -115,7 +116,7 @@ class BilledProviderReportDaoIntegrationTest extends CarlosTestBase {
     private void detail(int billingNo, String status, String date) {
         BillingDetail row = new BillingDetail();
         row.setBillingNo(billingNo);
-        row.setDiagnosticCode("D5549");
+        row.setDiagnosticCode("549");
         row.setServiceCode("S5549");
         row.setServiceDesc("Synthetic service");
         row.setBillingAmount("12.30");
