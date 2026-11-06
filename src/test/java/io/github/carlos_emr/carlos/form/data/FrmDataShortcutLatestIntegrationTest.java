@@ -2,8 +2,9 @@
 package io.github.carlos_emr.carlos.form.data;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,17 +21,14 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
 
 /**
- * Executes FrmData's actual shortcut SELECT through LegacyJdbcQuery against isolated H2.
- * Only the form registry and thread-scoped Spring bean lookup are mocked; JDBC sorting,
+ * Executes FrmData's actual shortcut SELECT through EncounterFormDao against isolated H2.
+ * Only the thread-scoped Spring bean lookup is mocked; native sorting,
  * patient filtering, parameter binding, and result handling use the real implementations.
  */
 @Tag("integration")
@@ -42,6 +40,7 @@ class FrmDataShortcutLatestIntegrationTest {
     private static final String EDITED = "2026-03-04 10:20:30";
 
     private Connection keeper;
+    private NativeDaoTestDatabase nativeDatabase;
     private JdbcTemplate jdbc;
     private MockedStatic<SpringUtils> spring;
     private FrmData data;
@@ -59,8 +58,9 @@ class FrmDataShortcutLatestIntegrationTest {
         registration.setFormName(FORM_NAME);
         registration.setFormTable("formVTForm");
         registration.setFormValue(FORM_PATH);
-        var forms = mock(EncounterFormDao.class);
-        when(forms.findByFormName(FORM_NAME)).thenReturn(List.of(registration));
+        nativeDatabase = new NativeDaoTestDatabase(source);
+        var forms = nativeDatabase.dao(EncounterFormDaoImpl.class);
+        nativeDatabase.transaction(() -> forms.persist(registration));
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
@@ -70,10 +70,10 @@ class FrmDataShortcutLatestIntegrationTest {
     @AfterEach
     void closeOwnedDatabase() throws SQLException {
         try {
-            LegacyJdbcQuery.releaseThreadResources();
+            if (spring != null) spring.close();
         } finally {
             try {
-                if (spring != null) spring.close();
+                if (nativeDatabase != null) nativeDatabase.close();
             } finally {
                 if (keeper != null) keeper.close();
             }

@@ -46,18 +46,16 @@
         return;
     }
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*" %>
+<%@ page import="java.util.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<jsp:useBean id="daySheetBean" class="io.github.carlos_emr.AppointmentMainBean" scope="page"/>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentDaySheetRow" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetService" %>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -73,23 +71,12 @@
 
     java.util.Properties oscarVariables = io.github.carlos_emr.CarlosProperties.getInstance();
 
-    SimpleDateFormat dayFormatter = new SimpleDateFormat("yyyy-MM-dd");
     int count = 0;
 
-    AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
+    AppointmentDaySheetService daySheetService = SpringUtils.getBean(AppointmentDaySheetService.class);
     OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
-
-    String[][] dbQueries;
-    dbQueries = new String[][]{
-            {"search_daysheetall", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date>=? and a.appointment_date<=? and a.start_time>=? and a.end_time<? and a.provider_no=p.provider_no and BINARY a.status not like 'C%' order by p.last_name, p.first_name, a.appointment_date, " + orderby},
-            {"search_daysheetsingleall", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p )left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date>=? and a.appointment_date<=? and a.start_time>=? and a.end_time<? and a.provider_no=? and BINARY a.status not like 'C%' and a.provider_no=p.provider_no order by a.appointment_date," + orderby},
-            {"search_daysheetnew", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date=? and a.provider_no=p.provider_no and a.status like binary 't' order by p.last_name, p.first_name, a.appointment_date," + orderby},
-            {"search_daysheetsinglenew", "select concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth)as dob, d.family_doctor, a.appointment_date, a.provider_no, a.start_time, a.end_time, a.reason, a.name,a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.family_doctor, d.provider_no as doc_no, d.phone, d.roster_status, p2.last_name as doc_last_name, p2.first_name as doc_first_name, d.chart_no  from (appointment a, provider p) left join demographic d on a.demographic_no=d.demographic_no left join provider p2 on d.provider_no=p2.provider_no where a.appointment_date=? and a.provider_no=? and a.status like binary 't' and a.provider_no=p.provider_no order by a.appointment_date," + orderby}
-    };
-
-    daySheetBean.doConfigure(dbQueries);
 
     boolean isSiteAccessPrivacy = false;
     boolean isTeamAccessPrivacy = false;
@@ -149,7 +136,7 @@
         String sTime = request.getParameter("sTime") != null ? (request.getParameter("sTime") + ":00:00") : "00:00:00";
         String eTime = request.getParameter("eTime") != null ? (request.getParameter("eTime") + ":00:00") : "24:00:00";
         String provider_no = request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "175";
-        ResultSet rsdemo = null;
+        List<AppointmentDaySheetRow> daySheetRows = List.of();
 
         //initial myGroupBean if neccessary
         if (provider_no.startsWith("_grp_")) {
@@ -187,78 +174,17 @@
         boolean bFistL = true; //first line in a table for TH
         String strTemp = "";
         String dateTemp = "";
-        String[] param = new String[3];
-        param[0] = (String) session.getAttribute("user");
-        param[1] = sdate;
-        param[2] = provider_no;
-        String[] parama = new String[5];
-        parama[0] = sdate;
-        parama[1] = edate;
-        parama[2] = sTime;
-        parama[3] = eTime;
-        parama[4] = provider_no;
-        if (request.getParameter("dsmode") != null && request.getParameter("dsmode").equals("all")) {
-            if (!provider_no.equals("*") && !provider_no.startsWith("_grp_")) {
-                rsdemo = daySheetBean.queryResults(parama, "search_daysheetsingleall");
-
-            } else { //select all providers
-                rsdemo = daySheetBean.queryResults(new String[]{parama[0], parama[1], sTime, eTime}, "search_daysheetall");
-            }
-        } else { //new appt, need to update status
-            if (!provider_no.equals("*") && !provider_no.startsWith("_grp_")) {
-                rsdemo = daySheetBean.queryResults(new String[]{param[1], param[2]}, "search_daysheetsinglenew");
-                try {
-                    List<Appointment> appts = appointmentDao.findByProviderDayAndStatus(param[2], dayFormatter.parse(param[1]), "t");
-                    for (Appointment appt : appts) {
-                        appointmentArchiveDao.archiveAppointment(appt);
-                    }
-                } catch (java.text.ParseException e) {
-                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
-                }
-                for (Appointment a : appointmentDao.findByDayAndStatus(ConversionUtils.fromDateString(sdate), "t")) {
-                    if (a.getProviderNo().equals(provider_no)) {
-                        a.setStatus("T");
-                        a.setLastUpdateUser((String) session.getAttribute("user"));
-                        a.setUpdateDateTime(new java.util.Date());
-                        appointmentDao.merge(a);
-                    }
-                }
-
-            } else { //select all providers
-                rsdemo = daySheetBean.queryResults(param[0], "search_daysheetnew");
-                try {
-                    List<Appointment> appts = appointmentDao.findByProviderDayAndStatus(param[2], dayFormatter.parse(param[1]), "t");
-                    for (Appointment appt : appts) {
-                        appointmentArchiveDao.archiveAppointment(appt);
-                    }
-                } catch (java.text.ParseException e) {
-                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
-                }
-                for (Appointment a : appointmentDao.findByDayAndStatus(ConversionUtils.fromDateString(sdate), "t")) {
-                    a.setStatus("T");
-                    a.setLastUpdateUser((String) session.getAttribute("user"));
-                    a.setUpdateDateTime(new java.util.Date());
-                    appointmentDao.merge(a);
-                }
-            }
-        }
-        while (rsdemo.next()) {
-            // The index labels rosteredStatus=true as "Non Rostered Only".
-            // Apply it before emitting headings or rows, for provider, group and all views.
-            if (nonRosteredOnly && "RO".equalsIgnoreCase(rsdemo.getString("roster_status"))) continue;
-            //if it is a group and a group member
-            if (!myGroupBean.isEmpty()) {
-                if (myGroupBean.getProperty(rsdemo.getString("provider_no")) == null) continue;
-            }
-
-            //multisites. skip record if not belong to same site/team
-            if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
-                if (providerMap.get(rsdemo.getString("provider_no")) == null) continue;
-            }
-
-            if (!strTemp.equals(rsdemo.getString("provider_no")) || !dateTemp.equals(rsdemo.getString("appointment_date"))) { //new providers for a new table
-                strTemp = rsdemo.getString("provider_no");
-                dateTemp = rsdemo.getString("appointment_date");
+        boolean newOnly = !"all".equals(request.getParameter("dsmode"));
+        String selectedProvider = provider_no.equals("*") || provider_no.startsWith("_grp_") ? null : provider_no;
+        daySheetRows = appointmentDao.findDaySheet(sdate, edate, sTime, eTime, selectedProvider, newOnly, orderby);
+        daySheetRows = daySheetService.prepare(daySheetRows, newOnly,
+                provider_no.startsWith("_grp_") ? myGroupBean.stringPropertyNames() : null,
+                isSiteAccessPrivacy || isTeamAccessPrivacy ? providerMap.keySet() : null,
+                nonRosteredOnly, curProvider_no);
+        for (AppointmentDaySheetRow appointmentRow : daySheetRows) {
+            if (!strTemp.equals(appointmentRow.providerNo()) || !dateTemp.equals(appointmentRow.date())) { //new providers for a new table
+                strTemp = appointmentRow.providerNo();
+                dateTemp = appointmentRow.date();
                 bFistL = true;
                 out.println("</table>");
             }
@@ -274,7 +200,7 @@
                 if (nonRosteredOnly) sortBaseUrl += "&rosteredStatus=true";
     %>
     <div class="section-header" style="font-weight:bold; font-size:14px; padding:6px 10px; background:#eee; border-bottom:1px solid #ddd; margin:15px 0 0 0;">
-        <carlos:encode value='<%= providerBean.getProperty(rsdemo.getString("provider_no")) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' context="html"/>
+        <carlos:encode value='<%= providerBean.getProperty(appointmentRow.providerNo()) + " - " + dateTemp + (request.getParameter("sTime") != null ? (" " + sTime + "-" + eTime) : "") %>' context="html"/>
     </div>
     <table class="table table-sm table-bordered table-striped" style="font-size:13px; margin-bottom:0;">
         <thead>
@@ -300,41 +226,41 @@
             }
             count++;
         %>
-        <tr class="<%=rsdemo.getString("bookingSource")==null?"oscar":"self"%>" id="r<%=count %>">
-            <td title="<carlos:encode value='<%= "End Time: "+rsdemo.getString("end_time") %>' context="htmlAttribute"/>"><carlos:encode value='<%= rsdemo.getString("start_time").substring(0, 5) %>' context="html"/></td>
-            <td><%=rsdemo.getString("name") == null ? "." : ""%><carlos:encode value='<%= Misc.toUpperLowerCase(rsdemo.getString("name")) %>' context="html"/></td>
-            <td><carlos:encode value='<%= rsdemo.getString("phone") == null ? "" : rsdemo.getString("phone") %>' context="html"/></td>
-            <td><carlos:encode value='<%= rsdemo.getString("sex") == null ? "" : rsdemo.getString("sex") %>' context="html"/></td>
-            <td><carlos:encode value='<%= rsdemo.getString("hin") == null ? "" : rsdemo.getString("hin") %>' context="html"/></td>
-            <td><carlos:encode value='<%= rsdemo.getString("ver") == null ? "" : rsdemo.getString("ver") %>' context="html"/></td>
-            <td><carlos:encode value='<%= rsdemo.getString("chart_no") == null ? "" : rsdemo.getString("chart_no") %>' context="html"/></td>
+        <tr class="<%=appointmentRow.bookingSource()==null?"oscar":"self"%>" id="r<%=count %>">
+            <td title="<carlos:encode value='<%= "End Time: "+appointmentRow.endTime() %>' context="htmlAttribute"/>"><carlos:encode value='<%= appointmentRow.startTime().substring(0, 5) %>' context="html"/></td>
+            <td><%=appointmentRow.name() == null ? "." : ""%><carlos:encode value='<%= Misc.toUpperLowerCase(appointmentRow.name()) %>' context="html"/></td>
+            <td><carlos:encode value='<%= appointmentRow.phone() == null ? "" : appointmentRow.phone() %>' context="html"/></td>
+            <td><carlos:encode value='<%= appointmentRow.sex() == null ? "" : appointmentRow.sex() %>' context="html"/></td>
+            <td><carlos:encode value='<%= appointmentRow.hin() == null ? "" : appointmentRow.hin() %>' context="html"/></td>
+            <td><carlos:encode value='<%= appointmentRow.ver() == null ? "" : appointmentRow.ver() %>' context="html"/></td>
+            <td><carlos:encode value='<%= appointmentRow.chartNo() == null ? "" : appointmentRow.chartNo() %>' context="html"/></td>
             <% if (!bDob) {%>
-            <td><carlos:encode value='<%= rsdemo.getString("roster_status") == null ? "" : rsdemo.getString("roster_status") %>' context="html"/></td>
+            <td><carlos:encode value='<%= appointmentRow.rosterStatus() == null ? "" : appointmentRow.rosterStatus() %>' context="html"/></td>
             <% } else {
-                String dob = rsdemo.getString("dob");
+                String dob = appointmentRow.dob();
             %>
             <td><carlos:encode value='<%= dob == null ? "" : dob %>' context="html"/></td>
             <% }%>
             <td>
-                <%if (rsdemo.getString("bookingSource") == null) {%>
+                <%if (appointmentRow.bookingSource() == null) {%>
                 &nbsp;
                 <%} else {%>
                 <fmt:message key="report.reportdaysheet.msgSelfBooked"/>
                 <%}%>
             </td>
             <td>
-                <% if (rsdemo.getString("doc_no") != null && !daySheetBean.getString(rsdemo, "doc_no").equals("") && !daySheetBean.getString(rsdemo, "doc_no").equals(daySheetBean.getString(rsdemo, "provider_no"))) {
-                    String doc_first_name = daySheetBean.getString(rsdemo, "doc_first_name");
+                <% if (appointmentRow.doctorNo() != null && !org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentRow.doctorNo()).equals("") && !org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentRow.doctorNo()).equals(org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentRow.providerNo()))) {
+                    String doc_first_name = org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentRow.doctorFirstName());
                     char initial = 0x20;
                     if (doc_first_name.length() > 0) {
                         initial = doc_first_name.charAt(0);
                     }
                 %>
-                [<carlos:encode value='<%= daySheetBean.getString(rsdemo, "doc_last_name") %>' context="html"/>, <carlos:encode value='<%= String.valueOf(initial) %>' context="html"/>]
-                &nbsp; <% } %> <% if (bDob && daySheetBean.getString(rsdemo, "family_doctor") != null) {
-                String rd = SxmlMisc.getXmlContent(daySheetBean.getString(rsdemo, "family_doctor"), "rd");
+                [<carlos:encode value='<%= org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentRow.doctorLastName()) %>' context="html"/>, <carlos:encode value='<%= String.valueOf(initial) %>' context="html"/>]
+                &nbsp; <% } %> <% if (bDob && org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentRow.familyDoctor()) != null) {
+                String rd = SxmlMisc.getXmlContent(org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentRow.familyDoctor()), "rd");
                 rd = rd != null ? rd : "";
-            %> [<carlos:encode value='<%= rd %>' context="html"/>]&nbsp; <% } %> <carlos:encode value='<%= daySheetBean.getString(rsdemo, "reason") %>' context="html"/>&nbsp;
+            %> [<carlos:encode value='<%= rd %>' context="html"/>]&nbsp; <% } %> <carlos:encode value='<%= org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentRow.reason()) %>' context="html"/>&nbsp;
             </td>
         </tr>
         <%

@@ -96,6 +96,55 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 @Transactional
 public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEventPublisherAware, DemographicDao {
 
+    @Override
+    // S2077: field/predicate variants are fixed, sort must match the exact column/direction allowlist,
+    // and every search value is bound; pagination is bounded separately below.
+    @SuppressWarnings("java:S2077")
+    public List<LabPatientChoice> findLabPatientChoices(String mode, String keyword, String sort, int offset, int limit) {
+        if (offset < 0 || limit < 1 || limit > MAX_SEARCH_RESULT_SIZE) throw new IllegalArgumentException("Invalid patient search page");
+        String order = "last_name";
+        if (sort != null && sort.matches("(?:last_name|first_name|demographic_no|chart_no|hin|phone|sex|year_of_birth|month_of_birth|date_of_birth|roster_status|patient_status|provider_no)(?: (?i:ASC|DESC))?")) order = sort;
+        String field = switch (mode) {
+            case "search_address" -> "address";
+            case "search_phone" -> "phone";
+            case "search_hin" -> "hin";
+            case "search_chart_no" -> "chart_no";
+            default -> "last_name";
+        };
+        java.util.List<String> parameters = new java.util.ArrayList<>();
+        String where;
+        if ("search_dob".equals(mode)) {
+            where = "year_of_birth LIKE ?1 AND month_of_birth LIKE ?2 AND date_of_birth LIKE ?3";
+            parameters.add(io.github.carlos_emr.MyDateFormat.getYearFromStandardDate(keyword) + "%");
+            String month = io.github.carlos_emr.MyDateFormat.getMonthFromStandardDate(keyword) + "%";
+            String day = io.github.carlos_emr.MyDateFormat.getDayFromStandardDate(keyword) + "%";
+            parameters.add(month.length() == 2 ? "0" + month : month);
+            parameters.add(day.length() == 2 ? "0" + day : day);
+        } else if ("search_name".equals(mode) && keyword.contains(",")) {
+            int comma = keyword.indexOf(',');
+            boolean first = comma < keyword.trim().length() - 1;
+            where = "last_name LIKE ?1" + (first ? " AND first_name LIKE ?2" : "");
+            parameters.add(keyword.substring(0, comma).trim() + "%");
+            if (first) parameters.add((keyword + "%").substring(comma + 1).trim() + "%");
+        } else {
+            where = field + " LIKE ?1";
+            parameters.add(keyword + "%");
+        }
+        Query query = entityManager().createNativeQuery("SELECT demographic_no,first_name,last_name,roster_status,patient_status,sex,"
+                + "chart_no,year_of_birth,month_of_birth,date_of_birth,provider_no FROM demographic WHERE " + where
+                + " AND NOT EXISTS (SELECT 1 FROM demographic_merged dm WHERE dm.demographic_no=demographic.demographic_no"
+                + " AND dm.deleted=0) ORDER BY " + order, Object[].class);
+        for (int i = 0; i < parameters.size(); i++) query.setParameter(i + 1, parameters.get(i));
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.setFirstResult(offset).setMaxResults(limit).getResultList();
+        return rows.stream().map(row -> {
+            String[] text = new String[row.length];
+            for (int i = 0; i < row.length; i++) text[i] = org.apache.commons.lang3.StringUtils.trimToEmpty(
+                    io.github.carlos_emr.carlos.util.NativeQueryValues.asString(row[i]));
+            return new LabPatientChoice(text[0], text[1], text[2], text[3], text[4], text[5], text[6], text[7], text[8], text[9], text[10]);
+        }).toList();
+    }
+
     private static final int MAX_SELECT_SIZE = DemographicDao.MAX_SEARCH_RESULT_SIZE;
     private static final String FLU_DEMOGRAPHIC_NO = "demographic_no";
     private static final String FLU_PATIENT_NAME = "patient_name";

@@ -46,6 +46,8 @@ import io.github.carlos_emr.carlos.utility.EncounterUtil;
 
 public interface CaseManagementNoteDAO {
 
+    int replaceUnassignedReporterRole(int roleId);
+
     /**
      * Retrieves all case management notes.
      */

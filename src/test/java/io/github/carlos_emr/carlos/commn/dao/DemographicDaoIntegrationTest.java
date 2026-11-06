@@ -100,6 +100,31 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         demo4 = createDemographic("Bob", "Johnson", "ON", uniquePrefix + "3", "IN");  // Inactive
     }
 
+    @Test
+    void shouldBindLabSearchTextAndBoundPages_whenSortContainsQuerySyntax() {
+        String quotedName = uniquePrefix + "Alpha' OR 1=1 --";
+        demo1.setLastName(quotedName);
+        demo2.setLastName(uniquePrefix + "Zulu");
+        demographicDao.save(demo1);
+        demographicDao.save(demo2);
+        hibernateTemplate.flush();
+
+        String invalidSort = "last_name; DELETE FROM demographic";
+        assertThat(demographicDao.findLabPatientChoices("search_name", uniquePrefix, invalidSort, 0, 1))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactly(demo1.getDemographicNo().toString());
+        assertThat(demographicDao.findLabPatientChoices("search_name", uniquePrefix, invalidSort, 1, 1))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactly(demo2.getDemographicNo().toString());
+        assertThat(demographicDao.findLabPatientChoices("search_name", quotedName, "last_name DESC", 0, 10))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactly(demo1.getDemographicNo().toString());
+        assertThat(demographicDao.findLabPatientChoices("search_name", "' OR 1=1 --", "last_name", 0, 10)).isEmpty();
+        assertThatThrownBy(() -> demographicDao.findLabPatientChoices("search_name", uniquePrefix, "last_name", -1, 1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> demographicDao.findLabPatientChoices("search_name", uniquePrefix, "last_name", 0, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> demographicDao.findLabPatientChoices("search_name", uniquePrefix, "last_name", 0,
+                DemographicDao.MAX_SEARCH_RESULT_SIZE + 1)).isInstanceOf(IllegalArgumentException.class);
+    }
+
     /**
      * Creates and persists a {@link Demographic} with the given attributes and no roster status.
      *

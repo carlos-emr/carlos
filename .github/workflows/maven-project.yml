@@ -307,14 +307,14 @@ jobs:
             -Dtest.coverageDirectory=target/coverage-mariadb/flyway
           docker exec carlos-tomcat-dev test -s target/coverage-mariadb/flyway/jacoco.xml
 
-      - name: Verify BC billing reads and transaction outcomes against the Flyway schema
+      - name: Verify BC billing, encounter and day-sheet transactions against the Flyway schema
         if: always()
         run: |
           docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
             -e CARLOS_TEST_MARIADB_PROVINCE=bc \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mariadb://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:prepare-agent surefire:test jacoco:report \
-            -Dtest=LegacyLabNativeMariaDbIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest \
+            -Dtest=LegacyLabNativeMariaDbIntegrationTest,LabRoutingLookupDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 \
             -Dsurefire.reportNameSuffix=bc-flyway \
             -Djacoco.destFile=target/jacoco-mariadb-bc-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-bc-flyway.exec \

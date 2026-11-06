@@ -30,45 +30,31 @@
 
 package io.github.carlos_emr.carlos.encounter.data;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Date;
 
-import io.github.carlos_emr.Misc;
+import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.EChartDao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.EChart;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-/**
- * @deprecated convert to proper JPA Hibernate
- */
-@Deprecated
+/** Legacy encounter view models backed by managed demographic and chart DAOs. */
 public class EctPatientData {
 
     public static String getProviderNo(LoggedInInfo loggedInInfo, String demographicNo) {
         String ret = "";
-        ResultSet rs = null;
         try {
-
-            rs = LegacyJdbcQuery.getPreparedResultSet("SELECT provider_no FROM demographic WHERE demographic_no = ?",
-                    demographicNo);
-            if (rs.next())
-                ret = Misc.getString(rs, "provider_no");
-
-        } catch (SQLException e) {
-            MiscUtils.getLogger().debug("error - EctPatientData.getProviderNo");
-        } finally {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException e) {
-
-                }
-            }
+            Demographic patient = SpringUtils.getBean(DemographicDao.class).getDemographic(demographicNo);
+            if (patient != null) ret = StringUtils.trimToEmpty(patient.getProviderNo());
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().debug("Unable to read encounter provider (causeType={})", e.getClass().getName());
         }
         LogAction.addLogSynchronous(loggedInInfo, "EctPatientData.getProviderNo", "demographicNo=" + demographicNo);
 
@@ -79,27 +65,19 @@ public class EctPatientData {
     public Patient getPatient(LoggedInInfo loggedInInfo, String demographicNo) {
 
         Patient p = null;
-        ResultSet rs = null;
         try {
-            rs = LegacyJdbcQuery.getPreparedResultSet("SELECT demographic_no, last_name, first_name, sex, year_of_birth, month_of_birth, date_of_birth, address, city, postal, phone, roster_status FROM demographic WHERE demographic_no = ?",
-                    demographicNo);
-            if (rs.next())
-                p = new Patient(rs.getInt("demographic_no"), Misc.getString(rs, "last_name"), Misc.getString(rs, "first_name"),
-                        Misc.getString(rs, "sex"), UtilDateUtilities.calcDate(Misc.getString(rs, "year_of_birth"), rs
-                        .getString("month_of_birth"), Misc.getString(rs, "date_of_birth")),
-                        Misc.getString(rs, "address"), Misc.getString(rs, "city"), Misc.getString(rs, "postal"), Misc.getString(rs, "phone"),
-                        Misc.getString(rs, "roster_status"));
-
-        } catch (SQLException e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            if (rs != null) {
-                try {
-                    rs.close();
-                } catch (SQLException e) {
-
-                }
+            Demographic patient = SpringUtils.getBean(DemographicDao.class).getDemographic(demographicNo);
+            if (patient != null) {
+                p = new Patient(patient.getDemographicNo(), StringUtils.trimToEmpty(patient.getLastName()),
+                        StringUtils.trimToEmpty(patient.getFirstName()), StringUtils.trimToEmpty(patient.getSex()),
+                        UtilDateUtilities.calcDate(StringUtils.trimToEmpty(patient.getYearOfBirth()),
+                                patient.getMonthOfBirth(), StringUtils.trimToEmpty(patient.getDateOfBirth())),
+                        StringUtils.trimToEmpty(patient.getAddress()), StringUtils.trimToEmpty(patient.getCity()),
+                        StringUtils.trimToEmpty(patient.getPostal()), StringUtils.trimToEmpty(patient.getPhone()),
+                        StringUtils.trimToEmpty(patient.getRosterStatus()));
             }
+        } catch (RuntimeException e) {
+            MiscUtils.getLogger().error("Unable to read encounter patient (causeType={})", e.getClass().getName());
         }
 
         LogAction.addLogSynchronous(loggedInInfo, "EctPatientData.getPatient", "demographicNo=" + demographicNo);
@@ -201,32 +179,20 @@ public class EctPatientData {
             private void init() {
                 CarlosProperties properties = CarlosProperties.getInstance();
                 if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
-                    ResultSet rs = null;
                     try {
-
-                        //                            + " ORDER BY eChartId DESC limit 1";
-                        rs = LegacyJdbcQuery.getPreparedResultSet("select * from eChart where demographicNo=? ORDER BY eChartId DESC", demographicNo);
-                        if (rs.next()) {
-                            this.eChartTimeStamp = rs.getTimestamp("timeStamp");
-                            this.socialHistory = Misc.getString(rs, "socialHistory");
-                            this.familyHistory = Misc.getString(rs, "familyHistory");
-                            this.medicalHistory = Misc.getString(rs, "medicalHistory");
-                            this.ongoingConcerns = Misc.getString(rs, "ongoingConcerns");
-                            this.reminders = Misc.getString(rs, "reminders");
-                            this.encounter = Misc.getString(rs, "encounter");
-                            this.subject = Misc.getString(rs, "subject");
+                        EChart chart = SpringUtils.getBean(EChartDao.class).getLatestChartById(demographicNo);
+                        if (chart != null) {
+                            this.eChartTimeStamp = chart.getTimestamp();
+                            this.socialHistory = StringUtils.trimToEmpty(chart.getSocialHistory());
+                            this.familyHistory = StringUtils.trimToEmpty(chart.getFamilyHistory());
+                            this.medicalHistory = StringUtils.trimToEmpty(chart.getMedicalHistory());
+                            this.ongoingConcerns = StringUtils.trimToEmpty(chart.getOngoingConcerns());
+                            this.reminders = StringUtils.trimToEmpty(chart.getReminders());
+                            this.encounter = StringUtils.trimToEmpty(chart.getEncounter());
+                            this.subject = StringUtils.trimToEmpty(chart.getSubject());
                         }
-
-                    } catch (SQLException e) {
-                        MiscUtils.getLogger().error("Error", e);
-                    } finally {
-                        if (rs != null) {
-                            try {
-                                rs.close();
-                            } catch (SQLException e) {
-
-                            }
-                        }
+                    } catch (RuntimeException e) {
+                        MiscUtils.getLogger().error("Unable to read encounter chart (causeType={})", e.getClass().getName());
                     }
                 }
             }
