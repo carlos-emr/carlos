@@ -3,9 +3,10 @@
 `package-lifecycle-core` runs three independent Ubuntu 26.04/systemd cells per
 province: candidate clean install and equal-version reinstall, pinned current
 main upgrade, and distinct pinned beta5 upgrade. The two upgrade cells execute
-the same read-only client source before and after the package transaction. They
-require the historical CLI 1.3.0 dependency refusal and compatible 1.3.1
-resolution without mutation, create clinical canaries through the UI, reopen them after upgrade, clean their
+the same read-only client source before and after the package transaction. The
+beta5 cell additionally proves CLI 1.3.0 dependency refusal and compatible 1.3.1
+resolution without mutation; the main cell checks its installed CLI 1.3.1.
+Both create clinical canaries through the UI, reopen them after upgrade, clean their
 owned graph, and independently compare all cells in eleven clinical tables and
 the document store. The earlier failed manual attempts remain separate evidence.
 
@@ -17,6 +18,14 @@ only on a disposable qualification host. The runtime contains test clients but n
 preinstalled application, JDK, Maven or application server. An example recipe is
 [package-lifecycle-runtime.Dockerfile](package-lifecycle-runtime.Dockerfile).
 The resulting immutable `sha256:…` image ID is required; mutable image names fail.
+
+Before running any cells, provision Node 22/npm 10.9.9 and run `npm ci` at the
+source checkout root. This installs the locked `playwright` and `playwright-core`
+modules under the checkout's `node_modules`, which is included in the read-only
+`/source` mount. Global packages do not satisfy this requirement. The host checks
+both local package versions, the Chromium identity manifest, and module loading
+before starting any container or installing packages. Supply the corresponding
+locked Chromium executable directory through `browserDirectory` below.
 
 Set `CARLOS_DISPOSABLE_HOST=true`, `EXCLUSIVE=1` and
 `CARLOS_PACKAGE_LIFECYCLE_CONFIG` to a private JSON file outside the checkout.
@@ -56,7 +65,9 @@ Use the normal source-bound release runner with `--check package-lifecycle-core`
 `--profile ON` (then BC) and `--artifact` pointing to its built WAR. The runner
 keeps `packaged: true`; the explicit orchestrated deployment scope validates all
 three in-container application records both during collection and final receipt
-verification. Missing, duplicated or altered cell evidence fails. There is no
+verification. The configured target EMR package digest is captured before the
+command runs and retained in its receipt; the clean cell must match that exact
+package as well as the candidate WAR. Missing, duplicated or altered cell evidence fails. There is no
 requirement for a candidate application installed on the Docker host.
 
 First-login reset runs before ordinary authentication. The fixture setup enables

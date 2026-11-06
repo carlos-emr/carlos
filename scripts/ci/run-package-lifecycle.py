@@ -20,7 +20,7 @@ import uuid
 import release_verification as gate
 from junit_evidence import EvidenceError
 from lifecycle_baselines import required_baselines
-from package_lifecycle import validate_config, validate_inventory
+from package_lifecycle import validate_config, validate_inventory, require_checkout_playwright
 from process_group import run_process_group
 
 
@@ -112,6 +112,7 @@ def run_lifecycle():
         raise EvidenceError('Lifecycle evidence must be private and outside the source checkout')
     source = gate.source_identity()
     if not source['clean']: raise EvidenceError('Lifecycle requires frozen committed source')
+    require_checkout_playwright(gate.ROOT, gate.read_json)
     config_path = checked_file(os.environ['CARLOS_PACKAGE_LIFECYCLE_CONFIG'])
     config = validate_config(gate.read_json(config_path))
     pins = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
@@ -122,7 +123,8 @@ def run_lifecycle():
     if len(image) != 1 or image[0].get('Id') != config['runtimeImage']:
         raise EvidenceError('Lifecycle runtime image differs from its immutable identity')
     document = {'schemaVersion': 1, 'source': source, 'profile': args.profile,
-                'warSha256': artifact_hash, 'runtimeImage': config['runtimeImage'], 'cells': []}
+                'warSha256': artifact_hash, 'targetPackageSha256': config['packages']['target']['emr']['sha256'],
+                'runtimeImage': config['runtimeImage'], 'cells': []}
     passed = False
     active_container = None
     try:
@@ -173,7 +175,8 @@ def run_lifecycle():
                     raise EvidenceError('Successful owned lifecycle container could not be removed')
                 active_container = None
         gate.write_json(directory / 'lifecycle.json', document)
-        validate_inventory(document, source, args.profile, artifact_hash, directory, gate.read_json, gate.digest)
+        validate_inventory(document, source, args.profile, artifact_hash, directory, gate.read_json, gate.digest,
+                           target_package_hash=config['packages']['target']['emr']['sha256'])
         if gate.source_identity() != source or gate.digest(artifact) != artifact_hash:
             raise EvidenceError('Lifecycle source or artifact changed during execution')
         package_inputs(config, baselines)

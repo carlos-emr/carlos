@@ -210,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 285 required case identities, including the
+- The combined Python tooling registry pins 287 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -234,8 +234,9 @@ and qualification below are still required to complete issue 5700. No release-re
   preserves read-only clients, first-login ordering, whole-data cleanup checks and
   private failed-cell recovery evidence. Its explicit orchestrated deployment
   scope keeps packaged-byte binding during collection and final verification.
-  Eight regression checks cover missing baselines, wrong bytes/source/province,
-  failed cleanup, modified evidence and the actual host receipt path. Live/final
+  Ten regression checks cover missing baselines, wrong bytes/source/province,
+  failed cleanup, modified evidence, checkout-local Playwright prerequisites,
+  configured target package digests and the actual host receipt path. Live/final
   qualification and the broader unsupported/interrupted lifecycle cases remain.
   See [execution prerequisites](release-2026.08-package-lifecycle.md).
 

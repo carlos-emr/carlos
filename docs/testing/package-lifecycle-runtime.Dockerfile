@@ -1,6 +1,8 @@
 # syntax=docker/dockerfile:1
 # Build from the repository root, passing the session CA as a BuildKit secret.
 # Record the resulting immutable image ID in the private lifecycle configuration.
+# Before running cells, run npm ci in the source checkout mounted at /source.
+# Local Playwright modules and browser identity are checked before installation.
 FROM node:22-bookworm-slim AS node
 FROM ubuntu:26.04
 COPY --from=node /usr/local/bin/node /usr/local/bin/node

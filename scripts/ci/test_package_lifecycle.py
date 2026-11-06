@@ -12,10 +12,51 @@ from unittest.mock import patch
 
 import release_verification as gate
 from junit_evidence import EvidenceError
-from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_inventory
+from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_inventory, require_checkout_playwright
 
 
 class PackageLifecycleTest(unittest.TestCase):
+    def test_local_playwright_is_required_and_loadable_before_installation(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'checkout'; root.mkdir()
+            packages = {'node_modules/' + name: {'version': '1.0.0'} for name in ('playwright', 'playwright-core')}
+            gate.write_json(root / 'package-lock.json', {'packages': packages})
+            global_modules = root.parent / 'node_modules'
+            for name in ('playwright', 'playwright-core'):
+                (global_modules / name).mkdir(parents=True)
+                gate.write_json(global_modules / name / 'package.json', {'version': '1.0.0'})
+            with patch('package_lifecycle.subprocess.run') as run:
+                with self.assertRaises(EvidenceError): require_checkout_playwright(root, gate.read_json)
+                run.assert_not_called()
+            for name in ('playwright', 'playwright-core'):
+                directory = root / 'node_modules' / name; directory.mkdir(parents=True)
+                gate.write_json(directory / 'package.json', {'version': '1.0.0'})
+                (directory / 'index.js').write_text('module.exports = {};')
+            gate.write_json(root / 'node_modules/playwright-core/browsers.json',
+                {'browsers': [{'name': 'chromium', 'browserVersion': '149.0.7827.55'}]})
+            require_checkout_playwright(root, gate.read_json)
+            (root / 'node_modules/playwright/index.js').write_text("require('./FAKE-missing-dependency');")
+            with self.assertRaisesRegex(EvidenceError, 'cannot load'):
+                require_checkout_playwright(root, gate.read_json)
+            (root / 'node_modules/playwright-core/package.json').write_text('{"version":"2.0.0"}')
+            with patch('package_lifecycle.subprocess.run') as run:
+                with self.assertRaisesRegex(EvidenceError, 'match its lock'):
+                    require_checkout_playwright(root, gate.read_json)
+                run.assert_not_called()
+
+    def test_clean_cell_must_match_configured_package_even_with_identical_war_binding(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            row = next(row for row in document['cells'] if row['role'] == 'clean')
+            path = root / row['path']; cell = gate.read_json(path)
+            cell['initialDeployment']['packageSha256'] = '0' * 64
+            path.write_text(json.dumps(cell)); row['sha256'] = gate.digest(path)
+            with self.assertRaisesRegex(EvidenceError, 'installed candidate'):
+                self.validate(root, source, document)
+            document['targetPackageSha256'] = '0' * 64
+            with self.assertRaisesRegex(EvidenceError, 'target package'):
+                self.validate(root, source, document)
+
     def test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('lifecycle_inputs', Path(__file__).with_name('run-package-lifecycle.py'))
@@ -63,7 +104,7 @@ class PackageLifecycleTest(unittest.TestCase):
 
     def fixture(self, root):
         source = {'commit': 'a' * 40, 'tree': 'b' * 40, 'clean': True}
-        document = {'schemaVersion': 1, 'source': source, 'profile': 'ON', 'warSha256': 'c' * 64, 'cells': []}
+        document = {'schemaVersion': 1, 'source': source, 'profile': 'ON', 'warSha256': 'c' * 64, 'targetPackageSha256': 'd' * 64, 'cells': []}
         for role in ('clean', 'main', 'historical'):
             cell = {'role': role, 'profile': 'ON', 'source': source, 'warSha256': 'c' * 64,
                 'failureType': None, 'assertions': dict.fromkeys(CELL_ASSERTIONS, True),
@@ -85,7 +126,7 @@ class PackageLifecycleTest(unittest.TestCase):
 
     def validate(self, root, source, document):
         (root / 'lifecycle.json').write_text(json.dumps(document))
-        return validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest)
+        return validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest, target_package_hash='d' * 64)
 
     def test_main_cannot_replace_the_distinct_historical_or_clean_cell(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -143,7 +184,7 @@ sys.path.insert(0,sys.argv[1])
 import release_verification as gate
 from package_lifecycle import CELL_ASSERTIONS
 directory=pathlib.Path(sys.argv[2]); artifact=pathlib.Path(sys.argv[3]); source=gate.source_identity(pathlib.Path.cwd())
-document={'schemaVersion':1,'source':source,'profile':'ON','warSha256':gate.digest(artifact),'cells':[]}
+document={'schemaVersion':1,'source':source,'profile':'ON','warSha256':gate.digest(artifact),'targetPackageSha256':'d'*64,'cells':[]}
 for role in ['clean','main','historical']:
  cell={'role':role,'profile':'ON','source':source,'warSha256':gate.digest(artifact),'failureType':None,
   'assertions':dict.fromkeys(CELL_ASSERTIONS,True),
@@ -168,11 +209,29 @@ gate.write_json(directory/'lifecycle-result.json',{'schemaVersion':1,'assertions
         helper.plan['checks'].append(check)
         helper.plan['workstreams'][0]['requiredChecks'].append(check['id'])
         helper.save_plan(); helper.commit(); helper.seed()
-        receipt = gate.run_check(helper.plan_path, check['id'], helper.evidence, 'ON', 1,
-                                  artifact=helper.artifact, root=helper.root)
+        packages = {name: {'path': '/FAKE/' + name + '.deb', 'sha256': 'd' * 64}
+                    for name in ('emr', 'drugref', 'ctl')}
+        config = {'runtimeImage': 'sha256:' + 'a' * 64, 'caFile': '/FAKE/ca.pem',
+            'browserDirectory': '/FAKE/browser', 'packages': {key: packages for key in
+                ('target', '2026.08.0-beta6', '2026.08.0-beta5')}}
+        config_path = helper.base / 'config.json'; gate.write_json(config_path, config)
+        def collect():
+            with patch.dict(os.environ, {'CARLOS_PACKAGE_LIFECYCLE_CONFIG': str(config_path)}):
+                return gate.run_check(helper.plan_path, check['id'], helper.evidence, 'ON', 1,
+                                      artifact=helper.artifact, root=helper.root)
+        receipt = collect()
         self.assertEqual(receipt['outcome'], 'PASS', receipt)
         self.assertTrue(helper.verify()['releaseReady'])
         receipt_path = helper.evidence / receipt['runId'] / 'receipt.json'
+        self.assertEqual(receipt['targetPackageSha256'], 'd' * 64)
+        receipt['targetPackageSha256'] = '0' * 64; receipt_path.write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(EvidenceError, 'target package'): helper.verify()
+        receipt['targetPackageSha256'] = 'd' * 64
         receipt['deployment']['warSha256'] = '0' * 64; receipt_path.write_text(json.dumps(receipt))
         with self.assertRaisesRegex(EvidenceError, 'installed-byte binding'): helper.verify()
 
+        config['packages']['target']['emr']['sha256'] = '0' * 64
+        config_path.write_text(json.dumps(config))
+        refused = collect()
+        self.assertEqual(refused['outcome'], 'FAIL')
+        self.assertIn('target package', refused['reason'])

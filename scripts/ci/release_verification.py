@@ -25,7 +25,7 @@ import uuid
 from junit_evidence import EvidenceError, read_surefire
 from java_discovery import reconcile, expected_families
 from release_deployment import attest
-from package_lifecycle import validate_inventory as validate_lifecycle_inventory
+from package_lifecycle import validate_inventory as validate_lifecycle_inventory, validate_config as validate_lifecycle_config
 from cds_war_manifest import build_manifest
 from command_evidence import validate_contract, results as command_results, relative_file
 from process_group import ProcessGroupFailure, run_process_group
@@ -450,6 +450,9 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
         elif (check.get("packaged") or check.get('requiresArtifact')) and artifact is None:
             receipt["reason"] = "Packaged acceptance requires the exact built WAR"
         else:
+            if check.get('deploymentScope'):
+                config = validate_lifecycle_config(read_json(Path(os.environ['CARLOS_PACKAGE_LIFECYCLE_CONFIG'])))
+                receipt['targetPackageSha256'] = config['packages']['target']['emr']['sha256']
             if check.get("packaged") and not check.get('deploymentScope'):
                 receipt["deployment"] = attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root)
             substitutions = {"run": str(run_dir.resolve()), "root": str(root.resolve()),
@@ -497,7 +500,8 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 raise EvidenceError("Packaged bytes changed during execution")
             if check.get('deploymentScope'):
                 receipt['deployment'] = validate_lifecycle_inventory(read_json(run_dir / 'lifecycle.json'),
-                    source, profile, receipt['artifactSha256'], run_dir, read_json, digest)
+                    source, profile, receipt['artifactSha256'], run_dir, read_json, digest,
+                    target_package_hash=receipt['targetPackageSha256'])
             elif check.get("packaged") and attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root) != receipt["deployment"]:
                 raise EvidenceError("Installed application changed during execution")
             receipt["outcome"] = "PASS" if receipt["summary"]["ready"] else "FAIL"
@@ -593,7 +597,8 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
         if receipt.get("command") != check.get("command") or check["kind"] == "external":
             raise EvidenceError("Receipt was not produced by its reviewed executable check")
         if check.get('deploymentScope') and validate_lifecycle_inventory(read_json(path.parent / 'lifecycle.json'),
-                source, key[1], artifact_hash, path.parent, read_json, digest) != receipt.get('deployment'):
+                source, key[1], artifact_hash, path.parent, read_json, digest,
+                target_package_hash=receipt.get('targetPackageSha256')) != receipt.get('deployment'):
             raise EvidenceError('Lifecycle installed-byte binding changed')
         actual_inputs = {str(p.relative_to(path.parent)) for p in evidence_files(check, path.parent)}
         if actual_inputs != set(input_names):

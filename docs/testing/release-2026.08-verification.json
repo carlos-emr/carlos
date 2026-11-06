@@ -1117,14 +1117,15 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 285,
+      "minimumCases": 287,
       "runtimeConstraints": {
         "python": "3.14"
       },
       "requiresExecutables": [
         "dpkg-deb",
         "dpkg",
-        "xmllint"
+        "xmllint",
+        "node"
       ],
       "requiredCases": [
         "test_browser_process_oracle.BrowserProcessOracleTest.test_optimized_python_cannot_bypass_detached_browser_validation",
@@ -1257,11 +1258,13 @@
         "test_migration_integrity.SharedMigrationIntegrityTest.test_linked_migration_and_deleted_inventory_cannot_pass_a_baseline_floor",
         "test_migration_integrity.SharedMigrationIntegrityTest.test_new_migrations_do_not_rewrite_shared_history",
         "test_migration_integrity.SharedMigrationIntegrityTest.test_same_filenames_counts_and_even_sql_semantics_cannot_hide_rewritten_published_bytes",
+        "test_package_lifecycle.PackageLifecycleTest.test_clean_cell_must_match_configured_package_even_with_identical_war_binding",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files",
         "test_package_lifecycle.PackageLifecycleTest.test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify",
         "test_package_lifecycle.PackageLifecycleTest.test_host_collection_and_final_verification_require_lifecycle_byte_binding",
         "test_package_lifecycle.PackageLifecycleTest.test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults",
+        "test_package_lifecycle.PackageLifecycleTest.test_local_playwright_is_required_and_loadable_before_installation",
         "test_package_lifecycle.PackageLifecycleTest.test_main_cannot_replace_the_distinct_historical_or_clean_cell",
         "test_package_lifecycle.PackageLifecycleTest.test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green",
         "test_package_lifecycle.PackageLifecycleTest.test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused",
@@ -4467,7 +4470,8 @@
       "requiresExecutables": [
         "docker",
         "dpkg-deb",
-        "dpkg"
+        "dpkg",
+        "node"
       ],
       "command": [
         "python3",
