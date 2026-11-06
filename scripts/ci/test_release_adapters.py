@@ -90,7 +90,9 @@ class ResultInventoryTest(unittest.TestCase):
     def test_node_omitted_file_duplicate_case_or_todo_is_not_complete(self):
         for file in ("one.test.js", "two.test.js"):
             (self.root / "scripts" / file).write_text("// synthetic test")
-        result = {"schemaVersion": 2, "files": ["scripts/one.test.js", "scripts/two.test.js"], "summary": {
+        result = {"schemaVersion": 3, "runtime": "v22.15.0", "sourceChanged": False,
+            "sourceFiles": {str(file.relative_to(self.root)): gate.digest(file) for file in (self.root / 'scripts').glob('*.test.js')},
+            "files": ["scripts/one.test.js", "scripts/two.test.js"], "summary": {
             "success": True, "counts": {"tests": 2, "passed": 2, "failed": 0, "cancelled": 0, "skipped": 0, "todo": 0}},
             "cases": [{"file": "scripts/one.test.js", "line": 1, "column": 1, "name": "one", "outcome": "PASS", "testNumber": 1, "parents": []},
                       {"file": "scripts/two.test.js", "line": 1, "column": 1, "name": "two", "outcome": "PASS", "testNumber": 1, "parents": []}]}

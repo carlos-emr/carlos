@@ -31,6 +31,7 @@ from command_evidence import validate_contract, results as command_results, rela
 from process_group import ProcessGroupFailure, run_process_group
 import compiled_classes
 from git_environment import separate_checkout_environment
+import node_case_inventory
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PLAN = ROOT / "docs/testing/release-2026.08-verification.json"
@@ -129,6 +130,21 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     if ('scope-and-main-disposition' in names and plan.get('lifecycleBaselineManifest')
             != 'docs/testing/release-2026.08-lifecycle-baselines.json'):
         raise EvidenceError('Scope acceptance requires the reviewed published migration baselines')
+    if ('scope-and-main-disposition' in names and next(
+            (check.get('caseManifest') for check in checks if check['id'] == 'node-all'), None)
+            != 'docs/testing/release-2026.08-node-cases.json'):
+        raise EvidenceError('Release Node acceptance requires its reviewed complete case inventory')
+    role_checks = {check['id']: check['lifecycleRoles'] for check in checks if 'lifecycleRoles' in check}
+    if role_checks:
+        expected_roles = {'package-clean-reinstall': ['clean'], 'package-main-upgrade': ['main'],
+                          'package-beta5-upgrade': ['historical']}
+        required_checks = {name for workstream in work for name in workstream.get('requiredChecks', [])}
+        if (role_checks != expected_roles or not set(role_checks) <= required_checks
+                or any(set(check.get('profiles', [])) != {'ON', 'BC'}
+                       or check.get('repetitions', 1) != 1
+                       or check.get('deploymentScope') != 'orchestrated-package-lifecycle'
+                       for check in checks if check['id'] in role_checks)):
+            raise EvidenceError('All independent clean/main/historical lifecycle checks must remain required on ON and BC')
     for check in checks:
         if 'deploymentScope' in check and (check['deploymentScope'] != 'orchestrated-package-lifecycle'
                 or not check.get('packaged') or check.get('kind') != 'command'
@@ -267,9 +283,9 @@ def junit_results(directory: Path, check):
                 and not counts["failed"] and counts["skipped"] == len(routed) and not missing}
 
 
-def node_results(path: Path, root=ROOT, minimum=1, required=()):
+def node_results(path: Path, root=ROOT, minimum=1, required=(), case_manifest=None):
     result = read_json(path)
-    if result.get("schemaVersion") != 2:
+    if result.get("schemaVersion") != 3:
         raise EvidenceError("Node evidence lacks engine execution identities")
     summary = result.get("summary") or {}
     counts = summary.get("counts") or {}
@@ -280,6 +296,11 @@ def node_results(path: Path, root=ROOT, minimum=1, required=()):
     files = result.get("files", [])
     if not expected or len(files) != len(set(files)) or set(files) != expected:
         raise EvidenceError("Node discovery does not match every checked-in test file")
+    sources = result.get('sourceFiles')
+    if (not isinstance(sources, dict) or set(sources) != expected or result.get('sourceChanged') is not False
+            or not re.fullmatch(r'v22\.\d+\.\d+', result.get('runtime', ''))
+            or any(digest(relative_file(root, name)) != value for name, value in sources.items())):
+        raise EvidenceError('Node test source changed or lacks execution-time fingerprints')
     cases = result.get("cases") or []
     if not cases or len(cases) != counts["tests"]:
         raise EvidenceError("Node case inventory disagrees with execution counters")
@@ -298,6 +319,8 @@ def node_results(path: Path, root=ROOT, minimum=1, required=()):
     ready = ready and not any(counts[k] for k in keys[2:]) and all(c.get("outcome") == "PASS" for c in cases)
     if set(required) - {case.get("name") for case in cases if case.get("outcome") == "PASS"}:
         raise EvidenceError("A required Node regression did not execute successfully")
+    if case_manifest:
+        node_case_inventory.validate(read_json(relative_file(root, case_manifest)), cases, root, digest)
     return {**counts, "ready": ready}
 
 
@@ -390,7 +413,7 @@ def summarize(check, run_dir: Path, exit_code, root=ROOT):
                     raise EvidenceError('Malformed compiled class identity')
             summary['classIdentitySha256'] = digest(run_dir / 'classes.json')
     elif kind == "node":
-        summary = node_results(run_dir / "node.json", root, check.get("minimumCases", 1), check.get("requiredCases", []))
+        summary = node_results(run_dir / "node.json", root, check.get("minimumCases", 1), check.get("requiredCases", []), check.get('caseManifest'))
     elif kind == "browser":
         summary = browser_results(run_dir / "browser.xml", check, root)
     elif kind == "python":
@@ -500,7 +523,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 raise EvidenceError("Packaged bytes changed during execution")
             if check.get('deploymentScope'):
                 receipt['deployment'] = validate_lifecycle_inventory(read_json(run_dir / 'lifecycle.json'),
-                    source, profile, receipt['artifactSha256'], run_dir, read_json, digest,
+                    source, profile, receipt['artifactSha256'], run_dir, read_json, digest, check.get('lifecycleRoles'),
                     target_package_hash=receipt['targetPackageSha256'])
             elif check.get("packaged") and attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root) != receipt["deployment"]:
                 raise EvidenceError("Installed application changed during execution")
@@ -597,7 +620,7 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
         if receipt.get("command") != check.get("command") or check["kind"] == "external":
             raise EvidenceError("Receipt was not produced by its reviewed executable check")
         if check.get('deploymentScope') and validate_lifecycle_inventory(read_json(path.parent / 'lifecycle.json'),
-                source, key[1], artifact_hash, path.parent, read_json, digest,
+                source, key[1], artifact_hash, path.parent, read_json, digest, check.get('lifecycleRoles'),
                 target_package_hash=receipt.get('targetPackageSha256')) != receipt.get('deployment'):
             raise EvidenceError('Lifecycle installed-byte binding changed')
         actual_inputs = {str(p.relative_to(path.parent)) for p in evidence_files(check, path.parent)}

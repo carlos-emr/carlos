@@ -216,7 +216,8 @@
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransferXmlUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java",
         "scripts/ci/run-public-api-oracle.py",
-        "scripts/ci/WarWireCompatibilityProbe.java"
+        "scripts/ci/WarWireCompatibilityProbe.java",
+        "docs/testing/release-2026.08-main-release-browser-findings.json"
       ],
       "implementation": "Extend the existing installed REST check to nonempty XML allergy/prevention date DTOs and every supported precision, plus restricted-user/error and OAuth surfaces. Preserve production mapper and both JAXB provider tests.",
       "cases": "Accept application/xml, application/json and */*; UNKNOWN/YEAR/MONTH/FULL_DATE, leap days, nulls and epoch values in UTC/Toronto/Tokyo; 400/401/403/404; malformed or foreign patient; exact field names and precision shapes; shared provider initialization must not fall back silently.",
@@ -242,7 +243,8 @@
         "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/conversion/AppointmentConverterUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/conversion/AppointmentConverterUnitTest.java",
+        "docs/testing/release-2026.08-main-release-browser-findings.json"
       ],
       "implementation": "Qualify full/status/type/urgency edits with omitted/null/blank editVersion compatibility, explicit stale conflicts, row locking and committed archive/audit behavior.",
       "cases": "Full edit plus status/type/urgency routes; omitted/null/blank token preserves legacy compatibility; invalid request 400, stale token 409, missing row 404; legacy null timestamp; multiple writes in one second; bulk and legacy-JDBC updates invalidate tokens; one winner under contention; original audit fields preserved; failed mutation rolls back archive and audit.",
@@ -451,7 +453,8 @@
         "src/test/java/io/github/carlos_emr/carlos/report/reportByTemplate/SQLReporterCsvUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/BcCsvDownloadUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluatorUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2ActionUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2ActionUnitTest.java",
+        "docs/testing/release-2026.08-main-release-browser-findings.json"
       ],
       "implementation": "Expand machine-readable contract fixtures and installed download checks, documenting intentional remittance/XLSX layout changes instead of silently accepting them as backward compatible.",
       "cases": "All CSV reports and 22-column remittance summary; every row type; refund subsets/net totals; date aging edges; 0 versus null; leading zeros; commas/quotes/CRLF/Unicode; formula prefixes after whitespace/control characters; SXSSF flush/row limits; query/disk/stream errors before response attachment; temp cleanup.",
@@ -474,7 +477,8 @@
         "src/test/java/io/github/carlos_emr/carlos/report/JasperExporterCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/report/JasperReportTemplatesIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/form/pdfservlet/FrmCustomedPDFServletUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/form/util/Rourke2020PdfReportIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/form/util/Rourke2020PdfReportIntegrationTest.java",
+        "docs/testing/release-2026.08-main-release-browser-findings.json"
       ],
       "implementation": "Rerun the established before/after PDF corpus on the final packaged WAR; extend renderer security and concurrency, and preserve the already-added half-letter browser dimension/content assertions.",
       "cases": "A4/Letter/A6/396x612 half-letter, print/reprint/fax, auto-print, signatures, long patient/pharmacy headers, all Rourke/BC/legacy forms, long notes and checked marks, CJK/emoji/accents, no host fonts/unwritable font cache, PDF 2.0 consumers, Brotli input, warm-cache two-patient parallel rendering; Flying Saucer resource/network/path refusals.",
@@ -562,7 +566,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/JdkStreamCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/RetainedCommonsSemanticsUnitTest.java",
         "scripts/ci/run-public-api-oracle.py",
-        "scripts/ci/WarWireCompatibilityProbe.java"
+        "scripts/ci/WarWireCompatibilityProbe.java",
+        "docs/testing/release-2026.08-main-release-browser-findings.json"
       ],
       "implementation": "Run existing differential vectors and add caller-level fixtures where removed libraries could alter data. Verify actual WAR contents, not only the POM, and qualify supported extensions against removed public APIs.",
       "cases": "TOTP random keys/counter/locale boundaries; QR byte parity; Ant-compatible ISO parsing; null/blank/Unicode strings; encoding and collection/stream semantics; removed Velocity/raw JDBC APIs; all required CXF/JAXB modules; Drools, JavaMelody and Flyway; one OpenPDF; no banned Jasypt/Xerces/HTTP4/logging duplicates or missing runtime class.",
@@ -588,7 +593,9 @@
       "sources": [
         "src/test/java/io/github/carlos_emr/carlos/utility/ResponseSanitizationFilterTomcatIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/JavaMelodyResponseIntegrationTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/utility/RequestBoundaryFilterOrderIntegrationTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/RequestBoundaryFilterOrderIntegrationTest.java",
+        "scripts/lib/download-contract.js",
+        "scripts/download-framing.test.js"
       ],
       "implementation": "Keep the 13 deterministic embedded-Tomcat error cases and controls; add packaged nginx/Tomcat front-door qualification across real decorators and transport failure paths.",
       "cases": "reset versus resetBuffer, configured and partial responses, committed stream, HTML/REST/PDF/redirect, forward/error dispatch, gzip/content length/cache, validation 400 preserved, server 500 sanitized, CSRF/logout/privacy/monitoring wrappers and JDBC release; disabled-filter controls prove the probe would detect a leak.",
@@ -669,7 +676,9 @@
         "deb-clean-upgrade-reinstall",
         "debian-python",
         "o19-generator-python",
-        "package-lifecycle-core"
+        "package-clean-reinstall",
+        "package-main-upgrade",
+        "package-beta5-upgrade"
       ]
     },
     {
@@ -700,7 +709,9 @@
         "o19-generator-python",
         "carlos-ctl-pinned-suite",
         "manual-deb-login",
-        "package-lifecycle-core"
+        "package-clean-reinstall",
+        "package-main-upgrade",
+        "package-beta5-upgrade"
       ]
     },
     {
@@ -804,7 +815,10 @@
       "area": "Profile, locale, dialogs and browser matrix",
       "sources": [
         "scripts/run-playwright-suite.js",
-        "scripts/ci/run-browser-process-oracle.py"
+        "scripts/ci/run-browser-process-oracle.py",
+        "scripts/ci/node_case_inventory.py",
+        "scripts/ci/test_node_case_inventory.py",
+        "scripts/node-release-gate.test.js"
       ],
       "implementation": "Run applicable ON/BC suites plus real multisite, CAISI-admin, no-pin, address-lock, private-consent, appointment-options and supported legacy profiles. Add blocking rules for serious changed-surface accessibility defects and retain report-only findings separately.",
       "cases": "Chromium full applicable suite; Firefox/WebKit login/chart-save/Rx/appointments/attachments/print critical paths where supported; desktop and small-screen hit tests; keyboard/focus/calendar/dialog Cancel/Escape; en/fr/es/pl/pt-BR; site/provider role visibility and exact configuration restoration. Required counts: three clean full packaged runs for #5577; 50 isolated packaged repetitions of the messenger-group-admin mocked-removal rollback interaction for #5566. Record exact Node 22, npm 10.9.9, browser and locale versions. No retry-to-green.",
@@ -853,7 +867,10 @@
         "scripts/lib/document-upload-files.js",
         "scripts/document-upload-files.test.js",
         "scripts/lib/mutation-families.js",
-        "scripts/ci/run-browser-process-oracle.py"
+        "scripts/ci/run-browser-process-oracle.py",
+        "scripts/ci/node_case_inventory.py",
+        "scripts/ci/test_node_case_inventory.py",
+        "scripts/node-release-gate.test.js"
       ],
       "implementation": "Perform the final-source real-OS-signal inventory on applicable mutating check families. Extend unit tests only for newly found gaps; retain exact ownership/byte guards and fatal cleanup outcomes.",
       "cases": "Before/after accepted SQL/app writes, upload chunks, delayed response, shutdown and cleanup; both SIGINT and SIGTERM; exit 130/interrupted structured outcome; owned versus foreign SQL references; file bytes/type/inode/owner/mode; configs and new defaults restored; killed-run reconciliation and process groups. Exercise real SIGINT/SIGTERM and crash/SIGKILL where cleanup/recovery is promised. Serialize every global profile and verify owned-row snapshots and exact restoration.",
@@ -1117,7 +1134,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 287,
+      "minimumCases": 292,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1258,16 +1275,21 @@
         "test_migration_integrity.SharedMigrationIntegrityTest.test_linked_migration_and_deleted_inventory_cannot_pass_a_baseline_floor",
         "test_migration_integrity.SharedMigrationIntegrityTest.test_new_migrations_do_not_rewrite_shared_history",
         "test_migration_integrity.SharedMigrationIntegrityTest.test_same_filenames_counts_and_even_sql_semantics_cannot_hide_rewritten_published_bytes",
+        "test_node_case_inventory.NodeCaseInventoryTest.test_duplicate_invalid_or_missing_reviewed_cases_are_not_an_inventory",
+        "test_node_case_inventory.NodeCaseInventoryTest.test_equal_counts_and_names_cannot_replace_a_required_generated_invocation",
+        "test_node_case_inventory.NodeCaseInventoryTest.test_old_case_metadata_cannot_qualify_changed_test_source",
         "test_package_lifecycle.PackageLifecycleTest.test_clean_cell_must_match_configured_package_even_with_identical_war_binding",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files",
         "test_package_lifecycle.PackageLifecycleTest.test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify",
         "test_package_lifecycle.PackageLifecycleTest.test_host_collection_and_final_verification_require_lifecycle_byte_binding",
+        "test_package_lifecycle.PackageLifecycleTest.test_independent_role_receipts_cannot_omit_another_required_global_baseline",
         "test_package_lifecycle.PackageLifecycleTest.test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults",
         "test_package_lifecycle.PackageLifecycleTest.test_local_playwright_is_required_and_loadable_before_installation",
         "test_package_lifecycle.PackageLifecycleTest.test_main_cannot_replace_the_distinct_historical_or_clean_cell",
         "test_package_lifecycle.PackageLifecycleTest.test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green",
         "test_package_lifecycle.PackageLifecycleTest.test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused",
+        "test_package_lifecycle.PackageLifecycleTest.test_passing_read_only_clients_cannot_hide_a_clinical_value_change",
         "test_process_group.ProcessGroupTest.test_cleanup_os_error_remains_a_failure_with_unverified_quiescence",
         "test_process_group.ProcessGroupTest.test_detached_orphan_is_stopped_after_its_parent_exits",
         "test_process_group.ProcessGroupTest.test_existing_child_tree_is_refused_before_adoption_or_browser_start",
@@ -1451,7 +1473,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7000,
+      "minimumCases": 7318,
       "runtimeConstraints": {
         "node": "22",
         "npm": "10.9.9"
@@ -1463,8 +1485,14 @@
         "UKPDS refuses HDL above total cholesterol and clears stale risk",
         "shouldConfigureWsServicesRateLimits_forEveryProxyingServer",
         "Rx cleanup removes owned note extensions before parents with foreign keys enabled",
-        "Rx cleanup removes owned note extensions before parents with foreign keys disabled"
-      ]
+        "Rx cleanup removes owned note extensions before parents with foreign keys disabled",
+        "identity download preserves complete chunked Unicode and binary bytes without requiring Content-Length",
+        "premature Content-Length response cannot become a successful download",
+        "missing final HTTP chunk cannot become a successful download",
+        "unexpected compression is rejected before comparing decoded bytes with a wire Content-Length",
+        "passing Node cases cannot qualify test source modified during execution"
+      ],
+      "caseManifest": "docs/testing/release-2026.08-node-cases.json"
     },
     {
       "id": "build",
@@ -4453,7 +4481,36 @@
       }
     },
     {
-      "id": "package-lifecycle-core",
+      "id": "browser-process-oracle",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "python3",
+        "scripts/ci/run-browser-process-oracle.py",
+        "--output",
+        "{run}/browser-process-result.json"
+      ],
+      "requiresExecutables": [
+        "node"
+      ],
+      "runtimeConstraints": {
+        "node": "22"
+      },
+      "timeoutSeconds": 180,
+      "resultContract": {
+        "file": "browser-process-result.json",
+        "assertions": [
+          "timeout-browser-stopped",
+          "sigterm-browser-stopped",
+          "sigint-browser-stopped"
+        ]
+      }
+    },
+    {
+      "id": "package-clean-reinstall",
       "kind": "command",
       "profiles": [
         "ON",
@@ -4481,7 +4538,9 @@
         "--artifact",
         "{artifact}",
         "--output",
-        "{run}/lifecycle-result.json"
+        "{run}/lifecycle-result.json",
+        "--role",
+        "clean"
       ],
       "resultContract": {
         "file": "lifecycle-result.json",
@@ -4489,35 +4548,106 @@
           "complete-lifecycle-core"
         ]
       },
-      "timeoutSeconds": 18000
-    },
-    {
-      "id": "browser-process-oracle",
-      "kind": "command",
-      "profiles": [
-        "all"
-      ],
-      "repetitions": 1,
-      "command": [
-        "python3",
-        "scripts/ci/run-browser-process-oracle.py",
-        "--output",
-        "{run}/browser-process-result.json"
-      ],
-      "requiresExecutables": [
-        "node"
+      "timeoutSeconds": 18000,
+      "lifecycleRoles": [
+        "clean"
       ],
       "runtimeConstraints": {
         "node": "22"
-      },
-      "timeoutSeconds": 180,
+      }
+    },
+    {
+      "id": "package-main-upgrade",
+      "kind": "command",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "packaged": true,
+      "deploymentScope": "orchestrated-package-lifecycle",
+      "requiresEnvironment": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "CARLOS_PACKAGE_LIFECYCLE_CONFIG"
+      ],
+      "requiresExecutables": [
+        "docker",
+        "dpkg-deb",
+        "dpkg",
+        "node"
+      ],
+      "command": [
+        "python3",
+        "scripts/ci/run-package-lifecycle.py",
+        "--profile",
+        "{profile}",
+        "--artifact",
+        "{artifact}",
+        "--output",
+        "{run}/lifecycle-result.json",
+        "--role",
+        "main"
+      ],
       "resultContract": {
-        "file": "browser-process-result.json",
+        "file": "lifecycle-result.json",
         "assertions": [
-          "timeout-browser-stopped",
-          "sigterm-browser-stopped",
-          "sigint-browser-stopped"
+          "complete-lifecycle-core"
         ]
+      },
+      "timeoutSeconds": 18000,
+      "lifecycleRoles": [
+        "main"
+      ],
+      "runtimeConstraints": {
+        "node": "22"
+      }
+    },
+    {
+      "id": "package-beta5-upgrade",
+      "kind": "command",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "packaged": true,
+      "deploymentScope": "orchestrated-package-lifecycle",
+      "requiresEnvironment": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "CARLOS_PACKAGE_LIFECYCLE_CONFIG"
+      ],
+      "requiresExecutables": [
+        "docker",
+        "dpkg-deb",
+        "dpkg",
+        "node"
+      ],
+      "command": [
+        "python3",
+        "scripts/ci/run-package-lifecycle.py",
+        "--profile",
+        "{profile}",
+        "--artifact",
+        "{artifact}",
+        "--output",
+        "{run}/lifecycle-result.json",
+        "--role",
+        "historical"
+      ],
+      "resultContract": {
+        "file": "lifecycle-result.json",
+        "assertions": [
+          "complete-lifecycle-core"
+        ]
+      },
+      "timeoutSeconds": 18000,
+      "lifecycleRoles": [
+        "historical"
+      ],
+      "runtimeConstraints": {
+        "node": "22"
       }
     }
   ],
@@ -4897,5 +5027,6 @@
       ]
     }
   },
-  "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json"
+  "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",
+  "mainBrowserObservationLedger": "docs/testing/release-2026.08-main-release-browser-findings.json"
 }

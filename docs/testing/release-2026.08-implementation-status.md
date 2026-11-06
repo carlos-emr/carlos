@@ -157,8 +157,10 @@ and qualification below are still required to complete issue 5700. No release-re
   runtime image and passed `carlos-ctl check`. The new installation-stage adapter
   passed its seven browser steps and all five independent assertions using locked
   Chromium. All 239 tooling cases passed on Python 3.14. The host Python 3.12
-  diagnostic retains two errors in 3.14-specific ZIP/scaling fixtures; it is not
-  substituted for the required interpreter.
+  diagnostic retains two ZIP/scaling fixture errors. The later host 3.14 run
+  identified missing `xmllint` as their prerequisite failure; the earlier record
+  is not qualified execution. Installing the real published Debian tool makes
+  both focused cases pass.
 - Added an inner installed package transition adapter and a required ON/BC
   reinstall check. It pins all package inputs, rejects an invalid version order
   before mutation, verifies the predecessor against every application file in
@@ -210,7 +212,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 287 required case identities, including the
+- The combined Python tooling registry pins all required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -312,3 +314,26 @@ The required browser oracle uses explicit failures under optimized Python as wel
 Temporary Git fixtures isolate inherited repository selectors before setup, and
 the full Python suite passes with a foreign repository selected without changing
 that repository's HEAD or index.
+The clean `f962bce` development cell passed all lifecycle assertions and the full
+smoke selection before/after reinstall. The separate main cell completed
+installation and first login, then preserved four failed current-contract smoke
+observations before upgrade. Those [observations](release-2026.08-main-release-browser-findings.json)
+remain unresolved compatibility work. The corrected package preflight runs
+shared read-only probes with independent data/file/key checks, carries owned
+clinical records through reinstall as well as upgrade, and requires full smoke
+on the candidate afterward. Clean/reinstall, main and beta5 now have independent
+required ON/BC checks so one failed baseline cannot hide another execution.
+
+HTTP download probes reproduce the compression/length oracle error and validate
+complete chunked bodies and both forms of premature EOF. The helper now requests
+identity encoding and rejects unexpected compression. Node evidence schema 3
+binds test-file bytes at execution time and rejects edits during passing cases.
+The reviewed Node inventory covers every source case and generated multiplicity;
+unchanged totals, duplicate captions or unrelated replacement passes cannot hide
+omissions. Earlier schema-2 reports remain historical evidence.
+
+The source-bound Chromium process and migration-inventory diagnostics at
+`f962bce` retain their independent outcomes: browser ownership PASS; scope FAIL
+with 2,424 unowned production paths and matching published migration bytes.
+The new Node case inventory contains 7,318 successful executions across all 516
+source files, including exact generated-case multiplicities and source hashes.

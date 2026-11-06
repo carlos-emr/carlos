@@ -28,6 +28,8 @@ ASSERTIONS = ('ubuntu-systemd-prerequisite', 'pinned-installation', 'forced-firs
               'documents-cleanup-preserved', 'unchanged-client-after',
               'candidate-application-bound', 'service-health', 'private-recovery-retained')
 ASSERTIONS += ('dependency-contract',)
+ASSERTIONS += ('read-only-state-preserved',)
+BASELINE_READ_ONLY = ('application-health', 'drug-search', 'schedule-links')
 
 
 def run(command, name, *, environment=None, timeout=1200, check=True, browser=False):
@@ -102,18 +104,29 @@ def set_expected_build(environment, contents):
         RX_EXPECTED_BUILD_TAG=identity['build.version'] + ' (' + identity['build.job'] + ' ' + identity['build.number'] + ')')
 
 
-def smoke(environment, phase):
+def smoke(environment, phase, selection=None):
     path = OUTPUT / (phase + '.xml')
-    run(['node', 'scripts/run-playwright-suite.js', '--tier', 'smoke', '--strict-release',
-         '--province', environment['CARLOS_SUITE_PROVINCE'], '--junit', str(path)],
+    command = ['node', 'scripts/run-playwright-suite.js', '--tier', 'smoke', '--strict-release',
+         '--province', environment['CARLOS_SUITE_PROVINCE'], '--junit', str(path)]
+    if selection: command += ['--only', ','.join(selection)]
+    run(command,
         phase, environment=environment, timeout=600, browser=True)
     profile = environment['CARLOS_SUITE_PROVINCE']
     manifest = gate.read_json(gate.ROOT / 'scripts/playwright-suite.json')['checks']
-    selected = [row['name'] for row in manifest if 'smoke' in row.get('tiers', []) and not row.get('manual')
+    selected = list(selection) if selection else [row['name'] for row in manifest if 'smoke' in row.get('tiers', []) and not row.get('manual')
         and not row.get('profile') and ({'all', profile.lower()} & {value.lower() for value in row['provinces']})]
     result = gate.browser_results(path, {'selectedProfile': profile, 'selection': selected}, gate.ROOT)
     if not result['ready']:
         raise EvidenceError('Lifecycle smoke contains missing or failing clients')
+
+
+def read_only(environment, phase):
+    before = {'clinical': state.clinical_state(), 'files': state.stored_files(), 'key': state.encryption_key()}
+    smoke(environment, phase, BASELINE_READ_ONLY)
+    after = {'clinical': state.clinical_state(), 'files': state.stored_files(), 'key': state.encryption_key()}
+    gate.write_json(OUTPUT / ('private-' + phase + '-state.json'), {'before': before, 'after': after})
+    if before != after:
+        raise EvidenceError('Read-only package baseline changed clinical data, documents or key')
 
 
 def transition_command(context, mode, output):
@@ -167,25 +180,22 @@ def transition(context, environment):
     command = transition_command(context, mode, output)
     before = {'clinical': state.clinical_state(), 'files': state.stored_files(), 'key': state.encryption_key()}
     gate.write_json(OUTPUT / 'private-before-owned-workflow.json', before)
-    if mode == 'upgrade':
-        # The unchanged client invokes this explicit installer path. Provision a
-        # real controller there; never replace client code or shadow PATH tools.
-        wrapper = Path('/root/carlos/scripts/lib/deb-upgrade-install.sh')
-        wrapper.parent.mkdir(parents=True)
-        if wrapper.exists() or wrapper.is_symlink():
-            raise EvidenceError('Lifecycle installer path was already occupied')
-        wrapper.write_text('#!/bin/bash\nset -euo pipefail\nexec ' + shlex.join(command) + '\n')
-        wrapper.chmod(0o700)
-        completion = OUTPUT / 'unchanged-upgrade-client.json'
-        run(['node', 'scripts/deb-upgrade-canaries.js'], 'unchanged-upgrade-client',
-            environment={**environment, 'RESULT_JSON': str(completion)}, timeout=1500)
-        record = gate.read_json(completion)
-        if (record.get('name') != 'deb-upgrade-canaries' or record.get('outcome') != 'PASS'
-                or record.get('cleanupFailed') or record.get('failedStep') or record.get('detail')):
-            raise EvidenceError('Unchanged client did not reopen and clean its retained fixtures')
-        gate.require_locked_chromium([record.get('browserVersion', '')])
-    else:
-        run(command, 'reinstall', environment=environment, timeout=1500)
+    # The same unchanged client creates/reopens owned records for both upgrade
+    # and reinstall. Empty seeded tables cannot substitute for these canaries.
+    wrapper = Path('/root/carlos/scripts/lib/deb-upgrade-install.sh')
+    wrapper.parent.mkdir(parents=True)
+    if wrapper.exists() or wrapper.is_symlink():
+        raise EvidenceError('Lifecycle installer path was already occupied')
+    wrapper.write_text('#!/bin/bash\nset -euo pipefail\nexec ' + shlex.join(command) + '\n')
+    wrapper.chmod(0o700)
+    completion = OUTPUT / 'unchanged-upgrade-client.json'
+    run(['node', 'scripts/deb-upgrade-canaries.js'], 'unchanged-upgrade-client',
+        environment={**environment, 'RESULT_JSON': str(completion)}, timeout=1500)
+    record = gate.read_json(completion)
+    if (record.get('name') != 'deb-upgrade-canaries' or record.get('outcome') != 'PASS'
+            or record.get('cleanupFailed') or record.get('failedStep') or record.get('detail')):
+        raise EvidenceError('Unchanged client did not reopen and clean its retained fixtures')
+    gate.require_locked_chromium([record.get('browserVersion', '')])
     adapter = load_adapter('run-installed-package-transition')
     result, _ = gate.command_results({'file': 'transition-result.json', 'assertions': list(adapter.ASSERTIONS)},
                                     directory, gate.read_json, gate.digest)
@@ -289,7 +299,7 @@ def main():
         assertions['forced-first-login'] = True
         set_expected_build(environment, package_contents(Path(initial['emr']['path']), initial['emr']['sha256']))
         run(['node', 'scripts/vascular-dictionary-initialize.js'], 'dictionary-initialize', environment=environment, timeout=180, browser=True)
-        smoke(environment, 'client-before'); assertions['unchanged-client-before'] = True
+        read_only(environment, 'client-before'); assertions['unchanged-client-before'] = True
         details['dependencyContract'] = dependency_contract(context)
         assertions['dependency-contract'] = True
         clinical, documents = transition(context, environment)
@@ -297,6 +307,7 @@ def main():
         assertions['clinical-cleanup-preserved'] = clinical
         assertions['documents-cleanup-preserved'] = documents
         set_expected_build(environment, package_contents(Path(context['target']['emr']['path']), context['target']['emr']['sha256']))
+        read_only(environment, 'read-only-after'); assertions['read-only-state-preserved'] = True
         smoke(environment, 'client-after'); assertions['unchanged-client-after'] = True
         details['candidateDeployment'] = attest(Path(context['war']['path']), base_url=environment['BASE_URL'])
         assertions['candidate-application-bound'] = True

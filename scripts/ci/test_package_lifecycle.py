@@ -56,6 +56,41 @@ class PackageLifecycleTest(unittest.TestCase):
             document['targetPackageSha256'] = '0' * 64
             with self.assertRaisesRegex(EvidenceError, 'target package'):
                 self.validate(root, source, document)
+    def test_independent_role_receipts_cannot_omit_another_required_global_baseline(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            document['cells'] = [row for row in document['cells'] if row['role'] == 'main']
+            document['requestedRoles'] = ['main']
+            gate.write_json(root / 'selected-lifecycle.json', document)
+            # The normal lifecycle.json file is part of the installed-byte binding.
+            (root / 'lifecycle.json').write_text(json.dumps(document))
+            validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest, ['main'], target_package_hash='d' * 64)
+            with self.assertRaises(EvidenceError):
+                validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest, ['historical'], target_package_hash='d' * 64)
+            plan = gate.read_json(gate.DEFAULT_PLAN)
+            plan['checks'] = [row for row in plan['checks'] if row['id'] != 'package-beta5-upgrade']
+            path = root / 'plan.json'; path.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(EvidenceError, 'independent clean/main/historical'):
+                gate.load_plan(path)
+            plan = gate.read_json(gate.DEFAULT_PLAN)
+            next(row for row in plan['checks'] if row['id'] == 'package-main-upgrade')['profiles'] = ['ON']
+            path.write_text(json.dumps(plan))
+            with self.assertRaisesRegex(EvidenceError, 'required on ON and BC'):
+                gate.load_plan(path)
+
+    def test_passing_read_only_clients_cannot_hide_a_clinical_value_change(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_cell', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        with tempfile.TemporaryDirectory() as temporary, patch.object(cell, 'OUTPUT', Path(temporary)), \
+                patch.object(cell, 'smoke'), patch.object(cell.state, 'stored_files', return_value={}), \
+                patch.object(cell.state, 'encryption_key', return_value='a' * 64), \
+                patch.object(cell.state, 'clinical_state', side_effect=[
+                    {'records': {'rows': 1, 'dataSha256': 'a' * 64}},
+                    {'records': {'rows': 1, 'dataSha256': 'b' * 64}}]):
+            with self.assertRaisesRegex(EvidenceError, 'Read-only package baseline changed'):
+                cell.read_only({}, 'synthetic-read-only')
+            self.assertTrue((Path(temporary) / 'private-synthetic-read-only-state.json').is_file())
 
     def test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files(self):
         import importlib.util

@@ -1,14 +1,13 @@
 # Installed package lifecycle execution
 
-`package-lifecycle-core` runs three independent Ubuntu 26.04/systemd cells per
+The required `package-clean-reinstall`, `package-main-upgrade` and
+`package-beta5-upgrade` checks run independent Ubuntu 26.04/systemd cells per
 province: candidate clean install and equal-version reinstall, pinned current
-main upgrade, and distinct pinned beta5 upgrade. The two upgrade cells execute
-the same read-only client source before and after the package transaction. The
-beta5 cell additionally proves CLI 1.3.0 dependency refusal and compatible 1.3.1
-resolution without mutation; the main cell checks its installed CLI 1.3.1.
-Both create clinical canaries through the UI, reopen them after upgrade, clean their
-owned graph, and independently compare all cells in eleven clinical tables and
-the document store. The earlier failed manual attempts remain separate evidence.
+main upgrade, and distinct pinned beta5 upgrade. Each cell uses the same client source before and after its package transaction,
+creates clinical canaries through the UI, reopens them afterward, cleans its owned
+graph, and independently compares all cells in eleven clinical tables and the
+document store. The historical cell additionally requires CLI 1.3.0 dependency
+refusal and compatible 1.3.1 resolution without mutation. The earlier failed manual attempts remain separate evidence.
 
 The host requires the exclusive disposable local Docker daemon at
 `unix:///var/run/docker.sock`. Cells publish no ports, use the normal bridge and
@@ -61,13 +60,12 @@ every entry, rather than trusting the package version or health endpoint.
 }
 ```
 
-Use the normal source-bound release runner with `--check package-lifecycle-core`,
-`--profile ON` (then BC) and `--artifact` pointing to its built WAR. The runner
-keeps `packaged: true`; the explicit orchestrated deployment scope validates all
-three in-container application records both during collection and final receipt
-verification. The configured target EMR package digest is captured before the
-command runs and retained in its receipt; the clean cell must match that exact
-package as well as the candidate WAR. Missing, duplicated or altered cell evidence fails. There is no
+Use the normal source-bound release runner with each of those three `--check`
+values, `--profile ON` (then BC) and `--artifact` pointing to its built WAR. The runner
+keeps `packaged: true`; the explicit orchestrated deployment scope validates the selected
+in-container application record during collection and final receipt verification.
+Plan validation keeps all three role checks required; failure in one does not
+prevent collecting an independent baseline. Missing, duplicated or altered cell evidence fails. There is no
 requirement for a candidate application installed on the Docker host.
 
 First-login reset runs before ordinary authentication. The fixture setup enables
@@ -90,3 +88,17 @@ The broader `deb-clean-upgrade-reinstall` acceptance remains independently
 blocking for actual unsupported-schema/dependency refusals, interrupted/failed
 transaction recovery and remaining service-recovery cases. This core controller
 does not turn those unimplemented or unexecuted cases green.
+
+The transition preflight runs shared application-health, DrugRef search and
+schedule-link read-only probes. Independent snapshots around each read-only
+phase compare all clinical cells, stored files and the key. The same owned
+appointment, tickler, note and prescription workflow creates and reopens canaries
+for both upgrades and reinstall. The complete release smoke selection runs after
+every transition. The earlier full current-contract run against main remains
+failed and retained; its [four baseline observations](release-2026.08-main-release-browser-findings.json)
+require separate HTTP/client compatibility review. No candidate expected-failure
+pin or compatibility waiver is introduced.
+
+The configured target EMR package digest is captured before execution and kept
+in the receipt. The clean cell must match that exact package as well as the WAR;
+final verification revalidates both bindings.

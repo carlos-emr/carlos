@@ -102,6 +102,7 @@ def run_lifecycle():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', choices=('ON', 'BC'), required=True)
+    parser.add_argument('--role', choices=('all', 'clean', 'main', 'historical'), default='all')
     parser.add_argument('--artifact', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
@@ -122,13 +123,16 @@ def run_lifecycle():
     image = json.loads(docker('image', 'inspect', config['runtimeImage'], capture=True))
     if len(image) != 1 or image[0].get('Id') != config['runtimeImage']:
         raise EvidenceError('Lifecycle runtime image differs from its immutable identity')
-    document = {'schemaVersion': 1, 'source': source, 'profile': args.profile,
+    selected = [(role, baseline) for role, baseline in [('clean', None), ('main', baselines[0]),
+                ('historical', baselines[1])] if args.role in ('all', role)]
+    roles = [role for role, _baseline in selected]
+    document = {'schemaVersion': 1, 'source': source, 'profile': args.profile, 'requestedRoles': roles,
                 'warSha256': artifact_hash, 'targetPackageSha256': config['packages']['target']['emr']['sha256'],
                 'runtimeImage': config['runtimeImage'], 'cells': []}
     passed = False
     active_container = None
     try:
-        for role, baseline in [('clean', None), ('main', baselines[0]), ('historical', baselines[1])]:
+        for role, baseline in selected:
             cell = directory / role; cell.mkdir(mode=0o700)
             context = {'schemaVersion': 1, 'role': role, 'profile': args.profile,
                        'source': source, 'war': {'path': '/candidate.war', 'sha256': artifact_hash}}
@@ -175,7 +179,7 @@ def run_lifecycle():
                     raise EvidenceError('Successful owned lifecycle container could not be removed')
                 active_container = None
         gate.write_json(directory / 'lifecycle.json', document)
-        validate_inventory(document, source, args.profile, artifact_hash, directory, gate.read_json, gate.digest,
+        validate_inventory(document, source, args.profile, artifact_hash, directory, gate.read_json, gate.digest, roles,
                            target_package_hash=config['packages']['target']['emr']['sha256'])
         if gate.source_identity() != source or gate.digest(artifact) != artifact_hash:
             raise EvidenceError('Lifecycle source or artifact changed during execution')

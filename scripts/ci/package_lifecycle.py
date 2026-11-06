@@ -12,13 +12,17 @@ ROLES = {'clean', 'main', 'historical'}
 CELL_ASSERTIONS = {'ubuntu-systemd-prerequisite', 'pinned-installation', 'forced-first-login',
     'unchanged-client-before', 'real-transition', 'clinical-cleanup-preserved',
     'documents-cleanup-preserved', 'unchanged-client-after', 'candidate-application-bound',
-    'service-health', 'private-recovery-retained', 'dependency-contract'}
+    'service-health', 'private-recovery-retained', 'dependency-contract', 'read-only-state-preserved'}
 
 
-def validate_inventory(document, source, profile, artifact_hash, directory, read_json, digest, *, target_package_hash):
+def validate_inventory(document, source, profile, artifact_hash, directory, read_json, digest, required_roles=None, *, target_package_hash):
     if (not isinstance(target_package_hash, str) or not re.fullmatch('[0-9a-f]{64}', target_package_hash)
             or not isinstance(document, dict) or document.get('targetPackageSha256') != target_package_hash):
         raise EvidenceError('Lifecycle target package differs from the configured receipt binding')
+    expected = ROLES if required_roles is None else set(required_roles)
+    if (not expected or not expected <= ROLES or (required_roles is not None
+            and (not isinstance(required_roles, list) or len(required_roles) != len(expected)))):
+        raise EvidenceError('Lifecycle has an invalid required role selection')
     if (not isinstance(document, dict) or type(document.get('schemaVersion')) is not int or document.get('schemaVersion') != 1
             or document.get('source') != source or document.get('profile') != profile
             or document.get('warSha256') != artifact_hash
@@ -26,7 +30,8 @@ def validate_inventory(document, source, profile, artifact_hash, directory, read
         raise EvidenceError('Lifecycle belongs to different source, province or WAR')
     rows = document['cells']
     if (any(not isinstance(row, dict) for row in rows)
-            or len(rows) != len(ROLES) or {row.get('role') for row in rows} != ROLES):
+            or len(rows) != len(expected) or {row.get('role') for row in rows} != expected
+            or (required_roles is not None and document.get('requestedRoles') != required_roles)):
         raise EvidenceError('Lifecycle omitted or duplicated a required install/upgrade baseline')
     baselines = required_baselines(read_json(Path(__file__).resolve().parents[2]
         / 'docs/testing/release-2026.08-lifecycle-baselines.json'))

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "observerSourceCommit": "f962bce1636483606a806f339814bfedcd51843b",
+  "mainSourceCommit": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "releaseProductionBase": "710fb1ac7c3fa75528359e71e8fac0d590b9e36f",
+  "qualification": "Unreviewed baseline observations. These are not candidate expected-failure pins or approved compatibility dispositions. Keep required HTTP/client compatibility acceptance blocking.",
+  "observations": [
+    {
+      "check": "echart",
+      "mainResult": "FAIL",
+      "candidateCleanSmokeResult": "PASS",
+      "observation": "Encounter Save did not queue behind the pending CPP request in the published main binary."
+    },
+    {
+      "check": "error-sanitization",
+      "mainResult": "FAIL",
+      "candidateCleanSmokeResult": "PASS",
+      "observation": "The installed error-sanitization probe reported failure; diagnose its actual baseline cause before disposition."
+    },
+    {
+      "check": "mutator-get-rejection-live",
+      "mainResult": "FAIL",
+      "candidateCleanSmokeResult": "PASS",
+      "observation": "Two of 216 read-method probes did not meet the current refusal contract on main. Review affected consumers and security behavior explicitly."
+    },
+    {
+      "check": "tickler-crud",
+      "mainResult": "FAIL",
+      "candidateCleanSmokeResult": "PASS",
+      "observation": "The baseline tickler workflow timed out waiting for its response. Determine application versus client-assumption or timing cause before disposition."
+    }
+  ]
+}

@@ -1357,7 +1357,7 @@ runbook's username lockout setting and vascular dictionary first. Keep it serial
 with every other install/profile mutation. This is additional coverage; the full
 `harness-crash-qualification` inventory and SIGKILL recovery remain required.
 
-The required `package-lifecycle-core` ON/BC slots run on the dedicated disposable
+The required `package-clean-reinstall`, `package-main-upgrade` and `package-beta5-upgrade` ON/BC slots run on the dedicated disposable
 Docker host using [the lifecycle configuration](../testing/release-2026.08-package-lifecycle.md).
 Keep the broader unsupported/interrupted lifecycle acceptance blocking until its
 separate cases are implemented and executed. The orchestrated deployment scope
@@ -1367,3 +1367,8 @@ Run the required `browser-process-oracle` after installing the locked Playwright
 Chromium (or supplying its verified `CHROME_PATH`). It uses real detached browser
 processes and validates forced cleanup after timeout, SIGTERM and SIGINT. This
 process proof does not replace installed fixture restoration or SIGKILL recovery.
+
+The Node lane uses evidence schema 3 and the reviewed source/case inventory.
+Regenerate that inventory only from a complete passing qualified Node run after
+intentional test changes; final collection and verification recheck its source
+hashes and every generated case multiplicity.
