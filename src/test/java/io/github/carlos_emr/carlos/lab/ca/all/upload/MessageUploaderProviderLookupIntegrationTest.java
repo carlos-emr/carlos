@@ -9,7 +9,6 @@ import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -84,12 +83,10 @@ class MessageUploaderProviderLookupIntegrationTest extends CarlosTestBase {
 
     private void routeProviders(String source, String column) throws Exception {
         var method = MessageUploader.class.getDeclaredMethod("providerRouteReport", String.class, ArrayList.class,
-                Connection.class, String.class, String.class, String.class, Integer.class, boolean.class, String.class);
+                String.class, String.class, String.class, Integer.class, boolean.class, String.class);
         method.setAccessible(true);
-        try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            method.invoke(null, Integer.toString(REPORT), new ArrayList<>(List.of(IDENTIFIER)), connection,
-                    null, source, column, null, false, null);
-        }
+        method.invoke(null, Integer.toString(REPORT), new ArrayList<>(List.of(IDENTIFIER)),
+                null, source, column, null, false, null);
         em.flush();
         em.clear();
     }

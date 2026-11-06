@@ -28,6 +28,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -60,6 +61,24 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
 
     public Hl7TextInfoDaoImpl() {
         super(Hl7TextInfo.class);
+    }
+
+    @Override
+    public List<LabStatus> findRecentLabStatuses(int limit) {
+        if (limit <= 0) return Collections.emptyList();
+        List<?> rows = entityManager.createQuery(
+                "SELECT x.labNumber, x.resultStatus FROM Hl7TextInfo x ORDER BY x.labNumber DESC")
+                .setMaxResults(limit).getResultList();
+        return rows.stream().map(value -> {
+            Object[] row = (Object[]) value;
+            return new LabStatus(((Number) row[0]).intValue(), row[1] == null ? "" : row[1].toString().trim());
+        }).toList();
+    }
+
+    @Override
+    public void updateResultStatusLowPriority(int labNumber, String status) {
+        entityManager.createNativeQuery("UPDATE LOW_PRIORITY hl7TextInfo SET result_status=?1 WHERE lab_no=?2")
+                .setParameter(1, status).setParameter(2, labNumber).executeUpdate();
     }
 
     @SuppressWarnings("unchecked")
