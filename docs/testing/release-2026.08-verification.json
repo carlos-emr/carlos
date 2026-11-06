@@ -803,7 +803,8 @@
       "priority": "P1",
       "area": "Profile, locale, dialogs and browser matrix",
       "sources": [
-        "scripts/run-playwright-suite.js"
+        "scripts/run-playwright-suite.js",
+        "scripts/ci/run-browser-process-oracle.py"
       ],
       "implementation": "Run applicable ON/BC suites plus real multisite, CAISI-admin, no-pin, address-lock, private-consent, appointment-options and supported legacy profiles. Add blocking rules for serious changed-surface accessibility defects and retain report-only findings separately.",
       "cases": "Chromium full applicable suite; Firefox/WebKit login/chart-save/Rx/appointments/attachments/print critical paths where supported; desktop and small-screen hit tests; keyboard/focus/calendar/dialog Cancel/Escape; en/fr/es/pl/pt-BR; site/provider role visibility and exact configuration restoration. Required counts: three clean full packaged runs for #5577; 50 isolated packaged repetitions of the messenger-group-admin mocked-removal rollback interaction for #5566. Record exact Node 22, npm 10.9.9, browser and locale versions. No retry-to-green.",
@@ -825,7 +826,8 @@
         "packaged-profile-multisite",
         "packaged-profile-no-pin",
         "packaged-profile-private-consent",
-        "manual-shared-outcomes-launch"
+        "manual-shared-outcomes-launch",
+        "browser-process-oracle"
       ]
     },
     {
@@ -850,7 +852,8 @@
         "scripts/ci/test_installed_smoke_signals.py",
         "scripts/lib/document-upload-files.js",
         "scripts/document-upload-files.test.js",
-        "scripts/lib/mutation-families.js"
+        "scripts/lib/mutation-families.js",
+        "scripts/ci/run-browser-process-oracle.py"
       ],
       "implementation": "Perform the final-source real-OS-signal inventory on applicable mutating check families. Extend unit tests only for newly found gaps; retain exact ownership/byte guards and fatal cleanup outcomes.",
       "cases": "Before/after accepted SQL/app writes, upload chunks, delayed response, shutdown and cleanup; both SIGINT and SIGTERM; exit 130/interrupted structured outcome; owned versus foreign SQL references; file bytes/type/inode/owner/mode; configs and new defaults restored; killed-run reconciliation and process groups. Exercise real SIGINT/SIGTERM and crash/SIGKILL where cleanup/recovery is promised. Serialize every global profile and verify owned-row snapshots and exact restoration.",
@@ -872,7 +875,8 @@
         "packaged-profile-multisite",
         "packaged-profile-no-pin",
         "packaged-profile-private-consent",
-        "installed-smoke-signals"
+        "installed-smoke-signals",
+        "browser-process-oracle"
       ]
     },
     {
@@ -1113,7 +1117,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 282,
+      "minimumCases": 283,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1382,6 +1386,7 @@
         "test_verify_release_evidence.ReleaseEvidenceTest.test_duplicate_json_keys_are_refused",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_duplicate_repetition_cannot_replace_a_missing_profile",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_external_acceptance_has_no_manually_green_bypass",
+        "test_verify_release_evidence.ReleaseEvidenceTest.test_inherited_git_location_cannot_bind_receipts_to_another_checkout",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_invalid_profile_or_repeat_is_refused",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_missing_build_is_incomplete",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_missing_executable_blocks_before_any_test_is_spawned",
@@ -4479,6 +4484,35 @@
         ]
       },
       "timeoutSeconds": 18000
+    },
+    {
+      "id": "browser-process-oracle",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "python3",
+        "scripts/ci/run-browser-process-oracle.py",
+        "--output",
+        "{run}/browser-process-result.json"
+      ],
+      "requiresExecutables": [
+        "node"
+      ],
+      "runtimeConstraints": {
+        "node": "22"
+      },
+      "timeoutSeconds": 180,
+      "resultContract": {
+        "file": "browser-process-result.json",
+        "assertions": [
+          "timeout-browser-stopped",
+          "sigterm-browser-stopped",
+          "sigint-browser-stopped"
+        ]
+      }
     }
   ],
   "requireJavaDiscovery": true,

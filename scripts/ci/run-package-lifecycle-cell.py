@@ -30,11 +30,12 @@ ASSERTIONS = ('ubuntu-systemd-prerequisite', 'pinned-installation', 'forced-firs
 ASSERTIONS += ('dependency-contract',)
 
 
-def run(command, name, *, environment=None, timeout=1200, check=True):
+def run(command, name, *, environment=None, timeout=1200, check=True, browser=False):
     with (OUTPUT / (name + '.log')).open('xb') as stream:
         os.chmod(stream.name, 0o600)
         result = run_process_group(command, cwd=gate.ROOT, env=environment or os.environ,
-                                   stdout=stream, stderr=stream, timeout=timeout, grace=25)
+                                   stdout=stream, stderr=stream, timeout=timeout, grace=25,
+                                   track_descendants=browser)
     if check and result.returncode:
         raise EvidenceError('Lifecycle phase failed: ' + name)
     return result.returncode
@@ -105,7 +106,7 @@ def smoke(environment, phase):
     path = OUTPUT / (phase + '.xml')
     run(['node', 'scripts/run-playwright-suite.js', '--tier', 'smoke', '--strict-release',
          '--province', environment['CARLOS_SUITE_PROVINCE'], '--junit', str(path)],
-        phase, environment=environment, timeout=600)
+        phase, environment=environment, timeout=600, browser=True)
     profile = environment['CARLOS_SUITE_PROVINCE']
     manifest = gate.read_json(gate.ROOT / 'scripts/playwright-suite.json')['checks']
     selected = [row['name'] for row in manifest if 'smoke' in row.get('tiers', []) and not row.get('manual')
@@ -287,7 +288,7 @@ def main():
         environment = first_login(context['profile'], '/browser/chrome')
         assertions['forced-first-login'] = True
         set_expected_build(environment, package_contents(Path(initial['emr']['path']), initial['emr']['sha256']))
-        run(['node', 'scripts/vascular-dictionary-initialize.js'], 'dictionary-initialize', environment=environment, timeout=180)
+        run(['node', 'scripts/vascular-dictionary-initialize.js'], 'dictionary-initialize', environment=environment, timeout=180, browser=True)
         smoke(environment, 'client-before'); assertions['unchanged-client-before'] = True
         details['dependencyContract'] = dependency_contract(context)
         assertions['dependency-contract'] = True

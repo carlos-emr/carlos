@@ -4,11 +4,12 @@ import hashlib
 import subprocess
 
 from junit_evidence import EvidenceError
+from git_environment import separate_checkout_environment
 
 
 def sql_objects(root, revision):
     data = subprocess.check_output(['git', 'ls-tree', '-r', '-z', revision,
-                                    'database/mysql/migration'], cwd=root)
+                                    'database/mysql/migration'], cwd=root, env=separate_checkout_environment())
     result = {}
     for item in data.split(b'\0'):
         if not item: continue
@@ -30,7 +31,8 @@ def compare_shared(root, base, head, minimum=0):
     rows = []
     for path in shared:
         def checksum(blob):
-            content = subprocess.check_output(['git', 'cat-file', 'blob', blob], cwd=root)
+            content = subprocess.check_output(['git', 'cat-file', 'blob', blob], cwd=root,
+                                               env=separate_checkout_environment())
             return hashlib.sha256(content).hexdigest()
         old_hash, new_hash = checksum(before[path]), checksum(after[path])
         rows.append({'path': path, 'mainSha256': old_hash, 'candidateSha256': new_hash,

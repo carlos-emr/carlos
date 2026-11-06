@@ -1362,3 +1362,8 @@ Docker host using [the lifecycle configuration](../testing/release-2026.08-packa
 Keep the broader unsupported/interrupted lifecycle acceptance blocking until its
 separate cases are implemented and executed. The orchestrated deployment scope
 retains `packaged: true` and validates in-container application bytes.
+
+Run the required `browser-process-oracle` after installing the locked Playwright
+Chromium (or supplying its verified `CHROME_PATH`). It uses real detached browser
+processes and validates forced cleanup after timeout, SIGTERM and SIGINT. This
+process proof does not replace installed fixture restoration or SIGKILL recovery.

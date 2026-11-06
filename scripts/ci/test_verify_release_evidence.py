@@ -89,6 +89,21 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.assertEqual(result["requiredExecutions"], 2)
         self.assertEqual(result["receivedExecutions"], 2)
 
+    def test_inherited_git_location_cannot_bind_receipts_to_another_checkout(self):
+        expected = gate.source_identity(self.root)
+        foreign = self.base / 'foreign'; foreign.mkdir()
+        environment = gate.separate_checkout_environment()
+        subprocess.run(['git', 'init', '-q'], cwd=foreign, env=environment, check=True)
+        (foreign / 'unrelated.txt').write_text('FAKE foreign source')
+        subprocess.run(['git', 'add', '.'], cwd=foreign, env=environment, check=True)
+        subprocess.run(['git', '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid',
+                        'commit', '-qm', 'test: foreign checkout'], cwd=foreign, env=environment, check=True)
+        with patch.dict(os.environ, {'GIT_DIR': str(foreign / '.git'), 'GIT_WORK_TREE': str(foreign),
+                                    'GIT_INDEX_FILE': str(foreign / '.git/index')}):
+            self.assertEqual(gate.source_identity(self.root), expected)
+            self.seed()
+            self.assertTrue(self.verify()['releaseReady'])
+
     def test_stale_classes_cannot_be_relabelled_as_the_current_source(self):
         (self.root / '.gitignore').write_text('/target/\n')
         self.plan['checks'][1]['requireClassIdentity'] = True

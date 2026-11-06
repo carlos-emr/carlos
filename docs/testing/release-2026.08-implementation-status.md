@@ -210,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 282 required case identities, including the
+- The combined Python tooling registry pins 283 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -298,3 +298,11 @@ including the distinct beta5 baseline. Current main has 82 shared migrations and
 beta5 has 76; all match the candidate. Real Git negative controls reject changed
 SQL, comments, line endings, linked migrations and an incomplete shared inventory.
 Reviewed path ownership cannot waive a rewritten migration.
+
+The locked Chromium process oracle is now a required structured command check.
+All three real timeout/SIGTERM/SIGINT cases pass after a parent-ready handshake
+removes a signal/observation race in the oracle. Its original partial failure is
+retained separately. The merged Node development suite passes all 7,313 cases.
+Source identity, child commands and migration Git reads also discard inherited
+Git location selectors; a foreign-checkout regression proves they cannot relabel
+evidence from another repository.

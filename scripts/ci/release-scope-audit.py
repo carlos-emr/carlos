@@ -17,10 +17,11 @@ from junit_evidence import EvidenceError
 from release_verification import DEFAULT_PLAN, ROOT, digest, load_plan, read_json, write_json
 from migration_integrity import compare_shared, sql_objects
 from lifecycle_baselines import required_baselines
+from git_environment import separate_checkout_environment
 
 
 def git(root, *args):
-    return subprocess.check_output(["git", *args], cwd=root)
+    return subprocess.check_output(["git", *args], cwd=root, env=separate_checkout_environment())
 
 
 def comparison(root, base, head):

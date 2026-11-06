@@ -30,6 +30,7 @@ from cds_war_manifest import build_manifest
 from command_evidence import validate_contract, results as command_results, relative_file
 from process_group import ProcessGroupFailure, run_process_group
 import compiled_classes
+from git_environment import separate_checkout_environment
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PLAN = ROOT / "docs/testing/release-2026.08-verification.json"
@@ -71,7 +72,8 @@ def write_json(path: Path, value):
 
 def source_identity(root=ROOT):
     def git(*args):
-        return subprocess.check_output(["git", *args], cwd=root, text=True).strip()
+        return subprocess.check_output(["git", *args], cwd=root, text=True,
+                                       env=separate_checkout_environment()).strip()
     # Ignored build output/dependencies do not dirty a checkout. Untracked source does.
     return {"commit": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}"),
             "clean": not bool(git("status", "--porcelain", "--untracked-files=normal"))}
@@ -461,7 +463,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 # even when the caller has not activated that venv in PATH.
                 argv[0] = sys.executable
             receipt["command"] = check["command"]  # Template only: no expanded credentials/paths.
-            environment = dict(os.environ)
+            environment = separate_checkout_environment()
             environment.update({key: value.format_map(substitutions) for key, value in check.get("environment", {}).items()})
             if check.get('requireClassIdentity'):
                 # A clean Git checkout alone says nothing about ignored class files.
