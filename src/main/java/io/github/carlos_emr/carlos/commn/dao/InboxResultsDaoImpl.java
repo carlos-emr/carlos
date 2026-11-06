@@ -156,6 +156,17 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
         return populateDocumentResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Builds one of eight native queries: labs and documents mixed or not, crossed with the
+     * unmatched view ({@code demographicNo} {@code "0"}), one patient, a name or health-number
+     * search, or the provider's whole list. Every query selects the document's saved description
+     * ({@code document.docdesc}), which the Inbox views show for a document row; a blank one is
+     * returned as none. The clinic's Inbox date preference picks the received or observation date
+     * for filtering, display and order. A failure is logged and the rows built so far are
+     * returned.</p>
+     */
     @SuppressWarnings("unchecked")
     public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String patientFirstName,
                                                                 String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page,

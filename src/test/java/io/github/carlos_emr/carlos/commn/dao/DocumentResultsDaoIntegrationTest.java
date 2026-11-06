@@ -74,6 +74,7 @@ public class DocumentResultsDaoIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    /** Saves a document of the given type and description and routes it, New, to the test provider. */
     private int routeDocument(String doctype, String docdesc) {
         Calendar cal = Calendar.getInstance();
         cal.set(2026, Calendar.MARCH, 4, 12, 0, 0);
@@ -107,6 +108,7 @@ public class DocumentResultsDaoIntegrationTest extends CarlosTestBase {
         return doc.getDocumentNo();
     }
 
+    /** Runs the named builder for the test provider, for any patient, over New routing rows. */
     private List<LabResultData> build(String builder) {
         return switch (builder) {
             case "ofAllProviders" -> documentResultsDao.populateDocumentResultsDataOfAllProviders(PROVIDER_NO, null, "N");
@@ -116,6 +118,10 @@ public class DocumentResultsDaoIntegrationTest extends CarlosTestBase {
         };
     }
 
+    /**
+     * Each builder returns a described document with its description, an untyped one without
+     * dropping it or the rows after it, and a blank description as none.
+     */
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"ofAllProviders", "linkToProvider", "providerOrUnassigned"})
     @DisplayName("should carry each document's saved description, and none for a blank one")

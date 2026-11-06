@@ -115,6 +115,20 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         }
     }
 
+    /**
+     * Lists routed documents whose routing status contains {@code status}, whoever they are routed
+     * to, one row per matching routing row, newest document first.
+     *
+     * <p>No live Inbox view calls this builder: the Inbox Hub, the legacy Inbox page and the REST
+     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's saved
+     * description, or none when it is blank. A failure is logged and the rows built so far are
+     * returned.</p>
+     *
+     * @param providerNo provider viewing the list; {@code "0"} sets every row's acknowledged status to {@code "U"}
+     * @param demographicNo must be null: a patient-scoped call returns an empty list
+     * @param status routing status to match (substring); null or blank matches any
+     * @return the matching document rows, never null
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsDataOfAllProviders(String providerNo, String demographicNo,
@@ -236,7 +250,20 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
         return labResults;
     }
 
-    //retrieve documents belonging to a providers
+    /**
+     * Lists the documents routed to {@code providerNo} whose routing status contains
+     * {@code status}, newest document first.
+     *
+     * <p>No live Inbox view calls this builder: the Inbox Hub, the legacy Inbox page and the REST
+     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's saved
+     * description, or none when it is blank. A failure is logged and the rows built so far are
+     * returned.</p>
+     *
+     * @param providerNo provider the documents are routed to
+     * @param demographicNo when both it and {@code providerNo} are given, an empty list is returned
+     * @param status routing status to match (substring); null or blank matches any
+     * @return the matching document rows, never null
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsDataLinkToProvider(String providerNo, String demographicNo,
@@ -348,7 +375,20 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
 
     }
 
-    //retrieve all documents from database
+    /**
+     * Lists the documents routed to {@code providerNo} (any provider when blank) or left unassigned,
+     * whose routing status contains {@code status}, newest document first.
+     *
+     * <p>No live Inbox view calls this builder: the Inbox Hub, the legacy Inbox page and the REST
+     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's saved
+     * description, or none when it is blank. A failure is logged and the rows built so far are
+     * returned.</p>
+     *
+     * @param providerNo provider the documents are routed to; null or blank matches any provider
+     * @param demographicNo must be null: a patient-scoped call returns an empty list
+     * @param status routing status to match (substring); null or blank matches any
+     * @return the matching document rows, never null
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public ArrayList<LabResultData> populateDocumentResultsData(String providerNo, String demographicNo, String status) {
