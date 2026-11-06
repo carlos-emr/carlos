@@ -20,52 +20,31 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
-
 
 package io.github.carlos_emr.carlos.mds.data;
 
-import org.apache.commons.lang3.StringUtils;
-import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
-import io.github.carlos_emr.carlos.commn.model.SystemPreferences;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao;
+import io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.Operation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.EntityManagerFactory;
-import jakarta.persistence.Query;
-import jakarta.persistence.Tuple;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
-/**
- * Builds inbox category counts and patient summaries for the selected filters.
- * HRM sign-off filtering is independent of viewing and matches HRM result queries.
- */
+/** Builds inbox category counts and patient summaries from typed DAO results. */
 public class CategoryData {
-    private static final String COUNT_COLUMN = "count";
-    private static final String SQL_EQUALS_PARAM = " = ? ";
-    private static final String SQL_IS_NOT_NULL = " IS NOT NULL ";
-    private static final String SQL_IS_NOT_NULL_NO_PREFIX = "IS NOT NULL ";
-
-    private final SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);
-
-	private final EntityManagerFactory entityManagerFactory = SpringUtils.getBean(EntityManagerFactory.class);
-	private final EntityManager entityManager = entityManagerFactory.createEntityManager();
-
-
+    private final InboxCategoryDao dao = SpringUtils.getBean(InboxCategoryDao.class);
+    private final InboxCategoryDao.Filter filter;
+    private final boolean patientSearch;
+    private final String abnormalStatus;
     private int totalDocs = 0;
     private int totalLabs = 0;
     private int unmatchedLabs = 0;
@@ -106,6 +85,7 @@ public class CategoryData {
         return totalNumDocs;
     }
 
+    /** @return int abnormal lab count from the most recent population */
     public int getAbnormalCount() {
         return abnormalCount;
     }
@@ -127,152 +107,109 @@ public class CategoryData {
         return patientInfoList;
     }
 
-    private String patientLastName;
-    private String searchProviderNo;
-    private String status;
-	private String abnormalStatus;
-    private String patientFirstName;
-    private String patientHealthNumber;
-    private boolean patientSearch;
-    private boolean providerSearch;
-    private String documentDateSql = "";
-    private String documentAbnormalSql = "";
-    private String documentJoinSql = "";
-    private String labDateSql = "";
-    private String labAbnormalSql = "";
-    private String hrmDateSql = "";
-    private String hrmProviderSql = "";
-	private String hrmSignedOff = "";
-
-    private final List<String> labDateParams = new ArrayList<>();
-    private final List<String> documentDateParams = new ArrayList<>();
-    private final java.util.Map<String, Object> hrmParams = new java.util.LinkedHashMap<>();
 
     /**
-     * Prepares inbox count filters without executing the count queries.
-     *
-     * @param patientLastName optional patient surname search
-     * @param patientFirstName optional patient given-name search
-     * @param patientHealthNumber optional patient health-number search
-     * @param patientSearch whether patient search restrictions apply
-     * @param providerSearch whether to restrict results to the selected provider
-     * @param searchProviderNo provider identifier; "0" selects unassigned HRM reports
-     * @param status HRM: empty selects all, null/N unsigned, A/F signed off;
-     *               document and lab status semantics are retained
-     * @param abnormalStatus optional normal/abnormal result restriction
-     * @param startDate optional inclusive start date
-     * @param endDate optional inclusive end date
+     * Creates one inbox request's filters and patient-count accumulator.
+     * @param patientLastName String optional surname fragment
+     * @param patientFirstName String optional given-name fragment
+     * @param patientHealthNumber String optional HIN fragment
+     * @param patientSearch boolean whether to filter patients
+     * @param providerSearch boolean whether to filter provider
+     * @param searchProviderNo String provider identifier
+     * @param status String optional routing status
+     * @param abnormalStatus String optional normal/abnormal restriction
+     * @param startDate String optional inclusive start date
+     * @param endDate String optional inclusive end date
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
-                        boolean providerSearch, String searchProviderNo, String status, String abnormalStatus,
-                        String startDate, String endDate) {
-
-        this.patientLastName = patientLastName;
-        this.searchProviderNo = searchProviderNo;
-        this.status = status;
-        this.patientFirstName = patientFirstName;
-        this.patientHealthNumber = patientHealthNumber;
+    public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber,
+                        boolean patientSearch, boolean providerSearch, String searchProviderNo,
+                        String status, String abnormalStatus, String startDate, String endDate) {
         this.patientSearch = patientSearch;
-        this.providerSearch = providerSearch;
-		this.abnormalStatus = abnormalStatus;
-
-        SystemPreferencesDao systemPreferencesDao = SpringUtils.getBean(SystemPreferencesDao.class);
-        String dateSearchType = "serviceObservation";
-
-        SystemPreferences systemPreferences = systemPreferencesDao.findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
-        if (systemPreferences != null) {
-            if (systemPreferences.getValue() != null && !systemPreferences.getValue().isEmpty()) {
-                dateSearchType = systemPreferences.getValue();
-            }
-        }
-
-        if (startDate != null && !startDate.equals("")) {
-            if (dateSearchType.equals("receivedCreated")) {
-                documentDateSql += "AND doc.contentdatetime >= ? ";
-                documentDateParams.add(startDate + " 00:00:00");
-                labDateSql += "AND message.created >= ? ";
-                labDateParams.add(startDate + " 00:00:00");
-            } else {
-                documentDateSql += "AND doc.observationdate >= ? ";
-                documentDateParams.add(startDate + " 00:00:00");
-                labDateSql += "AND info.obr_date >= ? ";
-                labDateParams.add(startDate + " 00:00:00");
-            }
-
-            hrmDateSql += "AND h.timeReceived >= :hrmStartDate ";
-            hrmParams.put("hrmStartDate", startDate + " 00:00:00");
-        }
-
-        if (endDate != null && !endDate.equals("")) {
-            if (dateSearchType.equals("receivedCreated")) {
-                documentDateSql += "AND doc.contentdatetime <= ? ";
-                documentDateParams.add(endDate + " 23:59:59");
-                labDateSql += "AND message.created <= ? ";
-                labDateParams.add(endDate + " 23:59:59");
-            } else {
-                documentDateSql += "AND doc.observationdate <= ? ";
-                documentDateParams.add(endDate + " 23:59:59");
-                labDateSql += "AND info.obr_date <= ? ";
-                labDateParams.add(endDate + " 23:59:59");
-            }
-
-            hrmDateSql += "AND h.timeReceived <= :hrmEndDate ";
-            hrmParams.put("hrmEndDate", endDate + " 23:59:59");
-        }
-
-        if (abnormalStatus != null && !abnormalStatus.equals("all")) {
-            if (abnormalStatus.equals("abnormalOnly")) {
-                documentAbnormalSql = " AND doc.abnormal = TRUE ";
-                labAbnormalSql = " AND info.result_status = 'A' ";
-            } else if (abnormalStatus.equals("normalOnly")) {
-                documentAbnormalSql = " AND (doc.abnormal = FALSE OR doc.abnormal IS NULL) ";
-                labAbnormalSql = " AND (info.result_status IS NULL OR info.result_status != 'A') ";
-            }
-        }
-
-        if (!documentDateSql.equals("") || !documentAbnormalSql.equals("")) {
-            documentJoinSql = " LEFT JOIN document doc ON cd.document_no = doc.document_no";
-        }
-
-        if (providerSearch) {
-            if (searchProviderNo.equals("0")) {
-                hrmProviderSql += " AND hp.providerNo ='-1'";
-            } else {
-                hrmProviderSql += " AND hp.providerNo = :hrmProviderNo ";
-                hrmParams.put("hrmProviderNo", searchProviderNo);
-            }
-        }
-
-        // Match HRMResultsData: only an empty status selects all HRM rows;
-        // null defaults to unsigned, and viewing is independent of sign-off.
-        if (status != null && status.isEmpty()) {
-            hrmSignedOff = "";
-        } else {
-            hrmSignedOff = " AND hp.signedOff = :hrmSignedOff ";
-            hrmParams.put("hrmSignedOff", "A".equalsIgnoreCase(status) || "F".equalsIgnoreCase(status) ? 1 : 0);
-        }
-
-        totalDocs = 0;
-        totalLabs = 0;
-        unmatchedLabs = 0;
-        unmatchedDocs = 0;
-        totalNumDocs = 0;
-        abnormalCount = 0;
-        normalCount = 0;
-
-        patients = new HashMap<Integer, PatientInfo>();
-
+        this.abnormalStatus = abnormalStatus;
+        this.filter = new InboxCategoryDao.Filter(patientLastName, patientFirstName, patientHealthNumber,
+                patientSearch, providerSearch, searchProviderNo, status, abnormalStatus, startDate, endDate);
+        patients = new HashMap<>();
     }
 
-    private boolean matchesAnyStatus() {
-        return status == null || status.isEmpty();
+    private int count(Operation operation, String demographicNo) throws SQLException {
+        InboxCategoryDao.Counts result;
+        try {
+            result = dao.count(filter, operation, demographicNo);
+        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException
+                 | org.springframework.transaction.TransactionException failure) {
+            // Inbox controllers retain their checked-SQL failure path after the DAO migration.
+            throw new SQLException("Could not read inbox category counts", failure);
+        }
+        for (InboxCategoryDao.PatientCount row : result.patients()) {
+            if (operation == Operation.DOCUMENT_PATIENT) {
+                PatientInfo patient = new PatientInfo(row.id(), row.firstName(), row.lastName());
+                patient.setDocCount(row.documents());
+                patients.put(row.id(), patient);
+            } else {
+                PatientInfo patient = patients.computeIfAbsent(row.id(),
+                        id -> new PatientInfo(id, row.firstName(), row.lastName()));
+                if (operation == Operation.LAB_PATIENT) patient.setLabCount(row.labs());
+                if (operation == Operation.HRM_PATIENT) {
+                    patient.setDocCount(patient.getDocCount() + row.documents());
+                    patient.setHrmCount(row.hrm());
+                }
+            }
+        }
+        return result.total();
     }
 
-    private boolean bindsStatusParameter() {
-        return !matchesAnyStatus();
-    }
+    /** @return String current date-search preference */
+    public String getDateSearchType() { return dao.getDateSearchType(); }
+    /**
+     * Counts unmatched labs.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
+    public int getLabCountForUnmatched() throws SQLException { return count(Operation.LAB_UNMATCHED, null); }
+    /**
+     * Counts labs matching the requested abnormal flag.
+     * @param abnormal boolean true for abnormal labs, false for normal labs
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
+    public int getAbnormalCount(boolean abnormal) throws SQLException { return count(abnormal ? Operation.ABNORMAL : Operation.NORMAL, null); }
+    /**
+     * Counts unmatched documents.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
+    public int getDocumentCountForUnmatched() throws SQLException { return count(Operation.DOCUMENT_UNMATCHED, null); }
+    /**
+     * Counts patient labs and accumulates lab summaries.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
+    public int getLabCountForPatientSearch() throws SQLException { return count(Operation.LAB_PATIENT, null); }
+    /**
+     * Counts labs for the specified patient.
+     * @param demographicNo String patient identifier
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
+    public int getLabCountForDemographic(String demographicNo) throws SQLException { return count(Operation.LAB_DEMOGRAPHIC, demographicNo); }
+    /**
+     * Counts patient documents and replaces each returned patient entry before lab/HRM accumulation.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
+    public int getDocumentCountForPatientSearch() throws SQLException { return count(Operation.DOCUMENT_PATIENT, null); }
+    /**
+     * Counts patient HRM reports and accumulates document and HRM summaries.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
+    public int getHRMDocumentCountForPatient() throws SQLException { return count(Operation.HRM_PATIENT, null); }
+    /**
+     * Counts unmatched HRM reports.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
+    public int getHRMDocumentCountForUnmatched() throws SQLException { return count(Operation.HRM_UNMATCHED, null); }
 
     public void populateCountsAndPatients() throws SQLException {
 
@@ -313,369 +250,6 @@ public class CategoryData {
 
         // Cheaper to subtract abnormal from total to find the number of normal docs.
         normalCount = totalNumDocs - abnormalCount;
-    }
-
-    public String getDateSearchType() {
-        SystemPreferences systemPreferences = systemPreferencesDao.findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
-        if (systemPreferences != null) {
-            if (systemPreferences.getValue() != null && !systemPreferences.getValue().isEmpty()) {
-                return systemPreferences.getValue();
-            }
-        }
-
-        return "serviceObservation";
-    }
-
-    public int getLabCountForUnmatched()
-            throws SQLException {
-        String dateSearchType = getDateSearchType();
-        String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT accessionNum) as count "
-                + " FROM providerLabRouting plr "
-                + " LEFT JOIN patientLabRouting plr2 ON plr.lab_no = plr2.lab_no AND plr2.lab_type = 'HL7'"
-                + " RIGHT JOIN hl7TextInfo info ON plr.lab_no = info.lab_no"
-                + (dateSearchType.equals("receivedCreated") ? " RIGHT JOIN hl7TextMessage message ON plr.lab_no = message.lab_id" : "")
-                + " WHERE plr.lab_type = 'HL7' "
-                + (providerSearch ? " AND plr.provider_no = ? " : "")
-                + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                + labAbnormalSql
-                + labDateSql
-                + " AND (plr2.demographic_no IS NULL"
-                + " OR plr2.demographic_no = '0')";
-
-
-        List<Object> params = new ArrayList<>();
-        if (providerSearch) params.add(searchProviderNo);
-        if (bindsStatusParameter()) params.add(status);
-        params.addAll(labDateParams);
-
-        return queryTrustedCount(sql, params);
-    }
-
-    public int getAbnormalCount(boolean isAbnormal) throws SQLException {
-        String sql;
-        List<Object> params = new ArrayList<>();
-        if (patientSearch) {
-            sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                    + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
-                    + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
-                    + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                    + hinFilter()
-                    + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                    + (providerSearch ? "AND plr.provider_no = ? " : "")
-                    + " AND plr.lab_type = 'HL7' "
-                    + " AND cd.lab_type = 'HL7' "
-                    + " AND cd.lab_no = plr.lab_no "
-                    + " AND cd.demographic_no = d.demographic_no "
-                    + " AND info.lab_no = plr.lab_no "
-                    + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-            addPatientSearchParams(params);
-            if (bindsStatusParameter()) params.add(status);
-            if (providerSearch) params.add(searchProviderNo);
-            return queryTrustedCount(sql, params);
-        } else if (providerSearch || bindsStatusParameter()) {
-            sql = "SELECT HIGH_PRIORITY COUNT(1) as count "
-                    + " FROM providerLabRouting plr, hl7TextInfo info "
-                    + " WHERE plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                    + (providerSearch ? " AND plr.provider_no = ? " : " ")
-                    + " AND plr.lab_type = 'HL7'  "
-                    + " AND info.lab_no = plr.lab_no"
-                    + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-            if (bindsStatusParameter()) params.add(status);
-            if (providerSearch) params.add(searchProviderNo);
-            return queryTrustedCount(sql, params);
-        } else {
-            sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                    + " FROM hl7TextInfo info "
-                    + " WHERE result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-            return queryTrustedCount(sql, params);
-        }
-    }
-
-    public int getDocumentCountForUnmatched()
-            throws SQLException {
-        String sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                + " FROM ctl_document cd "
-                + "LEFT JOIN providerLabRouting plr ON plr.lab_no = cd.document_no"
-                + documentJoinSql
-                + " WHERE plr.lab_type = 'DOC' "
-                + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                + (providerSearch ? " AND plr.provider_no = ? " : "")
-                + " AND cd.module_id = -1 "
-                + documentAbnormalSql
-                + documentDateSql;
-        List<Object> params = new ArrayList<>();
-        if (bindsStatusParameter()) params.add(status);
-        if (providerSearch) params.add(searchProviderNo);
-        params.addAll(documentDateParams);
-
-        return queryTrustedCount(sql, params);
-    }
-
-    public int getLabCountForPatientSearch() throws SQLException {
-        PatientInfo info;
-        String dateSearchType = getDateSearchType();
-        String sql = " SELECT HIGH_PRIORITY d.demographic_no, d.last_name, d.first_name, COUNT(*) as count "
-                + " FROM patientLabRouting cd"
-                + " LEFT JOIN demographic d ON cd.demographic_no = d.demographic_no"
-                + " LEFT JOIN providerLabRouting plr ON cd.lab_no = plr.lab_no"
-                + " LEFT JOIN hl7TextInfo info ON cd.lab_no = info.lab_no"
-                + (dateSearchType.equals("receivedCreated") ? " LEFT JOIN hl7TextMessage message ON cd.lab_no = message.lab_id" : "")
-                + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : "  like ? ")
-                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                + hinFilter()
-                + " AND plr.lab_type = 'HL7' "
-                + " AND cd.lab_type = 'HL7' "
-                + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                + (dateSearchType.equals("receivedCreated") ? " AND message.lab_id" + SQL_IS_NOT_NULL : " AND info.lab_no" + SQL_IS_NOT_NULL)
-                + (providerSearch ? " AND plr.provider_no = ? " : "")
-                + labAbnormalSql
-                + labDateSql
-                // Qualified: both patientLabRouting (cd) and demographic (d) carry demographic_no.
-                // MariaDB resolves the bare name to the select-list d.demographic_no, but H2 and
-                // stricter SQL engines reject it as ambiguous; d. states the intended column.
-                + " GROUP BY d.demographic_no, info.accessionNum ";
-
-        List<Object> params = new ArrayList<>();
-        addPatientSearchParams(params);
-        if (bindsStatusParameter()) params.add(status);
-        if (providerSearch) params.add(searchProviderNo);
-        params.addAll(labDateParams);
-
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                LegacyJdbcQuery.trustedSelectSql(sql), params.toArray())) {
-            int totalCount = 0;
-            while (rs.next()) {
-                int id = rs.getInt("demographic_no");
-                int count = rs.getInt(COUNT_COLUMN);
-                // Updating patient info if it already exists.
-                if (patients.containsKey(id)) {
-                    info = patients.get(id);
-                    info.setLabCount(count);
-                }
-                // Otherwise adding a new patient record.
-                else {
-                    info = new PatientInfo(id, rs.getString("first_name"), rs.getString("last_name"));
-                    info.setLabCount(count);
-                    patients.put(info.getId(), info);
-                }
-                totalCount += count;
-            }
-            return totalCount;
-        }
-    }
-
-    public int getLabCountForDemographic(String demographicNo) throws SQLException {
-        if (demographicNo == null || demographicNo.trim().isEmpty()) {
-            throw new IllegalArgumentException("demographicNo cannot be null or empty");
-        }
-    
-        // Build SQL with placeholders
-        StringBuilder sql = new StringBuilder();
-        sql.append(" SELECT HIGH_PRIORITY d.demographic_no, last_name, first_name, COUNT(1) as count ");
-        sql.append(" FROM patientLabRouting cd, demographic d, providerLabRouting plr ");
-        sql.append(" WHERE d.demographic_no = ? ");
-        sql.append(" AND cd.demographic_no = d.demographic_no ");
-        sql.append(" AND cd.lab_no = plr.lab_no ");
-        sql.append(" AND plr.lab_type = 'HL7' ");
-        sql.append(" AND cd.lab_type = 'HL7' ");
-        
-        if (matchesAnyStatus()) {
-            sql.append(" AND plr.status").append(SQL_IS_NOT_NULL);
-        } else {
-            sql.append(" AND plr.status").append(SQL_EQUALS_PARAM);
-        }
-        
-        if (providerSearch) {
-            sql.append(" AND plr.provider_no = ? ");
-        }
-        
-        // Qualified for the same reason as getLabCountForPatientSearch: cd and d both have demographic_no.
-        sql.append(" GROUP BY d.demographic_no ");
-        
-        List<Object> params = new ArrayList<>();
-        params.add(demographicNo);
-        if (bindsStatusParameter()) {
-            params.add(status);
-        }
-        if (providerSearch) {
-            params.add(searchProviderNo);
-        }
-
-        return queryTrustedCount(sql.toString(), params);
-    }
-
-    /*
-     * This will return the total documents found for this patients.
-     * it will also add to the patients map (demographicNo, PatientInfo) with a document count for the patient.
-     *
-     */
-    public int getDocumentCountForPatientSearch() throws SQLException {
-        PatientInfo info;
-
-        String sql = " SELECT HIGH_PRIORITY demographic_no, last_name, first_name, COUNT( distinct cd.document_no) as count "
-                + " FROM ctl_document cd "
-                + "LEFT JOIN demographic d  ON cd.module_id = d.demographic_no "
-                + "LEFT JOIN providerLabRouting plr ON cd.document_no = plr.lab_no "
-                + documentJoinSql
-                + " WHERE   d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
-                + hinFilter()
-                + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                + " AND plr.lab_type = 'DOC' "
-                + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                + (providerSearch ? "AND plr.provider_no = ? " : "")
-                + documentAbnormalSql
-                + documentDateSql
-                + " GROUP BY demographic_no ";
-        List<Object> params = new ArrayList<>();
-        if (!StringUtils.isEmpty(patientLastName)) params.add("%" + patientLastName + "%");
-        if (!StringUtils.isEmpty(patientHealthNumber)) params.add("%" + patientHealthNumber + "%");
-        if (!StringUtils.isEmpty(patientFirstName)) params.add("%" + patientFirstName + "%");
-        if (bindsStatusParameter()) params.add(status);
-        if (providerSearch) params.add(searchProviderNo);
-        params.addAll(documentDateParams);
-
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                LegacyJdbcQuery.trustedSelectSql(sql), params.toArray())) {
-            int count = 0;
-            while (rs.next()) {
-                info = new PatientInfo(rs.getInt("demographic_no"), rs.getString("first_name"), rs.getString("last_name"));
-                info.setDocCount(rs.getInt(COUNT_COLUMN));
-                patients.put(info.getId(), info);
-                count += info.getDocCount();
-            }
-
-            return count;
-        }
-    }
-
-    private int queryTrustedCount(String sql, List<Object> params) throws SQLException {
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                LegacyJdbcQuery.trustedSelectSql(sql), params.toArray())) {
-            return readCount(rs);
-        }
-    }
-
-    private int readCount(ResultSet rs) throws SQLException {
-        return rs.next() ? rs.getInt(COUNT_COLUMN) : 0;
-    }
-
-    /**
-     * The HIN condition of a patient search. A blank HIN field adds none: {@code d.hin} is nullable
-     * (uninsured, newborn, out-of-province or imported patients), and {@code d.hin IS NOT NULL}
-     * would leave those patients out of the Inbox counts and patient list while the result rows,
-     * which treat a NULL HIN as empty, still show their labs and documents.
-     */
-    private String hinFilter() {
-        return hinFilter("like ?");
-    }
-
-    /** As {@link #hinFilter()}, with the given condition (a named parameter for JPA queries). */
-    private String hinFilter(String condition) {
-        return StringUtils.isEmpty(patientHealthNumber) ? "" : " AND d.hin " + condition + " ";
-    }
-
-    private void addPatientSearchParams(List<Object> params) {
-        if (!StringUtils.isEmpty(patientLastName)) params.add("%" + patientLastName + "%");
-        if (!StringUtils.isEmpty(patientFirstName)) params.add("%" + patientFirstName + "%");
-        if (!StringUtils.isEmpty(patientHealthNumber)) params.add("%" + patientHealthNumber + "%");
-    }
-
-    /**
-     * Counts matching HRM documents and updates the patient summaries.
-     *
-     * @return total matching documents across the grouped patient rows
-     * @throws SQLException if a database count operation fails
-     */
-    public int getHRMDocumentCountForPatient() throws SQLException {
-        int count = 0;
-        PatientInfo info;
-
-		StringBuilder sql = new StringBuilder();
-        sql.append("SELECT HIGH_PRIORITY d.demographic_no, d.first_name, d.last_name, COUNT(DISTINCT h.id) AS count ")
-           .append(" FROM HRMDocumentToDemographic hd ")
-           .append(" LEFT JOIN HRMDocumentToProvider hp ON hd.hrmDocumentId = hp.hrmDocumentId ")
-           .append(" LEFT JOIN HRMDocument h ON hd.hrmDocumentId = h.id ")
-           .append(" JOIN demographic d ON hd.demographicNo = d.demographic_no ")
-           .append(" WHERE 1=1 ")
-           .append(" AND d.last_name ").append(StringUtils.isNotEmpty(patientLastName) ? "LIKE :patientLastName " : SQL_IS_NOT_NULL_NO_PREFIX)
-           .append(hinFilter("LIKE :patientHealthNumber"))
-           .append(" AND d.first_name ").append(StringUtils.isNotEmpty(patientFirstName) ? "LIKE :patientFirstName " : SQL_IS_NOT_NULL_NO_PREFIX)
-           .append(hrmSignedOff).append(hrmDateSql).append(hrmProviderSql)
-           .append(" GROUP BY d.demographic_no ");
-
-        Query query = entityManager.createNativeQuery(sql.toString(), Tuple.class);
-
-        // Set parameters only if they are not empty
-        if (StringUtils.isNotEmpty(patientLastName)) {
-            query.setParameter("patientLastName", "%" + patientLastName + "%");
-        }
-        if (StringUtils.isNotEmpty(patientHealthNumber)) {
-            query.setParameter("patientHealthNumber", "%" + patientHealthNumber + "%");
-        }
-        if (StringUtils.isNotEmpty(patientFirstName)) {
-            query.setParameter("patientFirstName", "%" + patientFirstName + "%");
-        }
-        hrmParams.forEach(query::setParameter);
-
-        // Executing the query and processing the results
-		List<Tuple> results = query.getResultList();
-
-		for (Tuple result : results) {
-				int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
-			Integer id = result.get("demographic_no", Integer.class); // Extracting demographicNo as Integer
-
-			// Updating patient info if it already exists
-            if (patients.containsKey(id)) {
-                info = patients.get(id);
-                info.setDocCount(info.getDocCount() + hrmCount);
-				info.setHrmCount(hrmCount);
-			} else {
-				// Otherwise, adding a new patient record
-				info = new PatientInfo(id, result.get("first_name", String.class), result.get("last_name", String.class));
-                info.setDocCount(hrmCount);
-				info.setHrmCount(hrmCount);
-                patients.put(info.getId(), info);
-            }
-
-            count += hrmCount;
-        }
-
-        return count;
-    }
-
-    /**
-     * Counts HRM documents without a patient match using the same sign-off filter.
-     *
-     * @return number of matching unassigned documents
-     * @throws SQLException if a database count operation fails
-     */
-    public int getHRMDocumentCountForUnmatched() throws SQLException {
-        int count = 0;
-
-		StringBuilder sql = new StringBuilder();
-		sql.append("SELECT HIGH_PRIORITY COUNT(DISTINCT h.id) AS count ")
-			.append(" FROM HRMDocumentToProvider hp ")
-			.append(" LEFT JOIN HRMDocument h ON h.id = hp.hrmDocumentId ")
-			.append(" LEFT JOIN HRMDocumentToDemographic hd ON hd.hrmDocumentId = hp.hrmDocumentId ")
-			.append(" WHERE hd.hrmDocumentId IS NULL ")
-			.append(hrmSignedOff)
-			.append(hrmDateSql)
-			.append(hrmProviderSql);
-
-		// Create a native query using the entity manager
-		Query query = entityManager.createNativeQuery(sql.toString(), Tuple.class);
-		hrmParams.forEach(query::setParameter);
-
-		// Execute the query and retrieve the results
-		List<Tuple> results = query.getResultList();
-
-		// Process the results
-		for (Tuple result : results) {
-				int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
-			count += hrmCount; // Accumulate the total count
-        }
-
-        return count;
     }
 
     public Long getCategoryHash() {

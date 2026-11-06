@@ -48,6 +48,8 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
     private final String url = "jdbc:h2:mem:categorydata_" + UUID.randomUUID().toString().replace("-", "")
             + ";MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
     private Connection keepAlive;
+    private org.hibernate.SessionFactory sessionFactory;
+    private jakarta.persistence.EntityManager manager;
 
     @BeforeEach
     void setUpDatabase() throws SQLException {
@@ -79,9 +81,15 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
         insert("INSERT INTO providerLabRouting (provider_no, lab_no, status, lab_type) VALUES (?, ?, 'N', 'HL7')", PROVIDER, 22);
         insert("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (?, 'A', ?)", 21, "ACC-21");
         insert("INSERT INTO hl7TextInfo (lab_no, result_status, accessionNum) VALUES (?, 'A', ?)", 22, "ACC-22");
-        registerMock(DataSource.class, hintStrippingDataSource());
-        registerMock(SystemPreferencesDao.class, mock(SystemPreferencesDao.class));
-        registerMock(EntityManagerFactory.class, mock(EntityManagerFactory.class));
+        sessionFactory = new org.hibernate.cfg.Configuration()
+                .setProperty("hibernate.connection.url", url)
+                .setProperty("hibernate.connection.driver_class", "org.h2.Driver")
+                .setStatementInspector(sql -> sql.replace("SELECT HIGH_PRIORITY ", "SELECT "))
+                .buildSessionFactory();
+        manager = sessionFactory.createEntityManager();
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
     }
 
     private void insert(String sql, Object... values) throws SQLException {
@@ -95,7 +103,8 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
 
     @AfterEach
     void tearDownDatabase() throws SQLException {
-        LegacyJdbcQuery.releaseThreadResources();
+        manager.close();
+        sessionFactory.close();
         try (Statement drop = keepAlive.createStatement()) {
             drop.execute("SHUTDOWN");
         }
@@ -140,24 +149,4 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
         return new CategoryData("Synthetic", "Nohin", hin, true, true, PROVIDER, "N", "all", null, null);
     }
 
-    /** Opens real H2 connections whose statements have only the MySQL priority hint removed. */
-    private DataSource hintStrippingDataSource() {
-        DataSource dataSource = mock(DataSource.class, invocation -> {
-            if (!"getConnection".equals(invocation.getMethod().getName())) return null;
-            Connection real = DriverManager.getConnection(url);
-            return Proxy.newProxyInstance(Connection.class.getClassLoader(), new Class<?>[] {Connection.class},
-                    (proxy, method, args) -> {
-                        if ("prepareStatement".equals(method.getName()) && args != null && args[0] instanceof String sql) {
-                            // H2 cannot parse the MySQL-only priority hint; it has no effect on results.
-                            args[0] = sql.replace("SELECT HIGH_PRIORITY ", "SELECT ");
-                        }
-                        try {
-                            return method.invoke(real, args);
-                        } catch (InvocationTargetException e) {
-                            throw e.getCause();
-                        }
-                    });
-        });
-        return dataSource;
-    }
 }

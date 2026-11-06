@@ -39,6 +39,9 @@ class CategoryDataHrmUnitTest extends CarlosUnitTestBase {
         when(count.get("demographic_no", Integer.class)).thenReturn(7);
         when(count.get("first_name", String.class)).thenReturn("Synthetic");
         when(count.get("last_name", String.class)).thenReturn("Patient");
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", manager);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
         CategoryData data = new CategoryData("", "", "", false, true, "999998", status, "all", null, null);
         assertThat(data.getHRMDocumentCountForPatient()).isEqualTo(3);
         assertThat(data.getHRMDocumentCountForUnmatched()).isEqualTo(3);

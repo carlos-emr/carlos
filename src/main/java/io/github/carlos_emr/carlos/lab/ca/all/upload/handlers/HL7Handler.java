@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -35,16 +36,13 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.all.upload.handlers;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
@@ -93,42 +91,18 @@ public class HL7Handler implements MessageHandler {
 
     // recheck the abnormal status of the last 'n' labs
     private void updateLabStatus(int n) throws SQLException {
-        int limit = Math.max(n, 0);
-        String sql = "SELECT lab_no, result_status FROM hl7TextInfo ORDER BY lab_no DESC LIMIT ?";
-        String updateSql = "UPDATE LOW_PRIORITY hl7TextInfo SET result_status=? WHERE lab_no=?";
-        try (Connection c = LegacyJdbcQuery.getConnection();
-             PreparedStatement ps = c.prepareStatement(sql);
-             PreparedStatement update = c.prepareStatement(updateSql)) {
-            ps.setInt(1, limit);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next() && limit > 0) {
-
-                    // only recheck the result status if it is not already set to
-                    // abnormal
-                    if (!Misc.getString(rs, "result_status").equals("A")) {
-
-                        io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler h = Factory.getHandler(Misc.getString(rs, "lab_no"));
-                        int i = 0;
-                        int j = 0;
-                        String resultStatus = "";
-                        while (resultStatus.isEmpty() && i < h.getOBRCount()) {
-                            j = 0;
-                            while (resultStatus.isEmpty() && j < h.getOBXCount(i)) {
-                                logger.info("obr({}) obx({}) abnormal ? : {}", i, j, h.getOBXAbnormalFlag(i, j));
-                                if (h.isOBXAbnormal(i, j)) {
-                                    resultStatus = "A";
-                                    update.setString(1, resultStatus);
-                                    update.setString(2, Misc.getString(rs, "lab_no"));
-                                    update.executeUpdate();
-                                }
-                                j++;
-                            }
-                            i++;
-                        }
-                    }
-                    limit--;
+        Hl7TextInfoDao dao = SpringUtils.getBean(Hl7TextInfoDao.class);
+        for (Hl7TextInfoDao.LabStatus lab : dao.findRecentLabStatuses(Math.max(n, 0))) {
+            if ("A".equals(lab.resultStatus())) continue;
+            io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler handler =
+                    Factory.getHandler(Integer.toString(lab.labNumber()));
+            boolean abnormal = false;
+            for (int obr = 0; !abnormal && obr < handler.getOBRCount(); obr++) {
+                for (int obx = 0; !abnormal && obx < handler.getOBXCount(obr); obx++) {
+                    abnormal = handler.isOBXAbnormal(obr, obx);
                 }
             }
+            if (abnormal) dao.updateResultStatusLowPriority(lab.labNumber(), "A");
         }
     }
 

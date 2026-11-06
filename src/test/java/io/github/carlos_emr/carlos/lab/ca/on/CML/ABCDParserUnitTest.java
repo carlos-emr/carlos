@@ -25,8 +25,6 @@ import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.BufferedReader;
 import java.io.StringReader;
-import java.sql.Connection;
-import java.sql.SQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -66,18 +64,21 @@ class ABCDParserUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPropagateProviderLookupFailure_whenDatabaseUnavailable() throws Exception {
-        Connection connection = mock(Connection.class);
-        when(connection.prepareStatement(anyString())).thenThrow(new SQLException("synthetic failure"));
-        assertThatThrownBy(() -> new ABCDParser().save(connection)).isInstanceOf(SQLException.class);
+        LabRoutingLookupDao lookup = mock(LabRoutingLookupDao.class);
+        registerMock(LabRoutingLookupDao.class, lookup);
+        when(lookup.findCmlProviderIdentifiers()).thenThrow(new jakarta.persistence.PersistenceException("synthetic failure"));
+        assertThatThrownBy(() -> new ABCDParser().save()).isInstanceOf(jakarta.persistence.PersistenceException.class);
         verifyNoInteractions(routing);
     }
 
     @Test
     void shouldAvoidUnmatchedPatientRouting_whenPatientLookupFails() throws Exception {
-        Connection connection = mock(Connection.class);
-        when(connection.prepareStatement(anyString())).thenThrow(new SQLException("synthetic failure"));
-        assertThatThrownBy(() -> new ABCDParser().patientRouteReport("1", "Synthetic", "Test", "F", "20000101", "", connection))
-                .isInstanceOf(IllegalStateException.class).hasCauseInstanceOf(SQLException.class);
+        LabRoutingLookupDao lookup = mock(LabRoutingLookupDao.class);
+        registerMock(LabRoutingLookupDao.class, lookup);
+        when(lookup.findCmlPatients(anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyString(), anyBoolean()))
+                .thenThrow(new jakarta.persistence.PersistenceException("synthetic failure"));
+        assertThatThrownBy(() -> new ABCDParser().patientRouteReport("1", "Synthetic", "Test", "F", "20000101", ""))
+                .isInstanceOf(jakarta.persistence.PersistenceException.class);
         verifyNoInteractions(routing);
     }
 }

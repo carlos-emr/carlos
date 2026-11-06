@@ -65,6 +65,7 @@ const os = require('node:os');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const {createRoutingLockFixture} = require('./lib/lab-routing-fixture');
 const { serverLogFromEnvironment, verifyStorageFailureLog } = require('./lib/server-log');
 
 const { createFaultReceipt, ownedTriggerStatements, observeOwnedTrigger, dropOwnedTrigger, normalize, sha } = require('./lib/lab-rollback-fault-proof');
@@ -226,6 +227,12 @@ function removeArchivedUploads(stamp) {
 
 async function workflow(session, options = {}) {
   const { sql, patient, marker, cleanup, config } = session;
+  const exclusiveLocks = process.env.EXCLUSIVE === '1' && process.env.CARLOS_DISPOSABLE_VM === 'true';
+  const initialLocks = exclusiveLocks
+    ? sql.rows('SELECT lab_no FROM providerLabRoutingLock ORDER BY lab_no').map(row => {
+      h.assert(row.length === 1 && /^[1-9]\d*$/.test(row[0]), 'Invalid initial routing lock snapshot');
+      return row[0];
+    }) : undefined;
   const stamp = crypto.randomBytes(4).toString('hex').toUpperCase();
   const accession = `LU${stamp}`;
   const flatAccession = `FL${stamp}`;
@@ -259,6 +266,10 @@ async function workflow(session, options = {}) {
   h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '0',
     'A fileUploadCheck row already carries this run\'s stamp');
 
+  // Keep ownership after deleting measurementsExt: a later DELETE may fail or
+  // lose its acknowledgement, and the lab_no discovery links will already be gone.
+  const ownedMeasurements = new Set();
+  let archivedUploadsRemoved = false;
   cleanup(async () => {
     if (triggerMayExist) dropOwnedTrigger(sql, failureTrigger, accession);
     fs.rmSync(workDir, { recursive: true, force: true });
@@ -266,6 +277,12 @@ async function workflow(session, options = {}) {
       .map(([id]) => id).filter((id) => /^\d+$/.test(id));
     if (flatLabs.length) {
       const ids = flatLabs.join(',');
+      // Keep the accession-bearing rows until lock cleanup succeeds, so a failed
+      // teardown can rediscover the same owned IDs on its next attempt.
+      if (exclusiveLocks) {
+        createRoutingLockFixture(query => sql.execute(query), query => sql.rows(query), flatLabs,
+          {exclusive: true, initialLocks}).cleanup();
+      }
       sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
         DELETE FROM patientLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
         DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id IN (${ids});
@@ -276,24 +293,41 @@ async function workflow(session, options = {}) {
       UNION SELECT lab_id FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)}`)
       .map(([labNo]) => labNo).filter((labNo) => /^\d+$/.test(labNo));
     if (labs.length) {
-      const list = labs.join(',');
       const measurements = sql.rows(`SELECT measurement_id FROM measurementsExt
         WHERE keyval='lab_no' AND val IN (${labs.map((labNo) => h.sqlString(labNo)).join(',')})`)
         .map(([id]) => id).filter((id) => /^\d+$/.test(id));
-      if (measurements.length) {
-        const ids = measurements.join(',');
-        sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
-          DELETE FROM measurements WHERE id IN (${ids})`);
+      measurements.forEach(id => ownedMeasurements.add(id));
+    }
+    if (ownedMeasurements.size) {
+      const ids = [...ownedMeasurements].join(',');
+      sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
+        DELETE FROM measurements WHERE id IN (${ids})`);
+      h.assert(sql.value(`SELECT
+        (SELECT COUNT(*) FROM measurementsExt WHERE measurement_id IN (${ids}))
+        + (SELECT COUNT(*) FROM measurements WHERE id IN (${ids}))`) === '0',
+      'The synthetic lab measurements were not all removed');
+    }
+    if (labs.length) {
+      const list = labs.join(',');
+      // As with CML, lock failures must leave the source IDs available for retry.
+      if (exclusiveLocks) {
+        createRoutingLockFixture(query => sql.execute(query), query => sql.rows(query), labs,
+          {exclusive: true, initialLocks}).cleanup();
+      } else {
+        sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list})`);
       }
-      // The upload path also writes a providerLabRoutingLock row for each lab it files; nothing else removes it.
-      sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list});
-        DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
         DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
         DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
     }
     sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUpload}`);
-    removeArchivedUploads(stamp);
+    if (!archivedUploadsRemoved) {
+      removeArchivedUploads(stamp);
+      // A later database verification can fail after file removal succeeded.
+      // Keep the initial missing-archive guard, but do not demand deleted files on retry.
+      archivedUploadsRemoved = Boolean(process.env.LAB_UPLOAD_DOCUMENT_STORE);
+    }
     h.assert(sql.value(`SELECT
         (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
       + (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})
