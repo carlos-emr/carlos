@@ -28,6 +28,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
@@ -42,6 +43,18 @@ public class WorkFlowDaoImpl extends AbstractDaoImpl<WorkFlow> implements WorkFl
 
     public WorkFlowDaoImpl() {
         super(WorkFlow.class);
+    }
+
+    @Override
+    public Integer findLatestRhFormId(int demographicNo, int workflowId) {
+        Query query = entityManager.createNativeQuery(
+                "SELECT ID FROM formRhImmuneGlobulin WHERE demographic_no = ?1 AND workflowId = ?2"
+                + " ORDER BY formEdited DESC, ID DESC");
+        query.setParameter(1, demographicNo);
+        query.setParameter(2, workflowId);
+        query.setMaxResults(1);
+        List<?> rows = query.getResultList();
+        return rows.isEmpty() ? null : ((Number) rows.get(0)).intValue();
     }
 
     public List<WorkFlow> findByWorkflowType(String type) {

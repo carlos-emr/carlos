@@ -307,6 +307,9 @@
                 for (let i = 0; i < 40; i++) {
                     const linkButton = document.createElement('a');
                     linkButton.href = '#';
+                    linkButton.addEventListener('click', function (event) {
+                        event.preventDefault();
+                    });
                     switch (Math.floor(i / 10)) {
                         case 0:
                             linkButton.innerText = (i % 10) + 1 + "d";

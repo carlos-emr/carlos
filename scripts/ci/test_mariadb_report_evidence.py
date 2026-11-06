@@ -9,6 +9,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+import defusedxml.ElementTree as ET
 from junit_evidence import display_literal, EvidenceError, read_surefire
 
 SPEC = importlib.util.spec_from_file_location("mariadb_reports", Path(__file__).with_name("verify-mariadb-dao-reports.py"))
@@ -92,6 +93,25 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                         self.assert_refused(self.invoke(), reason)
                     finally:
                         path.write_bytes(original)
+
+    def test_unmatched_upload_cases_alone_cannot_supply_required_coverage(self):
+        self.seed()
+        for mode in ("generated", "flyway"):
+            with self.subTest(mode=mode):
+                suffix = "" if mode == "generated" else "-" + mode
+                path = self.reports / ("TEST-example.LegacyLabUploadDaoIntegrationTest" + suffix + ".xml")
+                original = path.read_bytes()
+                root = ET.fromstring(original)
+                # The original four cases omit matched-HL7 commit and rollback.
+                for case in list(root)[4:]:
+                    root.remove(case)
+                root.set("tests", "4")
+                path.write_bytes(ET.tostring(root))
+                try:
+                    self.assert_refused(self.invoke(),
+                                        f"Required MariaDB {mode} coverage missing: LegacyLabUploadDaoIntegrationTest")
+                finally:
+                    path.write_bytes(original)
 
     def test_duplicates_and_suite_binding_are_refused(self):
         self.seed(duplicate=True)
