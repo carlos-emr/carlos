@@ -201,7 +201,10 @@ async function assertStatusEditor(root, statuses, surface) {
  * but its link is still clicked through its popupPage() handler.
  */
 async function checkAdminLinks(context, schedulePage, statuses) {
-  const statusLink = `a[onclick*="${STATUS_SETTING_PATH}"]`;
+  // admin.jsp names the editor in the link's href and opens it with popupPage(..., this.href)
+  // (#3982); older pages named it in the onclick. Match both, or the disabled-editing branch
+  // below would pass on a count that can never be anything but 0.
+  const statusLink = `a[href*="${STATUS_SETTING_PATH}"], a[onclick*="${STATUS_SETTING_PATH}"]`;
   const panelStatusLink = `a.xlink[rel*="${STATUS_SETTING_PATH}"]`;
 
   const legacy = await context.newPage();
