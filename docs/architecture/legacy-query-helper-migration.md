@@ -132,7 +132,7 @@ can reject that schema before any test runs.
 
 ```sh
 CARLOS_TEST_MARIADB_DAO=true \
-CARLOS_TEST_MARIADB_URL=jdbc:mysql://127.0.0.1:3306/ \
+CARLOS_TEST_MARIADB_URL=jdbc:mariadb://127.0.0.1:3306/ \
 CARLOS_TEST_MARIADB_SCHEMA=flyway \
 CARLOS_TEST_MARIADB_PROVINCE=bc \
 mvn test -Dtest=BillingDiagnosisServiceIntegrationTest
