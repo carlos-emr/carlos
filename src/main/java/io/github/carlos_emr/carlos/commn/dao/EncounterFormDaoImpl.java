@@ -83,6 +83,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     }
 
     @Override
+    // S2077: requireTable admits only registry-approved ASCII identifiers; patient/name are bound.
+    @SuppressWarnings("java:S2077")
     public String findLatestPatientFormId(String table, String demographicNo, String legacyFormName, boolean byEdited) {
         String trusted = requireTable(table);
         boolean xml = "form".equals(trusted);
@@ -95,6 +97,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     }
 
     @Override
+    // S2077: requireTable validates the only variable identifier; the patient value is bound.
+    @SuppressWarnings("java:S2077")
     public HistoryRow findNewestPatientHistory(String table, String demographicNo) {
         String trusted = requireTable(table);
         @SuppressWarnings("unchecked")
@@ -126,6 +130,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     }
 
     @Override
+    // S2077: requireTable validates the only variable identifier; patient/timestamp are bound.
+    @SuppressWarnings("java:S2077")
     public boolean importedRowExists(String table, String demographicNo, String edited) {
         String trusted = requireTable(table);
         return !entityManager.createNativeQuery("SELECT ID FROM " + trusted
@@ -180,6 +186,7 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     // the patient and record identifiers remain JDBC parameters.
     @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "Private form SELECT uses requireTable's registry-approved ASCII identifier and binds patient/record values")
+    @SuppressWarnings("java:S2077") // Same audited identifier and binding boundary as the FindSecBugs exception.
     private static java.sql.PreparedStatement preparePatientRecordSelect(java.sql.Connection connection,
             String trustedTable) throws java.sql.SQLException {
         return connection.prepareStatement("SELECT * FROM " + trustedTable + " WHERE ID=? AND demographic_no=?");
@@ -189,6 +196,7 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     // requireTable validates the sole variable identifier before this zero-row metadata read.
     @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "Private zero-row schema read uses only requireTable's registry-approved ASCII table identifier")
+    @SuppressWarnings("java:S2077") // Same audited identifier boundary as the FindSecBugs exception.
     private static java.sql.PreparedStatement prepareFormSchemaSelect(java.sql.Connection connection,
             String trustedTable) throws java.sql.SQLException {
         return connection.prepareStatement("SELECT * FROM " + trustedTable + " WHERE 1=0");
@@ -199,6 +207,7 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     // binds contains only generated question marks, and every imported value is bound.
     @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "Private insert uses a registry-approved ASCII table, quoted physical metadata columns and generated placeholders; values are bound separately")
+    @SuppressWarnings("java:S2077") // Same audited metadata identifiers and bound values as the FindSecBugs exception.
     private static java.sql.PreparedStatement prepareImportedInsert(java.sql.Connection connection,
             String trustedTable, String fields, String binds) throws java.sql.SQLException {
         return connection.prepareStatement("INSERT INTO " + trustedTable + " (" + fields + ") VALUES (" + binds + ")",

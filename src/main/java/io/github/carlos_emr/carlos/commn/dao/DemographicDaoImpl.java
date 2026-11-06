@@ -97,6 +97,9 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEventPublisherAware, DemographicDao {
 
     @Override
+    // S2077: field/predicate variants are fixed, sort must match the exact column/direction allowlist,
+    // and every search value is bound; pagination is bounded separately below.
+    @SuppressWarnings("java:S2077")
     public List<LabPatientChoice> findLabPatientChoices(String mode, String keyword, String sort, int offset, int limit) {
         if (offset < 0 || limit < 1 || limit > MAX_SEARCH_RESULT_SIZE) throw new IllegalArgumentException("Invalid patient search page");
         String order = "last_name";

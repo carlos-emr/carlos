@@ -89,6 +89,16 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
                 .extracting(EFormListingRow::name).containsExactly("FAKE active");
         assertThat(forms.findLibraryInGroup(null, group, "form_name")).hasSize(2);
         assertThat(patientForms.findLegacyPatientFormsInGroup(true, 5547101, group, "form_name")).hasSize(1);
+        String hostileGroup = "' OR 1=1 --";
+        assertThat(forms.findLibraryInGroup(null, hostileGroup, "form_name")).isEmpty();
+        assertThat(patientForms.findLegacyPatientFormsInGroup(null, 5547101, hostileGroup, "form_name")).isEmpty();
+        for (String invalidSort : List.of("form_name; DELETE FROM eform", "form_name --", "form_name DESC")) {
+            assertThatThrownBy(() -> forms.findLibraryInGroup(true, group, invalidSort))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> patientForms.findLegacyPatientFormsInGroup(true, 5547101, group, invalidSort))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(forms.findLibraryInGroup(true, group, "form_name")).hasSize(1);
         eFormGroupDao.addActiveFormIfMissing(group, active.getId());
         assertThat(eFormGroupDao.getByGroupName(group)).hasSize(3);
         assertThat(eFormGroupDao.containsActiveForm(group, deleted.getId())).isFalse();

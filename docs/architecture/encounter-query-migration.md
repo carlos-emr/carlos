@@ -47,10 +47,26 @@ It supports the existing opt-in physical MariaDB/Flyway harness:
 
 ```sh
 CARLOS_TEST_MARIADB_DAO=true \
-CARLOS_TEST_MARIADB_URL=jdbc:mysql://127.0.0.1:3306/ \
+CARLOS_TEST_MARIADB_URL=jdbc:mariadb://127.0.0.1:3306/ \
 CARLOS_TEST_MARIADB_SCHEMA=flyway CARLOS_TEST_MARIADB_PROVINCE=bc \
 mvn test -Dtest=FormXmlImportServiceIntegrationTest
 ```
+
+## Reviewed SQL structure
+
+The method-scoped `java:S2077` exceptions cover only these reviewed query builders:
+
+| Query boundary | Structural input and value binding |
+| --- | --- |
+| Encounter latest/history/import existence and the three private JDBC statement factories | `requireTable` checks an ASCII identifier and requires a form-registry entry, except for the two built-in tables. Record, patient and timestamp values are bound. Import fields come only from escaped physical column metadata; placeholders are generated and every value is bound. |
+| eForm library and patient group listings | `EFormListingRow.requireSort` accepts five exact, fixed order clauses. The optional status predicate is literal; group, patient and status values are bound. |
+| eForm group counts | The table and optional predicate are selected from fixed literals; the patient value is bound. |
+| Lab patient choices | Search field/predicate variants are fixed, the sort must match the exact column/direction allowlist, search values are bound, and pagination is bounded. |
+
+These exceptions do not exclude a class or disable a rule globally. The native
+form/import and eForm integration tests exercise these boundaries, including
+patient isolation, raw NULL/whitespace retention, metadata validation and archive
+rollback. Re-review a method if its structural input or binding contract changes.
 
 ## Jasper label compatibility assessment
 

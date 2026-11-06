@@ -47,6 +47,8 @@ public class EFormGroupDaoImpl extends AbstractDaoImpl<EFormGroup> implements EF
     }
 
     @Override
+    // S2077: both table names and predicate variants are fixed literals; the optional patient value is bound.
+    @SuppressWarnings("java:S2077")
     public List<GroupCount> findActiveGroupCounts(Integer demographicNo) {
         String table = demographicNo == null ? "eform" : "eform_data";
         String sql = "SELECT g.group_name, count(*)-1 FROM eform_groups g LEFT JOIN " + table

@@ -43,6 +43,8 @@ import org.springframework.stereotype.Repository;
 public class EFormDaoImpl extends AbstractDaoImpl<EForm> implements EFormDao {
 
     @Override
+    // S2077: requireSort accepts five fixed order clauses; group/status are bound and the optional predicate is literal.
+    @SuppressWarnings("java:S2077")
     public List<EFormListingRow> findLibraryInGroup(Boolean current, String group, String sort) {
         String order = EFormListingRow.requireSort(sort);
         Query query = entityManager.createNativeQuery("SELECT NULL, f.fid, f.form_name, f.subject, f.file_name,"
