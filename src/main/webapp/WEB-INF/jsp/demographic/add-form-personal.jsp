@@ -125,7 +125,7 @@
                     <input type="hidden" name="location" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("location")) %>' context="htmlAttribute"/>">
                     <%-- Only when the booking form posted one (AppointmentLocationList.Choice.posted). --%>
                     <% if (request.getParameter("locationCode") != null) { %>
-                    <input type="hidden" name="locationCode" value="<carlos:encode value='<%= request.getParameter("locationCode") %>' context="htmlAttribute"/>">
+                    <input type="hidden" name="locationCode" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("locationCode")) %>' context="htmlAttribute"/>">
                     <% } %>
                     <input type="hidden" name="resources" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("resources")) %>' context="htmlAttribute"/>">
                     <input type="hidden" name="type" value="<carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("type")) %>' context="htmlAttribute"/>">
