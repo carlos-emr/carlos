@@ -245,8 +245,7 @@ def main() -> None:
         jdbc=parse_properties_text(RESOURCE.protected_file(args.jdbc_properties).read_text(encoding='ISO-8859-1'))
         endpoint=urlsplit(jdbc['jdbcUrl'].removeprefix('jdbc:'))
         database=endpoint.path.removeprefix('/')
-        require(endpoint.scheme=='mysql' and re.fullmatch(r'[A-Za-z0-9_]+_test',database)
-                and not any((endpoint.username,endpoint.password,endpoint.query,endpoint.fragment)),
+        require(RESOURCE.is_synthetic_database_endpoint(endpoint),
                 'DISK_FAULT_EXPLICIT_TEST_DATABASE_REQUIRED')
         escape=lambda value:'"'+str(value).replace('\\','\\\\').replace('"','\\"').replace('\n','\\n').replace('\r','\\r')+'"'
         with os.fdopen(os.open(client,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600),'w') as output:

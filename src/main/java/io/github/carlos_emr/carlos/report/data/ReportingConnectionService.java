@@ -277,10 +277,12 @@ public class ReportingConnectionService {
         return connection;
     }
 
-    // The application DataSource loads db_driver when CARLOS starts, which registers that driver
-    // with DriverManager under this webapp's class loader, so the reporting connection uses the
-    // very same driver without loading classes by name here.
+    // MariaDB and legacy MySQL URLs use the same compatibility adapter as the application datasource.
+    // Other JDBC URLs use a driver registered with DriverManager under this webapp's class loader.
     private static Connection connectWithRegisteredDriver(String url, Properties credentials) throws SQLException {
+        if (io.github.carlos_emr.carlos.utility.MariaDbJdbcCompatibility.isMariaDbUrl(url)) {
+            return new io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver().connect(url, credentials);
+        }
         Driver driver;
         try {
             driver = DriverManager.getDriver(url);

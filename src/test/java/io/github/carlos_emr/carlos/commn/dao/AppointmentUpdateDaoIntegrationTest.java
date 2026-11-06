@@ -38,7 +38,10 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Uses the CI MariaDB DAO lane when configured, and H2 for the ordinary test lane. */
+/**
+ * Uses a database-free {@code jdbc:mariadb://host:port/} server URL from
+ * {@code CARLOS_TEST_MARIADB_URL}, or H2 when the variable is absent.
+ */
 @Tag("integration")
 @Tag("dao")
 @Tag("mariadb-native")
@@ -57,8 +60,13 @@ class AppointmentUpdateDaoIntegrationTest {
 
     @BeforeEach
     void setup() throws Exception {
+        String configuredServer = System.getenv("CARLOS_TEST_MARIADB_URL");
+        if (configuredServer != null && !configuredServer.matches("jdbc:mariadb://[^/@?#;\\s]+/")) {
+            throw new IllegalArgumentException("Appointment DAO tests require a jdbc:mariadb server URL ending in / without a database or query");
+        }
+        // Assign only after validation so failure cleanup cannot connect to a rejected URL.
+        server = configuredServer;
         database = "carlos_test_5300_" + UUID.randomUUID().toString().replace("-", "");
-        server = System.getenv("CARLOS_TEST_MARIADB_URL");
         String url = "jdbc:h2:mem:" + database + ";MODE=MySQL;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=5000";
         credentials.setProperty("user", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_USER", "root"));
         credentials.setProperty("password", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_PASSWORD", ""));
@@ -70,7 +78,7 @@ class AppointmentUpdateDaoIntegrationTest {
             url = server + database;
         }
         var configuration = new Configuration().addAnnotatedClass(Appointment.class).addAnnotatedClass(AppointmentArchive.class)
-                .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver" : "com.mysql.cj.jdbc.Driver")
+                .setProperty("hibernate.connection.driver_class", server == null ? "org.h2.Driver" : "org.mariadb.jdbc.Driver")
                 .setProperty("hibernate.connection.url", url)
                 .setProperty("hibernate.dialect", server == null ? "org.hibernate.dialect.H2Dialect"
                         : "io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect")

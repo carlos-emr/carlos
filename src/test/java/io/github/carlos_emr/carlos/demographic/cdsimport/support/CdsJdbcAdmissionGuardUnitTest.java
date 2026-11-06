@@ -36,6 +36,55 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsJdbcAdmissionGuardUnitTest {
+    @Test
+    void shouldRefuseUnverifiedDriver_beforeBindingImportMetadata() throws Exception {
+        Connection raw=mock(Connection.class);
+        Connection guarded=CdsJdbcAdmissionGuard.wrapMetadataOnly(raw);
+        assertThatThrownBy(()->guarded.prepareStatement("UPDATE cds_import_run SET operator=? WHERE id=?"))
+                .isInstanceOf(SQLException.class).hasMessageContaining("verified UTF-8 JDBC encoder");
+        verify(raw, never()).prepareStatement(anyString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"latin1", "utf8mb3"})
+    void shouldRefuseLossySessionCharset_withTheVerifiedUtf8Driver(String charset) throws Exception {
+        Connection raw=mock(Connection.class);
+        when(raw.isWrapperFor(org.mariadb.jdbc.Connection.class)).thenReturn(true);
+        Statement query=mock(Statement.class);
+        java.sql.ResultSet rows=mock(java.sql.ResultSet.class);
+        when(raw.createStatement()).thenReturn(query);
+        when(query.executeQuery(anyString())).thenReturn(rows);
+        when(rows.next()).thenReturn(true);
+        when(rows.getString(1)).thenReturn("STRICT_ALL_TABLES");
+        when(rows.getString(2)).thenReturn(charset);
+        when(rows.getString(3)).thenReturn(charset);
+        when(rows.getString(4)).thenReturn(charset);
+        Connection guarded=CdsJdbcAdmissionGuard.wrapMetadataOnly(raw);
+        assertThatThrownBy(()->guarded.prepareStatement("UPDATE cds_import_run SET operator=? WHERE id=?"))
+                .isInstanceOf(SQLException.class).hasMessageContaining("utf8mb4 session charsets");
+        verify(raw, never()).prepareStatement(anyString());
+    }
+
+    @Test
+    void shouldAllowUtf8mb4Metadata_whenTheShippedDriverAndStrictSessionAreVerified() throws Exception {
+        Connection raw=mock(Connection.class);
+        when(raw.isWrapperFor(org.mariadb.jdbc.Connection.class)).thenReturn(true);
+        Statement query=mock(Statement.class);
+        java.sql.ResultSet rows=mock(java.sql.ResultSet.class);
+        when(raw.createStatement()).thenReturn(query);
+        when(query.executeQuery(anyString())).thenReturn(rows);
+        when(rows.next()).thenReturn(true);
+        when(rows.getString(1)).thenReturn("STRICT_ALL_TABLES");
+        when(rows.getString(2)).thenReturn("utf8mb4");
+        when(rows.getString(3)).thenReturn("utf8mb4");
+        when(rows.getString(4)).thenReturn("utf8mb4");
+        String sql="UPDATE cds_import_run SET operator=? WHERE id=?";
+        var prepared = mock(java.sql.PreparedStatement.class);
+        when(raw.prepareStatement(sql)).thenReturn(prepared);
+        assertThat(CdsJdbcAdmissionGuard.wrapMetadataOnly(raw).prepareStatement(sql)).isNotNull();
+        verify(raw).prepareStatement(sql);
+    }
+
     @ParameterizedTest
     @ValueSource(strings={"SELECT VERſION()","SELECT weeK('2026-10-29') FROM cds_import_run"})
     void shouldRefuseUnicodeLookalikeFunctions_afterTheSqlParserAcceptsTheirOriginalSpelling(String sql) throws Exception {

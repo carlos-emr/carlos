@@ -73,7 +73,7 @@ final class CdsRuntimeIdentity {
             net.sf.jsqlparser.parser.CCJSqlParserUtil.class,
             org.apache.commons.dbcp2.BasicDataSource.class,
             org.apache.commons.pool2.impl.GenericObjectPool.class,
-            com.mysql.cj.jdbc.Driver.class,
+            org.mariadb.jdbc.Driver.class,
             org.apache.commons.lang3.StringUtils.class,
             org.apache.commons.io.FilenameUtils.class,
             com.google.common.base.Ascii.class,

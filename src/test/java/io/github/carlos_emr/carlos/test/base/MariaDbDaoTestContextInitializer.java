@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.test.base;
 
 import io.github.carlos_emr.carlos.util.persistence.OscarMySQL5Dialect;
+import io.github.carlos_emr.carlos.utility.MariaDbCompatibilityDriver;
 import org.flywaydb.core.Flyway;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.config.BeanDefinition;
@@ -33,7 +34,7 @@ public class MariaDbDaoTestContextInitializer
     public void initialize(ConfigurableApplicationContext context) {
         if (!"true".equals(System.getenv("CARLOS_TEST_MARIADB_DAO"))) return;
         String server = System.getenv("CARLOS_TEST_MARIADB_URL");
-        if (server == null || !server.startsWith("jdbc:mysql:") || !server.endsWith("/") || server.contains("?")) {
+        if (server == null || !server.startsWith("jdbc:mariadb:") || !server.endsWith("/") || server.contains("?")) {
             throw new IllegalArgumentException("MariaDB DAO tests require a server JDBC URL ending in / without a database");
         }
         String schemaMode = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_SCHEMA", "generated");
@@ -86,7 +87,8 @@ public class MariaDbDaoTestContextInitializer
         }
         context.addBeanFactoryPostProcessor(factory -> {
             factory.getBeanDefinition("dataSource").getPropertyValues()
-                    .add("driverClassName", "com.mysql.cj.jdbc.Driver")
+                    // Exercise production's JDBC conversion and report-streaming contract.
+                    .add("driverClassName", MariaDbCompatibilityDriver.class.getName())
                     .add("url", jdbcUrl)
                     .add("username", credentials.getProperty("user"))
                     .add("password", credentials.getProperty("password"))

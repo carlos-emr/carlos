@@ -239,7 +239,7 @@ def main():
                                          for database, _, _ in profiles)], log)
             for database, filename, _ in profiles:
                 properties = private / filename
-                properties.write_text('jdbcUrl=jdbc:mysql://' + name + ':3306/' + database
+                properties.write_text('jdbcUrl=jdbc:mariadb://' + name + ':3306/' + database
                                       + '?useUnicode=true&characterEncoding=UTF-8&connectionCollation=utf8mb4_unicode_ci'
                                       + '&allowPublicKeyRetrieval=true&useSSL=false\njdbcUser=root\njdbcPassword=' + password
                                       + '\nownedDisposableDatabase=true\n')

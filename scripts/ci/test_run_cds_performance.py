@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import zipfile
+from urllib.parse import urlsplit
 
 SPEC = importlib.util.spec_from_file_location("cds_performance",Path(__file__).with_name("run-cds-performance.py"))
 GATE = importlib.util.module_from_spec(SPEC)
@@ -20,6 +21,17 @@ SPEC.loader.exec_module(GATE)
 
 
 class PerformanceEvidenceTest(unittest.TestCase):
+    def test_both_connector_schemes_retain_disposable_database_and_plain_endpoint_guards(self):
+        for scheme in ('mysql', 'mariadb'):
+            with self.subTest(scheme=scheme):
+                self.assertTrue(GATE.is_synthetic_database_endpoint(
+                    urlsplit(scheme + '://owned-db:3306/carlos_cds_test')))
+                for suffix in ('/clinic', '/carlos_cds_test?option=value', '/carlos_cds_test#fragment'):
+                    self.assertFalse(GATE.is_synthetic_database_endpoint(urlsplit(scheme + '://owned-db' + suffix)))
+                self.assertFalse(GATE.is_synthetic_database_endpoint(
+                    urlsplit(scheme + '://user:password@owned-db/carlos_cds_test')))
+        self.assertFalse(GATE.is_synthetic_database_endpoint(urlsplit('postgresql://owned-db/carlos_cds_test')))
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

@@ -43,7 +43,7 @@ public final class IsolatedJpaTestDatabase implements AutoCloseable {
                 || !java.util.List.of("on", "bc").contains(province)) {
             throw new IllegalArgumentException("Unknown native test schema or province");
         }
-        if (nativeMode && (server == null || !server.matches("jdbc:mysql://[^/@?#;\\s]+/"))) {
+        if (nativeMode && (server == null || !server.matches("jdbc:mariadb://[^/@?#;\\s]+/"))) {
             throw new IllegalArgumentException("Native tests require a server URL without a database or query");
         }
         migrated = nativeMode && "flyway".equals(mode);

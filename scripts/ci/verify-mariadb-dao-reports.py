@@ -19,6 +19,7 @@ CRITICAL = {
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
 REQUIRED = {"generated": {**CRITICAL, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+                          "JdbcConnectorMariaDbIntegrationTest": 32,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
                           "CaseManagementIssueDAOIntegrationTest": 21,

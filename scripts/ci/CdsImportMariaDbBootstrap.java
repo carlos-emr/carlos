@@ -35,10 +35,9 @@ public final class CdsImportMariaDbBootstrap {
         Properties jdbc = new Properties();
         try (InputStream input = Files.newInputStream(Path.of(args[0]))) { jdbc.load(input); }
         String configuredUrl = jdbc.getProperty("jdbcUrl", "");
-        // Exercise the same MySQL Connector/J shipped in the WAR against the MariaDB server.
-        String url = configuredUrl.startsWith("jdbc:mariadb:")
-                ? "jdbc:mysql:" + configuredUrl.substring("jdbc:mariadb:".length()) : configuredUrl;
-        if (!url.matches("jdbc:mysql://[^/]+/(?:carlos_cds_test|cds_full_test|cds_ledger_test)(?:\\?.*)?")) {
+        // Exercise the same MariaDB Connector/J shipped in the WAR against the MariaDB server.
+        String url = configuredUrl;
+        if (!url.matches("jdbc:mariadb://[^/]+/(?:carlos_cds_test|cds_full_test|cds_ledger_test)(?:\\?.*)?")) {
             throw new IllegalArgumentException("Only explicitly named disposable CDS test databases are supported");
         }
         try (var connection = DriverManager.getConnection(url, jdbc.getProperty("jdbcUser"), jdbc.getProperty("jdbcPassword"));

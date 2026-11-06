@@ -124,7 +124,7 @@ def main() -> int:
             for name, value in {
                 "password": password,
                 "client.cnf": "[client]\nuser=root\npassword=" + password + "\n",
-                "jdbc.properties": "jdbcUrl=jdbc:mysql://" + database + ":3306/carlos_cds_test\njdbcUser=root\njdbcPassword=" + password + "\n"
+                "jdbc.properties": "jdbcUrl=jdbc:mariadb://" + database + ":3306/carlos_cds_test\njdbcUser=root\njdbcPassword=" + password + "\n"
             }.items():
                 descriptor = os.open(private / name, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
                 with os.fdopen(descriptor, "w") as output:

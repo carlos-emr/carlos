@@ -80,8 +80,8 @@ class CdsImportLedgerMariaDbIntegrationTest {
  @Test void shouldRetainExactAccounting_acrossPhysicalTransactionsAndRecovery() throws Exception {
   Properties jdbc=new Properties();
   try(InputStream input=Files.newInputStream(Path.of(System.getProperty("cds.ledger.test.properties")))) { jdbc.load(input); }
-  String url=jdbc.getProperty("jdbcUrl","").replace("jdbc:mariadb:","jdbc:mysql:");
-  if(!url.matches("jdbc:mysql://[^/]+/cds_ledger_test(?:\\?.*)?")) throw new IllegalArgumentException("A dedicated disposable cds_ledger_test schema is required");
+  String url=jdbc.getProperty("jdbcUrl","");
+  if(!url.matches("jdbc:mariadb://[^/]+/cds_ledger_test(?:\\?.*)?")) throw new IllegalArgumentException("A dedicated disposable cds_ledger_test schema is required");
   AnnotationConfigApplicationContext ctx=new AnnotationConfigApplicationContext();
   ctx.register(Config.class);
   ctx.registerBean("dataSource",DriverManagerDataSource.class,()->new DriverManagerDataSource(url,jdbc.getProperty("jdbcUser"),jdbc.getProperty("jdbcPassword")));
@@ -236,7 +236,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   ledger.planUnit(id,"patient",first,"Demographics",1,A,"/opaque/first");ledger.planUnit(id,"patient",second,"ClinicalNotes",1,B,"/opaque/second");ledger.addDependency(id,second,first);ledger.seal(id,C,1,2);
   long originalEpoch=ledger.acquire(id);Job job=new Job(id,originalEpoch,"patient",first,second,++target);
   var physical=new io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource();
-  physical.setDriverClassName("com.mysql.cj.jdbc.Driver");physical.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:","jdbc:mysql:"));
+  physical.setDriverClassName("org.mariadb.jdbc.Driver");physical.setUrl(jdbc.getProperty("jdbcUrl"));
   physical.setUsername(jdbc.getProperty("jdbcUser"));physical.setPassword(jdbc.getProperty("jdbcPassword"));physical.setDefaultAutoCommit(true);
   new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionInitializer(physical,true,"validate").initialize();
   var coordinators=new CdsImportCoordinatorService(physical);var maintenance=new CdsImportMaintenanceService(physical,config);var safety=new CdsImportTargetSafetyService(config);
@@ -450,8 +450,8 @@ class CdsImportLedgerMariaDbIntegrationTest {
   ledger.finalizePatient(id,execution,"patient",CdsImportLedgerMariaDbIntegrationTest::verify); ledger.finish(id,execution);
  }
  static long fixtureResumeClaim(String id,Properties jdbc) throws Exception {
-  var physical=new io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource();physical.setDriverClassName("com.mysql.cj.jdbc.Driver");
-  physical.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:","jdbc:mysql:"));physical.setUsername(jdbc.getProperty("jdbcUser"));physical.setPassword(jdbc.getProperty("jdbcPassword"));physical.setDefaultAutoCommit(true);
+  var physical=new io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource();physical.setDriverClassName("org.mariadb.jdbc.Driver");
+  physical.setUrl(jdbc.getProperty("jdbcUrl"));physical.setUsername(jdbc.getProperty("jdbcUser"));physical.setPassword(jdbc.getProperty("jdbcPassword"));physical.setDefaultAutoCommit(true);
   new io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionInitializer(physical,true,"validate").initialize();
   Properties policy=new Properties();policy.setProperty("cds.import.enabled","true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());policy.setProperty("cds.import.maintenanceMode","true");var config=new CdsImportConfigurationService(policy);
   var coordinators=new CdsImportCoordinatorService(physical);var maintenance=new CdsImportMaintenanceService(physical,config);

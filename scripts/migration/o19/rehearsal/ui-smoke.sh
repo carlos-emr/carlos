@@ -58,7 +58,7 @@ BASE_URL=${BASE_URL:-http://127.0.0.1:8080/carlos}
 MYSQL_DATABASE=${MYSQL_DATABASE:-carlos}
 O19_STATE_DIR=${O19_STATE_DIR:-/var/lib/carlos-emr/o19-import}
 CARLOS_PROPERTIES=${CARLOS_PROPERTIES:-/etc/carlos-emr/carlos.properties}
-DB_URI=${DB_URI:-jdbc:mysql://127.0.0.1:3306/}
+DB_URI=${DB_URI:-jdbc:mariadb://127.0.0.1:3306/}
 
 say() { printf 'ui-smoke: %s\n' "$*"; }
 die() { printf 'ui-smoke: ERROR: %s\n' "$*" >&2; exit 1; }

@@ -40,6 +40,7 @@ class MariaDbDaoHarnessIntegrationTest extends CarlosTestBase {
         try (var connection = dataSource.getConnection();
              var statement = connection.createStatement()) {
             assertThat(connection.getMetaData().getDatabaseProductVersion()).contains("MariaDB");
+            assertThat(connection.getMetaData().getDriverName()).contains("MariaDB");
             assertThat(connection.getCatalog()).startsWith("carlos_test_5399_dao_");
             if ("flyway".equals(expectedSchema)) {
                 try (var rows = statement.executeQuery("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1")) {

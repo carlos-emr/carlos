@@ -57,7 +57,7 @@ class CdsReportStorageMariaDbIntegrationTest {
     static void openFactory() throws Exception {
         Properties jdbc=new Properties();
         try(var input=Files.newInputStream(Path.of(System.getProperty("cds.test.properties")))) { jdbc.load(input); }
-        var source=new DriverManagerDataSource(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:","jdbc:mysql:"),
+        var source=new DriverManagerDataSource(jdbc.getProperty("jdbcUrl"),
                 jdbc.getProperty("jdbcUser"),jdbc.getProperty("jdbcPassword"));
         try(var connection=source.getConnection(); var query=connection.createStatement();
                 var rows=query.executeQuery("SELECT DATABASE(),VERSION()")) {

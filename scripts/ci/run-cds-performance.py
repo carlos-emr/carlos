@@ -36,6 +36,13 @@ GIB = 1 << 30
 UUID = re.compile(r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\Z")
 
 
+def is_synthetic_database_endpoint(endpoint) -> bool:
+    """Permit either supported JDBC scheme without weakening disposable DB guards."""
+    return bool(endpoint.scheme in {"mysql", "mariadb"}
+                and re.fullmatch(r"[A-Za-z0-9_]+_test", endpoint.path.removeprefix("/"))
+                and not any((endpoint.username, endpoint.password, endpoint.query, endpoint.fragment)))
+
+
 def supervise(receipt: Path, command: list[str]) -> int:
     """wait4 owns reaping: a short-lived peak cannot disappear between /proc samples."""
     if not receipt.is_absolute() or receipt.exists() or not command or not Path(command[0]).is_absolute():
@@ -744,9 +751,8 @@ def main() -> None:
         jdbc = dict(parse_properties_text(protected_file(args.jdbc_properties).read_text(encoding="ISO-8859-1")))
         endpoint = urlsplit(jdbc["jdbcUrl"].removeprefix("jdbc:"))
         database = endpoint.path.removeprefix("/")
-        if endpoint.scheme != "mysql" or not re.fullmatch(r"[A-Za-z0-9_]+_test", database) \
-                or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment:
-            raise RuntimeError("only the existing explicit synthetic MySQL endpoint is permitted")
+        if not is_synthetic_database_endpoint(endpoint):
+            raise RuntimeError("only the existing explicit synthetic MariaDB/MySQL endpoint is permitted")
         escape = lambda value: '"' + str(value).replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r') + '"'
         content = "[client]\n" + "\n".join(key + "=" + escape(value) for key, value in
             {"host": endpoint.hostname, "port": endpoint.port or 3306, "user": jdbc["jdbcUser"], "password": jdbc["jdbcPassword"]}.items()) + "\n"

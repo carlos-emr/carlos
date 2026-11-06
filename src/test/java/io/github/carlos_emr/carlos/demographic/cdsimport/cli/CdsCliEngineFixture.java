@@ -61,11 +61,11 @@ public final class CdsCliEngineFixture {
             }
             Properties jdbc = new Properties();
             try (InputStream input = Files.newInputStream(credentials)) { jdbc.load(input); }
-            String url = jdbc.getProperty("jdbcUrl", "").replace("jdbc:mariadb:", "jdbc:mysql:");
-            if (!url.matches("jdbc:mysql://[^/]+/(?:carlos_cds_test|cds_full_test|cds_cli_test|cds_cli_final_test)(?:\\?.*)?")) {
+            String url = jdbc.getProperty("jdbcUrl", "");
+            if (!url.matches("jdbc:mariadb://[^/]+/(?:carlos_cds_test|cds_full_test|cds_cli_test|cds_cli_final_test)(?:\\?.*)?")) {
                 throw new IllegalArgumentException("Explicit disposable database required");
             }
-            Class.forName("com.mysql.cj.jdbc.Driver");
+            Class.forName("org.mariadb.jdbc.Driver");
             try (Connection connection = DriverManager.getConnection(url, jdbc.getProperty("jdbcUser"), jdbc.getProperty("jdbcPassword"))) {
                 String actual;
                 try (var statement = connection.createStatement(); var result = statement.executeQuery("SELECT DATABASE()")) {
@@ -185,9 +185,9 @@ public final class CdsCliEngineFixture {
         metadata.put("metadataFile", metadataFile.toString()); metadata.put("sources", sources);
         Files.writeString(metadataFile, JSON.writeValueAsString(metadata), StandardOpenOption.CREATE_NEW);
         Files.setPosixFilePermissions(metadataFile, PosixFilePermissions.fromString("rw-------"));
-        Properties config = new Properties(); int slash = url.indexOf('/', "jdbc:mysql://".length());
+        Properties config = new Properties(); int slash = url.indexOf('/', "jdbc:mariadb://".length());
         config.setProperty("db_uri", url.substring(0, slash + 1)); config.setProperty("db_name", url.substring(slash + 1));
-        config.setProperty("db_driver", "com.mysql.cj.jdbc.Driver"); config.setProperty("db_username", jdbc.getProperty("jdbcUser")); config.setProperty("db_password", jdbc.getProperty("jdbcPassword"));
+        config.setProperty("db_driver", "org.mariadb.jdbc.Driver"); config.setProperty("db_username", jdbc.getProperty("jdbcUser")); config.setProperty("db_password", jdbc.getProperty("jdbcPassword"));
         config.setProperty("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect"); config.setProperty("billregion", "ON");
         config.setProperty("db_default_use_information_schema", "false");
         for (String key : List.of("enabled", "maintenanceGuardEnabled", "maintenanceMode")) config.setProperty("cds.import." + key, "true");

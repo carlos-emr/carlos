@@ -478,10 +478,10 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRefuseLossyClientEncoding_beforeAnyNativeImportWrite() throws Exception {
+    void shouldRefuseThreeByteSessionEncoding_beforeAnyNativeImportWrite() throws Exception {
         configureLossyConnection(nodeOne);
         try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
-            assertThat(sessionValue(connection,"character_set_client")).isEqualTo("latin1");
+            assertThat(sessionValue(connection,"character_set_client")).isEqualTo("utf8mb3");
             try (var marker=org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext.class)) {
                 marker.when(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext::isActiveForMaintenance).thenReturn(true);
                 connection.setAutoCommit(false);
@@ -496,23 +496,16 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRefuseALossyJdbcEncoder_evenWhenServerSessionVariablesClaimUtf8mb4() throws Exception {
-        configureLossyConnection(nodeOne);
-        // Connector/J configures its encoder after URL sessionVariables. A pool init SQL runs
-        // after that handshake and reproduces the documented SET NAMES/JDBC encoder mismatch.
-        nodeOne.setConnectionInitSqls(java.util.List.of("SET NAMES utf8mb4"));
-        try (var owner=own(first); Connection connection=nodeOne.getConnection()) {
-            assertThat(sessionValue(connection,"character_set_client")).isEqualTo("utf8mb4");
-            try (var marker=org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext.class)) {
-                marker.when(io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext::isActiveForMaintenance).thenReturn(true);
-                connection.setAutoCommit(false);
-                assertThatThrownBy(()->update(connection,"\uD83D\uDE00"))
-                        .isInstanceOf(SQLException.class).hasMessageContaining("encoder");
-                connection.rollback();
-            }
-            assertThat(value()).isEqualTo("initial");
-            owner.allowReopen();
+    void shouldCloseConnection_whenSessionCharsetWouldMismatchTheUtf8Encoder() throws Exception {
+        // MariaDB Connector/J has a fixed UTF-8 encoder and prevents switching to
+        // latin1 after initialization instead of allowing a misleading SET NAMES.
+        try (Connection raw=nodeOne.openUnpooledCdsMaintenanceConnection(); Statement statement=raw.createStatement()) {
+            assertThat(raw.isWrapperFor(org.mariadb.jdbc.Connection.class)).isTrue();
+            assertThatThrownBy(()->statement.execute("SET NAMES latin1"))
+                    .isInstanceOf(SQLException.class).hasMessageContaining("utf8");
+            assertThat(raw.isClosed()).isTrue();
         }
+        assertThat(value()).isEqualTo("initial");
     }
 
     @Test
@@ -631,14 +624,14 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRefuseLossyMetadataEncoding_beforePreparedValuesCanBeBoundWithoutMaintenance() throws Exception {
+    void shouldRefuseThreeByteMetadataSession_beforePreparedValuesCanBeBoundWithoutMaintenance() throws Exception {
         try(var planning=dataSource(jdbcProperties)) {
             configureLossyConnection(planning);
             new CdsJdbcAdmissionInitializer(planning,false,true,"off").initialize();
             assertThat(planning.getCdsAdmissionState()).isNull();
             try(Connection connection=planning.getConnection()) {
                 assertThatThrownBy(()->connection.prepareStatement("UPDATE cds_import_run SET operator=? WHERE id=?"))
-                        .isInstanceOf(SQLException.class).hasMessageContaining("encoder");
+                        .isInstanceOf(SQLException.class).hasMessageContaining("utf8mb4");
             }
         }
     }
@@ -802,32 +795,18 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
             statement.setString(1, value); assertThat(statement.executeUpdate()).isEqualTo(1);
         }
     }
-    private static void configureLossyConnection(OscarTrackingBasicDataSource source) throws SQLException {
-        String configured=source.getUrl(); int query=configured.indexOf('?');
-        String base=query<0?configured:configured.substring(0,query);
-        var parameters=new java.util.ArrayList<String>();
-        if(query>=0) for(String parameter:configured.substring(query+1).split("&")) {
-            String key=java.net.URLDecoder.decode(parameter.split("=",2)[0],java.nio.charset.StandardCharsets.UTF_8);
-            if(!java.util.Set.of("characterencoding","connectioncollation","sessionvariables","jdbccomplianttruncation")
-                    .contains(key.toLowerCase(java.util.Locale.ROOT))) parameters.add(parameter);
-        }
-        parameters.add("characterEncoding=ISO-8859-1"); parameters.add("connectionCollation=latin1_swedish_ci");
-        parameters.add("jdbcCompliantTruncation=false");
-        source.setUrl(base+"?"+String.join("&",parameters));
+    private static void configureLossyConnection(OscarTrackingBasicDataSource source) {
+        // The driver itself always uses UTF-8, but a three-byte server session still
+        // cannot store supplementary Unicode. Keep the CDS utf8mb4 gate covered.
         source.setConnectionProperties("sessionVariables=sql_mode='';jdbcCompliantTruncation=false");
-        try(Connection raw=source.openUnpooledCdsMaintenanceConnection()) {
-            String encoder=raw.unwrap(com.mysql.cj.jdbc.JdbcConnection.class).getPropertySet()
-                    .getStringProperty(com.mysql.cj.conf.PropertyKey.characterEncoding).getValue();
-            assertThat(java.nio.charset.Charset.forName(encoder)).isEqualTo(java.nio.charset.StandardCharsets.ISO_8859_1);
-        }
+        source.setConnectionInitSqls(java.util.List.of("SET NAMES utf8mb3"));
     }
 
     private static OscarTrackingBasicDataSource dataSource(Properties jdbc) {
         var source = new OscarTrackingBasicDataSource();
-        source.setDriverClassName("com.mysql.cj.jdbc.Driver");
+        source.setDriverClassName("org.mariadb.jdbc.Driver");
         String configured = jdbc.getProperty("jdbcUrl");
-        source.setUrl(configured.startsWith("jdbc:mariadb:")
-                ? "jdbc:mysql:" + configured.substring("jdbc:mariadb:".length()) : configured);
+        source.setUrl(configured);
         source.setUsername(jdbc.getProperty("jdbcUser")); source.setPassword(jdbc.getProperty("jdbcPassword"));
         source.setMaxTotal(8); source.setDefaultAutoCommit(true); return source;
     }
