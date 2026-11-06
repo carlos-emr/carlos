@@ -606,7 +606,10 @@
         %>
         <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+            <%-- Straight to the add form: ViewDemographicAddARecordHtm only redirects there, keeping the query
+                 string, so a POST through it arrived empty and the booking (date, time, provider, location,
+                 fromAppt) was lost: the new patient was saved but the user never returned to the booking. --%>
+            <form method="post" action="${pageContext.request.contextPath}/demographic/DemographicAdd">
 <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 <c:forTokens var="searchField" items="originalPage,search_mode,keyword,notes,appointment_date,year,month,day,start_time,end_time,duration,provider_no,reasonCode,reason,location,resources,type,style,billing,status,createdatetime,creator,remarks" delims=",">
         <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>
@@ -619,7 +622,10 @@
         %>
         <fmt:message key="demographic.search.noResultsWereFound"/>
         <div class="createNew">
-            <form method="post" action="${pageContext.request.contextPath}/demographic/ViewDemographicAddARecordHtm">
+            <%-- Straight to the add form: ViewDemographicAddARecordHtm only redirects there, keeping the query
+                 string, so a POST through it arrived empty and the booking (date, time, provider, location,
+                 fromAppt) was lost: the new patient was saved but the user never returned to the booking. --%>
+            <form method="post" action="${pageContext.request.contextPath}/demographic/DemographicAdd">
 <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
 <c:forTokens var="searchField" items="originalPage,search_mode,keyword,notes,appointment_date,year,month,day,start_time,end_time,duration,provider_no,reasonCode,reason,location,resources,type,style,billing,status,createdatetime,creator,remarks" delims=",">
         <input type="hidden" name="${carlos:forHtmlAttribute(searchField)}" value="${carlos:forHtmlAttribute(param[searchField])}"/>

@@ -303,7 +303,7 @@ async function workflow(s) {
       await popup.locator('#keyword').fill(newPatient);
       await Promise.all([popup.waitForEvent('domcontentloaded'), popup.locator('#searchBtn').click()]);
       // No patient has this name, so the results page offers Create New, which carries the booking.
-      const createNew = popup.locator("form[action$='/demographic/ViewDemographicAddARecordHtm'] button[type='submit']").first();
+      const createNew = popup.locator("form[action$='/demographic/DemographicAdd'] button[type='submit']").first();
       await createNew.waitFor({timeout: 20000});
       await Promise.all([popup.waitForEvent('domcontentloaded'), createNew.click()]);
       await h.assertNotErrorPage(popup, 'add-demographic form');
