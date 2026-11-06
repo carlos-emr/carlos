@@ -181,9 +181,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         });
     }
 
-    // FindSecBugs SQL_INJECTION_JDBC / SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
-    // requireTable restricts the table to ASCII identifiers approved by the form registry;
-    // the patient and record identifiers remain JDBC parameters.
+    // The form registry and ASCII identifier check restrict the table used by this private read.
+    // Both the patient and record identifiers remain bound JDBC parameters.
     @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "Private form SELECT uses requireTable's registry-approved ASCII identifier and binds patient/record values")
     @SuppressWarnings("java:S2077") // Same audited identifier and binding boundary as the FindSecBugs exception.
@@ -192,8 +191,8 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         return connection.prepareStatement("SELECT * FROM " + trustedTable + " WHERE ID=? AND demographic_no=?");
     }
 
-    // FindSecBugs SQL_INJECTION_JDBC / SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
-    // requireTable validates the sole variable identifier before this zero-row metadata read.
+    // The form registry and ASCII identifier check guard this private metadata read.
+    // The statement reads no rows and contains no imported values.
     @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "Private zero-row schema read uses only requireTable's registry-approved ASCII table identifier")
     @SuppressWarnings("java:S2077") // Same audited identifier boundary as the FindSecBugs exception.
@@ -202,9 +201,9 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         return connection.prepareStatement("SELECT * FROM " + trustedTable + " WHERE 1=0");
     }
 
-    // FindSecBugs SQL_INJECTION_JDBC / SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
-    // requireTable validates the table; fields are escaped physical metadata column names,
-    // binds contains only generated question marks, and every imported value is bound.
+    // The form registry and ASCII identifier check guard the table used by this private insert.
+    // Column names come from escaped physical metadata and placeholders are generated internally.
+    // Every imported value remains a bound parameter.
     @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "Private insert uses a registry-approved ASCII table, quoted physical metadata columns and generated placeholders; values are bound separately")
     @SuppressWarnings("java:S2077") // Same audited metadata identifiers and bound values as the FindSecBugs exception.

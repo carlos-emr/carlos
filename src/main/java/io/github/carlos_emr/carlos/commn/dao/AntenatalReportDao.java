@@ -37,6 +37,9 @@ public class AntenatalReportDao {
 
     public record PlannerRow(String edb, String patientName, String weight, String height, java.util.Set<String> checked) { }
 
+    // The physical tinyint columns define the legacy checkbox set across installed schemas.
+    // This row read returns only four text fields and checked flags, with both IDs bound.
+    @SuppressWarnings("java:S6905")
     public PlannerRow findPlanner(int id, int patient) {
         @SuppressWarnings("unchecked")
         List<String> flags = entityManager.createNativeQuery("SELECT COLUMN_NAME FROM information_schema.COLUMNS"

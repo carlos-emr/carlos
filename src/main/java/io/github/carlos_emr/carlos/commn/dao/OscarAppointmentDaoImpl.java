@@ -62,6 +62,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implements OscarAppointmentDao {
 
     @Override
+    // S2077: sort must equal one of eight fixed columns; predicate variants are literals,
+    // and date, time and provider values remain bound parameters.
+    @SuppressWarnings("java:S2077")
     public List<AppointmentDaySheetRow> findDaySheet(String start, String end, String startTime, String endTime,
             String providerNo, boolean newOnly, String sort) {
         if (!java.util.Set.of("start_time", "name", "phone", "sex", "hin", "ver", "chart_no", "roster_status").contains(sort)) {

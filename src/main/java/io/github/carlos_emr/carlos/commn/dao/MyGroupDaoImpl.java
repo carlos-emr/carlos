@@ -44,6 +44,8 @@ import java.util.List;
 public class MyGroupDaoImpl extends AbstractDaoImpl<MyGroup> implements MyGroupDao {
 
     @Override
+    // S2077: the optional site predicate is a fixed literal; the provider identifier is bound.
+    @SuppressWarnings("java:S2077")
     public List<String> findReportGroups(String providerNo, boolean bySite) {
         String restriction = bySite ? " WHERE EXISTS (SELECT 1 FROM providersite ps WHERE ps.provider_no=g.provider_no"
                 + " AND site_id IN (SELECT site_id FROM providersite WHERE provider_no=:provider))" : "";

@@ -212,7 +212,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         try (var servlet = servlet();
              var rx = mockStatic(RxPatientData.class);
              var definitions = mockStatic(EctFindMeasurementTypeUtil.class)) {
-            when(forms.findPatientRecord(eq("formVTForm"), eq(88), eq(Integer.parseInt(patient))))
+            when(forms.findPatientRecord("formVTForm", 88, Integer.parseInt(patient)))
                     .thenReturn(owned);
             rx.when(() -> RxPatientData.getPatient(user, Integer.parseInt(patient))).thenReturn(rxPatient);
             definitions.when(() -> EctFindMeasurementTypeUtil.checkMeasurmentTypes(any(), eq("VTForm"))).thenReturn(types);
@@ -293,7 +293,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         try (var servlet = servlet();
              var records = mockConstruction(FrmRecordHelp.class, (record, context) ->
                      when(record.saveFormRecord(any(), anyString(), any(Object[].class))).thenReturn(77))) {
-            when(forms.findPatientRecord(eq("formVTForm"), eq(88), eq(Integer.parseInt(patient))))
+            when(forms.findPatientRecord("formVTForm", 88, Integer.parseInt(patient)))
                     .thenReturn(owned);
             assertThat(new FrmForm2Action().execute()).isEqualTo(ActionSupport.NONE);
             ArgumentCaptor<Properties> saved = ArgumentCaptor.forClass(Properties.class);

@@ -62,11 +62,19 @@ The method-scoped `java:S2077` exceptions cover only these reviewed query builde
 | eForm library and patient group listings | `EFormListingRow.requireSort` accepts five exact, fixed order clauses. The optional status predicate is literal; group, patient and status values are bound. |
 | eForm group counts | The table and optional predicate are selected from fixed literals; the patient value is bound. |
 | Lab patient choices | Search field/predicate variants are fixed, the sort must match the exact column/direction allowlist, search values are bound, and pagination is bounded. |
+| Report provider and group choices | An enum or boolean selects fixed predicate fragments. The provider identifier is bound. |
+| Appointment day sheet | The sort must equal one of eight fixed columns. Predicate variants are literal; date, time and provider values are bound. |
 
 These exceptions do not exclude a class or disable a rule globally. The native
 form/import and eForm integration tests exercise these boundaries, including
 patient isolation, raw NULL/whitespace retention, metadata validation and archive
 rollback. Re-review a method if its structural input or binding contract changes.
+
+The antenatal planner's method-scoped `java:S6905` exception retains the complete
+physical row because legacy checkbox sets are discovered from tinyint metadata.
+Only four text fields and the checked flag set leave the DAO; record and patient
+IDs remain bound parameters. An explicit fixed column list would omit checkboxes
+from a different installed form schema.
 
 ## Jasper label compatibility assessment
 

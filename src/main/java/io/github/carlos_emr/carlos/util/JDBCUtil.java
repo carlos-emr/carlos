@@ -171,8 +171,8 @@ public class JDBCUtil {
         return new FormImportRequest(target, values);
     }
 
-    // FindSecBugs IMPROPER_UNICODE: locale-stable comparison of fixed XML structural tags;
-    // physical column validation and filename-owned identity remain independent guards.
+    // Fixed structural XML tags use locale-stable case folding.
+    // Physical column validation and identity from the filename independently guard the import.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE",
             justification = "Fixed XML tags use Locale.ROOT; physical metadata validates columns and the archive filename owns patient/timestamp")
     private static void collectImportValues(Node node, Map<String, String> values) {
@@ -290,7 +290,7 @@ public class JDBCUtil {
         }
     }
 
-    // FindSecBugs IMPROPER_UNICODE: fixed ASCII import-managed DB columns;
+    // Import-managed database columns have fixed ASCII names.
     // archive entry name remains the trusted source for patient/timestamp. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(
             value = "IMPROPER_UNICODE",

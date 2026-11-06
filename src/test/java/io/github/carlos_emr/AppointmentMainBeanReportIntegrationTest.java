@@ -43,12 +43,13 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mockStatic;
 
 /**
- * Executes the report index's shipped query definitions through the real legacy JDBC
- * boundary. The isolated database checks selection and binding together, rather than
- * accepting a mock that would also accept missing or misordered placeholders.
+ * Executes report-index selections through the real typed native DAOs.
+ * The isolated database checks selection and binding together, including provider
+ * scope and admission of SQL structure.
  *
  * @since 2026-10-25
  */
@@ -62,6 +63,14 @@ class AppointmentMainBeanReportIntegrationTest {
     private Connection keeper;
     private MockedStatic<SpringUtils> spring;
     private JdbcTemplate jdbc;
+
+    @Test
+    void shouldRejectUnsafeDaySheetSort_beforePreparingNativeSql() {
+        var appointments = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDaoImpl.class);
+        assertThatThrownBy(() -> appointments.findDaySheet("2026-01-01", "2026-01-02", "09:00", "18:00",
+                null, false, "start_time; DELETE FROM appointment"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 
     @BeforeEach
     void createOwnedDatabase() throws Exception {

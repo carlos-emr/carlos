@@ -49,6 +49,8 @@ import io.github.carlos_emr.carlos.util.ConversionUtils;
 public class ProviderDataDaoImpl extends AbstractDaoImpl<ProviderData> implements ProviderDataDao {
 
     @Override
+    // S2077: the enum selects fixed predicate fragments; the provider identifier is bound.
+    @SuppressWarnings("java:S2077")
     public List<ReportChoice> findReportChoices(String providerNo, ReportScope scope) {
         String restriction = switch (scope) {
             case ALL -> " AND provider_type='doctor'";

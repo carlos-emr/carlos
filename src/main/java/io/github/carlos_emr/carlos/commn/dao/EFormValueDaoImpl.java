@@ -67,9 +67,8 @@ public class EFormValueDaoImpl extends AbstractDaoImpl<EFormValue> implements EF
         });
     }
 
-    // FindSecBugs SQL_INJECTION_JDBC / SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
-    // findDatabaseApValues validates the SELECT with EFormSqlSafety before this private sink;
-    // all request values remain JDBC parameters, never SQL structure.
+    // The AP policy validates the read before this private statement factory.
+    // All request values remain bound JDBC parameters.
     @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
             justification = "Private AP SELECT preparation follows EFormSqlSafety.validateLegacySqlSafety; request values are bound separately")
     private static java.sql.PreparedStatement prepareValidatedApSelect(java.sql.Connection connection,

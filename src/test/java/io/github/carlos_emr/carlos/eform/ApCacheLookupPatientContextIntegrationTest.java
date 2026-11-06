@@ -59,8 +59,7 @@ class ApCacheLookupPatientContextIntegrationTest {
                 "-d", scratch.toString(), file.toString())).isZero();
         var query = new ParameterizedSql("SELECT 7 AS result_value", List.of());
         var sourceData = new DriverManagerDataSource("jdbc:h2:mem:ap-patient-" + java.util.UUID.randomUUID(), "sa", "");
-        try (var keeper = sourceData.getConnection();
-                var database = new NativeDaoTestDatabase(sourceData);
+        try (var database = new NativeDaoTestDatabase(sourceData);
                 var spring = mockStatic(SpringUtils.class);
                 var loader = new URLClassLoader(new java.net.URL[]{scratch.toUri().toURL()}, getClass().getClassLoader())) {
             var dao = database.dao(EFormValueDaoImpl.class);
