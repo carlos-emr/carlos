@@ -174,6 +174,18 @@ def dependency_contract(context):
             'compatibleCliResolved': True, 'statePreserved': True}
 
 
+def write_installer_wrapper(wrapper, command):
+    for parent in wrapper.parents:
+        if parent.is_symlink() or (parent.exists() and not parent.is_dir()):
+            raise EvidenceError('Lifecycle installer parent is not a regular directory')
+    wrapper.parent.mkdir(parents=True, exist_ok=True)
+    if wrapper.exists() or wrapper.is_symlink():
+        raise EvidenceError('Lifecycle installer path was already occupied')
+    with wrapper.open('x') as stream:
+        stream.write('#!/bin/bash\nset -euo pipefail\nexec ' + shlex.join(command) + '\n')
+        os.fchmod(stream.fileno(), 0o700)
+
+
 def transition(context, environment):
     directory = OUTPUT / 'transition'; directory.mkdir(mode=0o700)
     output = directory / 'transition-result.json'
@@ -184,11 +196,7 @@ def transition(context, environment):
     # The same unchanged client creates/reopens owned records for both upgrade
     # and reinstall. Empty seeded tables cannot substitute for these canaries.
     wrapper = Path('/root/carlos/scripts/lib/deb-upgrade-install.sh')
-    wrapper.parent.mkdir(parents=True, exist_ok=True)
-    if wrapper.exists() or wrapper.is_symlink():
-        raise EvidenceError('Lifecycle installer path was already occupied')
-    wrapper.write_text('#!/bin/bash\nset -euo pipefail\nexec ' + shlex.join(command) + '\n')
-    wrapper.chmod(0o700)
+    write_installer_wrapper(wrapper, command)
     completion = OUTPUT / 'unchanged-upgrade-client.json'
     run(['node', 'scripts/deb-upgrade-canaries.js'], 'unchanged-upgrade-client',
         environment={**environment, 'RESULT_JSON': str(completion)}, timeout=1500)

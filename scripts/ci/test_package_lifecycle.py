@@ -16,6 +16,35 @@ from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_invento
 
 
 class PackageLifecycleTest(unittest.TestCase):
+    def test_installer_wrapper_preserves_existing_files_and_rejects_symlinked_ancestors(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_wrapper', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name, existing in [('created', False), ('existing', True)]:
+                wrapper = root / name / 'lib/install.sh'
+                if existing: wrapper.parent.mkdir(parents=True)
+                cell.write_installer_wrapper(wrapper, ['true'])
+                self.assertEqual(wrapper.stat().st_mode & 0o777, 0o700)
+                original = wrapper.read_bytes()
+                with self.assertRaisesRegex(EvidenceError, 'occupied'):
+                    cell.write_installer_wrapper(wrapper, ['false'])
+                self.assertEqual(wrapper.read_bytes(), original)
+            foreign = root / 'foreign'; foreign.mkdir()
+            sentinel = foreign / 'install.sh'; sentinel.write_text('FAKE unrelated wrapper')
+            linked = root / 'linked'; linked.symlink_to(foreign, target_is_directory=True)
+            for wrapper in (linked / 'install.sh', linked / 'new/lib/install.sh'):
+                with self.assertRaisesRegex(EvidenceError, 'parent'):
+                    cell.write_installer_wrapper(wrapper, ['false'])
+                self.assertEqual(sentinel.read_text(), 'FAKE unrelated wrapper')
+                self.assertEqual(list(foreign.iterdir()), [sentinel])
+            wrapper_link = root / 'install-link.sh'; wrapper_link.symlink_to(sentinel)
+            with self.assertRaisesRegex(EvidenceError, 'occupied'):
+                cell.write_installer_wrapper(wrapper_link, ['false'])
+            self.assertTrue(wrapper_link.is_symlink())
+            self.assertEqual(sentinel.read_text(), 'FAKE unrelated wrapper')
+
     def test_read_only_selection_reaches_each_real_browser_check_in_both_provinces(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('lifecycle_selection', Path(__file__).with_name('run-package-lifecycle-cell.py'))

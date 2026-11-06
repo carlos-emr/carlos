@@ -1134,7 +1134,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 296,
+      "minimumCases": 297,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1287,6 +1287,7 @@
         "test_package_lifecycle.PackageLifecycleTest.test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify",
         "test_package_lifecycle.PackageLifecycleTest.test_host_collection_and_final_verification_require_lifecycle_byte_binding",
         "test_package_lifecycle.PackageLifecycleTest.test_independent_role_receipts_cannot_omit_another_required_global_baseline",
+        "test_package_lifecycle.PackageLifecycleTest.test_installer_wrapper_preserves_existing_files_and_rejects_symlinked_ancestors",
         "test_package_lifecycle.PackageLifecycleTest.test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults",
         "test_package_lifecycle.PackageLifecycleTest.test_local_playwright_is_required_and_loadable_before_installation",
         "test_package_lifecycle.PackageLifecycleTest.test_main_cannot_replace_the_distinct_historical_or_clean_cell",
