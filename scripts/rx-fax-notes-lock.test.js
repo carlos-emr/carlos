@@ -161,6 +161,38 @@ for (const previewState of ['absent-frame', 'absent-document', 'absent-elements'
   });
 }
 
+for (const [input, expected] of [
+  ['', ''], [' \t\r\n ', ''], ['\u00a0\u2003', ''],
+  ['  Keep internal  spaces\nSecond line \r\n', 'Keep internal  spaces\nSecond line'],
+]) {
+  test(`Fax & Paste trims surrounding notes and omits blank notes: ${JSON.stringify(input)}`, () => {
+    const { context, notes } = setup();
+    notes.value = input;
+    let captured;
+    context.onPrint2 = (_method, _script, _pdf, _paste, text) => { captured = text; };
+    assert.equal(context.sendFax(true), true);
+    assert.equal(captured, 'prescription\n' + (expected ? expected + '\n' : ''));
+    assert.equal(notes.value, input, 'Pasting must not rewrite the stored prescription note');
+  });
+
+  test(`Print and Paste trims surrounding notes and omits blank notes: ${JSON.stringify(input)}`, async () => {
+    const { context, notes } = setup();
+    context.window.parent = { opener: null };
+    context.preview = { document: { forms: [{ rx_no_newlines: { value: 'prescription' } }] } };
+    const writes = [];
+    context.writeToEncounter = (_print, text) => { writes.push(text); return Promise.resolve(true); };
+    context.alert = message => { throw new Error(message); };
+    vm.runInContext(browserFunction('printPaste2Parent', 'writeToEncounter'), context);
+    notes.value = '';
+    assert.equal(await context.printPaste2Parent(true, false, true), true);
+    notes.value = input;
+    assert.equal(await context.printPaste2Parent(true, false, true), true);
+    assert.equal(writes[1], writes[0].replace('prescription\n',
+      'prescription\n' + (expected ? expected + '\n' : '')));
+    assert.equal(notes.value, input, 'Pasting must not rewrite the stored prescription note');
+  });
+}
+
 for (const pasteAfterSuccess of [false, true]) {
   test(`pending ${pasteAfterSuccess ? 'Fax & Paste' : 'Fax'} blocks later note writes`, async () => {
     const fixture = setup();

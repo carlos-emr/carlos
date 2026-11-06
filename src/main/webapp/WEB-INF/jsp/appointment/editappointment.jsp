@@ -282,9 +282,12 @@
 
         <style>
 
+    html {
+        overscroll-behavior: none;
+    }
+
     :root *:not(h2):not(h4):not(.input-group > .btn) {
         font-size: 12px;
-        overscroll-behavior: none;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
         line-height: 1 !important;
