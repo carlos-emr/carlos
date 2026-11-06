@@ -37,7 +37,12 @@ REQUIRED = {"generated": {**CRITICAL, "MeasurementPatientMatchMariaDbIntegration
             "bc-flyway": {"ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15,
-                           "BcBillingNativeMariaDbIntegrationTest": 8,
+                           "BcBillingNativeMariaDbIntegrationTest": 10,
+                           "FormXmlImportServiceIntegrationTest": 7,
+                           "EFormApColumnLookupIntegrationTest": 2,
+                           "AppointmentDaySheetServiceIntegrationTest": 3,
+                           "AntenatalReportDaoIntegrationTest": 5,
+                           "EFormGroupDaoIntegrationTest": 9,
                            "BcBillingDaoTransactionIntegrationTest": 4,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
                            "DemographicMergeMariaDbIntegrationTest": 8}}
