@@ -55,13 +55,17 @@ async function workflow(s) {
     // Opening the editor removes these library frames. Let their initial
     // scripts/fonts finish so that this GET-refusal check does not race their
     // teardown. Keep strict diagnostics enabled for every request failure.
-    for (const selector of ['#uploadFrame', '#importFrame']) {
+    for (const [selector, partial] of [
+      ['#uploadFrame', '/eform/partials/upload'], ['#importFrame', '/eform/partials/import'],
+    ]) {
       const element = await admin.locator(selector).elementHandle();
       h.assert(element, 'The eForm library did not render its embedded panel');
       try {
         const frame = await element.contentFrame();
         h.assert(frame, 'The eForm library did not attach its embedded panel');
-        await frame.waitForLoadState('load', { timeout: 30000 });
+        const expected = new URL(h.appUrl(s.config.baseUrl, partial));
+        await frame.waitForURL(url => url.origin === expected.origin && url.pathname === expected.pathname,
+          { waitUntil: 'load', timeout: 30000 });
         await frame.waitForFunction(async () => {
           await document.fonts.ready;
           return true;
