@@ -37,7 +37,7 @@ class InstalledSignalEvidenceTest(unittest.TestCase):
     def test_timeout_records_failure_and_stops_before_another_installed_audit(self):
         with tempfile.TemporaryDirectory() as temporary, \
                 patch.dict(os.environ, {'CARLOS_DISPOSABLE_HOST': 'true', 'CARLOS_SUITE_PROVINCE': 'ON'}), \
-                patch.object(probe, 'run_process_group', side_effect=ProcessGroupFailure('timeout', True)) as runner:
+                patch.object(probe, 'run_process_group', side_effect=ProcessGroupFailure('cleanup failed', False)) as runner:
             output = Path(temporary) / 'result.json'
             self.assertEqual(probe.main(['--profile', 'ON', '--output', str(output)]), 1)
             runner.assert_called_once()
@@ -45,6 +45,6 @@ class InstalledSignalEvidenceTest(unittest.TestCase):
             result = json.loads(output.read_text())
             self.assertFalse(any(result['assertions'].values()))
             failure = json.loads((output.parent / 'signal-details.json').read_text())['failure']
-            self.assertTrue(failure['processGroupStopped'])
+            self.assertFalse(failure['processGroupStopped'])
             self.assertFalse(failure['restorationVerified'])
             self.assertTrue(failure['hostRequiresReconciliation'])

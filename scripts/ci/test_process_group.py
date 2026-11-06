@@ -7,11 +7,22 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import Mock, patch
 
 from process_group import ProcessGroupFailure, group_alive, run_process_group
 
 
 class ProcessGroupTest(unittest.TestCase):
+    def test_cleanup_os_error_remains_a_failure_with_unverified_quiescence(self):
+        child = Mock(pid=123456)
+        child.wait.side_effect = subprocess.TimeoutExpired(['synthetic'], 1)
+        with patch('process_group.subprocess.Popen', return_value=child), \
+                patch('process_group.stop_group', side_effect=PermissionError('synthetic cleanup failure')):
+            with self.assertRaises(ProcessGroupFailure) as failed:
+                run_process_group(['synthetic'], timeout=1)
+        self.assertFalse(failed.exception.quiescent)
+        self.assertIn('restoration is unverified', str(failed.exception))
+
     def test_timeout_stops_resistant_grandchild_after_its_parent_exits_on_term(self):
         with tempfile.TemporaryDirectory() as temporary:
             pid = Path(temporary) / 'group'

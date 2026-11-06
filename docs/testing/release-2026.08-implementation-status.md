@@ -195,7 +195,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The Python tooling registry pins 257 required case identities, including the
+- The Python tooling registry pins 258 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -207,7 +207,7 @@ and qualification below are still required to complete issue 5700. No release-re
   encoding, so even adjacent float values remain distinguishable. Eight real
   MariaDB numeric/NULL/binary oracles run with the native database gate.
 - Package operations and installed signal audits bound and stop their process
-  groups, including descendants that survive their parent. Uncertain interruption
+  groups, including descendants that survive their parent. Cleanup OS errors also retain the unverified state. Uncertain interruption
   records require fixture reconciliation; the signal adapter starts no further
   audit after a failure. Its deadline includes the manifest timeout plus cleanup.
 - No-op path-binding updates retain plan bytes. Evidence path checks stop at the

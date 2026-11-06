@@ -1102,7 +1102,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 257,
+      "minimumCases": 258,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1229,6 +1229,7 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
+        "test_process_group.ProcessGroupTest.test_cleanup_os_error_remains_a_failure_with_unverified_quiescence",
         "test_process_group.ProcessGroupTest.test_outer_termination_is_forwarded_to_the_separate_child_session",
         "test_process_group.ProcessGroupTest.test_successful_parent_cannot_leave_a_mutating_child_running",
         "test_process_group.ProcessGroupTest.test_timeout_stops_resistant_grandchild_after_its_parent_exits_on_term",

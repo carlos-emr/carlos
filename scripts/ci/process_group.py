@@ -64,16 +64,20 @@ def run_process_group(command, *, timeout, grace=10, **kwargs):
             if group_alive(process.pid):
                 raise ProcessGroupFailure('Child processes outlived their owner', False)
             return subprocess.CompletedProcess(command, code)
-        except (subprocess.TimeoutExpired, KeyboardInterrupt, ProcessGroupFailure) as failure:
+        except (subprocess.TimeoutExpired, KeyboardInterrupt, ProcessGroupFailure, OSError) as failure:
             # Do not let a second signal interrupt the bounded cleanup window.
             old_int = signal.signal(signal.SIGINT, signal.SIG_IGN)
             signal.signal(signal.SIGTERM, signal.SIG_IGN)
             try:
-                quiescent = stop_group(process, grace)
+                try:
+                    quiescent = stop_group(process, grace)
+                except OSError:
+                    quiescent = False
             finally:
                 signal.signal(signal.SIGINT, old_int)
             reason = ('Process group timed out' if isinstance(failure, subprocess.TimeoutExpired)
                       else 'Process group interrupted' if isinstance(failure, KeyboardInterrupt)
+                      else 'Process group state could not be established' if isinstance(failure, OSError)
                       else str(failure))
             raise ProcessGroupFailure(reason + '; fixture restoration is unverified', quiescent) from failure
     finally:
