@@ -171,11 +171,16 @@ public class JDBCUtil {
         return new FormImportRequest(target, values);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: locale-stable comparison of fixed XML structural tags;
+    // physical column validation and filename-owned identity remain independent guards.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Fixed XML tags use Locale.ROOT; physical metadata validates columns and the archive filename owns patient/timestamp")
     private static void collectImportValues(Node node, Map<String, String> values) {
         if (node.getNodeType() == Node.ELEMENT_NODE) {
             String name = node.getNodeName();
-            if (!name.equalsIgnoreCase("Results") && !name.equalsIgnoreCase("Row")
-                    && !name.equalsIgnoreCase("ID") && !isImportTargetManagedField(name)) {
+            String structuralName = name.toLowerCase(java.util.Locale.ROOT);
+            if (!"results".equals(structuralName) && !"row".equals(structuralName)
+                    && !"id".equals(structuralName) && !isImportTargetManagedField(name)) {
                 Node first = node.getFirstChild();
                 values.put(name, first != null && first.getNodeType() == Node.TEXT_NODE ? first.getNodeValue() : "");
             }
@@ -292,7 +297,10 @@ public class JDBCUtil {
             justification = "case-insensitive comparison against fixed ASCII import-managed DB column names; "
                     + "XML body cannot choose patient/timestamp")
     private static boolean isImportTargetManagedField(String name) {
-        return IMPORT_TARGET_MANAGED_FIELDS.stream().anyMatch(field -> field.equalsIgnoreCase(name));
+        for (String field : IMPORT_TARGET_MANAGED_FIELDS) {
+            if (field.equalsIgnoreCase(name)) return true;
+        }
+        return false;
     }
 
     public record FormImportTarget(String formName, String demographicNo, String timeStamp) {

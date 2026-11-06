@@ -37,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.Locale;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import jakarta.persistence.Query;
 
@@ -110,7 +111,7 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
     public Map<String, String> findPatientRecord(String table, int id, int demographicNo) {
         String trusted = requireTable(table);
         return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
-            try (var statement = connection.prepareStatement("SELECT * FROM " + trusted + " WHERE ID=? AND demographic_no=?")) {
+            try (var statement = preparePatientRecordSelect(connection, trusted)) {
                 statement.setInt(1, id);
                 statement.setInt(2, demographicNo);
                 try (var rows = statement.executeQuery()) {
@@ -138,7 +139,7 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         // Read the real schema: form tables have different optional columns and defaults.
         // Values stay strings so MariaDB, as with updateString(), owns date/number conversion.
         List<String> columns = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
-            try (var statement = connection.prepareStatement("SELECT * FROM " + trusted + " WHERE 1=0");
+            try (var statement = prepareFormSchemaSelect(connection, trusted);
                  var rows = statement.executeQuery()) {
                 List<String> result = new ArrayList<>();
                 var metadata = rows.getMetaData();
@@ -163,8 +164,7 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         String fields = String.join(",", keys.stream().map(key -> "`" + names.get(key).replace("`", "``") + "`").toList());
         String binds = String.join(",", java.util.Collections.nCopies(keys.size(), "?"));
         return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
-            try (var insert = connection.prepareStatement("INSERT INTO " + trusted + " (" + fields + ") VALUES (" + binds + ")",
-                    java.sql.Statement.RETURN_GENERATED_KEYS)) {
+            try (var insert = prepareImportedInsert(connection, trusted, fields, binds)) {
                 for (int i = 0; i < keys.size(); i++) insert.setString(i + 1, supplied.get(keys.get(i)));
                 insert.executeUpdate();
                 try (var generated = insert.getGeneratedKeys()) {
@@ -173,6 +173,36 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
                 }
             }
         });
+    }
+
+    // FindSecBugs SQL_INJECTION_JDBC / SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
+    // requireTable restricts the table to ASCII identifiers approved by the form registry;
+    // the patient and record identifiers remain JDBC parameters.
+    @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Private form SELECT uses requireTable's registry-approved ASCII identifier and binds patient/record values")
+    private static java.sql.PreparedStatement preparePatientRecordSelect(java.sql.Connection connection,
+            String trustedTable) throws java.sql.SQLException {
+        return connection.prepareStatement("SELECT * FROM " + trustedTable + " WHERE ID=? AND demographic_no=?");
+    }
+
+    // FindSecBugs SQL_INJECTION_JDBC / SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
+    // requireTable validates the sole variable identifier before this zero-row metadata read.
+    @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Private zero-row schema read uses only requireTable's registry-approved ASCII table identifier")
+    private static java.sql.PreparedStatement prepareFormSchemaSelect(java.sql.Connection connection,
+            String trustedTable) throws java.sql.SQLException {
+        return connection.prepareStatement("SELECT * FROM " + trustedTable + " WHERE 1=0");
+    }
+
+    // FindSecBugs SQL_INJECTION_JDBC / SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
+    // requireTable validates the table; fields are escaped physical metadata column names,
+    // binds contains only generated question marks, and every imported value is bound.
+    @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Private insert uses a registry-approved ASCII table, quoted physical metadata columns and generated placeholders; values are bound separately")
+    private static java.sql.PreparedStatement prepareImportedInsert(java.sql.Connection connection,
+            String trustedTable, String fields, String binds) throws java.sql.SQLException {
+        return connection.prepareStatement("INSERT INTO " + trustedTable + " (" + fields + ") VALUES (" + binds + ")",
+                java.sql.Statement.RETURN_GENERATED_KEYS);
     }
 
     @SuppressWarnings("unchecked")

@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.ArrayList;
 import java.util.List;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
@@ -47,7 +48,7 @@ public class EFormValueDaoImpl extends AbstractDaoImpl<EFormValue> implements EF
         // AP templates expose JDBC text (including physical timestamp scale), not Java temporal objects.
         // Hibernate owns the connection and transaction; only detached scalar rows leave this DAO.
         return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
-            try (var statement = connection.prepareStatement(sql.getSql())) {
+            try (var statement = prepareValidatedApSelect(connection, sql)) {
                 for (int i = 0; i < sql.getParams().size(); i++) statement.setObject(i + 1, sql.getParams().get(i));
                 try (var rows = statement.executeQuery()) {
                     var result = new java.util.ArrayList<ClinicalDataRow>();
@@ -64,6 +65,16 @@ public class EFormValueDaoImpl extends AbstractDaoImpl<EFormValue> implements EF
                 }
             }
         });
+    }
+
+    // FindSecBugs SQL_INJECTION_JDBC / SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING:
+    // findDatabaseApValues validates the SELECT with EFormSqlSafety before this private sink;
+    // all request values remain JDBC parameters, never SQL structure.
+    @SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Private AP SELECT preparation follows EFormSqlSafety.validateLegacySqlSafety; request values are bound separately")
+    private static java.sql.PreparedStatement prepareValidatedApSelect(java.sql.Connection connection,
+            io.github.carlos_emr.carlos.report.data.ParameterizedSql sql) throws java.sql.SQLException {
+        return connection.prepareStatement(sql.getSql());
     }
 
     public EFormValueDaoImpl() {

@@ -10,6 +10,8 @@ import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import javax.sql.DataSource;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
@@ -105,11 +107,13 @@ class FormXmlImportServiceIntegrationTest extends CarlosTestBase {
         assertThat(count()).isEqualTo(1);
     }
 
-    @Test
-    void shouldRollbackEarlierWrite_whenLaterEntryHasAnUnknownPhysicalColumn() throws Exception {
+    @ParameterizedTest
+    // A dotless-I field must not masquerade as the ASCII ID field and bypass column validation.
+    @ValueSource(strings = {"unknownColumn", "\u0131D"})
+    void shouldRollbackEarlierWrite_whenLaterEntryHasAnUnknownPhysicalColumn(String column) throws Exception {
         Map<String, String> entries = new java.util.LinkedHashMap<>();
         entries.put(name("2026-10-31T12:34:56"), body("first"));
-        entries.put(name("2026-10-31T12:34:57"), "<Results><Row><unknownColumn>bad</unknownColumn></Row></Results>");
+        entries.put(name("2026-10-31T12:34:57"), "<Results><Row><" + column + ">bad</" + column + "></Row></Results>");
         try (ZipFile archive = archive(entries)) {
             assertThatThrownBy(() -> service.importArchive(archive)).isInstanceOf(IllegalArgumentException.class);
         }
@@ -141,6 +145,14 @@ class FormXmlImportServiceIntegrationTest extends CarlosTestBase {
             throw new IllegalStateException("synthetic failure after two writes");
         })).isInstanceOf(IllegalStateException.class).hasMessage("synthetic failure after two writes");
         assertThat(count()).isZero();
+    }
+
+    @Test
+    void shouldRejectWriteStatement_whenDatabaseApSuppliesSqlStructure() throws Exception {
+        service.importEntry(input(body("FAKE retained")), name("2026-10-31T12:34:56"));
+        var query = new ParameterizedSql("DELETE FROM " + table + " WHERE demographic_no=?", java.util.List.of(101));
+        assertThatThrownBy(() -> apValues.findDatabaseApValues(query)).isInstanceOf(SecurityException.class);
+        assertThat(count()).isEqualTo(1);
     }
 
     @Test
