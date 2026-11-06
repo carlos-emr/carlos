@@ -43,7 +43,6 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import jakarta.servlet.http.HttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
@@ -183,10 +182,26 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
         request.setParameter("getXLS", "Export to XLS");
         request.setParameter("csv", "chart,reference,precision,formula,negativeId,exponent,negativeZero,sixteenDigits\n00123,12345678901234567,1.23456789012345678,=1+1,-001,1e20,-0,1234567890123456\n");
         assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
-        try (var workbook = new org.apache.poi.hssf.usermodel.HSSFWorkbook(
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
                 new java.io.ByteArrayInputStream(response.getContentAsByteArray()))) {
             var row = workbook.getSheetAt(0).getRow(1);
             String[] expected = {"00123", "12345678901234567", "1.23456789012345678", "=1+1", "-001", "1e20", "-0", "1234567890123456"};
+            for (int column = 0; column < expected.length; column++) {
+                assertThat(row.getCell(column).getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.STRING);
+                assertThat(row.getCell(column).getStringCellValue()).isEqualTo(expected[column]);
+            }
+        }
+    }
+
+    @Test
+    void shouldKeepNonAsciiDigitsAsText_whenExportingNumericLookingValues() throws Exception {
+        request.setParameter("getXLS", "Export to XLSX");
+        request.setParameter("csv", "arabic,fullwidth,mixed,decimal\n١٢,１２,1١,1.١\n");
+        assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
+                new java.io.ByteArrayInputStream(response.getContentAsByteArray()))) {
+            var row = workbook.getSheetAt(0).getRow(1);
+            String[] expected = {"١٢", "１２", "1١", "1.١"};
             for (int column = 0; column < expected.length; column++) {
                 assertThat(row.getCell(column).getCellType()).isEqualTo(org.apache.poi.ss.usermodel.CellType.STRING);
                 assertThat(row.getCell(column).getStringCellValue()).isEqualTo(expected[column]);
@@ -199,7 +214,7 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
         request.setParameter("getXLS", "Export to XLS");
         request.setParameter("csv", "2026,amount,zero,maximum\n42,-12.50,0,999999999999999\n");
         assertThat(new GenerateOutFiles2Action().execute()).isEqualTo(ActionSupport.NONE);
-        try (var workbook = new org.apache.poi.hssf.usermodel.HSSFWorkbook(
+        try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(
                 new java.io.ByteArrayInputStream(response.getContentAsByteArray()))) {
             assertThat(workbook.getSheetAt(0).getRow(0).getCell(0).getStringCellValue()).isEqualTo("2026");
             double[] expected = {42, -12.5, 0, 999999999999999d};

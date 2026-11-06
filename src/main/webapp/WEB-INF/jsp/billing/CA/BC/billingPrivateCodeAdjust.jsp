@@ -1,3 +1,4 @@
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <!DOCTYPE html>
 <%--
 
@@ -34,7 +35,6 @@
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
 
 <html>
@@ -59,7 +59,8 @@
                 carlosSubmitForm(form);
             }
         </script>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
 
     <body>
     <h3><fmt:message key="admin.admin.ManagePrivFrm"/></h3>
@@ -88,15 +89,23 @@
                     arrow = "&darr;";
                 }
         %> <% request.setAttribute("test", list); %>
-        <%-- requestURI: this page is reached by a forward, so without it the sort links name the WEB-INF path (404). --%>
-        <display:table name="test" defaultsort="1" defaultorder="descending"
-                       decorator="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillCodesTableWrapper"
-                       class="table table-hover table-striped" requestURI="/billing/CA/BC/ViewBillingPrivateCodeAdjust">
-            <display:column property="serviceCode" title="Service Code" sortable="true" headerClass="sortable"/>
-            <display:column property="description" title="Description" sortable="true" headerClass="sortable"/>
-            <display:column property="value" title="Price" sortable="true" headerClass="sortable"/>
-            <display:column property="billingserviceNo" title="Options"/>
-        </display:table>
+        <c:if test="${not empty test}">
+        <table class="table table-hover table-striped" data-carlos-table data-page-size="0" data-default-sort="1" data-default-order="descending">
+<thead><tr>
+            <th scope="col" class="sortable"><span data-table-sort>Service Code</span></th>
+            <th scope="col" class="sortable"><span data-table-sort>Description</span></th>
+            <th scope="col" class="sortable"><span data-table-sort>Price</span></th>
+            <th scope="col">Options</th>
+        </tr></thead>
+<tbody><c:forEach var="tableRow" items="${test}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.serviceCode))}" data-sort-type="${carlos:tableSortType(tableRow.serviceCode)}">${carlos:forHtml(tableRow.serviceCode)}</td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.description))}" data-sort-type="${carlos:tableSortType(tableRow.description)}">${carlos:forHtml(tableRow.description)}</td>
+            <td data-sort-value="${carlos:forHtmlAttribute(tableRow.value)}" data-sort-type="number">${carlos:forHtml(tableRow.value)}</td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingserviceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingserviceNo)}"><a href="ViewBillingEditCode?codeId=${carlos:forUriComponent(tableRow.billingserviceNo)}&amp;code=${carlos:forUriComponent(tableRow.serviceCode)}&amp;desc=${carlos:forUriComponent(tableRow.description)}&amp;value=${carlos:forUriComponent(tableRow.value)}&amp;whereTo=private">Edit</a><br><button type="button" class="table-action" onclick="deletePrivateCode('${carlos:forJavaScriptAttribute(tableRow.billingserviceNo)}'); return false;">Delete</button></td>
+        </tr></c:forEach></tbody>
+</table>
+        </c:if>
+<c:if test="${empty test}"><p class="table-empty">Nothing found to display.</p></c:if>
         <%}%>
     </div>
     </body>

@@ -1,0 +1,41 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+/* Match the former table spacing hints without overriding a page's own cell styles. */
+:where(table.carlos-table-spaced, table.carlos-table-history) { border-spacing: 2px; }
+:where(table.carlos-table-spaced > thead > tr > th,
+       table.carlos-table-spaced > tbody > tr > td) { padding: 3px; }
+:where(table.carlos-table-history > thead > tr > th,
+       table.carlos-table-history > tbody > tr > td) { padding: 9px; }
+.table-action {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: var(--bs-link-color, LinkText);
+    text-decoration: underline;
+    cursor: pointer;
+}
+.table-sort {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+}
+th[aria-sort="ascending"] .table-sort::after { content: " ▲"; }
+th[aria-sort="descending"] .table-sort::after { content: " ▼"; }
+.pagelinks button { margin: 0 .15rem; }
+.pagelinks [aria-current="page"] { font-weight: bold; }
+.table-empty { margin: .5rem 0; }
+.table-selection-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

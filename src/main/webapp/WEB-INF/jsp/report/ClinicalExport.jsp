@@ -45,7 +45,7 @@
 %>
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="org.apache.poi.hssf.usermodel.HSSFRow,org.apache.poi.hssf.usermodel.HSSFSheet,org.apache.poi.hssf.usermodel.HSSFWorkbook,org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVParser,org.apache.commons.csv.CSVRecord,java.io.StringReader,java.util.List" %>
+<%@page import="io.github.carlos_emr.carlos.report.SpreadsheetExport,org.apache.commons.csv.CSVFormat,org.apache.commons.csv.CSVParser,org.apache.commons.csv.CSVRecord,java.io.StringReader,java.util.List" %>
 <%
 
     String csv = (String) session.getAttribute("clinicalReportCSV");
@@ -62,7 +62,7 @@
     action = request.getParameter("getXLS");
     if (action != null) {
         response.setContentType("application/octet-stream");
-        response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xls\"");
+        response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xlsx\"");
 
         // Parse CSV using Apache Commons CSV
         String[][] data;
@@ -78,24 +78,31 @@
             }
         }
 
-        HSSFWorkbook wb = new HSSFWorkbook();
-        HSSFSheet sheet = wb.createSheet("OSCAR_Report");
+        Object[][] cells = new Object[data.length][];
         for (int x = 0; x < data.length; x++) {
-            HSSFRow row = sheet.createRow((short) x);
+            cells[x] = new Object[data[x].length];
             for (int y = 0; y < data[x].length; y++) {
                 try {
-                    double d = Double.parseDouble(data[x][y]);
-                    row.createCell((short) y).setCellValue(d);
-                } catch (Exception e) {
-                    row.createCell((short) y).setCellValue(data[x][y]);
+                    double number = Double.parseDouble(data[x][y]);
+                    cells[x][y] = Double.isFinite(number) ? number : data[x][y];
+                } catch (NumberFormatException invalid) {
+                    cells[x][y] = data[x][y];
                 }
             }
         }
         try {
-            wb.write(response.getOutputStream());
+            response.setContentType(SpreadsheetExport.CONTENT_TYPE);
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            SpreadsheetExport.write(response.getOutputStream(), cells);
             return;
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error", e);
+            if (!response.isCommitted()) {
+                response.resetBuffer();
+                response.setHeader("Content-Disposition", null);
+                response.setContentType("text/plain;charset=UTF-8");
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
 
     }

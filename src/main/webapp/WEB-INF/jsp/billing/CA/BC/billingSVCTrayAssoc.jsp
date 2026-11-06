@@ -1,5 +1,4 @@
 <%@page  errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@taglib uri="http://displaytag.sf.net" prefix="display" %>
 <%@taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -75,7 +74,8 @@
             }
         </script>
         <title>Manage Procedure and Tray Fee Associations</title>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
     <body>
     <%-- Validation messages echo the submitted service codes, so every one goes through the
          null-safe CARLOS encoder. This is the only error renderer on the page: the raw
@@ -108,14 +108,21 @@
             <input type="submit" name="submitButton" value="Save Association"
                    onclick="setMode('edit');"/> <input type="reset" value="Clear"/></fieldset>
     </form>
-    <%-- This page is reached by a forward, so the paging links need the action's address (without it they name the
-         WEB-INF page, 404); excludedParams keeps a refused save's fields out of those GET links. --%>
-    <p/><display:table class="displayGrid" name="list" pagesize="50" requestURI="/billing/CA/BC/supServiceCodeAssocAction"
-                       excludedParams="*" defaultsort="1" defaultorder="descending"
-                       decorator="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillCodesTableWrapper">
-        <display:column property="billingServiceNo" title="Procedure Fee Code"/>
-        <display:column property="billingServiceTrayNo" title="Tray Fee Code"/>
-        <display:column property="associationStatus" title="Options"/>
-    </display:table>
+    <%-- Paging is local; rejected save fields are never repeated into navigation URLs. --%>
+    <p/><c:if test="${not empty list}">
+<table class="displayGrid" data-carlos-table data-page-size="50" data-default-sort="1" data-default-order="descending">
+<thead><tr>
+        <th scope="col">Procedure Fee Code</th>
+        <th scope="col">Tray Fee Code</th>
+        <th scope="col">Options</th>
+    </tr></thead>
+<tbody><c:forEach var="tableRow" items="${list}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceNo)}">${carlos:forHtml(tableRow.billingServiceNo)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceTrayNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceTrayNo)}">${carlos:forHtml(tableRow.billingServiceTrayNo)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.associationStatus))}" data-sort-type="${carlos:tableSortType(tableRow.associationStatus)}"><button type="button" class="table-action" onclick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</button><br><button type="button" class="table-action" onclick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</button></td>
+    </tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty list}"><p class="table-empty">Nothing found to display.</p></c:if>
     </body>
 </html>

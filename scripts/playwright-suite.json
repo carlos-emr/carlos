@@ -5530,11 +5530,17 @@
     {
       "name": "eform-email-error",
       "script": "scripts/eform-email-error-playwright-checks.js",
-      "tiers": ["core"],
+      "tiers": [
+        "core"
+      ],
       "assertsDatabase": true,
-      "provinces": ["all"],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 300,
-      "env": ["EXCLUSIVE"],
+      "env": [
+        "EXCLUSIVE"
+      ],
       "notes": "Issue #4477: an unavailable selected attachment must show the dedicated preparation error, preserve the saved letter and retry the same draft after the attachment is restored. No email is sent.",
       "fixtures": "Owned patient, eForm template, saved attachment and LOCAL sender pointing at a loopback SMTP sink. The owned attachment is removed just before compose and restored before Retry; cleanup verifies the owned eForm and sender rows are gone. The sender is offered clinic-wide, so this check requires a loopback BASE_URL and an exclusive run (live wrapper: EXCLUSIVE=1)."
     },
@@ -7977,12 +7983,24 @@
     {
       "name": "document-queue-identity",
       "script": "scripts/document-queue-identity-playwright-checks.js",
-      "tiers": ["core"],
-      "provinces": ["all"],
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
       "timeoutSec": 300,
       "assertsDatabase": true,
-      "env": ["TEST_PASSWORD", "TEST_PIN", "MYSQL_PASSWORD"],
-      "mutates": ["queue", "secObjectName", "property:doc_default_queue"],
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "mutates": [
+        "queue",
+        "secObjectName",
+        "property:doc_default_queue"
+      ],
       "fixtures": "Disposable installed database only; must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Requires CREATE/DROP TRIGGER permission for a marker-scoped security-write fault. Creates three marker-named queues through the provider form and Administration. Restores the provider default and removes owned queues/security objects and trigger on completion or interruption.",
       "notes": "#4054: generated queue IDs, exact security association, duplicate-name creation failure with a later global MAX, and rollback/retry after a security-object failure. Opens the registered legacy default-queue view route because no Preferences link currently exposes it."
     },
@@ -18390,6 +18408,42 @@
         "finding": 334,
         "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved"
       }
+    },
+    {
+      "name": "dependency-tables",
+      "script": "scripts/dependency-tables-playwright-checks.js",
+      "env": [
+        "CHROME_BIN",
+        "CHROME_PATH",
+        "CARLOS_SMOKE_CHROMIUM",
+        "EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX"
+      ],
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120
+    },
+    {
+      "name": "chart-draw",
+      "script": "scripts/chart-draw-playwright-checks.js",
+      "env": [
+        "CHROME_BIN",
+        "CHROME_PATH",
+        "CARLOS_SMOKE_CHROMIUM",
+        "EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX"
+      ],
+      "tiers": [
+        "standalone"
+      ],
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 120
     },
     {
       "name": "report-typed-queries",

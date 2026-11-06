@@ -41,20 +41,27 @@
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Program History</title>
         <link rel="stylesheet" type="text/css" media="all" href="<%= request.getContextPath() %>/share/css/extractedFromPages.css"/>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
     <body>
 
-    <display:table cellspacing="2" cellpadding="9" id="ps"
-                   name="programSignatures" export="false" pagesize="0"
-                   requestURI="${programSignaturesUri}">
+    <c:if test="${not empty programSignatures}">
+    <table class="carlos-table-history" id="ps" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
 
-        <display:column property="providerName" style="white-space: nowrap;"
-                        sortable="true" title="Provider Name"></display:column>
-        <display:column property="caisiRoleName" style="white-space: nowrap;"
-                        sortable="true" title="Role"></display:column>
-        <display:column property="updateDate" style="white-space: nowrap;"
-                        sortable="true" title="Date"></display:column>
-    </display:table>
+        <th scope="col"><span data-table-sort>Provider Name</span></th>
+        <th scope="col"><span data-table-sort>Role</span></th>
+        <th scope="col"><span data-table-sort>Date</span></th>
+    </tr></thead>
+<tbody><c:forEach var="ps" items="${programSignatures}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.providerName))}" data-sort-type="${carlos:tableSortType(ps.providerName)}">${carlos:forHtml(ps.providerName)}</td>
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.caisiRoleName))}" data-sort-type="${carlos:tableSortType(ps.caisiRoleName)}">${carlos:forHtml(ps.caisiRoleName)}</td>
+        <td style="white-space: nowrap;" data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(ps.updateDate))}" data-sort-type="${carlos:tableSortType(ps.updateDate)}">${carlos:forHtml(ps.updateDate)}</td>
+    </tr></c:forEach></tbody>
+</table>
+    </c:if>
+<c:if test="${empty programSignatures}"><p class="table-empty">Nothing found to display.</p></c:if>
 
     </body>
 </html>

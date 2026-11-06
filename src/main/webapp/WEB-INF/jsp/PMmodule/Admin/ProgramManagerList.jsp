@@ -103,40 +103,59 @@
     </table>
 </form>
 
-<display:table class="simple" cellspacing="2" cellpadding="3"
-               id="program" name="programs" export="false" pagesize="0"
-               requestURI="${programListUri}">
-    <display:setProperty name="paging.banner.placement" value="bottom"/>
-    <display:setProperty name="paging.banner.item_name" value="program"/>
-    <display:setProperty name="paging.banner.items_name" value="programs"/>
-    <display:setProperty name="basic.msg.empty_list" value="No programs found."/>
+<%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+<c:if test="${not empty programs}">
+<table class="carlos-table-spaced simple" id="program" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
 
-    <display:column sortable="false" title="">
+
+
+
+
+    <th scope="col"></th>
+    <th scope="col"></th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Description</span></th>
+    <th scope="col"><span data-table-sort>Type</span></th>
+    <th scope="col"><span data-table-sort>Status</span></th>
+    <th scope="col"><span data-table-sort>Location</span></th>
+    <th scope="col"><span data-table-sort>Participation</span></th>
+</tr></thead>
+<tbody><c:forEach var="program" items="${programs}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+
+
+
+    <td>
         <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=delete&amp;id=${carlos:forUriComponent(program.id)}&amp;name=${carlos:forUriComponent(program.name)}"
            onclick="return confirmDelete('${carlos:forJavaScript(program.name)}');">Delete</a>
-    </display:column>
-    <display:column sortable="false" title="">
+    </td>
+    <td>
         <c:choose>
             <c:when test="${program.programStatus == 'active'}">
                 <a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=edit&amp;id=${carlos:forUriComponent(program.id)}">Edit</a>
             </c:when>
             <c:otherwise>Edit</c:otherwise>
         </c:choose>
-    </display:column>
-    <display:column sortable="true" title="Name">
+    </td>
+    <td>
         <a href="${pageContext.request.contextPath}/PMmodule/ProgramManagerView?id=${carlos:forUriComponent(program.id)}">
             ${carlos:forHtml(program.name)}
         </a>
-    </display:column>
-    <display:column property="description" sortable="true" title="Description"/>
-    <display:column property="type" sortable="true" title="Type"/>
-    <display:column property="programStatus" sortable="true" title="Status"/>
-    <display:column property="location" sortable="true" title="Location"/>
-    <display:column sortable="true" title="Participation">
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.description))}" data-sort-type="${carlos:tableSortType(program.description)}">${carlos:forHtml(program.description)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.type))}" data-sort-type="${carlos:tableSortType(program.type)}">${carlos:forHtml(program.type)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.programStatus))}" data-sort-type="${carlos:tableSortType(program.programStatus)}">${carlos:forHtml(program.programStatus)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.location))}" data-sort-type="${carlos:tableSortType(program.location)}">${carlos:forHtml(program.location)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.numOfMembers))}" data-sort-type="number">
         ${carlos:forHtml(program.numOfMembers)}/${carlos:forHtml(program.maxAllowed)}
         (${carlos:forHtml(program.queueSize)} waiting)
-    </display:column>
-</display:table>
+    </td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty programs}"><p class="table-empty">No programs found.</p></c:if>
 
 <div>
     <p><a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=add">Add new program</a></p>

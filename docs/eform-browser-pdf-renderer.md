@@ -1,9 +1,9 @@
-# eForm Browser PDF Renderer (Selenium + Headless Chromium)
+# eForm Browser PDF Renderer (JDK + Headless Chromium)
 
 CARLOS renders saved eForms to PDF with a real browser engine because eForms are CSS- and
 JavaScript-dependent documents — absolutely-positioned fields over scanned background images,
 clinic-authored layout scripts, APCache-populated content, `@media print` rules — that pure-Java HTML
-renderers cannot reproduce faithfully. The renderer is driven entirely from the JVM by Selenium —
+renderers cannot reproduce faithfully. The renderer is driven entirely from the JVM by a bounded JDK HTTP client —
 **no Node.js runtime is installed, bundled, or executed anywhere on the server**.
 
 The render surface is a *passive* snapshot: the WYSIWYG editor and the other interactive control
@@ -17,7 +17,7 @@ EformDataManagerImpl.createEformPDF
   └─ EFormBrowserPdfService.renderSavedEformPdf(loggedInInfo, fdid)
        ├─ loads the saved eForm and checks _eform READ for its demographic
        ├─ mints a render-scoped render token (EFormRenderTokenService, 2-min TTL)
-       ├─ launches headless Chromium via Selenium ChromeDriver (fresh browser per render)
+       ├─ asks the separately confined chromedriver to launch headless Chromium (fresh browser per render)
        ├─ navigates over loopback to /EFormViewForPdfGenerationServlet?fdid=…&browserRender=true&renderToken=…
        │    ├─ servlet exchanges the one-time bootstrap token for a host-only,
        │    │    HttpOnly, SameSite=Strict CARLOS_EFORM_RENDER cookie
@@ -79,7 +79,7 @@ This preserves the legacy per-page geometry contract the form corpus depends on 
 text-layer PDF. (The previous implementation screenshotted each `pageN` region via
 `Page.captureScreenshot` and glued the PNGs with PDFBox `LosslessFactory`, which produced image-only
 PDFs with no extractable text — and clipped pages whose background image was smaller than their
-content.) Equivalence is pinned by the Selenium smoke test
+content.) Equivalence is pinned by the browser smoke test
 (`EFormBrowserPdfServiceSeleniumSmokeIntegrationTest`): the page-div fixture prints to a 2-page PDF
 whose page count matches the authored divs and whose text layer contains the form's text, and the
 free-flow fixture prints to a text-layer PDF with no injected `@page` size.
@@ -140,7 +140,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 > render would — review that setting before assuming the deployment is broken.
 
 - **Chromium** (or Chrome) on the server. Point the renderer at it with
-  `eform_pdf_browser_chromium_path`; without the property, Selenium looks for a system Chrome.
+  `eform_pdf_browser_chromium_path`; without the property, chromedriver looks for a system Chrome.
 - **A RUNNING chromedriver, matching the browser's major version.** CARLOS connects to it over
   loopback (`eform_pdf_browser_service_url`); it does not launch one, and there is no
   Selenium Manager fallback to download a driver at first use. On the .deb this is the
@@ -155,7 +155,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
   spawned by the JVM under that unit it fails every boot on the 30s startup budget. Moving
   the browser to its own unit is what lets it be sandboxed without loosening the EMR's own
   hardening.
-- **No Node.js.** The renderer runs entirely in the JVM (Selenium driving Chromium); no Node
+- **No Node.js.** The renderer runs entirely in the JVM (the JDK client driving Chromium); no Node
   runtime or npm modules are required on the host. (The dev/CI Playwright check scripts under
   `scripts/` are separate test tooling, not part of the renderer.)
 - **Managed eForm assets update themselves.** `EFormAssetDeployer` keeps `editControl2.js`, the
@@ -816,9 +816,13 @@ key extraction), the render servlet and token service, the capability cookie and
 authorization, the image/signature/APCache servlets, `LoginFilter` least-privilege, and the
 mutator/GET contract.
 
-End-to-end smoke, which skips cleanly on a host without a browser:
+Opt-in end-to-end smoke with a running local driver service and matching browser binary. The legacy
+`SeleniumSmokeIntegrationTest` class name is retained for existing operator commands; its implementation
+uses the JDK transport. Runs without the service URL or browser binary skip cleanly:
 
 ```bash
+CARLOS_SMOKE_DRIVER_URL=http://127.0.0.1:9515 \
+CARLOS_SMOKE_CHROMIUM=/path/to/chrome \
 mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest
 ```
 

@@ -1,0 +1,20 @@
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources" var="tableMessages"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.first" var="tableLabelFirst"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.previous" var="tableLabelPrevious"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.next" var="tableLabelNext"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.last" var="tableLabelLast"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.page" var="tableLabelPage"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.pages" var="tableLabelPages"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.of" var="tableLabelOf"/>
+<template data-carlos-table-labels
+          data-first="${carlos:forHtmlAttribute(tableLabelFirst)}"
+          data-previous="${carlos:forHtmlAttribute(tableLabelPrevious)}"
+          data-next="${carlos:forHtmlAttribute(tableLabelNext)}"
+          data-last="${carlos:forHtmlAttribute(tableLabelLast)}"
+          data-page="${carlos:forHtmlAttribute(tableLabelPage)}"
+          data-pages="${carlos:forHtmlAttribute(tableLabelPages)}"
+          data-of="${carlos:forHtmlAttribute(tableLabelOf)}"></template>
+<link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/carlos-tables.css"/>
+<script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/carlos-tables.js" defer></script>
