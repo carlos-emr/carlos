@@ -29,7 +29,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Browser acceptance checks require reported Chromium identity to match the
   installed Playwright metadata and committed lock. Missing/mixed/wrong versions
   fail instead of silently qualifying an arbitrary installed browser.
-- Scope candidate generation covers the union of all three pinned comparisons,
+- Scope candidate generation covers the union of all configured pinned comparisons,
   including deleted paths. It never promotes name matches to coverage. Writing
   requires an explicit reviewed bindings file; the 2,448 previously unowned paths
   have not been silently assigned or excluded.
@@ -383,3 +383,18 @@ source files, including exact generated-case multiplicities and source hashes.
   workstreams. At `a78b9ce`, the normal CI fixture gate passes all fifteen scripts
   and the native lanes pass 3,079 generated, 229 ON Flyway and 61 BC Flyway cases
   without failures or skips. Those receipts retain their original source identity.
+
+- At committed source `d751849dd36`, normal receipts pass 325 Python cases,
+  all fifteen CI browser fixtures, 21 coverage tooling cases, the twelve-assertion
+  unchanged-client sensitivity oracle and a fresh Java 25 WAR build. The actual
+  current-head main/release binary comparison remains FAIL: 34 XML differences,
+  29 removed/changed API types, 38 additive API types requiring client review,
+  one rejected main input and two malformed main outputs. Release observations
+  have no execution errors; the SOAP payload privacy failure exists on both sides.
+  The current scope receipt remains FAIL with 2,440 unowned production paths.
+  Final reconciliation correctly reports releaseReady=false. These receipts
+  identify their original commit and do not qualify later documentation edits.
+- The older installed cell is stopped and removed after all four private cold
+  archives verify every member and file hash. Failed attempts, recovery bytes and
+  both original and corrected backup histories remain retained. No failed result
+  has been promoted to a pass.

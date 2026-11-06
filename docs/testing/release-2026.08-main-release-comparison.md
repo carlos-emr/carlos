@@ -5,7 +5,28 @@ establish compatibility. The `main-release-wire-compatibility` command is requir
 by T01/T08/T19/T21/T24, in addition to installed HTTP, persistence, browser and
 package lifecycle requirements. It never makes those other checks pass.
 
-## Binary and client identity
+## Current release head comparison
+
+A fresh source-bound build and comparison at `d751849dd36669ca84cf431feef7cfb6e9341bd9`
+includes release base `8def0e6b9bd8ff77d0e97ea85d8d066b0677f18b`. The candidate
+WAR SHA-256 is `d93567fe24b8497a81e7c4e82ef5f37afa1d35174036a1e8d6a0f749de736020`.
+The same pinned main package and unchanged clients produce 589 matching wire cases,
+34 XML differences, 29 types with removed/changed APIs and 38 types with additions
+requiring client review. The gate remains **FAIL**. The release produces all 628
+observations without execution errors. One rejected main input and two malformed
+main XML outputs remain explicit incomplete baseline observations. The local SOAP
+privacy canary fails on both versions; it is a pre-existing defect.
+
+[Current findings and input identities](release-2026.08-current-head-findings.json)
+retain every API and XML difference. Compared with the earlier binary observation,
+`ABCDParser` newly appears among removed/changed API types; additions also newly
+include `Hl7TextInfoDao` and `WorkFlowDao`. These are review candidates, with no
+blanket allowlist or claim that every internal API change is an unintended break.
+The independent real-client sensitivity oracle passes all twelve assertions.
+Installed HTTP, lifecycle, persistence and remaining coverage requirements are
+still outstanding. This failed comparison is not complete release qualification.
+
+## Earlier binary and client identity
 
 - Pinned main: `e53e6cb555125a942bbb28e52097972a24c88ad1`, published beta6.
 - Main Debian SHA-256: `839c981b7de78460d89eaba0a8c95d992d88f861cc4739bba2b81753373a3af1`.
