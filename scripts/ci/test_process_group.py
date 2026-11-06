@@ -26,13 +26,25 @@ class ProcessGroupTest(unittest.TestCase):
     def test_timeout_stops_resistant_grandchild_after_its_parent_exits_on_term(self):
         with tempfile.TemporaryDirectory() as temporary:
             pid = Path(temporary) / 'group'
+            ready = Path(temporary) / 'ready'
+            grandchild = ('import pathlib,signal,sys,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); '
+                          'pathlib.Path(sys.argv[1]).write_text("ready"); time.sleep(60)')
             script = ("import os,pathlib,signal,subprocess,sys,time\n"
                 "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
-                "subprocess.Popen([sys.executable,'-c',"
-                "'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(60)'])\n"
+                "subprocess.Popen([sys.executable,'-c'," + repr(grandchild) + ",sys.argv[2]])\n"
                 "pathlib.Path(sys.argv[1]).write_text(str(os.getpgrp()))\ntime.sleep(60)\n")
-            with self.assertRaises(ProcessGroupFailure) as failed:
-                run_process_group([sys.executable, '-c', script, str(pid)], timeout=1, grace=0.1)
+            original = subprocess.Popen
+            def launch(*args, **kwargs):
+                child = original(*args, **kwargs)
+                deadline = time.monotonic() + 15
+                while not ready.exists() and time.monotonic() < deadline:
+                    time.sleep(0.02)
+                if not ready.exists():
+                    os.killpg(child.pid, signal.SIGKILL); child.wait()
+                    self.fail('Grandchild did not acknowledge its installed signal handler')
+                return child
+            with patch('process_group.subprocess.Popen', side_effect=launch), self.assertRaises(ProcessGroupFailure) as failed:
+                run_process_group([sys.executable, '-c', script, str(pid), str(ready)], timeout=0.1, grace=0.1)
             self.assertTrue(failed.exception.quiescent)
             self.assertIn('timed out', str(failed.exception))
             self.assertFalse(group_alive(int(pid.read_text())))
@@ -72,3 +84,37 @@ class ProcessGroupTest(unittest.TestCase):
                     process.kill(); process.wait()
                 if pid.exists() and group_alive(int(pid.read_text())):
                     os.killpg(int(pid.read_text()), signal.SIGKILL)
+
+    def test_signals_during_popen_are_deferred_until_the_child_handle_is_available(self):
+        original = subprocess.Popen
+        for signum in (signal.SIGINT, signal.SIGTERM):
+            with self.subTest(signal=signum):
+                launched = []
+                def launch(*args, **kwargs):
+                    child = original(*args, **kwargs)
+                    launched.append(child)
+                    os.kill(os.getpid(), signum)
+                    return child
+                with patch('process_group.subprocess.Popen', side_effect=launch), self.assertRaises(ProcessGroupFailure) as failed:
+                    run_process_group([sys.executable, '-c', 'import time; time.sleep(60)'], timeout=30, grace=0.1)
+                self.assertTrue(failed.exception.quiescent)
+                self.assertIn('interrupted', str(failed.exception))
+                self.assertFalse(group_alive(launched[0].pid))
+
+    def test_detached_orphan_is_stopped_without_touching_preexisting_children(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            pid = Path(temporary) / 'detached'
+            unrelated = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
+            self.addCleanup(lambda: (unrelated.kill(), unrelated.wait()))
+            child = ("import os,pathlib,signal,sys,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); "
+                     "pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(60)")
+            owner = ("import pathlib,subprocess,sys,time\n"
+                     "subprocess.Popen([sys.executable,'-c',sys.argv[1],sys.argv[2]],start_new_session=True)\n"
+                     "deadline=time.monotonic()+10\n"
+                     "while not pathlib.Path(sys.argv[2]).exists() and time.monotonic()<deadline: time.sleep(.01)\n")
+            with self.assertRaises(ProcessGroupFailure) as failed:
+                run_process_group([sys.executable, '-c', owner, child, str(pid)], timeout=15,
+                                  grace=0.1, track_descendants=True)
+            self.assertTrue(failed.exception.quiescent)
+            self.assertFalse(group_alive(int(pid.read_text())))
+            self.assertIsNone(unrelated.poll())

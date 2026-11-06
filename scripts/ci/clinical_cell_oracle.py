@@ -27,4 +27,19 @@ def verify(query):
             return json.loads(rows[0])
         if encoded(before) == encoded(after):
             raise EvidenceError('Clinical cell fingerprint missed a stored value change: ' + column_type)
-    return len(cases)
+    # Simulate a latin1 -> utf8mb4 migration without creating persistent data.
+    def text_cell(expression, kind):
+        rows = query('SELECT JSON_ARRAY(' + cell_encoding('value', kind)
+                     + ') FROM (SELECT ' + expression + ' AS value) AS fixture')
+        if len(rows) != 1:
+            raise EvidenceError('Character migration oracle has incomplete results')
+        return json.loads(rows[0])
+    latin1 = "CONVERT(X'636166e9' USING latin1)"
+    utf8 = "CONVERT(X'636166c3a9' USING utf8mb4)"
+    if text_cell(latin1, 'varchar(40)') != text_cell(utf8, 'text'):
+        raise EvidenceError('Clinical text changed fingerprint during character-set migration')
+    if text_cell(latin1, 'text') == text_cell("CONVERT(X'63616665' USING utf8mb4)", 'text'):
+        raise EvidenceError('Clinical text fingerprint concealed changed characters')
+    if text_cell("X'636166e9'", 'blob') == text_cell("X'636166c3a9'", 'varbinary(40)'):
+        raise EvidenceError('Clinical binary fingerprint concealed changed bytes')
+    return len(cases) + 3

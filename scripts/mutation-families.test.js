@@ -2,7 +2,8 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {DatabaseSync} = require('node:sqlite');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {execFileSync}=require('node:child_process');
 const {ownedAppointment,rxSave} = require('./lib/mutation-families');
 test('mutation fixture uses the inserted appointment identity and never accepts a missing key', () => {
   const session = {provider: '900001', patient: '17', marker: 'FAKE-owned', sql: {value: () => '42'}};
@@ -15,9 +16,15 @@ test('mutation fixture uses the inserted appointment identity and never accepts 
 
 for (const enforceForeignKeys of [false,true]) test(
   `Rx cleanup removes owned note extensions before parents with foreign keys ${enforceForeignKeys?'enabled':'disabled'}`, () => {
-    const db=new DatabaseSync(':memory:');
+    const directory=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-rx-cleanup-'));
+    const database=path.join(directory,'fixture.sqlite');
+    function query(statement,script=false) {
+      return JSON.parse(execFileSync('python3',['-c',
+        'import json,sqlite3,sys; db=sqlite3.connect(sys.argv[1]); db.execute("PRAGMA foreign_keys="+sys.argv[2]); request=json.load(sys.stdin); rows=[] if request["script"] else db.execute(request["sql"]).fetchall(); db.executescript(request["sql"]) if request["script"] else None; db.commit(); print(json.dumps(rows))',
+        database,enforceForeignKeys?'ON':'OFF'],{input:JSON.stringify({sql:statement,script}),encoding:'utf8',timeout:10000}));
+    }
     try {
-      db.exec(`PRAGMA foreign_keys=${enforceForeignKeys?'ON':'OFF'};
+      query(`PRAGMA foreign_keys=${enforceForeignKeys?'ON':'OFF'};
         CREATE TABLE casemgmt_note(note_id INTEGER PRIMARY KEY,demographic_no INTEGER);
         CREATE TABLE casemgmt_note_ext(id INTEGER PRIMARY KEY,note_id INTEGER REFERENCES casemgmt_note(note_id),value TEXT);
         CREATE TABLE casemgmt_note_link(note_id INTEGER);
@@ -35,9 +42,9 @@ for (const enforceForeignKeys of [false,true]) test(
         INSERT INTO prescription VALUES(41,101),(42,202);
         INSERT INTO drugReason VALUES(101),(202);
         INSERT INTO partial_date VALUES(2,31,'FAKE-owned'),(1,31,'FAKE-other-type'),(2,32,'FAKE-unrelated');
-        INSERT INTO DigitalSignature VALUES(101,'PRESCRIPTION'),(101,'CONSULTATION'),(202,'PRESCRIPTION');`);
-      const sql={execute:query=>db.exec(query),rows:query=>db.prepare(query).all().map(row=>Object.values(row).map(String)),
-        value:query=>String(Object.values(db.prepare(query).get())[0])};
+        INSERT INTO DigitalSignature VALUES(101,'PRESCRIPTION'),(101,'CONSULTATION'),(202,'PRESCRIPTION');`,true);
+      const sql={execute:statement=>query(statement,true),rows:statement=>query(statement).map(row=>row.map(String)),
+        value:statement=>String(query(statement)[0][0])};
       rxSave({patient:'101',marker:'FAKE-PW0123456789abcdef',sql}).cleanup();
       assert.equal(sql.value('SELECT COUNT(*) FROM casemgmt_note_ext WHERE note_id=11'),'0');
       assert.deepEqual(sql.rows('SELECT * FROM casemgmt_note_ext'),[['2','22','FAKE-unrelated']]);
@@ -47,5 +54,5 @@ for (const enforceForeignKeys of [false,true]) test(
       assert.deepEqual(sql.rows('SELECT * FROM partial_date ORDER BY table_name'),
         [['1','31','FAKE-other-type'],['2','32','FAKE-unrelated']]);
       assert.deepEqual(sql.rows('SELECT * FROM DigitalSignature'),[['101','CONSULTATION'],['202','PRESCRIPTION']]);
-    } finally {db.close();}
+    } finally {fs.rmSync(directory,{recursive:true,force:true});}
   });

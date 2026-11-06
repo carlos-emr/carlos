@@ -37,7 +37,7 @@ import sys
 import time
 import uuid
 from xml.etree.ElementTree import ElementTree
-from compiled_classes import fingerprints
+from compiled_classes import fingerprints, validate_output_paths
 from clinical_cell_oracle import verify as verify_clinical_cells
 try:
     import defusedxml.ElementTree as ET
@@ -213,6 +213,10 @@ def main():
         container_output = args.container_workspace.rstrip('/') + '/target/' + relative_output.as_posix()
     else:
         container_output = args.container_workspace.rstrip('/') + '/target/' + name
+    if args.fresh_classes:
+        # Reject before creating or touching any retained evidence on either mount.
+        validate_output_paths(repository, output)
+        validate_output_paths(Path(args.container_workspace), Path(container_output))
     output.mkdir(mode=0o700, parents=True, exist_ok=bool(args.evidence_output))
     private = output / 'private'
     private.mkdir(mode=0o700)
@@ -247,7 +251,7 @@ def main():
             if mounted_commit != host_commit or mounted_dirty:
                 raise RuntimeError('Native build container does not expose the clean candidate source')
             if args.fresh_classes:
-                build(['python3', 'scripts/ci/compiled_classes.py', 'reset'], log)
+                build(['python3', 'scripts/ci/compiled_classes.py', 'reset', '--evidence', container_output], log)
                 build(maven + ['-DskipTests', 'test-compile'], log)
                 compiled = json.loads(run(docker + ['exec', '--workdir', args.container_workspace, args.container,
                     'python3', 'scripts/ci/compiled_classes.py', 'fingerprints'], log, capture=True).stdout)

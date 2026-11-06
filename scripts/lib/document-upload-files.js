@@ -19,7 +19,7 @@ function verifyDirectory(root,expected) {
 function captureUploadFiles(store,cache=path.join(path.dirname(store),'document_cache')) {
   assert(path.isAbsolute(store)&&path.isAbsolute(cache),'Upload cleanup needs absolute configured stores');
   store=fs.realpathSync(store);
-  cache=fs.existsSync(cache)?fs.realpathSync(cache):path.resolve(cache);
+  cache=fs.existsSync(cache)?fs.realpathSync(cache):path.join(fs.realpathSync(path.dirname(cache)),path.basename(cache));
   assert(store!==cache,'Upload and rendering stores must be distinct');
   return {store,cache,storeIdentity:directoryIdentity(store),
     cacheIdentity:fs.lstatSync(cache,{throwIfNoEntry:false})?directoryIdentity(cache):null,

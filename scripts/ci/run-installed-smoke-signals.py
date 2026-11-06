@@ -46,20 +46,28 @@ def main(argv=None):
                 result = run_process_group(['node', 'scripts/signal-cleanup-audit.js', '--only', name,
                     '--checkpoint', str(checkpoint), '--signal', signal, '--delivery', 'os',
                     '--output-dir', str(directory)], cwd=gate.ROOT,
-                    env={**os.environ, 'RESULT_JSON': str(completion)}, timeout=timeouts[name] + 120)
+                    env={**os.environ, 'RESULT_JSON': str(completion)}, timeout=timeouts[name] + 120,
+                    track_descendants=True)
             except ProcessGroupFailure as failure:
                 failure_details = {'name': name, 'requestedSignal': signal, 'failureReason': str(failure),
                     'processGroupStopped': failure.quiescent, 'restorationVerified': False,
                     'hostRequiresReconciliation': True}
                 break
             report = directory / 'results.json'
-            if report.is_file(): rows.extend(gate.read_json(report)); inputs.append(report)
-            if completion.is_file():
+            try:
+                observed = gate.read_json(report)
                 record = gate.read_json(completion)
+                if (not isinstance(observed, list) or not observed
+                        or any(not isinstance(row, dict) for row in observed) or not isinstance(record, dict)):
+                    raise EvidenceError('Signal audit evidence has an invalid shape')
+                rows.extend(observed); inputs.extend([report, completion])
                 completions.append(result.returncode == 0 and record.get('name') == 'signal-cleanup-audit'
                     and record.get('outcome') == 'PASS' and not record.get('cleanupFailed'))
-                inputs.append(completion)
-            else: completions.append(False)
+            except (EvidenceError, OSError, ValueError, TypeError):
+                failure_details = {'name': name, 'requestedSignal': signal,
+                    'failureReason': 'Signal audit evidence is unreadable or invalid',
+                    'processGroupStopped': True, 'restorationVerified': False, 'hostRequiresReconciliation': True}
+                break
             if result.returncode != 0 or not completions[-1] or any(
                     row.get('outcome') != 'PASS' for row in rows):
                 failure_details = {'name': name, 'requestedSignal': signal,

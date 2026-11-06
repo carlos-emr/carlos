@@ -38,9 +38,14 @@ def quote_identifier(name):
 
 def cell_encoding(name, column_type):
     value = quote_identifier(name)
+    kind = column_type.lower().split('(', 1)[0].split()[0]
+    # Character-set upgrades preserve characters, not their original byte encoding.
+    # Binary columns must remain byte-exact (never pass them through CONVERT).
+    if kind in {'char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext', 'enum', 'set'}:
+        value = 'CONVERT(' + value + ' USING utf8mb4)'
     # MariaDB formats FLOAT using too few digits to distinguish adjacent values.
     # Widen it exactly to DOUBLE before string conversion; never widen DECIMAL.
-    if column_type.lower().split('(', 1)[0].split()[0] == 'float':
+    if kind == 'float':
         value = 'CAST(' + value + ' AS DOUBLE)'
     return 'HEX(CAST(' + value + ' AS BINARY))'
 

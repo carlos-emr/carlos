@@ -3,11 +3,15 @@
 """Native gate evidence must be complete, non-skipping and safe to publish."""
 import importlib.util
 import io
+import os
+import sys
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import subprocess
 import unittest
+from unittest.mock import patch
+from git_environment import separate_checkout_environment
 from defusedxml.common import DefusedXmlException
 
 MODULE_PATH = Path(__file__).with_name('run-cds-native-tier.py')
@@ -17,9 +21,31 @@ SPEC.loader.exec_module(NATIVE)
 
 
 class NativeSourceTest(unittest.TestCase):
+    def test_fresh_compilation_rejects_evidence_in_host_or_container_outputs_before_writing(self):
+        from compiled_classes import OUTPUTS
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in OUTPUTS:
+                for container in (False, True):
+                    with self.subTest(name=name, container=container):
+                        output = root / ('safe' if container else 'target/' + name) / 'evidence'
+                        output.mkdir(parents=True, exist_ok=True)
+                        retained = output / 'retained'; retained.write_bytes(b'preserve this evidence')
+                        mapped = '/build/target/' + name + '/evidence' if container else '/build/safe'
+                        with patch.object(NATIVE, '__file__', str(root / 'scripts/ci/run-cds-native-tier.py')), \
+                                patch.object(sys, 'argv', ['native', '--fresh-classes', '--evidence-output', str(output),
+                                    '--container-workspace', '/build', '--container-evidence-output', mapped]), \
+                                patch.object(NATIVE.subprocess, 'run') as execute:
+                            with self.assertRaisesRegex(ValueError, 'Evidence cannot'):
+                                NATIVE.main()
+                            execute.assert_not_called()
+                        self.assertEqual(retained.read_bytes(), b'preserve this evidence')
+                        self.assertFalse((output / 'private').exists())
+
     def test_ci_maven_cache_is_ignored_but_untracked_source_and_tracked_edits_are_not(self):
         import release_verification as gate
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.dict(os.environ, separate_checkout_environment(), clear=True):
             root = Path(temporary)
             def git(*args):
                 return subprocess.check_output(['git', '-c', 'user.name=Fixture',

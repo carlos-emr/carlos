@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 import release_verification as gate
 from junit_evidence import EvidenceError
+from git_environment import separate_checkout_environment
 
 spec = importlib.util.spec_from_file_location('coverage_ratchet', Path(__file__).with_name('run-coverage-ratchet.py'))
 ratchet = importlib.util.module_from_spec(spec)
@@ -33,7 +34,8 @@ class CoverageCommandTest(unittest.TestCase):
                                 ratchet.qualified_java('25')
 
     def test_standalone_checker_runs_without_pythonpath_and_retains_failed_floors(self):
-        with tempfile.TemporaryDirectory() as temporary:
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.dict(os.environ, separate_checkout_environment(), clear=True):
             root = Path(temporary)
             def git(*args):
                 return subprocess.check_output(['git', '-c', 'user.name=Fixture',
@@ -53,6 +55,10 @@ class CoverageCommandTest(unittest.TestCase):
             report = root / 'jacoco.xml'
             with patch.dict(os.environ):
                 os.environ.pop('PYTHONPATH', None)
+                # The checker must select root even if the caller names another repo.
+                os.environ['GIT_DIR'] = str(gate.ROOT / '.git')
+                os.environ['GIT_WORK_TREE'] = str(gate.ROOT)
+                os.environ['GIT_INDEX_FILE'] = str(root / 'wrong-index')
                 for covered, missed, expected in ((1, 0, True), (0, 1, False)):
                     with self.subTest(expected=expected):
                         report.write_text('<report><package name="example"><sourcefile name="Guard.java">'

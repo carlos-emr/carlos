@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
+from types import SimpleNamespace
 from process_group import ProcessGroupFailure
 spec = importlib.util.spec_from_file_location('signals', Path(__file__).with_name('run-installed-smoke-signals.py'))
 probe = importlib.util.module_from_spec(spec); spec.loader.exec_module(probe)
@@ -48,3 +49,26 @@ class InstalledSignalEvidenceTest(unittest.TestCase):
             self.assertFalse(failure['processGroupStopped'])
             self.assertFalse(failure['restorationVerified'])
             self.assertTrue(failure['hostRequiresReconciliation'])
+
+    def test_malformed_missing_or_wrong_shape_evidence_stops_and_records_reconciliation(self):
+        for payload in ('{', '{}', '[false]', 'null', None):
+            for broken in ('results.json', 'completion.json'):
+                with self.subTest(payload=payload, broken=broken), tempfile.TemporaryDirectory() as temporary, \
+                        patch.dict(os.environ, {'CARLOS_DISPOSABLE_HOST': 'true', 'CARLOS_SUITE_PROVINCE': 'ON'}):
+                    def execute(command, **kwargs):
+                        self.assertTrue(kwargs['track_descendants'])
+                        directory = Path(command[-1])
+                        (directory / 'results.json').write_text(json.dumps(self.rows()))
+                        (directory / 'completion.json').write_text('{"name":"signal-cleanup-audit","outcome":"PASS"}')
+                        path = directory / broken
+                        if payload is None: path.unlink()
+                        else: path.write_text(payload)
+                        return SimpleNamespace(returncode=0)
+                    output = Path(temporary) / 'result.json'
+                    with patch.object(probe, 'run_process_group', side_effect=execute) as runner:
+                        self.assertEqual(probe.main(['--profile', 'ON', '--output', str(output)]), 1)
+                        runner.assert_called_once()
+                    failure = json.loads((output.parent / 'signal-details.json').read_text())['failure']
+                    self.assertFalse(failure['restorationVerified'])
+                    self.assertTrue(failure['hostRequiresReconciliation'])
+                    self.assertFalse(json.loads(output.read_text())['assertions']['all-six-real-os-signals'])

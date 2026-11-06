@@ -11,7 +11,7 @@ import stat
 OUTPUTS = ('classes', 'test-classes', 'maven-status', 'generated-sources', 'generated-test-sources')
 
 
-def reset(root, evidence=None):
+def validate_output_paths(root, evidence=None):
     target = root / 'target'
     if target.is_symlink():
         raise ValueError('Compilation target cannot be a symlink')
@@ -21,6 +21,11 @@ def reset(root, evidence=None):
             raise ValueError('Compilation output must be a directory, not a symlink')
         if evidence is not None and evidence.resolve().is_relative_to(directory.resolve()):
             raise ValueError('Evidence cannot be stored in compiler output directories')
+
+
+def reset(root, evidence=None):
+    validate_output_paths(root, evidence)
+    target = root / 'target'
     for name in OUTPUTS:
         directory = target / name
         if directory.exists():
@@ -52,8 +57,9 @@ def fingerprints(root):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('operation', choices=('reset', 'fingerprints'))
+    parser.add_argument('--evidence', type=Path)
     args = parser.parse_args()
     if args.operation == 'reset':
-        reset(Path.cwd())
+        reset(Path.cwd(), args.evidence)
     else:
         print(json.dumps(fingerprints(Path.cwd()), sort_keys=True))

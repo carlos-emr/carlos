@@ -12,6 +12,7 @@ import sys
 
 import release_verification as gate
 from junit_evidence import EvidenceError
+from git_environment import separate_checkout_environment
 
 
 def resolve_lane(evidence, check, plan_path, root=gate.ROOT, profile='all', iteration=1):
@@ -55,7 +56,8 @@ def resolve_lane(evidence, check, plan_path, root=gate.ROOT, profile='all', iter
 def check_floors(report, floors_path, base, output, root=gate.ROOT):
     """Run the standalone checker with its sibling imports and repository context."""
     checked = subprocess.run([sys.executable, str(gate.ROOT / 'scripts/coverage/check-coverage-floors.py'),
-        str(report), '--floors', str(floors_path), '--base', base, '--output', str(output)], cwd=root)
+        str(report), '--floors', str(floors_path), '--base', base, '--output', str(output)], cwd=root,
+        env=separate_checkout_environment() if root.resolve() != gate.ROOT.resolve() else None)
     if checked.returncode not in (0, 1):
         raise EvidenceError('Coverage floor checker could not complete')
     result = gate.read_json(output)

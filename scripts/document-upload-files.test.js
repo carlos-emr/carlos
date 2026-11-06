@@ -55,3 +55,11 @@ test('a newly created rendering cache must be a real directory before cleanup',t
  assert(fs.existsSync(path.join(foreign,'owned.pdf_1.png')));
  assert(!fs.existsSync(path.join(f.store,'owned.pdf')));
 });
+test('a new rendering cache below a symlinked host parent is cleaned safely',t=>{
+ const f=fixture(t);fs.rmdirSync(f.cache);
+ const alias=path.join(path.dirname(f.store),'alias');fs.symlinkSync(path.dirname(f.store),alias);
+ const before=captureUploadFiles(path.join(alias,'document'),path.join(alias,'document_cache'));
+ fs.mkdirSync(f.cache);f.write(f.cache,'owned.pdf_1.png');f.write(f.store,'owned.pdf');
+ removeUploadFiles(before,['owned.pdf']);
+ assert(!fs.existsSync(f.cache));assert.deepEqual(fs.readdirSync(f.store),[]);
+});
