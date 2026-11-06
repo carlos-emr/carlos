@@ -39,7 +39,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 import jakarta.persistence.PersistenceException;
@@ -62,8 +61,6 @@ public class EctFormData {
 
     private static final Pattern FORM_TABLE_NAME = Pattern.compile("^\\w+$");
     private static final String LEGACY_FORM_SQL = "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
-    // Legacy built-in form table that is valid but not registered in encounterForm.
-    private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static Logger logger = MiscUtils.getLogger();
     private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
 
@@ -156,6 +153,9 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getGroupedPatientFormsAsArrayList(String demoNo, String formName, String table, String jsp) {
+        if ("formGrowth0_36".equals(StringUtils.trimToNull(table))) {
+            return growthForms(demoNo, formName, jsp, true);
+        }
         String trustedTable = validateFormTable(table);
         if (trustedTable == null) return (new ArrayList<PatientForm>());
 
@@ -213,6 +213,9 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getPatientFormsAsArrayList(String demoNo, String formName, String table) {
+        if ("formGrowth0_36".equals(StringUtils.trimToNull(table))) {
+            return growthForms(demoNo, formName, null, false);
+        }
         String trustedTable = validateFormTable(table);
         if (trustedTable == null) return (new ArrayList<PatientForm>());
 
@@ -275,7 +278,7 @@ public class EctFormData {
             }
             return null;
         }
-        if ("form".equals(normalizedTable) || INTERNAL_FORM_TABLES.contains(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
+        if ("form".equals(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
             return normalizedTable;
         }
         if (logger.isWarnEnabled()) {
@@ -288,13 +291,29 @@ public class EctFormData {
         return "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + trustedTable + " WHERE demographic_no=? group by lastEdited";
     }
 
+    private static ArrayList<PatientForm> growthForms(String patient, String formName, String jsp, boolean grouped) {
+        ArrayList<PatientForm> results = new ArrayList<>();
+        Integer patientNo = parseDemographicNo(patient);
+        if (patientNo == null) return results;
+        var dao = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao.class);
+        var versions = grouped ? dao.findGroupedHistory(patientNo) : dao.findHistory(patientNo);
+        for (var version : versions) {
+            PatientForm form = grouped
+                    ? new PatientForm(formName, version.id(), version.patient(), version.created(), version.edited(), jsp)
+                    : new PatientForm(formName, version.id(), version.patient(), version.created(), version.edited());
+            form.setTable("formGrowth0_36");
+            results.add(form);
+        }
+        return results;
+    }
+
     private static String patientFormTableSql(String trustedTable) {
         return "SELECT ID, demographic_no, formCreated, formEdited FROM " + trustedTable + " WHERE demographic_no=? ORDER BY ID DESC";
     }
 
     private static boolean isKnownEncounterFormTable(String table) {
         // EncounterFormDaoImpl caches form-table lookups; keep validation here as the boundary.
-        return !encounterFormDao.findByFormTable(table).isEmpty();
+        return !SpringUtils.getBean(EncounterFormDao.class).findByFormTable(table).isEmpty();
     }
 
     public static PatientForm[] getPatientForms(String demoNo, String table) {

@@ -288,7 +288,7 @@ jobs:
             -e CARLOS_TEST_MARIADB_SCHEMA=generated \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test jacoco:report \
-            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest' \
+            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest' \
             '-Dgroups=spring-context | mariadb-native' -DexcludedGroups=flyway-schema -Dtest.forkCount=3 \
             -Djacoco.destFile=target/jacoco-mariadb-generated.exec -Djacoco.dataFile=target/jacoco-mariadb-generated.exec \
             -Dtest.coverageDirectory=target/coverage-mariadb/generated
@@ -300,7 +300,7 @@ jobs:
           docker exec -e CARLOS_TEST_MARIADB_DAO=true -e CARLOS_TEST_MARIADB_SCHEMA=flyway \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:prepare-agent surefire:test jacoco:report \
-            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest \
+            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 -Dcarlos.test.schema.expected=flyway \
             -Dsurefire.reportNameSuffix=flyway \
             -Djacoco.destFile=target/jacoco-mariadb-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-flyway.exec \
@@ -314,7 +314,7 @@ jobs:
             -e CARLOS_TEST_MARIADB_PROVINCE=bc \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mysql://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:prepare-agent surefire:test jacoco:report \
-            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest \
+            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest \
             '-Dgroups=spring-context | mariadb-native' -Dtest.forkCount=1 \
             -Dsurefire.reportNameSuffix=bc-flyway \
             -Djacoco.destFile=target/jacoco-mariadb-bc-flyway.exec -Djacoco.dataFile=target/jacoco-mariadb-bc-flyway.exec \

@@ -57,9 +57,8 @@ import static org.mockito.Mockito.when;
  *
  * <p>Both real lookups run their real SQL through {@link LegacyJdbcQuery} against an isolated
  * H2 database owned by each test. Only the form registry and the thread-scoped Spring bean
- * lookup are mocked. The table is registered as {@code formGrowth0_36}, a built-in table that
- * {@code EctFormData} accepts without consulting its class-level registry DAO, so the result
- * does not depend on which test first loaded that class in a reused fork.</p>
+ * lookup are mocked. A registered fixture table exercises the generic encounter-form route;
+ * the migrated growth table has its own typed DAO and history integration coverage.</p>
  */
 @Tag("integration")
 @Tag("form")
@@ -67,7 +66,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("Forms module item row agrees with the latest form shortcut")
 class EctFormDataShortcutLatestIntegrationTest {
     private static final String FORM_NAME = "Growth 0-36m";
-    private static final String FORM_TABLE = "formGrowth0_36";
+    private static final String FORM_TABLE = "formShortcutFixture";
     private static final String FORM_PATH = "../form/formGrowth0_36.jsp?demographic_no=";
     private static final String PATIENT = "101";
     private static final String OTHER_PATIENT = "202";
@@ -92,6 +91,7 @@ class EctFormDataShortcutLatestIntegrationTest {
         registration.setFormValue(FORM_PATH);
         var forms = mock(EncounterFormDao.class);
         when(forms.findByFormName(FORM_NAME)).thenReturn(List.of(registration));
+        when(forms.findByFormTable(FORM_TABLE)).thenReturn(List.of(registration));
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);

@@ -66,6 +66,7 @@ class FormsServicePatientAuthorizationEndpointTest extends CarlosRestTestBase {
     private SecObjPrivilegeDao mockPrivilegeDao;
 
     private Connection database;
+    private EncounterFormDao formRegistry;
 
     @Override
     protected Object getServiceBean() {
@@ -77,7 +78,7 @@ class FormsServicePatientAuthorizationEndpointTest extends CarlosRestTestBase {
         when(mockRoleDao.findActiveByProviderNo("101")).thenReturn(List.of(role));
 
         registerMock(SecObjPrivilegeDao.class, mockPrivilegeDao);
-        createAndRegisterMock(EncounterFormDao.class);
+        formRegistry = createAndRegisterMock(EncounterFormDao.class);
         List<SecObjPrivilege> privileges = List.of(
                 privilege(FORMS_OBJECT, "r"), privilege(FORMS_OBJECT + "$1", "o"));
         when(mockPrivilegeDao.findByObjectNames(any())).thenAnswer(invocation -> {
@@ -105,13 +106,14 @@ class FormsServicePatientAuthorizationEndpointTest extends CarlosRestTestBase {
         database = dataSource.getConnection();
         registerMock(DataSource.class, dataSource);
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
-        jdbc.execute("CREATE TABLE formGrowth0_36 (ID INT, demographic_no INT, formCreated DATE, formEdited TIMESTAMP)");
-        jdbc.update("INSERT INTO formGrowth0_36 VALUES (?, ?, CURRENT_DATE, CURRENT_TIMESTAMP)", 11, 1);
-        jdbc.update("INSERT INTO formGrowth0_36 VALUES (?, ?, CURRENT_DATE, CURRENT_TIMESTAMP)", 22, 2);
+        jdbc.execute("CREATE TABLE formAuthzFixture (ID INT, demographic_no INT, formCreated DATE, formEdited TIMESTAMP)");
+        jdbc.update("INSERT INTO formAuthzFixture VALUES (?, ?, CURRENT_DATE, CURRENT_TIMESTAMP)", 11, 1);
+        jdbc.update("INSERT INTO formAuthzFixture VALUES (?, ?, CURRENT_DATE, CURRENT_TIMESTAMP)", 22, 2);
 
         EncounterForm form = new EncounterForm();
         form.setFormName("Synthetic encounter form");
-        form.setFormTable("formGrowth0_36");
+        form.setFormTable("formAuthzFixture");
+        when(formRegistry.findByFormTable("formAuthzFixture")).thenReturn(List.of(form));
         when(mockFormsManager.getAllEncounterForms()).thenReturn(new ArrayList<>(List.of(form)));
     }
 
