@@ -25,6 +25,7 @@ const { captureRequest, replayParams, createLedger } = require('./lib/get-reject
 
 const NAME = 'get-reject-eform-editor';
 
+/** Save an owned eForm through the UI and prove unsafe replays cannot replace its template. */
 async function workflow(s) {
   const { sql, marker } = s;
   const q = h.sqlString;

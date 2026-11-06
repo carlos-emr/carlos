@@ -10,6 +10,7 @@ const {reloadChart}=require('./chart-session-state-two-window-isolation-playwrig
 const {removeMarkedPatients} = require('./lib/gap-records-fixtures');
 const {chartNoteSave} = require('./lib/mutation-families');
 const NOTE = '#encMainDiv textarea[name="caseNote_note"]';
+/** Verify calculator paste/save/reopen with a second-patient control and owned-note cleanup. */
 async function workflow(s) {
   const {sql, patient, marker} = s, controlName = marker + '-CONTROL';
   s.cleanup(() => removeMarkedPatients(sql, controlName));
