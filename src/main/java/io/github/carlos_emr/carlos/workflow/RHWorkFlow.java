@@ -171,7 +171,8 @@ public class RHWorkFlow implements WorkFlow {
         try {
             Integer bound = SpringUtils.getBean(WorkFlowDao.class).findLatestRhFormId(demographicNo, workFlowId);
             return bound == null ? 0 : bound;
-        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException e) {
+        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException
+                | org.springframework.transaction.TransactionException e) {
             MiscUtils.getLogger().warn("Could not find the RH form for a workflow queue row ({})", e.getClass().getSimpleName());
             return 0;
         }

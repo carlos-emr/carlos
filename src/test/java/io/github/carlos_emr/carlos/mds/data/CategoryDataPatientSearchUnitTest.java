@@ -51,6 +51,12 @@ import org.mockito.MockedStatic;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 /**
  * The Inbox counts and patient list built by {@link CategoryData} must not drop patients whose HIN
@@ -126,5 +132,46 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> search("").getLabCountForPatientSearch())
                 .isInstanceOf(java.sql.SQLException.class)
                 .hasCauseInstanceOf(jakarta.persistence.PersistenceException.class);
+    }
+
+    @Test
+    void shouldRetainCheckedSqlFailure_whenCountTransactionCannotStart() {
+        RecordingTransactionManager transactions = installTransactionalDao();
+        CategoryData data = search("");
+        transactions.failBegin = true;
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(data::getDocumentCountForPatientSearch)
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasCauseInstanceOf(CannotCreateTransactionException.class);
+        org.mockito.Mockito.verifyNoInteractions(query);
+        assertThat(data.getPatients()).isEmpty();
+    }
+
+    @Test
+    void shouldRetainCheckedSqlFailure_whenCountTransactionCannotComplete() {
+        RecordingTransactionManager transactions = installTransactionalDao();
+        transactions.failCommit = true;
+        CategoryData data = search("");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(data::getDocumentCountForPatientSearch)
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasCauseInstanceOf(TransactionSystemException.class);
+        verify(query).getResultList();
+        assertThat(transactions.begun).isEqualTo(1);
+        assertThat(data.getPatients()).isEmpty();
+    }
+
+    private RecordingTransactionManager installTransactionalDao() {
+        var transactions = new RecordingTransactionManager();
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        var interceptor = new TransactionInterceptor();
+        interceptor.setTransactionManager(transactions);
+        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
+        var proxy = new ProxyFactory(dao);
+        proxy.addAdvice(interceptor);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class,
+                (io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao) proxy.getProxy());
+        return transactions;
     }
 }

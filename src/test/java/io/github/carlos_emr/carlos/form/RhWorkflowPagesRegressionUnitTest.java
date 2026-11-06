@@ -25,23 +25,26 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.WorkFlowDao;
+import io.github.carlos_emr.carlos.commn.dao.WorkFlowDaoImpl;
 import io.github.carlos_emr.carlos.workflow.RHWorkFlow;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.matches;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -96,24 +99,36 @@ class RhWorkflowPagesRegressionUnitTest extends io.github.carlos_emr.carlos.test
     }
 
     @Test
-    @DisplayName("should not query for a row whose ids are not numbers")
-    void shouldNotQuery_whenQueueRowIdsAreNotNumbers() {
-        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
-            assertThat(new RHWorkFlow().getLink("x' OR 1=1", "7"))
-                    .isEqualTo("/form/formRhImmuneGlobulin?demographic_no=0&formId=0&workflowId=7");
-            jdbc.verifyNoInteractions();
-        }
+    @DisplayName("should retain the queue link when the DAO cannot start its transaction")
+    void shouldRetainQueueLink_whenDaoTransactionCannotStart() {
+        var entityManagerFactory = mock(EntityManagerFactory.class);
+        when(entityManagerFactory.createEntityManager()).thenThrow(
+                new PersistenceException("Synthetic connection failure", new SQLException("Pool unavailable")));
+        var transactions = new JpaTransactionManager(entityManagerFactory);
+        var interceptor = new TransactionInterceptor();
+        interceptor.setTransactionManager(transactions);
+        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
+        var factory = new ProxyFactory(new WorkFlowDaoImpl());
+        factory.setInterfaces(WorkFlowDao.class);
+        factory.addAdvice(interceptor);
+        var dao = (WorkFlowDao) factory.getProxy();
+        registerMock(WorkFlowDao.class, dao);
+
+        // The transaction proxy wraps acquisition failures before the DAO executes its query.
+        assertThatThrownBy(() -> dao.findLatestRhFormId(42, 7))
+                .isInstanceOf(CannotCreateTransactionException.class);
+        assertThat(new RHWorkFlow().getLink("42", "7"))
+                .isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=0&workflowId=7");
     }
 
-    private static ResultSet rows(int... ids) throws SQLException {
-        ResultSet rs = mock(ResultSet.class);
-        if (ids.length == 0) {
-            when(rs.next()).thenReturn(false);
-        } else {
-            when(rs.next()).thenReturn(true, false);
-            when(rs.getInt(1)).thenReturn(ids[0]);
-        }
-        return rs;
+    @Test
+    @DisplayName("should not query for a row whose ids are not numbers")
+    void shouldNotQuery_whenQueueRowIdsAreNotNumbers() {
+        var dao = mock(WorkFlowDao.class);
+        registerMock(WorkFlowDao.class, dao);
+        assertThat(new RHWorkFlow().getLink("x' OR 1=1", "7"))
+                .isEqualTo("/form/formRhImmuneGlobulin?demographic_no=0&formId=0&workflowId=7");
+        verifyNoInteractions(dao);
     }
 
     @Test

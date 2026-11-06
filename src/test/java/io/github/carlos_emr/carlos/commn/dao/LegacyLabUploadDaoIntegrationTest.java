@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.lab.FileUploadCheck;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
 import io.github.carlos_emr.carlos.lab.ca.on.CML.ABCDParser;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import jakarta.persistence.EntityManager;
@@ -13,11 +14,16 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -30,6 +36,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration")
 @Tag("dao")
 @Tag("lab")
+@Isolated("MessageUploader caches Spring beans in static fields")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
     private final String marker = UUID.randomUUID().toString().substring(0, 8);
@@ -39,10 +46,21 @@ class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
 
     @org.junit.jupiter.api.BeforeEach
-    void createCoordinationTable() {
+    void createCoordinationTable() throws IllegalAccessException {
+        // Unit tests can initialize these cached fields with mocks in the same Surefire fork.
+        for (Field field : MessageUploader.class.getDeclaredFields()) {
+            if (Modifier.isStatic(field.getModifiers()) && !Modifier.isFinal(field.getModifiers())
+                    && (field.getName().endsWith("Dao") || field.getName().endsWith("Manager"))) {
+                field.setAccessible(true);
+                originalBeans.put(field, field.get(null));
+                field.set(null, applicationContext.getBean(field.getType()));
+            }
+        }
         new TransactionTemplate(transactions).executeWithoutResult(status -> em.createNativeQuery(
                 "CREATE TABLE IF NOT EXISTS providerLabRoutingLock (lab_no INT PRIMARY KEY)").executeUpdate());
     }
+
+    private final Map<Field, Object> originalBeans = new LinkedHashMap<>();
 
     private int cmlPatient;
     private int cmlReport;
@@ -163,7 +181,15 @@ class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
     }
 
     @AfterEach
-    void cleanupOwnedRows() {
+    void cleanupOwnedRows() throws IllegalAccessException {
+        try {
+            removeOwnedRows();
+        } finally {
+            for (var entry : originalBeans.entrySet()) entry.getKey().set(null, entry.getValue());
+        }
+    }
+
+    private void removeOwnedRows() {
         new TransactionTemplate(transactions).executeWithoutResult(status -> {
             var patients = em.createNativeQuery("SELECT id, labReportInfo_id FROM labPatientPhysicianInfo WHERE accession_num=?1")
                     .setParameter(1, marker).getResultList();

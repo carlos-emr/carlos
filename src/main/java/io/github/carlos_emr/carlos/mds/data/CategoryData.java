@@ -85,12 +85,7 @@ public class CategoryData {
         return totalNumDocs;
     }
 
-    /**
-     * Counts labs matching the requested abnormal flag.
-     * @param abnormal boolean true for abnormal labs, false for normal labs
-     * @return int total matching items
-     * @throws SQLException if the underlying count query fails
-     */
+    /** @return int abnormal lab count from the most recent population */
     public int getAbnormalCount() {
         return abnormalCount;
     }
@@ -140,7 +135,8 @@ public class CategoryData {
         InboxCategoryDao.Counts result;
         try {
             result = dao.count(filter, operation, demographicNo);
-        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException failure) {
+        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException
+                 | org.springframework.transaction.TransactionException failure) {
             // Inbox controllers retain their checked-SQL failure path after the DAO migration.
             throw new SQLException("Could not read inbox category counts", failure);
         }
@@ -170,6 +166,12 @@ public class CategoryData {
      * @throws SQLException if the underlying count query fails
      */
     public int getLabCountForUnmatched() throws SQLException { return count(Operation.LAB_UNMATCHED, null); }
+    /**
+     * Counts labs matching the requested abnormal flag.
+     * @param abnormal boolean true for abnormal labs, false for normal labs
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getAbnormalCount(boolean abnormal) throws SQLException { return count(abnormal ? Operation.ABNORMAL : Operation.NORMAL, null); }
     /**
      * Counts unmatched documents.
