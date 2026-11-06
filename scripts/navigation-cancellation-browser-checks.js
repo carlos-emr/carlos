@@ -15,6 +15,18 @@ const sockets = new Set();
 before(async () => {
   server = http.createServer((request, response) => {
     if (request.url.startsWith('/pending/')) return;
+    if (request.url === '/signal') {
+      server.emit('fixture-signal', response);
+      return;
+    }
+    if (request.url === '/abort-signal') {
+      server.emit('fixture-abort-signal', response);
+      return;
+    }
+    if (request.url === '/gated') {
+      server.emit('fixture-navigation', response);
+      return;
+    }
     response.writeHead(200, { 'Content-Type': 'text/html' });
     response.end('<!doctype html><title>synthetic cancellation fixture</title>');
   });
@@ -40,7 +52,7 @@ after(async () => {
 
 /** Navigate only to a fixed fixture route on the actual loopback listener. */
 async function navigate(page, route = '/') {
-  assert.ok(['/', '/replacement', '/#same-document'].includes(route), 'Unknown fixture route');
+  assert.ok(['/', '/replacement', '/#same-document', '/gated'].includes(route), 'Unknown fixture route');
   const target = validateCredentialBaseUrl(new URL(route, base).href, {});
   assert.equal(target.hostname, '127.0.0.1');
   assert.equal(target.port, String(server.address().port));
@@ -125,5 +137,73 @@ for (const hashNavigation of [false, true]) {
     await navigate(page, '/replacement');
     assert.throws(() => assertStrictPage(recorder), /xhr request failed/);
     assert.equal(buildFailureDetails(recorder).requestFailures[0].navigationCancellation, undefined);
+  });
+}
+
+for (const abortInApplication of [false, true]) {
+  test(`old-document XHR started during pending navigation ${abortInApplication ? 'remains fatal when the application aborts it' : 'qualifies when the browser replaces its document'}`, async t => {
+    const { page, recorder } = await fixture(t);
+    const ready = once(server, 'fixture-navigation', { signal: AbortSignal.timeout(10000) });
+    const signal = once(server, 'fixture-signal', { signal: AbortSignal.timeout(10000) });
+    const abortSignal = abortInApplication
+      ? once(server, 'fixture-abort-signal', { signal: AbortSignal.timeout(10000) }) : null;
+    const started = page.waitForRequest(request => request.url() === `${base}/pending/xhr`);
+    const failed = page.waitForEvent('requestfailed', { predicate: request => request.resourceType() === 'xhr' });
+    // Install in the old document before goto: evaluations during a pending
+    // navigation wait for the replacement execution context. Completing the
+    // signal XHR only after /gated arrives proves the late load's ordering.
+    for (const pending of [ready, signal, abortSignal, started, failed].filter(Boolean)) pending.catch(() => {});
+    if (abortInApplication) {
+      await page.evaluate(() => {
+        const signal = new XMLHttpRequest();
+        signal.open('GET', '/signal');
+        signal.onload = () => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', '/pending/xhr');
+          xhr.send();
+          const abortSignal = new XMLHttpRequest();
+          abortSignal.open('GET', '/abort-signal');
+          abortSignal.onload = () => xhr.abort();
+          abortSignal.send();
+        };
+        signal.send();
+      });
+    } else {
+      await page.evaluate(() => {
+        const signal = new XMLHttpRequest();
+        signal.open('GET', '/signal');
+        signal.onload = () => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', '/pending/xhr');
+          xhr.send();
+        };
+        signal.send();
+      });
+    }
+    const [trigger] = await signal;
+    const navigation = navigate(page, '/gated');
+    navigation.catch(() => {});
+    const [response] = await ready;
+    trigger.end('start late load');
+    await started;
+    if (abortInApplication) {
+      const [abortTrigger] = await abortSignal;
+      abortTrigger.end('abort late load');
+      await failed; // Still no replacement response headers.
+    }
+    response.writeHead(200, { 'Content-Type': 'text/html' });
+    response.end('<!doctype html><title>replacement fixture</title>');
+    await navigation;
+    await failed;
+    const [detail] = buildFailureDetails(recorder).requestFailures;
+    assert.equal(detail.resourceType, 'xhr');
+    assert.equal(detail.errorText, 'net::ERR_ABORTED');
+    if (abortInApplication) {
+      assert.throws(() => assertStrictPage(recorder), /xhr request failed/);
+      assert.equal(detail.navigationCancellation, undefined);
+    } else {
+      assert.doesNotThrow(() => assertStrictPage(recorder));
+      assert.equal(detail.navigationCancellation.operation, 'goto');
+    }
   });
 }

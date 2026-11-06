@@ -108,6 +108,21 @@ test('new loads and non-abort failures during a navigation remain failures', asy
   assert.equal(buildFailureDetails(f.recorder).requestFailures.filter(entry => entry.navigationCancellation).length, 0);
 });
 
+for (const resourceType of ['xhr', 'font', 'image']) {
+  test(`a late old-document ${resourceType} load qualifies only at replacement`, () => {
+    const f = fixture();
+    f.wire();
+    f.navigate(() => {
+      f.fail(f.start(f.request('net::ERR_ABORTED', f.frame, resourceType)));
+      assert.throws(() => assertStrictPage(f.recorder), /request failed/);
+    });
+    assert.doesNotThrow(() => assertStrictPage(f.recorder));
+    const [detail] = buildFailureDetails(f.recorder).requestFailures;
+    assert.equal(detail.resourceType, resourceType);
+    assert.equal(detail.navigationCancellation.operation, 'document-navigation');
+  });
+}
+
 test('loads with no issuing frame and public cancellation claims never qualify', async () => {
   const f = fixture();
   let serviceWorker;
