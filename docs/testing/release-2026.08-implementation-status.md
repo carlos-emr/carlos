@@ -337,3 +337,6 @@ The source-bound Chromium process and migration-inventory diagnostics at
 with 2,424 unowned production paths and matching published migration bytes.
 The new Node case inventory contains 7,318 successful executions across all 516
 source files, including exact generated-case multiplicities and source hashes.
+
+- Clinical snapshots now distinguish actual SQL NULL from failed non-NULL conversion, validate every tagged byte cell and reject SQL warnings/truncated JSON before hashing. Focused tests pass; native MariaDB 11.8.8 detects five same-count changes (NULL, binary, high-precision DECIMAL, adjacent FLOAT and Unicode) and confirms exact restoration. This is development evidence.
+- The independent main ON lifecycle attempt at `27a0e7c` failed during the published baseline installation because the workspace ran out of disk while creating DrugRef. No upgrade ran, and no compatibility verdict follows from this attempt. Its failed result and verified private cold recovery archives are retained. Expanded historical coverage reports were compressed and verified to reclaim space; their original qualification status is unchanged.

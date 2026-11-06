@@ -1134,7 +1134,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 292,
+      "minimumCases": 295,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1240,6 +1240,9 @@
         "test_installed_package_state.PackagePreservationTest.test_only_exact_managed_stock_bytes_may_change_with_preserved_metadata",
         "test_installed_package_state.PackagePreservationTest.test_outside_symlinks_and_replaced_directory_roots_fail",
         "test_installed_package_state.PackagePreservationTest.test_same_asset_basename_elsewhere_and_seeded_templates_are_not_exempt",
+        "test_installed_package_state.PackagePreservationTest.test_sql_null_empty_binary_and_duplicate_rows_remain_distinct",
+        "test_installed_package_state.PackagePreservationTest.test_successful_client_with_warning_cannot_certify_an_independent_snapshot",
+        "test_installed_package_state.PackagePreservationTest.test_warning_allocation_failure_truncation_and_wrong_cell_shapes_cannot_be_hashed",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_malformed_missing_or_wrong_shape_evidence_stops_and_records_reconciliation",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_omitted_duplicated_or_wrong_signal_execution_cannot_qualify",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_row_counts_alone_cannot_hide_changed_credentials_or_leftover_files",
