@@ -11,9 +11,10 @@ from owned_process_tree import OwnedProcessTree
 
 
 class ProcessGroupFailure(EvidenceError):
-    def __init__(self, reason, quiescent):
+    def __init__(self, reason, quiescent, *, interrupted=False):
         super().__init__(reason)
         self.quiescent = quiescent
+        self.interrupted = interrupted
 
 
 def group_alive(group):
@@ -114,7 +115,8 @@ def run_process_group(command, *, timeout, grace=10, track_descendants=False, **
                       else 'Process group interrupted' if isinstance(failure, KeyboardInterrupt)
                       else 'Process group state could not be established' if isinstance(failure, OSError)
                       else str(failure))
-            raise ProcessGroupFailure(reason + '; fixture restoration is unverified', quiescent) from failure
+            raise ProcessGroupFailure(reason + '; fixture restoration is unverified', quiescent,
+                                      interrupted=isinstance(failure, KeyboardInterrupt)) from failure
     finally:
         for number, handler in previous.items():
             signal.signal(number, handler)

@@ -1,8 +1,9 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Linux subreaper for one serialized browser command, including detached sessions.
 
-The caller must not launch unrelated children concurrently. Existing children and
-their descendants are excluded. Do not use this for package installation: service
+The caller must not launch unrelated children concurrently. Refuse existing child
+trees before enabling adoption; their future orphans cannot be safely attributed.
+Do not use this for package installation: service
 daemons intentionally survive their installer.
 """
 import ctypes
@@ -25,11 +26,12 @@ def processes():
 class OwnedProcessTree:
     def __init__(self):
         self.owner = os.getpid()
+        if any(row[0] == self.owner for row in processes().values()):
+            raise OSError('Browser supervision requires a worker without existing children')
         self.libc = ctypes.CDLL(None, use_errno=True)
         self.previous = ctypes.c_int()
         if self.libc.prctl(37, ctypes.byref(self.previous), 0, 0, 0):
             raise OSError(ctypes.get_errno(), 'Cannot inspect child subreaper')
-        self.excluded = {pid: row[2] for pid, row in processes().items() if row[0] == self.owner}
         if self.libc.prctl(36, 1, 0, 0, 0):
             raise OSError(ctypes.get_errno(), 'Cannot establish child subreaper')
 
@@ -39,8 +41,7 @@ class OwnedProcessTree:
 
     def children(self, direct_pid):
         rows = processes()
-        owned = {pid for pid, row in rows.items() if row[0] == self.owner
-                 and self.excluded.get(pid) != row[2]}
+        owned = {pid for pid, row in rows.items() if row[0] == self.owner}
         while True:
             added = {pid for pid, row in rows.items() if row[0] in owned} - owned
             if not added:

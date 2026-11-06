@@ -210,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 276 required case identities, including the
+- The combined Python tooling registry pins 278 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -234,7 +234,7 @@ and qualification below are still required to complete issue 5700. No release-re
   preserves read-only clients, first-login ordering, whole-data cleanup checks and
   private failed-cell recovery evidence. Its explicit orchestrated deployment
   scope keeps packaged-byte binding during collection and final verification.
-  Seven regression checks cover missing baselines, wrong bytes/source/province,
+  Eight regression checks cover missing baselines, wrong bytes/source/province,
   failed cleanup, modified evidence and the actual host receipt path. Live/final
   qualification and the broader unsupported/interrupted lifecycle cases remain.
   See [execution prerequisites](release-2026.08-package-lifecycle.md).
@@ -279,3 +279,9 @@ requires independent reconciliation. Failed lifecycle containers are stopped and
 retained, including after a Docker client timeout, with explicit shutdown and
 reconciliation status. The MariaDB preservation oracle also compares latin1 and
 utf8mb4 text while retaining exact binary and numeric comparisons.
+
+Browser supervision refuses a worker with pre-existing children before enabling
+Linux adoption or launching an audit, so unrelated descendants cannot become
+owned after their parent exits. The outer receipt runner defers startup signals
+and retains reconciliation status, allowing the lifecycle controller a bounded
+120-second shutdown window to stop its container before escalation.

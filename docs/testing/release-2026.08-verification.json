@@ -1113,7 +1113,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 276,
+      "minimumCases": 278,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1249,6 +1249,7 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass",
+        "test_package_lifecycle.PackageLifecycleTest.test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files",
         "test_package_lifecycle.PackageLifecycleTest.test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify",
         "test_package_lifecycle.PackageLifecycleTest.test_host_collection_and_final_verification_require_lifecycle_byte_binding",
         "test_package_lifecycle.PackageLifecycleTest.test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults",
@@ -1256,7 +1257,8 @@
         "test_package_lifecycle.PackageLifecycleTest.test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green",
         "test_package_lifecycle.PackageLifecycleTest.test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused",
         "test_process_group.ProcessGroupTest.test_cleanup_os_error_remains_a_failure_with_unverified_quiescence",
-        "test_process_group.ProcessGroupTest.test_detached_orphan_is_stopped_without_touching_preexisting_children",
+        "test_process_group.ProcessGroupTest.test_detached_orphan_is_stopped_after_its_parent_exits",
+        "test_process_group.ProcessGroupTest.test_existing_child_tree_is_refused_before_adoption_or_browser_start",
         "test_process_group.ProcessGroupTest.test_outer_termination_is_forwarded_to_the_separate_child_session",
         "test_process_group.ProcessGroupTest.test_signals_during_popen_are_deferred_until_the_child_handle_is_available",
         "test_process_group.ProcessGroupTest.test_successful_parent_cannot_leave_a_mutating_child_running",

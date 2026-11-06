@@ -14,6 +14,22 @@ from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_invento
 
 
 class PackageLifecycleTest(unittest.TestCase):
+    def test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_inputs', Path(__file__).with_name('run-package-lifecycle.py'))
+        controller = importlib.util.module_from_spec(spec); spec.loader.exec_module(controller)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            private = root / 'private'; private.mkdir()
+            (private / 'unfinished.log').symlink_to('/unreadable-root-owned-log')
+            diagnosis = root / 'lifecycle-failure.json'
+            diagnosis.write_text('{"failureType":"ProcessGroupFailure","hostRequiresReconciliation":true}')
+            inputs = controller.retained_inputs(root, root / 'result.json', False)
+            self.assertEqual(inputs, [{'path': diagnosis.name, 'sha256': gate.digest(diagnosis)}])
+            self.assertTrue((private / 'unfinished.log').is_symlink())
+            with self.assertRaises(EvidenceError):
+                controller.retained_inputs(root, root / 'result.json', True)
+
     def test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('lifecycle_stop', Path(__file__).with_name('run-package-lifecycle.py'))

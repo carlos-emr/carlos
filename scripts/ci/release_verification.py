@@ -28,6 +28,7 @@ from release_deployment import attest
 from package_lifecycle import validate_inventory as validate_lifecycle_inventory
 from cds_war_manifest import build_manifest
 from command_evidence import validate_contract, results as command_results, relative_file
+from process_group import ProcessGroupFailure, run_process_group
 import compiled_classes
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -465,20 +466,19 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 compiled_classes.reset(root, evidence)
             with (run_dir / "private.log").open("xb") as log:
                 os.chmod(run_dir / "private.log", 0o600)
-                process = subprocess.Popen(argv, cwd=root, env=environment, stdout=log, stderr=log, start_new_session=True)
                 try:
-                    receipt["exitCode"] = process.wait(timeout=check.get("timeoutSeconds", 3600))
-                except (subprocess.TimeoutExpired, KeyboardInterrupt) as failure:
-                    # Give harness finally blocks a chance to restore their own fixtures.
-                    os.killpg(process.pid, signal.SIGTERM)
-                    try:
-                        process.wait(timeout=20)
-                    except subprocess.TimeoutExpired:
-                        os.killpg(process.pid, signal.SIGKILL)
-                        process.wait()
+                    # The Docker controller needs time to stop and retain its
+                    # owned container after the exec client has stopped. Killing
+                    # the controller early would bypass that reconciliation.
+                    grace = 120 if check.get('deploymentScope') else 20
+                    receipt["exitCode"] = run_process_group(argv, cwd=root, env=environment,
+                        stdout=log, stderr=log, timeout=check.get("timeoutSeconds", 3600), grace=grace).returncode
+                except ProcessGroupFailure as failure:
                     receipt["reason"] = "Timeout or interruption; cleanup is not certified"
                     receipt["exitCode"] = -1
-                    if isinstance(failure, KeyboardInterrupt):
+                    receipt['reconciliation'] = {'processGroupStopped': failure.quiescent,
+                        'restorationVerified': False, 'hostRequiresReconciliation': True}
+                    if failure.interrupted:
                         receipt["cancelled"] = True
             if receipt["exitCode"] != 0:
                 receipt["problems"].append({"stage": "execution", "exitCode": receipt["exitCode"],

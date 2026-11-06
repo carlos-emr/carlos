@@ -67,6 +67,23 @@ def stop_failed_cell(name):
             signal.signal(number, handler)
 
 
+def retained_inputs(directory, output, passed):
+    # A timed-out root process may leave private files unreadable to the host
+    # user, or still changing if shutdown failed. Preserve them in place, but
+    # always emit the failed result bound to the host-written diagnosis.
+    if passed:
+        paths = sorted(directory.rglob('*'))
+    else:
+        failure = directory / 'lifecycle-failure.json'
+        paths = [failure if failure.exists() else directory / 'lifecycle.json']
+    inputs = []
+    for path in paths:
+        if path.is_symlink(): raise EvidenceError('Lifecycle evidence contains a link')
+        if path.is_file() and path != output:
+            inputs.append({'path': str(path.relative_to(directory)), 'sha256': gate.digest(path)})
+    return inputs
+
+
 def package_inputs(config, baselines):
     for baseline in baselines:
         for name, prefix in (('emr', 'carlos-emr_'), ('drugref', 'carlos-emr-drugref_'), ('ctl', 'carlos-ctl_')):
@@ -170,11 +187,7 @@ def main():
                 'restorationVerified': False, 'hostRequiresReconciliation': True}
         failure_path = directory / ('lifecycle-failure.json' if (directory / 'lifecycle.json').exists() else 'lifecycle.json')
         gate.write_json(failure_path, document)
-    inputs = []
-    for path in sorted(directory.rglob('*')):
-        if path.is_symlink(): raise EvidenceError('Lifecycle evidence contains a link')
-        if path.is_file() and path != args.output:
-            inputs.append({'path': str(path.relative_to(directory)), 'sha256': gate.digest(path)})
+    inputs = retained_inputs(directory, args.output, passed)
     gate.write_json(args.output, {'schemaVersion': 1, 'assertions': {'complete-lifecycle-core': passed}, 'inputs': inputs})
     return 0 if passed else 1
 

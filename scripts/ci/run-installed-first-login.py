@@ -60,7 +60,7 @@ def restoration(before, after):
 
 def run_browser(completion):
     return run_process_group(['node', 'scripts/deb-login-playwright-checks.js'], cwd=gate.ROOT,
-        env={**os.environ, 'RESULT_JSON': str(completion)}, timeout=300, grace=20,
+        env={**os.environ, 'RESULT_JSON': str(completion)}, timeout=300, grace=10,
         track_descendants=True).returncode
 
 

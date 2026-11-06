@@ -25,17 +25,18 @@ class ProcessGroupTest(unittest.TestCase):
 
     def test_timeout_stops_resistant_grandchild_after_its_parent_exits_on_term(self):
         with tempfile.TemporaryDirectory() as temporary:
-            pid = Path(temporary) / 'group'
             ready = Path(temporary) / 'ready'
             grandchild = ('import pathlib,signal,sys,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); '
                           'pathlib.Path(sys.argv[1]).write_text("ready"); time.sleep(60)')
             script = ("import os,pathlib,signal,subprocess,sys,time\n"
                 "signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
-                "subprocess.Popen([sys.executable,'-c'," + repr(grandchild) + ",sys.argv[2]])\n"
-                "pathlib.Path(sys.argv[1]).write_text(str(os.getpgrp()))\ntime.sleep(60)\n")
+                "subprocess.Popen([sys.executable,'-c'," + repr(grandchild) + ",sys.argv[1]])\n"
+                "time.sleep(60)\n")
             original = subprocess.Popen
+            launched = []
             def launch(*args, **kwargs):
                 child = original(*args, **kwargs)
+                launched.append(child)
                 deadline = time.monotonic() + 15
                 while not ready.exists() and time.monotonic() < deadline:
                     time.sleep(0.02)
@@ -44,10 +45,10 @@ class ProcessGroupTest(unittest.TestCase):
                     self.fail('Grandchild did not acknowledge its installed signal handler')
                 return child
             with patch('process_group.subprocess.Popen', side_effect=launch), self.assertRaises(ProcessGroupFailure) as failed:
-                run_process_group([sys.executable, '-c', script, str(pid), str(ready)], timeout=0.1, grace=0.1)
+                run_process_group([sys.executable, '-c', script, str(ready)], timeout=0.1, grace=0.1)
             self.assertTrue(failed.exception.quiescent)
             self.assertIn('timed out', str(failed.exception))
-            self.assertFalse(group_alive(int(pid.read_text())))
+            self.assertFalse(group_alive(launched[0].pid))
 
     def test_successful_parent_cannot_leave_a_mutating_child_running(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -101,11 +102,9 @@ class ProcessGroupTest(unittest.TestCase):
                 self.assertIn('interrupted', str(failed.exception))
                 self.assertFalse(group_alive(launched[0].pid))
 
-    def test_detached_orphan_is_stopped_without_touching_preexisting_children(self):
+    def test_detached_orphan_is_stopped_after_its_parent_exits(self):
         with tempfile.TemporaryDirectory() as temporary:
             pid = Path(temporary) / 'detached'
-            unrelated = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
-            self.addCleanup(lambda: (unrelated.kill(), unrelated.wait()))
             child = ("import os,pathlib,signal,sys,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); "
                      "pathlib.Path(sys.argv[1]).write_text(str(os.getpid())); time.sleep(60)")
             owner = ("import pathlib,subprocess,sys,time\n"
@@ -117,4 +116,21 @@ class ProcessGroupTest(unittest.TestCase):
                                   grace=0.1, track_descendants=True)
             self.assertTrue(failed.exception.quiescent)
             self.assertFalse(group_alive(int(pid.read_text())))
-            self.assertIsNone(unrelated.poll())
+
+    def test_existing_child_tree_is_refused_before_adoption_or_browser_start(self):
+        parent = subprocess.Popen([sys.executable, '-c',
+            "import subprocess,sys; child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)']); "
+            "print(child.pid,flush=True); sys.stdin.readline()"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+        descendant = int(parent.stdout.readline())
+        try:
+            with patch('process_group.subprocess.Popen') as launch, self.assertRaises(ProcessGroupFailure) as failed:
+                run_process_group(['must-not-run'], timeout=1, track_descendants=True)
+            launch.assert_not_called()
+            self.assertFalse(failed.exception.quiescent)
+            # Even after its original parent exits, the unrelated child survives.
+            parent.stdin.write('\n'); parent.stdin.flush(); parent.wait(timeout=5)
+            os.kill(descendant, 0)
+        finally:
+            parent.stdin.close(); parent.stdout.close()
+            if parent.poll() is None: parent.kill(); parent.wait()
+            os.kill(descendant, signal.SIGKILL)
