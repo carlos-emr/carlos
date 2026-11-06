@@ -202,9 +202,9 @@ all twenty measurement slots and the existing edit timestamp display. Optional
 XML archive publication runs only after commit and uses a new patient-bound
 DAO read with the existing interchange encoding/path validation. Archive
 failure retains the already committed form, matching existing behavior.
-Archive basenames append the generated version ID after the timestamp so two
-saves within one second retain separate XML copies. Column names and encoded
-values retain the existing XML interchange contract.
+Archive basenames retain the existing form/patient/timestamp contract required
+by `JDBCUtil.parseImportFileName`. Column names and encoded values retain the
+existing XML interchange contract.
 
 The integration suite runs with H2 and the physical MariaDB/Flyway harness,
 including CI's generated, Ontario Flyway and BC Flyway lanes.
@@ -215,7 +215,8 @@ write must roll back an earlier successful form insert; rollback must publish
 no XML archive. Additional cases cover a later database constraint failure,
 failure after flushing an identity insert, all 131 physical columns and JDBC
 timestamp metadata, distinct values in all twenty slots, fully null legacy
-slots, coherent grouped-history creation dates and one archive per version.
+slots, coherent grouped-history creation dates and the XML filename/content
+contract consumed by the existing importer.
 CI's evidence verifier requires this suite in each MariaDB lane.
 The existing synthetic Growth/Rourke browser suite covers the
 packaged save/load/graph/print callers.
@@ -232,7 +233,6 @@ This implementation combines the two duplicate Growth slices on the current
 | #5697 returned untrimmed text and opened an unclosed query result stream. | Preserve the legacy display trim and fully consume the primary-key lookup result list. |
 | #5696's generated-schema mapping omitted the physical `TIMESTAMP` column definition; its grouped creation-date aggregate could come from another version. | Retain #5697's explicit timestamp definition and selected-version grouped projection, with physical metadata and differing-creation-date tests. |
 | #5697 did not require Growth results in the MariaDB evidence verifier; each PR covered different rollback failures. | Require all fifteen combined persistence cases in generated, ON Flyway and BC Flyway CI, including source rejection, database failure and failure after flush. |
-| Both retained a timestamp-only XML basename, allowing same-second versions to overwrite each other. | Append the generated version ID and compare every archived column with the existing JDBC serializer after commit. |
 
 Both original PRs remain separate proposals. This Growth slice does not close
 #5693 or #2249; the remaining form migrations below are still required.
