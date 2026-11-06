@@ -1135,7 +1135,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 305,
+      "minimumCases": 306,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1146,6 +1146,7 @@
         "node"
       ],
       "requiredCases": [
+        "test_browser_process_oracle.BrowserProcessOracleTest.test_expected_interruptions_write_complete_success_evidence",
         "test_browser_process_oracle.BrowserProcessOracleTest.test_optimized_python_cannot_bypass_detached_browser_validation",
         "test_browser_process_oracle.BrowserProcessOracleTest.test_partial_oracle_failure_retains_evidence_without_qualifying_missing_modes",
         "test_browser_process_oracle.BrowserProcessOracleTest.test_surviving_or_reparented_browser_descendants_cannot_qualify",
