@@ -3925,16 +3925,20 @@
         "{artifact}",
         "--tomcat-core",
         "{tomcatCore}",
+        "--tomcat-jsp-api",
+        "{tomcatJspApi}",
         "--output",
         "{run}/compatibility-result.json"
       ],
       "requiresEnvironment": [
         "CARLOS_MAIN_PACKAGE",
-        "CARLOS_TOMCAT_CORE"
+        "CARLOS_TOMCAT_CORE",
+        "CARLOS_TOMCAT_JSP_API"
       ],
       "environmentInputs": {
         "mainPackage": "CARLOS_MAIN_PACKAGE",
-        "tomcatCore": "CARLOS_TOMCAT_CORE"
+        "tomcatCore": "CARLOS_TOMCAT_CORE",
+        "tomcatJspApi": "CARLOS_TOMCAT_JSP_API"
       },
       "requiresExecutables": [
         "java",

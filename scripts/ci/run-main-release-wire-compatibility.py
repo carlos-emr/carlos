@@ -29,6 +29,7 @@ EXPECTED_CASES |= {'legacy-input:' + name + ':' + sample + ':xml'
                    for name, samples in gate.read_json(CORPUS).items() for sample in samples}
 LIMIT = 1 << 30
 TOMCAT_CORE_SHA256 = 'b71785ff101c0df501064b3e3b8c4a02e4f9cc3047a7fa686c41fc4edc2f0cb4'
+TOMCAT_JSP_API_SHA256 = 'b525b3689de9e55e38baf15a1662a22dc6763cbb868b59078c81ca2fc486c00e'
 
 
 def callable_name(member):
@@ -217,11 +218,14 @@ def main():
     parser.add_argument('--candidate', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--tomcat-core', type=Path, required=True)
+    parser.add_argument('--tomcat-jsp-api', type=Path, required=True)
     args = parser.parse_args()
     if not args.candidate.is_file() or not args.main_package.is_file():
         raise EvidenceError('Main package and source-bound candidate WAR are both required')
     if not args.tomcat_core.is_file() or gate.digest(args.tomcat_core) != TOMCAT_CORE_SHA256:
         raise EvidenceError('Tomcat 11.0.27 class-loader implementation differs from its reviewed pin')
+    if not args.tomcat_jsp_api.is_file() or gate.digest(args.tomcat_jsp_api) != TOMCAT_JSP_API_SHA256:
+        raise EvidenceError('Tomcat 11.0.27 provided JSP API differs from its reviewed pin')
     baseline = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
     plan = gate.load_plan()
     if baseline['sourceCommit'] != plan['baselines']['currentMain']:
@@ -242,6 +246,7 @@ def main():
     gate.write_json(metadata, {'schemaVersion': 1, 'mainCommit': baseline['sourceCommit'],
         'mainPackageSha256': gate.digest(args.main_package), 'releaseSource': gate.source_identity(),
         'releaseWarSha256': gate.digest(args.candidate), 'tomcatCoreSha256': gate.digest(args.tomcat_core),
+        'tomcatJspApiSha256': gate.digest(args.tomcat_jsp_api),
         'clientCorpusSha256': gate.digest(CORPUS)})
     with tempfile.TemporaryDirectory(prefix='binary-clients-', dir=directory) as temporary:
         temporary = Path(temporary); classes = temporary / 'probe'; classes.mkdir()
@@ -254,7 +259,8 @@ def main():
                 result = subprocess.run(['java', '--add-opens=java.base/java.lang=ALL-UNNAMED',
                     '--add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED',
                     '-Duser.timezone=America/Toronto', '-Duser.language=en',
-                    '-Duser.country=CA', '-cp', str(classes) + os.pathsep + str(args.tomcat_core.resolve()),
+                    '-Duser.country=CA', '-cp', os.pathsep.join(map(str,
+                        (classes, args.tomcat_core.resolve(), args.tomcat_jsp_api.resolve()))),
                     'WarWireCompatibilityProbe', str(webapp),
                     str(directory / (side + '-wire.json')), str(CORPUS), str(api_inventory)], stdout=log, stderr=log)
                 if result.returncode and not (directory / (side + '-wire.json')).is_file():

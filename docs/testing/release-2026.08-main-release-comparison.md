@@ -16,6 +16,10 @@ package lifecycle requirements. It never makes those other checks pass.
   612 inputs over 308 types, plus 14 direct XML/JSON outputs and a local SOAP canary.
 - Tomcat embed core 11.0.27 from Maven Central, SHA-256
   `b71785ff101c0df501064b3e3b8c4a02e4f9cc3047a7fa686c41fc4edc2f0cb4`.
+- Tomcat JSP API 11.0.27 from Maven Central, SHA-256
+  `b525b3689de9e55e38baf15a1662a22dc6763cbb868b59078c81ca2fc486c00e`.
+  It supplies the container-provided `PageContext` used in inherited protected
+  JSP tag signatures. Missing provided APIs remain explicit incomplete inventories.
 
 Each side runs in a fresh JVM using its own classes and libraries. Tomcat's actual
 resource and web application class loader select the JAXB provider. A sorted URL
@@ -119,7 +123,7 @@ evidence. The separate required local privacy check still fails on payload loggi
 ## Reproduce
 
 Set `CARLOS_MAIN_PACKAGE` to the hash-verified published main Debian asset and
-`CARLOS_TOMCAT_CORE` to the pinned Tomcat jar above. Build the WAR from the frozen
+`CARLOS_TOMCAT_CORE` and `CARLOS_TOMCAT_JSP_API` to the pinned Tomcat jars above. Build the WAR from the frozen
 candidate source. Then use the existing verifier:
 
 ```sh
