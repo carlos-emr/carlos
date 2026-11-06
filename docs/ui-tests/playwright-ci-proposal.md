@@ -1312,12 +1312,23 @@ boundary. No workflow should convert a missing readiness file into success.
 The required `main-release-wire-compatibility` check needs both the source-bound
 candidate WAR and the published main package from
 `release-2026.08-lifecycle-baselines.json`. Supply `CARLOS_MAIN_PACKAGE` and
-`CARLOS_TOMCAT_CORE` (Tomcat embed core 11.0.27; the adapter verifies its exact
-SHA-256). Run it through the existing verifier with `--artifact`; retain all
+`CARLOS_TOMCAT_CORE` and `CARLOS_TOMCAT_JSP_API` (Tomcat 11.0.27; the adapter verifies
+both exact SHA-256 values). Run it through the existing verifier with `--artifact`; retain all
 underlying observations and changed-type inventories. A main/release difference
 must not be replaced with a candidate-only pass or a Maven provider baseline.
 See [the comparison findings](../testing/release-2026.08-main-release-comparison.md).
 This check supplements installed HTTP/persistence and package lifecycle comparisons.
+The required `public-api-oracle` needs Java 25 and javac. It compiles unchanged
+clients to prove sensitivity to protected access, abstract methods, competing
+overloads, exhaustive enum switches and inlined constant changes. Run it in the
+tooling lane; its synthetic fixtures do not need a deployed application.
+
+Run `manual-deb-login` through the verifier at installation time, before any normal
+suite authentication. Supply the private installer file and an explicit privately
+retained reset password that fits the form. The adapter requires the actual reset
+flag and verifies the resulting password, identity/PIN preservation and locked
+browser. An already-reset account fails before browser launch and must never be
+used as a substitute for clean-install first-login evidence.
 
 The narrower `installed-smoke-signals` requirement runs document upload, tickler
 CRUD and a disposable login on ON and BC. It delivers actual SIGINT and SIGTERM

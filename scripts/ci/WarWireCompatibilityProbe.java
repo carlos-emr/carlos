@@ -29,6 +29,7 @@ public final class WarWireCompatibilityProbe {
     private static final Map<String, Object> CASES = new LinkedHashMap<>();
     private static final Map<String, Object> ERRORS = new LinkedHashMap<>();
     private static final Set<String> XML_PROVIDERS = new java.util.TreeSet<>();
+    private static final Map<Class<?>, Map<String, String>> CONSTANTS = new java.util.HashMap<>();
     @FunctionalInterface private interface Operation { String execute() throws Exception; }
 
     private static void observe(String name, String kind, Operation operation) {
@@ -108,7 +109,7 @@ public final class WarWireCompatibilityProbe {
         for (String name : Files.readAllLines(inventory)) {
             try { publicType(loader.loadClass(name), result, visited, true); }
             catch (ClassNotFoundException absent) { result.put(name, List.of()); }
-            catch (LinkageError incomplete) {
+            catch (Exception | LinkageError incomplete) {
                 // Retain all other types instead of discarding an entire API
                 // inventory when one protected signature needs a provided API.
                 result.put(name, List.of("unresolved-api:" + incomplete.getClass().getName()));
@@ -119,7 +120,36 @@ public final class WarWireCompatibilityProbe {
         return encode(result);
     }
 
-    private static void publicType(Class<?> type, Map<String, Object> result, Set<Class<?>> visited, boolean root) {
+    private static String constantValue(java.lang.reflect.Field field) throws Exception {
+        Class<?> owner = field.getDeclaringClass();
+        var values = CONSTANTS.get(owner);
+        if (values == null) {
+            values = new java.util.HashMap<>();
+            String resource = "/" + owner.getName().replace('.', '/') + ".class";
+            try (var stream = owner.getResourceAsStream(resource)) {
+                if (stream == null) throw new IllegalStateException("Missing declared class bytes");
+                var model = java.lang.classfile.ClassFile.of().parse(stream.readAllBytes());
+                if (!model.thisClass().asInternalName().equals(owner.getName().replace('.', '/')))
+                    throw new IllegalStateException("Class resource belongs to another type");
+                for (var member : model.fields()) {
+                    var attribute = member.findAttribute(java.lang.classfile.Attributes.constantValue());
+                    if (attribute.isPresent()) {
+                        Object constant = attribute.get().constant().constantValue();
+                        String typed = member.fieldType().stringValue() + ":" + encode(constant);
+                        String digest = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                                .digest(typed.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                        values.put(member.fieldName().stringValue(), digest);
+                    }
+                }
+            }
+            CONSTANTS.put(owner, values);
+        }
+        // Read ConstantValue bytes, never Field.get(): that could initialize the
+        // application and conceal old clients' inlined compile-time constants.
+        return values.get(field.getName());
+    }
+
+    private static void publicType(Class<?> type, Map<String, Object> result, Set<Class<?>> visited, boolean root) throws Exception {
         if (!visited.add(type)) return;
         if (!java.lang.reflect.Modifier.isPublic(type.getModifiers())) {
             if (root) result.put(type.getName(), List.of("not-public"));
@@ -140,6 +170,9 @@ public final class WarWireCompatibilityProbe {
             for (var member : base.getDeclaredFields()) {
                 if (java.lang.reflect.Modifier.isProtected(member.getModifiers()) && !member.isSynthetic())
                     members.add("field:" + member.toGenericString());
+                if (java.lang.reflect.Modifier.isProtected(member.getModifiers()) && !member.isSynthetic()
+                        && constantValue(member) != null)
+                    members.add("constant:" + member.toGenericString() + ":" + constantValue(member));
             }
         }
         for (var member : type.getDeclaredConstructors()) {
@@ -149,6 +182,8 @@ public final class WarWireCompatibilityProbe {
         }
         for (var member : type.getFields()) {
             if (!member.isSynthetic()) members.add("field:" + member.toGenericString());
+            if (!member.isSynthetic() && constantValue(member) != null)
+                members.add("constant:" + member.toGenericString() + ":" + constantValue(member));
             if (member.isEnumConstant()) members.add("enum-constant:" + member.getName());
         }
         // Include inherited interfaces: removing an implemented contract can break an unchanged client.

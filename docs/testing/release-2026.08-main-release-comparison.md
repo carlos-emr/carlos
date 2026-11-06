@@ -40,6 +40,17 @@ subclass them. Added abstract methods, enum constants and competing overloads
 also require client review; a pure subset comparison would silently accept those
 potential breaks. Reflection does not initialize application classes. These are API compatibility
 candidates; intentional internal API removals still need a reviewed disposition.
+Compile-time constant values are read from Java class-file `ConstantValue`
+attributes and fingerprinted with their type. Reading a static field reflectively
+would initialize application code; omitting constant values would miss stale
+values already inlined into older clients.
+
+The separate required `public-api-oracle` compiles real unchanged clients against
+both synthetic API versions. Protected access, abstract implementors, overload
+ambiguity and exhaustive enum switches each compile on the old version and fail
+on the changed version. An old compiled constant client still returns its old
+inlined value. All ten assertions pass while the fixture's static initializer is
+deliberately poisonous, proving the inventory does not execute it.
 
 ## Development observations
 

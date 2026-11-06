@@ -37,7 +37,9 @@
         "scripts/ci/generate-path-bindings.py",
         "scripts/ci/test_command_evidence.py",
         "scripts/ci/test_generate_path_bindings.py",
-        "scripts/ci/test_release_plan_5700.py"
+        "scripts/ci/test_release_plan_5700.py",
+        "scripts/ci/run-public-api-oracle.py",
+        "scripts/ci/WarWireCompatibilityProbe.java"
       ],
       "implementation": "Keep a release-SHA/base-SHA/WAR-hash evidence manifest and assign every changed path, removed API, migration, resource and test-helper change to an executable check or explicit reviewed exclusion. Preserve the main-only commit inventory.",
       "cases": "Full Git diff, renamed/deleted/binary paths, files beyond the GitHub compare 300-file cap; wrong commit, stale build, absent artifact and changed source after build must fail.",
@@ -51,7 +53,8 @@
         "packaged-full",
         "scope-and-main-disposition",
         "scope-inventory",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "public-api-oracle"
       ]
     },
     {
@@ -211,7 +214,9 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapterUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransferXmlUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java",
+        "scripts/ci/run-public-api-oracle.py",
+        "scripts/ci/WarWireCompatibilityProbe.java"
       ],
       "implementation": "Extend the existing installed REST check to nonempty XML allergy/prevention date DTOs and every supported precision, plus restricted-user/error and OAuth surfaces. Preserve production mapper and both JAXB provider tests.",
       "cases": "Accept application/xml, application/json and */*; UNKNOWN/YEAR/MONTH/FULL_DATE, leap days, nulls and epoch values in UTC/Toronto/Tokyo; 400/401/403/404; malformed or foreign patient; exact field names and precision shapes; shared provider initialization must not fall back silently.",
@@ -225,7 +230,8 @@
         "packaged-full",
         "java-date-zones",
         "http-client-compatibility",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "public-api-oracle"
       ]
     },
     {
@@ -497,7 +503,9 @@
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptorUnitTest.java",
         "scripts/ci/EbsPayloadPrivacyProbe.java",
         "scripts/ci/run-ebs-payload-privacy.py",
-        "scripts/ci/test_ebs_payload_privacy.py"
+        "scripts/ci/test_ebs_payload_privacy.py",
+        "scripts/ci/run-public-api-oracle.py",
+        "scripts/ci/WarWireCompatibilityProbe.java"
       ],
       "implementation": "Preserve the extensive independent loopback HTTPS tests; run them against packaged classpath and qualify actual approved staging MCEDT/HCV deployment settings. Add a separate test for CXF-owned spill-cache retention rather than claiming application replay closure covers it.",
       "cases": "Signed/encrypted SOAP/MTOM, exact bytes, TLS 1.2/1.3, mTLS/hostname/trust failures, proxy/auth, stalled/progressing/truncated bodies, plain/multipart fault chains, thread-local cleanup and concurrent clients; ordinary crypto properties remain readable, ENC(...) has explicit refusal; async/HTTP2/custom extensions inventoried.",
@@ -511,7 +519,8 @@
         "packaged-full",
         "ebs-packaged-staging",
         "ebs-local-payload-privacy",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "public-api-oracle"
       ]
     },
     {
@@ -551,7 +560,9 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/JdkCollectionCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/JdkEncodingCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/JdkStreamCompatibilityUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/utility/RetainedCommonsSemanticsUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/RetainedCommonsSemanticsUnitTest.java",
+        "scripts/ci/run-public-api-oracle.py",
+        "scripts/ci/WarWireCompatibilityProbe.java"
       ],
       "implementation": "Run existing differential vectors and add caller-level fixtures where removed libraries could alter data. Verify actual WAR contents, not only the POM, and qualify supported extensions against removed public APIs.",
       "cases": "TOTP random keys/counter/locale boundaries; QR byte parity; Ant-compatible ISO parsing; null/blank/Unicode strings; encoding and collection/stream semantics; removed Velocity/raw JDBC APIs; all required CXF/JAXB modules; Drools, JavaMelody and Flyway; one OpenPDF; no banned Jasypt/Xerces/HTTP4/logging duplicates or missing runtime class.",
@@ -566,7 +577,8 @@
         "http-client-compatibility",
         "sql-hook",
         "java-legacy-compat",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "public-api-oracle"
       ]
     },
     {
@@ -615,7 +627,9 @@
       "priority": "P0",
       "area": "Document/image lifecycle and concurrency",
       "sources": [
-        "pom.xml"
+        "pom.xml",
+        "scripts/ci/run-public-api-oracle.py",
+        "scripts/ci/WarWireCompatibilityProbe.java"
       ],
       "implementation": "Retain existing ownership-safe cleanup proofs and add an actual concurrent image-destination collision test. Cover Browse Notes deletion confirmation, replacement page counts and document links under failure.",
       "cases": "Two writers to the same destination, symlink/replacement inode, accepted-but-unconfirmed upload, orphan route/queue/link failure, hidden/foreign references inserted after preflight, cancel/confirm delete, upload interruption, PDF corruption, annotation/fax handoff and scratch cleanup.",
@@ -628,7 +642,8 @@
         "build",
         "packaged-full",
         "image-overwrite-contract",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "public-api-oracle"
       ]
     },
     {
@@ -3995,6 +4010,43 @@
           "all-six-real-os-signals",
           "all-owned-state-restored",
           "locked-chromium"
+        ]
+      }
+    },
+    {
+      "id": "public-api-oracle",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "python3",
+        "scripts/ci/run-public-api-oracle.py",
+        "--output",
+        "{run}/api-oracle-result.json"
+      ],
+      "requiresExecutables": [
+        "java",
+        "javac"
+      ],
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "timeoutSeconds": 180,
+      "resultContract": {
+        "file": "api-oracle-result.json",
+        "assertions": [
+          "abstract-addition-detected",
+          "constant-value-change-detected-without-initialization",
+          "enum-addition-detected",
+          "enumclient-real-client-break",
+          "old-compiled-constant-remains-inlined",
+          "overload-addition-detected",
+          "overloadclient-real-client-break",
+          "protected-contract-removal-detected",
+          "protectedclient-real-client-break",
+          "subclassclient-real-client-break"
         ]
       }
     }
