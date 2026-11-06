@@ -394,10 +394,12 @@ async function workflow(s) {
       ]);
       h.assert(response.status() === 409, `A booking with a location disabled meanwhile answered HTTP ${response.status()}`);
       await popup.waitForLoadState('domcontentloaded');
-      const alert = popup.locator('.alert-danger');
-      await alert.waitFor({timeout: 20000});
+      // The form also carries other alert-danger banners (the script-error banner, a same-day group
+      // booking warning), so find the refusal by what it says.
       const reason = bundleMessage('appointment.location.unavailable', 'The selected appointment location is no longer available.');
-      h.assert((await alert.innerText()).includes(reason.split('.')[0]), 'The refusal does not say the location is no longer available');
+      const alert = popup.locator('.alert-danger', {hasText: reason.split('.')[0]});
+      await alert.first().waitFor({timeout: 20000});
+      h.assert(await alert.count() === 1, 'The refusal does not say, once, that the location is no longer available');
       h.assert(await popup.locator('#reason').inputValue() === `${marker} stale`, 'The refused booking lost its draft');
       h.assert(located(`reason=${q(`${marker} stale`)}`).length === 0, 'A booking with a disabled location was saved');
       consumeExpectedFailure(recorder, mark, {status: 409, path: ADD_RECORD});
