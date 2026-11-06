@@ -180,6 +180,20 @@ class AppointmentLocationListUnitTest {
         assertThat(AppointmentLocationList.Choice.posted(null, null).value()).isEmpty();
     }
 
+    @Test
+    void shouldStartOnTypedText_whenFormPostedNoLocationCode() {
+        // A form without the dropdown (free text, because the list was not in location mode when
+        // it rendered) posts no locationCode. Its text is what the user typed, so a re-render in
+        // location mode starts on it as the legacy option rather than on "Not specified", which
+        // would clear it on the next save.
+        assertThat(AppointmentLocationList.Choice.posted(null, "Room 1"))
+                .isEqualTo(new AppointmentLocationList.Choice(AppointmentLocationList.LEGACY_VALUE, "Room 1"));
+        assertThat(AppointmentLocationList.Choice.posted(null, "  ")).isEqualTo(new AppointmentLocationList.Choice("", null));
+        // A posted blank code is a deliberate "Not specified": the legacy text stays offered, unselected.
+        assertThat(AppointmentLocationList.Choice.posted("", "Room 1"))
+                .isEqualTo(new AppointmentLocationList.Choice("", "Room 1"));
+    }
+
     @ParameterizedTest
     @CsvSource(nullValues = "NULL", value = {
             // An active item with the same name is selected by its code.

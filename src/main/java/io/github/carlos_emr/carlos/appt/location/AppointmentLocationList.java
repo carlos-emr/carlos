@@ -68,12 +68,23 @@ public final class AppointmentLocationList {
          * a refused save). The value is only ever an item id, {@link #LEGACY_VALUE} or blank,
          * never the posted text itself.
          *
-         * @param postedCode String the posted {@code locationCode}, or null
+         * <p>No {@code locationCode} at all means the form that posted had no dropdown: it showed
+         * free text (or a site control) because the list was not in location mode when it
+         * rendered. Its text is then the location the user typed, so it starts selected as the
+         * legacy option, which saves it as the resolver would have saved the free text
+         * ({@link AppointmentLocationResolver#setLocationText}). Starting on "Not specified" would
+         * clear it on the next save without telling anyone. The patient-search and add-patient
+         * pages forward {@code locationCode} only when the booking form posted one.</p>
+         *
+         * @param postedCode String the posted {@code locationCode}, or null when none was posted
          * @param legacy String the legacy free-text location to offer again, or null
          * @return Choice the starting choice
          */
         public static Choice posted(String postedCode, String legacy) {
-            if (postedCode != null && LEGACY_VALUE.equals(postedCode.trim())) {
+            if (postedCode == null) {
+                return StringUtils.isBlank(legacy) ? new Choice("", null) : new Choice(LEGACY_VALUE, legacy);
+            }
+            if (LEGACY_VALUE.equals(postedCode.trim())) {
                 return new Choice(LEGACY_VALUE, legacy);
             }
             Integer code = parseCode(postedCode);
