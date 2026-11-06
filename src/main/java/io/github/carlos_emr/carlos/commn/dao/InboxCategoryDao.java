@@ -76,7 +76,7 @@ public class InboxCategoryDao {
         private String patientLastName;
         private String searchProviderNo;
         private String status;
-    	private String abnormalStatus;
+        private String abnormalStatus;
         private String patientFirstName;
         private String patientHealthNumber;
         private boolean patientSearch;
@@ -88,7 +88,7 @@ public class InboxCategoryDao {
         private String labAbnormalSql = "";
         private String hrmDateSql = "";
         private String hrmProviderSql = "";
-    	private String hrmSignedOff = "";
+        private String hrmSignedOff = "";
 
         private final List<String> labDateParams = new ArrayList<>();
         private final List<String> documentDateParams = new ArrayList<>();
@@ -124,7 +124,7 @@ public class InboxCategoryDao {
             this.patientHealthNumber = patientHealthNumber;
             this.patientSearch = patientSearch;
             this.providerSearch = providerSearch;
-    		this.abnormalStatus = abnormalStatus;
+            this.abnormalStatus = abnormalStatus;
 
             String dateSearchType = "serviceObservation";
 
@@ -366,7 +366,7 @@ public class InboxCategoryDao {
             if (demographicNo == null || demographicNo.trim().isEmpty()) {
                 throw new IllegalArgumentException("demographicNo cannot be null or empty");
             }
-    
+
             // Build SQL with placeholders
             StringBuilder sql = new StringBuilder();
             sql.append(" SELECT HIGH_PRIORITY d.demographic_no, last_name, first_name, COUNT(1) as count ");
@@ -376,20 +376,20 @@ public class InboxCategoryDao {
             sql.append(" AND cd.lab_no = plr.lab_no ");
             sql.append(" AND plr.lab_type = 'HL7' ");
             sql.append(" AND cd.lab_type = 'HL7' ");
-        
+
             if (matchesAnyStatus()) {
                 sql.append(" AND plr.status").append(SQL_IS_NOT_NULL);
             } else {
                 sql.append(" AND plr.status").append(SQL_EQUALS_PARAM);
             }
-        
+
             if (providerSearch) {
                 sql.append(" AND plr.provider_no = ? ");
             }
-        
+
             // Qualified for the same reason as getLabCountForPatientSearch: cd and d both have demographic_no.
             sql.append(" GROUP BY d.demographic_no ");
-        
+
             List<Object> params = new ArrayList<>();
             params.add(demographicNo);
             if (bindsStatusParameter()) {
@@ -490,7 +490,7 @@ public class InboxCategoryDao {
             int count = 0;
             PatientInfo info;
 
-    		StringBuilder sql = new StringBuilder();
+            StringBuilder sql = new StringBuilder();
             sql.append("SELECT HIGH_PRIORITY d.demographic_no, d.first_name, d.last_name, COUNT(DISTINCT h.id) AS count ")
                .append(" FROM HRMDocumentToDemographic hd ")
                .append(" LEFT JOIN HRMDocumentToProvider hp ON hd.hrmDocumentId = hp.hrmDocumentId ")
@@ -518,22 +518,22 @@ public class InboxCategoryDao {
             hrmParams.forEach(query::setParameter);
 
             // Executing the query and processing the results
-    		List<Tuple> results = query.getResultList();
+            List<Tuple> results = query.getResultList();
 
-    		for (Tuple result : results) {
-    				int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
-    			Integer id = result.get("demographic_no", Integer.class); // Extracting demographicNo as Integer
+            for (Tuple result : results) {
+                    int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
+                Integer id = result.get("demographic_no", Integer.class); // Extracting demographicNo as Integer
 
-    			// Updating patient info if it already exists
+                // Updating patient info if it already exists
                 if (patients.containsKey(id)) {
                     info = patients.get(id);
                     info.setDocCount(info.getDocCount() + hrmCount);
-    				info.setHrmCount(hrmCount);
-    			} else {
-    				// Otherwise, adding a new patient record
-    				info = new PatientInfo(id, result.get("first_name", String.class), result.get("last_name", String.class));
+                    info.setHrmCount(hrmCount);
+                } else {
+                    // Otherwise, adding a new patient record
+                    info = new PatientInfo(id, result.get("first_name", String.class), result.get("last_name", String.class));
                     info.setDocCount(hrmCount);
-    				info.setHrmCount(hrmCount);
+                    info.setHrmCount(hrmCount);
                     patients.put(info.getId(), info);
                 }
 
@@ -552,27 +552,27 @@ public class InboxCategoryDao {
         public int getHRMDocumentCountForUnmatched() throws SQLException {
             int count = 0;
 
-    		StringBuilder sql = new StringBuilder();
-    		sql.append("SELECT HIGH_PRIORITY COUNT(DISTINCT h.id) AS count ")
-    			.append(" FROM HRMDocumentToProvider hp ")
-    			.append(" LEFT JOIN HRMDocument h ON h.id = hp.hrmDocumentId ")
-    			.append(" LEFT JOIN HRMDocumentToDemographic hd ON hd.hrmDocumentId = hp.hrmDocumentId ")
-    			.append(" WHERE hd.hrmDocumentId IS NULL ")
-    			.append(hrmSignedOff)
-    			.append(hrmDateSql)
-    			.append(hrmProviderSql);
+            StringBuilder sql = new StringBuilder();
+            sql.append("SELECT HIGH_PRIORITY COUNT(DISTINCT h.id) AS count ")
+                .append(" FROM HRMDocumentToProvider hp ")
+                .append(" LEFT JOIN HRMDocument h ON h.id = hp.hrmDocumentId ")
+                .append(" LEFT JOIN HRMDocumentToDemographic hd ON hd.hrmDocumentId = hp.hrmDocumentId ")
+                .append(" WHERE hd.hrmDocumentId IS NULL ")
+                .append(hrmSignedOff)
+                .append(hrmDateSql)
+                .append(hrmProviderSql);
 
-    		// Create a native query using the entity manager
-    		Query query = entityManager.createNativeQuery(sql.toString(), Tuple.class);
-    		hrmParams.forEach(query::setParameter);
+            // Create a native query using the entity manager
+            Query query = entityManager.createNativeQuery(sql.toString(), Tuple.class);
+            hrmParams.forEach(query::setParameter);
 
-    		// Execute the query and retrieve the results
-    		List<Tuple> results = query.getResultList();
+            // Execute the query and retrieve the results
+            List<Tuple> results = query.getResultList();
 
-    		// Process the results
-    		for (Tuple result : results) {
-    				int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
-    			count += hrmCount; // Accumulate the total count
+            // Process the results
+            for (Tuple result : results) {
+                    int hrmCount = ((Number) result.get(COUNT_COLUMN)).intValue(); // Extracting count
+                count += hrmCount; // Accumulate the total count
             }
 
             return count;
