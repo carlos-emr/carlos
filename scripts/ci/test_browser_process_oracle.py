@@ -6,6 +6,7 @@ import sys
 import unittest
 import tempfile
 import json
+from unittest.mock import patch
 from junit_evidence import EvidenceError
 
 SPEC = importlib.util.spec_from_file_location('browser_oracle', Path(__file__).with_name('run-browser-process-oracle.py'))
@@ -13,6 +14,39 @@ oracle = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(oracle)
 
 
 class BrowserProcessOracleTest(unittest.TestCase):
+    def test_expected_interruptions_write_complete_success_evidence(self):
+        class ObservedProcess:
+            def __init__(self, command, **_kwargs):
+                Path(command[3]).write_text(json.dumps({'node': 10, 'browser': 20, 'version': '149.0.7827.55'}))
+
+            def wait(self, timeout=None):
+                return 0
+
+        def interrupt(command, **_kwargs):
+            # Exercise main's real observation and exception handling, without
+            # requiring Chromium in the evidence-adapter unit-test job.
+            oracle.process_group.subprocess.Popen(command).wait()
+            reason = 'timed out' if command[4] == 'timeout' else 'interrupted'
+            raise oracle.process_group.ProcessGroupFailure(reason, True)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / 'result.json'
+            inventory = {10: (1, 'S', 100), 20: (10, 'S', 200)}
+            with patch.object(sys, 'argv', ['oracle', '--output', str(output)]), \
+                    patch.object(oracle.subprocess, 'Popen', ObservedProcess), \
+                    patch.object(oracle.process_group, 'run_process_group', side_effect=interrupt), \
+                    patch.object(oracle.os, 'getpgid', side_effect=lambda pid: pid), \
+                    patch.object(oracle, 'processes', side_effect=[inventory, {}] * 3), \
+                    patch.object(oracle.gate, 'require_locked_chromium'):
+                oracle.main()
+            result = json.loads(output.read_text())
+            self.assertEqual(len(result['assertions']), 3)
+            self.assertTrue(all(result['assertions'].values()))
+            observations = json.loads((output.parent / result['inputs'][0]['path']).read_text())
+            self.assertIsNone(observations['failure'])
+            self.assertEqual([row['mode'] for row in observations['observations']],
+                             ['timeout', 'SIGTERM', 'SIGINT'])
+
     def test_partial_oracle_failure_retains_evidence_without_qualifying_missing_modes(self):
         with tempfile.TemporaryDirectory() as temporary:
             output = Path(temporary) / 'result.json'

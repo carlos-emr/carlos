@@ -89,8 +89,8 @@ def main():
                     try:
                         process_group.run_process_group(['node', '-e', NODE, str(ready), mode, str(armed)], cwd=gate.ROOT,
                             timeout=0.2 if mode == 'timeout' else 30, grace=0.2, track_descendants=True)
-                    except process_group.ProcessGroupFailure as failure:
-                        if not failure.quiescent or ('timed out' if mode == 'timeout' else 'interrupted') not in str(failure):
+                    except process_group.ProcessGroupFailure as interruption:
+                        if not interruption.quiescent or ('timed out' if mode == 'timeout' else 'interrupted') not in str(interruption):
                             raise
                     else:
                         raise AssertionError('Browser interruption was accepted as success')
