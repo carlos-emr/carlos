@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -63,6 +64,14 @@ public abstract class FrmRecord {
     public abstract Properties getFormRecord(LoggedInInfo loggedInInfo, int demographicNo, int existingID) throws SQLException;
 
     public abstract int saveFormRecord(Properties props) throws SQLException;
+
+    /**
+     * Saves with an authenticated actor for migrated services. Existing records retain their
+     * original save contract until their persistence is migrated in a later slice.
+     */
+    public int saveFormRecord(LoggedInInfo actor, Properties props) throws SQLException {
+        return saveFormRecord(props);
+    }
 
     public abstract String findActionValue(String submit) throws SQLException;
 

@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -39,7 +40,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 import jakarta.persistence.PersistenceException;
@@ -47,6 +47,7 @@ import jakarta.persistence.PersistenceException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.forms.Growth0To36FormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -62,8 +63,6 @@ public class EctFormData {
 
     private static final Pattern FORM_TABLE_NAME = Pattern.compile("^\\w+$");
     private static final String LEGACY_FORM_SQL = "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
-    // Legacy built-in form table that is valid but not registered in encounterForm.
-    private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static Logger logger = MiscUtils.getLogger();
     private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
 
@@ -156,6 +155,9 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getGroupedPatientFormsAsArrayList(String demoNo, String formName, String table, String jsp) {
+        if ("formGrowth0_36".equals(StringUtils.trimToNull(table))) {
+            return growthForms(demoNo, formName, jsp, true);
+        }
         String trustedTable = validateFormTable(table);
         if (trustedTable == null) return (new ArrayList<PatientForm>());
 
@@ -213,6 +215,9 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getPatientFormsAsArrayList(String demoNo, String formName, String table) {
+        if ("formGrowth0_36".equals(StringUtils.trimToNull(table))) {
+            return growthForms(demoNo, formName, null, false);
+        }
         String trustedTable = validateFormTable(table);
         if (trustedTable == null) return (new ArrayList<PatientForm>());
 
@@ -275,13 +280,29 @@ public class EctFormData {
             }
             return null;
         }
-        if ("form".equals(normalizedTable) || INTERNAL_FORM_TABLES.contains(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
+        if ("form".equals(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
             return normalizedTable;
         }
         if (logger.isWarnEnabled()) {
             logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(normalizedTable));
         }
         return null;
+    }
+
+    private static ArrayList<PatientForm> growthForms(String demoNo, String formName, String jsp, boolean grouped) {
+        ArrayList<PatientForm> results = new ArrayList<>();
+        Integer patient = parseDemographicNo(demoNo);
+        if (patient == null) return results;
+        Growth0To36FormDao dao = SpringUtils.getBean(Growth0To36FormDao.class);
+        List<Growth0To36FormDao.Version> versions = grouped ? dao.findGroupedVersions(patient) : dao.findVersions(patient);
+        for (Growth0To36FormDao.Version version : versions) {
+            PatientForm form = jsp == null
+                    ? new PatientForm(formName, version.id(), version.demographicNo(), version.created(), version.edited())
+                    : new PatientForm(formName, version.id(), version.demographicNo(), version.created(), version.edited(), jsp);
+            form.setTable("formGrowth0_36");
+            results.add(form);
+        }
+        return results;
     }
 
     private static String groupedFormTableSql(String trustedTable) {

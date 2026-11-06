@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -236,7 +237,7 @@ public final class Frm2Action extends ActionSupport {
                 }
 
                 props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
-                newID = rec.saveFormRecord(props);
+                newID = rec.saveFormRecord(loggedInInfo, props);
                 LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(), LogConst.UPDATE, request
                         .getParameter("form_class"), "" + newID, request.getRemoteAddr(), request.getParameter("demographic_no"));
             } else if ("autosaveAjax".equals(request.getParameter("submit"))) {
@@ -287,7 +288,7 @@ public final class Frm2Action extends ActionSupport {
                 }
 
                 props.setProperty("provider_no", loggedInInfo.getLoggedInProviderNo());
-                newID = rec.saveFormRecord(props);
+                newID = rec.saveFormRecord(loggedInInfo, props);
 
                 if (newID > 0) {
                     log.info("{} new form ID {} successfully saved.", LogSafe.sanitize(formClassName), newID); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -426,7 +427,7 @@ public final class Frm2Action extends ActionSupport {
         }
         props.setProperty("provider_no", LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
         try {
-            int newFormId = formRecord.saveFormRecord(props);
+            int newFormId = formRecord.saveFormRecord(LoggedInInfo.getLoggedInInfoFromSession(request), props);
             LogAction.addLog(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
                     LogConst.ADD, request.getParameter("form_class"), String.valueOf(newFormId),
                     request.getRemoteAddr(), request.getParameter("demographic_no"));

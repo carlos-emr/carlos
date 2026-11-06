@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -135,6 +136,11 @@ public class FrmRecordFactory {
         if (which == null || !ALLOWED_FORM_CLASSES.contains(which)) {
             MiscUtils.getLogger().warn("Rejected disallowed form class name: {}", LogSafe.sanitize(which));
             return null;
+        }
+
+        // Migrated forms have an explicit UI adapter; persistence lives in a proxied service.
+        if ("Growth0_36".equals(which)) {
+            return new Growth0To36FormAdapter();
         }
 
         // Build the full class name from the whitelisted form name.

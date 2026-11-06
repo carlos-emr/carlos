@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.encounter.data;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.forms.Growth0To36FormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.form.data.FrmData;
@@ -36,6 +37,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.test.util.ReflectionTestUtils;
+import jakarta.persistence.EntityManager;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -55,11 +60,9 @@ import static org.mockito.Mockito.when;
  * dated from, {@link EctFormData#getShortcutLatestPatientForm(String, String)}, is the row its
  * {@code formId=latest} link opens, {@link FrmData#getShortcutFormValue(String, String)}.
  *
- * <p>Both real lookups run their real SQL through {@link LegacyJdbcQuery} against an isolated
- * H2 database owned by each test. Only the form registry and the thread-scoped Spring bean
- * lookup are mocked. The table is registered as {@code formGrowth0_36}, a built-in table that
- * {@code EctFormData} accepts without consulting its class-level registry DAO, so the result
- * does not depend on which test first loaded that class in a reused fork.</p>
+ * <p>Both lookups now use the real Growth JPA DAO against an isolated H2 database owned by
+ * each test. Only the form registry and Spring lookup are mocked. This deliberately uses a
+ * table with just headers, proving that list/shortcut projections do not load every form field.</p>
  */
 @Tag("integration")
 @Tag("form")
@@ -75,6 +78,8 @@ class EctFormDataShortcutLatestIntegrationTest {
     private Connection keeper;
     private JdbcTemplate jdbc;
     private MockedStatic<SpringUtils> spring;
+    private LocalContainerEntityManagerFactoryBean persistence;
+    private EntityManager entityManager;
 
     @BeforeEach
     void createOwnedDatabase() throws SQLException {
@@ -85,6 +90,15 @@ class EctFormDataShortcutLatestIntegrationTest {
         jdbc = new JdbcTemplate(source);
         jdbc.execute("CREATE TABLE " + FORM_TABLE + " (ID INT PRIMARY KEY, demographic_no INT NOT NULL,"
                 + " formCreated DATE NULL, formEdited TIMESTAMP NULL)");
+        persistence = new LocalContainerEntityManagerFactoryBean();
+        persistence.setDataSource(source);
+        persistence.setPackagesToScan("io.github.carlos_emr.carlos.form.model");
+        persistence.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+        persistence.setJpaPropertyMap(java.util.Map.of("hibernate.hbm2ddl.auto", "none"));
+        persistence.afterPropertiesSet();
+        entityManager = persistence.getObject().createEntityManager();
+        Growth0To36FormDao growth = new Growth0To36FormDao();
+        ReflectionTestUtils.setField(growth, "entityManager", entityManager);
 
         var registration = new EncounterForm();
         registration.setFormName(FORM_NAME);
@@ -95,6 +109,7 @@ class EctFormDataShortcutLatestIntegrationTest {
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
+        spring.when(() -> SpringUtils.getBean(Growth0To36FormDao.class)).thenReturn(growth);
     }
 
     @AfterEach
@@ -103,6 +118,8 @@ class EctFormDataShortcutLatestIntegrationTest {
             LegacyJdbcQuery.releaseThreadResources();
         } finally {
             try {
+                if (entityManager != null) entityManager.close();
+                if (persistence != null) persistence.destroy();
                 if (spring != null) spring.close();
             } finally {
                 if (keeper != null) keeper.close();
