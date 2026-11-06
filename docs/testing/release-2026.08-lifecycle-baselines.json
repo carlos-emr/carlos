@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "tag": "2026.08.0-beta6",
+  "sourceCommit": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "tagObject": "373e1ac866fbc0cf719c9c1b5c41ec1cfd513e3e",
+  "baselineRoles": [
+    "supported-prior-release",
+    "currentMain"
+  ],
+  "provinces": [
+    "ON",
+    "BC"
+  ],
+  "qualification": "Required; metadata pinning alone is not install or upgrade evidence.",
+  "assets": [
+    {
+      "name": "carlos-2026.08.0-beta6.war",
+      "bytes": 315084075,
+      "sha256": "c5238f0f10eb81c05246fafd52491212d62f4495e1503c8c3281c01c34195c4c",
+      "url": "https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta6/carlos-2026.08.0-beta6.war"
+    },
+    {
+      "name": "carlos-ctl_1.3.1_all.deb",
+      "bytes": 345254,
+      "sha256": "b824c3653a5bb3992d7c9bf1ff28902bbc11601160618a4860eadc3e8f032fb8",
+      "url": "https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta6/carlos-ctl_1.3.1_all.deb"
+    },
+    {
+      "name": "carlos-emr-drugref_2026.08.0.beta6_all.deb",
+      "bytes": 38811698,
+      "sha256": "22302d936a5eb20466511144cc499d58beb6332bb3bce3913436ef1d691a0fea",
+      "url": "https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta6/carlos-emr-drugref_2026.08.0.beta6_all.deb"
+    },
+    {
+      "name": "carlos-emr_2026.08.0.beta6_amd64.deb",
+      "bytes": 467062834,
+      "sha256": "839c981b7de78460d89eaba0a8c95d992d88f861cc4739bba2b81753373a3af1",
+      "url": "https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta6/carlos-emr_2026.08.0.beta6_amd64.deb"
+    }
+  ]
+}

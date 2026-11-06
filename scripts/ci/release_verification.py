@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import stat
 import subprocess
@@ -125,6 +126,11 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     if not names or len(set(names)) != len(names):
         raise EvidenceError("Empty or duplicate check registry")
     for check in checks:
+        programs = check.get('requiresExecutables', [])
+        if (not isinstance(programs, list)
+                or any(not isinstance(program, str) or not re.fullmatch(r'[A-Za-z0-9_+.-]+', program)
+                       for program in programs) or len(programs) != len(set(programs))):
+            raise EvidenceError('Executable prerequisites must be unique command names')
         if "resultContract" in check:
             if check.get("kind") != "command":
                 raise EvidenceError("Only command checks accept result contracts")
@@ -409,10 +415,11 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
     if artifact is not None:
         receipt["artifactSha256"] = digest(artifact)
     missing = [name for name in check.get("requiresEnvironment", []) if not os.environ.get(name)]
+    missing_programs = [name for name in check.get('requiresExecutables', []) if shutil.which(name) is None]
     try:
         if not runtime_matches(receipt["runtimes"], check.get("runtimeConstraints", {})):
             receipt["reason"] = "Required runtime version is unavailable"
-        elif check["kind"] == "external" or missing:
+        elif check["kind"] == "external" or missing or missing_programs:
             receipt["reason"] = "External acceptance pending" if check["kind"] == "external" else "Missing named test prerequisites"
         elif check.get("packaged") and artifact is None:
             receipt["reason"] = "Packaged acceptance requires the exact built WAR"

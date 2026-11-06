@@ -251,6 +251,14 @@ data=run/'metrics.json'; data.write_text('{"active":0}')
         self.assertEqual(result["outcome"], "FAIL")
         self.assertIn("changed during", result["reason"])
 
+    def test_missing_executable_blocks_before_any_test_is_spawned(self):
+        self.plan["checks"][1]["requiresExecutables"] = ["release-test-prerequisite-not-installed"]
+        self.save_plan(); self.commit()
+        result = self.run_check()
+        self.assertEqual(result["outcome"], "BLOCKED")
+        self.assertIsNone(result["exitCode"])
+        self.assertFalse((self.evidence / result["runId"] / "reports").exists())
+
     def test_named_missing_prerequisite_produces_blocked_not_pass(self):
         self.plan["checks"][1]["requiresEnvironment"] = ["CARLOS_SYNTHETIC_UNSET_PREREQUISITE"]
         self.save_plan()

@@ -3,7 +3,7 @@
 The [corrected plan](../superpowers/plans/2026-11-06-release-2026.08-full-verification-coverage.md)
 is the execution specification. This branch consolidates implementation into one
 PR targeting `release/2026.08`. The PR remains draft until the remaining implementation
-and qualification below are complete. No release-readiness verdict has been produced.
+and qualification below are complete. No release-ready verdict has been produced; preserved qualification attempts remain incomplete.
 
 ## Implemented
 
@@ -72,6 +72,20 @@ and qualification below are complete. No release-readiness verdict has been prod
   Chromium 149.0.7827.55; 157 affected harness cases passed.
 - Kept EBS and all four SRFax staging selections explicitly BLOCKED per the
   user's access disposition, retaining their commands and province selections.
+- A fresh source-bound run at `53709c7` executed 33,500 Java cases with no
+  failures/errors and 130 explicitly routed H2 skips; native closure and the
+  remaining qualification slots are separate requirements. The strict Node lane
+  also passed after the standalone fix.
+- Added executable prerequisite checks after actual qualification exposed missing
+  restic/JDK tooling and the generator suite's separate migrated BC reference.
+  Missing tools now produce BLOCKED receipts before spawning a suite.
+- Added a synthetic local SOAP privacy oracle. It reproduces payload logging in
+  `DownloadInInterceptor`'s opt-in active path and remains a FAILED required T19
+  acceptance. The default excludes this interceptor. No vendor was contacted,
+  and only boolean observations are retained. This is a product finding, not an
+  expected-success assertion.
+- Attachment fault cleanup now also proves a secondary close failure preserves
+  the primary fault and still clears thread-local state.
 - Added 24 individually reviewed path bindings for these direct proofs. This is
   not a blanket ownership assignment for the remaining production scope.
 - Added concrete workflow amendments to the CI proposal. No workflow or migration
