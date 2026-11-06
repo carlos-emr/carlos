@@ -60,6 +60,7 @@ records the staged persistence migration and module follow-ups.
 | [Library conventions for new code](architecture/library-conventions.md) | Preferred JDK and library APIs, HTTP-client decision, and legacy compatibility boundaries (#5485) |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |
+| [MariaDB JDBC connector](mariadb-connector-migration.md) | Connector migration, legacy configuration compatibility, packaging and physical database validation |
 | [Database Index Review (2026-09-04)](database-index-review-2026-09-04.md) | Index state vs. DAO query patterns; rationale for the V1.0.18/V1.0.19 index migrations |
 | [Testing Exclusions](Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md) | Excluded test documentation |
 

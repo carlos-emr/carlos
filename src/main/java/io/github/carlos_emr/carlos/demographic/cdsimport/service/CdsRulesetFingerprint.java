@@ -55,6 +55,9 @@ public record CdsRulesetFingerprint(String sha256) {
 
         "utility/CdsImportKeys",
         "utility/CdsJdbcConnectionTimeouts",
+        "utility/MariaDbCompatibilityDriver",
+        "utility/MariaDbJdbcCompatibility",
+        "utility/MariaDbPreferredTlsPlugin",
         "commn/model/Drug",
         "commn/model/Allergy",
         "commn/model/Prevention",
@@ -271,6 +274,7 @@ public record CdsRulesetFingerprint(String sha256) {
                         "cds-import/schema/EMR_Data_Migration_Schema_DT.xsd",
                         "spoken_languages_codes.properties",
                         "oscar/prevention/PreventionItems.xml",
+                        "META-INF/services/org.mariadb.jdbc.plugin.TlsSocketPlugin",
                         BASE + "lab/ca/all/parsers/message_config.xml"
                     }) {
                 URL resource = loader.getResource(name);
