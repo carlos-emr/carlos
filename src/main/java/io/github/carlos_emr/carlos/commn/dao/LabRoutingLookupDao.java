@@ -35,7 +35,8 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
                 + (orderByLength ? " ORDER BY LENGTH(first_name)" : ""));
         query.setParameter(1, value);
         if (limit != null && limit > 0) query.setMaxResults(limit);
-        return query.getResultList().stream().map(row -> StringUtils.trimToEmpty((String) row)).toList();
+        List<?> rows = query.getResultList();
+        return rows.stream().map(row -> StringUtils.trimToEmpty((String) row)).toList();
     }
 
     public List<ProviderIdentifier> findCmlProviderIdentifiers() {
@@ -50,6 +51,9 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
 
     public List<Patient> findHl7Patients(String lastName, String firstName, String sex, String dob,
                                        String hin, boolean ignoreNames) {
+        // Legacy HL7 matching rejects null names before it can broaden a name-prefix query.
+        java.util.Objects.requireNonNull(lastName, "HL7 patient surname");
+        java.util.Objects.requireNonNull(firstName, "HL7 patient given name");
         String health = hin;
         if ("UNKNOWN".equalsIgnoreCase(health)) health = "";
         if (health != null && health.length() == 12 && StringUtils.isNumeric(health.substring(0, 10))) {
@@ -63,7 +67,7 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
         }
         StringBuilder sql = new StringBuilder("SELECT demographic_no, provider_no FROM demographic WHERE ");
         List<String> params = new ArrayList<>();
-        if (StringUtils.isBlank(health)) {
+        if (health == null || health.trim().isEmpty()) {
             if (!hasDob || StringUtils.isBlank(lastName) || StringUtils.isBlank(firstName)
                     || StringUtils.isBlank(sex) || "UNKNOWN".equalsIgnoreCase(sex)) return List.of();
             sql.append("year_of_birth LIKE ?1 AND month_of_birth LIKE ?2 AND date_of_birth LIKE ?3"
