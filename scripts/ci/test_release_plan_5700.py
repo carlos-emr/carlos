@@ -6,12 +6,29 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import fnmatch
 
 import release_verification as gate
 from junit_evidence import EvidenceError
 
 
 class RequiredExecutionsTest(unittest.TestCase):
+    def test_native_selections_and_family_floors_cover_authoritative_schema_contract(self):
+        spec = importlib.util.spec_from_file_location('native_contract',
+            Path(__file__).with_name('verify-mariadb-dao-reports.py'))
+        contract = importlib.util.module_from_spec(spec); spec.loader.exec_module(contract)
+        checks = {check['id']: check for check in gate.load_plan()['checks']}
+        for mode, check_id in (('generated', 'java-native-generated'),
+                              ('flyway', 'java-native-flyway'), ('bc-flyway', 'java-native-bc-flyway')):
+            check = checks[check_id]
+            selectors = next(value[len('-Dtest='):] for value in check['command']
+                             if value.startswith('-Dtest=')).split(',')
+            for family, count in contract.REQUIRED[mode].items():
+                with self.subTest(mode=mode, family=family):
+                    self.assertGreaterEqual(check['requiredFamilies'].get(family, 0), count)
+                    self.assertTrue(any(fnmatch.fnmatchcase(family, selector) for selector in selectors),
+                                    'Required native family omitted from Maven selection: ' + family)
+
     def test_removing_one_manual_province_is_rejected(self):
         plan = gate.read_json(gate.DEFAULT_PLAN)
         check = next(c for c in plan['checks'] if c['id'] == 'manual-legacy-encounter-editor-isolation')

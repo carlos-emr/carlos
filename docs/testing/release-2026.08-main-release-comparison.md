@@ -9,7 +9,8 @@ package lifecycle requirements. It never makes those other checks pass.
 
 - Pinned main: `e53e6cb555125a942bbb28e52097972a24c88ad1`, published beta6.
 - Main Debian SHA-256: `839c981b7de78460d89eaba0a8c95d992d88f861cc4739bba2b81753373a3af1`.
-- Release base: `710fb1ac7c3fa75528359e71e8fac0d590b9e36f`.
+- Original observed release base: `710fb1ac7c3fa75528359e71e8fac0d590b9e36f`.
+- Updated release head: `8def0e6b9bd8ff77d0e97ea85d8d066b0677f18b`. Four incoming commits change 72 paths, including production DAO, report and UI behavior. They are merged into this verification branch. Historical binary/browser findings still identify their original inputs; the older candidate does not qualify this new production head.
 - Development candidate source: `53709c7`; WAR SHA-256:
   `fb114c57d304d59973c565ec2bc6125f3a520b3680e0decba87e830a054175fc`.
 - Client corpus: the committed `src/test/resources/xml/jaxb-moxy-baseline.json`,

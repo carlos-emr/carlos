@@ -2,11 +2,12 @@
   "schemaVersion": 1,
   "targetBranch": "release/2026.08",
   "reviewedRelease": "c5350045c7cd8ca50f7907717cba06e990e9b31e",
-  "implementationBase": "37a48abf47fa3f4561885e58baa3358e2aa746af",
+  "implementationBase": "8def0e6b9bd8ff77d0e97ea85d8d066b0677f18b",
   "baselines": {
     "olderMain": "27b660c00fa7c6f53317ed0ffeeccb0aebaf50cf",
     "currentMain": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-    "releaseMergeBase": "b4c0dfc94e677514e6f64dd271358f0295270739"
+    "releaseMergeBase": "b4c0dfc94e677514e6f64dd271358f0295270739",
+    "targetRelease": "8def0e6b9bd8ff77d0e97ea85d8d066b0677f18b"
   },
   "qualification": {
     "java": "25",
@@ -1134,7 +1135,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 295,
+      "minimumCases": 300,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1234,6 +1235,9 @@
         "test_installed_first_login.InstallationStageTest.test_interrupted_browser_tree_requires_reconciliation_even_if_reset_committed",
         "test_installed_first_login.InstallationStageTest.test_private_complete_installer_file_is_required",
         "test_installed_first_login.InstallationStageTest.test_success_requires_real_password_change_reset_clear_and_preserved_identity",
+        "test_installed_front_door.InstalledFrontDoorTest.test_generic_success_or_truncated_login_cannot_establish_readiness",
+        "test_installed_front_door.InstalledFrontDoorTest.test_redirect_may_not_follow_another_host_or_downgrade_tls",
+        "test_installed_front_door.InstalledFrontDoorTest.test_two_complete_responses_are_required_and_certificate_errors_fail",
         "test_installed_package_state.PackagePreservationTest.test_comparison_uses_control_versions_instead_of_normalized_asset_filenames",
         "test_installed_package_state.PackagePreservationTest.test_equal_row_counts_or_file_counts_cannot_hide_replaced_bytes_or_permissions",
         "test_installed_package_state.PackagePreservationTest.test_managed_asset_rule_does_not_hide_added_removed_or_changed_clinical_files",
@@ -1275,6 +1279,7 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
+        "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_unmatched_upload_cases_alone_cannot_supply_required_coverage",
         "test_migration_integrity.SharedMigrationIntegrityTest.test_linked_migration_and_deleted_inventory_cannot_pass_a_baseline_floor",
         "test_migration_integrity.SharedMigrationIntegrityTest.test_new_migrations_do_not_rewrite_shared_history",
         "test_migration_integrity.SharedMigrationIntegrityTest.test_same_filenames_counts_and_even_sql_semantics_cannot_hide_rewritten_published_bytes",
@@ -1334,6 +1339,7 @@
         "test_release_plan_5700.PythonPackageDiscoveryTest.test_top_level_runs_package_initialization_and_retains_real_cases",
         "test_release_plan_5700.RequiredExecutionsTest.test_jdbc_parameterized_routes_require_both_native_invocations",
         "test_release_plan_5700.RequiredExecutionsTest.test_locked_chromium_rejects_missing_and_wrong_browser_metadata",
+        "test_release_plan_5700.RequiredExecutionsTest.test_native_selections_and_family_floors_cover_authoritative_schema_contract",
         "test_release_plan_5700.RequiredExecutionsTest.test_removing_one_manual_province_is_rejected",
         "test_run_cds_disk_failures.DiskFailureEvidenceTest.test_enospc_trace_requires_actual_errno_and_raw_registers_instead_of_payload_bytes",
         "test_run_cds_disk_failures.DiskFailureEvidenceTest.test_errno_proof_aggregates_only_attributed_jvm_threads_including_nonleader_main",
@@ -1476,7 +1482,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7318,
+      "minimumCases": 7342,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
       ],
@@ -2453,6 +2459,27 @@
               ]
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.LegacyLabNativeMariaDbIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldBoundAndOrderLabStatuses_andApplyLowPriorityUpdate",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveDistinctAccessionAndRoutingStatus_whenCountingUnmatchedLabs",
+              "container": ""
+            },
+            {
+              "name": "shouldSelectLatestFormWithinThePatientAndWorkflow_only",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepPhysicalColumnNamesAndTrimNulls_whenMappingTransferRows",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -2521,7 +2548,19 @@
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 8,
         "JdbcConnectorMariaDbIntegrationTest": 32,
-        "BilledProviderReportDaoIntegrationTest": 2
+        "BilledProviderReportDaoIntegrationTest": 2,
+        "MariaDbDaoHarnessIntegrationTest": 1,
+        "MeasurementDaoIntegrationTest": 1,
+        "MeasurementsExtDaoIntegrationTest": 1,
+        "ProviderLabRoutingDaoIntegrationTest": 1,
+        "BillingONCHeader1DaoIntegrationTest": 1,
+        "LegacyLabUploadDaoIntegrationTest": 6,
+        "LabRoutingLookupDaoIntegrationTest": 4,
+        "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+        "BillingHistoryDaoIntegrationTest": 1,
+        "LookupDaoIntegrationTest": 1,
+        "AbstractDaoFindAllOrderingIntegrationTest": 6,
+        "CaseManagementIssueDAOIntegrationTest": 21
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2551,7 +2590,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2560,7 +2599,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 80,
+      "minimumCases": 88,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -2568,7 +2607,16 @@
         "DemographicMergeMariaDbIntegrationTest": 8,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
-        "BilledProviderReportDaoIntegrationTest": 2
+        "BilledProviderReportDaoIntegrationTest": 2,
+        "MariaDbDaoHarnessIntegrationTest": 1,
+        "MeasurementDaoIntegrationTest": 1,
+        "MeasurementsExtDaoIntegrationTest": 1,
+        "ProviderLabRoutingDaoIntegrationTest": 1,
+        "BillingONCHeader1DaoIntegrationTest": 1,
+        "LegacyLabUploadDaoIntegrationTest": 6,
+        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LegacyLabNativeMariaDbIntegrationTest": 4,
+        "ArchiveAuditTimestampIntegrationTest": 2
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2598,7 +2646,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2607,14 +2655,17 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 34,
+      "minimumCases": 61,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 8,
         "BcBillingDaoTransactionIntegrationTest": 4,
         "DemographicMergeMariaDbIntegrationTest": 8,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
-        "ConsultationArchiveDaoIntegrationTest": 1
+        "ConsultationArchiveDaoIntegrationTest": 1,
+        "LabRoutingLookupDaoIntegrationTest": 4,
+        "LegacyLabNativeMariaDbIntegrationTest": 4,
+        "ArchiveAuditTimestampIntegrationTest": 2
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

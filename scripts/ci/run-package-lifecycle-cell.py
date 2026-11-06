@@ -21,6 +21,7 @@ import release_verification as gate
 from junit_evidence import EvidenceError
 from process_group import run_process_group
 from release_deployment import attest, attest_package, package_contents
+from installed_front_door import wait_for_login
 
 OUTPUT = Path('/qualification')
 ASSERTIONS = ('ubuntu-systemd-prerequisite', 'pinned-installation', 'forced-first-login',
@@ -295,6 +296,7 @@ def main():
                 with signature.open('xb') as stream: stream.write(content)
                 os.chown(signature, owner.pw_uid, owner.pw_gid); signature.chmod(0o640)
         run(['carlos-ctl', 'restart'], 'restart-before-first-login', timeout=420)
+        gate.write_json(OUTPUT / 'front-door-readiness.json', wait_for_login())
         environment = first_login(context['profile'], '/browser/chrome')
         assertions['forced-first-login'] = True
         set_expected_build(environment, package_contents(Path(initial['emr']['path']), initial['emr']['sha256']))
