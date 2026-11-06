@@ -124,6 +124,10 @@
             recurrenceMessage = count == 0 ? "No appointments created: repeats already exist for the selected dates."
                     : count + " appointment(s) " + verb + ".";
             recurrenceSucceeded = true;
+        } catch (io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException ex) {
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            recurrenceMessage = io.github.carlos_emr.carlos.utility.LocaleUtils.getMessage(request,
+                    io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException.MESSAGE_KEY);
         } catch (IllegalArgumentException ex) {
             recurrenceMessage = ex.getMessage();
         } catch (SecurityException ex) {

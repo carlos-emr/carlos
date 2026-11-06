@@ -4779,6 +4779,49 @@
       "fixtures": "Owned FAKE- patient with a seeded Inf prevention and a marker lot under JE; changes the clinic-wide hide_prevention_item property (snapshot and restore), so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "appointment-settings",
+      "script": "scripts/appointment-settings-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
+      ],
+      "mutates": [
+        "LookupListItem",
+        "appointment_status"
+      ],
+      "notes": "Issue #3982: the Location List tab (add, paste, style, reorder, rename, confirm-before-disable), inline styling of a core status, GET/HEAD 405 probes, and a booking that keeps its location across the patient search and stores code plus label; the booking half skips in a site setup (multisites, scheduleSiteID or CAISI program locations).",
+      "fixtures": "Changes the clinic-wide appointment Location List and the No Show status, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1). Preflight also requires CARLOS_DISPOSABLE_VM=true before opening SQL or creating fixtures. Locations the clinic already enabled are disabled for the run and re-enabled before the browser closes, and the status description, colour and icon are restored then too, followed by one no-op change through each page so the server's lookup-list and status caches drop the SQL edits; cleanup deletes the marker locations, the marker appointment (2028-02-15) and its archive rows."
+    },
+    {
+      "name": "appointment-location-booking",
+      "script": "scripts/appointment-location-booking-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM"
+      ],
+      "mutates": [
+        "LookupListItem"
+      ],
+      "notes": "Issue #3982, booking side: text typed while no location was enabled survives a patient search that re-renders the form with the dropdown, selected as legacy text; a booking stores the location's id and label and the day sheet marks it; the choice survives the add-patient detour; disabling the item changes no booking and an unchanged edit keeps it; Group Update gives every member, including a provider ticked for the first time, the edited appointment's since-disabled location; a location disabled while the add form is open is refused with 409 and keeps the draft; Copy/Paste keep an active location's code and Cut/Paste keep a disabled one as legacy text. Skips in a site setup (multisites, scheduleSiteID or CAISI program locations).",
+      "fixtures": "Changes the clinic-wide appointment Location List, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1); preflight also requires CARLOS_DISPOSABLE_VM=true before opening SQL or creating fixtures. Two marker locations are added, disabled and re-enabled through the Locations tab as the test login, and disabled through it again before the browser closes (also after a failed step) so the server's lookup-list cache never keeps them bookable; cleanup deletes them. Owned patient, plus one patient the add-patient detour registers (FAKE-PW…-New), deleted with its child rows; a throwaway login and a second marker provider in a marker group; every row of both owned providers deleted."
+    },
+    {
       "name": "schedule-admin-settings",
       "script": "scripts/schedule-admin-settings-playwright-checks.js",
       "tiers": [
