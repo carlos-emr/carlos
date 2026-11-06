@@ -28,7 +28,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-import java.sql.ResultSet;
 import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -47,7 +46,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.ClinicalDataRow;
+import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
 import io.github.carlos_emr.carlos.eform.data.DatabaseAP;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormApConfig;
@@ -61,10 +61,12 @@ import io.github.carlos_emr.carlos.utility.XmlUtils;
 @Tag("unit")
 class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
     private static final Pattern SQL_LITERAL = Pattern.compile("'((?:[^']|'')*)'|\"((?:[^\"]|\"\")*)\"");
+    private final EFormValueDao values = mock(EFormValueDao.class);
 
     @BeforeEach
     void registerDependencies() {
         registerMock(NioFileManager.class, mock(NioFileManager.class));
+        registerMock(EFormValueDao.class, values);
     }
 
     @Test
@@ -137,16 +139,14 @@ class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
         // The AP's JSON is data in either supported eForm container. Its quotes,
         // comparison operators and markup must survive as literal field content.
         for (String fieldType : List.of("hidden", "textarea")) {
-            ResultSet rows = mock(ResultSet.class);
-            when(rows.next()).thenReturn(true, false);
-            when(rows.getString("labvalues")).thenReturn(json);
             List<ParameterizedSql> executed = new ArrayList<>();
-            try (var loader = mockStatic(EFormLoader.class);
-                 var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS)) {
+            try (var loader = mockStatic(EFormLoader.class)) {
                 loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
                 loader.when(() -> EFormLoader.getAP("latest_lab_values")).thenReturn(ap);
-                jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class)))
-                        .thenAnswer(invocation -> { executed.add(invocation.getArgument(0)); return rows; });
+                when(values.findDatabaseApValues(any(ParameterizedSql.class))).thenAnswer(invocation -> {
+                    executed.add(invocation.getArgument(0));
+                    return List.of(new ClinicalDataRow(Map.of("labvalues", json)));
+                });
                 EForm form = new EForm();
                 form.setDemographicNo("7");
                 form.setFormHtml(fieldType.equals("textarea")
@@ -227,19 +227,15 @@ class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
     void shouldRenderMedicalHistory_insteadOfSilentlyClearingTheClinicalField() throws Exception {
         DatabaseAP ap = definition("medical_history");
         String history = "Synthetic first history\n Synthetic second & follow-up\n";
-        ResultSet rows = mock(ResultSet.class);
-        when(rows.next()).thenReturn(true, false);
-        when(rows.getString("medicalHistory")).thenReturn(history);
         List<ParameterizedSql> executed = new ArrayList<>();
-        try (var loader = mockStatic(EFormLoader.class);
-             var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS)) {
+        try (var loader = mockStatic(EFormLoader.class)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("medical_history")).thenReturn(ap);
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(ParameterizedSql.class)))
+            when(values.findDatabaseApValues(any(ParameterizedSql.class)))
                     .thenAnswer(invocation -> {
                         ParameterizedSql query = invocation.getArgument(0);
                         executed.add(query);
-                        return rows;
+                        return List.of(new ClinicalDataRow(Map.of("medicalHistory", history)));
                     });
             EForm form = new EForm();
             form.setDemographicNo("7");

@@ -42,24 +42,20 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
 
 /**
  * Pins the contract behind the eChart Forms module item (issue #4678): the row the item is
  * dated from, {@link EctFormData#getShortcutLatestPatientForm(String, String)}, is the row its
  * {@code formId=latest} link opens, {@link FrmData#getShortcutFormValue(String, String)}.
  *
- * <p>Both real lookups run their real SQL through {@link LegacyJdbcQuery} against an isolated
- * H2 database owned by each test. Only the form registry and the thread-scoped Spring bean
- * lookup are mocked. The table is registered as {@code formGrowth0_36}, a built-in table that
- * {@code EctFormData} accepts without consulting its class-level registry DAO, so the result
- * does not depend on which test first loaded that class in a reused fork.</p>
+ * <p>Both lookups run their real native DAO queries against an isolated H2 database
+ * owned by each test. The form registry is persisted, and only the thread-scoped Spring
+ * bean lookup is mocked. The table is registered as {@code formGrowth0_36}; each test owns
+ * the registry and database so reused forks cannot retain another test's mock DAO.</p>
  */
 @Tag("integration")
 @Tag("form")

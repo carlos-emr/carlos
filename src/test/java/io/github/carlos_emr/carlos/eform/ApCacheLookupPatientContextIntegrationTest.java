@@ -16,12 +16,14 @@ package io.github.carlos_emr.carlos.eform;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mockStatic;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormValueDaoImpl;
+import io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.DriverManager;
 import java.util.List;
 import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Tag;
@@ -30,8 +32,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
-/** Execute the JSP's actual query invocation through EFormUtil and a real JDBC result. */
+/** Execute the JSP's actual query invocation through EFormUtil and the real native DAO. */
 @Tag("integration")
 class ApCacheLookupPatientContextIntegrationTest {
     @TempDir Path scratch;
@@ -55,16 +58,16 @@ class ApCacheLookupPatientContextIntegrationTest {
         assertThat(ToolProvider.getSystemJavaCompiler().run(null, null, null, "-classpath", classpath,
                 "-d", scratch.toString(), file.toString())).isZero();
         var query = new ParameterizedSql("SELECT 7 AS result_value", List.of());
-        try (var connection = DriverManager.getConnection("jdbc:h2:mem:ap-patient-" + java.util.UUID.randomUUID());
-                var statement = connection.prepareStatement(query.getSql());
-                var rows = statement.executeQuery();
-                var jdbc = mockStatic(LegacyJdbcQuery.class);
+        var sourceData = new DriverManagerDataSource("jdbc:h2:mem:ap-patient-" + java.util.UUID.randomUUID(), "sa", "");
+        try (var keeper = sourceData.getConnection();
+                var database = new NativeDaoTestDatabase(sourceData);
+                var spring = mockStatic(SpringUtils.class);
                 var loader = new URLClassLoader(new java.net.URL[]{scratch.toUri().toURL()}, getClass().getClassLoader())) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(query)).thenReturn(rows);
+            var dao = database.dao(EFormValueDaoImpl.class);
+            spring.when(() -> SpringUtils.getBean(EFormValueDao.class)).thenReturn(dao);
             var method = loader.loadClass("ApPatientQuery").getMethod("read", List.class, ParameterizedSql.class, String.class);
             assertThat(method.invoke(null, List.of("RESULT_VALUE"), query, demographicNo)).isEqualTo(List.of("7"));
-            jdbc.verify(() -> LegacyJdbcQuery.getPreparedResultSet(query));
-            assertThat(rows.isClosed()).isTrue();
+            spring.verify(() -> SpringUtils.getBean(EFormValueDao.class));
         }
     }
 }
