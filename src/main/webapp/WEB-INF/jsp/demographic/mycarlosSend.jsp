@@ -20,47 +20,47 @@
       data-patient="${carlos:forHtmlAttribute(demographicNo)}" data-document="${carlos:forHtmlAttribute(documentId)}"
       data-delivery="${carlos:forHtmlAttribute(deliveryId)}" data-next="${carlos:forHtmlAttribute(nextCursor)}">
     <header><h1><fmt:message key="mycarlos.delivery.title"/></h1>
-        <p class="document-title"><carlos:encode value="${documentTitle}"/></p>
-        <c:if test="${available}"><p><fmt:message key="mycarlos.delivery.serviceDate"/>: <span id="delivery-service-date"><c:choose>
+        <p class="document-title" data-mycarlos-part="document-title"><carlos:encode value="${documentTitle}"/></p>
+        <c:if test="${available}"><p><fmt:message key="mycarlos.delivery.serviceDate"/>: <span id="delivery-service-date" data-mycarlos-part="service-date"><c:choose>
             <c:when test="${empty serviceDate}"><fmt:message key="mycarlos.delivery.dateNotRecorded"/></c:when>
             <c:otherwise><carlos:encode value="${serviceDate}"/></c:otherwise>
         </c:choose></span></p></c:if></header>
     <p><fmt:message key="mycarlos.delivery.description"/></p>
-    <div id="delivery-message" role="status" aria-live="polite"></div>
+    <div id="delivery-message" class="delivery-message" data-mycarlos-part="message" role="status" aria-live="polite"></div>
     <c:choose>
         <c:when test="${not available}"><p class="delivery-warning"><fmt:message key="mycarlos.delivery.unavailable"/></p></c:when>
         <c:otherwise>
-            <form id="delivery-form" method="post" action="${carlos:forHtmlAttribute(ctx)}/demographic/PortalDelivery">
+            <form id="delivery-form" data-mycarlos-part="form" method="post" action="${carlos:forHtmlAttribute(ctx)}/demographic/PortalDelivery">
                 <label for="delivery-device"><fmt:message key="mycarlos.delivery.device"/></label>
-                <select id="delivery-device" name="deviceKeyId" required ${empty devices ? 'disabled' : ''}>
+                <select id="delivery-device" data-mycarlos-part="device" name="deviceKeyId" required ${empty devices ? 'disabled' : ''}>
                     <c:forEach items="${devices}" var="device">
                         <option value="${carlos:forHtmlAttribute(device.deviceKeyId)}"><carlos:encode value="${device.acceptedAt}"/> · <carlos:encode value="${device.fingerprint}"/></option>
                     </c:forEach>
                 </select>
-                <p id="delivery-no-device" ${empty devices ? '' : 'hidden'}><fmt:message key="mycarlos.delivery.noDevice"/></p>
+                <p id="delivery-no-device" data-mycarlos-part="no-device" ${empty devices ? '' : 'hidden'}><fmt:message key="mycarlos.delivery.noDevice"/></p>
                 <div class="delivery-actions">
-                    <button type="submit" id="delivery-send" ${empty devices ? 'disabled' : ''}><fmt:message key="mycarlos.delivery.send"/></button>
-                    <button type="button" id="delivery-check"><fmt:message key="mycarlos.delivery.check"/></button>
-                    <a id="delivery-new" href="${carlos:forHtmlAttribute(ctx)}/demographic/PortalDelivery?demographicNo=${carlos:forUriComponent(demographicNo)}&amp;documentId=${carlos:forUriComponent(documentId)}"><fmt:message key="mycarlos.delivery.new"/></a>
+                    <button type="submit" id="delivery-send" data-mycarlos-part="send" ${empty devices ? 'disabled' : ''}><fmt:message key="mycarlos.delivery.send"/></button>
+                    <button type="button" id="delivery-check" data-mycarlos-part="check"><fmt:message key="mycarlos.delivery.check"/></button>
+                    <a id="delivery-new" data-mycarlos-part="new" href="${carlos:forHtmlAttribute(ctx)}/demographic/PortalDelivery?demographicNo=${carlos:forUriComponent(demographicNo)}&amp;documentId=${carlos:forUriComponent(documentId)}"><fmt:message key="mycarlos.delivery.new"/></a>
                 </div>
             </form>
             <section aria-labelledby="delivery-history-title">
                 <h2 id="delivery-history-title"><fmt:message key="mycarlos.delivery.recent"/></h2>
                 <table><thead><tr><th scope="col"><fmt:message key="mycarlos.delivery.queued"/></th>
                     <th scope="col"><fmt:message key="mycarlos.delivery.status"/></th></tr></thead>
-                    <tbody id="delivery-history">
+                    <tbody id="delivery-history" data-mycarlos-part="history">
                     <c:forEach items="${deliveries}" var="row">
                         <tr data-delivery="${carlos:forHtmlAttribute(row.deliveryId)}" data-device="${carlos:forHtmlAttribute(row.deviceKeyId)}" data-status="${carlos:forHtmlAttribute(row.status)}"><td><carlos:encode value="${row.queuedAt}"/></td>
                             <td><fmt:message key="mycarlos.delivery.status.${row.status}"/></td></tr>
                     </c:forEach>
                     </tbody>
                 </table>
-                <p id="delivery-empty" ${empty deliveries ? '' : 'hidden'}><fmt:message key="mycarlos.delivery.empty"/></p>
-                <button type="button" id="delivery-more" ${empty nextCursor ? 'hidden' : ''}><fmt:message key="mycarlos.delivery.more"/></button>
+                <p id="delivery-empty" data-mycarlos-part="empty" ${empty deliveries ? '' : 'hidden'}><fmt:message key="mycarlos.delivery.empty"/></p>
+                <button type="button" id="delivery-more" data-mycarlos-part="more" ${empty nextCursor ? 'hidden' : ''}><fmt:message key="mycarlos.delivery.more"/></button>
             </section>
         </c:otherwise>
     </c:choose>
-    <div id="delivery-copy" hidden>
+    <div id="delivery-copy" data-mycarlos-part="copy" hidden>
         <c:forEach items="${['staged','waiting','picked_up','expired','removed','fenced','error']}" var="status">
             <span data-status="${carlos:forHtmlAttribute(status)}"><fmt:message key="mycarlos.delivery.status.${status}"/></span>
         </c:forEach>
@@ -70,6 +70,8 @@
         <span data-copy="error"><fmt:message key="mycarlos.delivery.error"/></span>
         <span data-copy="sync"><fmt:message key="mycarlos.delivery.syncWarning"/></span>
         <span data-copy="busy"><fmt:message key="mycarlos.delivery.busy"/></span>
+        <span data-copy="sending"><fmt:message key="mycarlos.delivery.sending"/></span>
+        <span data-copy="sent"><fmt:message key="mycarlos.delivery.sent"/></span>
     </div>
 </main>
 <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/demographic/mycarlos-send.js"></script>

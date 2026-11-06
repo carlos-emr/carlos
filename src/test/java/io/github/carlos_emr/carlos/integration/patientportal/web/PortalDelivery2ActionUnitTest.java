@@ -115,6 +115,43 @@ class PortalDelivery2ActionUnitTest {
         }
     }
 
+    @Test void shouldMintOrKeepTheOperationId_whenTheDialogReads() throws Exception {
+        String supplied = "00000000-0000-4000-8000-000000000001";
+        for (String given : new String[] {null, supplied}) {
+            var request = request("GET", "read");
+            request.removeParameter("deliveryId");
+            if (given != null) request.setParameter("deliveryId", given);
+            var response = new MockHttpServletResponse();
+            var application = mock(PortalMyCarlosDeliveryApplicationService.class);
+            when(application.read(any(), eq(6001), eq(44), eq(0L), any())).thenReturn(
+                    new PortalMyCarlosDeliveryApplicationService.State("FAKE Document", List.of(), List.of(), null, null));
+            try (var servlet = mockStatic(ServletActionContext.class); var beans = mockStatic(SpringUtils.class);
+                 var identity = mockStatic(LoggedInInfo.class); var enabled = mockStatic(PortalMyCarlosDeliveryApplicationService.class);
+                 var portal = mockStatic(PatientPortalSettings.class)) {
+                configure(servlet, beans, identity, enabled, request, response);
+                beans.when(() -> SpringUtils.getBean(PortalMyCarlosDeliveryApplicationService.class)).thenReturn(application);
+                assertEquals("none", action().execute());
+                assertEquals(200, response.getStatus());
+                var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+                var id = java.util.UUID.fromString(json.get("deliveryId").textValue());
+                assertEquals(4, id.version());
+                if (given != null) assertEquals(given, id.toString());
+            }
+        }
+    }
+    @Test void shouldRefuseMalformedReadOperationId_beforeTheApplication() throws Exception {
+        var request = request("GET", "read");
+        request.setParameter("deliveryId", "00000000-0000-1000-8000-000000000001");
+        var response = new MockHttpServletResponse();
+        try (var servlet = mockStatic(ServletActionContext.class); var beans = mockStatic(SpringUtils.class);
+             var identity = mockStatic(LoggedInInfo.class); var enabled = mockStatic(PortalMyCarlosDeliveryApplicationService.class)) {
+            configure(servlet, beans, identity, enabled, request, response);
+            assertEquals("none", action().execute());
+            assertEquals(400, response.getStatus());
+            beans.verify(() -> SpringUtils.getBean(PortalMyCarlosDeliveryApplicationService.class), never());
+        }
+    }
+
     private static PortalDelivery2Action action() {
         var action = spy(new PortalDelivery2Action());
         doAnswer(call -> call.getArgument(0)).when(action).getText(anyString());

@@ -2330,6 +2330,11 @@
     </script>
     <script type="text/javascript"
             src="${pageContext.servletContext.contextPath}/documentManager/showDocument.js"></script>
+    <%-- Send to myCarlos dialogs of the documents shown here (mycarlosSendDialog.jspf). This page inserts them without running their scripts. --%>
+    <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/css/mycarlos-send.css">
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/csrfTokenFetch.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send.js"></script>
+    <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/demographic/mycarlos-send-dialog.js"></script>
 
 
     <link rel="stylesheet" type="text/css" media="all"

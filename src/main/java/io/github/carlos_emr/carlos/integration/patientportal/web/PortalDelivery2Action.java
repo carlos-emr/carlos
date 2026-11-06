@@ -38,7 +38,10 @@ public final class PortalDelivery2Action extends PortalJsonAction {
         requirePatientAccess(security, info, patient);
         requirePatientPrivilege(security, info, PortalMyCarlosDeliveryApplicationService.OBJECT, SecurityInfoManager.WRITE, patient);
         available = PortalMyCarlosDeliveryApplicationService.isEnabled();
-        try { deliveryId = page ? pageDeliveryId(request.getParameter("deliveryId")) : request.getParameter("deliveryId"); }
+        // A page or a read names the operation id a send will use: the one supplied, checked, or a
+        // new one. The document page's dialog has no page URL to keep it in, so it takes the id
+        // from its first read.
+        try { deliveryId = read ? pageDeliveryId(request.getParameter("deliveryId")) : request.getParameter("deliveryId"); }
         catch (IllegalArgumentException malformed) { return badRequest(response, getText("mycarlos.delivery.changed")); }
         if (!available) return page ? SUCCESS : unavailable(response);
         var service = SpringUtils.getBean(PortalMyCarlosDeliveryApplicationService.class);
@@ -48,6 +51,7 @@ public final class PortalDelivery2Action extends PortalJsonAction {
             else state = service.refresh(info, patient, document, portalService());
             if (page) return SUCCESS;
             var json = newPayload().put("ok", true).put("title", state.title()).put("serviceDate", state.serviceDate());
+            if (read) json.put("deliveryId", deliveryId);
             if (state.nextCursor() == null) json.putNull("nextCursor"); else
             json.put("nextCursor", state.nextCursor());
             if (state.syncStatus() == null) json.putNull("syncStatus"); else
