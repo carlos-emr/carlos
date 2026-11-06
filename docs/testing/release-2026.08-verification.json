@@ -1146,7 +1146,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 325,
+      "minimumCases": 327,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1229,9 +1229,11 @@
         "test_cds_war_manifest.WarManifestTest.test_unsafe_names_duplicate_nodes_and_file_ancestor_collisions_fail_closed",
         "test_ci_browser_fixtures.CiBrowserFixturesTest.test_assertion_observer_preserves_provider_arguments_identity_results_and_failures",
         "test_ci_browser_fixtures.CiBrowserFixturesTest.test_ci_command_omission_extra_selection_and_source_substitution_are_refused",
+        "test_ci_browser_fixtures.CiBrowserFixturesTest.test_default_headless_executable_is_bound_and_mutation_is_refused",
         "test_ci_browser_fixtures.CiBrowserFixturesTest.test_missing_replaced_skipped_or_duplicate_node_browser_cases_are_refused",
         "test_ci_browser_fixtures.CiBrowserFixturesTest.test_no_browser_wrong_browser_unclosed_browser_or_missing_assertions_cannot_pass",
         "test_ci_browser_fixtures.CiBrowserFixturesTest.test_pinned_contract_covers_all_current_ci_browser_commands",
+        "test_ci_browser_fixtures.CiBrowserFixturesTest.test_private_target_output_preserves_source_and_symlink_guards",
         "test_ci_browser_fixtures.CiBrowserFixturesTest.test_successful_exit_cannot_hide_changed_or_unbound_fixture_source",
         "test_command_evidence.CommandEvidenceTest.test_duplicate_inputs_and_parent_symlinks_are_refused",
         "test_command_evidence.CommandEvidenceTest.test_host_ancestor_links_are_allowed_but_run_root_links_are_refused",

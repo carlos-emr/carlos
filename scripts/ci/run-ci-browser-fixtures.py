@@ -90,15 +90,50 @@ def validate_proofs(fixture, records, engines, expected_version, source):
     return {'assertions': assertions, 'browserLaunches': len(launches), 'nodeCases': len(required or [])}
 
 
+def validate_output(path):
+    output = path.parent.resolve()
+    root = gate.ROOT.resolve()
+    if ((output.is_relative_to(root) and not output.is_relative_to(root / 'target'))
+            or output.stat().st_mode & 0o077 or path.exists() or path.is_symlink()
+            or any(parent.is_symlink() for parent in path.parents)):
+        raise EvidenceError('Fixture evidence requires fresh private output outside source or under target/')
+    return output
+
+
+def browser_identities(browser, output):
+    # The locked provider selects this registry entry for the unchanged fixture's
+    # chromium.launch({headless: true}); chromium.executablePath() is a different binary.
+    selection = output / 'browser-selection.json'
+    resolver = ("const fs=require('node:fs');"
+        "const {registry}=require('playwright-core/lib/coreBundle').registry;"
+        "fs.writeFileSync(process.argv[1],JSON.stringify({defaultHeadless:"
+        "registry.findExecutable('chromium-headless-shell').executablePath()}),{flag:'wx',mode:0o600});")
+    result = run_process_group(['node', '-e', resolver, str(selection)], cwd=gate.ROOT,
+        timeout=15, grace=2, track_descendants=True)
+    if result.returncode != 0:
+        raise EvidenceError('Could not resolve the locked default headless executable')
+    paths = {'configured': browser,
+        'defaultHeadless': Path(gate.read_json(selection)['defaultHeadless']).resolve(strict=True)}
+    identities = {}
+    for name, path in paths.items():
+        if not path.is_file():
+            raise EvidenceError('Fixture browser is not a regular executable')
+        identities[name] = {'path': str(path), 'sha256': gate.digest(path)}
+    return identities
+
+
+def verify_browser_identities(identities):
+    for identity in identities.values():
+        if gate.digest(Path(identity['path'])) != identity['sha256']:
+            raise EvidenceError('Fixture browser executable changed during execution')
+
+
 def main():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--contract', type=Path, default=gate.ROOT / 'docs/testing/release-2026.08-ci-browser-fixtures.json')
     parser.add_argument('--output', type=Path, required=True)
-    args = parser.parse_args(); output = args.output.parent.resolve()
-    if (output.is_relative_to(gate.ROOT) or output.stat().st_mode & 0o077 or args.output.exists()
-            or args.output.is_symlink() or any(parent.is_symlink() for parent in args.output.parents)):
-        raise EvidenceError('Fixture evidence requires fresh private output outside source')
+    args = parser.parse_args(); output = validate_output(args.output)
     assertions = dict.fromkeys(ASSERTIONS, False)
     details = {'schemaVersion': 1, 'kind': 'isolated-source-fixtures', 'fixtures': [], 'failure': None}
     try:
@@ -112,8 +147,9 @@ def main():
         if not browser.is_file(): raise EvidenceError('Named fixture Chromium is not a regular executable')
         if not Path(os.environ['PLAYWRIGHT_BROWSERS_PATH']).is_dir():
             raise EvidenceError('Install the locked Playwright default browser cache before running CI fixtures')
-        browser_hash = gate.digest(browser)
-        details.update(browserExecutableSha256=browser_hash, browserVersion=expected)
+        identities = browser_identities(browser, output)
+        details.update(browserExecutableSha256=identities['configured']['sha256'],
+            browserExecutables=identities, browserVersion=expected)
         for fixture in fixtures:
             source = relative_file(gate.ROOT, fixture['source'])
             if (not source.is_relative_to(gate.ROOT) or not source.is_file()
@@ -143,8 +179,7 @@ def main():
             if gate.digest(source) != fixture['sourceSha256']:
                 raise EvidenceError('Fixture source changed during execution')
             row['passed'] = True
-        if gate.digest(browser) != browser_hash:
-            raise EvidenceError('Fixture browser executable changed during execution')
+        verify_browser_identities(identities)
         assertions.update(dict.fromkeys(ASSERTIONS, True))
     except (Exception, KeyboardInterrupt) as failure:
         details['failure'] = {'type': type(failure).__name__, 'quiescent': getattr(failure, 'quiescent', None)}
