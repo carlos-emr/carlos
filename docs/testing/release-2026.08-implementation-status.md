@@ -86,6 +86,17 @@ and qualification below are complete. No release-ready verdict has been produced
   expected-success assertion.
 - Attachment fault cleanup now also proves a secondary close failure preserves
   the primary fault and still clears thread-local state.
+- Fresh Ubuntu 26.04 installation of the `53709c7` candidate completed. Full
+  installed-tree attestation matched all 9,094 candidate files plus reviewed
+  package transforms. This is development lifecycle evidence, not a complete
+  upgrade/reinstall verdict.
+- Live execution exposed and corrected two harness defects: native readiness now
+  waits for MariaDB's final TCP listener (its temporary initialization socket is
+  insufficient), and the first-login check refuses a reset field that truncates
+  its supplied password before submission. The failed records remain preserved;
+  the owned test account was recovered only after an independent hash comparison
+  confirmed the form-limited credential. Twelve native harness tests and 22 login
+  harness cases pass.
 - Added 24 individually reviewed path bindings for these direct proofs. This is
   not a blanket ownership assignment for the remaining production scope.
 - Added concrete workflow amendments to the CI proposal. No workflow or migration

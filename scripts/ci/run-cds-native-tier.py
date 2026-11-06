@@ -62,6 +62,20 @@ REQUIRED_CASES = {
 }
 
 
+def wait_for_database(client, run, log, monotonic=time.monotonic, sleep=time.sleep):
+    # The image's initialization server accepts Unix-socket queries, then exits.
+    # Only the final daemon listens on TCP; SELECT 1 on a socket is not readiness.
+    if '--protocol=TCP' not in client or '--host=127.0.0.1' not in client:
+        raise RuntimeError('Native database readiness requires its final TCP listener')
+    deadline = monotonic() + 90
+    while True:
+        if run(client + ['-e', 'SELECT 1'], log, check=False).returncode == 0:
+            return
+        if monotonic() > deadline:
+            raise RuntimeError('Disposable MariaDB did not become ready')
+        sleep(1)
+
+
 def collect_reports(required, source, destination):
     """Reject missing, skipped or inconsistent physical evidence and strip captured configuration."""
     total, incomplete = 0, []
@@ -247,14 +261,9 @@ def main():
             if not any(len(parts) > 2 and parts[1] == '/var/lib/mysql' and parts[2] == 'tmpfs'
                        for parts in (line.split() for line in mounts.splitlines())):
                 raise RuntimeError('Disposable database storage is not the required tmpfs')
-            client = docker + ['exec', name, 'mariadb', '--defaults-extra-file=/run/cds-test/client.cnf']
-            deadline = time.monotonic() + 90
-            while True:
-                if run(client + ['-e', 'SELECT 1'], log, check=False).returncode == 0:
-                    break
-                if time.monotonic() > deadline:
-                    raise RuntimeError('Disposable MariaDB did not become ready')
-                time.sleep(1)
+            client = docker + ['exec', name, 'mariadb', '--defaults-extra-file=/run/cds-test/client.cnf',
+                              '--protocol=TCP', '--host=127.0.0.1']
+            wait_for_database(client, run, log)
             profiles = [('carlos_cds_test', 'jdbc.properties', 'on')]
             if not args.schema_only:
                 profiles.append(('cds_ledger_test', 'ledger.properties', 'on'))

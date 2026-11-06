@@ -107,5 +107,31 @@ class NativeEvidenceTest(unittest.TestCase):
                 self.assertEqual(expected, not incomplete)
 
 
+
+class NativeReadinessTest(unittest.TestCase):
+    def test_temporary_unix_listener_cannot_establish_native_readiness(self):
+        with self.assertRaisesRegex(RuntimeError, 'final TCP listener'):
+            NATIVE.wait_for_database(['mariadb'], lambda *a, **k: None, None)
+
+    def test_final_tcp_listener_is_retried_until_it_accepts_queries(self):
+        from types import SimpleNamespace
+        calls = []
+        def run(command, _log, **kwargs):
+            calls.append(command)
+            return SimpleNamespace(returncode=0 if len(calls) == 3 else 1)
+        NATIVE.wait_for_database(['mariadb', '--protocol=TCP', '--host=127.0.0.1'],
+                                 run, None, monotonic=lambda: 0, sleep=lambda _: None)
+        self.assertEqual(len(calls), 3)
+        self.assertTrue(all('--protocol=TCP' in command for command in calls))
+
+    def test_missing_final_listener_fails_at_the_deadline(self):
+        from types import SimpleNamespace
+        times = iter([0, 91])
+        with self.assertRaisesRegex(RuntimeError, 'did not become ready'):
+            NATIVE.wait_for_database(['mariadb', '--protocol=TCP', '--host=127.0.0.1'],
+                lambda *a, **k: SimpleNamespace(returncode=1), None,
+                monotonic=lambda: next(times), sleep=lambda _: None)
+
+
 if __name__ == '__main__':
     unittest.main()
