@@ -36,10 +36,14 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
             info.setLabNumber(id);
             info.setReportStatus("F");
             info.setAccessionNumber("synthetic-5548-" + id);
-            info.setResultStatus(id == first ? null : " ");
+            info.setResultStatus(null);
             em.persist(info);
         }
         em.flush();
+        // The entity setter trims a single space to NULL; write the physical VARCHAR(1) value
+        // directly so this assertion exercises the DAO's trim contract rather than the setter.
+        em.createNativeQuery("UPDATE hl7TextInfo SET result_status=' ' WHERE lab_no=?1")
+                .setParameter(1, second).executeUpdate();
         assertThat(labs.findRecentLabStatuses(-1)).isEmpty();
         assertThat(labs.findRecentLabStatuses(0)).isEmpty();
         assertThat(labs.findRecentLabStatuses(1)).containsExactly(new Hl7TextInfoDao.LabStatus(second, ""));
@@ -84,16 +88,25 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldKeepPhysicalColumnNamesAndTrimNulls_whenMappingTransferRows() throws Exception {
-        // Bound synthetic expression values avoid mutating any fixture demographic.
+        int patient = 1900569502;
+        em.createNativeQuery("INSERT INTO demographic (demographic_no,last_name,first_name,hin,sex,date_joined)"
+                + " VALUES (?1,'  Fixture  ','  Synthetic  ',NULL,'F','2026-11-05')")
+                .setParameter(1, patient).executeUpdate();
         var definition = new DocumentTransferDao.Definition(
-                "(SELECT 5548 AS demographic_no, CAST(NULL AS CHAR) AS nullable_value, '  synthetic  ' AS text_value) synthetic",
-                "synthetic.demographic_no", "", "", "synthetic.demographic_no", List.of("synthetic.nullable_value", "synthetic.text_value"));
-        var rows = transfers.read(definition, 5548);
+                "demographic", "demographic.demographic_no", "", "", "demographic.demographic_no",
+                List.of("demographic.hin", "demographic.first_name", "demographic.date_joined"));
+        var rows = transfers.read(definition, patient);
         assertThat(rows).hasSize(1);
-        assertThat(rows.getFirst().item()).isEqualTo("5548");
-        assertThat(rows.getFirst().fields()).containsExactly("", "synthetic");
+        assertThat(rows.getFirst().item()).isEqualTo(Integer.toString(patient));
+        assertThat(rows.getFirst().fields()).containsExactly("", "Synthetic", "2026-11-05");
+        assertThat(rows.getFirst().columns()).contains(
+                new DocumentTransferDao.Column("demographic.demographic_no", Integer.toString(patient)),
+                new DocumentTransferDao.Column("demographic.last_name", "Fixture"),
+                new DocumentTransferDao.Column("demographic.first_name", "Synthetic"),
+                new DocumentTransferDao.Column("demographic.hin", ""),
+                new DocumentTransferDao.Column("demographic.date_joined", "2026-11-05"));
         assertThat(rows.getFirst().columns()).extracting(DocumentTransferDao.Column::qualifiedName)
-                .allSatisfy(name -> assertThat(name).contains("."));
-        assertThat(transfers.read(definition, 5549)).isEmpty();
+                .allSatisfy(name -> assertThat(name).startsWith("demographic.").doesNotContain(".fld"));
+        assertThat(transfers.read(definition, patient + 1)).isEmpty();
     }
 }

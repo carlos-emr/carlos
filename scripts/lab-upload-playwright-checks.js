@@ -273,14 +273,16 @@ async function workflow(session, options = {}) {
       .map(([id]) => id).filter((id) => /^\d+$/.test(id));
     if (flatLabs.length) {
       const ids = flatLabs.join(',');
-      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
-        DELETE FROM patientLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
-        DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id IN (${ids});
-        DELETE FROM labPatientPhysicianInfo WHERE id IN (${ids})`);
+      // Keep the accession-bearing rows until lock cleanup succeeds, so a failed
+      // teardown can rediscover the same owned IDs on its next attempt.
       if (exclusiveLocks) {
         createRoutingLockFixture(query => sql.execute(query), query => sql.rows(query), flatLabs,
           {exclusive: true, initialLocks}).cleanup();
       }
+      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
+        DELETE FROM patientLabRouting WHERE lab_type='CML' AND lab_no IN (${ids});
+        DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id IN (${ids});
+        DELETE FROM labPatientPhysicianInfo WHERE id IN (${ids})`);
     }
     sql.execute(`DELETE FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)}`);
     const labs = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}
@@ -296,16 +298,17 @@ async function workflow(session, options = {}) {
         sql.execute(`DELETE FROM measurementsExt WHERE measurement_id IN (${ids});
           DELETE FROM measurements WHERE id IN (${ids})`);
       }
-      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
-        DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
-        DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
-        DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
+      // As with CML, lock failures must leave the source IDs available for retry.
       if (exclusiveLocks) {
         createRoutingLockFixture(query => sql.execute(query), query => sql.rows(query), labs,
           {exclusive: true, initialLocks}).cleanup();
       } else {
         sql.execute(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${list})`);
       }
+      sql.execute(`DELETE FROM providerLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+        DELETE FROM patientLabRouting WHERE lab_type='HL7' AND lab_no IN (${list});
+        DELETE FROM hl7TextInfo WHERE lab_no IN (${list});
+        DELETE FROM hl7TextMessage WHERE lab_id IN (${list})`);
     }
     sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUpload}`);
     removeArchivedUploads(stamp);
