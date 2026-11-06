@@ -62,7 +62,8 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.commit()
 
     def git(self, *args):
-        return subprocess.check_output(["git", *args], cwd=self.root, stderr=subprocess.DEVNULL, text=True)
+        return subprocess.check_output(["git", *args], cwd=self.root, stderr=subprocess.DEVNULL, text=True,
+                                       env=gate.separate_checkout_environment())
 
     def commit(self):
         self.git("add", ".")

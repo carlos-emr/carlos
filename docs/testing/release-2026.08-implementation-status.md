@@ -210,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 283 required case identities, including the
+- The combined Python tooling registry pins 285 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -306,3 +306,8 @@ retained separately. The merged Node development suite passes all 7,313 cases.
 Source identity, child commands and migration Git reads also discard inherited
 Git location selectors; a foreign-checkout regression proves they cannot relabel
 evidence from another repository.
+
+The required browser oracle uses explicit failures under optimized Python as well.
+Temporary Git fixtures isolate inherited repository selectors before setup, and
+the full Python suite passes with a foreign repository selected without changing
+that repository's HEAD or index.

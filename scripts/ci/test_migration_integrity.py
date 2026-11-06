@@ -6,20 +6,22 @@ import unittest
 
 from junit_evidence import EvidenceError
 from migration_integrity import compare_shared
+from git_environment import separate_checkout_environment
 
 
 class SharedMigrationIntegrityTest(unittest.TestCase):
     def fixture(self, root):
-        subprocess.run(['git', 'init', '-q', str(root)], check=True)
+        subprocess.run(['git', 'init', '-q', str(root)], check=True, env=separate_checkout_environment())
         path = root / 'database/mysql/migration/common/V1__FAKE.sql'
         path.parent.mkdir(parents=True); path.write_bytes(b'-- FAKE\r\nSELECT 1;\r\n')
         return path, self.commit(root)
 
     def commit(self, root):
-        subprocess.run(['git', 'add', '.'], cwd=root, check=True)
+        subprocess.run(['git', 'add', '.'], cwd=root, check=True, env=separate_checkout_environment())
         subprocess.run(['git', '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid',
-                        'commit', '-qm', 'test: synthetic migration'], cwd=root, check=True)
-        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+                        'commit', '-qm', 'test: synthetic migration'], cwd=root, check=True, env=separate_checkout_environment())
+        return subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True,
+                                       env=separate_checkout_environment()).strip()
 
     def test_new_migrations_do_not_rewrite_shared_history(self):
         with tempfile.TemporaryDirectory() as temporary:

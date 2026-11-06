@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from unittest.mock import patch
+from git_environment import separate_checkout_environment
 
 spec = importlib.util.spec_from_file_location('generate_bindings', Path(__file__).with_name('generate-path-bindings.py'))
 generator = importlib.util.module_from_spec(spec)
@@ -18,7 +19,8 @@ class PathCandidatesTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             def git(*args):
-                return subprocess.check_output(['git', *args], cwd=root, stderr=subprocess.DEVNULL, text=True).strip()
+                return subprocess.check_output(['git', *args], cwd=root, stderr=subprocess.DEVNULL, text=True,
+                                               env=separate_checkout_environment()).strip()
             def commit():
                 git('add', '.')
                 git('-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid', 'commit', '-qm', 'test: fixture')

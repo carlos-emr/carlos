@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 import process_group
 from owned_process_tree import processes
+from junit_evidence import EvidenceError
 import release_verification as gate
 
 NODE = r'''
@@ -39,6 +40,22 @@ process.on('SIGTERM',()=>{});process.on('SIGINT',()=>{});
   setInterval(()=>{},1000);
 })().catch(()=>{process.exitCode=1;});
 '''
+
+
+def validate_stopped(observed, remaining):
+    if observed.get('separateGroup') is not True:
+        raise EvidenceError('Oracle did not exercise a detached browser')
+    owned = {observed['node'], observed['browser']}
+    if not owned <= observed['pids'].keys():
+        raise EvidenceError('Oracle missed the owned process inventory')
+    while True:
+        children = {pid for pid, row in observed['pids'].items() if row[0] in owned} - owned
+        if not children: break
+        owned |= children
+    if any(pid in remaining and remaining[pid][2] == observed['pids'][pid][2]
+           and remaining[pid][1] not in ('Z', 'X') for pid in owned):
+        raise EvidenceError('Owned browser processes survived')
+    return len(owned)
 
 
 def main():
@@ -75,17 +92,9 @@ def main():
                 else:
                     raise AssertionError('Browser interruption was accepted as success')
             gate.require_locked_chromium([observed['version']])
-            assert observed['separateGroup'], 'Oracle did not exercise a detached browser'
-            owned = {observed['node'], observed['browser']}
-            while True:
-                children = {pid for pid, row in observed['pids'].items() if row[0] in owned} - owned
-                if not children: break
-                owned |= children
-            remaining = processes()
-            assert all(pid not in remaining or remaining[pid][2] != observed['pids'][pid][2]
-                       or remaining[pid][1] in ('Z', 'X') for pid in owned), 'Owned browser processes survived'
+            stopped = validate_stopped(observed, processes())
             row = {'mode': mode, 'chromium': observed['version'], 'separateBrowserGroup': True,
-                   'forcedKill': True, 'processesStopped': len(owned), 'restorationVerified': False}
+                   'forcedKill': True, 'processesStopped': stopped, 'restorationVerified': False}
             rows.append(row)
             print(json.dumps(row))
     if args.output:

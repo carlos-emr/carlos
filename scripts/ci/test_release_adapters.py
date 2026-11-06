@@ -134,7 +134,7 @@ class ScopeInventoryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             def git(*args):
-                return subprocess.check_output(['git', *args], cwd=root, stderr=subprocess.DEVNULL, text=True).strip()
+                return subprocess.check_output(['git', *args], cwd=root, env=gate.separate_checkout_environment(), stderr=subprocess.DEVNULL, text=True).strip()
             def commit():
                 git('add', '.'); git('-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid',
                                      'commit', '-qm', 'test: migration fixture')
@@ -162,7 +162,7 @@ class ScopeInventoryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             def git(*args):
-                return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
+                return subprocess.check_output(["git", *args], cwd=root, env=gate.separate_checkout_environment(), stderr=subprocess.DEVNULL).decode().strip()
             git("init", "--quiet")
             git("config", "user.email", "synthetic@example.invalid")
             git("config", "user.name", "Synthetic test")
@@ -193,7 +193,7 @@ class ScopeInventoryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             def git(*args):
-                return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
+                return subprocess.check_output(["git", *args], cwd=root, env=gate.separate_checkout_environment(), stderr=subprocess.DEVNULL).decode().strip()
             git("init", "--quiet")
             git("config", "user.email", "synthetic@example.invalid")
             git("config", "user.name", "Synthetic test")
@@ -236,7 +236,7 @@ class ScopeInventoryTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             def git(*args):
-                return subprocess.check_output(["git", *args], cwd=root, stderr=subprocess.DEVNULL).decode().strip()
+                return subprocess.check_output(["git", *args], cwd=root, env=gate.separate_checkout_environment(), stderr=subprocess.DEVNULL).decode().strip()
             git("init", "--quiet")
             git("config", "user.email", "synthetic@example.invalid")
             git("config", "user.name", "Synthetic test")
