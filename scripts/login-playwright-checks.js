@@ -337,7 +337,7 @@ let ownedLogin;
 
 async function main({cancellation}) {
   checkCancellation = cancellation;
-  fixtureSql = h.createSqlRunner(h.readConfig().mysql);
+  fixtureSql = h.createSqlRunner({host: mysqlHost, user: mysqlUser, password: mysqlPassword, database: mysqlDatabase});
   const provider = fixtureSql.value(`SELECT provider_no FROM security WHERE user_name=${h.sqlString(testUser)}`);
   assert(/^[1-9]\d*$/.test(provider), 'Login check needs a single source provider');
   ownedLogin = throwawayLoginFixture({sql: fixtureSql,

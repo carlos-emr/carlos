@@ -27,6 +27,7 @@ from java_discovery import reconcile, expected_families
 from release_deployment import attest
 from cds_war_manifest import build_manifest
 from command_evidence import validate_contract, results as command_results, relative_file
+import compiled_classes
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PLAN = ROOT / "docs/testing/release-2026.08-verification.json"
@@ -75,14 +76,10 @@ def source_identity(root=ROOT):
 
 
 def production_class_identity(root=ROOT):
-    directory = root / 'target/classes'
-    files = {}
-    for path in sorted(directory.rglob('*.class')):
-        if path.is_symlink() or any(p.is_symlink() for p in path.parents if p != directory.parent):
-            raise EvidenceError('Production classes contain a symlink')
-        files[path.relative_to(directory).as_posix()] = digest(path)
-    if not files:
-        raise EvidenceError('No compiled production classes for coverage identity')
+    try:
+        files = compiled_classes.fingerprints(root)
+    except ValueError as failure:
+        raise EvidenceError(str(failure)) from failure
     return {'schemaVersion': 1, 'sourceTree': source_identity(root)['tree'], 'classes': files}
 
 
@@ -457,6 +454,10 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
             receipt["command"] = check["command"]  # Template only: no expanded credentials/paths.
             environment = dict(os.environ)
             environment.update({key: value.format_map(substitutions) for key, value in check.get("environment", {}).items()})
+            if check.get('requireClassIdentity'):
+                # A clean Git checkout alone says nothing about ignored class files.
+                # Each lane must compile from this source before it can earn evidence.
+                compiled_classes.reset(root, evidence)
             with (run_dir / "private.log").open("xb") as log:
                 os.chmod(run_dir / "private.log", 0o600)
                 process = subprocess.Popen(argv, cwd=root, env=environment, stdout=log, stderr=log, start_new_session=True)

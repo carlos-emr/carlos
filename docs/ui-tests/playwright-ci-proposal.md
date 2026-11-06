@@ -1275,25 +1275,26 @@ ordinary generated-DAO schema or count their H2 assumption aborts as coverage.
 For `release-verification.yml`, the current tooling job is deliberately not a
 release verdict. Preserve its diagnostic inventory. Add a separate dispatch-only
 qualification job after provisioning the frozen candidate and its complete
-private evidence archive. Use these exact steps inside that job after checkout
+private evidence archive under `$RUNNER_TEMP/qualification`, outside the checkout.
+Use these exact steps inside that job after checkout
 of the archive's source SHA, Python 3.14, Node 22/npm 10.9.9 and `npm ci`:
 
 ```yaml
 - name: Validate the committed execution requirements
   run: python3 scripts/ci/verify-release-evidence.py validate-plan
 - name: Require reviewed ownership across every pinned comparison
-  run: python3 scripts/ci/release-scope-audit.py --output qualification/scope.json
+  run: python3 scripts/ci/release-scope-audit.py --output "$RUNNER_TEMP/qualification/scope.json"
 - name: Verify complete candidate-bound evidence
   run: |
     set -euo pipefail
     python3 scripts/ci/verify-release-evidence.py verify \
-      --artifact qualification/candidate/carlos.war \
-      --evidence qualification/evidence \
-      --output qualification/readiness.json
+      --artifact "$RUNNER_TEMP/qualification/candidate/carlos.war" \
+      --evidence "$RUNNER_TEMP/qualification/evidence" \
+      --output "$RUNNER_TEMP/qualification/readiness.json"
     python3 - <<'PY'
-    import json
+    import json, os
     from pathlib import Path
-    result = json.loads(Path('qualification/readiness.json').read_text())
+    result = json.loads((Path(os.environ['RUNNER_TEMP']) / 'qualification/readiness.json').read_text())
     assert result['releaseReady'] is True
     assert not result['incomplete']
     PY

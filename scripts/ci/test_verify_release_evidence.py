@@ -89,6 +89,43 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.assertEqual(result["requiredExecutions"], 2)
         self.assertEqual(result["receivedExecutions"], 2)
 
+    def test_stale_classes_cannot_be_relabelled_as_the_current_source(self):
+        (self.root / '.gitignore').write_text('/target/\n')
+        self.plan['checks'][1]['requireClassIdentity'] = True
+        self.save_plan(); self.commit()
+        stale = self.root / 'target/classes/example/Stale.class'
+        stale.parent.mkdir(parents=True)
+        stale.write_bytes(b'bytes from an older source tree')
+        # This command emits passing JUnit XML but does not compile anything.
+        result = self.run_check()
+        self.assertEqual(result['outcome'], 'FAIL')
+        self.assertIn('No compiled production classes', result['reason'])
+        self.assertFalse(stale.exists())
+        # A real lane must recreate the classes after the stale output is removed.
+        with self.tool.open('a') as script:
+            script.write("\np=pathlib.Path('target/classes/example/Current.class'); p.parent.mkdir(parents=True,exist_ok=True); p.write_bytes(b'current compilation')\n")
+        self.commit()
+        result = self.run_check()
+        self.assertEqual(result['outcome'], 'PASS')
+        classes = gate.read_json(self.evidence / result['runId'] / 'classes.json')
+        self.assertEqual(set(classes['classes']), {'example/Current.class'})
+        self.assertEqual(classes['sourceTree'], gate.source_identity(self.root)['tree'])
+
+    def test_compilation_cleanup_retains_evidence_and_refuses_linked_outputs(self):
+        target = self.root / 'target'
+        saved = target / 'evidence/previous/receipt.json'
+        saved.parent.mkdir(parents=True)
+        saved.write_text('previous retained evidence')
+        classes = target / 'classes'
+        classes.mkdir()
+        (classes / 'Old.class').write_bytes(b'old')
+        gate.compiled_classes.reset(self.root, saved.parent)
+        self.assertEqual(saved.read_text(), 'previous retained evidence')
+        classes.symlink_to(saved.parent, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, 'symlink'):
+            gate.compiled_classes.reset(self.root)
+        self.assertTrue(saved.exists())
+
     def test_binary_comparison_requires_artifact_without_requiring_an_installed_server(self):
         self.plan['checks'][1]['requiresArtifact'] = True
         self.save_plan(); self.commit()

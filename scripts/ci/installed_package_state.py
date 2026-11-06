@@ -29,6 +29,15 @@ def quote_identifier(name):
     return '`' + name.replace('`', '``') + '`'
 
 
+def cell_encoding(name, column_type):
+    value = quote_identifier(name)
+    # MariaDB formats FLOAT using too few digits to distinguish adjacent values.
+    # Widen it exactly to DOUBLE before string conversion; never widen DECIMAL.
+    if column_type.lower().split('(', 1)[0].split()[0] == 'float':
+        value = 'CAST(' + value + ' AS DOUBLE)'
+    return 'HEX(CAST(' + value + ' AS BINARY))'
+
+
 def clinical_state(prior_columns=None):
     result = {}
     if prior_columns is not None and set(prior_columns) != set(TABLES):
@@ -36,12 +45,14 @@ def clinical_state(prior_columns=None):
     for table in TABLES:
         columns = query('SHOW COLUMNS FROM ' + quote_identifier(table))
         actual = [line.split('\t', 1)[0] for line in columns]
+        types = {row.split('\t')[0]: row.split('\t')[1] for row in columns}
         names = prior_columns[table] if prior_columns is not None else actual
         if not names or len(set(names)) != len(names) or not set(names) <= set(actual):
             raise EvidenceError('Package transition lost or duplicated a clinical column')
-        # HEX preserves each cell, NULL and binary bytes; JSON supplies unambiguous
+        # Cast before HEX: HEX(number) coerces to BIGINT and loses fractions.
+        # Binary strings preserve cell values, NULL and bytes; JSON supplies unambiguous
         # boundaries. Sort whole rows, preserving duplicates and ignoring query order.
-        rows = sorted(query('SELECT JSON_ARRAY(' + ','.join('HEX(' + quote_identifier(name) + ')'
+        rows = sorted(query('SELECT JSON_ARRAY(' + ','.join(cell_encoding(name, types[name])
             for name in names) + ') FROM ' + quote_identifier(table)))
         result[table] = {'columns': names, 'rows': len(rows),
             'dataSha256': hashlib.sha256(json.dumps(rows, ensure_ascii=True).encode()).hexdigest()}

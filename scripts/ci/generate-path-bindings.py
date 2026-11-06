@@ -2,6 +2,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Propose coverage owners over all pinned scopes; only reviewed bindings are written."""
 import argparse
+import copy
 import importlib.util
 import json
 from pathlib import Path
@@ -41,17 +42,18 @@ def generate_bindings(plan, root=ROOT, head="HEAD"):
             "unbound": inventory["unownedProductionPaths"], "ready": inventory["ready"]}
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan", type=Path, default=DEFAULT_PLAN)
     parser.add_argument("--head", default="HEAD")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--reviewed", type=Path, help="Explicit reviewed pathBindings object")
     parser.add_argument("--write", action="store_true")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if args.write and not args.reviewed:
         parser.error("--write requires an explicit --reviewed binding file; candidates are not coverage")
     plan = load_plan(args.plan)
+    original = copy.deepcopy(plan)
     if args.reviewed:
         proposed = json.loads(args.reviewed.read_text())
         if not isinstance(proposed, dict):
@@ -61,7 +63,7 @@ def main():
     result = generate_bindings(plan, head=args.head)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
-    if args.write:
+    if args.write and plan != original:
         args.plan.write_text(json.dumps(plan, indent=2) + "\n")
     print(json.dumps({"paths": len(result["candidates"]), "unbound": len(result["unbound"]), "ready": result["ready"]}))
     return 0 if result["ready"] else 1

@@ -6,6 +6,7 @@ import unittest
 
 import release_verification as gate
 from junit_evidence import EvidenceError
+from command_evidence import relative_file
 
 
 class CommandEvidenceTest(unittest.TestCase):
@@ -60,3 +61,17 @@ class CommandEvidenceTest(unittest.TestCase):
     def test_malformed_result_does_not_prevent_failed_receipt_inventory(self):
         (self.root / "result.json").write_text('{}')
         self.assertEqual([p.name for p in gate.evidence_files(self.check, self.root)], ["result.json"])
+
+    def test_host_ancestor_links_are_allowed_but_run_root_links_are_refused(self):
+        host = self.root / 'host'
+        run = host / 'runs/one'
+        run.mkdir(parents=True)
+        (run / 'metrics.json').write_text('{}')
+        alias = self.root / 'host-alias'
+        alias.symlink_to(host, target_is_directory=True)
+        aliased_run = alias / 'runs/one'
+        self.assertEqual(relative_file(aliased_run, 'metrics.json').read_text(), '{}')
+        linked_run = host / 'runs/linked'
+        linked_run.symlink_to(run, target_is_directory=True)
+        with self.assertRaises(EvidenceError):
+            relative_file(linked_run, 'metrics.json')

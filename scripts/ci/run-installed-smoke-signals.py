@@ -4,9 +4,9 @@
 import argparse
 import os
 from pathlib import Path
-import subprocess
 import release_verification as gate
 from junit_evidence import EvidenceError
+from process_group import ProcessGroupFailure, run_process_group
 
 CHECKPOINTS = {'document-upload': 26, 'tickler-crud': 8, 'login': 24}
 EXPECTED = {(name, signal) for name in CHECKPOINTS for signal in ('SIGINT', 'SIGTERM')}
@@ -26,23 +26,32 @@ def validate(rows):
     return {'all-six-real-os-signals': executed, 'all-owned-state-restored': restored}
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', choices=('ON', 'BC'), required=True)
     parser.add_argument('--output', type=Path, required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     if os.environ.get('CARLOS_DISPOSABLE_HOST') != 'true' or os.environ.get('CARLOS_SUITE_PROVINCE') != args.profile:
         raise EvidenceError('Installed signal qualification needs its named disposable province')
     rows, inputs, completions = [], [], []
+    failure_details = None
+    manifest = gate.read_json(gate.ROOT / 'scripts/playwright-suite.json')['checks']
+    timeouts = {row['name']: row['timeoutSec'] for row in manifest if row['name'] in CHECKPOINTS}
     for name, checkpoint in CHECKPOINTS.items():
         for signal in ('SIGINT', 'SIGTERM'):
             directory = args.output.parent / ('signals-' + name + '-' + signal)
             directory.mkdir()
             completion = directory / 'completion.json'
-            result = subprocess.run(['node', 'scripts/signal-cleanup-audit.js', '--only', name,
-                '--checkpoint', str(checkpoint), '--signal', signal, '--delivery', 'os',
-                '--output-dir', str(directory)], cwd=gate.ROOT,
-                env={**os.environ, 'RESULT_JSON': str(completion)}, timeout=240)
+            try:
+                result = run_process_group(['node', 'scripts/signal-cleanup-audit.js', '--only', name,
+                    '--checkpoint', str(checkpoint), '--signal', signal, '--delivery', 'os',
+                    '--output-dir', str(directory)], cwd=gate.ROOT,
+                    env={**os.environ, 'RESULT_JSON': str(completion)}, timeout=timeouts[name] + 120)
+            except ProcessGroupFailure as failure:
+                failure_details = {'name': name, 'requestedSignal': signal, 'failureReason': str(failure),
+                    'processGroupStopped': failure.quiescent, 'restorationVerified': False,
+                    'hostRequiresReconciliation': True}
+                break
             report = directory / 'results.json'
             if report.is_file(): rows.extend(gate.read_json(report)); inputs.append(report)
             if completion.is_file():
@@ -51,6 +60,14 @@ def main():
                     and record.get('outcome') == 'PASS' and not record.get('cleanupFailed'))
                 inputs.append(completion)
             else: completions.append(False)
+            if result.returncode != 0 or not completions[-1] or any(
+                    row.get('outcome') != 'PASS' for row in rows):
+                failure_details = {'name': name, 'requestedSignal': signal,
+                    'failureReason': 'Signal audit failed; stop before another workflow',
+                    'restorationVerified': False, 'hostRequiresReconciliation': True}
+                break
+        if failure_details:
+            break
     assertions = validate(rows)
     assertions['all-six-real-os-signals'] &= len(completions) == 6 and all(completions)
     try:
@@ -58,7 +75,8 @@ def main():
         assertions['locked-chromium'] = len(rows) == 6
     except EvidenceError: assertions['locked-chromium'] = False
     details = args.output.parent / 'signal-details.json'
-    gate.write_json(details, {'schemaVersion': 1, 'profile': args.profile, 'observations': rows})
+    gate.write_json(details, {'schemaVersion': 1, 'profile': args.profile, 'observations': rows,
+                              'failure': failure_details})
     inputs.append(details)
     gate.write_json(args.output, {'schemaVersion': 1, 'assertions': assertions, 'inputs': [
         {'path': str(path.relative_to(args.output.parent)), 'sha256': gate.digest(path)} for path in inputs]})

@@ -17,6 +17,7 @@ import installed_package_state as state
 import release_verification as gate
 from junit_evidence import EvidenceError
 from release_deployment import attest, attest_package, local_target, package_contents
+from process_group import ProcessGroupFailure, run_process_group
 
 ASSERTIONS = ('package-pins-and-version-order', 'predecessor-application-bound',
     'package-transaction-succeeded', 'upgrade-contract-passed', 'clinical-cells-preserved',
@@ -46,8 +47,10 @@ def pinned(path, digest):
 def baseline(path, environment):
     with path.open('xb') as output:
         os.chmod(path, 0o600)
-        subprocess.run(['bash', str(gate.ROOT / 'scripts/deb-upgrade-baseline.sh')],
-                       env=environment, stdout=output, check=True, timeout=90)
+        result = run_process_group(['bash', str(gate.ROOT / 'scripts/deb-upgrade-baseline.sh')],
+                                   env=environment, stdout=output, timeout=90)
+        if result.returncode:
+            raise EvidenceError('Package preservation baseline failed')
     fields = {}
     for line in path.read_text().splitlines():
         key, separator, value = line.partition('=')
@@ -141,7 +144,7 @@ def main():
         with log.open('xb') as output:
             command = ['apt-get', 'install', '-y', '--no-remove']
             if args.mode == 'reinstall': command.append('--reinstall')
-            result = subprocess.run(command + list(map(str, (args.emr, args.drugref, args.ctl))),
+            result = run_process_group(command + list(map(str, (args.emr, args.drugref, args.ctl))),
                 env={**environment, 'DEBIAN_FRONTEND': 'noninteractive'}, stdout=output, stderr=output, timeout=1200)
         assertions['package-transaction-succeeded'] = (result.returncode == 0
             and installed_version('carlos-emr') == version and installed_version('carlos-emr-drugref') == version
@@ -153,7 +156,7 @@ def main():
         assertions['document-bytes-and-metadata-preserved'] = before['files'] == after['files']
         assertions['encryption-key-preserved'] = before['keySha256'] == after['keySha256']
         with (directory / 'private-preservation-check.log').open('xb') as output:
-            verified = subprocess.run(['bash', str(gate.ROOT / 'scripts/deb-upgrade-verify.sh')],
+            verified = run_process_group(['bash', str(gate.ROOT / 'scripts/deb-upgrade-verify.sh')],
                 env={**environment, 'PRE': str(pre), 'POST': str(directory / 'baseline-after.txt'),
                      'UPGRADE_LOG': str(log), 'CHECK_LOG': str(directory / 'private-health-check.log'),
                      'TARGET_BUILD_PROPERTIES': str(expected_identity)}, stdout=output, stderr=output, timeout=420)
@@ -167,6 +170,9 @@ def main():
     except Exception as failure:
         failure_type = type(failure).__name__
         if isinstance(failure, EvidenceError): details['failureReason'] = str(failure)
+        if isinstance(failure, ProcessGroupFailure):
+            details.update(processGroupStopped=failure.quiescent, restorationVerified=False,
+                           hostRequiresReconciliation=True)
         # Never retry an uncertain package transaction or remove its canary here.
     details['assertions'] = assertions
     details['failureType'] = failure_type

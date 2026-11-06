@@ -17,6 +17,21 @@ spec.loader.exec_module(ratchet)
 
 
 class CoverageCommandTest(unittest.TestCase):
+    def test_jacoco_qualifies_its_path_java_instead_of_trusting_maven_java_home(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            java = root / 'java'
+            with patch.dict(os.environ, {'PATH': str(root), 'JAVA_HOME': '/qualified-maven-jdk-25'}):
+                for version, valid in (('21.0.9', False), ('25.0.3', True)):
+                    with self.subTest(version=version):
+                        java.write_text('#!/bin/sh\necho \'openjdk version "' + version + '"\' >&2\n')
+                        java.chmod(0o700)
+                        if valid:
+                            self.assertEqual(ratchet.qualified_java('25'), str(java.resolve()))
+                        else:
+                            with self.assertRaisesRegex(EvidenceError, 'required runtime'):
+                                ratchet.qualified_java('25')
+
     def test_standalone_checker_runs_without_pythonpath_and_retains_failed_floors(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

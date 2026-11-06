@@ -37,6 +37,8 @@ import sys
 import time
 import uuid
 from xml.etree.ElementTree import ElementTree
+from compiled_classes import fingerprints
+from clinical_cell_oracle import verify as verify_clinical_cells
 try:
     import defusedxml.ElementTree as ET
     from defusedxml.common import DefusedXmlException
@@ -177,6 +179,8 @@ def main():
     parser.add_argument('--container-workspace', default='/workspace')
     parser.add_argument('--maven', default='mvn')
     parser.add_argument('--maven-repository')
+    parser.add_argument('--fresh-classes', action='store_true',
+                        help='Recompile source-bound release classes and require shared host/container bytes')
     parser.add_argument('--evidence-output', type=Path,
                         help='Fresh receipt directory supplied by the release verifier')
     parser.add_argument('--container-evidence-output', type=Path,
@@ -242,6 +246,13 @@ def main():
                                 log, capture=True).stdout.strip()
             if mounted_commit != host_commit or mounted_dirty:
                 raise RuntimeError('Native build container does not expose the clean candidate source')
+            if args.fresh_classes:
+                build(['python3', 'scripts/ci/compiled_classes.py', 'reset'], log)
+                build(maven + ['-DskipTests', 'test-compile'], log)
+                compiled = json.loads(run(docker + ['exec', '--workdir', args.container_workspace, args.container,
+                    'python3', 'scripts/ci/compiled_classes.py', 'fingerprints'], log, capture=True).stdout)
+                if compiled != fingerprints(repository):
+                    raise RuntimeError('Native container and host do not expose identical freshly compiled classes')
             run(docker + ['network', 'create', '--internal', network], log)
             created_network = True
             run(docker + ['network', 'connect', network, args.container], log)
@@ -264,6 +275,9 @@ def main():
             client = docker + ['exec', name, 'mariadb', '--defaults-extra-file=/run/cds-test/client.cnf',
                               '--protocol=TCP', '--host=127.0.0.1']
             wait_for_database(client, run, log)
+            verify_clinical_cells(lambda sql: run(client + ['--batch', '--raw', '--skip-column-names', '-e', sql],
+                                                  log, capture=True).stdout.splitlines())
+            print('Clinical cell fingerprint oracle passed: fractions, adjacent floats, decimals, NULL and binary bytes.')
             profiles = [('carlos_cds_test', 'jdbc.properties', 'on')]
             if not args.schema_only:
                 profiles.append(('cds_ledger_test', 'ledger.properties', 'on'))
@@ -325,6 +339,11 @@ def main():
             total, incomplete = collect_reports(CLASSES, original_reports, reports)
             if tested.returncode or incomplete:
                 raise RuntimeError('Required native contracts incomplete: ' + ', '.join(incomplete))
+            if args.fresh_classes:
+                after = json.loads(run(docker + ['exec', '--workdir', args.container_workspace, args.container,
+                    'python3', 'scripts/ci/compiled_classes.py', 'fingerprints'], log, capture=True).stdout)
+                if after != compiled or fingerprints(repository) != compiled:
+                    raise RuntimeError('Native production classes changed during execution')
             final_commit = run(docker + ['exec', '--workdir', args.container_workspace, args.container,
                                         'git', 'rev-parse', 'HEAD'], log, capture=True).stdout.strip()
             final_dirty = run(docker + ['exec', '--workdir', args.container_workspace, args.container,

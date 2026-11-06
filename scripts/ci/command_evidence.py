@@ -13,8 +13,11 @@ def relative_file(root, name):
     if path.is_absolute() or any(part in ("..", ".") for part in path.parts):
         raise EvidenceError("Evidence path escapes its run")
     candidate = root / path
-    if any(parent.is_symlink() for parent in [candidate, *candidate.parents] if parent != root.parent):
-        raise EvidenceError("Evidence path contains a symlink")
+    for parent in (candidate, *candidate.parents):
+        if parent.is_symlink():
+            raise EvidenceError("Evidence path contains a symlink")
+        if parent == root:
+            break
     if not candidate.is_file() or not candidate.resolve().is_relative_to(root.resolve()):
         raise EvidenceError("Missing command evidence file")
     return candidate

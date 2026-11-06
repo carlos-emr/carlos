@@ -1,10 +1,12 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('generate_bindings', Path(__file__).with_name('generate-path-bindings.py'))
 generator = importlib.util.module_from_spec(spec)
@@ -49,3 +51,20 @@ class PathCandidatesTest(unittest.TestCase):
                                capture_output=True, text=True)
         self.assertEqual(child.returncode, 2)
         self.assertIn('explicit --reviewed', child.stderr)
+
+    def test_reviewed_noop_preserves_plan_bytes_and_changed_bindings_are_written(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            plan, reviewed, output = (root / name for name in ('plan.json', 'reviewed.json', 'output.json'))
+            original = '{ "pathBindings" : { "file" : {"rationale":"reviewed"} } }\n'
+            plan.write_text(original)
+            reviewed.write_text('{"file":{"rationale":"reviewed"}}')
+            result = {'candidates': {}, 'unbound': [], 'ready': True}
+            with patch.object(generator, 'load_plan', side_effect=lambda path: json.loads(path.read_text())), \
+                    patch.object(generator.scope, 'inventory'), patch.object(generator, 'generate_bindings', return_value=result):
+                argv = ['--plan', str(plan), '--reviewed', str(reviewed), '--output', str(output), '--write']
+                self.assertEqual(generator.main(argv), 0)
+                self.assertEqual(plan.read_text(), original)
+                reviewed.write_text('{"file":{"rationale":"new review"}}')
+                self.assertEqual(generator.main(argv), 0)
+                self.assertEqual(json.loads(plan.read_text())['pathBindings']['file']['rationale'], 'new review')

@@ -1102,7 +1102,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 248,
+      "minimumCases": 257,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1179,10 +1179,12 @@
         "test_cds_war_manifest.WarManifestTest.test_symlink_special_directory_payload_and_unsupported_compression_reject",
         "test_cds_war_manifest.WarManifestTest.test_unsafe_names_duplicate_nodes_and_file_ancestor_collisions_fail_closed",
         "test_command_evidence.CommandEvidenceTest.test_duplicate_inputs_and_parent_symlinks_are_refused",
+        "test_command_evidence.CommandEvidenceTest.test_host_ancestor_links_are_allowed_but_run_root_links_are_refused",
         "test_command_evidence.CommandEvidenceTest.test_malformed_result_does_not_prevent_failed_receipt_inventory",
         "test_command_evidence.CommandEvidenceTest.test_missing_and_exit_zero_noop_cannot_pass",
         "test_command_evidence.CommandEvidenceTest.test_negative_assertion_blocks_readiness",
         "test_command_evidence.CommandEvidenceTest.test_real_inputs_are_retained_and_revalidated",
+        "test_coverage_ratchet.CoverageCommandTest.test_jacoco_qualifies_its_path_java_instead_of_trusting_maven_java_home",
         "test_coverage_ratchet.CoverageCommandTest.test_standalone_checker_runs_without_pythonpath_and_retains_failed_floors",
         "test_coverage_ratchet.CoverageLaneTest.test_different_compiled_bytes_cannot_be_merged_even_at_the_same_commit",
         "test_coverage_ratchet.CoverageLaneTest.test_dirty_checkout_and_wrong_class_tree_are_refused",
@@ -1192,6 +1194,7 @@
         "test_ebs_payload_privacy.EbsPrivacyTest.test_empty_fabricated_and_untyped_observations_are_refused",
         "test_ebs_payload_privacy.EbsPrivacyTest.test_payload_canary_is_a_failed_acceptance_not_an_expected_success",
         "test_generate_path_bindings.PathCandidatesTest.test_deleted_older_scope_is_retained_without_inventing_coverage",
+        "test_generate_path_bindings.PathCandidatesTest.test_reviewed_noop_preserves_plan_bytes_and_changed_bindings_are_written",
         "test_generate_path_bindings.PathCandidatesTest.test_writing_candidates_without_review_is_refused",
         "test_installed_first_login.InstallationStageTest.test_private_complete_installer_file_is_required",
         "test_installed_first_login.InstallationStageTest.test_success_requires_real_password_change_reset_clear_and_preserved_identity",
@@ -1200,6 +1203,7 @@
         "test_installed_package_state.PackagePreservationTest.test_outside_symlinks_and_replaced_directory_roots_fail",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_omitted_duplicated_or_wrong_signal_execution_cannot_qualify",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_row_counts_alone_cannot_hide_changed_credentials_or_leftover_files",
+        "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_timeout_records_failure_and_stops_before_another_installed_audit",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_added_abstract_methods_enum_constants_and_overloads_require_client_review",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_malformed_release_xml_fails_while_a_repaired_main_response_is_reported",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_missing_fields_duplicate_json_keys_and_nonfinite_numbers_are_not_silently_accepted",
@@ -1225,6 +1229,9 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
+        "test_process_group.ProcessGroupTest.test_outer_termination_is_forwarded_to_the_separate_child_session",
+        "test_process_group.ProcessGroupTest.test_successful_parent_cannot_leave_a_mutating_child_running",
+        "test_process_group.ProcessGroupTest.test_timeout_stops_resistant_grandchild_after_its_parent_exits_on_term",
         "test_pull_image.PullImageTest.test_failed_tag_fails",
         "test_pull_image.PullImageTest.test_matching_jdk_uses_pulled_image",
         "test_pull_image.PullImageTest.test_missing_image_builds_locally",
@@ -1334,6 +1341,7 @@
         "test_verify_release_evidence.ReleaseEvidenceTest.test_cli_optimized_python_never_accepts_missing_evidence",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_command_exit_zero_without_result_retains_failed_receipt",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_command_results_bind_underlying_inputs_through_final_verification",
+        "test_verify_release_evidence.ReleaseEvidenceTest.test_compilation_cleanup_retains_evidence_and_refuses_linked_outputs",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_dirty_and_untracked_source_are_refused_before_any_child",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_duplicate_json_keys_are_refused",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_duplicate_repetition_cannot_replace_a_missing_profile",
@@ -1356,6 +1364,7 @@
         "test_verify_release_evidence.ReleaseEvidenceTest.test_required_repetitions_and_profiles_cannot_be_omitted",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_scope_output_is_required_and_bound_to_its_receipt",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_source_change_invalidates_old_receipts",
+        "test_verify_release_evidence.ReleaseEvidenceTest.test_stale_classes_cannot_be_relabelled_as_the_current_source",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_symlink_and_missing_evidence_are_refused",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_tampered_counters_cannot_override_actual_flaky_failure",
         "test_verify_release_evidence.ReleaseEvidenceTest.test_workstream_and_source_omissions_are_refused",
@@ -1377,7 +1386,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 17,
+      "minimumCases": 21,
       "runtimeConstraints": {
         "python": "3.14"
       }
@@ -2381,8 +2390,7 @@
         "mvn",
         "-B",
         "-ntp",
-        "jacoco:prepare-agent",
-        "surefire:test",
+        "test",
         "jacoco:report",
         "-Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest,RestBirthDateMapperConfigurationUnitTest,RestJaxbContextUnitTest,DateXmlAdapterUnitTest,CharacterIntegerMapXmlAdapterUnitTest,StringMapXmlAdapterUnitTest,RestXmlAnnotationIntrospectorUnitTest,FilterDefinitionTransferXmlUnitTest,AppointmentArchiveTransferXmlUnitTest",
         "-Dtest.forkCount=1",
@@ -3346,8 +3354,7 @@
         "mvn",
         "-B",
         "-ntp",
-        "jacoco:prepare-agent",
-        "surefire:test",
+        "test",
         "jacoco:report",
         "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest",
         "-Dtest.forkCount=1",
@@ -3383,8 +3390,7 @@
         "mvn",
         "-B",
         "-ntp",
-        "jacoco:prepare-agent",
-        "surefire:test",
+        "test",
         "jacoco:report",
         "-Dtest=LegacyDependencyCompatibilityUnitTest",
         "-Dtest.forkCount=1",
@@ -4105,7 +4111,8 @@
         "--evidence-output",
         "{run}",
         "--container-evidence-output",
-        "{containerEvidence}/{runId}"
+        "{containerEvidence}/{runId}",
+        "--fresh-classes"
       ],
       "requiresEnvironment": [
         "CARLOS_CDS_BUILD_CONTAINER",

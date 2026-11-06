@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -63,6 +64,18 @@ def check_floors(report, floors_path, base, output, root=gate.ROOT):
     return result
 
 
+def qualified_java(required):
+    executable = shutil.which('java')
+    if not executable:
+        raise EvidenceError('JaCoCo Java executable is unavailable')
+    executable = str(Path(executable).resolve())
+    result = subprocess.run([executable, '-version'], capture_output=True, text=True, timeout=10)
+    match = re.search(r'(?:openjdk|java) version "([0-9][0-9A-Za-z._+\-]*)"', result.stdout + result.stderr)
+    if result.returncode or not match or not gate.runtime_matches({'java': match[1]}, {'java': required}):
+        raise EvidenceError('JaCoCo Java executable does not match the required runtime')
+    return executable
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--evidence', type=Path, required=True)
@@ -71,6 +84,8 @@ def main():
     parser.add_argument('--plan', type=Path, default=gate.DEFAULT_PLAN)
     args = parser.parse_args()
     plan = gate.load_plan(args.plan)
+    java = qualified_java(next(check['runtimeConstraints']['java'] for check in plan['checks']
+                               if check['id'] == 'coverage-ratchet'))
     expected_cli = (gate.ROOT / 'scripts/coverage/jacoco-cli-0.8.16.sha256').read_text().strip()
     if gate.digest(args.jacoco_cli) != expected_cli:
         raise EvidenceError('JaCoCo CLI differs from the pinned artifact')
@@ -96,8 +111,8 @@ def main():
         merged_inputs.append(destination / 'jacoco.exec')
     merged = directory / 'merged-jacoco.exec'
     report = directory / 'union-jacoco.xml'
-    subprocess.run(['java', '-jar', str(args.jacoco_cli), 'merge', *map(str, merged_inputs), '--destfile', str(merged)], check=True)
-    subprocess.run(['java', '-jar', str(args.jacoco_cli), 'report', str(merged), '--classfiles',
+    subprocess.run([java, '-jar', str(args.jacoco_cli), 'merge', *map(str, merged_inputs), '--destfile', str(merged)], check=True)
+    subprocess.run([java, '-jar', str(args.jacoco_cli), 'report', str(merged), '--classfiles',
                     str(gate.ROOT / 'target/classes'), '--sourcefiles', str(gate.ROOT / 'src/main/java'),
                     '--xml', str(report)], check=True)
     floors_path = gate.ROOT / 'scripts/coverage/release-coverage-floors.json'
