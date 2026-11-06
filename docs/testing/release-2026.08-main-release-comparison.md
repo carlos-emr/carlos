@@ -127,6 +127,15 @@ and inheritance can require source review even when a JVM descriptor is compatib
 No API removal has been silently excluded. Both the removal and its supported
 replacement/affected callers need a documented disposition.
 
+The expanded inventory using protected members, provided JSP API and constant
+fingerprints retains **28 types with removed/changed contracts** and **35 types
+with potentially breaking additions**. The two additional removal/change types
+are `CaseManagementView2Action` and `WaitListManager`. The complete separate
+[expanded API record](release-2026.08-main-release-api-extended-findings.json)
+identifies its harness source and candidate WAR build source. The earlier 26-type
+record is retained. No unresolved types remain in this expanded diagnostic run;
+the 34 XML differences and three unqualified main inputs/outputs still fail.
+
 Main-side rejected or malformed responses remain unqualified baseline cases,
 even when the release improves them. They cannot silently yield complete comparison
 evidence. The separate required local privacy check still fails on payload logging.

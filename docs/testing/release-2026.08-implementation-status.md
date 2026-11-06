@@ -159,6 +159,26 @@ and qualification below are complete. No release-ready verdict has been produced
   Chromium. All 239 tooling cases passed on Python 3.14. The host Python 3.12
   diagnostic retains two errors in 3.14-specific ZIP/scaling fixtures; it is not
   substituted for the required interpreter.
+- Added an inner installed package transition adapter and a required ON/BC
+  reinstall check. It pins all package inputs, rejects an invalid version order
+  before mutation, verifies the predecessor against every application file in
+  its actual published package, and compares every cell in eleven clinical
+  tables plus document bytes/directories/ownership/modes and the encryption key.
+  It also runs the existing upgrade preservation contract and binds the final
+  application to the candidate WAR. Its ON diagnostic passed all nine assertions
+  and removed its exact file canary. Clean install, unchanged-client reopen,
+  supported main upgrade, unsupported-upgrade cases and BC remain separate
+  requirements; the full lifecycle check has not been replaced by reinstall.
+- Repeated installed ON smoke and all six OS interruptions after reinstall:
+  PASS with no SQL/file residue. Both WAR and actual Debian application manifests
+  match all 9,094 installed files. These remain development lifecycle observations.
+- A separate Java 25 API oracle passes all ten assertions with real client
+  compilation failures and a still-inlined old constant. The expanded comparison
+  retains 28 changed/removed and 35 additive API type candidates; none is waived.
+- Python tooling now pins all 246 required case identities as well as its count;
+  replacing an omitted regression with an unrelated passing test cannot qualify.
+  All 246 execute successfully on Python 3.14. The live transition adapter also
+  refused an equal-version "upgrade" before any package transaction or canary.
 
 ## Remaining work before this PR can complete issue 5700
 

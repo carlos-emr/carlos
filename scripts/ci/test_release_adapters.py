@@ -19,6 +19,18 @@ def module_from(name, filename):
 
 
 class PythonOutcomeTest(unittest.TestCase):
+    def test_python_required_case_cannot_be_replaced_by_an_unrelated_pass(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / 'python.json'
+            record = {'schemaVersion': 1, 'tests': 2, 'ready': True, 'duplicateIdentities': False,
+                'cases': [{'id': 'fake.required', 'outcomes': ['PASS']}, {'id': 'fake.other', 'outcomes': ['PASS']}]}
+            path.write_text(json.dumps(record))
+            self.assertTrue(gate.python_results(path, 2, ['fake.required'])['ready'])
+            record['cases'][0]['id'] = 'fake.replacement'
+            path.write_text(json.dumps(record))
+            with self.assertRaisesRegex(EvidenceError, 'required Python'):
+                gate.python_results(path, 2, ['fake.required'])
+
     def test_primary_and_cleanup_failures_are_both_retained_without_messages(self):
         adapter = module_from("strict_python", "run-python-release-tests.py")
         class Controlled(unittest.TestCase):

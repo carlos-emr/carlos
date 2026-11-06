@@ -1330,6 +1330,16 @@ flag and verifies the resulting password, identity/PIN preservation and locked
 browser. An already-reset account fails before browser launch and must never be
 used as a substitute for clean-install first-login evidence.
 
+The required `installed-package-reinstall` runs on exclusive ON and BC installs.
+Supply exact candidate EMR/DrugRef paths and SHA-256 values, the pinned CLI path,
+and the original candidate WAR. The inner transition adapter independently checks
+whole clinical-cell and document preservation and the actual package/WAR byte
+identities. Its version gate rejects a downgrade before mutation: Debian sorts
+`2026.08.0~beta7` below published `2026.08.0.beta6`. Use the release pipeline's
+correctly ordered version; never force a downgrade to obtain upgrade evidence.
+The full clean/main-upgrade/reinstall/unsupported-upgrade orchestration remains a
+separate required gate.
+
 The narrower `installed-smoke-signals` requirement runs document upload, tickler
 CRUD and a disposable login on ON and BC. It delivers actual SIGINT and SIGTERM
 at awaited post-write checkpoints and requires exit 130/143, an interrupted

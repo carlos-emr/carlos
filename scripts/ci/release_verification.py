@@ -126,6 +126,11 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     if not names or len(set(names)) != len(names):
         raise EvidenceError("Empty or duplicate check registry")
     for check in checks:
+        if 'requiredCases' in check and (check.get('kind') not in ('python', 'node')
+                or not isinstance(check['requiredCases'], list)
+                or any(not isinstance(case, str) or not case for case in check['requiredCases'])
+                or len(check['requiredCases']) != len(set(check['requiredCases']))):
+            raise EvidenceError('Required Python/Node cases must have unique nonempty identities')
         if type(check.get('requiresArtifact', False)) is not bool:
             raise EvidenceError('Artifact prerequisite must be boolean')
         programs = check.get('requiresExecutables', [])
@@ -288,7 +293,7 @@ def node_results(path: Path, root=ROOT, minimum=1, required=()):
     return {**counts, "ready": ready}
 
 
-def python_results(path: Path, minimum=1):
+def python_results(path: Path, minimum=1, required=()):
     result = read_json(path)
     cases = result.get("cases") or []
     tests = result.get("tests")
@@ -299,6 +304,8 @@ def python_results(path: Path, minimum=1):
         raise EvidenceError("Missing or duplicate Python test identity")
     ready = result.get("ready") is True and not result.get("duplicateIdentities") and len(cases) == tests
     ready = ready and tests >= minimum and all(case.get("outcomes") == ["PASS"] for case in cases)
+    if set(required) - {case.get('id') for case in cases if case.get('outcomes') == ['PASS']}:
+        raise EvidenceError('A required Python regression did not execute successfully')
     return {"tests": tests, "ready": ready}
 
 
@@ -379,7 +386,7 @@ def summarize(check, run_dir: Path, exit_code, root=ROOT):
     elif kind == "browser":
         summary = browser_results(run_dir / "browser.xml", check, root)
     elif kind == "python":
-        summary = python_results(run_dir / "python.json", check.get("minimumCases", 1))
+        summary = python_results(run_dir / "python.json", check.get("minimumCases", 1), check.get('requiredCases', []))
     elif kind == "build":
         war = run_dir / "carlos.war"
         manifest = build_manifest(war)
