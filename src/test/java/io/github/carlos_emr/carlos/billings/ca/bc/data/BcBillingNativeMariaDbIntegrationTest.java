@@ -56,6 +56,21 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState() {
+        assertThat(dao.findBillStatus(String.valueOf(MASTER))).isEqualTo("O");
+        var state = dao.findCurrentBillState(String.valueOf(MASTER));
+        assertThat(state.practitionerNo()).isEqualTo("BC54");
+        assertThat(state.billingType()).isEqualTo("MSP");
+        assertThat(state.status()).isEqualTo("O");
+        assertThat(state.amount()).isEqualTo("10.00");
+        jdbc.update("UPDATE billingmaster SET billingstatus='P' WHERE billingmaster_no=?", MASTER);
+        assertThat(dao.findBillStatus(String.valueOf(MASTER))).isEqualTo("P");
+        assertThat(dao.findCurrentBillState(String.valueOf(MASTER)).status()).isEqualTo("P");
+        assertThat(dao.findBillStatus(String.valueOf(MASTER + 1))).isNull();
+        assertThat(dao.findCurrentBillState(String.valueOf(MASTER + 1))).isNull();
+    }
+
+    @Test
     void shouldPreserveProviderStatusDateAndServiceOrder_forInvoiceReads() {
         master(MASTER + 1, "O", "20261001", "12.30");
         master(MASTER + 2, "D", "20261010", "5.00");

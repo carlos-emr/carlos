@@ -81,7 +81,8 @@ public class BillingmasterDAO {
     public String findBillStatus(String billMasterNo) {
         List<?> rows = entityManager.createNativeQuery("SELECT billingstatus FROM billingmaster WHERE billingmaster_no=?1")
                 .setParameter(1, billMasterNo).setMaxResults(1).getResultList();
-        return rows.isEmpty() ? null : org.apache.commons.lang3.StringUtils.trimToEmpty((String) rows.get(0));
+        return rows.isEmpty() ? null : org.apache.commons.lang3.StringUtils.trimToEmpty(
+                io.github.carlos_emr.carlos.util.NativeQueryValues.asString(rows.get(0)));
     }
     private static Logger log = MiscUtils.getLogger();
     private static final String BILLING_TYPE_COLUMN = "b.billingtype";
