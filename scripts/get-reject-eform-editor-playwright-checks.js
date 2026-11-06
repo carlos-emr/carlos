@@ -25,6 +25,7 @@ const { captureRequest, replayParams, createLedger } = require('./lib/get-reject
 
 const NAME = 'get-reject-eform-editor';
 
+/** Save an owned eForm through the UI and prove unsafe replays cannot replace its template. */
 async function workflow(s) {
   const { sql, marker } = s;
   const q = h.sqlString;
@@ -52,6 +53,26 @@ async function workflow(s) {
     await admin.locator('a.defaultForms').first().click();
     const row = admin.locator('#dynamic-content #eformTbl tbody tr', { hasText: formName }).first();
     await row.waitFor({ state: 'visible', timeout: 30000 });
+    // Opening the editor removes these library frames. Let their initial
+    // scripts/fonts finish so that this GET-refusal check does not race their
+    // teardown. Keep strict diagnostics enabled for every request failure.
+    for (const [selector, partial] of [
+      ['#uploadFrame', '/eform/partials/upload'], ['#importFrame', '/eform/partials/import'],
+    ]) {
+      const element = await admin.locator(selector).elementHandle();
+      h.assert(element, 'The eForm library did not render its embedded panel');
+      try {
+        const frame = await element.contentFrame();
+        h.assert(frame, 'The eForm library did not attach its embedded panel');
+        const expected = new URL(h.appUrl(s.config.baseUrl, partial));
+        await frame.waitForURL(url => url.origin === expected.origin && url.pathname === expected.pathname,
+          { waitUntil: 'load', timeout: 30000 });
+        await frame.waitForFunction(async () => {
+          await document.fonts.ready;
+          return true;
+        }, undefined, { timeout: 30000 });
+      } finally { await element.dispose(); }
+    }
     await row.locator('a.contentLink[href*="efmformmanageredit?fid="]').first().click();
     const textarea = admin.locator('#dynamic-content textarea[name="formHtml"]');
     await textarea.waitFor({ state: 'visible', timeout: 30000 });
