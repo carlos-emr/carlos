@@ -46,18 +46,16 @@
         return;
     }
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*" %>
+<%@ page import="java.util.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.MyGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
-<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentDaySheetRow" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetService" %>
 <jsp:useBean id="myGroupBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="providerBean" class="java.util.Properties" scope="session"/>
 
@@ -73,10 +71,9 @@
 
     java.util.Properties oscarVariables = io.github.carlos_emr.CarlosProperties.getInstance();
 
-    SimpleDateFormat dayFormatter = new SimpleDateFormat("yyyy-MM-dd");
     int count = 0;
 
-    AppointmentArchiveDao appointmentArchiveDao = SpringUtils.getBean(AppointmentArchiveDao.class);
+    AppointmentDaySheetService daySheetService = SpringUtils.getBean(AppointmentDaySheetService.class);
     OscarAppointmentDao appointmentDao = SpringUtils.getBean(OscarAppointmentDao.class);
     MyGroupDao myGroupDao = SpringUtils.getBean(MyGroupDao.class);
     ProviderDataDao providerDataDao = SpringUtils.getBean(ProviderDataDao.class);
@@ -177,75 +174,14 @@
         boolean bFistL = true; //first line in a table for TH
         String strTemp = "";
         String dateTemp = "";
-        String[] param = new String[3];
-        param[0] = (String) session.getAttribute("user");
-        param[1] = sdate;
-        param[2] = provider_no;
-        String[] parama = new String[5];
-        parama[0] = sdate;
-        parama[1] = edate;
-        parama[2] = sTime;
-        parama[3] = eTime;
-        parama[4] = provider_no;
-        if (request.getParameter("dsmode") != null && request.getParameter("dsmode").equals("all")) {
-            if (!provider_no.equals("*") && !provider_no.startsWith("_grp_")) {
-                daySheetRows = appointmentDao.findDaySheet(sdate, edate, sTime, eTime, provider_no, false, orderby);
-
-            } else { //select all providers
-                daySheetRows = appointmentDao.findDaySheet(sdate, edate, sTime, eTime, null, false, orderby);
-            }
-        } else { //new appt, need to update status
-            if (!provider_no.equals("*") && !provider_no.startsWith("_grp_")) {
-                daySheetRows = appointmentDao.findDaySheet(sdate, edate, sTime, eTime, provider_no, true, orderby);
-                try {
-                    List<Appointment> appts = appointmentDao.findByProviderDayAndStatus(param[2], dayFormatter.parse(param[1]), "t");
-                    for (Appointment appt : appts) {
-                        appointmentArchiveDao.archiveAppointment(appt);
-                    }
-                } catch (java.text.ParseException e) {
-                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
-                }
-                for (Appointment a : appointmentDao.findByDayAndStatus(ConversionUtils.fromDateString(sdate), "t")) {
-                    if (a.getProviderNo().equals(provider_no)) {
-                        a.setStatus("T");
-                        a.setLastUpdateUser((String) session.getAttribute("user"));
-                        a.setUpdateDateTime(new java.util.Date());
-                        appointmentDao.merge(a);
-                    }
-                }
-
-            } else { //select all providers
-                daySheetRows = appointmentDao.findDaySheet(sdate, edate, sTime, eTime, null, true, orderby);
-                try {
-                    List<Appointment> appts = appointmentDao.findByProviderDayAndStatus(param[2], dayFormatter.parse(param[1]), "t");
-                    for (Appointment appt : appts) {
-                        appointmentArchiveDao.archiveAppointment(appt);
-                    }
-                } catch (java.text.ParseException e) {
-                    io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Cannot archive appt", e);
-                }
-                for (Appointment a : appointmentDao.findByDayAndStatus(ConversionUtils.fromDateString(sdate), "t")) {
-                    a.setStatus("T");
-                    a.setLastUpdateUser((String) session.getAttribute("user"));
-                    a.setUpdateDateTime(new java.util.Date());
-                    appointmentDao.merge(a);
-                }
-            }
-        }
+        boolean newOnly = !"all".equals(request.getParameter("dsmode"));
+        String selectedProvider = provider_no.equals("*") || provider_no.startsWith("_grp_") ? null : provider_no;
+        daySheetRows = appointmentDao.findDaySheet(sdate, edate, sTime, eTime, selectedProvider, newOnly, orderby);
+        daySheetRows = daySheetService.prepare(daySheetRows, newOnly,
+                provider_no.startsWith("_grp_") ? myGroupBean.stringPropertyNames() : null,
+                isSiteAccessPrivacy || isTeamAccessPrivacy ? providerMap.keySet() : null,
+                nonRosteredOnly, curProvider_no);
         for (AppointmentDaySheetRow appointmentRow : daySheetRows) {
-            // The index labels rosteredStatus=true as "Non Rostered Only".
-            // Apply it before emitting headings or rows, for provider, group and all views.
-            if (nonRosteredOnly && "RO".equalsIgnoreCase(appointmentRow.rosterStatus())) continue;
-            //if it is a group and a group member
-            if (!myGroupBean.isEmpty()) {
-                if (myGroupBean.getProperty(appointmentRow.providerNo()) == null) continue;
-            }
-
-            //multisites. skip record if not belong to same site/team
-            if (isSiteAccessPrivacy || isTeamAccessPrivacy) {
-                if (providerMap.get(appointmentRow.providerNo()) == null) continue;
-            }
-
             if (!strTemp.equals(appointmentRow.providerNo()) || !dateTemp.equals(appointmentRow.date())) { //new providers for a new table
                 strTemp = appointmentRow.providerNo();
                 dateTemp = appointmentRow.date();

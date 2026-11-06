@@ -73,7 +73,7 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
         String sql = "SELECT concat(d.year_of_birth,'/',d.month_of_birth,'/',d.date_of_birth), d.family_doctor,"
                 + " CAST(a.appointment_date AS CHAR), a.provider_no, CAST(a.start_time AS CHAR), CAST(a.end_time AS CHAR),"
                 + " a.reason, a.name, a.bookingSource, p.last_name, p.first_name, d.sex, d.hin, d.ver, d.provider_no,"
-                + " d.phone, d.roster_status, p2.last_name, p2.first_name, d.chart_no"
+                + " d.phone, d.roster_status, p2.last_name, p2.first_name, d.chart_no, a.appointment_no, a.updatedatetime"
                 + " FROM appointment a JOIN provider p ON a.provider_no=p.provider_no"
                 + " LEFT JOIN demographic d ON a.demographic_no=d.demographic_no"
                 + " LEFT JOIN provider p2 ON d.provider_no=p2.provider_no WHERE "
