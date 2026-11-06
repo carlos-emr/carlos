@@ -1,6 +1,8 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 import copy
 import json
+import os
+import signal
 from pathlib import Path
 import tempfile
 import subprocess
@@ -43,6 +45,11 @@ class PackageLifecycleTest(unittest.TestCase):
         for failure in (PermissionError('synthetic'), subprocess.TimeoutExpired(['docker'], 45)):
             with patch.object(controller.subprocess, 'run', side_effect=failure):
                 self.assertFalse(controller.stop_failed_cell('owned-fixture'))
+        previous = signal.getsignal(signal.SIGTERM)
+        with patch.object(controller, 'run_lifecycle', side_effect=lambda: os.kill(os.getpid(), signal.SIGTERM)):
+            with self.assertRaises(KeyboardInterrupt):
+                controller.main()
+        self.assertEqual(signal.getsignal(signal.SIGTERM), previous)
 
     def test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults(self):
         import importlib.util

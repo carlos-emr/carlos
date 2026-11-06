@@ -98,7 +98,7 @@ def package_inputs(config, baselines):
         for row in packages.values(): checked_file(row['path'], row['sha256'])
 
 
-def main():
+def run_lifecycle():
     os.umask(0o077)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', choices=('ON', 'BC'), required=True)
@@ -190,6 +190,17 @@ def main():
     inputs = retained_inputs(directory, args.output, passed)
     gate.write_json(args.output, {'schemaVersion': 1, 'assertions': {'complete-lifecycle-core': passed}, 'inputs': inputs})
     return 0 if passed else 1
+
+
+def main():
+    def interrupted(_signum, _frame):
+        raise KeyboardInterrupt
+    # Cover creation and evidence phases too, outside docker exec's own handler.
+    previous = signal.signal(signal.SIGTERM, interrupted)
+    try:
+        return run_lifecycle()
+    finally:
+        signal.signal(signal.SIGTERM, previous)
 
 
 if __name__ == '__main__':
