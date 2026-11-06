@@ -183,7 +183,7 @@ def transition(context, environment):
     # The same unchanged client creates/reopens owned records for both upgrade
     # and reinstall. Empty seeded tables cannot substitute for these canaries.
     wrapper = Path('/root/carlos/scripts/lib/deb-upgrade-install.sh')
-    wrapper.parent.mkdir(parents=True)
+    wrapper.parent.mkdir(parents=True, exist_ok=True)
     if wrapper.exists() or wrapper.is_symlink():
         raise EvidenceError('Lifecycle installer path was already occupied')
     wrapper.write_text('#!/bin/bash\nset -euo pipefail\nexec ' + shlex.join(command) + '\n')
