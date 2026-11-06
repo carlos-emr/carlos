@@ -210,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 278 required case identities, including the
+- The combined Python tooling registry pins 282 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -285,3 +285,16 @@ Linux adoption or launching an audit, so unrelated descendants cannot become
 owned after their parent exits. The outer receipt runner defers startup signals
 and retains reconciliation status, allowing the lifecycle controller a bounded
 120-second shutdown window to stop its container before escalation.
+The next lifecycle development attempt completed installation and forced first
+login. Eleven smoke checks passed; eChart stopped because the controller supplied
+a screenshot directory outside the harness's permitted roots. The correction
+keeps the full manifest smoke selection, puts browser artifacts in private `/tmp`
+directories, archives them with recovery evidence and privately retains the owned
+generated test credentials. It also gives newly created fixture directories their
+service-account ownership without altering existing directory metadata.
+
+The scope gate now checks the exact bytes of all shared published migrations,
+including the distinct beta5 baseline. Current main has 82 shared migrations and
+beta5 has 76; all match the candidate. Real Git negative controls reject changed
+SQL, comments, line endings, linked migrations and an incomplete shared inventory.
+Reviewed path ownership cannot waive a rewritten migration.

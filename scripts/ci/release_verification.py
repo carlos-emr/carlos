@@ -124,6 +124,9 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     names = [check.get("id") for check in checks]
     if not names or len(set(names)) != len(names):
         raise EvidenceError("Empty or duplicate check registry")
+    if ('scope-and-main-disposition' in names and plan.get('lifecycleBaselineManifest')
+            != 'docs/testing/release-2026.08-lifecycle-baselines.json'):
+        raise EvidenceError('Scope acceptance requires the reviewed published migration baselines')
     for check in checks:
         if 'deploymentScope' in check and (check['deploymentScope'] != 'orchestrated-package-lifecycle'
                 or not check.get('packaged') or check.get('kind') != 'command'

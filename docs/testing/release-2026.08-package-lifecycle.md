@@ -66,7 +66,8 @@ Browser identity must match the committed Playwright lock. Version ordering uses
 Debian control fields, including `~`, and rejects downgrade/equal-version upgrade
 before mutation.
 
-Private recovery configuration, journals and browser artifacts remain in each
+Private recovery configuration, the generated owned test credentials, journals
+and browser artifacts remain in each
 owned evidence directory. Do not publish them. A failed cell is retained, never
 retried in place or removed by this controller. A successful cell is removed only
 after evidence retention; all its input files are hashed into the command result.

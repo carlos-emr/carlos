@@ -14,7 +14,9 @@ import subprocess
 import sys
 
 from junit_evidence import EvidenceError
-from release_verification import DEFAULT_PLAN, ROOT, digest, load_plan, write_json
+from release_verification import DEFAULT_PLAN, ROOT, digest, load_plan, read_json, write_json
+from migration_integrity import compare_shared, sql_objects
+from lifecycle_baselines import required_baselines
 
 
 def git(root, *args):
@@ -83,9 +85,26 @@ def inventory(plan, root=ROOT, head="HEAD"):
         and row["disposition"].get("sha256") == row["sha256"]
         and isinstance(row["disposition"].get("reason"), str)
         and row["disposition"]["reason"].strip())]
+    published = {}
+    manifest = plan.get('lifecycleBaselineManifest')
+    if manifest:
+        if manifest != 'docs/testing/release-2026.08-lifecycle-baselines.json':
+            raise EvidenceError('Unexpected published lifecycle baseline manifest')
+        baselines = required_baselines(read_json(root / manifest))
+        if baselines[0]['sourceCommit'] != main:
+            raise EvidenceError('Published main source and scope baseline disagree')
+        for baseline in baselines:
+            minimum = len(sql_objects(root, baseline['sourceCommit']))
+            if not minimum:
+                raise EvidenceError('Published migration inventory is empty')
+            published[baseline['tag']] = {'sourceCommit': baseline['sourceCommit'],
+                **compare_shared(root, baseline['sourceCommit'], resolved, minimum=minimum)}
+    else:
+        published['currentMain'] = {'sourceCommit': main, **compare_shared(root, main, resolved)}
     return {"schemaVersion": 1, "head": resolved, "changes": rows,
             "unownedProductionPaths": sorted(missing), "mainOnlyMigrations": migrations,
-            "unresolvedMainOnlyMigrations": unresolved, "ready": not missing and not unresolved}
+            "unresolvedMainOnlyMigrations": unresolved, 'publishedMigrationIntegrity': published,
+            "ready": not missing and not unresolved and all(row['ready'] for row in published.values())}
 
 
 def main(argv=None):
@@ -109,7 +128,8 @@ def main(argv=None):
                 raise EvidenceError('Scope inputs must be retained beside the command result') from failure
             write_json(args.result_output, {'schemaVersion': 1, 'assertions': {
                 'complete-production-ownership': not result['unownedProductionPaths'],
-                'main-only-migration-dispositions': not result['unresolvedMainOnlyMigrations']},
+                'main-only-migration-dispositions': not result['unresolvedMainOnlyMigrations'],
+                'published-migrations-byte-identical': all(row['ready'] for row in result['publishedMigrationIntegrity'].values())},
                 'inputs': [{'path': name, 'sha256': digest(args.output)}]})
         print(json.dumps({"changedPathsAcrossScopes": len(result["changes"]),
                           "unownedProductionPaths": len(result["unownedProductionPaths"]),

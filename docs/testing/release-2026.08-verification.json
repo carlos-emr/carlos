@@ -1113,7 +1113,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 278,
+      "minimumCases": 282,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1248,6 +1248,9 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
+        "test_migration_integrity.SharedMigrationIntegrityTest.test_linked_migration_and_deleted_inventory_cannot_pass_a_baseline_floor",
+        "test_migration_integrity.SharedMigrationIntegrityTest.test_new_migrations_do_not_rewrite_shared_history",
+        "test_migration_integrity.SharedMigrationIntegrityTest.test_same_filenames_counts_and_even_sql_semantics_cannot_hide_rewritten_published_bytes",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass",
         "test_package_lifecycle.PackageLifecycleTest.test_failed_result_retains_diagnosis_without_reading_unreconciled_private_files",
         "test_package_lifecycle.PackageLifecycleTest.test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify",
@@ -1278,6 +1281,7 @@
         "test_release_adapters.ResultInventoryTest.test_node_omitted_file_duplicate_case_or_todo_is_not_complete",
         "test_release_adapters.ScopeInventoryTest.test_full_diff_preserves_more_than_300_paths_deletions_and_binary_files",
         "test_release_adapters.ScopeInventoryTest.test_production_classification_does_not_hide_migrations_or_package_scripts",
+        "test_release_adapters.ScopeInventoryTest.test_reviewed_ownership_does_not_waive_rewritten_shared_migration_bytes",
         "test_release_adapters.ScopeInventoryTest.test_scope_command_retains_real_unowned_paths_and_cannot_qualify_inventory_only",
         "test_release_adapters.ScopeInventoryTest.test_scope_requires_baseline_workstreams_and_hash_bound_migration_dispositions",
         "test_release_base_image.ReleaseBaseImageTest.test_different_digest_pins_fail",
@@ -3261,7 +3265,8 @@
         "file": "scope-result.json",
         "assertions": [
           "complete-production-ownership",
-          "main-only-migration-dispositions"
+          "main-only-migration-dispositions",
+          "published-migrations-byte-identical"
         ]
       }
     },
@@ -4851,5 +4856,6 @@
         "T31"
       ]
     }
-  }
+  },
+  "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json"
 }

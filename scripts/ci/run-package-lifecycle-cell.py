@@ -23,7 +23,6 @@ from process_group import run_process_group
 from release_deployment import attest, attest_package, package_contents
 
 OUTPUT = Path('/qualification')
-SMOKE = ['document-upload', 'tickler-crud', 'login']
 ASSERTIONS = ('ubuntu-systemd-prerequisite', 'pinned-installation', 'forced-first-login',
               'unchanged-client-before', 'real-transition', 'clinical-cleanup-preserved',
               'documents-cleanup-preserved', 'unchanged-client-after',
@@ -65,6 +64,9 @@ def first_login(profile, browser):
         'CARLOS_DISPOSABLE_HOST': 'true', 'CARLOS_SUITE_PROVINCE': profile,
         'ADMIN_FILE': str(adapter.ADMIN_FILE), 'NEW_PASSWORD': password,
         'TEST_USER': fields['user:'], 'TEST_PIN': fields['PIN:'], 'TEST_PASSWORD': password}
+    # Write before the browser: a reset can commit even when its response fails.
+    gate.write_json(OUTPUT / 'private-client-credentials.json', {key: environment[key]
+        for key in ('TEST_USER', 'TEST_PIN', 'TEST_PASSWORD')})
     run(['python3', 'scripts/ci/run-installed-first-login.py', '--profile', profile,
          '--output', str(OUTPUT / 'first-login.json')], 'first-login', environment=environment, timeout=420)
     summary, _ = gate.command_results({'file': 'first-login.json', 'assertions': list(adapter.ASSERTIONS)},
@@ -76,16 +78,18 @@ def first_login(profile, browser):
     environment.update(EXPECT_FRONT_DOOR='true', PRESCRIPTION_SIGNATURE_CLEANUP='true', BASE_DOCUMENT_DIR=base,
         LOGIN_AGREEMENT_EXPECT='hidden', STORED_DOCUMENT_EXPECT_CONTENT_UPDATES='true',
         CARLOS_DISPOSABLE_VM='true', EXCLUSIVE='1', CARLOS_LOG_JOURNAL_UNIT='carlos-emr.service',
-        SCREENSHOT_DIR=str(OUTPUT / 'private-screenshots'), ARTIFACT_DIR=str(OUTPUT / 'private-artifacts'))
+        SCREENSHOT_DIR='/tmp/carlos-lifecycle-screenshots', ARTIFACT_DIR='/tmp/carlos-lifecycle-artifacts')
     for key in ('EDOC_NAV_DOCUMENT_STORE', 'LAB_UPLOAD_DOCUMENT_STORE', 'DOCUMENT_DIR',
                 'LETTER_DOCUMENT_DIR', 'BOUNDARY_DOCUMENT_DIR', 'FORWARDING_SCOPE_DOCUMENT_STORE', 'RA_DOCUMENT_DIR'):
         environment[key] = base + '/carlos/document'
     environment.update(INCOMINGDOCUMENT_DIR=base + '/carlos/incomingdocs', EFORM_IMAGE_DIR=base + '/carlos/eform/images',
         OHIP_DISK_DIR=base + '/carlos/billing/download', INVOICE_DIR=base + '/carlos/billing/invoices')
-    for name in ('private-screenshots', 'private-artifacts'):
-        (OUTPUT / name).mkdir(mode=0o700)
+    for name in ('SCREENSHOT_DIR', 'ARTIFACT_DIR'):
+        Path(environment[name]).mkdir(mode=0o700)
     row = adapter.account(fields['user:'])
     environment['TEST_PASSWORD_HASH'] = row[3]
+    # Retain only this owned identity, never an environment dump.
+    gate.write_json(OUTPUT / 'private-client-account.json', {'TEST_PASSWORD_HASH': row[3]})
     return environment
 
 
@@ -102,8 +106,11 @@ def smoke(environment, phase):
     run(['node', 'scripts/run-playwright-suite.js', '--tier', 'smoke', '--strict-release',
          '--province', environment['CARLOS_SUITE_PROVINCE'], '--junit', str(path)],
         phase, environment=environment, timeout=600)
-    result = gate.browser_results(path, {'selectedProfile': environment['CARLOS_SUITE_PROVINCE'],
-                                         'selection': SMOKE}, gate.ROOT)
+    profile = environment['CARLOS_SUITE_PROVINCE']
+    manifest = gate.read_json(gate.ROOT / 'scripts/playwright-suite.json')['checks']
+    selected = [row['name'] for row in manifest if 'smoke' in row.get('tiers', []) and not row.get('manual')
+        and not row.get('profile') and ({'all', profile.lower()} & {value.lower() for value in row['provinces']})]
+    result = gate.browser_results(path, {'selectedProfile': profile, 'selection': selected}, gate.ROOT)
     if not result['ready']:
         raise EvidenceError('Lifecycle smoke contains missing or failing clients')
 
@@ -199,6 +206,8 @@ def retain_private_recovery():
     with tarfile.open(OUTPUT / 'private-recovery.tar.gz', 'x:gz') as archive:
         for path in (Path('/etc/carlos-emr'), Path('/var/log/carlos-emr'), Path('/var/lib/dpkg/status')):
             if path.exists(): archive.add(path, arcname=path.as_posix().lstrip('/'))
+        for path in map(Path, ('/tmp/carlos-lifecycle-screenshots', '/tmp/carlos-lifecycle-artifacts')):
+            if path.exists(): archive.add(path, arcname='browser/' + path.name)
     run(['journalctl', '--no-pager', '-u', 'carlos-emr.service', '-u', 'carlos-emr-render-browser.service'],
         'private-service-journal', timeout=60)
 
@@ -258,7 +267,14 @@ def main():
         owner = pwd.getpwnam('carlos')
         for relative in ('carlos/eform/images', 'eform/images'):
             directory = Path('/var/lib/carlos-emr/CarlosDocument') / relative
-            directory.mkdir(parents=True, exist_ok=True)
+            missing = []; parent = directory
+            while not parent.exists() and not parent.is_symlink():
+                missing.append(parent); parent = parent.parent
+            if parent.is_symlink() or not parent.is_dir():
+                raise EvidenceError('Signature fixture parent is not a regular directory')
+            for new_directory in reversed(missing):
+                new_directory.mkdir(mode=0o750)
+                new_directory.chmod(0o750); os.chown(new_directory, owner.pw_uid, owner.pw_gid)
             signature = directory / 'consult_sig_999998.png'
             content = (gate.ROOT / 'release/4422-84v9-1.png').read_bytes()
             if signature.exists() or signature.is_symlink():
