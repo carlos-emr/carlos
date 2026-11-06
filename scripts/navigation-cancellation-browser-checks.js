@@ -38,6 +38,7 @@ after(async () => {
   }
 });
 
+/** Open an isolated strict-recorded page and close its context after the test. */
 async function fixture(t) {
   const context = await browser.newContext();
   t.after(() => context.close());
@@ -50,6 +51,11 @@ async function fixture(t) {
   return { page, recorder };
 }
 
+/**
+ * Start test-owned XHR/font/image requests and await their browser request events.
+ * With all=false, retain only the XHR for the application-abort negative controls.
+ * The server deliberately withholds responses until navigation or teardown.
+ */
 async function pendingLoads(page, all = true) {
   const types = all ? ['xhr', 'font', 'image'] : ['xhr'];
   const started = types.map(type => page.waitForRequest(request =>
