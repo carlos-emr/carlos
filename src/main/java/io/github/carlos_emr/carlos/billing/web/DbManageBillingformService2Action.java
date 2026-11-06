@@ -122,8 +122,8 @@ public class DbManageBillingformService2Action extends ActionSupport {
             String groupName = Objects.toString(request.getParameter("group" + j), "");
 
             for (int i = 0; i < 20; i++) {
-                String serviceCode = request.getParameter("group" + j + "_service" + i);
-                if (serviceCode == null || serviceCode.isEmpty()) {
+                String serviceCode = Objects.toString(request.getParameter("group" + j + "_service" + i), "").trim();
+                if (serviceCode.isEmpty()) {
                     continue;
                 }
                 String orderStr = request.getParameter("group" + j + "_service" + i + "_order");

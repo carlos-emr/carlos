@@ -777,7 +777,10 @@
                             }
 
                             if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
-                                text += document.getElementById('additionalNotes').value + "\n";
+                                var additionalNotes = document.getElementById('additionalNotes').value.trim();
+                                if (additionalNotes) {
+                                    text += additionalNotes + "\n";
+                                }
                             }
                         }
                         <% if (props.isPropertyActive("rx_paste_asterisk")) {
@@ -1278,7 +1281,10 @@
                     capturedPasteText = previewForm.elements['rx_no_newlines'].value +
                             (document.all ? '' : '\n');
                     if (document.getElementById('additionalNotes') !== null) {
-                        capturedPasteText += document.getElementById('additionalNotes').value + '\n';
+                        var additionalNotes = document.getElementById('additionalNotes').value.trim();
+                        if (additionalNotes) {
+                            capturedPasteText += additionalNotes + '\n';
+                        }
                     }
                 }
                 lastFaxPasteText = null;
