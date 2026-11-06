@@ -18,6 +18,35 @@ const styles = [
   'WEB-INF/jsp/rx/Preview2.jsp', 'WEB-INF/jsp/scratch/index.jsp', 'WEB-INF/jsp/scratch/version.jsp',
 ];
 
+/** Exercise the production eChart flex layout and its actual scroll parent. */
+async function checkEchartScrollParent(page) {
+  await page.goto('http://127.0.0.1/fixture');
+  await page.setContent('<!doctype html><html><body class="encounter-layout">' +
+    '<div id="header">Synthetic eChart</div><div id="navigation-layout">' +
+    '<div id="leftNavBar"><div id="nestedList"><div id="nestedContent">Nested sidebar list</div></div>' +
+    '<div id="sidebarSpacer"></div></div>' +
+    '<div id="content"><div id="notCPP"><div id="encMainDivWrapper">Notes</div></div></div>' +
+    '<div id="rightNavBar"></div></div></body></html>');
+  await page.addStyleTag({ content: fs.readFileSync(path.join(web, 'css/encounterStyles.css'), 'utf8') });
+  await page.addStyleTag({ content: '#nestedList { height: 120px; overflow: auto; }' +
+    '#nestedContent { height: 800px; } #sidebarSpacer { height: 1600px; }' });
+  const parent = page.locator('#navigation-layout');
+  assert.ok(await parent.evaluate(el => el.scrollHeight > el.clientHeight + 240),
+    'The production eChart parent must have scrollable sidebar content');
+  assert.equal(await page.locator('#encMainDivWrapper').evaluate(el => getComputedStyle(el).overscrollBehaviorY),
+    'contain', 'Notes keep their intentional containment inside the eChart layout');
+  const nested = page.locator('#nestedList');
+  await nested.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  assert.ok(await nested.evaluate(el => el.scrollTop > 0 && el.scrollTop + el.clientHeight >= el.scrollHeight),
+    'The nested sidebar must be exhausted before the wheel event');
+  await nested.hover();
+  await page.mouse.wheel(0, 240);
+  await page.waitForFunction(() => document.getElementById('navigation-layout').scrollTop > 0, null, { timeout: 3000 });
+  assert.equal(await page.evaluate(() => window.scrollY), 0,
+    'The eChart scrolls its navigation container while the document stays fixed');
+}
+
+/** Run scroll-chaining and quick-pick regressions against shipping CSS and JS. */
 async function main() {
   const browser = await launchBrowser({ headless: true,
     chromePath: process.env.CHROME_PATH || process.env.CHROMIUM_PATH || '' });
@@ -63,6 +92,7 @@ async function main() {
           'contain', 'The eChart notes container keeps its intentional scroll containment');
       }
     }
+    await checkEchartScrollParent(page);
     await page.goto('http://127.0.0.1/fixture');
     await page.setContent('<form name="serviceform"><input name="xml_appointment_date"></form>' +
       '<div style="height:800px"></div><div id="quickPickDateOptions"></div><div style="height:1000px"></div>');
@@ -85,7 +115,7 @@ async function main() {
       assert.deepEqual(await page.evaluate(() => ({ url: location.href, scroll: window.scrollY })), before, label);
     }
     assert.deepEqual(errors, []);
-    console.log(`PASS: ${styles.length} shipping scroll surfaces and four tickler quick-pick ranges in Chromium`);
+    console.log(`PASS: ${styles.length} shipping scroll surfaces, eChart scroll parent and four tickler quick-pick ranges in Chromium`);
   } finally {
     await browser.close();
   }

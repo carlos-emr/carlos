@@ -11,10 +11,16 @@ import org.springframework.mock.web.MockHttpServletRequest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Pins form coordinates, normalization, and deferred order validation.
+ *
+ * @since 2026-11-06
+ */
 @Tag("unit")
 @Tag("billing")
 class BillingFormServiceCodeInputUnitTest extends CarlosUnitTestBase {
 
+    /** Coordinates span all groups, while each action owns raw-order validation. */
     @Test
     void shouldReadAllGroupsAndBoundaryRows_whenCodesArePadded() {
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -43,6 +49,7 @@ class BillingFormServiceCodeInputUnitTest extends CarlosUnitTestBase {
         assertThat(row.getStatus()).isEqualTo("A");
     }
 
+    /** A blank-code cell must supply no order for an action to validate. */
     @Test
     void shouldOmitBlankRows_whenTheirOrdersAreInvalid() {
         MockHttpServletRequest request = new MockHttpServletRequest();

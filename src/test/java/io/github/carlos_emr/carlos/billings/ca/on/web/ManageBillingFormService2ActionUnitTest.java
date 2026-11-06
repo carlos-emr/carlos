@@ -182,6 +182,7 @@ class ManageBillingFormService2ActionUnitTest extends CarlosUnitTestBase {
                 .replaceServiceCodes(any(), any());
     }
 
+    /** Only surrounding whitespace changes; the form, group and order stay intact. */
     @ParameterizedTest
     @ValueSource(strings = {" A007A", "A007A ", "\t A007A \r\n", "A007A"})
     void shouldTrimServiceCodes_whenReplacingBillingFormRows(String serviceCode) throws Exception {
@@ -202,6 +203,7 @@ class ManageBillingFormService2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(302);
     }
 
+    /** Blank codes are ignored before their invalid orders can abort a save. */
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "\t\r\n", "  \t  "})
