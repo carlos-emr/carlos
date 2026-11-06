@@ -21,7 +21,7 @@ class PackageLifecycleTest(unittest.TestCase):
         spec = importlib.util.spec_from_file_location('lifecycle_wrapper', Path(__file__).with_name('run-package-lifecycle-cell.py'))
         cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            root = Path(temporary).resolve()
             for name, existing in [('created', False), ('existing', True)]:
                 wrapper = root / name / 'lib/install.sh'
                 if existing: wrapper.parent.mkdir(parents=True)

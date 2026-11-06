@@ -84,7 +84,7 @@ class CiBrowserFixturesTest(unittest.TestCase):
 
     def test_assertion_observer_preserves_provider_arguments_identity_results_and_failures(self):
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary); package = root / 'node_modules/playwright'; package.mkdir(parents=True)
+            root = Path(temporary).resolve(); package = root / 'node_modules/playwright'; package.mkdir(parents=True)
             (package / 'index.js').write_text("const E=require('node:events');module.exports={};"
                 "for(const family of ['chromium','firefox','webkit'])module.exports[family]={async launch(options){"
                 "if(options.marker!=='FAKE')throw Error('arguments changed');"
