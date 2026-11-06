@@ -94,10 +94,11 @@ class CdsRuntimeIdentityUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings={"com/google/common/base/Ascii.class","com/google/common/base/CharMatcher.class"})
+    @ValueSource(strings={"com/google/common/base/Ascii.class","com/google/common/base/CharMatcher.class",
+            "org/mariadb/jdbc/Driver.class"})
     @ResourceLock("java.util.TimeZone")
     @ResourceLock("java.util.Locale")
-    void shouldRefuseRuntimeIdentity_whenAnActualAsciiNormalizationDependencyIsUnavailable(String hiddenResource) {
+    void shouldRefuseRuntimeIdentity_whenAnActualSemanticDependencyIsUnavailable(String hiddenResource) {
         ClassLoader deployed=CdsRuntimeIdentity.class.getClassLoader();
         assertThat(deployed.getResource(hiddenResource)).isNotNull();
         var hiddenRequests=new AtomicInteger();

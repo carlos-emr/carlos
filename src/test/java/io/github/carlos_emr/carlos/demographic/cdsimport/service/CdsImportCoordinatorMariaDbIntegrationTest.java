@@ -155,11 +155,11 @@ class CdsImportCoordinatorMariaDbIntegrationTest {
     @BeforeEach void prepareOwnControlRows() throws Exception {
         Properties jdbc=new Properties();
         try (InputStream input=Files.newInputStream(Path.of(System.getProperty("cds.test.properties")))) {jdbc.load(input); }
-        String url=jdbc.getProperty("jdbcUrl", "").replace("jdbc:mariadb:", "jdbc:mysql:");
-        assertThat(url).matches("jdbc:mysql://[^/]+/(?:carlos_cds_test|cds_control_[0-9a-f]{12}_test)(?:\\?.*)?");
+        String url=jdbc.getProperty("jdbcUrl", "");
+        assertThat(url).matches("jdbc:mariadb://[^/]+/(?:carlos_cds_test|cds_control_[0-9a-f]{12}_test)(?:\\?.*)?");
         Properties cli=new Properties();
-        cli.setProperty("db_driver", "com.mysql.cj.jdbc.Driver");
-        int database=url.indexOf('/', "jdbc:mysql://".length());
+        cli.setProperty("db_driver", "org.mariadb.jdbc.Driver");
+        int database=url.indexOf('/', "jdbc:mariadb://".length());
         cli.setProperty("db_uri", url.substring(0, database+1)); cli.setProperty("db_name", url.substring(database+1));
         cli.setProperty("db_username", jdbc.getProperty("jdbcUser")); cli.setProperty("db_password", jdbc.getProperty("jdbcPassword"));
         source=new CdsCliSpringConfiguration().dataSource(cli);

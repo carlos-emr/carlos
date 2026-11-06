@@ -33,6 +33,20 @@ immunization view checks follow the same shared-gate contract: missing patients
 return 400 and conflicting aliases return 403. Schedule mutation refusals retain
 their separate 400 contract.
 
+## Historical chart retrieval after the modern-only cutover
+
+The modern chart header offers **Historical legacy chart (read only)** to users with the
+existing report-read permission. The history route retains its report, patient demographic-read
+and record-restriction checks. Each listed revision opens the existing patient-scoped historical
+print route; both retained print routes load only the explicitly requested revision belonging to
+that patient. They label the content as a retained historical snapshot that excludes subsequent
+modern-chart updates. No legacy editor write is re-enabled.
+
+`EncounterPrintPatientIsolationUnitTest` checks that all six retained clinical fields can still
+be retrieved while the modern policy is active, and that foreign, missing and invalid revisions
+cannot disclose historical text. The installed two-patient check verifies each patient's own
+historical text after the other chart was entered, foreign-revision refusal and unchanged data.
+
 ## The legacy encounter editor
 
 `encounter/Index2.jsp` renders the editor only with the CAISI module (`caisi=on`) and only for an
