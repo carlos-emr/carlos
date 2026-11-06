@@ -88,20 +88,22 @@
 
 
 <%
-    // Preflight every selected member before the first archive, delete or persist. A location
-    // may have been disabled while this page was open; no part of the group may then be saved.
-    Map<Integer, AppointmentLocationResolver.ResolvedLocation> groupLocations = new HashMap<>();
+    // Resolve the posted location once, before the first archive, delete or persist, and give every
+    // member that one validated snapshot (#3982). The form was posted by one appointment's edit
+    // popup, so Group Update resolves it against that appointment (appointment_no), as the Repeat
+    // page does: leaving its location unchanged keeps it even if its item was disabled since, and a
+    // provider ticked for the first time gets it too. Resolving against each member's own row would
+    // refuse that member, and with it the whole update. Add Group books new appointments, which may
+    // only choose an active location. A location disabled while this page was open refuses the
+    // whole group before anything is written.
+    AppointmentLocationResolver.ResolvedLocation groupLocation = null;
     String groupOperation = request.getParameter("groupappt");
     if ("Add Group Appointment".equals(groupOperation) || "Group Update".equals(groupOperation)) {
+        int anchorNo = "Group Update".equals(groupOperation)
+                ? org.apache.commons.lang3.math.NumberUtils.toInt(request.getParameter("appointment_no"), 0) : 0;
+        Appointment groupAnchor = anchorNo > 0 ? appointmentDao.find(anchorNo) : null;
         try {
-            for (String key : request.getParameterMap().keySet()) {
-                if (!key.contains("one") && !key.contains("two")) continue;
-                int selected = Integer.parseInt(request.getParameter(key));
-                String savedId = request.getParameter("appointment_no" + selected);
-                Appointment saved = "Group Update".equals(groupOperation) && savedId != null
-                        ? appointmentDao.find(Integer.parseInt(savedId)) : null;
-                groupLocations.put(selected, AppointmentLocationResolver.resolvePostedLocation(saved, request));
-            }
+            groupLocation = AppointmentLocationResolver.resolvePostedLocation(groupAnchor, request);
         } catch (AppointmentLocationUnavailableException ex) {
             io.github.carlos_emr.carlos.utility.ErrorPageMessage.sendError(request, response,
                     HttpServletResponse.SC_CONFLICT, AppointmentLocationUnavailableException.MESSAGE_KEY);
@@ -152,7 +154,7 @@
                 a.setName(request.getParameter("keyword"));
                 a.setNotes(request.getParameter("notes"));
                 a.setReason(request.getParameter("reason"));
-                groupLocations.get(datano).applyTo(a);
+                groupLocation.applyTo(a);
                 a.setResources(request.getParameter("resources"));
                 a.setType(request.getParameter("type"));
                 a.setStyle(request.getParameter("style"));
@@ -281,7 +283,7 @@
                     a.setName(request.getParameter("keyword"));
                     a.setNotes(request.getParameter("notes"));
                     a.setReason(request.getParameter("reason"));
-                    groupLocations.get(datano).applyTo(a);
+                    groupLocation.applyTo(a);
                     a.setResources(request.getParameter("resources"));
                     a.setType(request.getParameter("type"));
                     a.setStyle(request.getParameter("style"));
