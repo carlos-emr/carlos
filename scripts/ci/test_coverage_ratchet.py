@@ -1,7 +1,9 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 import importlib.util
 import json
+import os
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -12,6 +14,42 @@ from junit_evidence import EvidenceError
 spec = importlib.util.spec_from_file_location('coverage_ratchet', Path(__file__).with_name('run-coverage-ratchet.py'))
 ratchet = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ratchet)
+
+
+class CoverageCommandTest(unittest.TestCase):
+    def test_standalone_checker_runs_without_pythonpath_and_retains_failed_floors(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(['git', '-c', 'user.name=Fixture',
+                    '-c', 'user.email=fixture@example.invalid', *args], cwd=root, text=True).strip()
+            git('init', '-q')
+            git('commit', '--allow-empty', '-qm', 'baseline')
+            base = git('rev-parse', 'HEAD')
+            source = 'src/main/java/example/Guard.java'
+            (root / source).parent.mkdir(parents=True)
+            (root / source).write_text('class Guard {}\n')
+            git('add', source)
+            git('commit', '-qm', 'candidate')
+            policy = root / 'floors.json'
+            policy.write_text(json.dumps({'schemaVersion': 1, 'base': base,
+                'baselineCommit': base, 'files': {source: {
+                    'lines': 100, 'instructions': 100, 'branches': 100}}}))
+            report = root / 'jacoco.xml'
+            with patch.dict(os.environ):
+                os.environ.pop('PYTHONPATH', None)
+                for covered, missed, expected in ((1, 0, True), (0, 1, False)):
+                    with self.subTest(expected=expected):
+                        report.write_text('<report><package name="example"><sourcefile name="Guard.java">'
+                            f'<line nr="1" ci="{covered}" mi="{missed}" cb="0" mb="0"/>'
+                            '</sourcefile></package></report>')
+                        output = root / ('result-' + str(expected) + '.json')
+                        result = ratchet.check_floors(report, policy, base, output, root)
+                        self.assertIs(result['ready'], expected)
+                        self.assertEqual(result, json.loads(output.read_text()))
+                        if not expected:
+                            self.assertEqual({problem['reason'] for problem in result['problems']},
+                                             {'lines', 'instructions'})
 
 
 class CoverageLaneTest(unittest.TestCase):

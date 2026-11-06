@@ -2,12 +2,12 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Merge same-class, source-bound JaCoCo runs and apply committed per-file floors."""
 import argparse
-import importlib.util
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 
 import release_verification as gate
 from junit_evidence import EvidenceError
@@ -51,6 +51,18 @@ def resolve_lane(evidence, check, plan_path, root=gate.ROOT, profile='all', iter
     return path.parent
 
 
+def check_floors(report, floors_path, base, output, root=gate.ROOT):
+    """Run the standalone checker with its sibling imports and repository context."""
+    checked = subprocess.run([sys.executable, str(gate.ROOT / 'scripts/coverage/check-coverage-floors.py'),
+        str(report), '--floors', str(floors_path), '--base', base, '--output', str(output)], cwd=root)
+    if checked.returncode not in (0, 1):
+        raise EvidenceError('Coverage floor checker could not complete')
+    result = gate.read_json(output)
+    if type(result.get('ready')) is not bool or result['ready'] != (checked.returncode == 0):
+        raise EvidenceError('Coverage floor result disagrees with its exit status')
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--evidence', type=Path, required=True)
@@ -88,20 +100,12 @@ def main():
     subprocess.run(['java', '-jar', str(args.jacoco_cli), 'report', str(merged), '--classfiles',
                     str(gate.ROOT / 'target/classes'), '--sourcefiles', str(gate.ROOT / 'src/main/java'),
                     '--xml', str(report)], check=True)
-    module_path = gate.ROOT / 'scripts/coverage/check-coverage-floors.py'
-    spec = importlib.util.spec_from_file_location('release_floors', module_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
     floors_path = gate.ROOT / 'scripts/coverage/release-coverage-floors.json'
     floors = gate.read_json(floors_path)
     if floors.get('base') != plan['baselines']['currentMain']:
         raise EvidenceError('Coverage floors use a different reviewed base')
-    diff = subprocess.check_output(['git', 'diff', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/',
-                                    '--no-renames', '-U0', floors['base'], 'HEAD', '--', 'src/main/java'],
-                                   cwd=gate.ROOT, text=True)
-    result = module.check_floors(report, floors, diff)
     details = directory / 'coverage-details.json'
-    gate.write_json(details, result)
+    result = check_floors(report, floors_path, floors['base'], details)
     retained.extend([merged, report, details])
     gate.write_json(args.output, {'schemaVersion': 1, 'assertions': {
         'same-source-and-classes': True, 'all-required-java-lanes': True, 'reviewed-floors': result['ready']},

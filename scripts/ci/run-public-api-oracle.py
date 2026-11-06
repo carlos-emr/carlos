@@ -23,13 +23,19 @@ public abstract class Contract {
  public abstract void save();
  public String read(String x) { return x; }
  public enum Choice { OLD }
+ protected static class Extension { public Extension() {} public String value() { return "FAKE"; } }
 }
 '''
 AFTER = BEFORE.replace('FAKE-before', 'FAKE-after').replace(
     'protected String protectedRead()', 'private String protectedRead()').replace(
+    'protected static class Extension', 'private static class Extension').replace(
     'public abstract void save();', 'public abstract void save(); public abstract void flush();').replace(
     'public enum Choice { OLD }', 'public String read(Integer x) { return "FAKE"; } public enum Choice { OLD, NEW }')
 CLIENTS = {
+    'ProtectedNestedClient': '''package client; public abstract class ProtectedNestedClient extends fake.Contract {
+      protected ProtectedNestedClient() { super("FAKE"); }
+      public String use() { return new Extension().value(); }
+    }''',
     'SubclassClient': '''package fake; public final class SubclassClient extends Contract {
       public SubclassClient() { super("FAKE"); } public void save() {}
     }''',
@@ -117,6 +123,8 @@ def main():
     enum_additions = wire.risky_additions(old['fake.Contract$Choice'], new['fake.Contract$Choice'])
     assertions.update({
         'protected-contract-removal-detected': any('protectedRead' in member for member in removed),
+        'protected-nested-type-removal-detected': bool(old.get('fake.Contract$Extension'))
+            and 'fake.Contract$Extension' not in new,
         'abstract-addition-detected': any('flush' in member for member in additions),
         'overload-addition-detected': any('read(java.lang.Integer)' in member for member in additions),
         'enum-addition-detected': 'enum-constant:NEW' in enum_additions,

@@ -113,8 +113,7 @@ public final class WarWireCompatibilityProbe {
                 // Retain all other types instead of discarding an entire API
                 // inventory when one protected signature needs a provided API.
                 result.put(name, List.of("unresolved-api:" + incomplete.getClass().getName()));
-                System.err.println("Incomplete API inventory for " + name);
-                incomplete.printStackTrace(System.err);
+                System.err.println("Incomplete API inventory for " + name + ": " + incomplete.getClass().getName());
             }
         }
         return encode(result);
@@ -151,7 +150,8 @@ public final class WarWireCompatibilityProbe {
 
     private static void publicType(Class<?> type, Map<String, Object> result, Set<Class<?>> visited, boolean root) throws Exception {
         if (!visited.add(type)) return;
-        if (!java.lang.reflect.Modifier.isPublic(type.getModifiers())) {
+        if (!java.lang.reflect.Modifier.isPublic(type.getModifiers())
+                && (root || !java.lang.reflect.Modifier.isProtected(type.getModifiers()))) {
             if (root) result.put(type.getName(), List.of("not-public"));
             return;
         }
@@ -198,6 +198,7 @@ public final class WarWireCompatibilityProbe {
             }
         }
         result.put(type.getName(), members);
+        // Protected member types are part of the contract exposed to subclasses too.
         for (var nested : type.getDeclaredClasses()) publicType(nested, result, visited, false);
     }
 

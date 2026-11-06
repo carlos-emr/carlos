@@ -1102,7 +1102,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 246,
+      "minimumCases": 248,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1182,6 +1182,7 @@
         "test_command_evidence.CommandEvidenceTest.test_missing_and_exit_zero_noop_cannot_pass",
         "test_command_evidence.CommandEvidenceTest.test_negative_assertion_blocks_readiness",
         "test_command_evidence.CommandEvidenceTest.test_real_inputs_are_retained_and_revalidated",
+        "test_coverage_ratchet.CoverageCommandTest.test_standalone_checker_runs_without_pythonpath_and_retains_failed_floors",
         "test_coverage_ratchet.CoverageLaneTest.test_different_compiled_bytes_cannot_be_merged_even_at_the_same_commit",
         "test_coverage_ratchet.CoverageLaneTest.test_dirty_checkout_and_wrong_class_tree_are_refused",
         "test_coverage_ratchet.CoverageLaneTest.test_exact_successful_lane_is_selected",
@@ -1283,6 +1284,7 @@
         "test_run_cds_native_tier.NativeReadinessTest.test_final_tcp_listener_is_retried_until_it_accepts_queries",
         "test_run_cds_native_tier.NativeReadinessTest.test_missing_final_listener_fails_at_the_deadline",
         "test_run_cds_native_tier.NativeReadinessTest.test_temporary_unix_listener_cannot_establish_native_readiness",
+        "test_run_cds_native_tier.NativeSourceTest.test_ci_maven_cache_is_ignored_but_untracked_source_and_tracked_edits_are_not",
         "test_run_cds_performance.PerformanceEvidenceTest.test_all_nine_cases_and_startup_fit_actual_indented_public_proof_for_pass_and_query_failure",
         "test_run_cds_performance.PerformanceEvidenceTest.test_an_oom_or_counter_reset_stops_before_any_query_only_failure_may_continue",
         "test_run_cds_performance.PerformanceEvidenceTest.test_atomic_evidence_replacement_preserves_protected_mode_and_refuses_symlinks",
@@ -4309,7 +4311,9 @@
           "overload-addition-detected",
           "overloadclient-real-client-break",
           "protected-contract-removal-detected",
+          "protected-nested-type-removal-detected",
           "protectedclient-real-client-break",
+          "protectednestedclient-real-client-break",
           "subclassclient-real-client-break"
         ]
       }

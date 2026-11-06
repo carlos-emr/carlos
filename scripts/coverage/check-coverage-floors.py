@@ -79,7 +79,8 @@ def main():
     parser.add_argument('--head', default='HEAD')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
-    diff = subprocess.check_output(['git', 'diff', '--no-renames', '-U0', args.base, args.head,
+    diff = subprocess.check_output(['git', 'diff', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/',
+                                    '--no-renames', '-U0', args.base, args.head,
                                     '--', 'src/main/java'], text=True)
     floors = json.loads(args.floors.read_text())
     if floors.get('base') != subprocess.check_output(['git', 'rev-parse', args.base], text=True).strip():

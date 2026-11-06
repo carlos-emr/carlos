@@ -6,6 +6,7 @@ import io
 from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 from defusedxml.common import DefusedXmlException
 
@@ -13,6 +14,38 @@ MODULE_PATH = Path(__file__).with_name('run-cds-native-tier.py')
 SPEC = importlib.util.spec_from_file_location('cds_native_tier', MODULE_PATH)
 NATIVE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(NATIVE)
+
+
+class NativeSourceTest(unittest.TestCase):
+    def test_ci_maven_cache_is_ignored_but_untracked_source_and_tracked_edits_are_not(self):
+        import release_verification as gate
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def git(*args):
+                return subprocess.check_output(['git', '-c', 'user.name=Fixture',
+                    '-c', 'user.email=fixture@example.invalid', *args], cwd=root, text=True).strip()
+            git('init', '-q')
+            (root / '.gitignore').write_bytes((gate.ROOT / '.gitignore').read_bytes())
+            source = root / 'Required.java'
+            source.write_text('class Required {}\n')
+            git('add', '.')
+            git('commit', '-qm', 'candidate')
+            cache = root / '.m2-cache/repository/example/fixture.jar'
+            cache.parent.mkdir(parents=True)
+            cache.write_bytes(b'fake build cache')
+            self.assertTrue(gate.source_identity(root)['clean'])
+            untracked = root / 'Additional.java'
+            untracked.write_text('class Additional {}\n')
+            self.assertFalse(gate.source_identity(root)['clean'])
+            untracked.unlink()
+            source.write_text('class Changed {}\n')
+            self.assertFalse(gate.source_identity(root)['clean'])
+            # Gitignore cannot conceal an edited tracked file, even in the cache.
+            git('add', '-f', str(cache.relative_to(root)))
+            git('add', 'Required.java')
+            git('commit', '-qm', 'tracked cache fixture')
+            cache.write_bytes(b'changed tracked bytes')
+            self.assertFalse(gate.source_identity(root)['clean'])
 
 
 class NativeEvidenceTest(unittest.TestCase):
