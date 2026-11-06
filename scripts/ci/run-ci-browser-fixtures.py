@@ -75,8 +75,10 @@ def validate_proofs(fixture, records, engines, expected_version, source):
             raise EvidenceError('Node browser fixture has no unique engine report')
         report = engines[0]; summary = report.get('summary') or {}; counts = summary.get('counts') or {}
         cases = report.get('cases') or []
-        if (summary.get('success') is not True or type(counts.get('tests')) is not int
-                or counts['tests'] != len(required) or counts.get('passed') != len(required)
+        if (type(report.get('schemaVersion')) is not int or report['schemaVersion'] != 1
+                or summary.get('success') is not True or type(counts.get('tests')) is not int
+                or counts['tests'] != len(required) or type(counts.get('passed')) is not int
+                or counts['passed'] != len(required)
                 or any(type(counts.get(key)) is not int or counts[key] != 0
                        for key in ('failed', 'cancelled', 'skipped', 'todo'))
                 or len(cases) != len(required) or len({row.get('name') for row in cases}) != len(required)

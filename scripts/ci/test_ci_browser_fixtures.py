@@ -71,6 +71,15 @@ class CiBrowserFixturesTest(unittest.TestCase):
                 {'name': name, 'file': '/FAKE/source.js', 'outcome': 'PASS'} for name in row['requiredCases']]}
         self.assertEqual(self.validate(row=row, engines=[engine])['nodeCases'], 2)
         with self.assertRaises(EvidenceError): self.validate(row=row)
+        for version in (None, True, 2):
+            bad = copy.deepcopy(engine); bad['schemaVersion'] = version
+            with self.subTest(version=version), self.assertRaises(EvidenceError):
+                self.validate(row=row, engines=[bad])
+        single = copy.deepcopy(engine)
+        single['cases'] = single['cases'][:1]
+        single['summary']['counts'].update(tests=1, passed=True)
+        with self.assertRaises(EvidenceError):
+            self.validate(row={**row, 'requiredCases': ['first']}, engines=[single])
         for field in ('failed', 'cancelled', 'skipped', 'todo'):
             bad = copy.deepcopy(engine); bad['summary']['counts'][field] = 1
             with self.assertRaises(EvidenceError): self.validate(row=row, engines=[bad])
