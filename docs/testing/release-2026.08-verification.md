@@ -288,3 +288,30 @@ engine cases with no skips, TODOs or cancellations. The observer delegates origi
 assertions and browser calls, preserving arguments, results and failures. Missing
 commands, changed fixture sources, zero-assertion success and incomplete browser
 cleanup fail. These isolated source fixtures complement installed-page acceptance.
+
+### Installed backup core
+
+`installed-backup-core` is required independently on ON and BC. Run it as root
+inside the exclusive disposable installed package, with the exact candidate WAR,
+`--profile ON` or `--profile BC` matching the installed billing region,
+`BASE_URL` set to its loopback URL, `CARLOS_DISPOSABLE_HOST=true` and `EXCLUSIVE=1`.
+The installed backup script and effective service units must match the checkout;
+service drop-ins fail. Use a fresh local repository and an empty installer-created
+restore database. Existing backup history is refused before fixture creation.
+Keep the evidence directory private and outside the source checkout.
+
+The adapter starts the shipped backup and verification services, independently
+compares all cells and DDL in eleven clinical tables, the migration ledger and a
+Unicode/binary/high-precision canary, restores document bytes and metadata,
+checks eighteen named exclusions and two allowed import controls, and restores
+operational configuration and its encryption key. Encryption and access refusals
+have positive controls. A controlled repository disappearance must produce the
+specific refusal in fresh journal records, leave snapshot history and freshness
+markers unchanged, and recover the original directory inode. Cleanup waits for
+owned workers, checks fixture ownership and restores prior timer states. An
+unexpected replacement repository is retained for reconciliation.
+
+Private recovery archives include encrypted repository bytes and credential/key
+escrow; publish only receipt hashes. The separate `backup-retention-purge` check
+still requires retention, interruption and terminal purge qualification. This core
+does not claim those phases or complete issue 5700 by itself.

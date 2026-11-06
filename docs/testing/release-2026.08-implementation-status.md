@@ -362,3 +362,24 @@ source files, including exact generated-case multiplicities and source hashes.
   prerequisite. A complete source-bound run remains required. Six negative-control
   tooling tests cover omissions, replacement/skipped cases, stale sources,
   assertion-free success and instrumentation delegation.
+
+- Registered a real installed backup core on both ON and BC, independently of the
+  remaining retention/interruption/purge requirement. Thirteen passing fault tests
+  cover changed SQL DDL despite equal rows, file bytes/modes, plaintext markers
+  across read boundaries, linked paths, stale/generic journal failures, changed
+  history/freshness, and safe preservation when workers or replacement state
+  prevent cleanup. The first older-candidate development attempt passes fifteen
+  of sixteen assertions and restores owned state; its missing-repository oracle
+  incorrectly expects an unlogged alert body and remains FAILED. A separate
+  corrected diagnostic confirms actual specific refusal, unchanged snapshots and
+  markers, original-inode recovery and successful subsequent backup. No final
+  candidate or province qualification is inferred from these diagnostics.
+
+- The corrected older-candidate ON backup development run passes all sixteen
+  assertions with verified cleanup and original-history recovery. This is separate
+  from the preserved failed attempt. Province selection now checks the actual
+  installed billing region and rejects mismatches or duplicate configuration.
+- The required matrix now contains 83 checks and 218 executions across 40
+  workstreams. At `a78b9ce`, the normal CI fixture gate passes all fifteen scripts
+  and the native lanes pass 3,079 generated, 229 ON Flyway and 61 BC Flyway cases
+  without failures or skips. Those receipts retain their original source identity.

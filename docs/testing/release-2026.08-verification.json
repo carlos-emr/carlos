@@ -1007,7 +1007,8 @@
         "build",
         "packaged-full",
         "backup-retention-purge",
-        "debian-python"
+        "debian-python",
+        "installed-backup-core"
       ]
     },
     {
@@ -1145,7 +1146,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 312,
+      "minimumCases": 325,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1250,6 +1251,19 @@
         "test_generate_path_bindings.PathCandidatesTest.test_deleted_older_scope_is_retained_without_inventing_coverage",
         "test_generate_path_bindings.PathCandidatesTest.test_reviewed_noop_preserves_plan_bytes_and_changed_bindings_are_written",
         "test_generate_path_bindings.PathCandidatesTest.test_writing_candidates_without_review_is_refused",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_configuration_bytes_modes_and_empty_directories_are_independent",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_file_and_operational_parent_links_cannot_reach_outside_owned_roots",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_live_workers_prevent_restoration_and_preserve_original_history",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_missing_prior_markers_refuse_fault_injection_before_rename",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_missing_repository_uses_only_fresh_journal_and_restores_original_inode",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_named_canary_cleanup_preserves_replaced_or_preexisting_files",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_replacement_repository_is_preserved_for_reconciliation",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_repository_probe_rejects_changed_history_or_freshness_markers",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_selected_province_must_match_actual_unambiguous_installed_configuration",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_sql_ddl_warnings_wrong_table_and_entities_cannot_certify_restore",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_sql_restore_cannot_hide_ddl_change_behind_equal_rows",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_streaming_plaintext_scan_detects_boundary_spanning_and_binary_markers",
+        "test_installed_backup_core.InstalledBackupCoreTest.test_success_or_unrelated_failure_cannot_qualify_repository_safety",
         "test_installed_first_login.InstallationStageTest.test_interrupted_browser_tree_requires_reconciliation_even_if_reset_committed",
         "test_installed_first_login.InstallationStageTest.test_private_complete_installer_file_is_required",
         "test_installed_first_login.InstallationStageTest.test_success_requires_real_password_change_reset_clear_and_preserved_identity",
@@ -3437,6 +3451,62 @@
       "repetitions": 1,
       "reason": "Clean, upgrade and reinstall the candidate .deb with prior state, immutable migrations, config/keys, package dependency lock and unsupported-upgrade refusal.",
       "packaged": true
+    },
+    {
+      "id": "installed-backup-core",
+      "kind": "command",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "packaged": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-installed-backup-core.py",
+        "--artifact",
+        "{artifact}",
+        "--output",
+        "{run}/backup-core-result.json",
+        "--profile",
+        "{profile}"
+      ],
+      "timeoutSeconds": 5400,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "requiresExecutables": [
+        "restic",
+        "mariadb",
+        "systemctl",
+        "runuser"
+      ],
+      "runtimeConstraints": {
+        "python": "3.14"
+      },
+      "resultContract": {
+        "file": "backup-core-result.json",
+        "assertions": [
+          "candidate-bound-before-and-after",
+          "installed-backup-executables-bound",
+          "local-fresh-repository-no-external-alerts",
+          "real-backup-and-drill-passed",
+          "all-clinical-cells-and-ledgers-restored",
+          "document-bytes-and-metadata-restored",
+          "encryption-key-restored",
+          "named-staging-and-credential-exclusions",
+          "allowed-import-snapshots-and-ledgers-restored",
+          "operational-config-bytes-and-metadata-restored",
+          "repository-encryption-and-application-read-denials",
+          "no-plaintext-canary-in-repository",
+          "known-missing-repository-refused",
+          "clinical-data-preserved",
+          "owned-fixtures-cleaned",
+          "private-recovery-escrow-retained"
+        ]
+      }
     },
     {
       "id": "backup-retention-purge",
