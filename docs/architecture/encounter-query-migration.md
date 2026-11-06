@@ -17,7 +17,7 @@ operations. It also migrates every remaining `SqlUtils.getRow` and
 | MDS search, BC address picker, note-role repair, antenatal planner | Existing owning DAOs now return typed values or mutation counts. Search allowlists, merged-patient exclusion, paging budgets, page access checks and output encoding remain. The planner additionally binds the requested patient with the form ID. |
 | BC `SqlUtils` consumers | Named billing-service, billing-master and diagnosis projections replace arbitrary SQL. Billing-master reads explicitly use REQUIRED rather than inheriting its legacy REQUIRES_NEW, so they see caller writes. `LegacyReadResult` preserves null on missing/failed reads without logging clinical values. |
 
-Ordinary fixed queries use JPA/native scalar projections. Three schema-dependent
+Ordinary fixed queries use JPA/native scalar projections. Schema-dependent
 adapters deliberately use Hibernate's managed `doReturningWork` inside the DAO:
 AP results must retain the physical driver's string formatting (including
 timestamp scale), the antenatal planner retains date/decimal text and NULL across legacy column types,
