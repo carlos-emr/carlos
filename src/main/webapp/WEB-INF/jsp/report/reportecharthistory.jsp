@@ -87,6 +87,9 @@
 <body bgproperties="fixed" onLoad="setfocus()" topmargin="0"
       leftmargin="0" rightmargin="0">
 
+<p><strong><fmt:message key="encounter.historicalChart.title"/></strong><br/>
+    <fmt:message key="encounter.historicalChart.notice"/>
+</p>
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#CCCCFF">
         <th align=CENTER NOWRAP><font face="Helvetica"><fmt:message key="encounter.echartHistory.title"/></font></th>
@@ -131,8 +134,8 @@
             //bodd = bodd?false:true;
             nItems++;
             bgcolor = nItems % 2 == 0 ? "#EEEEFF" : "white";
-            datetime = eChart.getTimestamp().toString();
-            ectsize = eChart.getEncounter().length() / 1024;
+            datetime = eChart.getTimestamp() == null ? String.valueOf(eChart.getId()) : eChart.getTimestamp().toString();
+            ectsize = eChart.getEncounter() == null ? 0 : eChart.getEncounter().length() / 1024;
 
             if (eChart.getSubject() != null && eChart.getSubject().equals("SPLIT CHART")) {
                 splitectsize = "" + ectsize;

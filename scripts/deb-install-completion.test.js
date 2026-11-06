@@ -460,7 +460,9 @@ reload_nginx
 test('postinst records terminal nginx failures and accepts a successful rebind', () => {
   const start = postinst.indexOf('        if nginx -t >/dev/null 2>&1; then');
   assert.ok(start >= 0);
-  const end = postinst.indexOf('\n        ;;', start);
+  // Exercise nginx recovery alone. The subsequent mandatory chart migration
+  // has its own real-file/provisioning-lock coverage in test_modern_chart_cutover.py.
+  const end = postinst.indexOf('\n        # BEGIN MODERN_CHART_CUTOVER', start);
   assert.ok(end > start);
   const block = postinst.slice(start, end).replaceAll('/run/systemd/system', '/tmp');
   // How the step treats nginx by its state: running is RELOADED; failed (its
