@@ -337,20 +337,38 @@ class AppointmentLocationResolverUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldLeaveAllMembersUnchanged_whenLaterGroupMemberCannotKeepDisabledLocation() {
-        Appointment first = booked("Satellite office", 13);
-        Appointment second = booked("Virtual", 11);
+    void shouldGiveEveryGroupMemberTheEditedLocation_whenItsItemWasDisabledSince() {
+        // Group Update (appointmentgrouprecords.jsp) resolves the edit form once, against the
+        // appointment it came from, and applies that snapshot to every member it recreates: a
+        // member booked elsewhere, and a provider ticked for the first time with no row at all.
+        Appointment edited = booked("Satellite office", 13);
+        Appointment bookedElsewhere = booked("Virtual", 11);
+        Appointment newMember = new Appointment();
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addParameter("locationCode", "13");
+        request.addParameter("location", "");
+
+        AppointmentLocationResolver.ResolvedLocation group = AppointmentLocationResolver.resolvePostedLocation(edited, request);
+        group.applyTo(bookedElsewhere);
+        group.applyTo(newMember);
+
+        assertThat(group).isEqualTo(new AppointmentLocationResolver.ResolvedLocation(13, "Satellite office"));
+        assertThat(List.of(bookedElsewhere, newMember)).allSatisfy(member -> {
+            assertThat(member.getLocationCode()).isEqualTo(13);
+            assertThat(member.getLocation()).isEqualTo("Satellite office");
+        });
+        assertThat(edited.getLocationCode()).isEqualTo(13);
+    }
+
+    @Test
+    void shouldRefuseDisabledLocation_whenGroupIsBookedWithoutEditedAppointment() {
+        // Add Group books new appointments only, so it resolves against nothing: a location
+        // disabled while the page was open refuses the whole group before any member is written.
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.addParameter("locationCode", "13");
 
-        var resolvedLocations = List.of(first, second).stream()
-                .map(saved -> AppointmentLocationResolver.resolvePostedLocation(saved, request));
-        assertThatThrownBy(resolvedLocations::toList)
+        assertThatThrownBy(() -> AppointmentLocationResolver.resolvePostedLocation(null, request))
                 .isInstanceOf(AppointmentLocationUnavailableException.class);
-
-        assertThat(first.getLocationCode()).isEqualTo(13);
-        assertThat(second.getLocationCode()).isEqualTo(11);
-        assertThat(second.getLocation()).isEqualTo("Virtual");
     }
 
     @Test
