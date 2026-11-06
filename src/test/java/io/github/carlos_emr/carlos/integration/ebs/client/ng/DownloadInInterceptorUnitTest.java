@@ -33,8 +33,8 @@ class DownloadInInterceptorUnitTest extends CarlosUnitTestBase {
         var builder = mock(EdtClientBuilder.class, CALLS_REAL_METHODS);
         builder.setConfig(config);
         builder.configureInInterceptor(client);
-        assertThat(normal).noneMatch(DownloadInInterceptor.class::isInstance);
-        assertThat(normal).anyMatch(AttachmentCleanupInterceptor.class::isInstance);
+        assertThat(normal).noneMatch(DownloadInInterceptor.class::isInstance)
+                .anyMatch(AttachmentCleanupInterceptor.class::isInstance);
         assertThat(fault).anyMatch(AttachmentCleanupInterceptor.class::isInstance);
     }
 
@@ -44,7 +44,8 @@ class DownloadInInterceptorUnitTest extends CarlosUnitTestBase {
         message.setContent(InputStream.class, new InputStream() {
             @Override public int read() throws IOException { throw new IOException("synthetic read refusal"); }
         });
-        assertThatThrownBy(() -> new DownloadInInterceptor().handleMessage(message))
+        var interceptor = new DownloadInInterceptor();
+        assertThatThrownBy(() -> interceptor.handleMessage(message))
                 .isInstanceOf(Fault.class).hasCauseInstanceOf(IOException.class);
     }
 }

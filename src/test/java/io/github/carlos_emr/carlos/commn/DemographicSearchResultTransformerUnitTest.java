@@ -21,7 +21,7 @@ class DemographicSearchResultTransformerUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPreserveIsoBirthDateAndProjectedNames_whenTransformingNativeTuple() {
-        try (var ignored = mockConstruction(DemographicMerged.class)) {
+        try (var _ = mockConstruction(DemographicMerged.class)) {
             var transformer = new DemographicSearchResultTransformer();
             var result = (DemographicSearchResult) transformer.transformTuple(tuple(), new String[0]);
             assertThat(result.getDemographicNo()).isEqualTo(17);
@@ -35,7 +35,7 @@ class DemographicSearchResultTransformerUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldUseHeadRecordWithoutProviderDereference_whenPatientWasMerged() {
-        try (var ignored = mockConstruction(DemographicMerged.class, (mock, context) -> when(mock.getHead(17)).thenReturn(42))) {
+        try (var _ = mockConstruction(DemographicMerged.class, (mock, context) -> when(mock.getHead(17)).thenReturn(42))) {
             var dao = mock(DemographicDao.class);
             var head = new Demographic();
             head.setDemographicNo(42); head.setLastName("FAKE-head"); head.setFirstName("FAKE-first");

@@ -53,7 +53,7 @@ class FaxPollBackoffUnitTest extends CarlosUnitTestBase {
         backoff.failed(1);
         backoff.failed(2);
         var snapshot = backoff.snapshot();
-        assertThatThrownBy(() -> snapshot.clear()).isInstanceOf(UnsupportedOperationException.class);
+        assertThatThrownBy(snapshot::clear).isInstanceOf(UnsupportedOperationException.class);
         assertThat(backoff.recovered(1)).isTrue();
         assertThat(backoff.recovered(1)).isFalse();
         assertThat(backoff.isDue(1)).isTrue();

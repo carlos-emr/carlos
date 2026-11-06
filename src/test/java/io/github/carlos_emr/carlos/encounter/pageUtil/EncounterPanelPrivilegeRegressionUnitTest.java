@@ -55,6 +55,10 @@ import org.springframework.mock.web.MockHttpServletResponse;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
@@ -321,10 +325,10 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
     })
     void shouldResolveReviewedHeadingKey_whenEachChangedPanelBuildsItsHeading(String type, String key) throws Exception {
         var panelType = Class.forName(getClass().getPackageName() + "." + type).asSubclass(EctDisplayAction.class);
-        var panel = org.mockito.Mockito.mock(panelType, org.mockito.Mockito.CALLS_REAL_METHODS);
+        var panel = mock(panelType, CALLS_REAL_METHODS);
         panel.securityInfoManager = securityInfoManager;
-        org.mockito.Mockito.doReturn(loggedInInfo).when(panel).getLoggedInInfo(request);
-        org.mockito.Mockito.doReturn(ROLE_NAME).when(panel).getRoleNames(request);
+        doReturn(loggedInInfo).when(panel).getLoggedInInfo(request);
+        doReturn(ROLE_NAME).when(panel).getRoleNames(request);
         when(securityInfoManager.hasPrivilege(org.mockito.ArgumentMatchers.eq(loggedInInfo),
                 org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.eq("r"),
                 org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
@@ -337,7 +341,7 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
                 org.mockito.ArgumentMatchers.any(Vector.class))).thenReturn(true);
         // Stop at the real translation boundary, before unrelated database population.
         var observed = new HeadingObserved();
-        org.mockito.Mockito.doThrow(observed).when(panel).getText(key);
+        doThrow(observed).when(panel).getText(key);
         assertThatThrownBy(() -> panel.getInfo(encounterSession(), request, new NavBarDisplayDAO())).isSameAs(observed);
         verify(panel).getText(key);
     }

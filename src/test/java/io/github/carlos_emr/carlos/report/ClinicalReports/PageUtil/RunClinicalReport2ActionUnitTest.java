@@ -25,7 +25,8 @@ class RunClinicalReport2ActionUnitTest extends CarlosUnitTestBase {
         try (var servlet = mockStatic(ServletActionContext.class)) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-            assertThatThrownBy(() -> new RunClinicalReport2Action().execute())
+            var action = new RunClinicalReport2Action();
+            assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_report)");
             assertThat(request.getAttribute("csv")).isNull();
             assertThat(request.getSession().getAttribute("ClinicalReports")).isNull();
