@@ -26,7 +26,8 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                           "ConsultationListProjectionIntegrationTest": 17,
                           "BCAR2020FormSaveTransactionIntegrationTest": 15,
                           "RxCorrectionSaveRollbackIntegrationTest": 2,
-                          "DemographicMergeMariaDbIntegrationTest": 8},
+                          "DemographicMergeMariaDbIntegrationTest": 8,
+                          "Growth0To36FormPersistenceIntegrationTest": 15},
             "flyway": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
                        "LegacyLabNativeMariaDbIntegrationTest": 4, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
@@ -34,7 +35,8 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                        "CaseManagementIssueDAOIntegrationTest": 22,
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
-                       "DemographicMergeMariaDbIntegrationTest": 8},
+                       "DemographicMergeMariaDbIntegrationTest": 8,
+                          "Growth0To36FormPersistenceIntegrationTest": 15},
             "bc-flyway": {"LabRoutingLookupDaoIntegrationTest": 4,
                            "LegacyLabNativeMariaDbIntegrationTest": 4,
                            "ConsultationArchiveDaoIntegrationTest": 1,
@@ -43,7 +45,8 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                            "BcBillingNativeMariaDbIntegrationTest": 8,
                            "BcBillingDaoTransactionIntegrationTest": 4,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
-                           "DemographicMergeMariaDbIntegrationTest": 8}}
+                           "DemographicMergeMariaDbIntegrationTest": 8,
+                          "Growth0To36FormPersistenceIntegrationTest": 15}}
 
 
 def verify(reports: Path, output: Path) -> dict:
