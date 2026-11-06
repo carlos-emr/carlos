@@ -95,7 +95,7 @@ public class Growth0To36FormService {
                 try {
                     String now = UtilDateUtilities.DateToString(new Date(), "yyyyMMddHHmmss");
                     Path file = Path.of(CarlosProperties.getInstance().getProperty("form_record_path", "/root"))
-                            .resolve("formGrowth0_36_" + patient + "_" + now + "_" + id + ".xml");
+                            .resolve("formGrowth0_36_" + patient + "_" + now + ".xml");
                     // JDBCUtil validates the final path under the configured archive directory.
                     JDBCUtil.saveAsXML(forms.readArchive(patient, id), file.toString());
                 } catch (Exception e) {

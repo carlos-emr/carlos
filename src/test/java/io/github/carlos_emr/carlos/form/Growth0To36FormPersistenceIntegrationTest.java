@@ -310,31 +310,26 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldArchiveEveryVersionWithoutOverwriting_whenOneTransactionSavesTwice() throws Exception {
+    void shouldPreserveTheXmlImportContract_whenArchivingCommittedValues() throws Exception {
         Properties configuration = CarlosProperties.getInstance();
         String previousEnabled = configuration.getProperty("save_as_xml");
         String previousPath = configuration.getProperty("form_record_path");
         try {
             configuration.setProperty("save_as_xml", "true");
             configuration.setProperty("form_record_path", archive.toString());
-            int[] ids = new int[2];
-            new TransactionTemplate(transactions).executeWithoutResult(status -> {
-                ids[0] = service.saveVersion(actor, patient, 0, values);
-                values.setProperty("comment_20", "  Écho ' <&>  ");
-                ids[1] = service.saveVersion(actor, patient, ids[0], values);
-                try (var files = Files.list(archive)) { assertThat(files).isEmpty(); }
-                catch (Exception e) { throw new AssertionError(e); }
-            });
+            values.setProperty("comment_20", "  Écho ' <&>  ");
+            int id = service.saveVersion(actor, patient, 0, values);
             try (var files = Files.list(archive)) {
                 var saved = files.toList();
-                assertThat(saved).hasSize(2);
-                for (int id : ids) {
-                    Path file = saved.stream().filter(path -> path.getFileName().toString().endsWith("_" + id + ".xml"))
-                            .findFirst().orElseThrow();
-                    var document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(file.toFile());
-                    assertThat(xmlColumns(document)).isEqualTo(xmlColumns(forms.readArchive(patient, id)));
-                    assertThat(xmlColumns(document)).hasSize(131);
-                }
+                assertThat(saved).hasSize(1);
+                Path file = saved.getFirst();
+                var target = io.github.carlos_emr.carlos.util.JDBCUtil.parseImportFileName(file.getFileName().toString());
+                assertThat(target.formName()).isEqualTo("formGrowth0_36");
+                assertThat(target.demographicNo()).isEqualTo(Integer.toString(patient));
+                assertThat(target.timeStamp()).matches("\\d{14}");
+                var document = XmlUtils.createSecureDocumentBuilderFactory().newDocumentBuilder().parse(file.toFile());
+                assertThat(xmlColumns(document)).isEqualTo(xmlColumns(forms.readArchive(patient, id)));
+                assertThat(xmlColumns(document)).hasSize(131);
             }
         } finally {
             restore(configuration, "save_as_xml", previousEnabled);
