@@ -89,7 +89,13 @@ public class CategoryData {
     }
 
     private int count(Operation operation, String demographicNo) throws SQLException {
-        InboxCategoryDao.Counts result = dao.count(filter, operation, demographicNo);
+        InboxCategoryDao.Counts result;
+        try {
+            result = dao.count(filter, operation, demographicNo);
+        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException failure) {
+            // Inbox controllers retain their checked-SQL failure path after the DAO migration.
+            throw new SQLException("Could not read inbox category counts", failure);
+        }
         for (InboxCategoryDao.PatientCount row : result.patients()) {
             if (operation == Operation.DOCUMENT_PATIENT) {
                 PatientInfo patient = new PatientInfo(row.id(), row.firstName(), row.lastName());

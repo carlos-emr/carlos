@@ -120,4 +120,11 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
         verify(query, org.mockito.Mockito.atLeast(3)).setParameter(org.mockito.ArgumentMatchers.anyInt(), values.capture());
         assertThat(values.getAllValues()).contains("%12345%");
     }
+    @Test
+    void shouldRetainCheckedSqlFailure_whenManagedCountQueryFails() {
+        when(query.getResultList()).thenThrow(new jakarta.persistence.PersistenceException("synthetic failure"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> search("").getLabCountForPatientSearch())
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasCauseInstanceOf(jakarta.persistence.PersistenceException.class);
+    }
 }
