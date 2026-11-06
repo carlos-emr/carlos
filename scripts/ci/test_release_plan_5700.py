@@ -47,11 +47,11 @@ class RequiredExecutionsTest(unittest.TestCase):
             (installed / 'browsers.json').write_text(json.dumps({'browsers': [
                 {'name': 'chromium', 'browserVersion': '154.0.0.1'}]}))
             report = root / 'browser.xml'
-            for version in ('', '148.0.0.1', '154.0.0.1,148.0.0.1', '154.0.0.1'):
+            for version in ('', '148.0.0.1', '154.0.0.1,148.0.0.1', 'firefox 154.0.0.1', '154.0.0.1', 'chromium 154.0.0.1'):
                 report.write_text('<testsuites><testsuite><properties><property name="browserVersion" value="' +
                                   version + '"/></properties><testcase name="required"/></testsuite></testsuites>')
                 check = {'selectedProfile': 'ON', 'requireLockedChromium': True}
-                if version == '154.0.0.1':
+                if version in ('154.0.0.1', 'chromium 154.0.0.1'):
                     self.assertTrue(gate.browser_results(report, check, root)['ready'])
                 else:
                     with self.assertRaisesRegex(EvidenceError, 'Chromium'):

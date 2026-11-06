@@ -126,6 +126,8 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     if not names or len(set(names)) != len(names):
         raise EvidenceError("Empty or duplicate check registry")
     for check in checks:
+        if type(check.get('requiresArtifact', False)) is not bool:
+            raise EvidenceError('Artifact prerequisite must be boolean')
         programs = check.get('requiresExecutables', [])
         if (not isinstance(programs, list)
                 or any(not isinstance(program, str) or not re.fullmatch(r'[A-Za-z0-9_+.-]+', program)
@@ -300,6 +302,24 @@ def python_results(path: Path, minimum=1):
     return {"tests": tests, "ready": ready}
 
 
+def require_locked_chromium(versions, root=ROOT):
+    lock = read_json(root / "package-lock.json")
+    version = lock["packages"]["node_modules/playwright-core"]["version"]
+    directories = [parent / "node_modules/playwright-core" for parent in (root, *root.parents)]
+    installed = next((directory for directory in directories if (directory / "package.json").is_file()), None)
+    if installed is None or read_json(installed / "package.json").get("version") != version:
+        raise EvidenceError("Installed Playwright does not match the committed lock")
+    browsers = read_json(installed / "browsers.json").get("browsers", [])
+    expected_versions = {row["browserVersion"] for row in browsers if row.get("name") == "chromium"}
+    observed = set()
+    for value in versions:
+        match = re.fullmatch(r'(?:chromium )?(\d+\.\d+\.\d+\.\d+)', value)
+        if not match: raise EvidenceError('Missing or unqualified launched Chromium version')
+        observed.add(match[1])
+    if len(expected_versions) != 1 or observed != expected_versions:
+        raise EvidenceError("Missing or unqualified launched Chromium version")
+
+
 def browser_results(path: Path, check, root=ROOT):
     # Strict runner JUnit retains product outcomes but converts every non-PASS
     # classification to a readiness failure. Reconcile names with the manifest.
@@ -307,19 +327,10 @@ def browser_results(path: Path, check, root=ROOT):
     with path.open("rb") as stream:
         document = ET.parse(stream, forbid_dtd=True).getroot()
     if check.get("requireLockedChromium"):
-        lock = read_json(root / "package-lock.json")
-        version = lock["packages"]["node_modules/playwright-core"]["version"]
-        directories = [parent / "node_modules/playwright-core" for parent in (root, *root.parents)]
-        installed = next((directory for directory in directories if (directory / "package.json").is_file()), None)
-        if installed is None or read_json(installed / "package.json").get("version") != version:
-            raise EvidenceError("Installed Playwright does not match the committed lock")
-        browsers = read_json(installed / "browsers.json").get("browsers", [])
-        expected_versions = {row["browserVersion"] for row in browsers if row.get("name") == "chromium"}
         observed_versions = {item.strip() for prop in document.iter("property")
                              if prop.get("name") == "browserVersion"
                              for item in prop.get("value", "").split(",") if item.strip()}
-        if len(expected_versions) != 1 or observed_versions != expected_versions:
-            raise EvidenceError("Missing or unqualified launched Chromium version")
+        require_locked_chromium(observed_versions, root)
     cases = list(document.iter("testcase"))
     profile = check["selectedProfile"]
     manifest = read_json(root / "scripts/playwright-suite.json")["checks"]
@@ -421,7 +432,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
             receipt["reason"] = "Required runtime version is unavailable"
         elif check["kind"] == "external" or missing or missing_programs:
             receipt["reason"] = "External acceptance pending" if check["kind"] == "external" else "Missing named test prerequisites"
-        elif check.get("packaged") and artifact is None:
+        elif (check.get("packaged") or check.get('requiresArtifact')) and artifact is None:
             receipt["reason"] = "Packaged acceptance requires the exact built WAR"
         else:
             if check.get("packaged"):
@@ -537,7 +548,7 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
         check = dict(checks[key[0]], selectedProfile=key[1])
         if not runtime_matches(receipt.get("runtimes", {}), check.get("runtimeConstraints", {})):
             raise EvidenceError("Evidence used an unqualified runtime")
-        if check.get("packaged") and receipt.get("artifactSha256") != artifact_hash:
+        if (check.get("packaged") or check.get('requiresArtifact')) and receipt.get("artifactSha256") != artifact_hash:
             raise EvidenceError("Installed acceptance belongs to different packaged bytes")
         if check.get("packaged") and receipt.get("outcome") == "PASS" and (
                 receipt.get("deployment", {}).get("warSha256") != artifact_hash

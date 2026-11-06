@@ -97,10 +97,47 @@ and qualification below are complete. No release-ready verdict has been produced
   the owned test account was recovered only after an independent hash comparison
   confirmed the form-limited credential. Twelve native harness tests and 22 login
   harness cases pass.
-- Added 24 individually reviewed path bindings for these direct proofs. This is
+- Added 30 individually reviewed path bindings for these direct proofs. This is
   not a blanket ownership assignment for the remaining production scope.
 - Added concrete workflow amendments to the CI proposal. No workflow or migration
   files changed.
+
+- Added required main/release binary-client comparison: 612 identical legacy XML
+  requests across 308 types, 14 direct XML/JSON outputs and a local privacy canary.
+  It verifies the published main package pin and candidate WAR, uses Tomcat's
+  class loader and each binary's own production mapper/module definitions, retains
+  hashed observations, and rejects changed text/order/types or missing cases.
+  Development comparison found 589 matching wire cases and 34 unreviewed XML
+  differences; three main-side defects improve and the SOAP exposure is pre-existing.
+  These findings remain failing, with no allowlist. See
+  [the comparison record](release-2026.08-main-release-comparison.md).
+- Corrected production mapper unit setup to execute its SmartDateModule
+  registration. Converted document-upload, tickler-crud and login smoke scripts
+  to structured cooperative completion, actual browser identity and cleanup that
+  attempts every restoration even when an earlier action fails.
+
+- Live interruption checks exposed an orphan page-rendering cache file and a
+  swallowed document cleanup error. Upload cleanup now inventories the configured
+  stores before writes, removes only owned new files/page renderings, preserves
+  pre-existing entries/links and propagates every cleanup failure.
+- Real OS signal checkpoints wait for confirmed SIGINT/SIGTERM delivery; historical
+  synchronous handler injection is kept visibly separate. The signal audit now
+  recognizes actual checkpoint calls with an AST and independently verifies the
+  shared credential's password/reset fields, not only row counts. Login uses its
+  own disposable account to keep repeated failure/reset checks from locking the
+  shared operator. Final source-bound/province acceptance remains required.
+
+- The installed ON signal adapter passed all six actual OS interruptions using
+  locked Chromium 149.0.7827.55, with no added/removed/changed fixture-store entries
+  or SQL residue and exact original credential restoration. The disposable-login
+  success path also passed. These development receipts preserve the earlier cache
+  residue and lockout failures; BC and final source-bound qualification remain.
+- The Chromium gate now accepts the runner's actual `chromium <version>` metadata
+  while still rejecting wrong browser families, mixed versions and missing identity.
+
+- Strict Node validation passed all 7,308 cases with zero skips, TODOs,
+  cancellations or failures after providing the pinned CLI source prerequisite.
+  Focused production mapper tests and binary/signal adapter negative controls pass.
 
 ## Remaining work before this PR can complete issue 5700
 

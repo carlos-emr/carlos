@@ -1307,3 +1307,24 @@ package lifecycle checks. An unimplemented or blocked external adapter prevents
 this job from passing. Provisioning and cross-run artifact transfer must be
 reviewed before adding the job; the three steps are not a substitute for that
 boundary. No workflow should convert a missing readiness file into success.
+
+
+The required `main-release-wire-compatibility` check needs both the source-bound
+candidate WAR and the published main package from
+`release-2026.08-lifecycle-baselines.json`. Supply `CARLOS_MAIN_PACKAGE` and
+`CARLOS_TOMCAT_CORE` (Tomcat embed core 11.0.27; the adapter verifies its exact
+SHA-256). Run it through the existing verifier with `--artifact`; retain all
+underlying observations and changed-type inventories. A main/release difference
+must not be replaced with a candidate-only pass or a Maven provider baseline.
+See [the comparison findings](../testing/release-2026.08-main-release-comparison.md).
+This check supplements installed HTTP/persistence and package lifecycle comparisons.
+
+The narrower `installed-smoke-signals` requirement runs document upload, tickler
+CRUD and a disposable login on ON and BC. It delivers actual SIGINT and SIGTERM
+at awaited post-write checkpoints and requires exit 130/143, an interrupted
+structured outcome, unchanged file stores and exact restoration of the original
+operator's password/reset state. It rejects historical handler injection. Supply
+`CARLOS_DISPOSABLE_HOST=true` and the actual `CARLOS_SUITE_PROVINCE`; stage the
+runbook's username lockout setting and vascular dictionary first. Keep it serial
+with every other install/profile mutation. This is additional coverage; the full
+`harness-crash-qualification` inventory and SIGKILL recovery remain required.

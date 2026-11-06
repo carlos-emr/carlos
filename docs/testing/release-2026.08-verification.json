@@ -50,7 +50,8 @@
         "build",
         "packaged-full",
         "scope-and-main-disposition",
-        "scope-inventory"
+        "scope-inventory",
+        "main-release-wire-compatibility"
       ]
     },
     {
@@ -223,7 +224,8 @@
         "build",
         "packaged-full",
         "java-date-zones",
-        "http-client-compatibility"
+        "http-client-compatibility",
+        "main-release-wire-compatibility"
       ]
     },
     {
@@ -508,7 +510,8 @@
         "build",
         "packaged-full",
         "ebs-packaged-staging",
-        "ebs-local-payload-privacy"
+        "ebs-local-payload-privacy",
+        "main-release-wire-compatibility"
       ]
     },
     {
@@ -562,7 +565,8 @@
         "packaged-full",
         "http-client-compatibility",
         "sql-hook",
-        "java-legacy-compat"
+        "java-legacy-compat",
+        "main-release-wire-compatibility"
       ]
     },
     {
@@ -623,7 +627,8 @@
         "java-all",
         "build",
         "packaged-full",
-        "image-overwrite-contract"
+        "image-overwrite-contract",
+        "main-release-wire-compatibility"
       ]
     },
     {
@@ -801,7 +806,11 @@
         "scripts/pmm-attach-source-context-checks.test.js",
         "scripts/renal-input-fixture.test.js",
         "scripts/throwaway-login-fixture.test.js",
-        "scripts/uncertain-server-writes.test.js"
+        "scripts/uncertain-server-writes.test.js",
+        "scripts/ci/run-installed-smoke-signals.py",
+        "scripts/ci/test_installed_smoke_signals.py",
+        "scripts/lib/document-upload-files.js",
+        "scripts/document-upload-files.test.js"
       ],
       "implementation": "Perform the final-source real-OS-signal inventory on applicable mutating check families. Extend unit tests only for newly found gaps; retain exact ownership/byte guards and fatal cleanup outcomes.",
       "cases": "Before/after accepted SQL/app writes, upload chunks, delayed response, shutdown and cleanup; both SIGINT and SIGTERM; exit 130/interrupted structured outcome; owned versus foreign SQL references; file bytes/type/inode/owner/mode; configs and new defaults restored; killed-run reconciliation and process groups. Exercise real SIGINT/SIGTERM and crash/SIGKILL where cleanup/recovery is promised. Serialize every global profile and verify owned-row snapshots and exact restoration.",
@@ -822,7 +831,8 @@
         "packaged-profile-legacy-teleplan",
         "packaged-profile-multisite",
         "packaged-profile-no-pin",
-        "packaged-profile-private-consent"
+        "packaged-profile-private-consent",
+        "installed-smoke-signals"
       ]
     },
     {
@@ -3868,6 +3878,93 @@
           "payload-free-logging"
         ]
       }
+    },
+    {
+      "id": "main-release-wire-compatibility",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "packaged": false,
+      "requiresArtifact": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-main-release-wire-compatibility.py",
+        "--main-package",
+        "{mainPackage}",
+        "--candidate",
+        "{artifact}",
+        "--tomcat-core",
+        "{tomcatCore}",
+        "--output",
+        "{run}/compatibility-result.json"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_MAIN_PACKAGE",
+        "CARLOS_TOMCAT_CORE"
+      ],
+      "environmentInputs": {
+        "mainPackage": "CARLOS_MAIN_PACKAGE",
+        "tomcatCore": "CARLOS_TOMCAT_CORE"
+      },
+      "requiresExecutables": [
+        "java",
+        "javac",
+        "dpkg-deb"
+      ],
+      "timeoutSeconds": 900,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "resultContract": {
+        "file": "compatibility-result.json",
+        "assertions": [
+          "both-binary-clients-complete",
+          "no-unreviewed-wire-breaks"
+        ]
+      }
+    },
+    {
+      "id": "installed-smoke-signals",
+      "kind": "command",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "packaged": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-installed-smoke-signals.py",
+        "--profile",
+        "{profile}",
+        "--output",
+        "{run}/signal-result.json"
+      ],
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_DISPOSABLE_HOST",
+        "CARLOS_SUITE_PROVINCE"
+      ],
+      "requiresExecutables": [
+        "node",
+        "mariadb"
+      ],
+      "timeoutSeconds": 1500,
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "resultContract": {
+        "file": "signal-result.json",
+        "assertions": [
+          "all-six-real-os-signals",
+          "all-owned-state-restored",
+          "locked-chromium"
+        ]
+      }
     }
   ],
   "requireJavaDiscovery": true,
@@ -4162,6 +4259,87 @@
       ],
       "workstreams": [
         "T30"
+      ]
+    },
+    "scripts/document-upload-playwright-checks.js": {
+      "reason": "Installed upload success and both OS signals prove SQL/file restoration; independent file audit exposed the cache leak.",
+      "tests": [
+        "scripts/document-upload-files.test.js",
+        "scripts/legacy-check.test.js"
+      ],
+      "checks": [
+        "node-all",
+        "installed-smoke-signals"
+      ],
+      "workstreams": [
+        "T31"
+      ]
+    },
+    "scripts/tickler-crud-playwright-checks.js": {
+      "reason": "Installed CRUD and both OS signals preserve owned rows and file inventories with structured outcomes.",
+      "tests": [
+        "scripts/tickler-crud-synchronization.test.js",
+        "scripts/legacy-check.test.js"
+      ],
+      "checks": [
+        "node-all",
+        "installed-smoke-signals"
+      ],
+      "workstreams": [
+        "T31"
+      ]
+    },
+    "scripts/login-playwright-checks.js": {
+      "reason": "Disposable login identity, exact password/reset state and both OS signals are checked independently of row counts.",
+      "tests": [
+        "scripts/login-browser-diagnostics.test.js",
+        "scripts/legacy-check.test.js"
+      ],
+      "checks": [
+        "node-all",
+        "installed-smoke-signals"
+      ],
+      "workstreams": [
+        "T31"
+      ]
+    },
+    "scripts/lib/legacy-check.js": {
+      "reason": "Real OS checkpoints wait for observed delivery; unit child processes cover both signals and fatal ordered cleanup.",
+      "tests": [
+        "scripts/legacy-check.test.js"
+      ],
+      "checks": [
+        "node-all",
+        "installed-smoke-signals"
+      ],
+      "workstreams": [
+        "T31"
+      ]
+    },
+    "scripts/lib/document-upload-files.js": {
+      "reason": "Owned PDF/link files and page renderings are removed, while pre-existing files, traversal, symlinks and directories are retained and fail.",
+      "tests": [
+        "scripts/document-upload-files.test.js"
+      ],
+      "checks": [
+        "node-all",
+        "installed-smoke-signals"
+      ],
+      "workstreams": [
+        "T31"
+      ]
+    },
+    "scripts/signal-cleanup-audit.js": {
+      "reason": "Actual AST call inventory, OS versus handler delivery, signal-specific exit codes, and independent credential/file snapshots are required.",
+      "tests": [
+        "scripts/signal-cleanup-audit.test.js"
+      ],
+      "checks": [
+        "node-all",
+        "installed-smoke-signals"
+      ],
+      "workstreams": [
+        "T31"
       ]
     }
   }

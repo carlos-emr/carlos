@@ -89,6 +89,26 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.assertEqual(result["requiredExecutions"], 2)
         self.assertEqual(result["receivedExecutions"], 2)
 
+    def test_binary_comparison_requires_artifact_without_requiring_an_installed_server(self):
+        self.plan['checks'][1]['requiresArtifact'] = True
+        self.save_plan(); self.commit()
+        receipt = self.run_check()
+        self.assertEqual(receipt['outcome'], 'BLOCKED')
+        self.assertNotIn('command', receipt)
+
+    def test_binary_artifact_binding_is_rechecked_at_final_verification(self):
+        self.plan['checks'][1]['requiresArtifact'] = True
+        self.save_plan(); self.commit()
+        build = self.run_check('build')
+        self.artifact = self.evidence / build['runId'] / 'carlos.war'
+        receipt = gate.run_check(self.plan_path, 'java', self.evidence, 'all', 1,
+                                 artifact=self.artifact, root=self.root)
+        self.assertEqual(receipt['outcome'], 'PASS')
+        self.assertTrue(self.verify()['releaseReady'])
+        receipt['artifactSha256'] = '0' * 64
+        (self.evidence / receipt['runId'] / 'receipt.json').write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(EvidenceError, 'different packaged bytes'): self.verify()
+
     def test_command_results_bind_underlying_inputs_through_final_verification(self):
         producer = self.root / "measured.py"
         producer.write_text('''import hashlib,json,pathlib,sys
