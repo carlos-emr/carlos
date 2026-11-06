@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.managers;
 
 import java.util.List;
 
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.dao.RBTGroupDao;
 import io.github.carlos_emr.carlos.commn.model.RBTGroup;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -42,6 +41,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class RBTGroupManager {
+
+    /** Length of the {@code rbt_groups.group_name} column (varchar(255)), counted in Unicode code points. */
+    public static final int MAX_GROUP_NAME_LENGTH = 255;
 
     @Autowired
     private RBTGroupDao rbtGroupDao;
@@ -68,14 +70,51 @@ public class RBTGroupManager {
      * @param loggedInInfo User current login information and credentials
      * @param groupName    Name of the template group to add the template to
      * @param tid          Template id of the group to be added
+     * @throws IllegalArgumentException if the stripped group name is null, blank, longer than
+     *                                  {@link #MAX_GROUP_NAME_LENGTH} code points, contains control
+     *                                  characters, or (when {@code tid} is 0, creating the group)
+     *                                  names a group that already exists
      */
     public void addTemplateToGroup(LoggedInInfo loggedInInfo, String groupName, int tid) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", SecurityInfoManager.WRITE, null)) {
             throw new RuntimeException("Unauthorised Access. Object[_admin]");
         }
 
-        groupName = groupName.trim();
-        groupName = Encode.forJava(groupName);
+        // The label is persisted exactly as typed (trimmed). It is user text, not Java source, so it is
+        // NOT run through Encode.forJava (#5639): that rewrote apostrophes, accents and backslashes into
+        // escape sequences that every later render then showed. Output encoding belongs at render time
+        // (templateGroups.jsp / homePage.jsp use the CARLOS encoders), which is what keeps this safe.
+        if (groupName == null) {
+            throw new IllegalArgumentException("Report by Template group name is required");
+        }
+        // Not String.trim()/strip(): trim() ignores Unicode spaces and strip() leaves no-break spaces
+        // (NBSP) alone, while the page's JavaScript trim() removes both. Matching the browser keeps a
+        // label the page treats as blank from being stored as an invisible group.
+        groupName = stripEdgeWhitespace(groupName);
+        if (groupName.isEmpty()) {
+            throw new IllegalArgumentException("Report by Template group name is required");
+        }
+        // rbt_groups.group_name is varchar(255), which MariaDB counts in characters (code points), not
+        // UTF-16 units; String.length() would reject 200 emoji that the column holds. Refuse rather than
+        // let the database truncate or fail.
+        if (groupName.codePointCount(0, groupName.length()) > MAX_GROUP_NAME_LENGTH) {
+            throw new IllegalArgumentException(
+                    "Report by Template group name exceeds " + MAX_GROUP_NAME_LENGTH + " characters");
+        }
+        // Control characters (NUL, newline, ...) are not valid label text and cannot survive the
+        // HTML attribute round trip: the encoder replaces them, so the hidden groupName field would
+        // name a different group than the stored one.
+        if (groupName.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("Report by Template group name contains control characters");
+        }
+        // tid 0 is the "create group" marker row (RBTAddGroup2Action). rbt_groups uses a
+        // case- and accent-insensitive collation (utf8mb4_general_ci), so "Zoe" and "Zoë" address the
+        // same group in every lookup and delete; a second group that the database cannot tell apart
+        // would silently merge with, and be deleted with, the first. getByGroupName compares with the
+        // database collation, so it is the right test. The page's JavaScript check is feedback only.
+        if (tid == 0 && !rbtGroupDao.getByGroupName(groupName).isEmpty()) {
+            throw new IllegalArgumentException("A Report by Template group with this name already exists");
+        }
 
         RBTGroup rbtGroup = new RBTGroup();
         rbtGroup.setTemplateId(tid);
@@ -123,6 +162,35 @@ public class RBTGroupManager {
         }
 
         return rbtGroupDao.getByGroupName(groupName);
+    }
+
+    /**
+     * Removes leading and trailing whitespace the way JavaScript's {@code String.trim()} does.
+     *
+     * <p>Not {@code String.trim()}/{@code strip()} (they miss Unicode spaces / no-break spaces) and not
+     * a regular expression: the input is an unbounded request parameter, and an anchored
+     * {@code [\s...]+$} pattern is quadratic on a long run of spaces followed by another character.
+     * This is a single linear scan.</p>
+     */
+    private static String stripEdgeWhitespace(String text) {
+        int start = 0;
+        int end = text.length();
+        while (start < end && isEdgeWhitespace(text.charAt(start))) {
+            start++;
+        }
+        while (end > start && isEdgeWhitespace(text.charAt(end - 1))) {
+            end--;
+        }
+        return text.substring(start, end);
+    }
+
+    /**
+     * Whitespace as JavaScript's {@code String.trim()} defines it: ASCII whitespace, every Unicode space
+     * separator (including no-break spaces), line/paragraph separators and the byte order mark.
+     */
+    private static boolean isEdgeWhitespace(char c) {
+        return c == ' ' || c == '\t' || c == '\n' || c == '\u000B' || c == '\f' || c == '\r'
+                || Character.isSpaceChar(c) || c == '\uFEFF';
     }
 
 }
