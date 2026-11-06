@@ -15,19 +15,19 @@
       "check": "error-sanitization",
       "mainResult": "FAIL",
       "candidateCleanSmokeResult": "PASS",
-      "observation": "The installed error-sanitization probe reported failure; diagnose its actual baseline cause before disposition."
+      "observation": "The invalid satellite-clinic-address probe expected HTTP 400 but main returned HTTP 500. Candidate clean smoke passes the controlled-refusal contract. The failed main run stopped at this first assertion; it does not prove the later privacy cases."
     },
     {
       "check": "mutator-get-rejection-live",
       "mainResult": "FAIL",
       "candidateCleanSmokeResult": "PASS",
-      "observation": "Two of 216 read-method probes did not meet the current refusal contract on main. Review affected consumers and security behavior explicitly."
+      "observation": "The existing eform/editForm route returned HTTP 200 to GET and HEAD on main; candidate clean smoke passes the HTTP 405 contract. Source comparison confirms a release-side POST-only guard before form processing. These status probes alone do not prove a committed mutation or exploit. Review affected clients and the intentional security restriction explicitly."
     },
     {
       "check": "tickler-crud",
       "mainResult": "FAIL",
       "candidateCleanSmokeResult": "PASS",
-      "observation": "The baseline tickler workflow timed out waiting for its response. Determine application versus client-assumption or timing cause before disposition."
+      "observation": "The baseline tickler workflow timed out waiting for a response after 30 seconds. The retained summary does not identify the operation or distinguish application behavior from a client expectation. Keep classification unresolved until a phase-specific reproduction exists."
     }
   ]
 }
