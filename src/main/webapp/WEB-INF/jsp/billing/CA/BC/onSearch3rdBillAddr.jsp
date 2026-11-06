@@ -65,7 +65,7 @@
         String orderBy = request.getParameter("orderby") == null ? "company_name" : request
                 .getParameter("orderby");
 
-        for (var address : SpringUtils.getBean(Billing3rdPartyAddressDao.class)
+        for (Billing3rdPartyAddress address : SpringUtils.getBean(Billing3rdPartyAddressDao.class)
                 .findAddresses(search_mode, orderBy, keyword, strLimit1, strLimit2)) {
             prop = new Properties();
             prop.setProperty("id", address.getId().toString());
@@ -93,6 +93,7 @@
 
 <%@page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.Billing3rdPartyAddressDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Billing3rdPartyAddress" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
