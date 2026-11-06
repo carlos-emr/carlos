@@ -143,16 +143,16 @@ public class InboxCategoryDao {
 
         private final EntityManager entityManager;
 
-        private HashMap<Integer, PatientInfo> patients;
+        private final HashMap<Integer, PatientInfo> patients;
 
-        private String patientLastName;
-        private String searchProviderNo;
-        private String status;
-        private String abnormalStatus;
-        private String patientFirstName;
-        private String patientHealthNumber;
-        private boolean patientSearch;
-        private boolean providerSearch;
+        private final String patientLastName;
+        private final String searchProviderNo;
+        private final String status;
+        private final String abnormalStatus;
+        private final String patientFirstName;
+        private final String patientHealthNumber;
+        private final boolean patientSearch;
+        private final boolean providerSearch;
         private String documentDateSql = "";
         private String documentAbnormalSql = "";
         private String documentJoinSql = "";

@@ -50,6 +50,8 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
      * @return List&lt;String&gt; trimmed matching provider identifiers
      * @throws NullPointerException if identifier is null for Ontario matching
      */
+    // The column must match PROVIDER_COLUMNS exactly; all identifier values are bound parameters.
+    @SuppressWarnings("java:S2077")
     public List<String> findProviders(String column, String identifier, boolean ontario,
                                       Integer limit, boolean orderByLength) {
         String selected = column == null ? "ohip_no" : column.trim().toLowerCase(Locale.ROOT);
