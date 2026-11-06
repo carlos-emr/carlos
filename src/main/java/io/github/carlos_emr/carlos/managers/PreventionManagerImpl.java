@@ -74,9 +74,23 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
 
     private Set<String> listMatches;
 
+    /**
+     * Requires _prevention read privilege for the given demographic, or
+     * role-level read when no demographic applies. Mirrors the gate on
+     * getPreventionDTOs; see #2761 / #3047.
+     */
+    private void assertCanReadPrevention(LoggedInInfo loggedInInfo, Integer demographicId) {
+        String demographicNo = demographicId == null ? null : demographicId.toString();
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_prevention", SecurityInfoManager.READ, demographicNo)) {
+            throw new SecurityException("missing required sec object (_prevention)");
+        }
+    }
+
     @Override
     public List<Prevention> getUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive,
                                                 int itemsToReturn) {
+                assertCanReadPrevention(loggedInInfo, null);
+
         List<Prevention> results = preventionDao.findByUpdateDate(updatedAfterThisDateExclusive, itemsToReturn);
 
         LogAction.addLogSynchronous(loggedInInfo, "PreventionManager.getUpdatedAfterDate",
@@ -88,6 +102,8 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
     @Override
     public List<Prevention> getByDemographicIdUpdatedAfterDate(LoggedInInfo loggedInInfo, Integer demographicId,
                                                                Date updatedAfterThisDateExclusive) {
+        assertCanReadPrevention(loggedInInfo, demographicId);
+
         List<Prevention> results = preventionDao.findByDemographicIdAfterDatetimeExclusive(demographicId,
                 updatedAfterThisDateExclusive);
         LogAction.addLogSynchronous(loggedInInfo, "PreventionManager.getByDemographicIdUpdatedAfterDate",
@@ -100,8 +116,10 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
     public Prevention getPrevention(LoggedInInfo loggedInInfo, Integer id) {
         Prevention result = preventionDao.find(id);
 
-        // --- log action ---
         if (result != null) {
+            assertCanReadPrevention(loggedInInfo, result.getDemographicId());
+
+            // --- log action ---
             LogAction.addLogSynchronous(loggedInInfo, "PreventionManager.getPrevention", "id=" + id);
         }
 
@@ -217,10 +235,12 @@ public class PreventionManagerImpl implements Serializable, PreventionManager {
     @Override
     public List<Prevention> getPreventionsByProgramProviderDemographicDate(LoggedInInfo loggedInInfo, Integer programId,
                                                                            String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn) {
+        assertCanReadPrevention(loggedInInfo, demographicId);
+
         List<Prevention> results = preventionDao.findByProviderDemographicLastUpdateDate(providerNo, demographicId,
                 updatedAfterThisDateExclusive.getTime(), itemsToReturn);
 
-        LogAction.addLogSynchronous(loggedInInfo, "PreventionManager.getUpdatedAfterDate",
+        LogAction.addLogSynchronous(loggedInInfo, "PreventionManager.getPreventionsByProgramProviderDemographicDate",
                 "programId=" + programId + ", providerNo=" + providerNo + ", demographicId=" + demographicId
                         + ", updatedAfterThisDateExclusive=" + updatedAfterThisDateExclusive.getTime());
 
