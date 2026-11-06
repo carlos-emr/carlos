@@ -17,7 +17,7 @@ import time
 from unittest.mock import patch
 
 import process_group
-from owned_process_tree import processes
+from owned_process_tree import processes, OwnedProcessTree
 from junit_evidence import EvidenceError
 import release_verification as gate
 
@@ -65,6 +65,7 @@ def main():
     rows = []
     failure = None
     mode = None
+    observed = {}
     try:
         for mode in ('timeout', 'SIGTERM', 'SIGINT'):
             with tempfile.TemporaryDirectory(prefix='carlos-browser-process-') as temporary:
@@ -85,12 +86,27 @@ def main():
                             observed['separateGroup'] = os.getpgid(observed['browser']) != os.getpgid(observed['node'])
                             armed.write_text('parent-observations-complete')
                         return super().wait(timeout=timeout)
-                with patch.object(process_group.subprocess, 'Popen', ReadyProcess):
+                original_children = OwnedProcessTree.children
+                original_send = OwnedProcessTree.send
+                def tracked_children(tree, direct_pid):
+                    children = original_children(tree, direct_pid)
+                    observed.setdefault('ownedIdentities', {}).update(children)
+                    return children
+                def tracked_send(pid, started, signum):
+                    try:
+                        return original_send(pid, started, signum)
+                    except OSError as error:
+                        observed.setdefault('signalFailures', []).append({
+                            'pid': pid, 'started': started, 'signal': int(signum), 'errno': error.errno})
+                        raise
+                with patch.object(process_group.subprocess, 'Popen', ReadyProcess), \
+                        patch.object(OwnedProcessTree, 'children', tracked_children), \
+                        patch.object(OwnedProcessTree, 'send', staticmethod(tracked_send)):
                     try:
                         process_group.run_process_group(['node', '-e', NODE, str(ready), mode, str(armed)], cwd=gate.ROOT,
                             timeout=0.2 if mode == 'timeout' else 30, grace=0.2, track_descendants=True)
-                    except process_group.ProcessGroupFailure as failure:
-                        if not failure.quiescent or ('timed out' if mode == 'timeout' else 'interrupted') not in str(failure):
+                    except process_group.ProcessGroupFailure as interruption:
+                        if not interruption.quiescent or ('timed out' if mode == 'timeout' else 'interrupted') not in str(interruption):
                             raise
                     else:
                         raise AssertionError('Browser interruption was accepted as success')
@@ -101,8 +117,13 @@ def main():
                 rows.append(row)
                 print(json.dumps(row))
     except BaseException as error:
+        remaining = processes()
         failure = {'mode': mode, 'type': type(error).__name__,
-                   'quiescent': getattr(error, 'quiescent', None)}
+                   'quiescent': getattr(error, 'quiescent', None),
+                   'signalFailures': observed.get('signalFailures', []),
+                   'remainingOwnedProcesses': [dict(pid=pid, started=started, parent=remaining[pid][0], state=remaining[pid][1])
+                       for pid, started in observed.get('ownedIdentities', {}).items()
+                       if pid in remaining and remaining[pid][2] == started and remaining[pid][1] not in ('Z', 'X')]}
         raise
     finally:
         if args.output:

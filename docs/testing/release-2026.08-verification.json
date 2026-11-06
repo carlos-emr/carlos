@@ -1135,7 +1135,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 304,
+      "minimumCases": 305,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1257,6 +1257,7 @@
         "test_lifecycle_baselines.LifecycleBaselineTest.test_distinct_historical_migration_and_cli_predecessor_is_required",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_incomplete_package_province_or_published_identity_cannot_qualify",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_added_abstract_methods_enum_constants_and_overloads_require_client_review",
+        "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_json_numeric_lexemes_preserve_scale_exponents_and_signed_zero",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_malformed_release_xml_fails_while_a_repaired_main_response_is_reported",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_missing_fields_duplicate_json_keys_and_nonfinite_numbers_are_not_silently_accepted",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_new_named_concrete_method_and_new_types_are_not_competing_overloads",

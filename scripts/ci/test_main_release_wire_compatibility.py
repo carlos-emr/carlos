@@ -87,6 +87,17 @@ class BinaryClientComparisonTest(unittest.TestCase):
         self.assertNotEqual(probe.canonical(row('123456789012345678901234567890')),
                             probe.canonical(row('123456789012345678901234567891')))
 
+    def test_json_numeric_lexemes_preserve_scale_exponents_and_signed_zero(self):
+        row = lambda value: {'kind': 'json', 'value': '{"value":' + value + '}'}
+        for before, after in (('0', '-0'), ('0.0', '-0.0'), ('1', '1.0'), ('1.0', '1.00'),
+                              ('1e2', '100'), ('1e+2', '1E+2')):
+            with self.subTest(before=before, after=after):
+                self.assertNotEqual(probe.canonical(row(before)), probe.canonical(row(after)))
+        self.assertEqual(probe.canonical({'kind': 'json', 'value': '{"v":1.00,"x":true}'}),
+                         probe.canonical({'kind': 'json', 'value': '{ "x":true, "v":1.00 }'}))
+        with self.assertRaises(EvidenceError):
+            probe.canonical({'kind': 'api', 'value': '{"example.Fake":[123]}'})
+
     def test_public_api_additions_do_not_hide_removals_or_signature_changes(self):
         before = self.report(); after = self.report(); name = 'changed-public-java-api'
         after['cases'][name]['value'] = '{"example.Fake":["method:read","method:write"],"example.New":["constructor:new"]}'

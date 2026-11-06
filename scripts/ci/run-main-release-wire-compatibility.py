@@ -2,7 +2,7 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Compare unchanged clients against pinned main and candidate binaries in isolated class loaders."""
 import argparse
-from decimal import Decimal
+from dataclasses import dataclass
 import io
 import json
 import os
@@ -52,6 +52,11 @@ def risky_additions(before, after):
                   or callable_name(member) in old_names)
 
 
+@dataclass(frozen=True)
+class WireNumber:
+    lexeme: str
+
+
 def canonical(row):
     if not isinstance(row, dict) or set(row) != {'kind', 'value'} or not isinstance(row['value'], str):
         raise EvidenceError('Missing typed wire observation')
@@ -65,13 +70,13 @@ def canonical(row):
         def typed(value):
             if value is None: return ('null',)
             if type(value) is bool: return ('boolean', value)
-            if isinstance(value, Decimal): return ('number', value)
+            if isinstance(value, WireNumber): return ('number', value.lexeme)
             if isinstance(value, str): return ('string', value)
             if isinstance(value, list): return ('array', [typed(item) for item in value])
             return ('object', sorted((key, typed(item)) for key, item in value.items()))
         def reject_constant(_value): raise EvidenceError('Non-finite JSON wire value')
-        value = json.loads(row['value'], object_pairs_hook=unique, parse_int=Decimal,
-                           parse_float=Decimal, parse_constant=reject_constant)
+        value = json.loads(row['value'], object_pairs_hook=unique, parse_int=WireNumber,
+                           parse_float=WireNumber, parse_constant=reject_constant)
         if row['kind'] == 'api':
             if (not isinstance(value, dict) or not value or any(
                     not isinstance(name, str) or not isinstance(members, list)
