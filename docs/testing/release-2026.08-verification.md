@@ -118,6 +118,12 @@ Playwright browser, physical MariaDB 11.8.8 and the target packaging tools.
 Install the hash-pinned Python parser and the system prerequisites used by the
 selected checks (`xmllint`, restic, nginx/ModSecurity/CRS, and so on).
 
+For `node-all`, set `CARLOS_CTL_SRC` to a separate checkout of the CLI release
+named by `debian/carlos-ctl.pin` (currently tag `1.3.1`). The Node suite exercises
+that CLI's installation and proxy contracts; omitting its source skips four
+cases and cannot produce passing release evidence. Use the published tag, with
+the pin's fallback commit only when that tag is unavailable, as CI does.
+
 ```sh
 python3 -m venv /tmp/carlos-release-verification-venv
 /tmp/carlos-release-verification-venv/bin/pip install --require-hashes -r scripts/ci/requirements.txt

@@ -1474,6 +1474,9 @@
       ],
       "timeoutSeconds": 900,
       "minimumCases": 7318,
+      "requiresEnvironment": [
+        "CARLOS_CTL_SRC"
+      ],
       "runtimeConstraints": {
         "node": "22",
         "npm": "10.9.9"
