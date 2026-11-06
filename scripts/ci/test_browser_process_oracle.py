@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+import tempfile
+import json
 from junit_evidence import EvidenceError
 
 SPEC = importlib.util.spec_from_file_location('browser_oracle', Path(__file__).with_name('run-browser-process-oracle.py'))
@@ -11,6 +13,18 @@ oracle = importlib.util.module_from_spec(SPEC); SPEC.loader.exec_module(oracle)
 
 
 class BrowserProcessOracleTest(unittest.TestCase):
+    def test_partial_oracle_failure_retains_evidence_without_qualifying_missing_modes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / 'result.json'
+            failure = {'mode': 'SIGTERM', 'type': 'ProcessGroupFailure', 'quiescent': False}
+            oracle.write_observations(output, [{'mode': 'timeout'}], failure)
+            result = json.loads(output.read_text())
+            self.assertEqual(result['assertions'], {'timeout-browser-stopped': True,
+                'sigterm-browser-stopped': False, 'sigint-browser-stopped': False})
+            path = output.parent / result['inputs'][0]['path']
+            self.assertEqual(oracle.gate.digest(path), result['inputs'][0]['sha256'])
+            self.assertEqual(json.loads(path.read_text())['failure'], failure)
+
     def test_surviving_or_reparented_browser_descendants_cannot_qualify(self):
         observed = {'node': 10, 'browser': 20, 'separateGroup': True,
                     'pids': {10: (1, 'S', 100), 20: (10, 'T', 200), 30: (20, 'S', 300)}}

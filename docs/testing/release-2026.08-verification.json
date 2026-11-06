@@ -1135,7 +1135,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 300,
+      "minimumCases": 304,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1147,6 +1147,7 @@
       ],
       "requiredCases": [
         "test_browser_process_oracle.BrowserProcessOracleTest.test_optimized_python_cannot_bypass_detached_browser_validation",
+        "test_browser_process_oracle.BrowserProcessOracleTest.test_partial_oracle_failure_retains_evidence_without_qualifying_missing_modes",
         "test_browser_process_oracle.BrowserProcessOracleTest.test_surviving_or_reparented_browser_descendants_cannot_qualify",
         "test_build_release_war.CandidateWarBuildTest.test_existing_output_is_preserved_without_building",
         "test_build_release_war.CandidateWarBuildTest.test_invalid_versions_are_refused_before_starting_any_subprocess",
@@ -1238,6 +1239,7 @@
         "test_installed_front_door.InstalledFrontDoorTest.test_generic_success_or_truncated_login_cannot_establish_readiness",
         "test_installed_front_door.InstalledFrontDoorTest.test_redirect_may_not_follow_another_host_or_downgrade_tls",
         "test_installed_front_door.InstalledFrontDoorTest.test_two_complete_responses_are_required_and_certificate_errors_fail",
+        "test_installed_front_door.InstalledFrontDoorTest.test_wall_clock_deadline_interrupts_a_slow_response_and_releases_the_timer",
         "test_installed_package_state.PackagePreservationTest.test_comparison_uses_control_versions_instead_of_normalized_asset_filenames",
         "test_installed_package_state.PackagePreservationTest.test_equal_row_counts_or_file_counts_cannot_hide_replaced_bytes_or_permissions",
         "test_installed_package_state.PackagePreservationTest.test_managed_asset_rule_does_not_hide_added_removed_or_changed_clinical_files",
@@ -1292,12 +1294,14 @@
         "test_package_lifecycle.PackageLifecycleTest.test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify",
         "test_package_lifecycle.PackageLifecycleTest.test_host_collection_and_final_verification_require_lifecycle_byte_binding",
         "test_package_lifecycle.PackageLifecycleTest.test_independent_role_receipts_cannot_omit_another_required_global_baseline",
+        "test_package_lifecycle.PackageLifecycleTest.test_installer_wrapper_preserves_existing_files_and_rejects_symlinked_ancestors",
         "test_package_lifecycle.PackageLifecycleTest.test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults",
         "test_package_lifecycle.PackageLifecycleTest.test_local_playwright_is_required_and_loadable_before_installation",
         "test_package_lifecycle.PackageLifecycleTest.test_main_cannot_replace_the_distinct_historical_or_clean_cell",
         "test_package_lifecycle.PackageLifecycleTest.test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green",
         "test_package_lifecycle.PackageLifecycleTest.test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused",
         "test_package_lifecycle.PackageLifecycleTest.test_passing_read_only_clients_cannot_hide_a_clinical_value_change",
+        "test_package_lifecycle.PackageLifecycleTest.test_read_only_selection_reaches_each_real_browser_check_in_both_provinces",
         "test_process_group.ProcessGroupTest.test_cleanup_os_error_remains_a_failure_with_unverified_quiescence",
         "test_process_group.ProcessGroupTest.test_detached_orphan_is_stopped_after_its_parent_exits",
         "test_process_group.ProcessGroupTest.test_existing_child_tree_is_refused_before_adoption_or_browser_start",

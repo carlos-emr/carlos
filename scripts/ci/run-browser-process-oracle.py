@@ -63,48 +63,60 @@ def main():
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
     rows = []
-    for mode in ('timeout', 'SIGTERM', 'SIGINT'):
-        with tempfile.TemporaryDirectory(prefix='carlos-browser-process-') as temporary:
-            ready = Path(temporary) / 'ready.json'
-            armed = Path(temporary) / 'armed'
-            observed = {}
-            original = subprocess.Popen
-            class ReadyProcess(original):
-                def wait(self, timeout=None):
-                    if not observed:
-                        deadline = time.monotonic() + 30
-                        while not ready.exists() and self.poll() is None and time.monotonic() < deadline:
-                            time.sleep(0.02)
-                        if not ready.exists():
-                            raise OSError('Locked browser did not become ready')
-                        observed.update(json.loads(ready.read_text()))
-                        observed['pids'] = processes()
-                        observed['separateGroup'] = os.getpgid(observed['browser']) != os.getpgid(observed['node'])
-                        armed.write_text('parent-observations-complete')
-                    return super().wait(timeout=timeout)
-            with patch.object(process_group.subprocess, 'Popen', ReadyProcess):
-                try:
-                    process_group.run_process_group(['node', '-e', NODE, str(ready), mode, str(armed)], cwd=gate.ROOT,
-                        timeout=0.2 if mode == 'timeout' else 30, grace=0.2, track_descendants=True)
-                except process_group.ProcessGroupFailure as failure:
-                    if not failure.quiescent or ('timed out' if mode == 'timeout' else 'interrupted') not in str(failure):
-                        raise
-                else:
-                    raise AssertionError('Browser interruption was accepted as success')
-            gate.require_locked_chromium([observed['version']])
-            stopped = validate_stopped(observed, processes())
-            row = {'mode': mode, 'chromium': observed['version'], 'separateBrowserGroup': True,
-                   'forcedKill': True, 'processesStopped': stopped, 'restorationVerified': False}
-            rows.append(row)
-            print(json.dumps(row))
-    if args.output:
-        observations = args.output.parent / 'browser-process-observations.json'
-        gate.write_json(observations, {'schemaVersion': 1, 'observations': rows})
-        gate.write_json(args.output, {'schemaVersion': 1, 'assertions': {
-            'timeout-browser-stopped': any(row['mode'] == 'timeout' for row in rows),
-            'sigterm-browser-stopped': any(row['mode'] == 'SIGTERM' for row in rows),
-            'sigint-browser-stopped': any(row['mode'] == 'SIGINT' for row in rows)},
-            'inputs': [{'path': observations.name, 'sha256': gate.digest(observations)}]})
+    failure = None
+    mode = None
+    try:
+        for mode in ('timeout', 'SIGTERM', 'SIGINT'):
+            with tempfile.TemporaryDirectory(prefix='carlos-browser-process-') as temporary:
+                ready = Path(temporary) / 'ready.json'
+                armed = Path(temporary) / 'armed'
+                observed = {}
+                original = subprocess.Popen
+                class ReadyProcess(original):
+                    def wait(self, timeout=None):
+                        if not observed:
+                            deadline = time.monotonic() + 30
+                            while not ready.exists() and self.poll() is None and time.monotonic() < deadline:
+                                time.sleep(0.02)
+                            if not ready.exists():
+                                raise OSError('Locked browser did not become ready')
+                            observed.update(json.loads(ready.read_text()))
+                            observed['pids'] = processes()
+                            observed['separateGroup'] = os.getpgid(observed['browser']) != os.getpgid(observed['node'])
+                            armed.write_text('parent-observations-complete')
+                        return super().wait(timeout=timeout)
+                with patch.object(process_group.subprocess, 'Popen', ReadyProcess):
+                    try:
+                        process_group.run_process_group(['node', '-e', NODE, str(ready), mode, str(armed)], cwd=gate.ROOT,
+                            timeout=0.2 if mode == 'timeout' else 30, grace=0.2, track_descendants=True)
+                    except process_group.ProcessGroupFailure as failure:
+                        if not failure.quiescent or ('timed out' if mode == 'timeout' else 'interrupted') not in str(failure):
+                            raise
+                    else:
+                        raise AssertionError('Browser interruption was accepted as success')
+                gate.require_locked_chromium([observed['version']])
+                stopped = validate_stopped(observed, processes())
+                row = {'mode': mode, 'chromium': observed['version'], 'separateBrowserGroup': True,
+                       'forcedKill': True, 'processesStopped': stopped, 'restorationVerified': False}
+                rows.append(row)
+                print(json.dumps(row))
+    except BaseException as error:
+        failure = {'mode': mode, 'type': type(error).__name__,
+                   'quiescent': getattr(error, 'quiescent', None)}
+        raise
+    finally:
+        if args.output:
+            write_observations(args.output, rows, failure)
+
+
+def write_observations(output, rows, failure=None):
+    observations = output.parent / 'browser-process-observations.json'
+    gate.write_json(observations, {'schemaVersion': 1, 'observations': rows, 'failure': failure})
+    gate.write_json(output, {'schemaVersion': 1, 'assertions': {
+        'timeout-browser-stopped': any(row['mode'] == 'timeout' for row in rows),
+        'sigterm-browser-stopped': any(row['mode'] == 'SIGTERM' for row in rows),
+        'sigint-browser-stopped': any(row['mode'] == 'SIGINT' for row in rows)},
+        'inputs': [{'path': observations.name, 'sha256': gate.digest(observations)}]})
 
 
 if __name__ == '__main__':

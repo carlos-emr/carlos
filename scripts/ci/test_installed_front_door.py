@@ -45,3 +45,13 @@ class InstalledFrontDoorTest(unittest.TestCase):
         with patch.object(front.ssl, 'create_default_context'), \
                 patch.object(front, 'login_response', side_effect=front.ssl.SSLCertVerificationError('synthetic')):
             with self.assertRaisesRegex(EvidenceError, 'certificate'): front.wait_for_login()
+
+    def test_wall_clock_deadline_interrupts_a_slow_response_and_releases_the_timer(self):
+        before = front.signal.getsignal(front.signal.SIGALRM)
+        started = time.monotonic()
+        with patch.object(front.ssl, 'create_default_context'), \
+                patch.object(front, 'login_response', side_effect=lambda *_: time.sleep(10)):
+            with self.assertRaises(EvidenceError): front.wait_for_login(timeout=0.03)
+        self.assertLess(time.monotonic() - started, 2)
+        self.assertEqual(front.signal.getitimer(front.signal.ITIMER_REAL), (0.0, 0.0))
+        self.assertEqual(front.signal.getsignal(front.signal.SIGALRM), before)

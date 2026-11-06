@@ -3,6 +3,8 @@
 import http.client
 import re
 import ssl
+import signal
+import math
 import time
 from urllib.parse import urljoin, urlsplit
 
@@ -45,7 +47,7 @@ def login_response(deadline, context):
     raise EvidenceError('Installed login exceeded the redirect limit')
 
 
-def wait_for_login(timeout=420):
+def _wait_for_login(timeout):
     context = ssl.create_default_context(cafile='/etc/carlos-emr/tls/fullchain.pem')
     started = time.monotonic(); deadline = started + timeout
     consecutive = attempts = 0
@@ -62,3 +64,23 @@ def wait_for_login(timeout=420):
                     'elapsedSeconds': round(time.monotonic() - started, 3), 'tlsVerified': True}
         time.sleep(min(2, max(0, deadline - time.monotonic())))
     raise EvidenceError('Installed front door did not become ready before first login')
+
+
+def wait_for_login(timeout=420):
+    # A socket timeout resets on each read. An actual wall-clock alarm also
+    # bounds a peer that dribbles bytes indefinitely inside HTTPResponse.read.
+    if type(timeout) not in (int, float) or not math.isfinite(timeout) or timeout <= 0:
+        raise EvidenceError('Invalid installed front-door readiness timeout')
+    if signal.getitimer(signal.ITIMER_REAL) != (0.0, 0.0):
+        raise EvidenceError('Front-door readiness cannot replace an existing process timer')
+    def expired(_number, _frame):
+        raise TimeoutError('Installed front-door readiness deadline expired')
+    previous = signal.signal(signal.SIGALRM, expired)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, timeout)
+        return _wait_for_login(timeout)
+    except TimeoutError:
+        raise EvidenceError('Installed front door exceeded its readiness deadline') from None
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)
