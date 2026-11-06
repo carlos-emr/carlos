@@ -16,6 +16,23 @@ from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_invento
 
 
 class PackageLifecycleTest(unittest.TestCase):
+    def test_read_only_selection_reaches_each_real_browser_check_in_both_provinces(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_selection', Path(__file__).with_name('run-package-lifecycle-cell.py'))
+        cell = importlib.util.module_from_spec(spec); spec.loader.exec_module(cell)
+        def list_actual_selection(command, *_args, **_kwargs):
+            listed = subprocess.run([*command, '--list'], cwd=gate.ROOT,
+                capture_output=True, text=True, timeout=15)
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertEqual({line.split()[0] for line in listed.stdout.splitlines()},
+                             set(cell.BASELINE_READ_ONLY))
+        with tempfile.TemporaryDirectory() as temporary, patch.object(cell, 'OUTPUT', Path(temporary)), \
+                patch.object(cell, 'run', side_effect=list_actual_selection), \
+                patch.object(cell.gate, 'browser_results', return_value={'ready': True}):
+            for province in ('ON', 'BC'):
+                with self.subTest(province=province):
+                    cell.smoke({'CARLOS_SUITE_PROVINCE': province}, 'client-before', cell.BASELINE_READ_ONLY)
+
     def test_local_playwright_is_required_and_loadable_before_installation(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / 'checkout'; root.mkdir()

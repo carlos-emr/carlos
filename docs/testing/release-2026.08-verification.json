@@ -1134,7 +1134,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 295,
+      "minimumCases": 296,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1293,6 +1293,7 @@
         "test_package_lifecycle.PackageLifecycleTest.test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green",
         "test_package_lifecycle.PackageLifecycleTest.test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused",
         "test_package_lifecycle.PackageLifecycleTest.test_passing_read_only_clients_cannot_hide_a_clinical_value_change",
+        "test_package_lifecycle.PackageLifecycleTest.test_read_only_selection_reaches_each_real_browser_check_in_both_provinces",
         "test_process_group.ProcessGroupTest.test_cleanup_os_error_remains_a_failure_with_unverified_quiescence",
         "test_process_group.ProcessGroupTest.test_detached_orphan_is_stopped_after_its_parent_exits",
         "test_process_group.ProcessGroupTest.test_existing_child_tree_is_refused_before_adoption_or_browser_start",

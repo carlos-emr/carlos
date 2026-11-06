@@ -108,7 +108,8 @@ def smoke(environment, phase, selection=None):
     path = OUTPUT / (phase + '.xml')
     command = ['node', 'scripts/run-playwright-suite.js', '--tier', 'smoke', '--strict-release',
          '--province', environment['CARLOS_SUITE_PROVINCE'], '--junit', str(path)]
-    if selection: command += ['--only', ','.join(selection)]
+    for name in selection or ():
+        command += ['--only', name]
     run(command,
         phase, environment=environment, timeout=600, browser=True)
     profile = environment['CARLOS_SUITE_PROVINCE']

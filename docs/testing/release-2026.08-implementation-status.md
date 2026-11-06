@@ -236,7 +236,7 @@ and qualification below are still required to complete issue 5700. No release-re
   preserves read-only clients, first-login ordering, whole-data cleanup checks and
   private failed-cell recovery evidence. Its explicit orchestrated deployment
   scope keeps packaged-byte binding during collection and final verification.
-  Twelve regression checks cover missing baselines, wrong bytes/source/province,
+  Thirteen regression checks cover missing baselines, wrong bytes/source/province,
   failed cleanup, modified evidence, checkout-local Playwright prerequisites,
   configured target package digests and the actual host receipt path. Live/final
   qualification and the broader unsupported/interrupted lifecycle cases remain.
