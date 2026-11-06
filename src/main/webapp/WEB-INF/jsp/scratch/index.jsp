@@ -199,10 +199,13 @@
             font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
         }
 
+        html {
+            overscroll-behavior: none;
+        }
+
         :root * :not(h2):not(h4) {
             font-size: 12px;
             line-height: 1 !important;
-            overscroll-behavior: none;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }

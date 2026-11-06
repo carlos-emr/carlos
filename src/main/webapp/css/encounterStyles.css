@@ -56,10 +56,13 @@ body.encounter-layout {
     flex-direction: column;
 }
 
+html {
+    overscroll-behavior: none;
+}
+
 :root * {
     font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
     font-size: 12px;
-    overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
 }

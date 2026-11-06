@@ -132,10 +132,13 @@
             }
         </style>
         <style media="all">
+            html {
+                overscroll-behavior: none;
+            }
+
             * {
 		font-family: Arial, "Helvetica Neue", Helvetica, sans-serif !important;
 		font-size: 12px;
-		overscroll-behavior: none;
 		-webkit-font-smoothing: antialiased;
 		-moz-osx-font-smoothing: grayscale;
             }
