@@ -175,6 +175,20 @@ public class MsgGenerateIntegrationTest {
     }
 
     @Test
+    void shouldPropagateSqlException_whenConnectionCannotBeAcquired() {
+        DataSource failing = new DelegatingDataSource(source) {
+            @Override
+            public Connection getConnection() throws SQLException {
+                throw new SQLException("FAKE acquisition failure");
+            }
+        };
+        spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DocumentTransferDao.class))
+                .thenReturn(new io.github.carlos_emr.carlos.commn.dao.DocumentTransferDao(failing));
+        assertThatThrownBy(() -> new MsgGenerate().getDocument(101))
+                .isInstanceOf(SQLException.class).hasMessage("FAKE acquisition failure");
+    }
+
+    @Test
     void shouldPropagateColumnReadFailure_whenDatabaseFailsAfterQueryExecution() {
         Map<Class<?>, Integer> closed = new HashMap<>();
         DataSource failing = new DelegatingDataSource(source) {

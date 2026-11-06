@@ -53,7 +53,7 @@ public class DocumentTransferDao {
         if (!definition.where().isEmpty()) sql.append(" AND ").append(definition.where());
         if (!definition.order().isEmpty()) sql.append(" ORDER BY ").append(definition.order());
         LegacyJdbcQuery.validateReportSelectQuery(sql.toString());
-        Connection connection = DataSourceUtils.getConnection(dataSource);
+        Connection connection = DataSourceUtils.doGetConnection(dataSource);
         try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
             statement.setInt(1, demographicNo);
             try (ResultSet result = statement.executeQuery()) {

@@ -70,7 +70,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
                 .setMaxResults(limit).getResultList();
         return rows.stream().map(value -> {
             Object[] row = (Object[]) value;
-            return new LabStatus(((Number) row[0]).intValue(), row[1] == null ? "" : row[1].toString());
+            return new LabStatus(((Number) row[0]).intValue(), row[1] == null ? "" : row[1].toString().trim());
         }).toList();
     }
 

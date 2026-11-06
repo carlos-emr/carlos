@@ -32,7 +32,7 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
             info.setLabNumber(id);
             info.setReportStatus("F");
             info.setAccessionNumber("synthetic-5548-" + id);
-            info.setResultStatus(id == first ? null : "");
+            info.setResultStatus(id == first ? null : " ");
             em.persist(info);
         }
         em.flush();
