@@ -39,21 +39,25 @@ public class AntenatalReportDao {
 
     public PlannerRow findPlanner(int id, int patient) {
         @SuppressWarnings("unchecked")
-        List<jakarta.persistence.Tuple> rows = entityManager.createNativeQuery(
-                "SELECT * FROM formAR WHERE ID=?1 AND demographic_no=?2", jakarta.persistence.Tuple.class)
-                .setParameter(1, id).setParameter(2, patient).getResultList();
-        if (rows.isEmpty()) return null;
-        var row = rows.get(0);
-        @SuppressWarnings("unchecked")
         List<String> flags = entityManager.createNativeQuery("SELECT COLUMN_NAME FROM information_schema.COLUMNS"
                         + " WHERE TABLE_SCHEMA=SCHEMA() AND TABLE_NAME='formAR' AND DATA_TYPE='tinyint'", String.class).getResultList();
-        java.util.Set<String> checked = new java.util.HashSet<>();
-        for (String flag : flags) {
-            Object value = row.get(flag);
-            if (Boolean.TRUE.equals(value) || value instanceof Number number && number.intValue() == 1) checked.add(flag);
-        }
-        return new PlannerRow((String) row.get("c_finalEDB"), (String) row.get("c_pName"),
-                (String) row.get("pg1_wt"), (String) row.get("pg1_ht"), java.util.Set.copyOf(checked));
+        // Legacy form installations can store these values as dates, numbers or text.
+        // Keep the driver's getString representation, including scale, whitespace and NULL.
+        return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+            try (var statement = connection.prepareStatement("SELECT * FROM formAR WHERE ID=? AND demographic_no=?")) {
+                statement.setInt(1, id);
+                statement.setInt(2, patient);
+                try (var row = statement.executeQuery()) {
+                    if (!row.next()) return null;
+                    java.util.Set<String> checked = new java.util.HashSet<>();
+                    for (String flag : flags) {
+                        if (row.getInt(flag) == 1) checked.add(flag);
+                    }
+                    return new PlannerRow(row.getString("c_finalEDB"), row.getString("c_pName"),
+                            row.getString("pg1_wt"), row.getString("pg1_ht"), java.util.Set.copyOf(checked));
+                }
+            }
+        });
     }
 
     /**

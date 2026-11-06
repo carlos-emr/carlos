@@ -20,7 +20,8 @@ operations. It also migrates every remaining `SqlUtils.getRow` and
 Ordinary fixed queries use JPA/native scalar projections. Three schema-dependent
 adapters deliberately use Hibernate's managed `doReturningWork` inside the DAO:
 AP results must retain the physical driver's string formatting (including
-timestamp scale), SetupForm must retain physical column names and SQL NULL, and XML import uses
+timestamp scale), the antenatal planner retains date/decimal text and NULL across legacy column types,
+SetupForm must retain physical column names and SQL NULL, and XML import uses
 physical column metadata and generated keys for unmapped form tables.
 Their statements/results close before returning detached scalar values; neither
 opens nor releases Hibernate's connection. Application callers receive no JDBC
