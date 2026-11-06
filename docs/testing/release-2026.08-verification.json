@@ -1113,7 +1113,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 269,
+      "minimumCases": 270,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1248,6 +1248,7 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
         "test_package_lifecycle.PackageLifecycleTest.test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify",
         "test_package_lifecycle.PackageLifecycleTest.test_host_collection_and_final_verification_require_lifecycle_byte_binding",
+        "test_package_lifecycle.PackageLifecycleTest.test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults",
         "test_package_lifecycle.PackageLifecycleTest.test_main_cannot_replace_the_distinct_historical_or_clean_cell",
         "test_package_lifecycle.PackageLifecycleTest.test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green",
         "test_package_lifecycle.PackageLifecycleTest.test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused",

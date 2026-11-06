@@ -28,6 +28,7 @@ ASSERTIONS = ('ubuntu-systemd-prerequisite', 'pinned-installation', 'forced-firs
               'unchanged-client-before', 'real-transition', 'clinical-cleanup-preserved',
               'documents-cleanup-preserved', 'unchanged-client-after',
               'candidate-application-bound', 'service-health', 'private-recovery-retained')
+ASSERTIONS += ('dependency-contract',)
 
 
 def run(command, name, *, environment=None, timeout=1200, check=True):
@@ -119,6 +120,38 @@ def transition_command(context, mode, output):
     return command
 
 
+def dependency_contract(context):
+    target = context['target']
+    dependencies = subprocess.check_output(['dpkg-deb', '-f', target['emr']['path'], 'Depends'], text=True, timeout=20)
+    if not re.search(r'(?:^|,)\s*carlos-ctl\s*\(>=\s*1\.3\.1\s*\)\s*(?:,|$)', dependencies):
+        raise EvidenceError('Candidate does not declare its reviewed CLI dependency floor')
+    actual = subprocess.check_output(['dpkg-query', '-W', '-f=${Version}', 'carlos-ctl'], text=True, timeout=20)
+    if context['role'] != 'historical':
+        if subprocess.run(['dpkg', '--compare-versions', actual, 'ge', '1.3.1']).returncode:
+            raise EvidenceError('Installed CLI is below its declared dependency floor')
+        return {'floor': '1.3.1', 'installedCli': actual}
+    if actual != '1.3.0':
+        raise EvidenceError('Historical dependency refusal requires its real older CLI')
+    before = {'clinical': state.clinical_state(), 'files': state.stored_files(), 'key': state.encryption_key(),
+              'dpkgStatus': gate.digest(Path('/var/lib/dpkg/status'))}
+    command = ['apt-get', '-s', 'install', '--no-remove', target['emr']['path'], target['drugref']['path']]
+    code = run(command, 'older-cli-refusal', environment={**os.environ, 'LC_ALL': 'C'}, timeout=90, check=False)
+    text = (OUTPUT / 'older-cli-refusal.log').read_text()
+    refused = (code == 100 and 'carlos-ctl' in text and '(>= 1.3.1)' in text
+               and ('1.3.0' in text or 'not going to be installed' in text))
+    if not refused:
+        raise EvidenceError('Dependency refusal was absent or caused by a different prerequisite')
+    run(command + [target['ctl']['path']], 'compatible-cli-resolution',
+        environment={**os.environ, 'LC_ALL': 'C'}, timeout=90)
+    after = {'clinical': state.clinical_state(), 'files': state.stored_files(), 'key': state.encryption_key(),
+             'dpkgStatus': gate.digest(Path('/var/lib/dpkg/status'))}
+    gate.write_json(OUTPUT / 'dependency-state.json', {'before': before, 'after': after})
+    if before != after:
+        raise EvidenceError('Dependency refusal/resolution probe changed installed data or package state')
+    return {'floor': '1.3.1', 'installedCli': actual, 'olderCliRefused': True,
+            'compatibleCliResolved': True, 'statePreserved': True}
+
+
 def transition(context, environment):
     directory = OUTPUT / 'transition'; directory.mkdir(mode=0o700)
     output = directory / 'transition-result.json'
@@ -180,6 +213,9 @@ def main():
     details = {'schemaVersion': 1, 'role': context['role'], 'profile': context['profile'],
                'source': context['source'], 'warSha256': context['war']['sha256'], 'failureType': None}
     try:
+        if any(path.exists() or path.is_symlink() for path in
+               map(Path, ('/etc/carlos-emr', '/var/lib/carlos-emr', '/usr/share/carlos-emr'))):
+            raise EvidenceError('Fresh lifecycle runtime already contains application state')
         release = dict(line.split('=', 1) for line in Path('/etc/os-release').read_text().splitlines() if '=' in line)
         if (release.get('ID') != 'ubuntu' or release.get('VERSION_ID', '').strip('"') != '26.04'
                 or Path('/proc/1/comm').read_text().strip() != 'systemd'
@@ -203,7 +239,7 @@ def main():
             'reset-seed-admin': 'boolean true', 'install-demo-data': 'boolean true'}.items()))
         with selections.open('rb') as stream:
             subprocess.run(['debconf-set-selections'], stdin=stream, check=True, timeout=20)
-        run(['apt-get', 'update'], 'apt-update', timeout=300)
+        run(['apt-get', '-o', 'APT::Update::Error-Mode=any', 'update'], 'apt-update', timeout=300)
         initial = context['target'] if context['role'] == 'clean' else context['baseline']
         for name in ('emr', 'drugref', 'ctl'):
             if gate.digest(Path(initial[name]['path'])) != initial[name]['sha256']:
@@ -237,6 +273,8 @@ def main():
         set_expected_build(environment, package_contents(Path(initial['emr']['path']), initial['emr']['sha256']))
         run(['node', 'scripts/vascular-dictionary-initialize.js'], 'dictionary-initialize', environment=environment, timeout=180)
         smoke(environment, 'client-before'); assertions['unchanged-client-before'] = True
+        details['dependencyContract'] = dependency_contract(context)
+        assertions['dependency-contract'] = True
         clinical, documents = transition(context, environment)
         assertions['real-transition'] = True
         assertions['clinical-cleanup-preserved'] = clinical

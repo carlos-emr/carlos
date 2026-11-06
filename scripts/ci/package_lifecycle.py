@@ -5,12 +5,13 @@ import re
 
 from command_evidence import relative_file
 from junit_evidence import EvidenceError
+from lifecycle_baselines import required_baselines
 
 ROLES = {'clean', 'main', 'historical'}
 CELL_ASSERTIONS = {'ubuntu-systemd-prerequisite', 'pinned-installation', 'forced-first-login',
     'unchanged-client-before', 'real-transition', 'clinical-cleanup-preserved',
     'documents-cleanup-preserved', 'unchanged-client-after', 'candidate-application-bound',
-    'service-health', 'private-recovery-retained'}
+    'service-health', 'private-recovery-retained', 'dependency-contract'}
 
 
 def validate_inventory(document, source, profile, artifact_hash, directory, read_json, digest):
@@ -23,6 +24,10 @@ def validate_inventory(document, source, profile, artifact_hash, directory, read
     if (any(not isinstance(row, dict) for row in rows)
             or len(rows) != len(ROLES) or {row.get('role') for row in rows} != ROLES):
         raise EvidenceError('Lifecycle omitted or duplicated a required install/upgrade baseline')
+    baselines = required_baselines(read_json(Path(__file__).resolve().parents[2]
+        / 'docs/testing/release-2026.08-lifecycle-baselines.json'))
+    predecessor_pins = {role: next(asset['sha256'] for asset in baseline['assets']
+        if asset['name'].startswith('carlos-emr_')) for role, baseline in zip(('main', 'historical'), baselines)}
     for row in rows:
         path = relative_file(directory, row.get('path'))
         if digest(path) != row.get('sha256'):
@@ -31,6 +36,7 @@ def validate_inventory(document, source, profile, artifact_hash, directory, read
         assertions = cell.get('assertions', {})
         binding = cell.get('candidateDeployment', {})
         initial = cell.get('initialDeployment', {})
+        dependency = cell.get('dependencyContract', {})
         if (cell.get('source') != source or cell.get('profile') != profile
                 or cell.get('role') != row['role'] or cell.get('warSha256') != artifact_hash
                 or set(assertions) != CELL_ASSERTIONS or any(value is not True for value in assertions.values())
@@ -38,6 +44,12 @@ def validate_inventory(document, source, profile, artifact_hash, directory, read
                 or initial.get('scope') != 'installed-package-application'
                 or not re.fullmatch('[0-9a-f]{64}', initial.get('packageSha256', ''))
                 or not re.fullmatch('[0-9a-f]{64}', initial.get('contentSha256', ''))
+                or (row['role'] in predecessor_pins and initial.get('packageSha256') != predecessor_pins[row['role']])
+                or dependency.get('floor') != '1.3.1'
+                or (row['role'] != 'historical' and dependency.get('installedCli') != '1.3.1')
+                or (row['role'] == 'historical' and (dependency.get('installedCli') != '1.3.0'
+                    or any(dependency.get(key) is not True for key in
+                           ('olderCliRefused', 'compatibleCliResolved', 'statePreserved'))))
                 or binding.get('warSha256') != artifact_hash
                 or binding.get('scope') != 'installed-package-application'
                 or not re.fullmatch('[0-9a-f]{64}', binding.get('contentSha256', ''))):

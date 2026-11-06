@@ -210,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 269 required case identities, including the
+- The combined Python tooling registry pins 270 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -234,7 +234,7 @@ and qualification below are still required to complete issue 5700. No release-re
   preserves read-only clients, first-login ordering, whole-data cleanup checks and
   private failed-cell recovery evidence. Its explicit orchestrated deployment
   scope keeps packaged-byte binding during collection and final verification.
-  Five regression checks cover missing baselines, wrong bytes/source/province,
+  Six regression checks cover missing baselines, wrong bytes/source/province,
   failed cleanup, modified evidence and the actual host receipt path. Live/final
   qualification and the broader unsupported/interrupted lifecycle cases remain.
   See [execution prerequisites](release-2026.08-package-lifecycle.md).
@@ -263,3 +263,10 @@ and qualification below are still required to complete issue 5700. No release-re
 Validation commands and observed results belong in the PR description and its
 private execution logs. The final qualification report must live outside the frozen
 checkout; editing this document during qualification would change source identity.
+
+The first lifecycle core development attempt stopped before package installation
+because forwarding the outer proxy hostname replaced Docker's reachable proxy
+default. That failed record remains retained. The controller now preserves Docker's
+configured proxy/registry settings and removes only endpoint/TLS selectors. APT
+index failures are fatal. The historical cell also requires actual older-CLI
+dependency refusal, compatible resolution and unchanged package/data state.

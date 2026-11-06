@@ -23,8 +23,15 @@ from package_lifecycle import validate_config, validate_inventory
 from process_group import run_process_group
 
 
+def docker_environment():
+    # Endpoint selectors must not redirect operations away from this disposable
+    # host. Keep DOCKER_CONFIG, registry credentials and the configured proxy.
+    selectors = {'DOCKER_HOST', 'DOCKER_CONTEXT', 'DOCKER_TLS', 'DOCKER_TLS_VERIFY', 'DOCKER_CERT_PATH'}
+    return {key: value for key, value in os.environ.items() if key not in selectors}
+
+
 def docker(*arguments, capture=False, timeout=60):
-    environment = {key: value for key, value in os.environ.items() if not key.startswith('DOCKER_')}
+    environment = docker_environment()
     command = ['docker', '--host=unix:///var/run/docker.sock', *arguments]
     if capture:
         result = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=timeout)
@@ -101,16 +108,15 @@ def main():
             gate.write_json(cell / 'context.json', context)
             name = 'carlos-5700-lifecycle-' + uuid.uuid4().hex[:16]
             gate.write_json(cell / 'container.json', {'name': name, 'image': config['runtimeImage']})
-            environment = [argument for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY',
-                           'http_proxy', 'https_proxy', 'all_proxy', 'no_proxy') if key in os.environ
-                           for argument in ('--env', key)]
             with (cell / 'private-controller.log').open('xb') as log:
                 command = ['docker', '--host=unix:///var/run/docker.sock', 'run', '-d', '--name', name,
                     '--label', 'carlos.issue=5700', '--privileged', '--cgroupns=private',
-                    '--tmpfs', '/run', '--tmpfs', '/run/lock', *mounts, *environment,
+                    # Docker's client defaults contain the reachable proxy.
+                    # Forwarding the outer-only proxy hostname overrides it.
+                    '--tmpfs', '/run', '--tmpfs', '/run/lock', *mounts,
                     config['runtimeImage'], '/sbin/init']
                 result = subprocess.run(command, stdout=log, stderr=log, timeout=60,
-                    env={key: value for key, value in os.environ.items() if not key.startswith('DOCKER_')})
+                    env=docker_environment())
                 if result.returncode: raise EvidenceError('Could not create lifecycle cell')
                 # Wait for systemd's explicit ready/degraded state, never a blind sleep.
                 code = docker('exec', name, 'systemctl', 'is-system-running', '--wait', timeout=90)

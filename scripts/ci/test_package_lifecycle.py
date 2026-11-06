@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import release_verification as gate
 from junit_evidence import EvidenceError
@@ -11,16 +12,33 @@ from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_invento
 
 
 class PackageLifecycleTest(unittest.TestCase):
+    def test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_host', Path(__file__).with_name('run-package-lifecycle.py'))
+        controller = importlib.util.module_from_spec(spec); spec.loader.exec_module(controller)
+        with patch.dict('os.environ', {'DOCKER_HOST': 'tcp://FAKE:2375', 'DOCKER_CONTEXT': 'FAKE',
+                'DOCKER_TLS_VERIFY': '1', 'DOCKER_CERT_PATH': '/FAKE', 'DOCKER_CONFIG': '/FAKE/registry-config',
+                'HTTPS_PROXY': 'http://FAKE-outer-proxy:8080'}, clear=True):
+            self.assertEqual(controller.docker_environment(), {'DOCKER_CONFIG': '/FAKE/registry-config',
+                'HTTPS_PROXY': 'http://FAKE-outer-proxy:8080'})
+
     def fixture(self, root):
         source = {'commit': 'a' * 40, 'tree': 'b' * 40, 'clean': True}
         document = {'schemaVersion': 1, 'source': source, 'profile': 'ON', 'warSha256': 'c' * 64, 'cells': []}
         for role in ('clean', 'main', 'historical'):
             cell = {'role': role, 'profile': 'ON', 'source': source, 'warSha256': 'c' * 64,
                 'failureType': None, 'assertions': dict.fromkeys(CELL_ASSERTIONS, True),
+                'dependencyContract': {'floor': '1.3.1', 'installedCli': '1.3.0', 'olderCliRefused': True,
+                    'compatibleCliResolved': True, 'statePreserved': True},
                 'initialDeployment': {'scope': 'installed-package-application', 'packageSha256': 'd' * 64,
                     'contentSha256': 'e' * 64},
                 'candidateDeployment': {'scope': 'installed-package-application', 'warSha256': 'c' * 64,
                     'contentSha256': 'f' * 64}}
+            if role != 'historical': cell['dependencyContract']['installedCli'] = '1.3.1'
+            if role in ('main', 'historical'):
+                pins = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
+                baseline = pins if role == 'main' else pins['additionalSupportedBaselines'][0]
+                cell['initialDeployment']['packageSha256'] = next(a['sha256'] for a in baseline['assets'] if a['name'].startswith('carlos-emr_'))
             path = root / (role + '.json'); gate.write_json(path, cell)
             document['cells'].append({'role': role, 'path': path.name, 'sha256': gate.digest(path)})
         (root / 'lifecycle.json').write_text(json.dumps(document))
@@ -43,7 +61,8 @@ class PackageLifecycleTest(unittest.TestCase):
             root = Path(temporary); source, document = self.fixture(root)
             row = document['cells'][1]; path = root / row['path']; original = gate.read_json(path)
             for name, value in [('source', {}), ('profile', 'BC'), ('warSha256', '0' * 64),
-                    ('failureType', 'TimeoutExpired'), ('candidateDeployment', {}), ('initialDeployment', {})]:
+                    ('failureType', 'TimeoutExpired'), ('candidateDeployment', {}), ('initialDeployment', {}),
+                    ('dependencyContract', {})]:
                 broken = dict(original); broken[name] = value; path.write_text(json.dumps(broken))
                 row['sha256'] = gate.digest(path)
                 with self.assertRaises(EvidenceError): self.validate(root, source, document)
@@ -89,8 +108,14 @@ document={'schemaVersion':1,'source':source,'profile':'ON','warSha256':gate.dige
 for role in ['clean','main','historical']:
  cell={'role':role,'profile':'ON','source':source,'warSha256':gate.digest(artifact),'failureType':None,
   'assertions':dict.fromkeys(CELL_ASSERTIONS,True),
+  'dependencyContract':{'floor':'1.3.1','installedCli':'1.3.0','olderCliRefused':True,'compatibleCliResolved':True,'statePreserved':True},
   'initialDeployment':{'scope':'installed-package-application','packageSha256':'d'*64,'contentSha256':'e'*64},
   'candidateDeployment':{'scope':'installed-package-application','warSha256':gate.digest(artifact),'contentSha256':'f'*64}}
+ if role!='historical':cell['dependencyContract']['installedCli']='1.3.1'
+ if role in ['main','historical']:
+  pins=gate.read_json(gate.ROOT/'docs/testing/release-2026.08-lifecycle-baselines.json')
+  baseline=pins if role=='main' else pins['additionalSupportedBaselines'][0]
+  cell['initialDeployment']['packageSha256']=next(a['sha256'] for a in baseline['assets'] if a['name'].startswith('carlos-emr_'))
  path=directory/(role+'.json');gate.write_json(path,cell)
  document['cells'].append({'role':role,'path':path.name,'sha256':gate.digest(path)})
 gate.write_json(directory/'lifecycle.json',document)

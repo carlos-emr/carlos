@@ -4,7 +4,8 @@
 province: candidate clean install and equal-version reinstall, pinned current
 main upgrade, and distinct pinned beta5 upgrade. The two upgrade cells execute
 the same read-only client source before and after the package transaction. They
-create clinical canaries through the UI, reopen them after upgrade, clean their
+require the historical CLI 1.3.0 dependency refusal and compatible 1.3.1
+resolution without mutation, create clinical canaries through the UI, reopen them after upgrade, clean their
 owned graph, and independently compare all cells in eleven clinical tables and
 the document store. The earlier failed manual attempts remain separate evidence.
 
