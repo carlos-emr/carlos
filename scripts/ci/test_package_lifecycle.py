@@ -3,6 +3,8 @@ import copy
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -12,6 +14,20 @@ from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_invento
 
 
 class PackageLifecycleTest(unittest.TestCase):
+    def test_failed_container_is_stopped_and_retained_and_uncertain_shutdown_cannot_pass(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('lifecycle_stop', Path(__file__).with_name('run-package-lifecycle.py'))
+        controller = importlib.util.module_from_spec(spec); spec.loader.exec_module(controller)
+        for code, state, expected in [(0, 'false', True), (0, 'true', False), (1, 'false', False)]:
+            with self.subTest(code=code, state=state), patch.object(controller.subprocess, 'run',
+                    side_effect=[SimpleNamespace(returncode=code), SimpleNamespace(returncode=0, stdout=state)]) as run:
+                self.assertIs(controller.stop_failed_cell('owned-fixture'), expected)
+                self.assertEqual(run.call_args_list[0].args[0][-4:], ['stop', '--time', '30', 'owned-fixture'])
+                self.assertFalse(any('rm' in call.args[0] for call in run.call_args_list))
+        for failure in (PermissionError('synthetic'), subprocess.TimeoutExpired(['docker'], 45)):
+            with patch.object(controller.subprocess, 'run', side_effect=failure):
+                self.assertFalse(controller.stop_failed_cell('owned-fixture'))
+
     def test_local_daemon_selection_preserves_registry_config_and_runtime_proxy_defaults(self):
         import importlib.util
         spec = importlib.util.spec_from_file_location('lifecycle_host', Path(__file__).with_name('run-package-lifecycle.py'))

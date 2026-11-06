@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import signal
 import subprocess
 import uuid
 
@@ -45,6 +46,25 @@ def checked_file(path, expected=None):
     if path.is_symlink() or not stat.S_ISREG(path.lstat().st_mode) or (expected and gate.digest(path) != expected):
         raise EvidenceError('Lifecycle input is nonregular or differs from its pin')
     return path.resolve()
+
+
+def stop_failed_cell(name):
+    """Stopping docker exec's client does not stop the command inside Docker."""
+    previous = {number: signal.signal(number, signal.SIG_IGN) for number in (signal.SIGINT, signal.SIGTERM)}
+    try:
+        command = ['docker', '--host=unix:///var/run/docker.sock']
+        result = subprocess.run(command + ['stop', '--time', '30', name], env=docker_environment(),
+                                capture_output=True, text=True, timeout=45)
+        if result.returncode:
+            return False
+        result = subprocess.run(command + ['inspect', '--format', '{{.State.Running}}', name],
+            env=docker_environment(), capture_output=True, text=True, timeout=15)
+        return result.returncode == 0 and result.stdout.strip() == 'false'
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
 
 
 def package_inputs(config, baselines):
@@ -87,6 +107,7 @@ def main():
     document = {'schemaVersion': 1, 'source': source, 'profile': args.profile,
                 'warSha256': artifact_hash, 'runtimeImage': config['runtimeImage'], 'cells': []}
     passed = False
+    active_container = None
     try:
         for role, baseline in [('clean', None), ('main', baselines[0]), ('historical', baselines[1])]:
             cell = directory / role; cell.mkdir(mode=0o700)
@@ -107,6 +128,7 @@ def main():
             if baseline: context['baseline']['tag'] = baseline['tag']
             gate.write_json(cell / 'context.json', context)
             name = 'carlos-5700-lifecycle-' + uuid.uuid4().hex[:16]
+            active_container = name
             gate.write_json(cell / 'container.json', {'name': name, 'image': config['runtimeImage']})
             with (cell / 'private-controller.log').open('xb') as log:
                 command = ['docker', '--host=unix:///var/run/docker.sock', 'run', '-d', '--name', name,
@@ -132,15 +154,20 @@ def main():
                 document['cells'].append({'role': role, 'path': str(record.relative_to(directory)), 'sha256': gate.digest(record)})
                 if docker('stop', '--time', '45', name, timeout=60) or docker('rm', name):
                     raise EvidenceError('Successful owned lifecycle container could not be removed')
+                active_container = None
         gate.write_json(directory / 'lifecycle.json', document)
         validate_inventory(document, source, args.profile, artifact_hash, directory, gate.read_json, gate.digest)
         if gate.source_identity() != source or gate.digest(artifact) != artifact_hash:
             raise EvidenceError('Lifecycle source or artifact changed during execution')
         package_inputs(config, baselines)
         passed = True
-    except Exception as failure:
+    except (Exception, KeyboardInterrupt) as failure:
         document['failureType'] = type(failure).__name__
         if isinstance(failure, EvidenceError): document['failureReason'] = str(failure)
+        if active_container:
+            document['reconciliation'] = {'container': active_container,
+                'containerStopped': stop_failed_cell(active_container),
+                'restorationVerified': False, 'hostRequiresReconciliation': True}
         failure_path = directory / ('lifecycle-failure.json' if (directory / 'lifecycle.json').exists() else 'lifecycle.json')
         gate.write_json(failure_path, document)
     inputs = []

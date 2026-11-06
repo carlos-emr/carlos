@@ -177,7 +177,7 @@ and qualification below are still required to complete issue 5700. No release-re
   retains 28 changed/removed and 35 additive API type candidates; none is waived.
 - Python tooling pins required case identities as well as its count;
   replacing an omitted regression with an unrelated passing test cannot qualify.
-  The current development suite executes 252 cases successfully on Python 3.14. The live transition adapter also
+  The initial development run executed 252 cases successfully on Python 3.14. The live transition adapter also
   refused an equal-version "upgrade" before any package transaction or canary.
 - Package preservation now recognizes the explicitly managed eForm editor script
   using exact old/new package entries and unchanged metadata. Clinical files and
@@ -210,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 270 required case identities, including the
+- The combined Python tooling registry pins 276 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -234,7 +234,7 @@ and qualification below are still required to complete issue 5700. No release-re
   preserves read-only clients, first-login ordering, whole-data cleanup checks and
   private failed-cell recovery evidence. Its explicit orchestrated deployment
   scope keeps packaged-byte binding during collection and final verification.
-  Six regression checks cover missing baselines, wrong bytes/source/province,
+  Seven regression checks cover missing baselines, wrong bytes/source/province,
   failed cleanup, modified evidence and the actual host receipt path. Live/final
   qualification and the broader unsupported/interrupted lifecycle cases remain.
   See [execution prerequisites](release-2026.08-package-lifecycle.md).
@@ -270,3 +270,12 @@ default. That failed record remains retained. The controller now preserves Docke
 configured proxy/registry settings and removes only endpoint/TLS selectors. APT
 index failures are fatal. The historical cell also requires actual older-CLI
 dependency refusal, compatible resolution and unchanged package/data state.
+
+Review follow-up validation also exercises detached Chromium termination using
+`python3 scripts/ci/run-browser-process-oracle.py` after `npm ci` and installation
+of the locked Playwright browser. The real timeout, SIGTERM and SIGINT cases force
+SIGKILL and verify that owned browser sessions stop; fixture restoration still
+requires independent reconciliation. Failed lifecycle containers are stopped and
+retained, including after a Docker client timeout, with explicit shutdown and
+reconciliation status. The MariaDB preservation oracle also compares latin1 and
+utf8mb4 text while retaining exact binary and numeric comparisons.
