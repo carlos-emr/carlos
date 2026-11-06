@@ -8,22 +8,24 @@
  *
  * User path: the Locations tab (the test login adds two marker locations, then disables and
  * re-enables them as the steps need) ▸ throwaway day sheet, tomorrow ▸ slot ▸ Add Appointment ▸
- * free-text location ▸ (first location enabled) ▸ patient search ▸ Add; Add Appointment ▸
+ * free-text location ▸ (first location enabled) ▸ patient search ▸ Add; Add Appointment ▸ Location
+ * dropdown ▸ patient search ▸ Create New ▸ Add Record (back to the booking form); Add Appointment ▸
  * Location dropdown ▸ Add; Edit ▸ Update after its location was disabled; Edit ▸ Group Action ▸
  * tick the second provider ▸ Group Update; Add Appointment ▸ choose a location that is disabled
- * before Add; Edit ▸ Copy ▸ another slot (auto-paste) ▸ Add; Edit ▸ Cut ▸ another slot
- * (auto-paste) ▸ Add.
+ * before Add; Edit ▸ Copy ▸ another slot (auto-paste) ▸ Add; Edit ▸ Cut ▸ another slot (auto-paste)
+ * ▸ Add.
  *
  * Asserts each appointment row's location text and locationCode after every action: text typed
  * while no location was enabled survives a patient search that re-renders the form with the
- * dropdown, as the selected legacy option, and is saved; a booking stores the item id with a
- * snapshot of its label and the day sheet marks it; disabling the item
- * changes no booking, and an edit saved unchanged keeps both; Group Update gives every member,
- * including a provider ticked for the first time, the edited appointment's location even after its
- * item was disabled (before the fix, that member's preflight refused the whole update with 409); a
- * choice disabled while the add form was open is refused with HTTP 409, says why, keeps the draft
- * and writes nothing; Copy and Paste keep an active location's code; Cut and Paste of a booking
- * whose item was disabled since keep its name as legacy text, without the code.
+ * dropdown, as the selected legacy option, and is saved; the chosen location survives registering a
+ * new patient from the booking form; a booking stores the item id with a snapshot of its label and
+ * the day sheet marks it; disabling the item changes no booking, and an edit saved unchanged keeps
+ * both; Group Update gives every member, including a provider ticked for the first time, the edited
+ * appointment's location even after its item was disabled (before the fix, that member's preflight
+ * refused the whole update with 409); a choice disabled while the add form was open is refused with
+ * HTTP 409, says why, keeps the draft and writes nothing; Copy and Paste keep an active location's
+ * code; Cut and Paste of a booking whose item was disabled since keep its name as legacy text,
+ * without the code.
  *
  * Fixtures: the clinic's Location List is clinic-wide, so run only in a disposable database with
  * EXCLUSIVE=1 and CARLOS_DISPOSABLE_VM=true. The two marker locations are added and finally disabled
@@ -31,7 +33,8 @@
  * clinic's own locations are left as they are. Needs a clinic without a site setup (multisites,
  * scheduleSiteID, CAISI program locations): with one, the booking screens keep their own control
  * and the check is skipped before it creates anything. The throwaway login, the second provider,
- * the marker group and every row of the two owned providers are deleted in cleanup.
+ * the marker group, every row of the two owned providers and the patient the add-patient detour
+ * registers (with its child rows) are deleted in cleanup.
  */
 const {randomInt} = require('node:crypto');
 const h = require('./lib/playwright-harness');
@@ -100,6 +103,23 @@ async function workflow(s) {
     sql.execute(`DELETE FROM LookupListItem WHERE lookupListId=${Number(listId)} AND label LIKE ${q(`${marker}%`)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM LookupListItem WHERE label LIKE ${q(`${marker}%`)}`) === '0',
       'The marker locations were not removed');
+  });
+  // The patient the add-patient detour registers is named `${marker}-New`, never the owned
+  // patient's exact marker. Remove it with every child row the Add action writes.
+  const createdLike = q(`${marker}-%`);
+  s.cleanup(() => {
+    const ids = sql.rows(`SELECT demographic_no FROM demographic WHERE last_name LIKE ${createdLike}`).map(([id]) => id);
+    if (!ids.length) return;
+    h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'A created patient id is invalid');
+    const list = ids.join(',');
+    const children = [['admission', 'client_id'], ['demographicArchive', 'demographic_no'],
+      ['demographicExt', 'demographic_no'], ['demographicExtArchive', 'demographic_no'],
+      ['demographiccust', 'demographic_no'], ['demographiccustArchive', 'demographic_no'],
+      ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no']];
+    sql.execute(children.map(([table, column]) => `DELETE FROM ${table} WHERE ${column} IN (${list})`).join(';'));
+    sql.execute(`DELETE FROM demographic WHERE demographic_no IN (${list}) AND last_name LIKE ${createdLike}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE last_name LIKE ${createdLike}`) === '0',
+      'The patient created from the booking form was not removed');
   });
   if ((await locationsTab(null)).siteSetup) {
     throw new h.SkipCheck('This clinic books by sites or programs, so the booking screens keep their own location control');
@@ -274,6 +294,38 @@ async function workflow(s) {
       alphaId = itemId(alpha);
       betaId = itemId(beta);
       h.assert(/^[1-9]\d*$/.test(alphaId) && /^[1-9]\d*$/.test(betaId), 'The marker locations were not added');
+    });
+
+    await s.step('the location choice survives adding a new patient from the booking form', async () => {
+      const newPatient = `${marker}-New`;
+      const popup = await openAdd(first, '15:00');
+      await popup.locator('select#locationCode').selectOption(betaId);
+      await popup.locator('#keyword').fill(newPatient);
+      await Promise.all([popup.waitForEvent('domcontentloaded'), popup.locator('#searchBtn').click()]);
+      // No patient has this name, so the results page offers Create New, which carries the booking.
+      const createNew = popup.locator("form[action$='/demographic/ViewDemographicAddARecordHtm'] button[type='submit']").first();
+      await createNew.waitFor({timeout: 20000});
+      await Promise.all([popup.waitForEvent('domcontentloaded'), createNew.click()]);
+      await h.assertNotErrorPage(popup, 'add-demographic form');
+      const form = popup.locator('form[name="adddemographic"]');
+      await form.locator('input[name="last_name"]').fill(newPatient);
+      await form.locator('input[name="first_name"]').fill('Location');
+      await form.locator('select[name="sex"]').selectOption('F');
+      await form.locator('input[name="inputDOB"]').fill('1990-01-15');
+      // The save-path validator refuses an empty postal code; this one is Canada Post reserved.
+      await form.locator('input[name="postal"]').fill('M5W 1E6');
+      // Add Record registers the patient, and its result page posts the booking form back.
+      await Promise.all([
+        popup.waitForURL(/\/appointment\/addappointment/, {timeout: 30000}),
+        popup.locator('input[type="submit"][value="Add Record"]').first().click(),
+      ]);
+      await popup.locator('#addButton').waitFor({timeout: 20000});
+      await h.assertNotErrorPage(popup, 'booking form after Add Record');
+      const created = sql.value(`SELECT demographic_no FROM demographic WHERE last_name=${q(newPatient)}`);
+      h.assert(/^[1-9]\d*$/.test(created), 'Add Record did not register the new patient');
+      h.assert(await popup.locator('#demographic_no').inputValue() === created, 'The booking form did not come back with the new patient');
+      h.assert(await popup.locator('select#locationCode').inputValue() === betaId, 'Adding a patient dropped the location choice');
+      await popup.close();
     });
 
     let booking;
