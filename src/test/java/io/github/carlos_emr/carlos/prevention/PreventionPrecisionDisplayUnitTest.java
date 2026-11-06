@@ -103,7 +103,7 @@ class PreventionPrecisionDisplayUnitTest extends CarlosUnitTestBase {
     void shouldExecuteInteractiveAutofill_withoutAWholeDatabaseDateGate() throws Exception {
         var query = new io.github.carlos_emr.carlos.report.data.ParameterizedSql(
                 "select prevention_date as last_date from preventions", List.of());
-        when(apValues.findDatabaseApValues(query)).thenReturn(List.of(
+        when(apValues.findDatabaseApValues(query, List.of("last_date"))).thenReturn(List.of(
                 new ClinicalDataRow(java.util.Map.of("last_date", "2019-01-01"))));
         assertThat(io.github.carlos_emr.carlos.eform.EFormUtil.getValues(List.of("last_date"), query))
                 .containsExactly("2019-01-01");

@@ -117,11 +117,12 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldChooseHighestIdentifier_whenLatestDatesTie() {
-        int patient = patient();
-        extension(patient, "tie5549", "first", 2000);
-        DemographicExt second = extension(patient, "tie5549", "second", 2000);
+        int firstPatient = patient();
+        int secondPatient = patient();
+        extension(firstPatient, "tie5549", "first", 2000);
+        DemographicExt second = extension(secondPatient, "tie5549", "second", 2000);
         entityManager.clear();
-        assertThat(extensions.findReportValues("tie5549", List.of(patient), true))
+        assertThat(extensions.findReportValues("tie5549", List.of(firstPatient, secondPatient), true))
                 .extracting(DemographicExtDao.ReportValue::id).containsExactly(second.getId());
     }
 
@@ -129,6 +130,7 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
         var patient = new io.github.carlos_emr.carlos.commn.model.Demographic();
         patient.setFirstName("Synthetic");
         patient.setLastName("Antenatal5549");
+        patient.setPrefName("");
         patient.setSex("F");
         patient.setYearOfBirth("1990");
         patient.setMonthOfBirth("01");

@@ -643,7 +643,7 @@ public class EFormUtil {
     private static ArrayList<String> readApValues(List<String> names, ParameterizedSql sql, boolean strict) {
         ArrayList<String> values = new ArrayList<>();
         try {
-            for (ClinicalDataRow row : eFormValueDao().findDatabaseApValues(sql)) {
+            for (ClinicalDataRow row : eFormValueDao().findDatabaseApValues(sql, names)) {
                 values = new ArrayList<>();
                 for (String name : names) {
                     try {
@@ -697,7 +697,7 @@ public class EFormUtil {
     private static ArrayNode readApJson(List<String> names, ParameterizedSql sql, boolean strict) {
         ArrayNode values = objectMapper.createArrayNode();
         try {
-            for (ClinicalDataRow row : eFormValueDao().findDatabaseApValues(sql)) {
+            for (ClinicalDataRow row : eFormValueDao().findDatabaseApValues(sql, names)) {
                 ObjectNode value = objectMapper.createObjectNode();
                 for (String name : names) {
                     try {
@@ -782,7 +782,7 @@ public class EFormUtil {
     }
 
     public static void addEFormToGroup(String groupName, String fid) {
-        eFormGroupDao().addActiveFormIfMissing(groupName, ConversionUtils.fromIntString(fid));
+        eFormGroupDao().addActiveFormIfMissing(groupName, Integer.parseInt(fid));
     }
 
     public static void remEFormFromGroup(String groupName, String fid) {

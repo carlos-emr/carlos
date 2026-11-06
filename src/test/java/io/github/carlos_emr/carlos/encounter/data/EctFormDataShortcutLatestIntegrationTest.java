@@ -131,6 +131,7 @@ class EctFormDataShortcutLatestIntegrationTest {
         var forms = EctFormData.getPatientFormsAsArrayList(PATIENT, "XML", "form");
         assertThat(forms).hasSize(1);
         assertThat(forms.get(0).getFormId()).isEqualTo("21");
+        assertThat(forms.get(0).getTable()).isEqualTo("form");
         assertThat(forms.get(0).getCreated()).isEqualTo("09-03-2026");
         assertThat(forms.get(0).getEdited()).isEqualTo("09-03-2026 00:00:00");
         assertThat(EctFormData.getGroupedPatientFormsAsArrayList(PATIENT, "XML", "form", null))

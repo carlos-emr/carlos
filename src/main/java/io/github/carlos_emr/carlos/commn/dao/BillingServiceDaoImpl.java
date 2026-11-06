@@ -52,8 +52,9 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
 
     @Override
     public List<TimeRule> findTimeRules() {
+        // TINYINT(1) otherwise becomes Boolean; billing validation requires the legacy "0"/"1" flags.
         @SuppressWarnings("unchecked")
-        List<Object[]> rows = entityManager.createNativeQuery("SELECT billingservice_no,timeRange FROM billing_msp_servicecode_times", Object[].class).getResultList();
+        List<Object[]> rows = entityManager.createNativeQuery("SELECT billingservice_no,CAST(timeRange AS SIGNED) FROM billing_msp_servicecode_times", Object[].class).getResultList();
         return rows.stream().map(row -> new TimeRule(legacyText(row[0]), legacyText(row[1]))).toList();
     }
 

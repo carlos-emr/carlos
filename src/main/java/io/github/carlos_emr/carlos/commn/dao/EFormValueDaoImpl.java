@@ -44,6 +44,13 @@ public class EFormValueDaoImpl extends AbstractDaoImpl<EFormValue> implements EF
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<ClinicalDataRow> findDatabaseApValues(io.github.carlos_emr.carlos.report.data.ParameterizedSql sql) {
+        return findDatabaseApValues(sql, null);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<ClinicalDataRow> findDatabaseApValues(io.github.carlos_emr.carlos.report.data.ParameterizedSql sql,
+            List<String> requestedColumns) {
         io.github.carlos_emr.carlos.eform.EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
         // AP templates expose JDBC text (including physical timestamp scale), not Java temporal objects.
         // Hibernate owns the connection and transaction; only detached scalar rows leave this DAO.
@@ -52,12 +59,11 @@ public class EFormValueDaoImpl extends AbstractDaoImpl<EFormValue> implements EF
                 for (int i = 0; i < sql.getParams().size(); i++) statement.setObject(i + 1, sql.getParams().get(i));
                 try (var rows = statement.executeQuery()) {
                     var result = new java.util.ArrayList<ClinicalDataRow>();
-                    var metadata = rows.getMetaData();
+                    var columns = resolveApColumns(rows, requestedColumns);
                     while (rows.next()) {
                         java.util.Map<String, String> values = new java.util.LinkedHashMap<>();
-                        for (int i = 1; i <= metadata.getColumnCount(); i++) {
-                            String label = metadata.getColumnLabel(i);
-                            if (!values.containsKey(label)) values.put(label, rows.getString(i));
+                        for (var column : columns.entrySet()) {
+                            values.put(column.getKey(), rows.getString(column.getValue()));
                         }
                         result.add(new ClinicalDataRow(values));
                     }
@@ -65,6 +71,29 @@ public class EFormValueDaoImpl extends AbstractDaoImpl<EFormValue> implements EF
                 }
             }
         });
+    }
+
+    private static java.util.Map<String, Integer> resolveApColumns(java.sql.ResultSet rows,
+            List<String> requestedColumns) throws java.sql.SQLException {
+        java.util.Map<String, Integer> columns = new java.util.LinkedHashMap<>();
+        if (requestedColumns == null) {
+            var metadata = rows.getMetaData();
+            for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                columns.putIfAbsent(metadata.getColumnLabel(i), i);
+            }
+        } else {
+            for (String name : requestedColumns) {
+                try {
+                    // Driver lookup also supports qualified labels such as d.last_name. Metadata
+                    // labels alone lose the table aliases needed to distinguish joined columns.
+                    columns.put(name, rows.findColumn(name));
+                } catch (java.sql.SQLException missingColumn) {
+                    // An absent key preserves the facade's strict failure/legacy placeholder policy.
+                    // Actual row and value reads stay outside this catch and must fail the query.
+                }
+            }
+        }
+        return columns;
     }
 
     // The AP policy validates the read before this private statement factory.

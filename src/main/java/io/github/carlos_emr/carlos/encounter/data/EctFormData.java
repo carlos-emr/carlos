@@ -199,7 +199,7 @@ public class EctFormData {
 
         for (EncounterFormDao.HistoryRow row : encounterFormDao().findPatientHistory(trustedTable, demographicNo.toString(), false)) {
             PatientForm form = new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited());
-            if (!"form".equals(trustedTable)) form.setTable(trustedTable);
+            form.setTable(trustedTable);
             forms.add(form);
         }
 

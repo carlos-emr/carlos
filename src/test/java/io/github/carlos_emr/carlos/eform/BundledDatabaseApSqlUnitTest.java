@@ -143,7 +143,7 @@ class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
             try (var loader = mockStatic(EFormLoader.class)) {
                 loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
                 loader.when(() -> EFormLoader.getAP("latest_lab_values")).thenReturn(ap);
-                when(values.findDatabaseApValues(any(ParameterizedSql.class))).thenAnswer(invocation -> {
+                when(values.findDatabaseApValues(any(ParameterizedSql.class), anyList())).thenAnswer(invocation -> {
                     executed.add(invocation.getArgument(0));
                     return List.of(new ClinicalDataRow(Map.of("labvalues", json)));
                 });
@@ -231,7 +231,7 @@ class BundledDatabaseApSqlUnitTest extends CarlosUnitTestBase {
         try (var loader = mockStatic(EFormLoader.class)) {
             loader.when(EFormLoader::getMarker).thenReturn("oscarDB");
             loader.when(() -> EFormLoader.getAP("medical_history")).thenReturn(ap);
-            when(values.findDatabaseApValues(any(ParameterizedSql.class)))
+            when(values.findDatabaseApValues(any(ParameterizedSql.class), anyList()))
                     .thenAnswer(invocation -> {
                         ParameterizedSql query = invocation.getArgument(0);
                         executed.add(query);

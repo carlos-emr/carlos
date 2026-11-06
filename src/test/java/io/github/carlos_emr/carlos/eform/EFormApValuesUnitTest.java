@@ -30,7 +30,7 @@ class EFormApValuesUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldUseLastScalarRowAndEveryJsonRow_whenQueryReturnsMultipleRows() {
-        when(dao.findDatabaseApValues(query)).thenReturn(List.of(row("first"), row("  last  ")));
+        when(dao.findDatabaseApValues(eq(query), anyList())).thenReturn(List.of(row("first"), row("  last  ")));
         assertThat(EFormUtil.getValuesOrNull(List.of("NOTES", "nullable"), query)).containsExactly("last", "");
         var json = EFormUtil.getJsonValuesOrNull(List.of("notes"), query);
         assertThat(json).hasSize(2);
@@ -40,10 +40,10 @@ class EFormApValuesUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldDistinguishEmptyFromFailure_whenStrictClinicalRenderingNeedsCompleteValues() {
-        when(dao.findDatabaseApValues(query)).thenReturn(List.of());
+        when(dao.findDatabaseApValues(eq(query), anyList())).thenReturn(List.of());
         assertThat(EFormUtil.getValuesOrNull(List.of("notes"), query)).isEmpty();
         assertThat(EFormUtil.getJsonValuesOrNull(List.of("notes"), query)).isEmpty();
-        when(dao.findDatabaseApValues(query)).thenThrow(new jakarta.persistence.PersistenceException("synthetic failure"));
+        when(dao.findDatabaseApValues(eq(query), anyList())).thenThrow(new jakarta.persistence.PersistenceException("synthetic failure"));
         assertThat(EFormUtil.getValuesOrNull(List.of("notes"), query)).isNull();
         assertThat(EFormUtil.getJsonValuesOrNull(List.of("notes"), query)).isNull();
         assertThat(EFormUtil.getValues(List.of("notes"), query)).isEmpty();
@@ -52,7 +52,7 @@ class EFormApValuesUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldKeepLegacyPlaceholderAndStrictFailure_whenRequestedColumnIsMissing() {
-        when(dao.findDatabaseApValues(query)).thenReturn(List.of(row("present")));
+        when(dao.findDatabaseApValues(eq(query), anyList())).thenReturn(List.of(row("present")));
         assertThat(EFormUtil.getValues(List.of("missing"), query)).containsExactly("<(missing)NotFound>");
         assertThat(EFormUtil.getValuesOrNull(List.of("missing"), query)).isNull();
         assertThat(EFormUtil.getJsonValuesOrNull(List.of("missing"), query)).isNull();
