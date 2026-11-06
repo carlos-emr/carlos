@@ -22,17 +22,15 @@
  */
 package io.github.carlos_emr.carlos.lab.ca.on.CML;
 
+import io.github.carlos_emr.carlos.commn.dao.LabRoutingLookupDao;
+
 import java.io.BufferedReader;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
-import io.github.carlos_emr.Misc;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.LabPatientPhysicianInfoDao;
 import io.github.carlos_emr.carlos.commn.dao.LabReportInformationDao;
@@ -69,30 +67,30 @@ public class ABCDParser {
     public ABCDParser() {
     }
 
-    public void save(Connection conn) throws SQLException {
+    public void save() throws SQLException {
         logger.info("Starting save");
-        HashMap<String, String> htable = getProviderHash(conn);
+        HashMap<String, String> htable = getProviderHash();
         for (int i = 0; i < atypes.size(); i++) {// for each report
             Atype report = atypes.get(i);
             logger.info("Saving Report for " + report.locationId + " printed on " + report.printDate + " " + report.printTime + " # B " + report.totalBType + " #C " + report.totalCType + " #D " + report.totalDType);
-            String id = report.save(conn, report.locationId, report.printDate, report.printTime, report.totalBType, report.totalCType, report.totalDType); //save AType to Database and return ID
+            String id = report.save(report.locationId, report.printDate, report.printTime, report.totalBType, report.totalCType, report.totalDType); //save AType to Database and return ID
             logger.info("Report save to the database ID =" + id);
             if (null != id) {
                 for (int j = 0; j < report.btypes.size(); j++) {
                     Btype patient = report.btypes.get(j);
-                    String patientId = patient.save(conn, id);
+                    String patientId = patient.save(id);
 
-                    addToProviderLabTable(patient.docNum, htable, patientId, conn);
-                    patientRouteReport(patientId, patient.pLastName, patient.pFirstName, patient.pSex, patient.pDOB, patient.pHealthNum, conn);
+                    addToProviderLabTable(patient.docNum, htable, patientId);
+                    patientRouteReport(patientId, patient.pLastName, patient.pFirstName, patient.pSex, patient.pDOB, patient.pHealthNum);
 
                     for (int k = 0; k < patient.cdtypes.size(); k++) {
                         Object labResult = patient.cdtypes.get(k);
                         //la
                         //Ctype labResult = (Ctype) patient.ctypes.get(k);
                         if (labResult instanceof Ctype) {
-                            ((Ctype) labResult).save(conn, patientId);
+                            ((Ctype) labResult).save(patientId);
                         } else if (labResult instanceof Dtype) {
-                            ((Dtype) labResult).save(conn, patientId);
+                            ((Dtype) labResult).save(patientId);
                         }
                     }
                 }
@@ -102,7 +100,7 @@ public class ABCDParser {
     }
 
     //This method is to enter the lab into the providerLabTable
-    private void addToProviderLabTable(String docNum, HashMap<String, String> htable, String labId, Connection conn) throws SQLException {
+    private void addToProviderLabTable(String docNum, HashMap<String, String> htable, String labId) throws SQLException {
 
         String providerNo = htable.get(docNum);
 
@@ -121,15 +119,14 @@ public class ABCDParser {
 
 
         ProviderLabRouting router = new ProviderLabRouting();
-        router.route(labId, providerNo, conn, "CML");
+        router.route(labId, providerNo, "CML");
     }
 
     /////
 
 
-    public void patientRouteReport(String labId, String lastName, String firstName, String sex, String dob, String hin, Connection conn) {
+    public void patientRouteReport(String labId, String lastName, String firstName, String sex, String dob, String hin) {
 
-        String sql;
         String demo = "0";
         //19481015
         String dobYear = "%";
@@ -147,36 +144,12 @@ public class ABCDParser {
             dobDay = dob.substring(6, 8);
         }
 
-        int count = 0;
-        try {
-            int[] countHolder = new int[] { 0 };
-
-            if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-                sql = "select demographic_no from demographic where hin=? and "
-                        + " year_of_birth like ? and "
-                        + " month_of_birth like ? and "
-                        + " date_of_birth like ? and "
-                        + " sex like ? ";
-                demo = executePatientLookup(conn, sql, countHolder,
-                        hinMod, dobYear, dobMonth, dobDay, sex + "%");
-            } else {
-                sql = "select demographic_no from demographic where hin=? and "
-                        + " last_name like ? and "
-                        + " first_name like ? and "
-                        + " year_of_birth like ? and "
-                        + " month_of_birth like ? and "
-                        + " date_of_birth like ? and "
-                        + " sex like ? ";
-                String lastNamePrefix = (lastName != null && !lastName.isEmpty()) ? lastName.substring(0, 1) + "%" : "%";
-                String firstNamePrefix = (firstName != null && !firstName.isEmpty()) ? firstName.substring(0, 1) + "%" : "%";
-                demo = executePatientLookup(conn, sql, countHolder,
-                        hinMod, lastNamePrefix, firstNamePrefix,
-                        dobYear, dobMonth, dobDay, sex + "%");
-            }
-            count = countHolder[0];
-        } catch (SQLException sqlE) {
-            throw new IllegalStateException("CML patient lookup failed", sqlE);
-        }
+        int[] countHolder = new int[] { 0 };
+        java.util.List<LabRoutingLookupDao.Patient> matches = SpringUtils.getBean(LabRoutingLookupDao.class)
+                .findCmlPatients(hinMod, dobYear, dobMonth, dobDay, sex, lastName, firstName,
+                        CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes"));
+        demo = executePatientLookup(matches, countHolder);
+        int count = countHolder[0];
 
 
         if (count != 1) {
@@ -193,60 +166,33 @@ public class ABCDParser {
     }
     /////
 
-    /**
-     * Executes a parameterized patient lookup query and returns the demographic_no.
-     * Counts matching rows via the provided countHolder array (single-element int array).
-     */
-    private static String executePatientLookup(Connection conn, String sql, int[] countHolder, String... params) throws SQLException {
+    /** Resolve distinct patient heads; ambiguous or cyclic matches stay unmatched. */
+    private static String executePatientLookup(java.util.List<LabRoutingLookupDao.Patient> matches, int[] countHolder) {
         String demo = "0";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            for (int i = 0; i < params.length; i++) {
-                pstmt.setString(i + 1, params[i]);
-            }
-            try (ResultSet rs = pstmt.executeQuery()) {
-                // A merged source record and its head share the patient's HIN: count distinct heads, not rows.
-                // A row inside a merge cycle has no head to deliver to, so it makes the whole match unresolved.
-                DemographicMerged mergeChain = new DemographicMerged();
-                Set<Integer> matchedHeads = new HashSet<>();
-                boolean unresolvedChain = false;
-                while (rs.next()) {
-                    Integer head = mergeChain.findHead(Integer.valueOf(Misc.getString(rs, "demographic_no")));
-                    if (head == null) {
-                        unresolvedChain = true;
-                    } else if (matchedHeads.add(head)) {
-                        countHolder[0]++;
-                        demo = head.toString();
-                    }
-                }
-                if (unresolvedChain) {
-                    countHolder[0] = 0;
-                    demo = "0";
-                }
+        DemographicMerged mergeChain = new DemographicMerged();
+        Set<Integer> matchedHeads = new HashSet<>();
+        boolean unresolvedChain = false;
+        for (LabRoutingLookupDao.Patient match : matches) {
+            Integer head = mergeChain.findHead(match.demographicNo());
+            if (head == null) unresolvedChain = true;
+            else if (matchedHeads.add(head)) {
+                countHolder[0]++;
+                demo = head.toString();
             }
         }
+        if (unresolvedChain) { countHolder[0] = 0; demo = "0"; }
         return demo;
     }
 
-
-    private HashMap<String, String> getProviderHash(Connection conn) throws SQLException {
-        logger.info("Init - provider Hash table");
-        HashMap<String, String> htable = new HashMap<String, String>();
-        String sql = "select provider_no, ohip_no from provider where ohip_no != '' ";
-        try (PreparedStatement pstmt = conn.prepareStatement(sql);
-                ResultSet rs = pstmt.executeQuery()) {
-
-            while (rs.next()) {
-                String key = Misc.getString(rs, "ohip_no");
-                String value = Misc.getString(rs, "provider_no");
-                logger.info("Possible provider HashMap key " + key + " lab " + value);
-                if (key != null && value != null && !key.equals("null") && !value.equals("null")) {
-                    htable.put(key, value);
-                    logger.info("Adding  to provider HashMap key " + key + " lab " + value);
-                }
+    private HashMap<String, String> getProviderHash() {
+        HashMap<String, String> providers = new HashMap<>();
+        for (LabRoutingLookupDao.ProviderIdentifier provider : SpringUtils.getBean(LabRoutingLookupDao.class)
+                .findCmlProviderIdentifiers()) {
+            if (!provider.ohipNo().equals("null") && !provider.providerNo().equals("null")) {
+                providers.put(provider.ohipNo(), provider.providerNo());
             }
         }
-        logger.info("providers hash table :" + htable);
-        return htable;
+        return providers;
     }
 
     public void parse(BufferedReader in) throws Exception {
@@ -309,7 +255,7 @@ public class ABCDParser {
 
         }
 
-        public String save(Connection conn, String locationId, String printDate, String printTime, String totalB, String totalC, String totalD) {
+        public String save(String locationId, String printDate, String printTime, String totalB, String totalC, String totalD) {
             LabReportInformation l = new LabReportInformation();
             l.setLocationId(locationId);
             l.setPrintDate(printDate);
@@ -373,7 +319,7 @@ public class ABCDParser {
             }
         }
 
-        public String save(Connection conn, String id) {
+        public String save(String id) {
 
             LabPatientPhysicianInfo l = new LabPatientPhysicianInfo();
             l.setLabReportInfoId(Integer.parseInt(id));
@@ -465,7 +411,7 @@ public class ABCDParser {
             }
         }
 
-        public String save(Connection conn, String id) {
+        public String save(String id) {
             LabTestResults l = new LabTestResults();
             l.setLabPatientPhysicianInfoId(Integer.parseInt(id));
             l.setTitle(this.title);
@@ -515,7 +461,7 @@ public class ABCDParser {
         }
 
 
-        public String save(Connection conn, String id) {
+        public String save(String id) {
             LabTestResults l = new LabTestResults();
             l.setLabPatientPhysicianInfoId(Integer.parseInt(id));
             l.setTitle(this.title);

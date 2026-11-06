@@ -44,6 +44,18 @@ public class WorkFlowDaoImpl extends AbstractDaoImpl<WorkFlow> implements WorkFl
         super(WorkFlow.class);
     }
 
+    @Override
+    public Integer findLatestRhFormId(int demographicNo, int workflowId) {
+        Query query = entityManager.createNativeQuery(
+                "SELECT ID FROM formRhImmuneGlobulin WHERE demographic_no = ?1 AND workflowId = ?2"
+                + " ORDER BY formEdited DESC, ID DESC");
+        query.setParameter(1, demographicNo);
+        query.setParameter(2, workflowId);
+        query.setMaxResults(1);
+        List<?> rows = query.getResultList();
+        return rows.isEmpty() ? null : ((Number) rows.get(0)).intValue();
+    }
+
     public List<WorkFlow> findByWorkflowType(String type) {
         Query q = entityManager.createQuery("SELECT w FROM WorkFlow w WHERE w.workflowType=?1");
         q.setParameter(1, type);

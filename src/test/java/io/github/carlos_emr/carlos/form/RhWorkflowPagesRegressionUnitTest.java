@@ -54,7 +54,7 @@ import static org.mockito.Mockito.when;
 @DisplayName("RH workflow pages")
 @Tag("unit")
 @Tag("form")
-class RhWorkflowPagesRegressionUnitTest {
+class RhWorkflowPagesRegressionUnitTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     private static final Path JSPS = Path.of("src/main/webapp/WEB-INF/jsp");
 
@@ -67,9 +67,10 @@ class RhWorkflowPagesRegressionUnitTest {
     void shouldOpenWorkflowRhForm_fromQueueRow() throws Exception {
         // "../form/forwardshortcutname?formname=RH Form" left the application against the queue page's
         // context-root base, and named a Forms-menu shortcut no shipped install registers.
-        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
-            ResultSet bound = rows(55);
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(contains("workflowId = ?"), eq(42), eq(7))).thenReturn(bound);
+        {
+            var dao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.WorkFlowDao.class);
+            registerMock(io.github.carlos_emr.carlos.commn.dao.WorkFlowDao.class, dao);
+            when(dao.findLatestRhFormId(42, 7)).thenReturn(55);
 
             assertThat(new RHWorkFlow().getLink("42", "7"))
                     .isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=55&workflowId=7");
@@ -85,12 +86,12 @@ class RhWorkflowPagesRegressionUnitTest {
     void shouldOpenNewForm_whenNoFormIsBoundToTheWorkflow() throws Exception {
         // The patient's other RH forms may belong to an earlier pregnancy; offering one would let a save copy
         // that pregnancy's values into this workflow, so only a form bound to this workflow is opened.
-        try (MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class)) {
-            ResultSet none = rows();
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(contains("workflowId = ?"), eq(42), eq(7))).thenReturn(none);
+        {
+            var dao = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.WorkFlowDao.class);
+            registerMock(io.github.carlos_emr.carlos.commn.dao.WorkFlowDao.class, dao);
 
             assertThat(new RHWorkFlow().getLink("42", "7")).isEqualTo("/form/formRhImmuneGlobulin?demographic_no=42&formId=0&workflowId=7");
-            jdbc.verify(() -> LegacyJdbcQuery.getPreparedResultSet(matches("(?s)(?!.*workflowId).*"), eq(42)), never());
+            org.mockito.Mockito.verify(dao).findLatestRhFormId(42, 7);
         }
     }
 

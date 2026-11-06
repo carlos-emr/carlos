@@ -39,12 +39,8 @@
 
 package io.github.carlos_emr.carlos.lab.ca.all.upload;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.*;
@@ -60,7 +56,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.OtherIdManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.LabRoutingLookupDao;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -259,9 +255,7 @@ public final class MessageUploader {
 
         String demProviderNo = null;
 
-        try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin, connection);
-        }
+        demProviderNo = patientRouteReport(loggedInInfo, type, insertID, lastName, firstName, sex, dob, hin);
 
         Integer limit = null;
         boolean orderByLength = false;
@@ -280,10 +274,8 @@ public final class MessageUploader {
             search = "hso_no";
         }
 
-        try (Connection connection = LegacyJdbcQuery.getConnection()) {
-            providerRouteReport(String.valueOf(insertID), docNums, connection, demProviderNo, type, search, limit, orderByLength,
-                    loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
-        }
+        providerRouteReport(String.valueOf(insertID), docNums, demProviderNo, type, search, limit, orderByLength,
+                loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo());
         retVal = h.audit();
         if (results != null) {
             results.segmentId = insertID;
@@ -351,67 +343,23 @@ public final class MessageUploader {
         return index;
     }
 
-    // Allowed column names for provider search to prevent SQL injection
-    private static final java.util.Set<String> VALID_SEARCH_COLUMNS = java.util.Set.of(
-            "ohip_no", "provider_no", "last_name", "first_name", "practitionerno", "hso_no");
-
     /**
      * Attempt to match the doctors from the lab to a providers
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static void providerRouteReport(String labId, ArrayList<String> docNums, Connection conn, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength, String uploaderProviderNo) throws Exception {
+    private static void providerRouteReport(String labId, ArrayList<String> docNums, String altProviderNo, String labType, String search_on, Integer limit, boolean orderByLength, String uploaderProviderNo) throws Exception {
         // Using HashSet to avoid duplicate providers numbers
         LinkedHashSet<String> providerNums = new LinkedHashSet<>();
-        PreparedStatement pstmt;
-        String sql = "";
-        String sqlLimit = "";
-        String sqlOrderByLength = "";
-        String sqlSearchOn = "ohip_no";
-
-        if (search_on != null && search_on.length() > 0) {
-            // Whitelist column name to prevent SQL injection (normalize before checking)
-            String normalized = search_on.trim().toLowerCase(java.util.Locale.ROOT);
-            if (VALID_SEARCH_COLUMNS.contains(normalized)) {
-                sqlSearchOn = normalized;
-            } else {
-                MiscUtils.getLogger().warn("providerRouteReport: rejected invalid search column, using default 'ohip_no'");
-            }
-        }
-
-        if (limit != null && limit.intValue() > 0) {
-            sqlLimit = " limit " + limit.intValue(); // nosemgrep: formatted-sql-string -- integer value, not user string
-        }
-
-        if (orderByLength) {
-            sqlOrderByLength = " order by length(first_name)";
-        }
+        LabRoutingLookupDao lookup = SpringUtils.getBean(LabRoutingLookupDao.class);
 
         if (docNums != null) {
             for (int i = 0; i < docNums.size(); i++) {
 
                 if (docNums.get(i) != null && !((String) docNums.get(i)).trim().equals("")) {
-                    if ("ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON"))) {
-                        StringBuilder practitionerNum = new StringBuilder(((String) docNums.get(i)).trim());
-                        if (sqlSearchOn.equalsIgnoreCase("ohip_no")) {
-                            while (practitionerNum.length() < 6) {
-                                practitionerNum.insert(0, "0");
-                            }
-                        }
-                        sql = "select provider_no from provider where " + sqlSearchOn + " = ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
-                        pstmt = conn.prepareStatement(sql);
-                        pstmt.setString(1, practitionerNum.toString());
-                    } else {
-                        sql = "select provider_no from provider where " + sqlSearchOn + " LIKE ?" + sqlOrderByLength + sqlLimit; // nosemgrep: formatted-sql-string -- sqlSearchOn is whitelisted above
-                        pstmt = conn.prepareStatement(sql);
-                        pstmt.setString(1, (String) docNums.get(i));
-                    }
-                    ResultSet rs = pstmt.executeQuery(); // nosemgrep: formatted-sql-string — sqlSearchOn whitelisted above; practitionerNum bound via PreparedStatement
-                    while (rs.next()) {
-                        providerNums.add(Misc.getString(rs, "provider_no"));
-                    }
-                    rs.close();
-                    pstmt.close();
+                    providerNums.addAll(lookup.findProviders(search_on, docNums.get(i),
+                            "ON".equals(CarlosProperties.getInstance().getProperty("billregion", "ON")),
+                            limit, orderByLength));
 
                     String otherIdMatchKey = CarlosProperties.getInstance().getProperty("lab.other_id_matching", "");
                     if (otherIdMatchKey.length() > 0) {
@@ -470,149 +418,29 @@ public final class MessageUploader {
     }
 
     /**
-     * Attempt to match the doctors from the lab to a providers
-     */
-    private static void providerRouteReport(String labId, ArrayList docNums, Connection conn, String altProviderNo, String labType) throws Exception {
-        providerRouteReport(labId, docNums, conn, altProviderNo, labType, null, null, false, null);
-    }
-
-
-    /**
      * Attempt to match the patient from the lab to a demographic, return the patients providers which is to be used then no other providers can be found to match the patient to.
      */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin, Connection conn) throws SQLException {
+    private static String patientRouteReport(LoggedInInfo loggedInInfo, String labType, int labId, String lastName, String firstName, String sex, String dob, String hin) throws SQLException {
         PatientLabRoutingResult result = null;
 
-        String sql = null;
-        String demo = "0";
-        String provider_no = "0";
-        String dobYear = "%";
-        String dobMonth = "%";
-        String dobDay = "%";
-        String hinMod = null;
-
-
-			try {
-				if (hin != null && hin.equalsIgnoreCase("UNKNOWN")) { hin = ""; }
-				if (hin != null) {
-					hinMod = new String(hin);
-                    // Ontario may be bare 10 digits or have the version code concacted 1234567890XX
-					// Quebec type hin look like HUTPyymmdd12 which is 12 characters
-					// BC hin MSP is a 9 digit code
-					if (hinMod.length() == 12 && StringUtils.isNumeric(hinMod.substring(0, 10))) {
-                        // strip the version code for Ontario
-						hinMod = hinMod.substring(0, 10);
-					}
-				}
-
-				if (dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")) {
-					String[] dobArray = dob.trim().split("-");
-					dobYear = dobArray[0];
-					dobMonth = dobArray[1];
-					dobDay = dobArray[2];
-				}
-                
-				List<String> sqlParams = new ArrayList<>();
-                
-                // if no hin but there is a dob try for a complete match against the full name DOB and gender
-				if ((hinMod == null || hinMod.trim().isEmpty())
-						&& dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN")
-						&& StringUtils.isNotBlank(lastName)
-						&& StringUtils.isNotBlank(firstName)
-						&& StringUtils.isNotBlank(sex)
-						&& !sex.equalsIgnoreCase("UNKNOWN")) {
-					// Avoid logging PHI (name/DOB/sex). Lab id and match outcome are sufficient diagnostics.
-					logger.debug("Attempting no-HIN demographic match by name+DOB+sex for lab " + labId);
-					sql = "select demographic_no, provider_no from demographic where year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F', 'M') ) and last_name = ? and first_name = ?";
-					sqlParams.add(dobYear);
-					sqlParams.add(dobMonth);
-					sqlParams.add(dobDay);
-					sqlParams.add(sex + "%");
-                    sqlParams.add(lastName);
-					sqlParams.add(firstName);
-				}
-                
-				// only the first letter of names used for LAB_NOMATCH_NAMES=no
-				if (!firstName.equals("")) firstName = firstName.substring(0, 1);
-				if (!lastName.equals("")) lastName = lastName.substring(0, 1);
-
-
-				/*
-				 * HIN is PREFERRED for lab matching to ensure patient safety. The provincial Health Insurance Number
-				 * uniquely identifies a patient within the healthcare system, preventing cross-patient result delivery
-				 * and fatal patient mismatches that occurred in previous iterations.
-				 *
-				 * A no-HIN matching path is allowed ONLY when an exact match is found on all three demographic identifiers:
-				 * full legal name (first and last), date of birth (year, month, day), and gender. Gender matching is applied
-				 * EXCEPT when the stored sex value is not 'M' or 'F' - those non-binary/unspecified stored values act as a
-				 * wildcard and permit a match with any incoming lab gender value.
-				 *
-				 * For HIN-based matching (below), the LAB_NOMATCH_NAMES property controls whether name verification is required
-				 * in addition to HIN + DOB + gender validation. When LAB_NOMATCH_NAMES is "no", only the first letter of names
-				 * is used for matching.
-				 */
-				if (hinMod != null && !hinMod.trim().isEmpty()) {
-                    // Gender matching allows the provided sex OR any stored sex value not explicitly 'F' or 'M'.
-                    // This permits matching when the stored demographic has non-binary/unspecified gender.
-					if (CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes")) {
-						sql = "select demographic_no, provider_no from demographic where hin=? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
-						sqlParams.add(hinMod);
-						sqlParams.add(dobYear);
-						sqlParams.add(dobMonth);
-						sqlParams.add(dobDay);
-						sqlParams.add(sex + "%");
-					} else {
-						sql = "select demographic_no, provider_no from demographic where hin=? and last_name like ? and first_name like ? and year_of_birth like ? and month_of_birth like ? and date_of_birth like ? and ( sex like ? OR sex NOT IN ('F','M') )";
-						sqlParams.add(hinMod);
-						sqlParams.add(lastName + "%");
-						sqlParams.add(firstName + "%");
-						sqlParams.add(dobYear);
-						sqlParams.add(dobMonth);
-						sqlParams.add(dobDay);
-						sqlParams.add(sex + "%");
-					}
-                }
-
-				if ( sql != null ) {
-					logger.debug("Matching patient demographics for lab routing");
-					PreparedStatement pstmt = conn.prepareStatement(sql);
-					for (int pi = 0; pi < sqlParams.size(); pi++) {
-						pstmt.setString(pi + 1, sqlParams.get(pi));
-					}
-					ResultSet rs = pstmt.executeQuery();
-					// A merged source record and its head share the patient's HIN, so both rows match. Count
-					// distinct head records rather than rows: those rows are one patient, whereas two different
-					// heads are a genuinely ambiguous match and must stay unmatched.
-					DemographicMerged mergeChain = new DemographicMerged();
-					Set<Integer> matchedHeads = new HashSet<>();
-					boolean unresolvedChain = false;
-
-					while (rs.next()) {
-						result = new PatientLabRoutingResult();
-						demo = Misc.getString(rs, "demographic_no");
-						provider_no = Misc.getString(rs, "provider_no");
-						result.setDemographicNo(Integer.parseInt(demo));
-						result.setProviderNo(provider_no);
-						Integer matchedHead = mergeChain.findHead(result.getDemographicNo());
-						if (matchedHead == null) {
-							unresolvedChain = true;
-						} else {
-							matchedHeads.add(matchedHead);
-						}
-					}
-					rs.close();
-					pstmt.close();
-					// A match inside a merge cycle has no head to deliver to: leave the lab unmatched.
-					if (unresolvedChain || matchedHeads.size() > 1) {
-						result = null;
-					}
-				}
-			} catch (SQLException sqlE) {
-				throw sqlE;
-			}
-
+        List<LabRoutingLookupDao.Patient> matches = SpringUtils.getBean(LabRoutingLookupDao.class)
+                .findHl7Patients(lastName, firstName, sex, dob, hin,
+                        CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes"));
+        // Merged records are one patient only when every matching row resolves to the same head.
+        DemographicMerged mergeChain = new DemographicMerged();
+        Set<Integer> matchedHeads = new HashSet<>();
+        boolean unresolvedChain = false;
+        for (LabRoutingLookupDao.Patient match : matches) {
+            result = new PatientLabRoutingResult();
+            result.setDemographicNo(match.demographicNo());
+            result.setProviderNo(match.providerNo());
+            Integer head = mergeChain.findHead(match.demographicNo());
+            if (head == null) unresolvedChain = true;
+            else matchedHeads.add(head);
+        }
+        if (unresolvedChain || matchedHeads.size() > 1) result = null;
 
         if (result != null) {
             Integer headDemo = new DemographicMerged().getHead(result.getDemographicNo());

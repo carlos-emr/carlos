@@ -30,14 +30,13 @@
 
 package io.github.carlos_emr.carlos.workflow;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.WorkFlowDao;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -169,18 +168,11 @@ public class RHWorkFlow implements WorkFlow {
             return 0;
         }
         try {
-            Integer bound = firstId("SELECT ID FROM formRhImmuneGlobulin WHERE demographic_no = ? AND workflowId = ?"
-                    + " ORDER BY formEdited DESC, ID DESC LIMIT 1", demographicNo, workFlowId);
+            Integer bound = SpringUtils.getBean(WorkFlowDao.class).findLatestRhFormId(demographicNo, workFlowId);
             return bound == null ? 0 : bound;
-        } catch (SQLException e) {
+        } catch (org.springframework.dao.DataAccessException | jakarta.persistence.PersistenceException e) {
             MiscUtils.getLogger().warn("Could not find the RH form for a workflow queue row ({})", e.getClass().getSimpleName());
             return 0;
-        }
-    }
-
-    private static Integer firstId(String sql, Object... params) throws SQLException {
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, params)) {
-            return rs.next() ? rs.getInt(1) : null;
         }
     }
 

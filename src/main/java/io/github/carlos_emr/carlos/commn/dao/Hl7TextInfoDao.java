@@ -42,6 +42,14 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo2;
 
 public interface Hl7TextInfoDao extends AbstractDao<Hl7TextInfo> {
 
+    /** Most recent lab ids and statuses, bounded and ordered by lab number descending. */
+    List<LabStatus> findRecentLabStatuses(int limit);
+
+    /** Preserve MariaDB's LOW_PRIORITY update semantics without exposing JDBC to handlers. */
+    void updateResultStatusLowPriority(int labNumber, String status);
+
+    record LabStatus(int labNumber, String resultStatus) { }
+
     public List<Hl7TextInfo> findAll();
 
     public Hl7TextInfo findLabId(int labId);
