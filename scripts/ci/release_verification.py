@@ -25,6 +25,7 @@ from junit_evidence import EvidenceError, read_surefire
 from java_discovery import reconcile, expected_families
 from release_deployment import attest
 from cds_war_manifest import build_manifest
+from command_evidence import validate_contract, results as command_results, relative_file
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PLAN = ROOT / "docs/testing/release-2026.08-verification.json"
@@ -112,6 +113,10 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     if not names or len(set(names)) != len(names):
         raise EvidenceError("Empty or duplicate check registry")
     for check in checks:
+        if "resultContract" in check:
+            if check.get("kind") != "command":
+                raise EvidenceError("Only command checks accept result contracts")
+            validate_contract(check["resultContract"])
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]+", check.get("id", "")):
             raise EvidenceError("Invalid check identity")
         if check.get("kind") not in {"junit", "node", "python", "browser", "command", "build", "external"}:
@@ -166,6 +171,19 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
         required_node = next(check for check in checks if check["id"] == "node-all").get("requiredCases", [])
         if len(node_cases) != len(set(node_cases)) or set(node_cases) != set(required_node):
             raise EvidenceError("Retired Node TODOs must remain required active regressions")
+        if plan.get("requireManualBrowserCoverage"):
+            required = {name for row in work for name in row["requiredChecks"]}
+            for entry in manifest:
+                if not entry.get("manual"):
+                    continue
+                provinces = {"ON", "BC"} if "all" in entry["provinces"] else {
+                    province.upper() for province in entry["provinces"]}
+                covered = {profile.upper() for check in checks if check["id"] in required
+                           and entry["name"] in check.get("selection", [])
+                           and check.get("propertyProfile", "") == entry.get("profile", "")
+                           for profile in check["profiles"]}
+                if not provinces <= covered:
+                    raise EvidenceError("Manual browser check lacks required province coverage: " + entry["name"])
     return plan
 
 
@@ -270,6 +288,20 @@ def browser_results(path: Path, check, root=ROOT):
     import defusedxml.ElementTree as ET
     with path.open("rb") as stream:
         document = ET.parse(stream, forbid_dtd=True).getroot()
+    if check.get("requireLockedChromium"):
+        lock = read_json(root / "package-lock.json")
+        version = lock["packages"]["node_modules/playwright-core"]["version"]
+        directories = [parent / "node_modules/playwright-core" for parent in (root, *root.parents)]
+        installed = next((directory for directory in directories if (directory / "package.json").is_file()), None)
+        if installed is None or read_json(installed / "package.json").get("version") != version:
+            raise EvidenceError("Installed Playwright does not match the committed lock")
+        browsers = read_json(installed / "browsers.json").get("browsers", [])
+        expected_versions = {row["browserVersion"] for row in browsers if row.get("name") == "chromium"}
+        observed_versions = {item.strip() for prop in document.iter("property")
+                             if prop.get("name") == "browserVersion"
+                             for item in prop.get("value", "").split(",") if item.strip()}
+        if len(expected_versions) != 1 or observed_versions != expected_versions:
+            raise EvidenceError("Missing or unqualified launched Chromium version")
     cases = list(document.iter("testcase"))
     profile = check["selectedProfile"]
     manifest = read_json(root / "scripts/playwright-suite.json")["checks"]
@@ -317,6 +349,8 @@ def summarize(check, run_dir: Path, exit_code, root=ROOT):
         summary = {"artifactSha256": manifest["warSha256"], "entries": manifest["entryCount"], "ready": True}
     elif kind == "command":
         summary = {"ready": True}
+        if check.get("resultContract"):
+            summary, _ = command_results(check["resultContract"], run_dir, read_json, digest)
         if check["id"] == "scope-inventory":
             report = read_json(run_dir / "scope.json")
             if report.get("schemaVersion") != 1 or report.get("head") != source_identity(root)["commit"]:
@@ -410,16 +444,32 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
         receipt.setdefault("reason", reason)
         receipt["problems"].append({"stage": "evidence", "reason": reason})
     receipt["completedNs"] = time.time_ns()
-    for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
-                    "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json"):
-        for path in sorted(run_dir.glob(pattern)):
-            if path.is_symlink() or not path.is_file():
-                receipt["outcome"] = "FAIL"
-                receipt["reason"] = "Evidence contains a symlink or non-file"
-                continue
-            receipt["inputs"].append({"path": str(path.relative_to(run_dir)), "sha256": digest(path)})
+    for path in evidence_files(check, run_dir):
+        if path.is_symlink() or not path.is_file():
+            receipt["outcome"] = "FAIL"
+            receipt["reason"] = "Evidence contains a symlink or non-file"
+            continue
+        receipt["inputs"].append({"path": str(path.relative_to(run_dir)), "sha256": digest(path)})
     write_json(run_dir / "receipt.json", receipt)
     return receipt
+
+
+def evidence_files(check, directory):
+    files = {p for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
+                              "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json")
+             for p in directory.glob(pattern)}
+    if check.get("resultContract"):
+        result = directory / check["resultContract"]["file"]
+        if result.exists() or result.is_symlink():
+            files.add(result)
+            try:
+                _, names = command_results(check["resultContract"], directory, read_json, digest)
+                files.update(relative_file(directory, name) for name in names)
+            except EvidenceError:
+                # summarize records malformed/missing inputs as FAIL. Retain the
+                # result itself without losing the failed receipt during collection.
+                pass
+    return sorted(files)
 
 
 def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
@@ -479,9 +529,7 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
             continue
         if receipt.get("command") != check.get("command") or check["kind"] == "external":
             raise EvidenceError("Receipt was not produced by its reviewed executable check")
-        actual_inputs = {str(p.relative_to(path.parent)) for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
-                                                                    "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json")
-                         for p in path.parent.glob(pattern)}
+        actual_inputs = {str(p.relative_to(path.parent)) for p in evidence_files(check, path.parent)}
         if actual_inputs != set(input_names):
             raise EvidenceError("Evidence file inventory changed")
         summary = summarize(check, path.parent, 0, root)

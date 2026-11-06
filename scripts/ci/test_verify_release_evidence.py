@@ -89,6 +89,39 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.assertEqual(result["requiredExecutions"], 2)
         self.assertEqual(result["receivedExecutions"], 2)
 
+    def test_command_results_bind_underlying_inputs_through_final_verification(self):
+        producer = self.root / "measured.py"
+        producer.write_text('''import hashlib,json,pathlib,sys
+run=pathlib.Path(sys.argv[1])
+data=run/'metrics.json'; data.write_text('{"active":0}')
+(run/'result.json').write_text(json.dumps({'schemaVersion':1,'assertions':{'restored':True},
+ 'inputs':[{'path':'metrics.json','sha256':hashlib.sha256(data.read_bytes()).hexdigest()}]}))
+''')
+        self.plan["checks"].append({"id": "measured", "kind": "command", "profiles": ["all"],
+            "command": [sys.executable, str(producer), "{run}"],
+            "resultContract": {"file": "result.json", "assertions": ["restored"]}})
+        self.plan["workstreams"][0]["requiredChecks"].append("measured")
+        self.save_plan()
+        self.commit()
+        self.seed()
+        receipt = self.run_check("measured")
+        self.assertEqual(receipt["outcome"], "PASS")
+        self.assertEqual({row["path"] for row in receipt["inputs"]}, {"metrics.json", "result.json"})
+        self.assertTrue(self.verify()["releaseReady"])
+        (self.evidence / receipt["runId"] / "metrics.json").write_text('{"active":100}')
+        with self.assertRaisesRegex(EvidenceError, "Missing or changed evidence input"):
+            self.verify()
+
+    def test_command_exit_zero_without_result_retains_failed_receipt(self):
+        self.plan["checks"].append({"id": "noop", "kind": "command", "profiles": ["all"],
+            "command": [sys.executable, "-c", "pass"],
+            "resultContract": {"file": "result.json", "assertions": ["restored"]}})
+        self.save_plan()
+        self.commit()
+        receipt = self.run_check("noop")
+        self.assertEqual(receipt["outcome"], "FAIL")
+        self.assertEqual(gate.read_json(self.evidence / receipt["runId"] / "receipt.json")["outcome"], "FAIL")
+
     def test_python_children_use_the_entrypoint_interpreter_without_venv_activation(self):
         alternate = self.base / "alternate-bin"
         alternate.mkdir()
