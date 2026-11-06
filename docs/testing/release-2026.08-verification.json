@@ -1108,7 +1108,8 @@
       },
       "requiresExecutables": [
         "dpkg-deb",
-        "dpkg"
+        "dpkg",
+        "xmllint"
       ],
       "requiredCases": [
         "test_build_release_war.CandidateWarBuildTest.test_existing_output_is_preserved_without_building",

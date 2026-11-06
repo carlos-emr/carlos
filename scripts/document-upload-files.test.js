@@ -32,3 +32,26 @@ test('links and directories are preserved, cleanup failure is fatal, and later o
  assert(fs.lstatSync(path.join(f.store,'link.pdf')).isSymbolicLink());assert(fs.existsSync(path.join(f.store,'target.pdf')));
  assert(fs.statSync(path.join(f.store,'directory.pdf')).isDirectory());assert(!fs.existsSync(path.join(f.store,'safe.pdf')));
 });
+test('replaced upload and cache directories cannot redirect cleanup to unrelated files',t=>{
+ for(const rootName of ['store','cache'])for(const replacement of ['link','directory']) {
+  const f=fixture(t),before=captureUploadFiles(f.store);
+  const root=f[rootName],foreign=path.join(path.dirname(root),'foreign');fs.mkdirSync(foreign);
+  const name=rootName==='cache'?'owned.pdf_1.png':'owned.pdf';
+  f.write(foreign,name);f.write(f.store,'owned.pdf');
+  fs.renameSync(root,root+'-original');
+  if(replacement==='link')fs.symlinkSync(foreign,root);
+  else {fs.mkdirSync(root);f.write(root,name);}
+  assert.throws(()=>removeUploadFiles(before,['owned.pdf']),AggregateError);
+  assert(fs.existsSync(path.join(root,name)));
+  assert(fs.existsSync(path.join(foreign,name)));
+  if(rootName==='cache')assert(!fs.existsSync(path.join(f.store,'owned.pdf')));
+ }
+});
+test('a newly created rendering cache must be a real directory before cleanup',t=>{
+ const f=fixture(t);fs.rmdirSync(f.cache);
+ const before=captureUploadFiles(f.store),foreign=path.join(path.dirname(f.cache),'foreign');fs.mkdirSync(foreign);
+ f.write(foreign,'owned.pdf_1.png');f.write(f.store,'owned.pdf');fs.symlinkSync(foreign,f.cache);
+ assert.throws(()=>removeUploadFiles(before,['owned.pdf']),AggregateError);
+ assert(fs.existsSync(path.join(foreign,'owned.pdf_1.png')));
+ assert(!fs.existsSync(path.join(f.store,'owned.pdf')));
+});

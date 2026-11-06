@@ -2,8 +2,8 @@
 
 The [corrected plan](../superpowers/plans/2026-11-06-release-2026.08-full-verification-coverage.md)
 is the execution specification. This branch consolidates implementation into one
-PR targeting `release/2026.08`. The PR remains draft until the remaining implementation
-and qualification below are complete. No release-ready verdict has been produced; preserved qualification attempts remain incomplete.
+PR targeting `release/2026.08`. The PR is open for review, but the remaining implementation
+and qualification below are still required to complete issue 5700. No release-ready verdict has been produced; preserved qualification attempts remain incomplete.
 
 ## Implemented
 
@@ -179,6 +179,25 @@ and qualification below are complete. No release-ready verdict has been produced
   replacing an omitted regression with an unrelated passing test cannot qualify.
   All 246 execute successfully on Python 3.14. The live transition adapter also
   refused an equal-version "upgrade" before any package transaction or canary.
+
+## Review corrections
+
+- The coverage ratchet invokes its standalone checker so sibling imports work
+  without a custom `PYTHONPATH`. Its regression executes the real checker against
+  a committed fixture and preserves both passing and failing floor results.
+- The CI Maven cache is ignored as generated output. Source checks continue to
+  reject untracked application files and edits to any tracked file. This corrects
+  the native CDS workflow's refusal before physical database tests could start.
+- API inventory includes protected nested types. The real-client oracle now
+  verifies twelve assertions, including a subclass in another package that loses
+  access to a protected member type. Incomplete API diagnostics retain exception
+  classes without printing arbitrary exception messages or stacks.
+- Upload cleanup binds the document and rendering directories to their observed
+  identities. Replaced directories and symlinks fail cleanup without deleting
+  unrelated files; independent safe cleanup actions still run.
+- The Python tooling registry pins 248 required case identities, including the
+  new coverage-command and native source-cleanliness regressions. `xmllint` is an
+  explicit prerequisite for the existing streaming XML fixture tests.
 
 ## Remaining work before this PR can complete issue 5700
 
