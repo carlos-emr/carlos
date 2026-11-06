@@ -59,7 +59,7 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldPreserveGroupSentinelsAndPatientIsolation_whenTypedListingsFilterDeletedForms() throws Exception {
-        String group = "issue5547_" + java.util.UUID.randomUUID();
+        String group = "issue5547_" + java.util.UUID.randomUUID().toString().substring(0, 8);
         var active = new io.github.carlos_emr.carlos.commn.model.EForm();
         EntityDataGenerator.generateTestDataForModelClass(active);
         active.setCurrent(true);

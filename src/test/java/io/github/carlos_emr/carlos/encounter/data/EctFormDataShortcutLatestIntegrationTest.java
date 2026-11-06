@@ -129,6 +129,19 @@ class EctFormDataShortcutLatestIntegrationTest {
     }
 
     @Test
+    void shouldPreserveLegacyXmlFormDates_whenHistoryUsesFormNumbers() {
+        jdbc.execute("CREATE TABLE form (form_no INT PRIMARY KEY, demographic_no INT, form_date TIMESTAMP)");
+        jdbc.update("INSERT INTO form VALUES (21,101,'2026-03-09 14:00:00'),(22,202,'2026-04-01 09:00:00')");
+        var forms = EctFormData.getPatientFormsAsArrayList(PATIENT, "XML", "form");
+        assertThat(forms).hasSize(1);
+        assertThat(forms.get(0).getFormId()).isEqualTo("21");
+        assertThat(forms.get(0).getCreated()).isEqualTo("09-03-2026");
+        assertThat(forms.get(0).getEdited()).isEqualTo("09-03-2026 00:00:00");
+        assertThat(EctFormData.getGroupedPatientFormsAsArrayList(PATIENT, "XML", "form", null))
+                .extracting(EctFormData.PatientForm::getFormId).containsExactly("21");
+    }
+
+    @Test
     @DisplayName("should agree with the shortcut when the newest row is also the most recently edited")
     void shouldSelectNewestRow_whenRowsAreInsertedPerSave() throws SQLException {
         insert(10, PATIENT, "2026-01-05", "2026-01-05 08:00:00");

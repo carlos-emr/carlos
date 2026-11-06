@@ -96,8 +96,10 @@ class FormXmlImportServiceIntegrationTest extends CarlosTestBase {
         assertThat(id).isPositive().isNotEqualTo(99999L);
         assertThat(count()).isEqualTo(1);
         var row = forms.findPatientRecord(table, id.intValue(), 101);
-        assertThat(row).containsEntry("notes", "  O'Brien & FAKE  ").containsEntry("rawHistory", null)
-                .containsEntry("formCreated", "2026-01-02");
+        var values = new io.github.carlos_emr.carlos.commn.dao.ClinicalDataRow(row);
+        assertThat(values.raw("notes")).isEqualTo("  O'Brien & FAKE  ");
+        assertThat(values.raw("rawHistory")).isNull();
+        assertThat(values.raw("formCreated")).isEqualTo("2026-01-02");
         assertThat(forms.findPatientRecord(table, id.intValue(), 202)).isNull();
         assertThat(service.importEntry(input(body("replacement")), name("2026-10-31T12:34:56"))).isNull();
         assertThat(count()).isEqualTo(1);

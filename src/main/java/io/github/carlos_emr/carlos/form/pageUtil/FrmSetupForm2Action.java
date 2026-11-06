@@ -365,8 +365,15 @@ public final class FrmSetupForm2Action extends ActionSupport {
     static Properties loadFormRecord(String trustedFormName, String formId, String demographicNo) throws SQLException {
         if ("0".equals(formId)) return null;
         Properties props = new Properties();
-        Map<String, String> row = SpringUtils.getBean(EncounterFormDao.class)
-                .findPatientRecord("form" + trustedFormName, Integer.parseInt(formId), Integer.parseInt(demographicNo));
+        Map<String, String> row;
+        try {
+            row = SpringUtils.getBean(EncounterFormDao.class)
+                    .findPatientRecord("form" + trustedFormName, Integer.parseInt(formId), Integer.parseInt(demographicNo));
+        } catch (jakarta.persistence.PersistenceException | org.springframework.dao.DataAccessException
+                 | org.springframework.transaction.TransactionException failure) {
+            // Both SetupForm and the save action preserve their controlled pre-prefill 500 response.
+            throw new SQLException("Unable to read form record", failure);
+        }
         if (row == null) throw new IllegalArgumentException("Invalid form patient or record");
         for (var column : row.entrySet()) {
             boolean retainedVtField = "VTForm".equals(trustedFormName) && Set.of(

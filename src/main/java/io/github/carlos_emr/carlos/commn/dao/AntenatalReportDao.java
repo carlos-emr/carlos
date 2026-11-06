@@ -49,7 +49,8 @@ public class AntenatalReportDao {
                         + " WHERE TABLE_SCHEMA=SCHEMA() AND TABLE_NAME='formAR' AND DATA_TYPE='tinyint'", String.class).getResultList();
         java.util.Set<String> checked = new java.util.HashSet<>();
         for (String flag : flags) {
-            if ("1".equals(io.github.carlos_emr.carlos.util.NativeQueryValues.asString(row.get(flag)))) checked.add(flag);
+            Object value = row.get(flag);
+            if (Boolean.TRUE.equals(value) || value instanceof Number number && number.intValue() == 1) checked.add(flag);
         }
         return new PlannerRow((String) row.get("c_finalEDB"), (String) row.get("c_pName"),
                 (String) row.get("pg1_wt"), (String) row.get("pg1_ht"), java.util.Set.copyOf(checked));

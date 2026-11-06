@@ -17,10 +17,11 @@ operations. It also migrates every remaining `SqlUtils.getRow` and
 | MDS search, BC address picker, note-role repair, antenatal planner | Existing owning DAOs now return typed values or mutation counts. Search allowlists, merged-patient exclusion, paging budgets, page access checks and output encoding remain. The planner additionally binds the requested patient with the form ID. |
 | BC `SqlUtils` consumers | Named billing-service, billing-master and diagnosis projections replace arbitrary SQL. Billing-master reads explicitly use REQUIRED rather than inheriting its legacy REQUIRES_NEW, so they see caller writes. `LegacyReadResult` preserves null on missing/failed reads without logging clinical values. |
 
-Ordinary fixed queries use JPA/native scalar projections. Two schema-dependent
+Ordinary fixed queries use JPA/native scalar projections. Three schema-dependent
 adapters deliberately use Hibernate's managed `doReturningWork` inside the DAO:
 AP results must retain the physical driver's string formatting (including
-timestamp scale), and SetupForm must retain physical column names and SQL NULL.
+timestamp scale), SetupForm must retain physical column names and SQL NULL, and XML import uses
+physical column metadata and generated keys for unmapped form tables.
 Their statements/results close before returning detached scalar values; neither
 opens nor releases Hibernate's connection. Application callers receive no JDBC
 resource. These adapters do not create a new unrestricted SQL executor: AP keeps
@@ -76,3 +77,10 @@ failure/response and referral batch tests remain applicable.
 configurable report infrastructure and Jasper connections remain for their
 actual dependents. This change does not retire their lifecycle cleanup or alter
 published Flyway migrations, dependency locks or release metadata.
+
+The CDS crosswalk binds complete reader-file hashes. Its review was refreshed
+for `CaseManagementNoteDAOImpl` (only the named role-repair mutation was added;
+CDS note reads are unchanged) and `FrmSetupForm2Action` (medication prefill is
+unchanged; form-row extraction preserves the physical names, nulls and trimming
+through its DAO). Schema pins, field dispositions and normalization rules are
+unchanged. The regenerated inventory retains those reviewed contracts.

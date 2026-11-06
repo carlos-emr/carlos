@@ -137,10 +137,15 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         String trusted = requireTable(table);
         // Read the real schema: form tables have different optional columns and defaults.
         // Values stay strings so MariaDB, as with updateString(), owns date/number conversion.
-        @SuppressWarnings("unchecked")
-        List<String> columns = entityManager.createNativeQuery("SELECT COLUMN_NAME FROM information_schema.COLUMNS"
-                        + " WHERE TABLE_SCHEMA=SCHEMA() AND TABLE_NAME=?1 ORDER BY ORDINAL_POSITION", String.class)
-                .setParameter(1, trusted).getResultList();
+        List<String> columns = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+            try (var statement = connection.prepareStatement("SELECT * FROM " + trusted + " WHERE 1=0");
+                 var rows = statement.executeQuery()) {
+                List<String> result = new ArrayList<>();
+                var metadata = rows.getMetaData();
+                for (int i = 1; i <= metadata.getColumnCount(); i++) result.add(metadata.getColumnName(i));
+                return result;
+            }
+        });
         Map<String, String> names = new LinkedHashMap<>();
         columns.forEach(column -> names.put(column.toLowerCase(Locale.ROOT), column));
         Map<String, String> supplied = new LinkedHashMap<>();
@@ -156,12 +161,18 @@ public class EncounterFormDaoImpl extends AbstractDaoImpl<EncounterForm> impleme
         List<String> keys = new ArrayList<>(supplied.keySet());
         // Every identifier comes from the physical metadata of the allowlisted table.
         String fields = String.join(",", keys.stream().map(key -> "`" + names.get(key).replace("`", "``") + "`").toList());
-        List<String> binds = new ArrayList<>();
-        for (int i = 1; i <= keys.size(); i++) binds.add("?" + i);
-        Query insert = entityManager.createNativeQuery("INSERT INTO " + trusted + " (" + fields + ") VALUES (" + String.join(",", binds) + ")");
-        for (int i = 0; i < keys.size(); i++) insert.setParameter(i + 1, supplied.get(keys.get(i)));
-        insert.executeUpdate();
-        return ((Number) entityManager.createNativeQuery("SELECT LAST_INSERT_ID()").getSingleResult()).longValue();
+        String binds = String.join(",", java.util.Collections.nCopies(keys.size(), "?"));
+        return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+            try (var insert = connection.prepareStatement("INSERT INTO " + trusted + " (" + fields + ") VALUES (" + binds + ")",
+                    java.sql.Statement.RETURN_GENERATED_KEYS)) {
+                for (int i = 0; i < keys.size(); i++) insert.setString(i + 1, supplied.get(keys.get(i)));
+                insert.executeUpdate();
+                try (var generated = insert.getGeneratedKeys()) {
+                    if (!generated.next()) throw new java.sql.SQLException("Form import returned no generated ID");
+                    return generated.getLong(1);
+                }
+            }
+        });
     }
 
     @SuppressWarnings("unchecked")

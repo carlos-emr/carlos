@@ -59,9 +59,18 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
 
     @Override
     public List<ConditionRule> findConditionRules(String serviceCode) {
+        return findConditionRules(serviceCode, true);
+    }
+
+    @Override
+    public List<ConditionRule> findAllConditionRules() {
+        return findConditionRules(null, false);
+    }
+
+    private List<ConditionRule> findConditionRules(String serviceCode, boolean filterByCode) {
         Query query = entityManager.createNativeQuery("SELECT serviceCode,conditionCode FROM billing_service_code_conditions"
-                + (serviceCode == null ? "" : " WHERE serviceCode=?1"), Object[].class);
-        if (serviceCode != null) query.setParameter(1, serviceCode);
+                + (filterByCode ? " WHERE serviceCode=?1" : ""), Object[].class);
+        if (filterByCode) query.setParameter(1, serviceCode);
         @SuppressWarnings("unchecked")
         List<Object[]> rows = query.getResultList();
         return rows.stream().map(row -> new ConditionRule(legacyText(row[0]), legacyText(row[1]))).toList();

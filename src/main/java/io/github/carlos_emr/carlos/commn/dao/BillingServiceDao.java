@@ -42,6 +42,7 @@ public interface BillingServiceDao extends AbstractDao<BillingService> {
     record CodeDescription(String code, String description) { }
 
     List<TimeRule> findTimeRules();
+    List<ConditionRule> findAllConditionRules();
     List<ConditionRule> findConditionRules(String serviceCode);
     List<String> findVisitTypes();
     List<CodeDescription> findCodeDescriptions(String descriptionPrefix);

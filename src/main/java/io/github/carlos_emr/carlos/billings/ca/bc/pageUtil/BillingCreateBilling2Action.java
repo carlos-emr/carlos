@@ -528,7 +528,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private void validateCDMCodeConditions(List<String> errors, String demoNo,
                                            String serviceCode) {
         List<BillingServiceDao.ConditionRule> cdmRules = LegacyReadResult.listOrNull(
-                () -> SpringUtils.getBean(BillingServiceDao.class).findConditionRules(null));
+                () -> SpringUtils.getBean(BillingServiceDao.class).findAllConditionRules());
         if (cdmRules == null) {
             return;
         }

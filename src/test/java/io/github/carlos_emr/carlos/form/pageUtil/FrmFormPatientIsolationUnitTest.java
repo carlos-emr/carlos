@@ -3,7 +3,6 @@ package io.github.carlos_emr.carlos.form.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.EctFindMeasurementTypeUtil;
 import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
 import io.github.carlos_emr.carlos.form.FrmRecordHelp;
@@ -34,8 +33,6 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -189,12 +186,11 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         RxPatientData.Patient rxPatient = mock(RxPatientData.Patient.class);
         when(rxPatient.getPrescribedDrugsUnique()).thenReturn(new RxPrescriptionData.Prescription[0]);
         when(rxPatient.getActiveAllergies()).thenReturn(new Allergy[0]);
-        ResultSet owned = ownedForm(patient);
+        Map<String, String> owned = ownedForm(patient);
         try (var servlet = servlet();
-             var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
              var rx = mockStatic(RxPatientData.class);
              var definitions = mockStatic(EctFindMeasurementTypeUtil.class)) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(Integer.parseInt(patient))))
+            when(forms.findPatientRecord(eq("formVTForm"), eq(88), eq(Integer.parseInt(patient))))
                     .thenReturn(owned);
             rx.when(() -> RxPatientData.getPatient(user, Integer.parseInt(patient))).thenReturn(rxPatient);
             definitions.when(() -> EctFindMeasurementTypeUtil.checkMeasurmentTypes(any(), eq("VTForm"))).thenReturn(types);
@@ -217,7 +213,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
                 assertThat(values.get("WTValue")).isEqualTo("72.5");
                 assertThat(values.get("WTComments")).isEqualTo("Owned <script> text");
                 assertThat(values.get("subjective")).isEqualTo("Owned subjective");
-                verify(owned).close();
+                verify(forms).findPatientRecord("formVTForm", 88, Integer.parseInt(patient));
             } else {
                 assertThat(values.get("iExValue")).isEqualTo("");
                 assertThat(values.get("iExDate")).isEqualTo("");
@@ -244,12 +240,11 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("submit", submit);
         request.setParameter("provider_no", "forged");
         lastChart.setDemographicNo(other);
-        ResultSet owned = ownedForm(patient);
+        Map<String, String> owned = ownedForm(patient);
         try (var servlet = servlet();
-             var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
              var records = mockConstruction(FrmRecordHelp.class, (record, context) ->
                      when(record.saveFormRecord(any(), anyString(), any(Object[].class))).thenReturn(77))) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(Integer.parseInt(patient))))
+            when(forms.findPatientRecord(eq("formVTForm"), eq(88), eq(Integer.parseInt(patient))))
                     .thenReturn(owned);
             assertThat(new FrmForm2Action().execute()).isEqualTo(ActionSupport.NONE);
             ArgumentCaptor<Properties> saved = ArgumentCaptor.forClass(Properties.class);
@@ -278,19 +273,9 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private static ResultSet ownedForm(String patient) throws SQLException {
-        ResultSet rows = mock(ResultSet.class);
-        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
-        String[] columns = {"ID", "demographic_no", "visitCod", "WTValue", "WTDate", "WTComments", "Subjective"};
-        String[] values = {"88", patient, "2026-10-15", "72.5", "2026-10-15", "Owned <script> text", "Owned subjective"};
-        when(rows.next()).thenReturn(true, false);
-        when(rows.getMetaData()).thenReturn(metadata);
-        when(metadata.getColumnCount()).thenReturn(columns.length);
-        for (int i = 0; i < columns.length; i++) {
-            when(metadata.getColumnName(i + 1)).thenReturn(columns[i]);
-            when(rows.getString(i + 1)).thenReturn(values[i]);
-        }
-        return rows;
+    private static Map<String, String> ownedForm(String patient) {
+        return Map.of("ID", "88", "demographic_no", patient, "visitCod", "2026-10-15", "WTValue", "72.5",
+                "WTDate", "2026-10-15", "WTComments", "Owned <script> text", "Subjective", "Owned subjective");
     }
 
     @ParameterizedTest
@@ -382,14 +367,14 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
     void shouldRejectForeignOrMissingForm_beforePrefillOrSaving(boolean setup) throws Exception {
         request.setParameter("demographic_no", "101");
         request.setParameter("value(formId)", "88");
-        ResultSet rows = mock(ResultSet.class);
-        try (var servlet = servlet(); var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
+        Map<String, String> rows = null;
+        try (var servlet = servlet();
              var records = mockConstruction(FrmRecordHelp.class)) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(101)))
+            when(forms.findPatientRecord("formVTForm", 88, 101))
                     .thenReturn(rows);
             assertThat(setup ? new FrmSetupForm2Action().execute() : new FrmForm2Action().execute()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(400);
-            jdbc.verify(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(101)));
+            verify(forms).findPatientRecord("formVTForm", 88, 101);
             verifyNoInteractions(measurements, demographics, charts);
             assertThat(records.constructed()).isEmpty();
             assertThat(lastChart.getDemographicNo()).isEqualTo("202");
@@ -420,21 +405,21 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("submit", operation);
         // Module grants remain intact, as with a separate _eChart$patient record exclusion.
         when(security.isAllowedAccessToPatientRecord(user, 101)).thenReturn(false);
-        ResultSet owned = ownedForm("101");
+        Map<String, String> owned = ownedForm("101");
         RxPatientData.Patient rxPatient = mock(RxPatientData.Patient.class);
         when(rxPatient.getPrescribedDrugsUnique()).thenReturn(new RxPrescriptionData.Prescription[0]);
         when(rxPatient.getActiveAllergies()).thenReturn(new Allergy[0]);
         var types = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition());
-        try (var servlet = servlet(); var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
+        try (var servlet = servlet();
              var rx = mockStatic(RxPatientData.class); var definitions = mockStatic(EctFindMeasurementTypeUtil.class);
              var records = mockConstruction(FrmRecordHelp.class, (record, context) ->
                      when(record.saveFormRecord(any(), anyString(), any(Object[].class))).thenReturn(77))) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(101)))
+            when(forms.findPatientRecord("formVTForm", 88, 101))
                     .thenReturn(owned);
             rx.when(() -> RxPatientData.getPatient(user, 101)).thenReturn(rxPatient);
             definitions.when(() -> EctFindMeasurementTypeUtil.checkMeasurmentTypes(any(), eq("VTForm"))).thenReturn(types);
             definitions.when(() -> EctFindMeasurementTypeUtil.loadMeasurementTypes(any(InputStream.class))).thenReturn(types);
-            jdbc.clearInvocations();
+            clearInvocations(forms);
             rx.clearInvocations();
             definitions.clearInvocations();
 
@@ -443,8 +428,7 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
                 else new FrmForm2Action().execute();
             }).isInstanceOf(SecurityException.class).hasMessage("Patient record access denied");
 
-            verifyNoInteractions(forms, measurements, demographics, charts, owned);
-            jdbc.verifyNoInteractions();
+            verifyNoInteractions(forms, measurements, demographics, charts);
             rx.verifyNoInteractions();
             definitions.verifyNoInteractions();
             assertThat(records.constructed()).isEmpty();
@@ -477,24 +461,23 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
         request.setParameter("demographic_no", "101");
         request.setParameter("value(formId)", formId);
         request.setParameter("submit", operation);
-        ResultSet owned = ownedForm("101");
+        Map<String, String> owned = ownedForm("101");
         var types = EctFindMeasurementTypeUtil.loadMeasurementTypes(definition());
-        try (var servlet = servlet(); var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
+        try (var servlet = servlet();
              var definitions = mockStatic(EctFindMeasurementTypeUtil.class);
              var records = mockConstruction(FrmRecordHelp.class, (record, context) ->
                      when(record.saveFormRecord(any(), anyString(), any(Object[].class))).thenReturn(77))) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(101)))
+            when(forms.findPatientRecord("formVTForm", 88, 101))
                     .thenReturn(owned);
             definitions.when(() -> EctFindMeasurementTypeUtil.loadMeasurementTypes(any(InputStream.class))).thenReturn(types);
-            jdbc.clearInvocations();
+            clearInvocations(forms);
             definitions.clearInvocations();
 
             assertThat(new FrmForm2Action().execute()).isEqualTo(ActionSupport.NONE);
 
             assertThat(response.getStatus()).isEqualTo(405);
             assertThat(response.getHeader("Allow")).isEqualTo("POST");
-            verifyNoInteractions(security, forms, measurements, demographics, charts, owned);
-            jdbc.verifyNoInteractions();
+            verifyNoInteractions(security, forms, measurements, demographics, charts);
             definitions.verifyNoInteractions();
             assertThat(records.constructed()).isEmpty();
             assertThat(response.getForwardedUrl()).isNull();
@@ -507,10 +490,10 @@ public class FrmFormPatientIsolationUnitTest extends CarlosUnitTestBase {
     void shouldReturnControlledServerError_whenOwnedRecordLookupFails() throws Exception {
         request.setParameter("demographic_no", "101");
         request.setParameter("value(formId)", "88");
-        try (var servlet = servlet(); var jdbc = mockStatic(LegacyJdbcQuery.class, CALLS_REAL_METHODS);
+        try (var servlet = servlet();
              var records = mockConstruction(FrmRecordHelp.class)) {
-            jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), eq(88), eq(101)))
-                    .thenThrow(new SQLException("Synthetic lookup failure"));
+            when(forms.findPatientRecord("formVTForm", 88, 101))
+                    .thenThrow(new jakarta.persistence.PersistenceException("Synthetic lookup failure"));
 
             assertThat(new FrmSetupForm2Action().execute()).isEqualTo(ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(500);
