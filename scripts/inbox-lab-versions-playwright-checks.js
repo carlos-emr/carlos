@@ -5,7 +5,6 @@
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
-const {createRoutingLockFixture} = require('./lib/lab-routing-fixture');
 const { applyStatusFilter, settle } = require('./inboxhub-filters-playwright-checks');
 
 async function workflow(s) {
@@ -21,13 +20,6 @@ async function workflow(s) {
     ORDER BY h.final_result_count, h.obr_date, h.lab_no LIMIT 3`).map(row => row[0]);
   if (labs.length !== 3) throw new h.SkipCheck('three demo HL7 versions of one accession are required');
   h.assert(labs.every(id => /^[1-9]\d*$/.test(id)), 'Invalid lab fixture identity');
-  // Opening the filed report can create coordinator rows even though no acknowledgement is submitted.
-  // Only an exclusively held disposable install can prove those new rows belong to this fixture.
-  if (process.env.EXCLUSIVE === '1' && process.env.CARLOS_DISPOSABLE_VM === 'true') {
-    const locks = createRoutingLockFixture(query => s.sql.execute(query), query => s.sql.rows(query), labs,
-      {exclusive: true});
-    s.cleanup(() => locks.cleanup());
-  }
   const provider = h.sqlString(s.provider);
   const where = `provider_no=${provider} AND lab_type='HL7' AND lab_no IN(${labs.join(',')})`;
   const before = s.sql.rows(`SELECT id,lab_no,status FROM providerLabRouting WHERE ${where} ORDER BY id`);

@@ -149,3 +149,17 @@ test('lock cleanup reports a missing borrowed coordinator instead of hiding the 
   assert.throws(() => value.cleanup(), /presence was not restored/);
   assert.deepEqual(writes, []);
 });
+
+
+test('late-allocated upload IDs use the pre-upload snapshot and preserve existing shared locks', () => {
+  const locks = new Set(['100', '101', '999']);
+  const writes = [];
+  const rows = () => [...locks].filter(id => ['100', '101'].includes(id)).sort().map(id => [id]);
+  const value = createRoutingLockFixture(statement => { writes.push(statement); locks.delete('101'); },
+    rows, ['100', '101'], {exclusive: true, initialLocks: ['100', '999']});
+  value.cleanup();
+  assert.deepEqual([...locks].sort(), ['100', '999']);
+  assert.deepEqual(writes, ['DELETE FROM providerLabRoutingLock WHERE lab_no IN (101)']);
+  assert.throws(() => createRoutingLockFixture(() => {}, rows, ['100'],
+    {exclusive: true, initialLocks: ['1 OR 1=1']}), /identifiers/);
+});
