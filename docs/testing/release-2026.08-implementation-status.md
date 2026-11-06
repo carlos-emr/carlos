@@ -18,7 +18,7 @@ and qualification below are complete. No release-readiness verdict has been prod
   preserves test and cleanup failures and rejects skipped cases.
 - The generated native lane explicitly selects the JDBC compatibility suite and
   requires 32 cases. Sixteen H2 disabled parameterized templates route to both
-  native invocations each. Actual native execution remains required.
+  native invocations each. The development native generated lane executed 3,069 cases without failures or skips; the focused JDBC suite executed 32. Final source-bound receipts remain required.
 - All 16 manual manifest checks have explicit required owners and province
   selections. Plan validation rejects removing required manual coverage.
   First-login qualification stays external until its installation-stage adapter
@@ -41,13 +41,33 @@ and qualification below are complete. No release-readiness verdict has been prod
 - Stale matrix contracts for tokenless appointment edits, retired outcomes and
   already-shared migrations were corrected without changing production behavior.
 
+## Additional implementation
+
+- Added source/class-bound coverage merging using pinned JaCoCo 0.8.16 CLI bytes,
+  all required Java lane receipts and baseline-derived line/instruction/branch
+  floors for 291 files. Each input report is retained and rehashed. Wrong source,
+  plan, runtime, failed/missing/ambiguous lanes, changed compiled classes and
+  omitted reports fail. Six package-info exclusions have precise JAXB proof
+  references. The separate production-JS/view requirement remains blocking;
+  baseline floors alone do not prove all security refusals are covered.
+- Added the CDS native JUnit/JaCoCo lane, fresh output-directory mapping and
+  pre/post source binding. Routed every previously unowned H2 skip to an explicit
+  native destination, including case-management lock parameter invocations.
+- Added independent MOXy DTO fixtures, attachment cleanup/default transport and
+  stream-failure tests, typed billing validation, clinical report result/privilege
+  tests, three lab helpers, demographic ISO dates and six encounter heading keys.
+- Added 24 individually reviewed path bindings for these direct proofs. This is
+  not a blanket ownership assignment for the remaining production scope.
+- Added concrete workflow amendments to the CI proposal. No workflow or migration
+  files changed.
+
 ## Remaining work before this PR can complete issue 5700
 
-1. Finish reviewed path ownership, changed-line/instruction/branch floors and
-   compatible H2/native coverage aggregation; add production JS and JSP range maps.
+1. Finish reviewed path ownership, named security-refusal branch requirements,
+   production JS and JSP range maps, and qualify the implemented Java coverage union.
 2. Complete the remaining Java and harness scenarios from Tasks 7–14, notably DTO
-   wire fixtures, report/lab/encounter paths, EBS interceptors, full fixture teardown
-   and actual signal/recovery proofs. Ingest CDS native JUnit through its own harness.
+   full fixture teardown and actual signal/recovery proofs. Qualify the newly
+   registered CDS native lane through its own harness.
 3. Implement and live-validate the installed changed-view walk, compatibility and
    report-budget checks, and candidate-bound package lifecycle adapter. Cover every
    applicable province, locale, profile and supported baseline install.
@@ -55,8 +75,8 @@ and qualification below are complete. No release-readiness verdict has been prod
    backup/restore/retention/purge, SIGKILL recovery, native large CDS, installed
    load/privacy and controlled mutation sensitivity. Generic command result support
    does not itself implement these acceptance oracles.
-5. Prepare the exact workflow proposal permitted by Task 28. Workflow and migration
-   files remain unchanged.
+5. Validate the Task 28 proposal against the final registry and actual timing
+   evidence. Workflow and migration files remain unchanged.
 6. Commit/freeze final source, build one candidate, then collect all required fresh
    Java, Python, Node and installed browser/package receipts. Reconcile all known
    outcomes. Existing product failures, vendor prerequisites and policy decisions

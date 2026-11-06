@@ -50,6 +50,7 @@ class BilledProviderReportDaoIntegrationTest extends CarlosTestBase {
         Demographic patient = new Demographic();
         patient.setFirstName("Synthetic");
         patient.setLastName("Report5549");
+        patient.setPrefName("");
         patient.setSex("F");
         patient.setYearOfBirth("2000");
         patient.setMonthOfBirth("01");

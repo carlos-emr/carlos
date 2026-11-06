@@ -73,6 +73,18 @@ def source_identity(root=ROOT):
             "clean": not bool(git("status", "--porcelain", "--untracked-files=normal"))}
 
 
+def production_class_identity(root=ROOT):
+    directory = root / 'target/classes'
+    files = {}
+    for path in sorted(directory.rglob('*.class')):
+        if path.is_symlink() or any(p.is_symlink() for p in path.parents if p != directory.parent):
+            raise EvidenceError('Production classes contain a symlink')
+        files[path.relative_to(directory).as_posix()] = digest(path)
+    if not files:
+        raise EvidenceError('No compiled production classes for coverage identity')
+    return {'schemaVersion': 1, 'sourceTree': source_identity(root)['tree'], 'classes': files}
+
+
 def runtime_versions(command, required=()):
     versions = {"python": sys.version.split()[0]}
     executable = Path(command[0]).name if command else ""
@@ -337,6 +349,14 @@ def summarize(check, run_dir: Path, exit_code, root=ROOT):
             if coverage.tag != "report" or not coverage.findall("package") or counters.get("INSTRUCTION", 0) < 1:
                 raise EvidenceError("Coverage contains no executed production instructions")
             summary["coverage"] = counters
+        if check.get('requireClassIdentity'):
+            classes = read_json(run_dir / 'classes.json')
+            if classes.get('schemaVersion') != 1 or classes.get('sourceTree') != source_identity(root)['tree'] or not classes.get('classes'):
+                raise EvidenceError('Coverage class identity is missing or belongs to another source tree')
+            for name, fingerprint in classes['classes'].items():
+                if Path(name).is_absolute() or '..' in Path(name).parts or not name.endswith('.class') or not isinstance(fingerprint, str) or not HEX.fullmatch(fingerprint):
+                    raise EvidenceError('Malformed compiled class identity')
+            summary['classIdentitySha256'] = digest(run_dir / 'classes.json')
     elif kind == "node":
         summary = node_results(run_dir / "node.json", root, check.get("minimumCases", 1), check.get("requiredCases", []))
     elif kind == "browser":
@@ -400,6 +420,8 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
             if check.get("packaged"):
                 receipt["deployment"] = attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root)
             substitutions = {"run": str(run_dir.resolve()), "root": str(root.resolve()),
+                             "runId": run_id,
+                             "evidence": str(evidence.resolve()),
                              "profile": profile, "artifact": str(artifact.resolve()) if artifact else ""}
             substitutions.update({name: os.environ.get(variable, "") for name, variable in check.get("environmentInputs", {}).items()})
             argv = [arg.format_map(substitutions) for arg in check["command"]]
@@ -430,6 +452,8 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
             if receipt["exitCode"] != 0:
                 receipt["problems"].append({"stage": "execution", "exitCode": receipt["exitCode"],
                                             "cancelled": receipt.get("cancelled", False)})
+            if check.get('requireClassIdentity'):
+                write_json(run_dir / 'classes.json', production_class_identity(root))
             receipt["summary"] = summarize(check, run_dir, receipt["exitCode"], root)
             if source_identity(root) != source or digest(plan_path) != receipt["planSha256"]:
                 raise EvidenceError("Source or plan changed during execution")
@@ -456,7 +480,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
 
 def evidence_files(check, directory):
     files = {p for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
-                              "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json")
+                              "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json", "classes.json")
              for p in directory.glob(pattern)}
     if check.get("resultContract"):
         result = directory / check["resultContract"]["file"]

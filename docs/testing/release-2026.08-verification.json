@@ -97,7 +97,8 @@
         "build",
         "packaged-full",
         "coverage-ratchet",
-        "jsp-compile"
+        "jsp-compile",
+        "production-js-view-coverage"
       ]
     },
     {
@@ -123,7 +124,8 @@
         "packaged-full",
         "java-native-generated",
         "java-native-flyway",
-        "java-native-bc-flyway"
+        "java-native-bc-flyway",
+        "java-cds-native"
       ]
     },
     {
@@ -206,7 +208,9 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapterUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapterUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransferXmlUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java"
       ],
       "implementation": "Extend the existing installed REST check to nonempty XML allergy/prevention date DTOs and every supported precision, plus restricted-user/error and OAuth surfaces. Preserve production mapper and both JAXB provider tests.",
       "cases": "Accept application/xml, application/json and */*; UNKNOWN/YEAR/MONTH/FULL_DATE, leap days, nulls and epoch values in UTC/Toronto/Tokyo; 400/401/403/404; malformed or foreign patient; exact field names and precision shapes; shared provider initialization must not fall back silently.",
@@ -256,7 +260,8 @@
         "src/test/java/io/github/carlos_emr/carlos/commn/dao/DayScheduleNamesDaoIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/commn/dao/ConsultationListProjectionIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/managers/ConsultationManagerUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/DemographicSearchResultTransformerUnitTest.java"
       ],
       "implementation": "Run the existing query-count/order/duplicate/orphan tests natively and add production-size, privilege and merged-patient boundary fixtures.",
       "cases": "Empty, duplicate, missing and merged patients; Unicode names; batch boundary; every sort/filter and tied page boundary; duplicate extension rows; fax history; permission/site/program restrictions; fixed query count as row count grows.",
@@ -351,7 +356,10 @@
         "src/test/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandlerUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/commn/dao/MeasurementsExtDaoIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsDataUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/CommonLabTestValuesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/util/LabVersionComparatorUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/web/LabDisplayHelperUnitTest.java"
       ],
       "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep.",
       "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key.",
@@ -407,7 +415,8 @@
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/data/BcBillingDaoTransactionIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/TeleplanSubmissionUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/BcRemittanceDataSourceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcBillingRequestGuardsUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcBillingRequestGuardsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/MSP/CheckBillingDataUnitTest.java"
       ],
       "implementation": "Extend native ON/BC qualification for all replaced raw-query consumers, using old-result fixtures as an independent oracle and the existing explicit transaction-boundary tests.",
       "cases": "Invoices, payment/refund signs, remittance overpunch and decimals, WCB fees, missing/null lookup rows, exact versus wildcard payee semantics, patient/provider restrictions, date bounds and ordering; extract log/status failure rollback; REQUIRES_NEW semantics; BC-only page refusal on ON.",
@@ -432,7 +441,9 @@
         "src/test/java/io/github/carlos_emr/carlos/report/export/SpreadsheetExportsUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/SpreadsheetCsvUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/report/reportByTemplate/SQLReporterCsvUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/BcCsvDownloadUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/BcCsvDownloadUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluatorUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2ActionUnitTest.java"
       ],
       "implementation": "Expand machine-readable contract fixtures and installed download checks, documenting intentional remittance/XLSX layout changes instead of silently accepting them as backward compatible.",
       "cases": "All CSV reports and 22-column remittance summary; every row type; refund subsets/net totals; date aging edges; 0 versus null; leading zeros; commas/quotes/CRLF/Unicode; formula prefixes after whitespace/control characters; SXSSF flush/row limits; query/disk/stream errors before response attachment; temp cleanup.",
@@ -479,7 +490,9 @@
       "sources": [
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtWsSecurityWithoutJasyptUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/CxfHttpTransportUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/CxfHttpTransportUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptorUnitTest.java"
       ],
       "implementation": "Preserve the extensive independent loopback HTTPS tests; run them against packaged classpath and qualify actual approved staging MCEDT/HCV deployment settings. Add a separate test for CXF-owned spill-cache retention rather than claiming application replay closure covers it.",
       "cases": "Signed/encrypted SOAP/MTOM, exact bytes, TLS 1.2/1.3, mTLS/hostname/trust failures, proxy/auth, stalled/progressing/truncated bodies, plain/multipart fault chains, thread-local cleanup and concurrent clients; ordinary crypto properties remain readable, ENC(...) has explicit refusal; async/HTTP2/custom extensions inventoried.",
@@ -517,7 +530,8 @@
         "manual-demographic-cds-compatibility",
         "manual-demographic-cds-large-ingress",
         "manual-demographic-cds-lifecycle",
-        "manual-demographic-cds-retained-recovery"
+        "manual-demographic-cds-retained-recovery",
+        "java-cds-native"
       ]
     },
     {
@@ -1024,7 +1038,8 @@
         "fixture-hrm-report-list",
         "fixture-messenger-reply-form",
         "fixture-search-sort-messenger-inbox",
-        "fixture-clinical-risk"
+        "fixture-clinical-risk",
+        "production-js-view-coverage"
       ]
     }
   ],
@@ -1146,7 +1161,7 @@
       "requireCoverage": true,
       "routedSkips": {
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportLedgerMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldRetainExactAccounting_acrossPhysicalTransactionsAndRecovery",
@@ -1155,7 +1170,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportCoordinatorMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldFenceScopeWhenOwnedPhysicalConnectionIsKilled_withAnotherNodeAbleToAcquire",
@@ -1216,7 +1231,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsAppointmentStorageMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldPreserveCompleteUnicodeSourceNotesAndStatus_throughNativeArchiveStorage",
@@ -1288,7 +1303,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsDemographicStorageMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldPersistAbsentPreferredNameAsEmpty_underActualStrictMariaDbFieldMapping",
@@ -1297,7 +1312,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHrmRepairAdmissionMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldRetainOrdinaryAdmission_whenDbcpActuallyReclaimsTheJdbcIdleCopyTransaction",
@@ -1346,7 +1361,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldDetectChangedNoteDatePrecision_inTheActualNativeReceipt",
@@ -1384,7 +1399,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsReportStorageMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldExposePrecisionInActualLightweightQuery_whenImportedDocumentIsListed",
@@ -1413,7 +1428,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportMaintenanceMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldKeepPhysicalMaintenanceOwnership_duringAnIdleUnitLongerThanTheServerDefault",
@@ -1510,6 +1525,18 @@
             {
               "name": "shouldRefuseAnUnapprovedTargetTrigger_beforeNativeMutation",
               "container": ""
+            },
+            {
+              "name": "shouldCloseConnection_whenSessionCharsetWouldMismatchTheUtf8Encoder",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseThreeByteSessionEncoding_beforeAnyNativeImportWrite",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseThreeByteMetadataSession_beforePreparedValuesCanBeBoundWithoutMaintenance",
+              "container": ""
             }
           ]
         },
@@ -1589,7 +1616,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsHistoryVisibilityMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldShowUnknownDatedLatestNotes_withoutResurrectingPriorRevisionsOrCrossingPatients",
@@ -1598,7 +1625,7 @@
           ]
         },
         "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsReviewAcceptanceMariaDbIntegrationTest": {
-          "check": "cds-native-large",
+          "check": "java-cds-native",
           "cases": [
             {
               "name": "shouldRollBackFlushedKindVersionAndAuditTogether_whenStrictAuditFails",
@@ -1903,11 +1930,129 @@
               ]
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.BilledProviderReportDaoIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldPreserveProviderDateDeletionAndDistinctCounts_forPhysicalMariaDb",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveDuplicateRolesAndNameOrdering_forProviderReport",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.ConsultationArchiveDaoIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldRoundTripLongImportedTextThroughArchiveDaos",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLockMariaDbIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldHydrateLockWithoutChangingClinicalRows_whenProjectingNoteList(String, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenProjectingNoteList(String, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenProjectingNoteList(String, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenProjectingNoteList(String, boolean)[3]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldHydrateLockWithoutChangingClinicalRows_whenLoadingNativeNoteList(String, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenLoadingNativeNoteList(String, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenLoadingNativeNoteList(String, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenLoadingNativeNoteList(String, boolean)[3]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldPreserveUnlockedQueryRestrictions_whenReadingLegacyLockStates(String, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPreserveUnlockedQueryRestrictions_whenReadingLegacyLockStates(String, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveUnlockedQueryRestrictions_whenReadingLegacyLockStates(String, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPreserveUnlockedQueryRestrictions_whenReadingLegacyLockStates(String, boolean)[3]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldHydrateLockWithoutChangingClinicalRows_whenLoadingNoteIds(String, boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenLoadingNoteIds(String, boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenLoadingNoteIds(String, boolean)[2]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldHydrateLockWithoutChangingClinicalRows_whenLoadingNoteIds(String, boolean)[3]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldUseNullableCharacterLockColumn_onTheShippedSchema",
+              "container": ""
+            },
+            {
+              "name": "shouldPersistExplicitLockChanges_whenUpdatingLegacyNullNote(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldPersistExplicitLockChanges_whenUpdatingLegacyNullNote(boolean)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldPersistExplicitLockChanges_whenUpdatingLegacyNullNote(boolean)[2]",
+                  "container": ""
+                }
+              ]
+            }
+          ]
         }
       },
       "runtimeConstraints": {
         "java": "25"
-      }
+      },
+      "requireClassIdentity": true
     },
     {
       "id": "java-date-zones",
@@ -1965,7 +2110,8 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "DemographicMergeMariaDbIntegrationTest": 8,
-        "JdbcConnectorMariaDbIntegrationTest": 32
+        "JdbcConnectorMariaDbIntegrationTest": 32,
+        "BilledProviderReportDaoIntegrationTest": 2
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -1979,7 +2125,8 @@
       "requireCoverage": true,
       "runtimeConstraints": {
         "java": "25"
-      }
+      },
+      "requireClassIdentity": true
     },
     {
       "id": "java-native-flyway",
@@ -1994,7 +2141,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2008,7 +2155,10 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
         "CaseManagementIssueDAOIntegrationTest": 22,
-        "DemographicMergeMariaDbIntegrationTest": 8
+        "DemographicMergeMariaDbIntegrationTest": 8,
+        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
+        "ConsultationArchiveDaoIntegrationTest": 1,
+        "BilledProviderReportDaoIntegrationTest": 2
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2022,7 +2172,8 @@
       "requireCoverage": true,
       "runtimeConstraints": {
         "java": "25"
-      }
+      },
+      "requireClassIdentity": true
     },
     {
       "id": "java-native-bc-flyway",
@@ -2037,7 +2188,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2051,7 +2202,9 @@
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 8,
         "BcBillingDaoTransactionIntegrationTest": 4,
-        "DemographicMergeMariaDbIntegrationTest": 8
+        "DemographicMergeMariaDbIntegrationTest": 8,
+        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
+        "ConsultationArchiveDaoIntegrationTest": 1
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2065,7 +2218,8 @@
       "requireCoverage": true,
       "runtimeConstraints": {
         "java": "25"
-      }
+      },
+      "requireClassIdentity": true
     },
     {
       "id": "jsp-compile",
@@ -2677,13 +2831,40 @@
     },
     {
       "id": "coverage-ratchet",
-      "kind": "external",
+      "kind": "command",
       "profiles": [
         "all"
       ],
       "repetitions": 1,
-      "reason": "Fresh changed-line instruction/branch floors, complete Java discovery reconciliation, production-JS ranges and JSP parent-route mapping; approve baseline-derived ratchets.",
-      "packaged": false
+      "packaged": false,
+      "command": [
+        "python3",
+        "scripts/ci/run-coverage-ratchet.py",
+        "--evidence",
+        "{evidence}",
+        "--output",
+        "{run}/coverage-result.json",
+        "--jacoco-cli",
+        "{jacocoCli}"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_JACOCO_CLI"
+      ],
+      "environmentInputs": {
+        "jacocoCli": "CARLOS_JACOCO_CLI"
+      },
+      "timeoutSeconds": 900,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "resultContract": {
+        "file": "coverage-result.json",
+        "assertions": [
+          "same-source-and-classes",
+          "all-required-java-lanes",
+          "reviewed-floors"
+        ]
+      }
     },
     {
       "id": "scope-and-main-disposition",
@@ -2692,7 +2873,7 @@
         "all"
       ],
       "repetitions": 1,
-      "reason": "Every older-main/current-main/release-only changed path and all six main-only migrations need named executable coverage or an individually reviewed disposition.",
+      "reason": "Every older-main/current-main/release-only changed path needs named executable coverage or an individually reviewed disposition. Main-only migrations are zero at the pinned baselines.",
       "packaged": false
     },
     {
@@ -3497,9 +3678,364 @@
         "{run}/browser.xml"
       ],
       "requireLockedChromium": true
+    },
+    {
+      "id": "java-cds-native",
+      "kind": "junit",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "python3",
+        "scripts/ci/run-cds-native-tier.py",
+        "--container",
+        "{buildContainer}",
+        "--container-workspace",
+        "{buildWorkspace}",
+        "--maven",
+        "{maven}",
+        "--evidence-output",
+        "{run}",
+        "--container-evidence-output",
+        "{containerEvidence}/{runId}"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_CDS_BUILD_CONTAINER",
+        "CARLOS_CDS_BUILD_WORKSPACE",
+        "CARLOS_CDS_MAVEN",
+        "CARLOS_CDS_EVIDENCE_ROOT"
+      ],
+      "environmentInputs": {
+        "buildContainer": "CARLOS_CDS_BUILD_CONTAINER",
+        "buildWorkspace": "CARLOS_CDS_BUILD_WORKSPACE",
+        "maven": "CARLOS_CDS_MAVEN",
+        "containerEvidence": "CARLOS_CDS_EVIDENCE_ROOT"
+      },
+      "requiredFamilies": {
+        "CdsImportMaintenanceMariaDbIntegrationTest": 1,
+        "CdsIdentityMariaDbIntegrationTest": 1,
+        "CdsImportCoordinatorMariaDbIntegrationTest": 1,
+        "CdsClinicalStorageMariaDbIntegrationTest": 1,
+        "CdsAppointmentStorageMariaDbIntegrationTest": 1,
+        "CdsHistoryVisibilityMariaDbIntegrationTest": 1,
+        "CdsDemographicStorageMariaDbIntegrationTest": 1,
+        "CdsReportStorageMariaDbIntegrationTest": 1,
+        "CdsHrmRepairAdmissionMariaDbIntegrationTest": 1,
+        "CdsReviewAcceptanceMariaDbIntegrationTest": 1,
+        "CdsImportLedgerMariaDbIntegrationTest": 1,
+        "CdsTargetReceiptMariaDbIntegrationTest": 1
+      },
+      "minimumCases": 12,
+      "requireCoverage": true,
+      "requireClassIdentity": true,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "timeoutSeconds": 3600
+    },
+    {
+      "id": "production-js-view-coverage",
+      "kind": "external",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "packaged": true,
+      "reason": "Source-bound production JavaScript executable ranges and every changed JSP/include parent-route proof remain required separately from the implemented Java coverage union. Missing view/range mappings block release."
     }
   ],
   "requireJavaDiscovery": true,
   "knownOutcomeLedger": "docs/testing/release-2026.08-known-outcomes.json",
-  "requireManualBrowserCoverage": true
+  "requireManualBrowserCoverage": true,
+  "pathBindings": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapter.java": {
+      "reason": "Null/empty omission, duplicate keys, Unicode and insertion order are tested directly.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapterUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapter.java": {
+      "reason": "Direct null/container/key/value and ordering wire contracts.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapter.java": {
+      "reason": "Calendar precision, JVM default-zone and null compatibility are tested directly.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapterUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/XmlCompatibilityAdapter.java": {
+      "reason": "Abstract XML-only marker is exercised through the JSON introspector, rather than inventing abstract map behavior.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospector.java": {
+      "reason": "XML-only adapters are omitted from REST JSON while ordinary adapters/names remain.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransfer.java": {
+      "reason": "Default and populated DTO wire forms are compared to independently captured MOXy XML fixtures.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransferXmlUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransfer.java": {
+      "reason": "Default and populated archive fields are compared to independently captured MOXy XML, with explicit Calendar construction.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxPollBackoff.java": {
+      "reason": "Direct controllable-clock backoff scheduling, cap, recovery and account isolation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/fax/core/FaxPollBackoffUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T15"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcBillingRequestGuards.java": {
+      "reason": "BC deployment normalization and HTTP 404 refusal precede BC queries.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcBillingRequestGuardsUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
+      "reason": "Owned replay closes once and attachment thread-local is cleared on normal and fault chains.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptor.java": {
+      "reason": "Default transport excludes opt-in payload logging and replay read failure propagates. Opt-in privacy remains an explicit finding, not covered by default-only proof.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptorUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/MSP/CheckBillingData.java": {
+      "reason": "Typed claim field validation, valid legacy claim, malformed/null amount refusal and HTML escaping.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/MSP/CheckBillingDataUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluator.java": {
+      "reason": "Independent numerator/denominator fixture and typed measurement map-entry compatibility.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluatorUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T17"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2Action.java": {
+      "reason": "Read privilege refusal and SUCCESS/request/session result contracts.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2ActionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T17"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/CommonLabTestValues.java": {
+      "reason": "Provenance identity, repeated values, units, ordering and no-match results.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/CommonLabTestValuesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/util/LabVersionComparator.java": {
+      "reason": "Body equivalence ignores first HL7 line and returns first matching prior position.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/util/LabVersionComparatorUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/web/LabDisplayHelper.java": {
+      "reason": "New Base64 encoder output is compared byte-for-byte with independent legacy encoder and decoded provenance.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/web/LabDisplayHelperUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/DemographicSearchResultTransformer.java": {
+      "reason": "Actual ISO date parsing delta is exercised with tuple partial/malformed dates and merged-head rows; no fictitious name projection API.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/DemographicSearchResultTransformerUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T10"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDecisionSupportAlerts2Action.java": {
+      "reason": "Parameterized real panel heading path pins the reviewed translation key before unrelated database population. Existing encounter tests cover privilege refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterPanelPrivilegeRegressionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T30"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayMeasurements2Action.java": {
+      "reason": "Parameterized real panel heading path pins the reviewed translation key before unrelated database population. Existing encounter tests cover privilege refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterPanelPrivilegeRegressionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T30"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDx2Action.java": {
+      "reason": "Parameterized real panel heading path pins the reviewed translation key before unrelated database population. Existing encounter tests cover privilege refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterPanelPrivilegeRegressionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T30"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDxAction.java": {
+      "reason": "Parameterized real panel heading path pins the reviewed translation key before unrelated database population. Existing encounter tests cover privilege refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterPanelPrivilegeRegressionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T30"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayIssues2Action.java": {
+      "reason": "Parameterized real panel heading path pins the reviewed translation key before unrelated database population. Existing encounter tests cover privilege refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterPanelPrivilegeRegressionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T30"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayResolvedIssues2Action.java": {
+      "reason": "Parameterized real panel heading path pins the reviewed translation key before unrelated database population. Existing encounter tests cover privilege refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterPanelPrivilegeRegressionUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T30"
+      ]
+    }
+  }
 }

@@ -1191,3 +1191,119 @@ Not run, and only a first run on GitHub (or a maintainer's machine) can settle:
    the skip and failure counts and any outbound connection to a host that is not the registry or a package
    mirror, and tune `shards` and the environment step.
 5. Decide on the migration leg separately, as its own pull request, with its exceptions file.
+
+## November 2026 correction for issue 5700
+
+The older sections above are historical proposals. Apply the changes below to
+those proposals and the current workflows before rollout. No `.github/**` file
+was changed for issue 5700. The native and evidence commands were exercised
+locally; these proposed GitHub jobs have not run on GitHub. The 10.8-second
+standalone number above is an older measurement, not a timing of today's suite.
+The current full installed tiers still need measured timings; retain the existing
+nightly sharding and timeout ceiling until measurements justify a change.
+
+Add this step after the existing isolated Chromium checks in
+`script-regressions.yml` (use the Chromium installed from the current lock):
+
+```diff
+--- a/.github/workflows/script-regressions.yml
++++ b/.github/workflows/script-regressions.yml
+@@
+       - name: Install Chromium for the isolated RTL fixture
+         run: npx --no-install playwright install --with-deps chromium
++      - name: Standalone strict browser contracts
++        run: node scripts/run-playwright-suite.js --tier standalone --strict-release --junit target/standalone.xml
+```
+
+For the new `playwright-smoke.yml`, retain the complete isolated-stack setup in
+section 3, apply these exact changes, and pin the actions to the SHAs in the
+current repository. A dev-stack smoke pass is not packaged-front-door evidence.
+Remove the old advice to make a job required after a fixed period of green runs:
+known failures must be investigated, and readiness is determined by the matrix.
+
+```diff
+--- a/.github/workflows/playwright-smoke.yml
++++ b/.github/workflows/playwright-smoke.yml
+@@
+-      - 'release/*'
++      - 'release/**'
+@@
+-            select=(--tier "$TIER" --province ON)
++            select=(--tier "$TIER" --province ON --strict-release)
+@@
+-              select=(--province ON)
++              select=(--province ON --strict-release)
+@@
+-              # Older branches have a runner without the audit; run them unaudited, loudly.
+-              if grep -q -- "--residue-audit" scripts/run-playwright-suite.js; then
+-                args+=(--residue-audit)
+-              else
+-                echo "::warning::the runner on this ref has no --residue-audit; running without it"
+-              fi
++              args+=(--residue-audit)
+```
+
+The nightly caller in section 4 must continue to pass `residue_audit: true`, run
+strict mode through that reusable workflow, preserve each shard's failures and
+use one isolated database/application stack per shard. A shard may not retry a
+known failure until green or drop manual cases from their separate required
+matrix executions. Keep outbound vendor checks out of these jobs; Ministry and
+SRFax staging qualification remains blocked pending authorized access.
+
+Add the omitted billing report family to the ON Flyway selector in
+`maven-project.yml` and run the CDS harness as its own native lane after compiling
+tests. The harness creates and destroys its own database/network and validates
+all twelve required families with no skips. Do not run the CDS suites under the
+ordinary generated-DAO schema or count their H2 assumption aborts as coverage.
+
+```diff
+--- a/.github/workflows/maven-project.yml
++++ b/.github/workflows/maven-project.yml
+@@
+-            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest \
++            -Dtest=BilledProviderReportDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest \
+@@
+-      - name: Verify MariaDB coverage and summarize results
++      - name: Run separately owned CDS native database contracts
++        run: |
++          python3 -m venv "$RUNNER_TEMP/cds-native-venv"
++          "$RUNNER_TEMP/cds-native-venv/bin/pip" install --require-hashes -r scripts/ci/requirements.txt
++          "$RUNNER_TEMP/cds-native-venv/bin/python" scripts/ci/run-cds-native-tier.py --container carlos-tomcat-dev --container-workspace /workspace
++      - name: Verify MariaDB coverage and summarize results
+```
+
+For `release-verification.yml`, the current tooling job is deliberately not a
+release verdict. Preserve its diagnostic inventory. Add a separate dispatch-only
+qualification job after provisioning the frozen candidate and its complete
+private evidence archive. Use these exact steps inside that job after checkout
+of the archive's source SHA, Python 3.14, Node 22/npm 10.9.9 and `npm ci`:
+
+```yaml
+- name: Validate the committed execution requirements
+  run: python3 scripts/ci/verify-release-evidence.py validate-plan
+- name: Require reviewed ownership across every pinned comparison
+  run: python3 scripts/ci/release-scope-audit.py --output qualification/scope.json
+- name: Verify complete candidate-bound evidence
+  run: |
+    set -euo pipefail
+    python3 scripts/ci/verify-release-evidence.py verify \
+      --artifact qualification/candidate/carlos.war \
+      --evidence qualification/evidence \
+      --output qualification/readiness.json
+    python3 - <<'PY'
+    import json
+    from pathlib import Path
+    result = json.loads(Path('qualification/readiness.json').read_text())
+    assert result['releaseReady'] is True
+    assert not result['incomplete']
+    PY
+```
+
+The archive must contain the candidate WAR, all receipt directories and every
+hashed underlying input; never publish private raw logs. Collection must execute
+the Java coverage union only after all source/class-identical Java lanes, and
+include production JS/view mapping, manual/profiles, warning/privacy windows and
+package lifecycle checks. An unimplemented or blocked external adapter prevents
+this job from passing. Provisioning and cross-run artifact transfer must be
+reviewed before adding the job; the three steps are not a substitute for that
+boundary. No workflow should convert a missing readiness file into success.

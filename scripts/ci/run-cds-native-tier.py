@@ -43,7 +43,7 @@ try:
 except ImportError:
     sys.exit("Install hash-pinned dependencies from scripts/ci/requirements.txt before running this gate")
 
-IMAGE = 'mariadb:11.8@sha256:f16d7a344413e519dff518f27bdb221388f84b0d274c97c4fb5f2cb0dc1b34fa'
+IMAGE = 'mariadb:11.8.8@sha256:24e76fcec8c003a0362d0dd53f4806e7e79458d7fdeaf47437760e19496f5a9c'
 CLASSES = (
     'CdsImportMaintenanceMariaDbIntegrationTest', 'CdsIdentityMariaDbIntegrationTest',
     'CdsImportCoordinatorMariaDbIntegrationTest',
@@ -163,6 +163,10 @@ def main():
     parser.add_argument('--container-workspace', default='/workspace')
     parser.add_argument('--maven', default='mvn')
     parser.add_argument('--maven-repository')
+    parser.add_argument('--evidence-output', type=Path,
+                        help='Fresh receipt directory supplied by the release verifier')
+    parser.add_argument('--container-evidence-output', type=Path,
+                        help='Explicit shared mount path for evidence outside checkout target/')
     parser.add_argument('--classpath-file', type=Path,
                         help='Reuse an existing dependency classpath for this same build container without invoking Maven')
     parser.add_argument('--schema-only', action='store_true',
@@ -176,11 +180,24 @@ def main():
     nonce = uuid.uuid4().hex
     name = 'cds-native-' + nonce
     network = name + '-net'
-    output = repository / 'target' / name
-    output.mkdir(mode=0o700, parents=True)
+    output = args.evidence_output.resolve() if args.evidence_output else repository / 'target' / name
+    if args.evidence_output and args.evidence_output.is_symlink():
+        parser.error('evidence output must not be a symlink')
+    if args.container_evidence_output:
+        if not args.evidence_output or not args.container_evidence_output.is_absolute() or '..' in args.container_evidence_output.parts:
+            parser.error('container evidence path requires an explicit host output and absolute mount path')
+        container_output = str(args.container_evidence_output)
+    elif args.evidence_output:
+        try:
+            relative_output = output.relative_to(repository / 'target')
+        except ValueError:
+            parser.error('outside target/ requires --container-evidence-output for an explicit shared mount')
+        container_output = args.container_workspace.rstrip('/') + '/target/' + relative_output.as_posix()
+    else:
+        container_output = args.container_workspace.rstrip('/') + '/target/' + name
+    output.mkdir(mode=0o700, parents=True, exist_ok=bool(args.evidence_output))
     private = output / 'private'
     private.mkdir(mode=0o700)
-    container_output = args.container_workspace.rstrip('/') + '/target/' + name
     container_private = container_output + '/private'
     password = secrets.token_hex(32)
     (private / 'password').write_text(password)
@@ -203,6 +220,14 @@ def main():
         maven.append('-Dmaven.repo.local=' + args.maven_repository)
     try:
         with log_path.open('w') as log:
+            host_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=repository, text=True).strip()
+            mounted_commit = run(docker + ['exec', '--workdir', args.container_workspace, args.container,
+                                          'git', 'rev-parse', 'HEAD'], log, capture=True).stdout.strip()
+            mounted_dirty = run(docker + ['exec', '--workdir', args.container_workspace, args.container,
+                                         'git', 'status', '--porcelain', '--untracked-files=normal'],
+                                log, capture=True).stdout.strip()
+            if mounted_commit != host_commit or mounted_dirty:
+                raise RuntimeError('Native build container does not expose the clean candidate source')
             run(docker + ['network', 'create', '--internal', network], log)
             created_network = True
             run(docker + ['network', 'connect', network, args.container], log)
@@ -275,19 +300,29 @@ def main():
                     return 0
             # Explicit selectors and post-run XML checks prevent a missing property/tag from
             # quietly skipping the required physical-database contracts.
-            original_reports = repository / 'target' / 'surefire-reports'
+            original_reports = output / 'raw-reports'
+            original_reports.mkdir(mode=0o700)
             reports = output / 'reports'
             reports.mkdir(mode=0o700)
-            for simple in CLASSES:
-                for previous in original_reports.glob('TEST-*.' + simple + '.xml'):
-                    previous.unlink()
-            tested = build(maven + ['surefire:test', '-Dtest.forkCount=1', '-Dgroups=integration',
+            tested = build(maven + ['jacoco:prepare-agent', 'surefire:test', 'jacoco:report',
+                                    '-Dtest.forkCount=1', '-Dgroups=integration',
+                                    '-Dtest.reportsDirectory=' + container_output + '/raw-reports',
+                                    '-Djacoco.destFile=' + container_output + '/jacoco.exec',
+                                    '-Djacoco.dataFile=' + container_output + '/jacoco.exec',
+                                    '-Dtest.coverageDirectory=' + container_output + '/coverage',
                                     '-Dtest=' + ','.join(CLASSES),
                                     '-Dcds.test.properties=' + container_private + '/jdbc.properties',
                                     '-Dcds.ledger.test.properties=' + container_private + '/ledger.properties'], log, check=False)
             total, incomplete = collect_reports(CLASSES, original_reports, reports)
             if tested.returncode or incomplete:
                 raise RuntimeError('Required native contracts incomplete: ' + ', '.join(incomplete))
+            final_commit = run(docker + ['exec', '--workdir', args.container_workspace, args.container,
+                                        'git', 'rev-parse', 'HEAD'], log, capture=True).stdout.strip()
+            final_dirty = run(docker + ['exec', '--workdir', args.container_workspace, args.container,
+                                       'git', 'status', '--porcelain', '--untracked-files=normal'],
+                              log, capture=True).stdout.strip()
+            if final_commit != host_commit or final_dirty:
+                raise RuntimeError('Native candidate source changed during execution')
             print(f'CDS native tier passed: {total} tests across {len(CLASSES)} required suites; zero skips.')
             print('Sanitized reports: ' + str(output / 'reports'))
         return 0
