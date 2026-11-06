@@ -104,6 +104,9 @@ class BinaryClientComparisonTest(unittest.TestCase):
         self.assertFalse(probe.compare(before,after)['ready'])
         after['cases'][name]['value'] = '{"example.Missing":["not-public"]}'
         self.assertTrue(probe.compare(before,after)['ready'])
+        for report in (before, after):
+            report['cases'][name]['value'] = '{"example.Missing":["unresolved-api:java.lang.NoClassDefFoundError"]}'
+        self.assertFalse(probe.compare(before,after)['ready'])
 
     def test_added_abstract_methods_enum_constants_and_overloads_require_client_review(self):
         old = ['type:public abstract', 'method:public abstract java.lang.String example.Fake.read(java.lang.String)',

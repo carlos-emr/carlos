@@ -141,7 +141,11 @@ def compare(main, release):
                              'errorType': type(failure).__name__})
             continue
         if name == 'changed-public-java-api':
-            for owner, members in old.items():
+            for owner in sorted(set(old) | set(new)):
+                members = old.get(owner, [])
+                if any(member.startswith('unresolved-api:') for member in members + new.get(owner, [])):
+                    problems.append({'case': name, 'reason': 'unresolved-public-api-inventory', 'type': owner})
+                    continue
                 if members == ['not-public']: continue
                 if not members and not new.get(owner):
                     problems.append({'case': name, 'reason': 'unresolved-public-api-inventory', 'type': owner})

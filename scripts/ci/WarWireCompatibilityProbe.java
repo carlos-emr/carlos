@@ -108,6 +108,13 @@ public final class WarWireCompatibilityProbe {
         for (String name : Files.readAllLines(inventory)) {
             try { publicType(loader.loadClass(name), result, visited, true); }
             catch (ClassNotFoundException absent) { result.put(name, List.of()); }
+            catch (LinkageError incomplete) {
+                // Retain all other types instead of discarding an entire API
+                // inventory when one protected signature needs a provided API.
+                result.put(name, List.of("unresolved-api:" + incomplete.getClass().getName()));
+                System.err.println("Incomplete API inventory for " + name);
+                incomplete.printStackTrace(System.err);
+            }
         }
         return encode(result);
     }
