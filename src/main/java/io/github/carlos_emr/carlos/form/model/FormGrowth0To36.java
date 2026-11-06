@@ -30,7 +30,8 @@ public class FormGrowth0To36 extends AbstractModel<Integer> {
     @Temporal(TemporalType.DATE)
     private Date formCreated;
     @Temporal(TemporalType.TIMESTAMP)
-    @Column(nullable = false)
+    // The legacy reader distinguishes TIMESTAMP from DATETIME by JDBC metadata.
+    @Column(nullable = false, columnDefinition = "timestamp")
     private Date formEdited;
     @Column(length = 80)
     private String patientName;
