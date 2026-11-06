@@ -36,7 +36,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.Misc" %>
+<%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory" %>
