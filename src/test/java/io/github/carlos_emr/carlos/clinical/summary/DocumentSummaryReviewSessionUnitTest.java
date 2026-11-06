@@ -57,6 +57,15 @@ class DocumentSummaryReviewSessionUnitTest {
         reviews.add(review);
         return review;
     }
+    @Test void frenchPatientLanguageGivesAFrenchPreviewAndApprovalNoticeEnglishStaysDefault() throws Exception {
+        var service = mock(DocumentSummaryService.class);
+        when(service.summarize(TEXT)).thenReturn(summary());
+        var french = DocumentSummaryReviewSession.generate(SCOPE, META, () -> bytes(), service, "FAKE-model@r1", actor, "fr", clock);
+        reviews.add(french);
+        assertThat(view(french).notice()).contains("Statut de la révision : révision non confirmée").doesNotContain("Review status");
+        assertThat(view(french).version()).isNotEqualTo(view(generate()).version());
+        assertThat(view(generate()).notice()).contains("Review status: Review not confirmed").doesNotContain("Statut");
+    }
     private DocumentSummaryReviewSession generate() throws Exception {
         var service = mock(DocumentSummaryService.class);
         when(service.summarize(TEXT)).thenReturn(summary());

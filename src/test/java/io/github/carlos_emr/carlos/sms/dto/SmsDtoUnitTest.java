@@ -1,6 +1,7 @@
 package io.github.carlos_emr.carlos.sms.dto;
 
 import io.github.carlos_emr.carlos.sms.SmsConsentStatus;
+import io.github.carlos_emr.carlos.sms.SmsProviderErrorCode;
 import io.github.carlos_emr.carlos.sms.SmsProviderType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
 import org.junit.jupiter.api.DisplayName;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -215,5 +217,97 @@ class SmsDtoUnitTest {
         assertThat(dto.providerMetadata()).hasSize(25);
         assertThat(dto.providerMetadata()).containsKey("safe-24");
         assertThat(dto.providerMetadata()).doesNotContainKey("safe-25");
+    }
+
+    @Test
+    @DisplayName("a definite failure is recorded with a CARLOS code and its fixed message, never the provider's words")
+    void shouldRecordCarlosCode_whenFailureCarriesProvidersOwnWording() {
+        assertThat(SmsProviderSendResultDto.failed(SmsProviderErrorCode.INVALID_RECIPIENT))
+                .extracting(SmsProviderSendResultDto::status, SmsProviderSendResultDto::errorCode,
+                        SmsProviderSendResultDto::errorMessage)
+                .containsExactly(SmsStatus.FAILED, "INVALID_RECIPIENT", SmsProviderErrorCode.INVALID_RECIPIENT.message());
+
+        SmsProviderSendResultDto mapped = SmsProviderSendResultDto.failed("ACCOUNT_LIMIT", "Balance too low: 0.02")
+                .withCarlosErrorCode();
+        assertThat(mapped.errorMessage()).isEqualTo(SmsProviderErrorCode.ACCOUNT_LIMIT.message());
+
+        SmsProviderSendResultDto unmapped = SmsProviderSendResultDto.failed("invalid_dst", "4165551212 is not valid")
+                .withCarlosErrorCode();
+        assertThat(unmapped).extracting(SmsProviderSendResultDto::errorCode, SmsProviderSendResultDto::errorMessage)
+                .containsExactly("REJECTED_OTHER", SmsProviderErrorCode.REJECTED_OTHER.message());
+    }
+
+    @Test
+    @DisplayName("accepted and uncertain results keep their meaning, without any wording of the provider's")
+    void shouldStripProviderWording_whenResultIsNotADefiniteFailure() {
+        SmsProviderSendResultDto accepted = SmsProviderSendResultDto.accepted("provider-1", SmsStatus.SENT);
+        SmsProviderSendResultDto uncertain = SmsProviderSendResultDto.uncertain("PROVIDER_TIMEOUT");
+        assertThat(accepted.withCarlosErrorCode()).isSameAs(accepted);
+        assertThat(uncertain.withCarlosErrorCode()).isSameAs(uncertain);
+
+        SmsProviderSendResultDto acceptedWithText = new SmsProviderSendResultDto(true, "provider-2", SmsStatus.SENT,
+                "OK", "sent to 4165551212");
+        assertThat(acceptedWithText.withCarlosErrorCode())
+                .extracting(SmsProviderSendResultDto::providerMessageId, SmsProviderSendResultDto::errorCode,
+                        SmsProviderSendResultDto::errorMessage)
+                .containsExactly("provider-2", null, null);
+
+        SmsProviderSendResultDto uncertainWithText = new SmsProviderSendResultDto(false, null, SmsStatus.SENDING,
+                "PROVIDER_TIMEOUT", "no answer for 4165551212");
+        assertThat(uncertainWithText.withCarlosErrorCode())
+                .extracting(SmsProviderSendResultDto::errorCode, SmsProviderSendResultDto::errorMessage)
+                .containsExactly("PROVIDER_TIMEOUT", SmsProviderSendResultDto.OUTCOME_UNKNOWN_MESSAGE);
+
+        SmsProviderSendResultDto uncertainWithTextAsCode = SmsProviderSendResultDto.uncertain("HTTP 504 for +14165551212");
+        assertThat(uncertainWithTextAsCode.withCarlosErrorCode().errorCode())
+                .as("anything that does not look like a code may be the provider's text")
+                .isEqualTo(SmsProviderSendResultDto.OUTCOME_UNKNOWN_CODE);
+    }
+
+    @Test
+    @DisplayName("a failure keeps the provider's message id, so later reports still match the text")
+    void shouldKeepMessageId_whenFailureIsNormalised() {
+        SmsProviderSendResultDto failed = new SmsProviderSendResultDto(false, "provider-3", SmsStatus.FAILED,
+                "undeliverable", "carrier text");
+
+        assertThat(failed.withCarlosErrorCode())
+                .extracting(SmsProviderSendResultDto::providerMessageId, SmsProviderSendResultDto::errorCode)
+                .containsExactly("provider-3", "REJECTED_OTHER");
+    }
+
+    @Test
+    @DisplayName("a failed delivery report is recorded with a CARLOS code; sent and delivered ones carry no error")
+    void shouldRecordCarlosCode_whenDeliveryReportFails() {
+        SmsDeliveryWebhookDto failed = new SmsDeliveryWebhookDto(SmsProviderType.STUB, "provider-1", SmsStatus.FAILED,
+                Instant.EPOCH, "RECIPIENT_OPTED_OUT", "carrier text", "sms-transaction-1", Map.of("k", "v"));
+        SmsDeliveryWebhookDto delivered = new SmsDeliveryWebhookDto(SmsProviderType.STUB, "provider-1",
+                SmsStatus.DELIVERED, Instant.EPOCH, null, null, Map.of());
+
+        assertThat(failed.withCarlosErrorCode())
+                .extracting(SmsDeliveryWebhookDto::errorCode, SmsDeliveryWebhookDto::errorMessage,
+                        SmsDeliveryWebhookDto::clientReferenceId, SmsDeliveryWebhookDto::providerMetadata)
+                .containsExactly("RECIPIENT_OPTED_OUT", SmsProviderErrorCode.RECIPIENT_OPTED_OUT.message(),
+                        "sms-transaction-1", Map.of("k", "v"));
+        assertThat(delivered.withCarlosErrorCode()).isSameAs(delivered);
+        SmsDeliveryWebhookDto deliveredWithText = new SmsDeliveryWebhookDto(SmsProviderType.STUB, "provider-1",
+                SmsStatus.DELIVERED, Instant.EPOCH, "000", "delivered to 4165551212", Map.of());
+        assertThat(deliveredWithText.withCarlosErrorCode())
+                .extracting(SmsDeliveryWebhookDto::errorCode, SmsDeliveryWebhookDto::errorMessage)
+                .containsExactly(null, null);
+    }
+
+    @Test
+    @DisplayName("each CARLOS code says whether retrying can ever help, and whether it affects every text")
+    void shouldMarkOnlyHopelessCodesPermanent_forEveryCode() {
+        assertThat(Arrays.stream(SmsProviderErrorCode.values()).filter(SmsProviderErrorCode::permanent))
+                .containsExactlyInAnyOrder(SmsProviderErrorCode.INVALID_RECIPIENT,
+                        SmsProviderErrorCode.RECIPIENT_OPTED_OUT, SmsProviderErrorCode.MESSAGE_REJECTED);
+        assertThat(Arrays.stream(SmsProviderErrorCode.values()).filter(code -> !code.affectsEveryText()))
+                .containsExactlyInAnyOrder(SmsProviderErrorCode.INVALID_RECIPIENT,
+                        SmsProviderErrorCode.RECIPIENT_OPTED_OUT, SmsProviderErrorCode.MESSAGE_REJECTED,
+                        SmsProviderErrorCode.REJECTED_OTHER);
+        assertThat(SmsProviderErrorCode.fromCode("QUEUE_PROVIDER_EXCEPTION")).isEmpty();
+        assertThat(SmsProviderErrorCode.fromCode(null)).isEmpty();
+        assertThat(SmsProviderErrorCode.values()).allSatisfy(code -> assertThat(code.name()).hasSizeLessThanOrEqualTo(64));
     }
 }

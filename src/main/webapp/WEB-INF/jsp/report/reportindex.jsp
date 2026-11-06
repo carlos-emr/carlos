@@ -297,7 +297,8 @@
                 <td  style="width: 300px;"><fmt:message key="report.reportindex.formDaySheet"/></td>
                 <td><select name="provider_no" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
-                        ResultSet rsgroup = reportMainBean.queryResults(mygroup_dboperation);
+                        ResultSet rsgroup = reportMainBean.queryResults("site_search_group".equals(mygroup_dboperation)
+                                ? new String[]{curUser_no} : new String[0], mygroup_dboperation);
 
                         while (rsgroup.next()) {
                             if (isTeamAccessPrivacy)
@@ -310,7 +311,10 @@
                         }
                     %>
                     <%
-                        rsgroup = reportMainBean.queryResults(provider_dboperation);
+                        rsgroup = reportMainBean.queryResults("team_search_provider".equals(provider_dboperation)
+                                ? new String[]{curUser_no, curUser_no}
+                                : "site_search_provider".equals(provider_dboperation) ? new String[]{curUser_no}
+                                : new String[0], provider_dboperation);
                         while (rsgroup.next()) {
                     %>
                     <option value="<carlos:encode value='<%= rsgroup.getString("provider_no") %>' context="htmlAttribute"/>"
@@ -397,6 +401,26 @@
                 <td></td>
                 <td></td>
             </tr>
+            <%-- Waiting-list management (list names, the patients on each list, notes and
+                 bookings). It is the only place list names are created, so without this
+                 entry the Master Record's waiting list could never be set up (#4229). --%>
+            <oscar:oscarPropertiesCheck property="DEMOGRAPHIC_WAITING_LIST" value="true">
+            <security:oscarSec roleName="<%=roleName2$%>" objectName="_demographic" rights="r">
+            <tr>
+                <td style="width: 30px;"><%=j%>
+                    <%j++;%>
+                </td>
+                <td style="width: 10px;"></td>
+                <td style="width: 300px;"><a id="waitingListReport"
+                        href="<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList"
+                        onclick="popupPageNew(600, 1000, this.href); return false;"><fmt:message key="report.reportindex.btnWaiting"/></a></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+            </tr>
+            </security:oscarSec>
+            </oscar:oscarPropertiesCheck>
             <security:oscarSec roleName="<%=roleName2$%>" objectName="_admin,_billing" rights="r" reverse="<%=false%>">
             <% if (StringUtils.isNotBlank(prov)) { %>
             <tr>

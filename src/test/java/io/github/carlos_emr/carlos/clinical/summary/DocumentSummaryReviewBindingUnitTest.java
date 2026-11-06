@@ -284,7 +284,40 @@ class DocumentSummaryReviewBindingUnitTest {
                 .isInstanceOf(SecurityException.class);
         assertThatThrownBy(() -> service(GENERATED.minusSeconds(1)).approve(draft, draft.id(), source, actor(), true))
                 .isInstanceOf(IllegalStateException.class);
-        assertThatThrownBy(() -> service(GENERATED).prepare(source, summary("FAKE document."), "FAKE-model", "fr"))
+        assertThatThrownBy(() -> service(GENERATED).prepare(source, summary("FAKE document."), "FAKE-model", "de"))
                 .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("notice");
+    }
+
+    @Test
+    void frenchRendersTheFrenchNoticeVersionWithoutMixingLanguages() {
+        var source = source();
+        var english = draft(source);
+        var french = service(GENERATED).prepare(source, summary("FAKE document describes blood work."), "FAKE-local-model@revision1", "fr");
+        assertThat(french.language()).isEqualTo("fr");
+        assertThat(french.version()).isNotEqualTo(english.version());
+        String preview = french.previewNotice();
+        assertThat(preview).startsWith("Aide à la lecture générée par l’IA — ouvrez le document original\n")
+                .contains("Statut de la révision : révision non confirmée", "résultats d’examens")
+                .doesNotContain("Review status", "AI-generated", "healthcare team", "Reviewed by");
+        var approved = service(REVIEWED).approve(french, french.id(), source, actor(), true);
+        assertThat(approved.patientNotice())
+                .startsWith("Aide à la lecture générée par l’IA — ouvrez le document original\n")
+                .contains("Statut de la révision : révisé par le professionnel de la santé FAKE Reviewer le " + REVIEWED)
+                .contains("ne vous fiez pas à ce résumé.")
+                .doesNotContain("Review status", "Reviewed by clinician", "do not rely");
+        assertThat(DocumentSummaryReviewBinding.NOTICE_VERSION_FR).isEqualTo("carlos-5537-fr-1");
+        // The English notice is unchanged, and the French one never reaches an English draft.
+        assertThat(english.previewNotice()).contains("Review status: Review not confirmed").doesNotContain("Statut");
+        assertThat(DocumentSummaryReviewBinding.unreviewedNotice()).isEqualTo(english.previewNotice());
+        assertThat(DocumentSummaryReviewBinding.unreviewedNotice("fr")).isEqualTo(preview);
+        assertThat(DocumentSummaryReviewBinding.unreviewedNotice("de")).isEqualTo(english.previewNotice());
+    }
+
+    @Test
+    void noticeLanguageFollowsThePatientsOfficialLanguageAndDefaultsToEnglish() {
+        for (String value : new String[]{"French", "french", " FRENCH ", "fr", "fr-CA", "fr_CA", "FRE", "fra", "Français", "francais"})
+            assertThat(DocumentSummaryReviewBinding.noticeLanguage(value)).as(value).isEqualTo("fr");
+        for (String value : new String[]{"English", "ENG", "en", "en-CA", "", " ", "Spanish", "Cree", "unknown", "Frisian", "free text", "fra-x", "fr-", "French Canadian", null})
+            assertThat(DocumentSummaryReviewBinding.noticeLanguage(value)).as(String.valueOf(value)).isEqualTo("en");
     }
 }

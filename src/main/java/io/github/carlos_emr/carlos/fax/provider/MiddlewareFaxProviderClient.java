@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Base64;
@@ -37,7 +36,6 @@ import jakarta.xml.bind.Marshaller;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hc.client5.http.auth.AuthScope;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
 import org.apache.hc.client5.http.config.ConnectionConfig;
@@ -53,13 +51,10 @@ import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuil
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
 import org.apache.hc.core5.http.HttpStatus;
-import org.apache.hc.core5.http.io.entity.StringEntity;
 import org.apache.hc.core5.util.Timeout;
 import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.ValidatedHttpEndpoint;
-import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Component;
 
 /**
@@ -79,25 +74,7 @@ import org.springframework.stereotype.Component;
 public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
     private static final String PATH = "/fax";
-    private static final Logger logger = MiscUtils.getLogger();
-    private final ObjectMapper mapper = buildMapper();
-
-    /**
-     * The middleware download response carries the inbound document as base64
-     * inside JSON; Jackson's default 20,000,000-char string cap (~14 MiB PDF)
-     * would reject a large fax before the BoundedResponseReader transport cap
-     * and with an opaque error. Lift it so the documented cap governs — the
-     * reader cap and JVM heap remain the real bounds. (Matches
-     * SRFaxProviderClient.)
-     */
-    private static ObjectMapper buildMapper() {
-        ObjectMapper m = new ObjectMapper();
-        m.getFactory().setStreamReadConstraints(
-                com.fasterxml.jackson.core.StreamReadConstraints.builder()
-                        .maxStringLength(Integer.MAX_VALUE)
-                        .build());
-        return m;
-    }
+    private final ObjectMapper mapper = new ObjectMapper();
 
     /**
      * {@inheritDoc}
@@ -115,20 +92,6 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
         requireMatchingProviderType(faxConfig);
         ValidatedHttpEndpoint endpoint = validateMiddlewareConfig(faxConfig);
         try (CloseableHttpClient client = createHttpClient(faxConfig, endpoint)) {
-            if (filePath != null) {
-                if (!Files.exists(filePath)) {
-                    throw new FaxProviderException("Fax document file not found");
-                }
-                if (!Files.isReadable(filePath)) {
-                    throw new FaxProviderException("Fax document file is not readable (check permissions)");
-                }
-                faxJob.setDocument(Base64.getEncoder().encodeToString(Files.readAllBytes(filePath)));
-            }
-
-            if (StringUtils.isBlank(faxJob.getDocument())) {
-                throw new FaxProviderException("Fatal error locating document. Not found in filesystem or database backup");
-            }
-
             HttpPost post = new HttpPost(endpointUri(endpoint,
                     PATH + "/send/" + encodePathSegment(faxConfig.getFaxUser())));
             post.setHeader("Accept", ContentType.APPLICATION_XML.getMimeType());
@@ -138,10 +101,20 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
 
             StringWriter body = new StringWriter();
             Marshaller marshaller = JAXBContext.newInstance(FaxJob.class).createMarshaller();
-            marshaller.marshal(faxJob, body);
-            post.setEntity(new StringEntity(body.toString(), ContentType.APPLICATION_XML));
+            // Marshal a small placeholder so JAXB retains its exact XML envelope
+            // and element order without ever seeing the document bytes.
+            FaxJob metadata = new FaxJob(faxJob);
+            metadata.setDocument("CARLOS_STREAMED_DOCUMENT");
+            marshaller.marshal(metadata, body);
+            String xml = body.toString();
+            String marker = "<document>CARLOS_STREAMED_DOCUMENT</document>";
+            int start = xml.indexOf(marker);
+            post.setEntity(new FaxDocumentEntity(xml.substring(0, start) + "<document>",
+                    "</document>" + xml.substring(start + marker.length()), ContentType.APPLICATION_XML,
+                    filePath, faxJob.getDocument(), false));
 
             try (var response = client.execute(post)) {
+                FaxResponseStream.abortOnClose(response);
                 if (response.getCode() != HttpStatus.SC_OK) {
                     throw new FaxProviderException("WEB SERVICE RESPONDED WITH " + response.getCode());
                 }
@@ -149,25 +122,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 if (entity == null) {
                     throw new FaxProviderException("Middleware returned an empty fax response");
                 }
-                // Bounded read BEFORE unmarshalling: unmarshalling straight
-                // from entity.getContent() let a malfunctioning or hostile
-                // middleware stream an endless <document> element into the
-                // heap (a mapped String property, no JAXP limit on PCDATA)
-                // and, under -XX:+ExitOnOutOfMemoryError, crash-loop the EMR
-                // — the fifth provider-read path the other four's cap missed.
-                // Bounded as BYTES, not a String: JAXB then still honours the
-                // response's <?xml encoding=...?> prolog (a String decoded
-                // against an absent Content-Type charset would be mojibake
-                // for a non-UTF-8 XML reply).
-                byte[] responseXml = BoundedResponseReader.readBytes(entity);
-                Object result = JAXBContext.newInstance(FaxJob.class)
-                        .createUnmarshaller()
-                        .unmarshal(new javax.xml.transform.stream.StreamSource(
-                                new java.io.ByteArrayInputStream(responseXml)));
-                if (!(result instanceof FaxJob returnedJob)) {
-                    throw new FaxProviderException("Middleware returned an invalid fax response");
-                }
-                return returnedJob;
+                return FaxXmlResponseParser.read(entity);
             }
         } catch (FaxProviderException e) {
             throw e;
@@ -196,6 +151,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(get)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
 
                 if (statusCode != HttpStatus.SC_OK) {
@@ -212,13 +168,15 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "This may indicate a middleware server error.");
                 }
 
-                String content = BoundedResponseReader.read(httpEntity);
-                if (content == null || content.trim().isEmpty()) {
-                    logger.warn("Middleware returned empty content for fax list - treating as no faxes available");
-                    return new java.util.ArrayList<>();
+                try (FaxResponseStream input = FaxResponseStream.open(httpEntity)) {
+                    // Empty replies historically mean no pending faxes.
+                    try (var parser = mapper.getFactory().createParser(input)) {
+                        if (parser.nextToken() == null) {
+                            return new java.util.ArrayList<>();
+                        }
+                        return mapper.readValue(parser, new TypeReference<List<FaxJob>>() { });
+                    }
                 }
-
-                return mapper.readValue(content, new TypeReference<List<FaxJob>>() { });
             }
         } catch (IOException e) {
             throw new FaxProviderException("Middleware fax list communication failure: " + e.getMessage(), e,
@@ -242,6 +200,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(get)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
 
                 if (statusCode != HttpStatus.SC_OK) {
@@ -256,12 +215,14 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "Middleware returned HTTP 200 but response body is empty for fax " + fax.getFile_name());
                 }
 
-                String content = BoundedResponseReader.read(httpEntity);
-                FaxJob downloaded = mapper.readValue(content, FaxJob.class);
-                if (FaxJob.STATUS.ERROR.equals(downloaded.getStatus())) {
-                    throw new FaxProviderException("Downloaded fax is in ERROR status: " + downloaded.getStatusString());
+                try (FaxDownload download = FaxDownload.read(httpEntity, mapper, "document")) {
+                    FaxJob downloaded = mapper.treeToValue(download.metadata(), FaxJob.class);
+                    if (FaxJob.STATUS.ERROR.equals(downloaded.getStatus())) {
+                        throw new FaxProviderException("Downloaded fax is in ERROR status");
+                    }
+                    downloaded.setDocumentPath(download.release());
+                    return downloaded;
                 }
-                return downloaded;
             }
         } catch (IOException e) {
             throw new FaxProviderException("Middleware fax download failure for " + fax.getFile_name() + ": " + e.getMessage(), e,
@@ -285,6 +246,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             delete.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(delete)) {
+                FaxResponseStream.abortOnClose(response);
                 if (response.getCode() != HttpStatus.SC_NO_CONTENT) {
                     throw new FaxProviderException("CANNOT DELETE " + fax.getFile_name());
                 }
@@ -309,6 +271,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             get.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(get)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
 
                 if (statusCode != HttpStatus.SC_OK) {
@@ -323,8 +286,9 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                             "Middleware returned HTTP 200 but response body is empty for job " + faxJob.getJobId());
                 }
 
-                String content = BoundedResponseReader.read(httpEntity);
-                return mapper.readValue(content, FaxJob.class);
+                try (FaxResponseStream input = FaxResponseStream.open(httpEntity)) {
+                    return mapper.readValue(input, FaxJob.class);
+                }
             }
         } catch (IOException e) {
             throw new FaxProviderException("Middleware status check communication failure", e,
@@ -353,6 +317,7 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
             put.setHeader("passwd", faxConfig.getFaxPasswd());
 
             try (var response = client.execute(put)) {
+                FaxResponseStream.abortOnClose(response);
                 int statusCode = response.getCode();
                 if (statusCode != HttpStatus.SC_OK) {
                     throw new FaxProviderException(
@@ -425,6 +390,8 @@ public class MiddlewareFaxProviderClient implements FaxProviderClient {
                 .build();
 
         return HttpClientBuilder.create()
+                // Fax jobs own retries; internal 503 retries drain uncapped bodies before returning.
+                .disableAutomaticRetries()
                 .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
                         .setDnsResolver(endpoint.pinnedDnsResolver())
                         .setDefaultConnectionConfig(ConnectionConfig.custom()

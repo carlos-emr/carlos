@@ -197,7 +197,10 @@
                     appointmentArchiveDao.archiveAppointment(appt);
                     if (appt != null) {
                         appt.setStatus("C");
-                        appt.setLastUpdateUser(userName);
+                        // appointment.lastupdateuser is varchar(6) and holds a provider number everywhere else. The display
+                        // name used to go here: a permissive sql_mode cut it to six characters of "Last, First", and a strict
+                        // one refused the update, so Group Cancel failed (issue #3151).
+                        appt.setLastUpdateUser((String) session.getAttribute("user"));
                         appointmentDao.merge(appt);
                         rowsAffected = 1;
                     }

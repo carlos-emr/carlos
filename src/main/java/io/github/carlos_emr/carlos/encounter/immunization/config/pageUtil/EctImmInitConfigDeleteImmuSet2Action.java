@@ -55,6 +55,11 @@ public class EctImmInitConfigDeleteImmuSet2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "w", null)) {
             throw new SecurityException("missing required sec object (_demographic)");

@@ -60,6 +60,12 @@
             padding: 0px;
         }
 
+        /* Keep a gap after each card label: translated labels such as "Consentement" are longer. */
+        .email-status-card .email-info-table th {
+            padding-right: 0.75rem;
+            white-space: nowrap;
+        }
+
         .email-info-table th {
             width: 100px;
             font-weight: bold;
@@ -75,9 +81,13 @@
             border-left: 3px solid #008631;
         }
 
-        .email-status-card .vertical-status-divider-success,
         .email-status-card .vertical-status-divider-resolved {
             border-left: 3px solid #008631 !important;
+        }
+
+        /* SUCCESS cards match their neutral "accepted" tag: grey, not the green of RESOLVED (#3834). */
+        .email-status-card .vertical-status-divider-success {
+            border-left: 3px solid #6c757d !important;
         }
 
         .email-status-card .vertical-status-divider-failed,
@@ -116,10 +126,15 @@
             user-select: none;
         }
 
-        .email-status-card .status-tag-success,
         .email-status-card .status-tag-resolved {
             background-color: #cefad0 !important;
             color: #008631 !important;
+        }
+
+        /* SUCCESS: accepted by the mail server, not proof of delivery (#3834), so neutral, not green. */
+        .email-status-card .status-tag-accepted {
+            background-color: #e9ecef !important;
+            color: #343a40 !important;
         }
 
         .email-status-card .status-tag-failed,
@@ -138,9 +153,12 @@
             color: #0747a1 !important;
         }
 
-        .email-status-card .status-tag-resolved:hover,
-        .email-status-card .status-tag-success:hover {
+        .email-status-card .status-tag-resolved:hover {
             background-color: #abf7b1 !important;
+        }
+
+        .email-status-card .status-tag-accepted:hover {
+            background-color: #dee2e6 !important;
         }
 
         .email-status-card .status-tag-failed:hover,
@@ -336,8 +354,12 @@
                         <select class="form-select" name="emailStatus" id="emailStatus">
                             <option value="-1"><fmt:message key="admin.manageEmails.all"/></option>
                             <c:forEach items="${ emailStatusList }" var="status">
+                                <%-- Worded from the bundle like the status tags; the option value stays the
+                                     enum name. SUCCESS reads "accepted by mail server": the mail server
+                                     accepted the message, which is not delivery (issue #3834). --%>
+                                <fmt:message key="${status.messageKey}" var="statusLabel"/>
                                 <option value="${ status }">
-                                    ${carlos:forHtml(status)}
+                                    ${carlos:forHtml(statusLabel)}
                                 </option>
                             </c:forEach>
                         </select>

@@ -1,0 +1,42 @@
+<html>
+<head>
+<title>Consultation Letter Template</title>
+<!--
+  Only placeholders that ALWAYS resolve to a non-empty value belong in a template.
+  populateTemplate() in editControl2.js falls back to prompt() for any placeholder whose
+  cached value is empty, so one that is merely often-populated interrupts the clinician
+  with a dialog on every new letter. The referring block is the trap: it is empty for any
+  patient with no referring doctor on file, which is most of them, so it is deliberately
+  NOT in this template. The "Referring Block" sidebar button inserts it on demand.
+  (Placeholder syntax is avoided in this comment on purpose - the editor only reads the
+  body, but a stray marker here would still mislead the next author.)
+-->
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+body {
+    font-size: 12pt;
+    font-family: "Times New Roman", Times, serif;
+    background-color: #FFFFFF;
+    margin: 1em;
+}
+</style>
+<style type="text/css" media="print">
+* { color: #000000; }
+.DoNotPrint { display: none; }
+@page { margin: 2cm; }
+</style>
+</head>
+<body contenteditable onLoad="document.designMode = 'on';">
+##letterhead##
+<p>##today##</p>
+<p><b>Re:</b> ##label##</p>
+<p>Dear Doctor,</p>
+<p>Thank you for asking me to see ##first_last_name##, a ##ageGender##.</p>
+<p><br></p>
+<p><b>History</b><br></p>
+<p><b>Examination</b><br></p>
+<p><b>Impression</b><br></p>
+<p><b>Plan</b><br></p>
+##_ClosingSalutation##
+</body>
+</html>

@@ -38,4 +38,6 @@ import io.github.carlos_emr.carlos.commn.model.Immunizations;
 
 public interface ImmunizationsDao extends AbstractDao<Immunizations> {
     List<Immunizations> findCurrentByDemographicNo(Integer demographicNo);
+    /** Atomically replaces the current schedule only if its row ID matches (zero means no schedule). */
+    boolean replaceCurrent(Integer demographicNo, String providerNo, String xml, int expectedVersion);
 }

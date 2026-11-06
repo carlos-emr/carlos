@@ -25,6 +25,16 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.nio.file.Path;
+import org.junit.jupiter.api.io.TempDir;
+import io.github.carlos_emr.carlos.eform.upload.ImageUpload2Action;
+import static org.mockito.Mockito.*;
+import java.nio.charset.StandardCharsets;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -39,10 +49,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Unit tests for {@link EFormExportZip#exportForms} entry-name safety.
  *
- * <p>Export entry names are derived from the eForm's name and file name. A name containing a path
- * separator or {@code ..} would otherwise produce traversal-style ZIP entries (ZIP-slip for whoever
- * extracts the exported archive), so the export validates each component with
- * {@code PathValidationUtils.validatePathComponent} before building the entry.</p>
+ * <p>Export entry names are derived from the eForm's name and file name. Display titles are normalized before validation; stored filenames and image paths remain strict.
+ * Generated names must preserve archive content and original metadata without traversal entries.</p>
  *
  * @since 2026-06-01
  */
@@ -81,15 +89,147 @@ class EFormExportZipExportUnitTest {
                 .allSatisfy(name -> assertThat(name).doesNotContain("..").doesNotStartWith("/"));
     }
 
-    @Test
-    @DisplayName("should reject a form name that would produce a traversal entry")
-    void shouldReject_whenFormNameContainsTraversal() {
-        List<EForm> forms = new ArrayList<>();
-        forms.add(eform("../evil", "evil.html", "<html></html>"));
+    private static Map<String, byte[]> entries(EForm... forms) throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        new EFormExportZip().exportForms(List.of(forms), output);
+        Map<String, byte[]> result = new LinkedHashMap<>();
+        try (ZipInputStream input = new ZipInputStream(new ByteArrayInputStream(output.toByteArray()))) {
+            ZipEntry entry;
+            while ((entry = input.getNextEntry()) != null) result.put(entry.getName(), input.readAllBytes());
+        }
+        return result;
+    }
 
-        // validatePathComponent throws FileValidationException (a SecurityException) on the path-bearing
-        // form name, before any traversal-style ZIP entry can be written.
-        assertThatThrownBy(() -> new EFormExportZip().exportForms(forms, new ByteArrayOutputStream()))
+    @ParameterizedTest
+    @ValueSource(strings = {"Well Baby 0/6 months", "Well Baby 0\\6 months", "../evil", "C:\\forms", "Ça \"va\" Łódź", "line\r\nbreak", "Clinic*?<>|Form"})
+    void shouldPreserveOriginalMetadata_whenDisplayTitleNeedsSafeExportName(String name) throws Exception {
+        Map<String, byte[]> archive = entries(eform(name, "form.html", "<p>Zoë Ł</p>"));
+        assertThat(archive).hasSize(2);
+        String propertiesPath = archive.keySet().stream().filter(path -> path.endsWith("/eform.properties")).findFirst().orElseThrow();
+        String folder = propertiesPath.substring(0, propertiesPath.indexOf('/'));
+        assertThat(folder).isNotBlank().doesNotStartWith(".").doesNotContain("\\", ":", "\r", "\n", "*", "?", "\"", "<", ">", "|");
+        assertThat(archive.keySet()).allSatisfy(path -> assertThat(path.split("/")).hasSize(2));
+        Properties properties = new Properties();
+        properties.load(new ByteArrayInputStream(archive.get(propertiesPath)));
+        assertThat(properties.getProperty("form.name")).isEqualTo(name);
+        assertThat(properties.getProperty("form.htmlFilename")).isEqualTo("form.html");
+        assertThat(new String(archive.get(folder + "/form.html"), StandardCharsets.UTF_8)).isEqualTo("<p>Zoë Ł</p>");
+    }
+
+    @Test
+    void shouldGenerateSafeHtmlFilename_whenStoredFilenameMissing() throws Exception {
+        Map<String, byte[]> archive = entries(eform("Well Baby 0/6 months", null, "<p>test</p>"));
+        assertThat(archive).containsKeys("WellBaby0_6months/eform.properties", "WellBaby0_6months/WellBaby0_6months.html");
+    }
+
+    @Test
+    void shouldKeepBothForms_whenSanitizedFoldersCollide() throws Exception {
+        Map<String, byte[]> archive = entries(eform("A/B", "form.html", "first"), eform("A\\B", "form.html", "second"));
+        assertThat(archive).hasSize(4);
+        assertThat(new String(archive.get("A_B/form.html"), StandardCharsets.UTF_8)).isEqualTo("first");
+        assertThat(new String(archive.get("A_B-2/export-2.html"), StandardCharsets.UTF_8)).isEqualTo("second");
+    }
+
+    @Test
+    void shouldKeepCaseDistinctForms_whenRecipientFilesystemIsCaseInsensitive() throws Exception {
+        Map<String, byte[]> archive = entries(eform("Foo", "form.html", "first"),
+                eform("Foo-2", "form.html", "second"), eform("foo", "form.html", "third"));
+        assertThat(archive).hasSize(6);
+        assertThat(new String(archive.get("Foo/form.html"), StandardCharsets.UTF_8)).isEqualTo("first");
+        assertThat(new String(archive.get("Foo-2/export-2.html"), StandardCharsets.UTF_8)).isEqualTo("second");
+        assertThat(new String(archive.get("foo-3/export-3.html"), StandardCharsets.UTF_8)).isEqualTo("third");
+    }
+
+    @Test
+    void shouldImportEveryOriginalForm_whenExportedHtmlBasenamesCollide(@TempDir Path images) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        new EFormExportZip().exportForms(List.of(eform("A/B", "form.html", "first"),
+                eform("A\\B", "form.html", "second"), eform("a_b", "export-2.html", "third")), bytes);
+        Map<String, String> saved = new LinkedHashMap<>();
+        try (var imageFolder = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
+                EForm form = invocation.getArgument(0);
+                saved.put(form.getFormName(), form.getFormHtml());
+                return "fixture";
+            });
+            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+        }
+        assertThat(saved).containsExactlyInAnyOrderEntriesOf(Map.of("A/B", "first", "A\\B", "second", "a_b", "third"));
+        try (var staged = java.nio.file.Files.list(images.resolve("extractFolder"))) {
+            assertThat(staged.toList()).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldPreserveHtmlAndAsset_whenGeneratedBasenameWouldMatchAnAsset(@TempDir Path root) throws Exception {
+        Path source = root.resolve("source.html");
+        java.nio.file.Files.writeString(source, "SUPPORTING-ASSET");
+        Path images = java.nio.file.Files.createDirectory(root.resolve("imported"));
+        EFormExportZip exporter = new EFormExportZip() {
+            @Override public java.io.File getImageFile(String name) { return source.toFile(); }
+        };
+        String secondHtml = "<iframe src=\"${oscar_image_path}export-2.html\"></iframe>";
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        exporter.exportForms(List.of(eform("First", "form.html", "first"), eform("Second", "form.html", secondHtml)), bytes);
+        Map<String, String> saved = new LinkedHashMap<>();
+        try (var imageFolder = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
+                EForm form = invocation.getArgument(0);
+                saved.put(form.getFormName(), form.getFormHtml());
+                return "fixture";
+            });
+            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+        }
+        assertThat(saved).containsExactlyInAnyOrderEntriesOf(Map.of("First", "first", "Second", secondHtml));
+        assertThat(java.nio.file.Files.readString(images.resolve("export-2.html"))).isEqualTo("SUPPORTING-ASSET");
+    }
+
+    @Test
+    void shouldImportLongAndMultibyteNames_whenAliasesRequireLengthBounds(@TempDir Path images) throws Exception {
+        List<EForm> originals = List.of(eform("a".repeat(255), "f".repeat(250) + ".html", "first"),
+                eform("A".repeat(255), "f".repeat(250) + ".html", "second"),
+                eform("é".repeat(255), "ü".repeat(250) + ".html", "third"),
+                eform("😀".repeat(127), null, "fourth"));
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        new EFormExportZip().exportForms(originals, bytes);
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                for (String component : entry.getName().split("/")) {
+                    assertThat(component.getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(255);
+                    assertThat(component).doesNotContain("�");
+                }
+            }
+        }
+        Map<String, String> saved = new LinkedHashMap<>();
+        try (var imageFolder = mockStatic(ImageUpload2Action.class); var forms = mockStatic(EFormUtil.class)) {
+            imageFolder.when(ImageUpload2Action::getImageFolder).thenReturn(images.toFile());
+            forms.when(() -> EFormUtil.saveEForm(any(EForm.class))).thenAnswer(invocation -> {
+                EForm form = invocation.getArgument(0);
+                saved.put(form.getFormName(), form.getFormHtml());
+                return "fixture";
+            });
+            assertThat(new EFormExportZip().importForm(new ByteArrayInputStream(bytes.toByteArray()))).isEmpty();
+        }
+        assertThat(saved).hasSize(originals.size());
+        for (EForm form : originals) {
+            assertThat(saved).containsEntry(form.getFormName(), form.getFormHtml());
+            assertThat((EFormExportZip.exportNameComponent(form.getFormName()) + ".zip")
+                    .getBytes(StandardCharsets.UTF_8).length).isLessThanOrEqualTo(255);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"../evil.html", "nested/form.html", "C:\\evil.html"})
+    void shouldRejectStoredPaths_whenFilenameIsNotAComponent(String fileName) {
+        assertThatThrownBy(() -> entries(eform("Valid", fileName, "test"))).isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void shouldRejectImageTraversal_whenHtmlReferencesPath() {
+        assertThatThrownBy(() -> entries(eform("Valid", "form.html", "<img src=\"${oscar_image_path}../secret.png\">")))
                 .isInstanceOf(SecurityException.class);
     }
 }

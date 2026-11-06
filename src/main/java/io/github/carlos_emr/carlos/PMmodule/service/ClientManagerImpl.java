@@ -275,6 +275,10 @@ public class ClientManagerImpl implements ClientManager {
         demographicExtDao.removeDemographicExt(demographicNo, key);
     }
 
+    // By type, as the setters below: the bean is autowired by name, and the DAO's bean is named
+    // jointAdmissionDaoImpl, so without this every PMM client view failed with a
+    // NullPointerException at its dependents list.
+    @Autowired
     public void setJointAdmissionDao(JointAdmissionDao jointAdmissionDao) {
         this.jointAdmissionDao = jointAdmissionDao;
     }

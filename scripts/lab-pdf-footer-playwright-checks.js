@@ -9,6 +9,7 @@
  * shipped confidentiality_statement.v1 when the test deployment customizes it.
  * Read-only: examines the actual downloaded PDF without sending it to a printer.
  */
+const { closeBrowserWithChartCleanup } = require('./lib/chart-lock-cleanup');
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -101,7 +102,7 @@ async function main() {
     assertStrictPage(recorder);
     return { pages: pages.length, fullNoticeWithinMargins: true };
   } finally {
-    try { if (browser) await browser.close(); }
+    try { if (browser) await closeBrowserWithChartCleanup(browser, config.baseUrl); }
     finally { sql.dispose(); }
   }
 }

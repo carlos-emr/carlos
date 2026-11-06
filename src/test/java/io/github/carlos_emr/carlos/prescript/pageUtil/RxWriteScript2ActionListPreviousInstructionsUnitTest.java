@@ -53,6 +53,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -113,11 +114,21 @@ class RxWriteScript2ActionListPreviousInstructionsUnitTest extends CarlosUnitTes
 
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_rx"), eq("r"), isNull()))
                 .thenReturn(true);
+        // The read is also authorised for the patient whose stash it reads (#3908).
+        when(mockSecurityInfoManager.hasPrivilege(any(), anyString(), anyString(), anyInt())).thenReturn(true);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), any())).thenReturn(true);
         when(mockRequest.getSession()).thenReturn(mockSession);
 
         bean = new RxSessionBean();
+        bean.setDemographicNo(123);
         bean.setListMedHistory(new ArrayList<>(List.of(historyEntry("take once daily"))));
-        when(mockSession.getAttribute("RxSessionBean")).thenReturn(bean);
+        // Every history read explicitly names its patient (#4811).
+        when(mockRequest.getParameterValues("demographicNo")).thenReturn(new String[]{"123"});
+        RxSessionBeanResolver.PatientBeans beans = new RxSessionBeanResolver.PatientBeans();
+        beans.put(123, bean);
+        when(mockRequest.getSession(false)).thenReturn(mockSession);
+        when(mockSession.getAttribute(RxSessionBeanResolver.BEANS_ATTRIBUTE)).thenReturn(beans);
+
 
         // The package-private constructor, not the Struts no-arg one: the latter resolves the
         // signature-stamp service from the Spring context, which a unit test has no business

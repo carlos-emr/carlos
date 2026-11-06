@@ -55,6 +55,7 @@
 
 <html>
     <head>
+        <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/carlosCsrfForm.js"></script>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <script type="text/javascript" src="<%= request.getContextPath() %>/js/global.js"></script>
         <title>Adjust Billing Codes</title>
@@ -76,11 +77,13 @@
                 input.value = code;
                 form.appendChild(input);
                 document.body.appendChild(form);
-                form.submit();
+                // carlosSubmitForm attaches the CSRF token, which CSRFGuard cannot inject
+                // into a runtime-built form in time (#4130).
+                carlosSubmitForm(form);
             }
         </script>
     </head>
-    <body class="BodyStyle" vlink="#0000FF" onLoad="setValues()">
+    <body class="BodyStyle" vlink="#0000FF">
     <!--  -->
     <table class="MainTable" id="scrollNumber1" name="encounterTable">
         <tr class="MainTableTopRow">
@@ -92,17 +95,17 @@
                         <td>&nbsp;</td>
                         <td style="text-align: right"><a
                                 href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewHelp')"> <fmt:message key="global.help"/> </a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewAbout')"> <fmt:message key="global.about"/> </a> | <a
-                                href="javascript:popupStart(300,400,'<%=request.getContextPath()%>/encounter/ViewLicense')"> <fmt:message key="global.license"/> </a></td>
+                                href="<%=request.getContextPath()%>/encounter/ViewAbout" target="_blank" rel="noopener"> <fmt:message key="global.about"/> </a> | <a
+                                href="<%=request.getContextPath()%>/encounter/ViewLicense" target="_blank" rel="noopener"> <fmt:message key="global.license"/> </a></td>
                     </tr>
                 </table>
             </td>
         </tr>
         <tr>
             <td class="MainTableLeftColumn" valign="top">&nbsp; <a
-                    href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?addNew=true">Add Code</a></td>
+                    href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingAddCode?addNew=true">Add Code</a></td>
             <td class="MainTableRightColumn">
-                <form action="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode" method="get">
+                <form action="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCodeAdjust" method="get">
                     <%if (request.getAttribute("returnMessage") != null) { %>
                     <table>
                         <tr>
@@ -140,8 +143,9 @@
                 %>
                 <table border=1 width="80%">
                     <tr>
+                        <%-- The list shows only codes matching bCode, so the sort link keeps the search. --%>
                         <th>Service Code<a
-                                href="<%= request.getContextPath() %>/billing/CA/BC/billingAddCode?sortOrder=<%=newOrder%>"><%=arrow%>
+                                href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingCodeAdjust?sortOrder=<%=newOrder%>&bCode=<carlos:encode value='<%= bCode %>' context="uriComponent"/>"><%=arrow%>
                         </a></th>
                         <th>Description</th>
                         <th>Price</th>
@@ -159,7 +163,7 @@
                         <td><carlos:encode value='<%= bcd.getValue() %>' context="html"/>
                         </td>
                         <td><a
-                                href="<%= request.getContextPath() %>/billing/CA/BC/billingEditCode?codeId=<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="uriComponent"/>&code=<carlos:encode value='<%= bcd.getServiceCode() %>' context="uriComponent"/>&desc=<carlos:encode value='<%= bcd.getDescription() %>' context="uriComponent"/>&value=<carlos:encode value='<%= bcd.getValue() %>' context="uriComponent"/>">Edit</a>
+                                href="<%= request.getContextPath() %>/billing/CA/BC/ViewBillingEditCode?codeId=<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="uriComponent"/>&code=<carlos:encode value='<%= bcd.getServiceCode() %>' context="uriComponent"/>&desc=<carlos:encode value='<%= bcd.getDescription() %>' context="uriComponent"/>&value=<carlos:encode value='<%= bcd.getValue() %>' context="uriComponent"/>">Edit</a>
                             <br>
                             <a href="javascript:void(0);" onclick="deletePrivateCode('<carlos:encode value='<%= String.valueOf(bcd.getBillingserviceNo()) %>' context="javaScriptAttribute"/>');">Delete</a></td>
                     </tr>

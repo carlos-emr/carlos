@@ -67,6 +67,20 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
+    @DisplayName("should report whether a disk already holds an OHIP claim file name")
+    void shouldReportOhipFilenameInUse_whenDiskHoldsExactName() throws Exception {
+        BillingONDiskName lastYear = new BillingONDiskName();
+        EntityDataGenerator.generateTestDataForModelClass(lastYear);
+        lastYear.setOhipFilename("HJ054321.001");
+        dao.persist(lastYear);
+
+        assertThat(dao.existsByOhipFilename("HJ054321.001")).isTrue();
+        assertThat(dao.existsByOhipFilename("HJ054321.002")).isFalse();
+        assertThat(dao.existsByOhipFilename("HJ054321.00")).isFalse();
+    }
+
+    @Test
+    @Tag("read")
     @DisplayName("should find by group number and return most recent record")
     void shouldFindByGroupNo_whenMatchingRecordExists() throws Exception {
         BillingONDiskName entity1 = new BillingONDiskName();

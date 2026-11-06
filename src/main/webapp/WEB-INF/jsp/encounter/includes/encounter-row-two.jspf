@@ -29,11 +29,11 @@
     <div class="card-body">
         <div class="row g-0">
             <div class="col-6" style="border-right: 2px solid #ccccff">
-                <textarea name="ocTextarea" tabindex="4" wrap="hard" cols="44"
+                <textarea name="ocTextarea" aria-label="<fmt:message key='encounter.Index.msgConcerns'/>" tabindex="4" wrap="soft" cols="44"
                           style="height:<carlos:encode value='${rowTwoSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(bean.ongoingConcerns)}</textarea>
             </div>
             <div class="col-6">
-                <textarea name="reTextarea" tabindex="5" wrap="hard" cols="44"
+                <textarea name="reTextarea" aria-label="<fmt:message key='encounter.Index.msgReminders'/>" tabindex="5" wrap="soft" cols="44"
                           style="height:<carlos:encode value='${rowTwoSize}' context="htmlAttribute"/>;overflow:auto">${carlos:forHtml(bean.reminders)}</textarea>
             </div>
         </div>

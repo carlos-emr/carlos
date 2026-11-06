@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -179,24 +178,7 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
     }
 
     private ArrayList<LabResultData> getLatestLabVersions(ArrayList<LabResultData> labs) {
-        List<String> allLabIds = new ArrayList<>();
-        ArrayList<LabResultData> latestLabVersions = new ArrayList<>();
-        for (LabResultData lab : labs) {
-            if (allLabIds.contains(lab.getSegmentID())) {
-                continue;
-            }
-
-            String[] allLabVersionIdsOfLab = Hl7textResultsData.getMatchingLabs(lab.getSegmentID()).split(",");
-            allLabIds.addAll(Arrays.asList(allLabVersionIdsOfLab));
-
-            for (LabResultData labResultData : labs) {
-                if (allLabVersionIdsOfLab[allLabVersionIdsOfLab.length - 1].equals(labResultData.getSegmentID())) {
-                    latestLabVersions.add(labResultData);
-                    break;
-                }
-            }
-        }
-        return latestLabVersions;
+        return CommonLabResultData.latestVisibleVersions(labs);
     }
 
     public Date getServiceDate(LoggedInInfo loggedInInfo, LabResultData labData) {
@@ -274,7 +256,8 @@ public class EctDisplayLabAction22Action extends EctDisplayAction {
         }
 
         public MessageHandler getLocalHandler(String segmentId) {
-            return Factory.getHandler(segmentId);
+            // Numeric report IDs overlap between source tables. Only HL7 IDs belong to this factory.
+            return LabResultData.HL7TEXT.equals(labData.labType) ? Factory.getHandler(segmentId) : null;
         }
     }
 

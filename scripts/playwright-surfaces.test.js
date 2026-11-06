@@ -293,28 +293,47 @@ const { waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
  * A chartPage double that runs the real browser-side predicate against a fake
  * DOM, so the test exercises the predicate itself rather than a paraphrase of it.
  *
- * @param counts links present in each container, e.g. { leftNavBar: 4, rightNavBar: 0 }
+ * @param counts links present in each container, e.g. { leftNavBar: 4, rightNavBar: 0 },
+ *   or an array of such snapshots: the first answers the populated wait and each
+ *   pending-request poll advances one step, holding on the last.
  */
 function fakeChartPage(counts) {
-  const document = {
-    getElementById: (id) => (id in counts
-      ? { querySelectorAll: () => ({ length: counts[id] }) }
+  const snapshots = Array.isArray(counts) ? counts : [counts];
+  let index = 0;
+  const documentFor = (snapshot) => ({
+    getElementById: (id) => (id in snapshot
+      ? { querySelectorAll: () => ({ length: snapshot[id] }) }
       : null),
+  });
+  const runInPage = (fn, snapshot) => {
+    const previous = global.document;
+    const previousWindow = global.window;
+    global.document = documentFor(snapshot);
+    global.window = { carlosNavbarLoadState: snapshot.stateMissing ? undefined : {
+      scheduled: snapshot.scheduled !== false, pending: snapshot.pending || 0,
+      failed: snapshot.failed || [],
+      modules: { preventions: { status: snapshot.pending ? 'loading' : 'loaded' } },
+    } };
+    try { return fn(); } finally {
+      if (previous === undefined) delete global.document; else global.document = previous;
+      if (previousWindow === undefined) delete global.window; else global.window = previousWindow;
+    }
   };
   return {
     locator: () => ({ first: () => ({ waitFor: async () => {} }) }),
-    waitForFunction: async (fn) => {
-      const previous = global.document;
-      global.document = document;
-      try {
-        const value = fn();
-        // Playwright polls until the predicate returns something truthy and
-        // rejects on timeout; null here is that timeout.
-        if (!value) throw new Error('timeout');
-        return { jsonValue: async () => value };
-      } finally {
-        if (previous === undefined) delete global.document; else global.document = previous;
-      }
+    waitForLoadState: async () => {},
+    waitForFunction: async (fn, _arg, { timeout }) => {
+      const deadline = Date.now() + timeout;
+      do {
+        const value = runInPage(fn, snapshots[index]);
+        if (value) return { jsonValue: async () => value };
+        index = Math.min(index + 1, snapshots.length - 1);
+        await new Promise(resolve => setTimeout(resolve, 1));
+      } while (Date.now() < deadline);
+      throw new Error('timeout');
+    },
+    evaluate: async (fn) => {
+      return runInPage(fn, snapshots[index]);
     },
   };
 }
@@ -358,4 +377,42 @@ test('scratch surface requires its editor, save control and history selector', a
     if (missing) await assert.rejects(assertSurfaceControls(page, scratch, 100), /required control missing/);
     else { await assertSurfaceControls(page, scratch, 100); assert.deepEqual(inspected, scratch.controls); }
   }
+});
+
+
+test('late module insertions are waited for before the navbars count as loaded', async () => {
+  const page = fakeChartPage([
+    { leftNavBar: 2, rightNavBar: 1, pending: 2 },
+    ...Array.from({ length: 6 }, () => ({ leftNavBar: 5, rightNavBar: 3, pending: 1 })),
+    { leftNavBar: 6, rightNavBar: 4 },
+  ]);
+  assert.deepEqual(await waitForNavbars(page, 1000), { left: 6, right: 4 },
+    'stable link counts cannot conceal the still-pending last module');
+});
+
+test('a chart that never reaches networkidle still loads once its navbars settle', async () => {
+  const page = fakeChartPage({ leftNavBar: 6, rightNavBar: 4 });
+  page.waitForLoadState = async () => { throw new Error('a request is still in flight'); };
+  assert.deepEqual(await waitForNavbars(page, 100), { left: 6, right: 4 },
+    'networkidle is best effort everywhere in the suite; requiring it fails every chart workflow on a page that polls');
+});
+
+test('one permanently pending module fails even when both navbar link counts are stable', async () => {
+  await assert.rejects(() => waitForNavbars(fakeChartPage({ leftNavBar: 6, rightNavBar: 4, pending: 1 }), 20),
+    /never finished loading: preventions/);
+});
+
+test('navbars that populate and then empty are a failure, not a settled load', async () => {
+  const page = fakeChartPage([{ leftNavBar: 6, rightNavBar: 4, pending: 1 }, { leftNavBar: 6, rightNavBar: 0 }]);
+  await assert.rejects(() => waitForNavbars(page, 1000), /do not BOTH contain links/);
+});
+
+test('one failed module is not masked by all the successful modules', async () => {
+  const page = fakeChartPage({ leftNavBar: 80, rightNavBar: 70, failed: ['measurements'] });
+  await assert.rejects(() => waitForNavbars(page, 100), /failed to load: measurements/);
+});
+
+test('an old page without actual loader state cannot pass on populated link counts', async () => {
+  const page = fakeChartPage({ leftNavBar: 80, rightNavBar: 70, stateMissing: true });
+  await assert.rejects(() => waitForNavbars(page, 20), /never finished loading: loader not started/);
 });

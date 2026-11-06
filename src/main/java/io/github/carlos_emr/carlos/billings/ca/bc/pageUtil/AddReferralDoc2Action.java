@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.commn.model.Billingreferral;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 
 /**
  * @author Jay Gallagher
@@ -61,6 +62,10 @@ public class AddReferralDoc2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
+        }
+        // The referral doctor form posts; a GET or HEAD is refused before a doctor is added or changed.
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
         }
 
         String af = SUCCESS;
@@ -93,6 +98,12 @@ public class AddReferralDoc2Action extends ActionSupport {
         } else {
             Billingreferral billingReferral = billingReferralDao.getById(Integer.parseInt(id));
             if (billingReferral != null) {
+                // Same rule as adding: a billing number belongs to one doctor. Keeping the doctor's own number is fine.
+                List<Billingreferral> holders = billingReferralDao.getBillingreferral(referral_no);
+                if (holders != null && holders.stream().anyMatch(holder -> !billingReferral.getBillingreferralNo().equals(holder.getBillingreferralNo()))) {
+                    request.setAttribute("Error", "Billing # already in use");
+                    return ERROR;
+                }
                 billingReferral.setReferralNo(referral_no);
                 billingReferral.setLastName(last_name);
                 billingReferral.setFirstName(first_name);
@@ -103,6 +114,7 @@ public class AddReferralDoc2Action extends ActionSupport {
                 billingReferral.setPostal(postal);
                 billingReferral.setPhone(phone);
                 billingReferral.setFax(fax);
+                billingReferral.setSpecialty(specialty);
                 billingReferralDao.updateBillingreferral(billingReferral);
             }
         }

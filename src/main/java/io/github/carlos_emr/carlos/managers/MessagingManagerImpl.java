@@ -66,6 +66,7 @@ import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
 import io.github.carlos_emr.carlos.messenger.data.MsgDisplayMessage;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
+import io.github.carlos_emr.carlos.messenger.util.LocalMessageRecipients;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 
@@ -299,20 +300,31 @@ public class MessagingManagerImpl implements MessagingManager {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public void setMessageRead(LoggedInInfo loggedInInfo, Long messageId, String providerNo) {
+        Set<Integer> localLocations = LocalMessageRecipients.locationIds(oscarCommLocationsDao);
         List<MessageList> messageList = messageListDao.findByProviderNoAndMessageNo(providerNo, messageId);
         for (MessageList message : messageList) {
             if (!MessageList.STATUS_DELETED.equalsIgnoreCase(message.getStatus())
                     && !MessageList.STATUS_SENT.equalsIgnoreCase(message.getStatus())
-                    && message.getDestinationFacilityId() < 1) {
+                    && LocalMessageRecipients.includes(message, localLocations)) {
                 setMessageStatus(loggedInInfo, message, MessageList.STATUS_READ);
             }
         }
     }
 
+    /**
+     * Archives only this provider's local recipient rows, preserving remote providers with the
+     * same provider number and other facilities' delivery state.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated mailbox owner
+     * @param messageId int the message whose local mailbox entries should be archived
+     */
     public void deleteMessage(LoggedInInfo loggedInInfo, int messageId) {
+        Set<Integer> localLocations = LocalMessageRecipients.locationIds(oscarCommLocationsDao);
         List<MessageList> messageList = messageListDao.findByProviderNoAndMessageNo(loggedInInfo.getLoggedInProviderNo(), (long) messageId);
         for (MessageList message : messageList) {
-            setMessageStatus(loggedInInfo, message, MessageList.STATUS_DELETED);
+            if (LocalMessageRecipients.includes(message, localLocations)) {
+                setMessageStatus(loggedInInfo, message, MessageList.STATUS_DELETED);
+            }
         }
     }
 
@@ -326,6 +338,10 @@ public class MessagingManagerImpl implements MessagingManager {
 
         UserPropertyDAO userPropertyDao = SpringUtils.getBean(UserPropertyDAO.class);
         UserProperty prop = userPropertyDao.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT);
+        if (prop == null) {
+            // A subject saved by Lab Recall Settings before #4720 is under the old name.
+            prop = userPropertyDao.getProp(providerNo, UserProperty.LAB_RECALL_MSG_SUBJECT_LEGACY);
+        }
 
         if (prop != null) {
             subject = prop.getValue();

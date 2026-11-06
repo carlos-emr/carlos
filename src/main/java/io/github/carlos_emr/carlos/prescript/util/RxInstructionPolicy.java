@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import io.github.carlos_emr.CarlosProperties;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
@@ -191,7 +190,7 @@ public class RxInstructionPolicy {
     /**
      * Validates prescription instruction text against configured policies.
      *
-     * <p>Reads the {@code prescript.policy} property from {@link CarlosProperties}.
+     * <p>Reads the {@code prescript.policy} property, or the older {@code rx.policy} ({@link RxSettings}).
      * If the value contains "stjoes" (comma-separated), the St. Joseph's
      * ISMP "Do Not Use" abbreviation policy is applied.</p>
      *
@@ -203,7 +202,7 @@ public class RxInstructionPolicy {
     public static List<String> checkInstructions(String instr) {
         List<String> errors = new ArrayList<>();
 
-        String policies = CarlosProperties.getInstance().getProperty("prescript.policy");
+        String policies = RxSettings.get("policy");
         if (policies != null) {
             String[] policiesArray = policies.split(",");
             for (String policy : policiesArray) {

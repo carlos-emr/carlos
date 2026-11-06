@@ -12,6 +12,8 @@
  */
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
+import jakarta.servlet.http.HttpServletResponse;
+import org.apache.struts2.ActionSupport;
 import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
 import io.github.carlos_emr.carlos.commn.dao.ConsentDao;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
@@ -33,7 +35,6 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 import java.util.HashMap;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -57,8 +58,8 @@ class AddPrevention2ActionValidationUnitTest {
     private static final String PREVENTION_TYPE = "Flu";
 
     @Test
-    @DisplayName("should return form without lookup or persistence when demographic_no is missing")
-    void shouldReturnForm_withoutLookupOrPersistence_whenDemographicNoIsMissing() {
+    @DisplayName("should refuse with 400 and no lookup or persistence when demographic_no is missing")
+    void shouldRefuseWithBadRequest_withoutLookupOrPersistence_whenDemographicNoIsMissing() {
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setMethod("POST");
         request.getSession().setAttribute("user", "999998");
@@ -99,9 +100,9 @@ class AddPrevention2ActionValidationUnitTest {
 
                 String result = new AddPrevention2Action().execute();
 
-                assertThat(result).isEqualTo("form");
-                assertThat(request.getAttribute("errors"))
-                        .isEqualTo(List.of("Invalid or missing demographic_no"));
+                // Validation refusals answer 400 without a view since release #4410 (submit-once).
+                assertThat(result).isEqualTo(ActionSupport.NONE);
+                assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
                 verifyNoInteractions(demographicDao);
                 preventionData.verifyNoInteractions();
                 verifyNoInteractions(consentDao, immunizationDao);

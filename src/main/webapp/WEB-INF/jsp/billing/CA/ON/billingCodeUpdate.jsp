@@ -49,8 +49,8 @@
         function CodeAttach(File0, File1, File2) {
             <c:choose>
                 <c:when test="${codeUpdateModel.hasNameF}">
-            // nameFSafe is validated against [a-zA-Z_][a-zA-Z0-9_.]* in the
-            // assembler, so it's safe to splice as a JS identifier path.
+            // The assembler allows only legacy identifier paths or the exact
+            // indexed service-code field syntax used by the billing forms.
             self.opener.${codeUpdateModel.nameFSafe} = File0;
                 </c:when>
                 <c:otherwise>
@@ -86,14 +86,12 @@
         </c:choose>
     </c:when>
     <c:otherwise>
-<%-- Update mode: assembler already persisted; emit popup-close JS. --%>
+<%-- The action already saved the description. Return to the search while preserving unsaved bill edits. --%>
 <p>
 <h1>Successful Addition of a billing Record.</h1>
 </p>
 <script LANGUAGE="JavaScript">
     history.go(-1);
-    return false;
-    self.opener.refresh();
 </script>
     </c:otherwise>
 </c:choose>

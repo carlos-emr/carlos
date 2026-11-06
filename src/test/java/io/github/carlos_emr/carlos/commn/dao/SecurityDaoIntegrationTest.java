@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.commn.model.ProviderData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -31,6 +32,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 import java.util.List;
 
@@ -56,6 +59,9 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private SecurityDao securityDao;
 
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
+
     private Security createSecurity(String providerNo, String userName, String password) {
         Security sec = new Security();
         sec.setProviderNo(providerNo);
@@ -64,6 +70,69 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
         sec.setLastUpdateDate(new Date());
         securityDao.persist(sec);
         return sec;
+    }
+
+    @Nested
+    @DisplayName("findByProviderSite")
+    class FindByProviderSite {
+        @BeforeEach
+        void setUpSites() {
+            for (String number : List.of("710001", "710002", "710003", "710004")) {
+                ProviderData provider = new ProviderData();
+                provider.set(number);
+                provider.setLastName("Owned security site");
+                provider.setFirstName("Test");
+                provider.setProviderType("doctor");
+                provider.setSex("M");
+                provider.setSpecialty("GP");
+                provider.setStatus("1");
+                entityManager.persist(provider);
+            }
+            createSecurity("710001", "site-admin", "test-hash");
+            createSecurity("710002", "site-peer", "test-hash");
+            createSecurity("710002", "site-peer-alt", "test-hash");
+            createSecurity("710003", "other-site", "test-hash");
+            createSecurity("710004", "unassigned", "test-hash");
+            entityManager.flush();
+            for (int site : new int[]{710001, 710002, 710003}) {
+                entityManager.createNativeQuery("INSERT INTO site (site_id, name, short_name, bg_color, status) "
+                                + "VALUES (?1, 'Owned security site', 'OSS', '#FFFFFF', 1)")
+                        .setParameter(1, site).executeUpdate();
+            }
+            for (String provider : List.of("710001", "710002")) {
+                for (int site : new int[]{710001, 710002}) {
+                    entityManager.createNativeQuery("INSERT INTO providersite (provider_no, site_id) VALUES (?1, ?2)")
+                            .setParameter(1, provider).setParameter(2, site).executeUpdate();
+                }
+            }
+            entityManager.createNativeQuery("INSERT INTO providersite (provider_no, site_id) VALUES ('710003', 710003)")
+                    .executeUpdate();
+            entityManager.flush();
+            entityManager.clear();
+        }
+
+        @Test
+        void shouldReturnEachSharedSiteAccountOnce_whenProvidersShareMultipleSites() {
+            assertThat(securityDao.findByProviderSite("710001"))
+                    .extracting(Security::getUserName)
+                    .containsExactlyInAnyOrder("site-admin", "site-peer", "site-peer-alt");
+        }
+
+        @Test
+        void shouldExcludeUnsharedAndUnassignedAccounts_whenLookingUpAnotherSite() {
+            assertThat(securityDao.findByProviderSite("710003"))
+                    .extracting(Security::getUserName).containsExactly("other-site");
+        }
+
+        @Test
+        void shouldReturnNoAccounts_whenTheAdministratorHasNoSites() {
+            assertThat(securityDao.findByProviderSite("710004")).isEmpty();
+        }
+
+        @Test
+        void shouldBindTheProviderParameter_whenTheInputContainsSqlSyntax() {
+            assertThat(securityDao.findByProviderSite("710001' OR '1'='1")).isEmpty();
+        }
     }
 
     @Nested
@@ -241,4 +310,21 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
             assertThat(results.get(1).getUserName()).isEqualTo("zuser");
         }
     }
+    @Test
+    void shouldOrderByProviderNumber_whenAllowlistedPropertyRequested() {
+        createSecurity("977002", "coverageOrderA", "synthetic");
+        createSecurity("977001", "coverageOrderZ", "synthetic");
+        List<String> providers = securityDao.findAllOrderBy("providerNo").stream()
+                .map(Security::getProviderNo).filter(p -> p.startsWith("977")).toList();
+        assertThat(providers).containsExactly("977001", "977002");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"password", "userName desc", "providerNo; delete from security", "unknown"})
+    void shouldRejectSortExpression_whenNotAnAllowlistedProperty(String property) {
+        assertThatThrownBy(() -> securityDao.findAllOrderBy(property))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
 }

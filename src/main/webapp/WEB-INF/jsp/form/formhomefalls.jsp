@@ -177,7 +177,7 @@
             return false;
         }
     </script>
-    <script type="text/javascript" src="formScripts.js">
+    <script type="text/javascript" src="${pageContext.request.contextPath}/form/formScripts.js">
     </script>
 
 
@@ -984,7 +984,7 @@
                                             <fmt:message key="global.no"/>
                                         </td>
                                         <td width="75%"><input type="checkbox" class="checkbox"
-                                                               name="mobility25NA" <%= props.getProperty("mobility25NA", "") %> /><fmt:message key="form.homeFalls.na"/>
+                                                               name="mobility25NA" <%= props.getProperty("mobility25NA", "") %> /><fmt:message key="global.na"/>
                                             (there are no pets/animals)
                                         </td>
                                     </tr>

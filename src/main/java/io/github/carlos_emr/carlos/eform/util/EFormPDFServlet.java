@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.eform.util;
 
+import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -687,7 +689,7 @@ public class EFormPDFServlet extends HttpServlet {
                 encoding = BaseFont.CP1252;
             }
 
-            BaseFont bf = BaseFont.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED);
+            BaseFont bf = PdfFonts.createFont(fontType[0], encoding, BaseFont.NOT_EMBEDDED);
             String propValue = props.getProperty(temp.toString());
             //if not in regular config then check measurements
             if (propValue == null) {
@@ -704,7 +706,7 @@ public class EFormPDFServlet extends HttpServlet {
                         Element.ALIGN_LEFT : (cfgVal[0].trim().equals("right") ? Element.ALIGN_RIGHT :
                         Element.ALIGN_CENTER)));
 
-                ct.setText(new Phrase(12, propValue, font));
+                ct.setText(PdfFonts.phrase(12, propValue, font));
                 ct.go();
                 continue;
             }
@@ -729,25 +731,22 @@ public class EFormPDFServlet extends HttpServlet {
                 cb.lineTo(Float.parseFloat(cfgVal[2].trim()), Float.parseFloat(cfgVal[3].trim()));
                 cb.stroke();
 
-            } else if (temp.toString().startsWith("__")) {
-                cb.beginText();
-                cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                        : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                        : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? (cfgVal[6]
-                        .trim()) : propValue), Integer
-                        .parseInt(cfgVal[1].trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
-                cb.endText();
-            } else { // write prop text
-                cb.beginText();
-                cb.setFontAndSize(bf, Integer.parseInt(cfgVal[5].trim()));
-                cb.showTextAligned((cfgVal[0].trim().equals("left") ? PdfContentByte.ALIGN_LEFT
-                        : (cfgVal[0].trim().equals("right") ? PdfContentByte.ALIGN_RIGHT
-                        : PdfContentByte.ALIGN_CENTER)), (cfgVal.length >= 7 ? ((propValue.equals("") ? "" : cfgVal[6].trim()))
-                        : propValue), Integer.parseInt(cfgVal[1]
-                        .trim()), (height - Integer.parseInt(cfgVal[2].trim())), 0);
-
-                cb.endText();
+            } else {
+                // Static "__" text, or a field value. Values can be in any script: PdfFonts draws
+                // characters the configured face lacks in the bundled fallback faces (#5046).
+                // A seventh column is fixed text: always printed for "__" lines, and for a field (a
+                // checkbox's "X") only when the field has a value.
+                String text = propValue;
+                if (cfgVal.length >= 7) {
+                    text = temp.toString().startsWith("__") || !propValue.isEmpty() ? cfgVal[6].trim() : "";
+                }
+                int alignment = switch (cfgVal[0].trim()) {
+                    case "left" -> PdfContentByte.ALIGN_LEFT;
+                    case "right" -> PdfContentByte.ALIGN_RIGHT;
+                    default -> PdfContentByte.ALIGN_CENTER;
+                };
+                PdfFonts.showTextAligned(cb, alignment, text, new Font(bf, Float.parseFloat(cfgVal[5].trim())),
+                        Float.parseFloat(cfgVal[1].trim()), height - Float.parseFloat(cfgVal[2].trim()), 0);
             }
         }
     }

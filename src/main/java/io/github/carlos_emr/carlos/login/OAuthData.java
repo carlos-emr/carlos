@@ -11,6 +11,10 @@ public class OAuthData {
   private String authenticityToken;
   private String oauthToken;
   private List<String> permissions = Collections.emptyList();
+  /** Whether the listed permissions limit the app; true only when an operator turned scope enforcement on (#4419). */
+  private boolean scopesEnforced = true;
+  /** With enforcement off: true when the app is held to the legacy integration endpoints, false when it gets full access. */
+  private boolean legacyRestricted = true;
 
   // getters & setters
   public String getApplicationName()    { return applicationName; }
@@ -25,4 +29,8 @@ public class OAuthData {
   public void setOauthToken(String s) { oauthToken = s; }
   public List<String> getPermissions()  { return permissions; }
   public void setPermissions(List<String> l) { permissions = l; }
+  public boolean isScopesEnforced()     { return scopesEnforced; }
+  public void setScopesEnforced(boolean b) { scopesEnforced = b; }
+  public boolean isLegacyRestricted()   { return legacyRestricted; }
+  public void setLegacyRestricted(boolean b) { legacyRestricted = b; }
 }

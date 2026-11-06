@@ -64,6 +64,13 @@ public abstract class BaseEFormView2Action extends ActionSupport {
         boolean allowed;
         String objectName;
         switch (privilege) {
+            case FIELDNOTE_READ:
+            case FIELDNOTE_WRITE:
+                objectName = "_admin.fieldnote";
+                allowed = securityInfoManager.hasPrivilege(loggedInInfo, objectName,
+                        privilege == EFormViewRoutes.Privilege.FIELDNOTE_WRITE
+                                ? SecurityInfoManager.WRITE : SecurityInfoManager.READ, null);
+                break;
             case EFORM_READ:
                 objectName = "_eform";
                 allowed = securityInfoManager.hasPrivilege(

@@ -129,7 +129,7 @@ The source passage, suggested date and its basis remain visible for comparison.
 
 ## Enable only in an approved test environment
 
-Apply `database/mysql/migration/common/V1.0.33__reviewed_chart_update_receipts.sql`
+Apply `database/mysql/migration/common/V1.0.83__reviewed_chart_update_receipts.sql`
 through the normal schema migration process first. Its version is draft and must
 be reconciled with other pending migrations before merging. Until then, test on a
 fresh, throwaway database (never one already migrated by develop). Develop is already

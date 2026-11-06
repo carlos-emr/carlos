@@ -939,10 +939,36 @@ public class FormRourke2020 extends AbstractModel<Integer> implements Serializab
     @Column(name = "p5_1CommentsOther")
     private String p5_1CommentsOther;
 
+    @Lob
+    @Column(name = "p3_immunization")
+    private String p3Immunization;
+
+    @Lob
+    @Column(name = "p4_immunization")
+    private String p4Immunization;
+
     @Transient
     private Map<String, FormBooleanValue> booleanValueMap = new HashMap<String, FormBooleanValue>();
 
+    public String getP3Immunization() {
+        return p3Immunization == null ? "" : p3Immunization;
+    }
+
+    public void setP3Immunization(String value) {
+        p3Immunization = value;
+    }
+
+    public String getP4Immunization() {
+        return p4Immunization == null ? "" : p4Immunization;
+    }
+
+    public void setP4Immunization(String value) {
+        p4Immunization = value;
+    }
+
     public FormRourke2020(Properties props) {
+        this.p4Immunization = props.getProperty("p4_immunization", "");
+        this.p3Immunization = props.getProperty("p3_immunization", "");
         FrmRecordHelp frmRecordHelp = new FrmRecordHelp();
         frmRecordHelp.setDateFormat("dd/MM/yyyy");
 
@@ -1310,7 +1336,9 @@ public class FormRourke2020 extends AbstractModel<Integer> implements Serializab
         Properties props = new Properties();
         props.setProperty("provider_no", getProviderNo());
         props.setProperty("demographic_no", String.valueOf(getDemographicNo()));
-        props.setProperty("c_male", getCFemale());
+        props.setProperty("p3_immunization", getP3Immunization());
+        props.setProperty("p4_immunization", getP4Immunization());
+        props.setProperty("c_male", getCMale());
         props.setProperty("c_female", getCFemale());
         props.setProperty("formCreated", frmRecordHelp.parseDateFieldOrNull(getFormCreated()));
         props.setProperty("formEdited", new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(getFormEdited()));

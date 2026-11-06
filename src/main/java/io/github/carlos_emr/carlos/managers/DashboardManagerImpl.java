@@ -754,7 +754,8 @@ public class DashboardManagerImpl implements DashboardManager {
         user.setProvince(Province.ON);
         // user.setUniqueIdentifier(uniqueIdentifier);
         user.setUsername(provider.getProviderNo());
-        user.setRole("providers");
+        // Shared Outcomes protocol role; keep independent of CARLOS namespace renames.
+        user.setRole("provider");
 
         ObjectNode response = objectMapper.createObjectNode();
         response.set("clinic", objectMapper.valueToTree(clinic));

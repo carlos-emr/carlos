@@ -36,6 +36,8 @@
  *   <li>{@code Scratch} — system clipboard; benefits from opener context for copy/paste</li>
  *   <li>{@code CalendarPopup.jsp} / {@code CalendarPopup} — date picker; must update {@code window.opener} with selected date</li>
  *   <li>{@code ViewAddTickler} / {@code ForwardDemographicTickler} — tickler add flows refresh the caller and close themselves after save</li>
+ *   <li>{@code ViewProviderPreference} — Preferences; Save All reloads the schedule through {@code window.opener} so start/end
+ *       hour, slot length and group changes show at once (issue #4891)</li>
  * </ul>
  *
  * @param {string} url - URL to test
@@ -49,7 +51,8 @@ window.forceWindowPaths = window.forceWindowPaths || [
     'CalendarPopup.jsp',
     'CalendarPopup',
     'ViewAddTickler',
-    'ForwardDemographicTickler'
+    'ForwardDemographicTickler',
+    'ViewProviderPreference'
 ];
 
 function isForceWindowUrl(url) {

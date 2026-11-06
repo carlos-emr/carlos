@@ -54,6 +54,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%
     String formClass = "BCHP";
@@ -167,7 +168,7 @@
         <title><fmt:message key='form.bchp.title'/></title>
 
         <link rel="stylesheet" type="text/css"
-              href="<%=bView?"bcHpStyleView.css" : "bcHpStyle.css"%>">
+              href="<%= request.getContextPath() %>/form/<%=bView?"bcHpStyleView.css" : "bcHpStyle.css"%>">
         <!-- calendar stylesheet -->
         <link rel="stylesheet" type="text/css" media="all"
               href="<%= request.getContextPath() %>/share/calendar/calendar.css" title="win2k-cold-1"/>
@@ -457,9 +458,9 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
     <input type="hidden" name="c_lastVisited" value="pg2"/>
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
@@ -528,323 +529,323 @@
             <tr>
                 <td><input type="text" name="pg2_date1" id="pg2_date1"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date1", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date1", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date1_cal">
                 </td>
                 <td><input type="text" name="pg2_medName1" id="pg2_medName1"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName1", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName1", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose1" id="pg2_dose1"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose1", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose1", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften1" id="pg2_howOften1"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften1", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften1", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason1" id="pg2_reason1"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason1", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason1", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date2" id="pg2_date2"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date2", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date2", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date2_cal">
                 </td>
                 <td><input type="text" name="pg2_medName2" id="pg2_medName2"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName2", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose2" id="pg2_dose2"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose2", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften2" id="pg2_howOften2"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften2", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften2", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason2" id="pg2_reason2"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason2", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason2", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date3" id="pg2_date3"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date3", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date3", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date3_cal">
                 </td>
                 <td><input type="text" name="pg2_medName3" id="pg2_medName3"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName3", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName3", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose3" id="pg2_dose3"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose3", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose3", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften3" id="pg2_howOften3"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften3", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften3", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason3" id="pg2_reason3"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason3", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason3", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date4" id="pg2_date4"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date4", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date4", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date4_cal">
                 </td>
                 <td><input type="text" name="pg2_medName4" id="pg2_medName4"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName4", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName4", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose4" id="pg2_dose4"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose4", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose4", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften4" id="pg2_howOften4"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften4", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften4", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason4" id="pg2_reason4"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason4", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason4", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date5" id="pg2_date5"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date5", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date5", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date5_cal">
                 </td>
                 <td><input type="text" name="pg2_medName5" id="pg2_medName5"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName5", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName5", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose5" id="pg2_dose5"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose5", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose5", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften5" id="pg2_howOften5"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften5", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften5", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason5" id="pg2_reason5"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason5", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason5", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date6" id="pg2_date6"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date6", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date6", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date6_cal">
                 </td>
                 <td><input type="text" name="pg2_medName6" id="pg2_medName6"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName6", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName6", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose6" id="pg2_dose6"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose6", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose6", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften6" id="pg2_howOften6"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften6", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften6", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason6" id="pg2_reason6"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason6", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason6", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date7" id="pg2_date7"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date7", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date7", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date7_cal">
                 </td>
                 <td><input type="text" name="pg2_medName7" id="pg2_medName7"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName7", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName7", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose7" id="pg2_dose7"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose7", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose7", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften7" id="pg2_howOften7"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften7", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften7", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason7" id="pg2_reason7"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason7", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason7", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date8" id="pg2_date8"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date8", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date8", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date8_cal">
                 </td>
                 <td><input type="text" name="pg2_medName8" id="pg2_medName8"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName8", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName8", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose8" id="pg2_dose8"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose8", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose8", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften8" id="pg2_howOften8"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften8", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften8", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason8" id="pg2_reason8"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason8", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason8", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date9" id="pg2_date9"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date9", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date9", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date9_cal">
                 </td>
                 <td><input type="text" name="pg2_medName9" id="pg2_medName9"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName9", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName9", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_dose9" id="pg2_dose9"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose9", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose9", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften9" id="pg2_howOften9"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften9", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften9", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason9" id="pg2_reason9"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason9", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason9", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date10" id="pg2_date10"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date10", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date10", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date10_cal">
                 </td>
                 <td><input type="text" name="pg2_medName10" id="pg2_medName10"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName10", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName10", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_dose10" id="pg2_dose10"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose10", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose10", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften10"
                            id="pg2_howOften10" style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften10", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften10", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason10" id="pg2_reason10"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason10", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason10", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date11" id="pg2_date11"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date11", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date11", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date11_cal">
                 </td>
                 <td><input type="text" name="pg2_medName11" id="pg2_medName11"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName11", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName11", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_dose11" id="pg2_dose11"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose11", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose11", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften11"
                            id="pg2_howOften11" style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften11", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften11", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason11" id="pg2_reason11"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason11", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason11", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date12" id="pg2_date12"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date12", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date12", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date12_cal">
                 </td>
                 <td><input type="text" name="pg2_medName12" id="pg2_medName12"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName12", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName12", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_dose12" id="pg2_dose12"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose12", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose12", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften12"
                            id="pg2_howOften12" style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften12", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften12", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason12" id="pg2_reason12"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason12", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason12", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date13" id="pg2_date13"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date13", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date13", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date13_cal">
                 </td>
                 <td><input type="text" name="pg2_medName13" id="pg2_medName13"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName13", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName13", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_dose13" id="pg2_dose13"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose13", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose13", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften13"
                            id="pg2_howOften13" style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften13", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften13", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason13" id="pg2_reason13"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason13", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason13", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_date14" id="pg2_date14"
                            style="width: 80%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_date14", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_date14", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif" id="pg2_date14_cal">
                 </td>
                 <td><input type="text" name="pg2_medName14" id="pg2_medName14"
                            style="width: 100%" size="30" maxlength="30"
-                           value="<%= props.getProperty("pg2_medName14", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_medName14", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_dose14" id="pg2_dose14"
                            style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_dose14", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_dose14", "")) %>" @oscar.formDB/>
                 </td>
                 <td><input type="text" name="pg2_howOften14"
                            id="pg2_howOften14" style="width: 100%" size="10" maxlength="10"
-                           value="<%= props.getProperty("pg2_howOften14", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_howOften14", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_reason14" id="pg2_reason14"
                            style="width: 100%" size="20" maxlength="20"
-                           value="<%= props.getProperty("pg2_reason14", "") %>" @oscar.formDB/>
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_reason14", "")) %>" @oscar.formDB/>
                 </td>
             </tr>
         </table>
@@ -870,242 +871,242 @@
                 <td><fmt:message key='form.bchp.flu'/></td>
                 <td><input type="text" name="pg2_fluDate1" id="pg2_fluDate1"
                            style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_fluDate1", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_fluDate1", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                 id="pg2_fluDate1_cal"></td>
                 <td><input type="text" name="pg2_fluDate2" id="pg2_fluDate2"
                            style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_fluDate2", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_fluDate2", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                 id="pg2_fluDate2_cal"></td>
                 <td><input type="text" name="pg2_fluDate3" id="pg2_fluDate3"
                            style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_fluDate3", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_fluDate3", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                 id="pg2_fluDate3_cal"></td>
                 <td><input type="text" name="pg2_fluDate4" id="pg2_fluDate4"
                            style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_fluDate4", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_fluDate4", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                 id="pg2_fluDate4_cal"></td>
                 <td><input type="text" name="pg2_fluDate5" id="pg2_fluDate5"
                            style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_fluDate5", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_fluDate5", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                 id="pg2_fluDate5_cal"></td>
                 <td><input type="text" name="pg2_fluDate6" id="pg2_fluDate6"
                            style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_fluDate6", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_fluDate6", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                 id="pg2_fluDate6_cal"></td>
                 <td><input type="text" name="pg2_fluDate7" id="pg2_fluDate7"
                            style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_fluDate7", "") %>" @oscar.formDB
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_fluDate7", "")) %>" @oscar.formDB
                            dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                 id="pg2_fluDate7_cal"></td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_otherVac1" id="pg2_otherVac1"
                            style="width: 100%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_otherVac1", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_otherVac1", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_other1Date1"
                            id="pg2_other1Date1" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other1Date1", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other1Date1", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other1Date1_cal"></td>
                 <td><input type="text" name="pg2_other1Date2"
                            id="pg2_other1Date2" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other1Date2", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other1Date2", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other1Date2_cal"></td>
                 <td><input type="text" name="pg2_other1Date3"
                            id="pg2_other1Date3" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other1Date3", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other1Date3", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other1Date3_cal"></td>
                 <td><input type="text" name="pg2_other1Date4"
                            id="pg2_other1Date4" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other1Date4", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other1Date4", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other1Date4_cal"></td>
                 <td><input type="text" name="pg2_other1Date5"
                            id="pg2_other1Date5" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other1Date5", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other1Date5", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other1Date5_cal"></td>
                 <td><input type="text" name="pg2_other1Date6"
                            id="pg2_other1Date6" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other1Date6", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other1Date6", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other1Date6_cal"></td>
                 <td><input type="text" name="pg2_other1Date7"
                            id="pg2_other1Date7" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other1Date7", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other1Date7", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other1Date7_cal"></td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_otherVac2" id="pg2_otherVac2"
                            style="width: 100%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_otherVac2", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_otherVac2", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_other2Date1"
                            id="pg2_other2Date1" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other2Date1", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other2Date1", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other2Date1_cal"></td>
                 <td><input type="text" name="pg2_other2Date2"
                            id="pg2_other2Date2" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other2Date2", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other2Date2", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other2Date2_cal"></td>
                 <td><input type="text" name="pg2_other2Date3"
                            id="pg2_other2Date3" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other2Date3", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other2Date3", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other2Date3_cal"></td>
                 <td><input type="text" name="pg2_other2Date4"
                            id="pg2_other2Date4" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other2Date4", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other2Date4", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other2Date4_cal"></td>
                 <td><input type="text" name="pg2_other2Date5"
                            id="pg2_other2Date5" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other2Date5", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other2Date5", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other2Date5_cal"></td>
                 <td><input type="text" name="pg2_other2Date6"
                            id="pg2_other2Date6" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other2Date6", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other2Date6", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other2Date6_cal"></td>
                 <td><input type="text" name="pg2_other2Date7"
                            id="pg2_other2Date7" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other2Date7", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other2Date7", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other2Date7_cal"></td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_otherVac3" id="pg2_otherVac3"
                            style="width: 100%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_otherVac3", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_otherVac3", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_other3Date1"
                            id="pg2_other3Date1" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other3Date1", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other3Date1", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other3Date1_cal"></td>
                 <td><input type="text" name="pg2_other3Date2"
                            id="pg2_other3Date2" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other3Date2", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other3Date2", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other3Date2_cal"></td>
                 <td><input type="text" name="pg2_other3Date3"
                            id="pg2_other3Date3" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other3Date3", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other3Date3", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other3Date3_cal"></td>
                 <td><input type="text" name="pg2_other3Date4"
                            id="pg2_other3Date4" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other3Date4", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other3Date4", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other3Date4_cal"></td>
                 <td><input type="text" name="pg2_other3Date5"
                            id="pg2_other3Date5" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other3Date5", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other3Date5", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other3Date5_cal"></td>
                 <td><input type="text" name="pg2_other3Date6"
                            id="pg2_other3Date6" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other3Date6", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other3Date6", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other3Date6_cal"></td>
                 <td><input type="text" name="pg2_other3Date7"
                            id="pg2_other3Date7" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other3Date7", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other3Date7", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other3Date7_cal"></td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_otherVac4" id="pg2_otherVac4"
                            style="width: 100%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_otherVac4", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_otherVac4", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_other4Date1"
                            id="pg2_other4Date1" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other4Date1", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other4Date1", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other4Date1_cal"></td>
                 <td><input type="text" name="pg2_other4Date2"
                            id="pg2_other4Date2" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other4Date2", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other4Date2", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other4Date2_cal"></td>
                 <td><input type="text" name="pg2_other4Date3"
                            id="pg2_other4Date3" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other4Date3", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other4Date3", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other4Date3_cal"></td>
                 <td><input type="text" name="pg2_other4Date4"
                            id="pg2_other4Date4" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other4Date4", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other4Date4", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other4Date4_cal"></td>
                 <td><input type="text" name="pg2_other4Date5"
                            id="pg2_other4Date5" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other4Date5", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other4Date5", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other4Date5_cal"></td>
                 <td><input type="text" name="pg2_other4Date6"
                            id="pg2_other4Date6" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other4Date6", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other4Date6", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other4Date6_cal"></td>
                 <td><input type="text" name="pg2_other4Date7"
                            id="pg2_other4Date7" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other4Date7", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other4Date7", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other4Date7_cal"></td>
             </tr>
             <tr>
                 <td><input type="text" name="pg2_otherVac5" id="pg2_otherVac5"
                            style="width: 100%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_otherVac5", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_otherVac5", "")) %>"
                            @oscar.formDB/></td>
                 <td><input type="text" name="pg2_other5Date1"
                            id="pg2_other5Date1" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other5Date1", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other5Date1", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other5Date1_cal"></td>
                 <td><input type="text" name="pg2_other5Date2"
                            id="pg2_other5Date2" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other5Date2", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other5Date2", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other5Date2_cal"></td>
                 <td><input type="text" name="pg2_other5Date3"
                            id="pg2_other5Date3" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other5Date3", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other5Date3", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other5Date3_cal"></td>
                 <td><input type="text" name="pg2_other5Date4"
                            id="pg2_other5Date4" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other5Date4", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other5Date4", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other5Date4_cal"></td>
                 <td><input type="text" name="pg2_other5Date5"
                            id="pg2_other5Date5" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other5Date5", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other5Date5", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other5Date5_cal"></td>
                 <td><input type="text" name="pg2_other5Date6"
                            id="pg2_other5Date6" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other5Date6", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other5Date6", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other5Date6_cal"></td>
                 <td><input type="text" name="pg2_other5Date7"
                            id="pg2_other5Date7" style="width: 75%" size="10" maxlength="15"
-                           value="<%= props.getProperty("pg2_other5Date7", "") %>"
+                           value="<%= SafeEncode.forHtmlAttribute(props.getProperty("pg2_other5Date7", "")) %>"
                            @oscar.formDB dbType="date"/> <img src="<%= request.getContextPath() %>/images/cal.gif"
                                                               id="pg2_other5Date7_cal"></td>
             </tr>

@@ -37,6 +37,46 @@ function fixture(text = 'original') {
   };
 }
 
+function warnsBeforeUnload(f) {
+  let prevented = false;
+  const event = {preventDefault() { prevented = true; }};
+  f.listeners.beforeunload(event);
+  assert.equal(Object.hasOwn(event, 'returnValue'), prevented);
+  return prevented;
+}
+
+for (const text of ['', 'existing note']) {
+  test(`unchanged editor closes without warning: ${JSON.stringify(text)}`, () => {
+    const f = fixture(text);
+    assert.equal(warnsBeforeUnload(f), false);
+    f.edit('changed draft');
+    assert.equal(warnsBeforeUnload(f), true);
+    f.edit(text);
+    assert.equal(warnsBeforeUnload(f), false);
+  });
+}
+
+for (const text of ['saved note', '']) {
+  test(`navigation warns until the exact save is acknowledged: ${JSON.stringify(text)}`, () => {
+    const f = fixture();
+    f.edit(text);
+    assert.equal(warnsBeforeUnload(f), true);
+    const request = f.save();
+    assert.equal(warnsBeforeUnload(f), true);
+    request.success({success: true, id: '8', text});
+    assert.equal(warnsBeforeUnload(f), false);
+  });
+}
+
+test('failed and conflicting saves keep the navigation warning', () => {
+  for (const status of [0, 409, 503]) {
+    const f = fixture();
+    f.edit('draft');
+    f.save().error({status}, 'error');
+    assert.equal(warnsBeforeUnload(f), true);
+  }
+});
+
 for (const [oldText, newText] of [
   ['alpha beta', 'alpha+beta'], ['dose A', 'dose%20A'], ['&', '&amp;'],
   ['note', ' note\n'], ['note', ''], ['100%', '100% + 1'],

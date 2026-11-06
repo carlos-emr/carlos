@@ -45,6 +45,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 import io.github.carlos_emr.carlos.util.UtilXML;
 
@@ -68,12 +69,40 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
-        if (request.getParameter("hdnAction").equalsIgnoreCase("Configure"))
+        if ("Configure".equalsIgnoreCase(request.getParameter("hdnAction")))
             return "configure";
 
-        if (request.getParameter("hdnAction").equalsIgnoreCase("ShowAll")) {
+        if ("ShowAll".equalsIgnoreCase(request.getParameter("hdnAction"))) {
             request.setAttribute("showDeleted", "true");
             return "reload";
+        }
+
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        int expectedVersion;
+        try {
+            expectedVersion = Integer.parseInt(request.getParameter("scheduleVersion"));
+            if (expectedVersion <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException invalid) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A schedule version is required. Reload the schedule.");
+            return NONE;
+        }
+        // The one patient Schedule.jsp names (demographic_no), checked as saveConfig and
+        // deleteSchedule check theirs: the save wrote any patient number posted to it, or none.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         try {
@@ -101,14 +130,17 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
                         cell.setAttribute("givenDate", givenDate);
                         cell.setAttribute("refusedDate", refusedDate);
                         cell.setAttribute("lot", lot);
-                        cell.setAttribute("providers", provider);
+                        // "provider" is the attribute schedules were saved with; a namespace rename wrote
+                        // "providers" for a while, which the readers still accept. Keep one attribute.
+                        cell.setAttribute("provider", provider);
+                        cell.removeAttribute("providers");
                         cell.setAttribute("comments", comments);
                     }
 
                     String comments = request.getParameter(String.valueOf(String.valueOf(sRow)).concat("_comments_text"));
                     NodeList cmnts = row.getElementsByTagName("comments");
                     if (cmnts.getLength() > 0)
-                        UtilXML.setText(cmnts.item(0), comments);
+                        cmnts.item(0).setTextContent(comments);
                     else
                         UtilXML.addNode(row, "comments", comments);
                 }
@@ -117,9 +149,10 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
 
             String sXML = UtilXML.toXML(doc);
             EctImmImmunizationData imm = new EctImmImmunizationData();
-            String demographicNo = request.getParameter("demographic_no");
-            String providerNo = (String) request.getSession().getAttribute("user");
-            imm.saveImmunizations(demographicNo, providerNo, sXML);
+            if (!imm.saveImmunizations(demographicNo, loggedInInfo.getLoggedInProviderNo(), sXML, expectedVersion)) {
+                response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");
+                return NONE;
+            }
         } catch (Exception ex) {
             MiscUtils.getLogger().error("Error", ex);
             throw new ServletException("Exception occurred in SaveScheduleAction", ex);

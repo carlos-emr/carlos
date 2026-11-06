@@ -22,6 +22,13 @@
 package io.github.carlos_emr.carlos.PMmodule.web;
 
 import java.io.IOException;
+import java.util.List;
+
+import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
+import io.github.carlos_emr.carlos.PMmodule.model.Agency;
+import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
+import io.github.carlos_emr.carlos.PMmodule.service.AgencyManager;
+import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -33,6 +40,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.mock.web.MockFilterConfig;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.context.support.StaticWebApplicationContext;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -41,10 +51,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @Tag("unit")
 @Tag("security")
-@DisplayName("PMMFilter unauthenticated access handling")
+@DisplayName("PMMFilter authentication and core program context")
 class PMMFilterUnitTest extends CarlosUnitTestBase {
 
     private static final String CONTEXT_PATH = "/carlos";
@@ -81,6 +92,38 @@ class PMMFilterUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getRedirectedUrl()).isEqualTo(CONTEXT_PATH + "/logoutPage");
         verify(chain, never()).doFilter(any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName("should populate authenticated PMM context without optional CAISI security manager")
+    void shouldPopulateProgramContext_whenOptionalCaisiManagerAbsent(boolean admin)
+            throws ServletException, IOException {
+        MockHttpServletRequest request = request();
+        request.getSession().setAttribute("user", "1001");
+        request.getServletContext().setAttribute("agency", new Agency());
+        ProviderManager providers = mock(ProviderManager.class);
+        SecUserRoleDao roles = mock(SecUserRoleDao.class);
+        List<ProgramProvider> domain = List.of(new ProgramProvider());
+        when(providers.getProgramDomain("1001")).thenReturn(domain);
+        when(roles.hasAdminRole("1001")).thenReturn(admin);
+        try (StaticWebApplicationContext context = new StaticWebApplicationContext()) {
+            context.getBeanFactory().registerSingleton("providerManager", providers);
+            context.getBeanFactory().registerSingleton("agencyManager", mock(AgencyManager.class));
+            context.getBeanFactory().registerSingleton("secUserRoleDao", roles);
+            context.refresh();
+            request.getServletContext().setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, context);
+            filter.init(new MockFilterConfig(request.getServletContext()));
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            FilterChain chain = mock(FilterChain.class);
+
+            filter.doFilter(request, response, chain);
+
+            assertThat(request.getSession().getAttribute("program_domain")).isSameAs(domain);
+            assertThat(request.getSession().getAttribute("pmm_admin")).isEqualTo(admin);
+            verify(roles).hasAdminRole("1001");
+            verify(chain).doFilter(request, response);
+        }
     }
 
     private MockHttpServletRequest request() {

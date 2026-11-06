@@ -20,20 +20,29 @@
  */
 package io.github.carlos_emr.carlos.app;
 
+import jakarta.servlet.ServletConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.owasp.csrfguard.config.PropertiesConfigurationProvider;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Reader;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.util.Properties;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.Mockito.mock;
 
 /**
  * Regression coverage for the CSRFGuard properties file.
@@ -49,6 +58,14 @@ class CsrfGuardConfigurationRegressionTest {
             Path.of("src/main/webapp/WEB-INF/Owasp.CsrfGuard.properties");
     private static final String PRNG_PROPERTY = "org.owasp.csrfguard.PRNG";
     private static final String PRNG_PROVIDER_PROPERTY = "org.owasp.csrfguard.PRNG.Provider";
+    private static final String SOURCE_FILE_PROPERTY = "org.owasp.csrfguard.JavascriptServlet.sourceFile";
+    private static final String CLASSPATH_PREFIX = "classpath:";
+    /** The template shipped inside the CSRFGuard jar, which the CARLOS copy is patched from. */
+    private static final String UPSTREAM_TEMPLATE = "META-INF/csrfguard.js";
+    /** JavaScriptServlet placeholders: %NAME%, some written inside single quotes. */
+    private static final Pattern PLACEHOLDER = Pattern.compile("%[A-Z_]+%");
+    /** Placeholder uses the CARLOS patches add: patch 3 installs only when injectIntoForms is on. */
+    private static final Map<String, Integer> CARLOS_ADDED_PLACEHOLDERS = Map.of("%INJECT_FORMS%", 1);
 
     @Test
     @DisplayName("should use DRBG without provider constraint")
@@ -66,6 +83,80 @@ class CsrfGuardConfigurationRegressionTest {
 
         assertThatCode(() -> SecureRandom.getInstance(properties.getProperty(PRNG_PROPERTY)))
                 .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("should serve the CARLOS-patched client template from the classpath")
+    void shouldServePatchedClientTemplate_fromClasspath() throws IOException {
+        String sourceFile = loadCsrfGuardProperties().getProperty(SOURCE_FILE_PROPERTY);
+
+        // The classpath: form is what makes JavaScriptServlet read WEB-INF/classes
+        // rather than the jar's META-INF copy (issue #4130).
+        assertThat(sourceFile).as(SOURCE_FILE_PROPERTY).isNotNull().startsWith(CLASSPATH_PREFIX);
+        String template = readClasspathResource(sourceFile.substring(CLASSPATH_PREFIX.length()).trim());
+
+        assertThat(template)
+                .as("each issue #4130 patch must still be wired in")
+                .contains("function carlosTokenFields(form, tokenName)")
+                .contains("injectToElements(carlosWithNestedForms(addedNodes)")
+                .contains("carlosHookFormSubmission();")
+                .doesNotContain("Object.keys(form.elements).filter");
+    }
+
+    @Test
+    @DisplayName("should resolve the configured sourceFile through CSRFGuard's own loader")
+    void shouldResolveConfiguredSourceFile_throughCsrfGuardLoader() throws Exception {
+        String sourceFile = loadCsrfGuardProperties().getProperty(SOURCE_FILE_PROPERTY);
+        assertThat(sourceFile).as(SOURCE_FILE_PROPERTY).isNotNull();
+
+        // The same private resolver JavaScriptServlet's configuration uses, so a
+        // spelling CSRFGuard does not understand fails here rather than as a
+        // missing /csrfguard script (and a 403 on every form) after deployment.
+        // Reflection is deliberate: the method is private upstream, and if a
+        // CSRFGuard upgrade renames it this test must be revisited with it.
+        Method resolver = PropertiesConfigurationProvider.class
+                .getDeclaredMethod("retrieveJavaScriptTemplateCode", ServletConfig.class, String.class);
+        resolver.setAccessible(true);
+        String template = (String) resolver.invoke(null, mock(ServletConfig.class), sourceFile);
+
+        assertThat(template)
+                .as("CSRFGuard must load " + sourceFile + " itself")
+                .isNotBlank()
+                .contains("function carlosHookFormSubmission()");
+    }
+
+    @Test
+    @DisplayName("should keep every placeholder of the upstream CSRFGuard template")
+    void shouldKeepEveryUpstreamPlaceholder_inPatchedTemplate() throws IOException {
+        String sourceFile = loadCsrfGuardProperties().getProperty(SOURCE_FILE_PROPERTY);
+        assertThat(sourceFile).as(SOURCE_FILE_PROPERTY).isNotNull().startsWith(CLASSPATH_PREFIX);
+        Map<String, Integer> patched = placeholders(
+                readClasspathResource(sourceFile.substring(CLASSPATH_PREFIX.length()).trim()));
+        Map<String, Integer> upstream = placeholders(readClasspathResource(UPSTREAM_TEMPLATE));
+
+        // Counted, not just collected: a CSRFGuard upgrade that adds a placeholder,
+        // or a rebase that drops one occurrence of an existing one (which the servlet
+        // would then never substitute), fails here.
+        assertThat(upstream).isNotEmpty();
+        Map<String, Integer> expected = new TreeMap<>(upstream);
+        CARLOS_ADDED_PLACEHOLDERS.forEach((name, count) -> expected.merge(name, count, Integer::sum));
+        assertThat(patched).isEqualTo(expected);
+    }
+
+    private static Map<String, Integer> placeholders(String template) {
+        Map<String, Integer> found = new TreeMap<>();
+        Matcher matcher = PLACEHOLDER.matcher(template);
+        while (matcher.find()) {
+            found.merge(matcher.group(), 1, Integer::sum);
+        }
+        return found;
+    }
+
+    private static String readClasspathResource(String name) throws IOException {
+        try (InputStream in = CsrfGuardConfigurationRegressionTest.class.getClassLoader().getResourceAsStream(name)) {
+            assertThat(in).as("classpath resource " + name).isNotNull();
+            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     private static Properties loadCsrfGuardProperties() throws IOException {

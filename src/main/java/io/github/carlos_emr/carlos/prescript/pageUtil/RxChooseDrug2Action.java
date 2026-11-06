@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.prescript.data.RxDrugData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
@@ -55,11 +57,29 @@ public final class RxChooseDrug2Action extends ActionSupport {
 
     }
 
+    /**
+     * Changes the staged Rx state of the patient the request names ({@code demographicNo}); never the
+     * most recently opened patient. Needs {@code _rx} write, and the same privilege for that patient plus record access
+     * ({@link io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess#resolveForWrite}).
+     *
+     * Stages the chosen drug as a new card.
+     *
+     * @return the staging result, or {@code null} after a redirect when the request names no open patient
+     * @throws SecurityException when the caller may not write Rx for the patient
+     */
     public String execute() throws IOException, ServletException {
+        // Choosing a drug stages a card in the patient's stash: POST-only, refused before anything
+        // else, because CSRFGuard does not check GET and a cross-site link must not be able to
+        // stage medication (#3908). ChooseDrug.jsp posts its hidden chooseDrugForm.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
+            return NONE;
+        }
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
-            throw new RuntimeException("missing required sec object (_rx)");
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "w", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
         }
 
         // Extract attributes we will need
@@ -67,7 +87,10 @@ public final class RxChooseDrug2Action extends ActionSupport {
         //     p("locale="+locale.toString());
         //    p("message="+messages.toString());
         // Setup variables
-        RxSessionBean bean = (RxSessionBean) request.getSession().getAttribute("RxSessionBean");
+        // Changes staged Rx state: only the explicitly named patient's bean, never the fallback (#3875),
+        // staged only by a caller with _rx write, globally and for that patient: a staged card can
+        // only ever be saved by a writer (#3908).
+        RxSessionBean bean = RxRequestedPatientAccess.resolveForWrite(securityInfoManager, request, "_rx", "w");
         if (bean == null) {
             response.sendRedirect("error.html");
             return null;
@@ -86,47 +109,18 @@ public final class RxChooseDrug2Action extends ActionSupport {
             String BN = request.getParameter("BN");
             String drugId = request.getParameter("drugId");
             rx.setBrandName(BN);
-            try {
-
-                RxDrugData.DrugMonograph f = drugData.getDrug(drugId);
-//                    rx.setGCN_SEQNO(f.gcnCode);
-                String genName = "";
-                genName = f.name;
-                rx.setAtcCode(f.atc);
-                rx.setBrandName(f.product);
-                rx.setRegionalIdentifier(f.regionalIdentifier);
-
-                request.setAttribute("components", f.components);
-                String dosage = "";
-                for (int c = 0; c < f.components.size(); c++) {
-                    RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) f.components.get(c);
-                    if (c == (f.components.size() - 1)) {
-                        dosage += dc.strength + " " + dc.unit;
-                    } else {
-                        dosage += dc.strength + " " + dc.unit + " / ";
-                    }
+            // The results page's "drug not found" link chooses a custom drug with a blank id. Decide
+            // that here: DrugRef refuses a blank id before the NumberFormatException fallback below
+            // could see it (the failure crosses XML-RPC as "no record"), so the link staged nothing
+            // and sent the prescriber straight back to the Rx page (#3908).
+            if (drugId == null || drugId.isBlank()) {
+                stageCustom(rx);
+            } else {
+                try {
+                    stageFromMonograph(rx, drugData.getDrug(drugId), drugId);
+                } catch (java.lang.NumberFormatException _) {          // Custom
+                    stageCustom(rx);
                 }
-                rx.setDosage(dosage);
-                StringBuilder compString = null;
-                if (f.components != null) {
-                    compString = new StringBuilder();
-                    for (int c = 0; c < f.components.size(); c++) {
-                        RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) f.components.get(c);
-                        compString.append(dc.name + " " + dc.strength + " " + dc.unit + " ");
-                    }
-                }
-
-                MiscUtils.getLogger().debug("In here --=-=--=-_--==" + compString + "\n\n\n\n");
-                if (compString != null) {
-                    MiscUtils.getLogger().debug("In here --=-=--=-_--==" + compString.toString());
-                    rx.setGenericName(compString.toString());
-                } else {
-                    rx.setGenericName(genName);
-                }
-            } catch (java.lang.NumberFormatException numEx) {          // Custom
-                rx.setBrandName(null);
-                rx.setCustomName("");
-                    rx.setGCN_SEQNO("0");
             }
 
             rx.setRxDate(RxUtil.Today());
@@ -143,5 +137,44 @@ public final class RxChooseDrug2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    /**
+     * Fills the staged card from the DrugRef monograph of the chosen product: the brand, generic
+     * name (its components), ATC, regional identifier and the combined strength as the dosage.
+     */
+    private void stageFromMonograph(RxPrescriptionData.Prescription rx, RxDrugData.DrugMonograph monograph, String drugId) {
+        // Same key createNewRx stores: RxSessionBean.addStashItem de-dupes on brand name +
+        // GCN_SEQNO, so leaving it null collapsed different products that share a brand name into
+        // one stash entry.
+        rx.setGCN_SEQNO(drugId);
+        rx.setAtcCode(monograph.atc);
+        rx.setBrandName(monograph.product);
+        rx.setRegionalIdentifier(monograph.regionalIdentifier);
+        request.setAttribute("components", monograph.components);
+        if (monograph.components == null) {
+            rx.setDosage("");
+            rx.setGenericName(monograph.name);
+            return;
+        }
+        StringBuilder dosage = new StringBuilder();
+        StringBuilder genericName = new StringBuilder();
+        for (Object component : monograph.components) {
+            RxDrugData.DrugMonograph.DrugComponent dc = (RxDrugData.DrugMonograph.DrugComponent) component;
+            if (!dosage.isEmpty()) {
+                dosage.append(" / ");
+            }
+            dosage.append(dc.strength).append(' ').append(dc.unit);
+            genericName.append(dc.name).append(' ').append(dc.strength).append(' ').append(dc.unit).append(' ');
+        }
+        rx.setDosage(dosage.toString());
+        rx.setGenericName(genericName.toString());
+    }
+
+    /** Marks the card as a custom drug the prescriber names on the write-script page. */
+    private static void stageCustom(RxPrescriptionData.Prescription rx) {
+        rx.setBrandName(null);
+        rx.setCustomName("");
+        rx.setGCN_SEQNO("0");
     }
 }

@@ -543,14 +543,20 @@ assertThat(springUtilsDao).isInstanceOf(autowiredDao.getClass());
 
 ## File Locations
 
-- **Modern tests**: `src/test-modern/java/io/github/carlos_emr/carlos/`
-- **Unit test base**: `src/test-modern/java/io/github/carlos_emr/carlos/test/unit/CarlosUnitTestBase.java`
-- **Manager tests**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/`
-- **Domain bases**: `src/test-modern/java/io/github/carlos_emr/carlos/managers/DemographicUnitTestBase.java`
-- **Test resources**: `src/test-modern/resources/`
-- **Test context**: `src/test-modern/resources/applicationContext-test.xml`
-- **H2 schema**: `src/test-modern/resources/schema.sql`
-- **Persistence config**: `src/test-modern/resources/META-INF/persistence.xml`
+The former `src/test-modern/` tree was collapsed into `src/test/` when the JUnit 4 suite
+was removed; every path below is under the single `src/test/` tree.
+
+- **Tests**: `src/test/java/io/github/carlos_emr/carlos/`
+- **Integration test base**: `src/test/java/io/github/carlos_emr/carlos/test/base/CarlosTestBase.java`
+- **Unit test base**: `src/test/java/io/github/carlos_emr/carlos/test/unit/CarlosUnitTestBase.java`
+- **Manager tests**: `src/test/java/io/github/carlos_emr/carlos/managers/`
+- **Domain bases**: `src/test/java/io/github/carlos_emr/carlos/managers/DemographicUnitTestBase.java`
+- **Test resources**: `src/test/resources/`
+- **Test context**: `src/test/resources/test-context-full.xml` (loaded by `CarlosTestBase`)
+- **Database properties**: `src/test/resources/test.properties` (H2 in MySQL mode, `hibernate.hbm2ddl.auto=create`)
+- **H2 schema**: generated from the annotated entities by Hibernate at context start-up; there is no checked-in `schema.sql`
+- **Lookup data**: `src/test/resources/test-lookup-tables.sql`, applied by the `databaseInitializer` bean after the schema exists
+- **Persistence unit**: the `entityManagerFactory` bean in `test-context-full.xml` (`packagesToScan` = `io.github.carlos_emr.carlos`); there is no `META-INF/persistence.xml` in the test tree
 
 ---
 

@@ -58,10 +58,10 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Request;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1SignatureVerifier;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuth1Exception;
+import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopeEnforcement;
 import io.github.carlos_emr.carlos.webserv.oauth.OAuthScopes;
 import io.github.carlos_emr.carlos.webserv.oauth.Client;
 import io.github.carlos_emr.carlos.webserv.oauth.RequestTokenRegistration;
@@ -79,13 +79,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 public class OscarRequestTokenService {
-
-    /**
-     * Config flag gating OAuth 1.0a scope enforcement (issue #3083). Absent/false (the default) keeps the
-     * historical lenient behaviour where any scope string is accepted and persisted; a truthy value makes
-     * {@code /initiate} reject empty or unknown scopes.
-     */
-    private static final String SCOPE_ENFORCEMENT_PROPERTY = "oauth.scope.enforcement.enabled";
 
     private final OscarOAuthDataProvider dataProvider;
     private final OAuth1ParamParser parser;
@@ -141,11 +134,13 @@ public class OscarRequestTokenService {
 
         reg.setCallback(cbToStore);   // <-- store plain URL now (not encoded)
 
-        // trim before splitting so leading/trailing whitespace does not yield an empty token that
-        // would otherwise be rejected as an unknown scope under enforcement
-        String[] requestedScopes = (oreq.scopesCsv != null && !oreq.scopesCsv.isBlank())
-                ? oreq.scopesCsv.trim().split("\\s+")
-                : new String[0];
+        // OAuth1ParamParser leaves query and Authorization-header values percent-encoded (it only maps
+        // '+' to a space), so "demographic.read%20provider.read" would read as one unknown scope and,
+        // under enforcement (#4419), refuse every multi-scope request. Scopes are plain ASCII
+        // tokens, so one percent-decode is safe whichever source the value came from.
+        // OAuthScopes.parseScopeString decodes once and drops empty tokens, so stray whitespace is not
+        // rejected as an unknown scope; the interceptor reads stored scopes with the same helper.
+        String[] requestedScopes = OAuthScopes.parseScopeString(oreq.scopesCsv).toArray(new String[0]);
         validateRequestedScopes(requestedScopes);
         if (requestedScopes.length > 0) {
             reg.setScopes(requestedScopes);
@@ -165,14 +160,14 @@ public class OscarRequestTokenService {
      * <p>When scope enforcement is enabled, a request token may only be issued for known
      * {@code <domain>.read}/{@code <domain>.write} scopes, and at least one scope must be requested; this
      * stops arbitrary/meaningless scope strings (and empty grants that later read as "full access") from
-     * being persisted onto a token. When enforcement is disabled (the default) this is a no-op so existing
-     * integrations are unaffected.
+     * being persisted onto a token. Enforcement is off unless an operator turns it on
+     * ({@link OAuthScopeEnforcement}, #4419); while it is off this is a no-op.
      *
      * @throws OAuth1Exception 400 {@code invalid_scope} if no scopes are requested or any requested scope
      *                         is outside the vocabulary
      */
     private static void validateRequestedScopes(String[] scopes) {
-        if (!CarlosProperties.getInstance().isPropertyActive(SCOPE_ENFORCEMENT_PROPERTY)) {
+        if (!OAuthScopeEnforcement.isEnabled()) {
             return;
         }
         if (scopes == null || scopes.length == 0) {

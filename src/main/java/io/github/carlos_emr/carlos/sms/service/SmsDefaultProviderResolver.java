@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Locale;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
@@ -22,21 +23,30 @@ public class SmsDefaultProviderResolver {
     static final String DEFAULT_PROVIDER_PROPERTY = "sms.provider.default";
 
     private final Supplier<String> defaultProviderProperty;
+    private final Supplier<Optional<SmsProviderType>> storedProvider;
 
     @Autowired
-    public SmsDefaultProviderResolver() {
-        this(() -> CarlosProperties.getInstance().getProperty(DEFAULT_PROVIDER_PROPERTY));
+    public SmsDefaultProviderResolver(SmsConfigService smsConfigService) {
+        this(() -> CarlosProperties.getInstance().getProperty(DEFAULT_PROVIDER_PROPERTY),
+                smsConfigService::storedProvider);
+    }
+
+    SmsDefaultProviderResolver(Supplier<String> defaultProviderProperty,
+                               Supplier<Optional<SmsProviderType>> storedProvider) {
+        this.defaultProviderProperty = defaultProviderProperty == null ? () -> null : defaultProviderProperty;
+        this.storedProvider = storedProvider == null ? Optional::empty : storedProvider;
     }
 
     SmsDefaultProviderResolver(Supplier<String> defaultProviderProperty) {
-        this.defaultProviderProperty = defaultProviderProperty == null ? () -> null : defaultProviderProperty;
+        this(defaultProviderProperty, Optional::empty);
     }
 
     /**
-     * The provider type to use for an outbound send. Currently the configured default for all sends.
+     * The provider type to use for an outbound send: the one saved in Administration &gt; SMS, or
+     * {@code sms.provider.default} while nothing is saved.
      */
     public SmsProviderType configuredDefault() {
-        return parse(defaultProviderProperty.get());
+        return storedProvider.get().orElseGet(() -> parse(defaultProviderProperty.get()));
     }
 
     private static SmsProviderType parse(String value) {

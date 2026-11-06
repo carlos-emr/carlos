@@ -21,11 +21,16 @@
  */
 package io.github.carlos_emr.carlos.hospitalReportManager;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.core.LogEvent;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -39,7 +44,8 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link HRMReportParser#parseReport} path-containment handling.
+ * Unit tests for {@link HRMReportParser#parseReport} path-containment handling, and for what the
+ * parser writes to the log.
  *
  * <p>parseReport resolves a DB-sourced report-file location against {@code DOCUMENT_DIR} via
  * {@code PathValidationUtils}. A misconfigured {@code DOCUMENT_DIR} or a stored location that escapes
@@ -51,7 +57,7 @@ import static org.mockito.Mockito.when;
  */
 @Tag("unit")
 @Tag("fast")
-@DisplayName("HRMReportParser.parseReport path containment")
+@DisplayName("HRMReportParser.parseReport path containment and logging")
 class HRMReportParserUnitTest {
 
     @TempDir
@@ -95,6 +101,96 @@ class HRMReportParserUnitTest {
             }).doesNotThrowAnyException();
 
             assertThat(errors).isNotEmpty();
+        }
+    }
+
+    @Test
+    @DisplayName("should name a report by a short fingerprint of its location, never the location")
+    void shouldReturnShortFingerprint_forReportLocation() {
+        String reference = HRMReportParser.logReference("FAKE-PATIENT-NAME/report.xml");
+
+        assertThat(reference).matches("ref:[0-9a-f]{12}").doesNotContain("FAKE");
+        assertThat(HRMReportParser.logReference("FAKE-PATIENT-NAME/report.xml")).isEqualTo(reference);
+        assertThat(HRMReportParser.logReference("FAKE-OTHER-NAME/report.xml")).isNotEqualTo(reference);
+        assertThat(HRMReportParser.logReference(null)).isEqualTo("ref:none");
+    }
+
+    @Test
+    @DisplayName("should log neither the location nor the parser's message when a report fails to parse")
+    void shouldLogTypeAndReferenceOnly_whenReportFailsToParse() throws Exception {
+        // The file name stands in for a name in the path; the element name for report content
+        // that a schema-validation message repeats.
+        String location = "FAKE-PATIENT-NAME-report.xml";
+        Files.writeString(documentDir.resolve(location), "<FAKE-REPORT-VALUE/>", StandardCharsets.UTF_8);
+
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class);
+             LogCapture logs = LogCapture.forLogger(HRMReportParser.class)) {
+            CarlosProperties props = mock(CarlosProperties.class);
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+            when(props.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+
+            List<Throwable> errors = new ArrayList<>();
+            assertThat(HRMReportParser.parseReport(null, location, errors)).isNull();
+
+            // The caller still gets the full exception; only the log is reduced.
+            assertThat(errors).hasSize(1);
+            assertThat(String.valueOf(errors.get(0).getCause())).contains("FAKE-REPORT-VALUE");
+            assertThat(logs.messages()).isNotEmpty()
+                    .allSatisfy(message -> assertThat(message)
+                            .doesNotContain("FAKE-PATIENT-NAME")
+                            .doesNotContain("FAKE-REPORT-VALUE")
+                            .doesNotContain(documentDir.toString()))
+                    .anySatisfy(message -> assertThat(message)
+                            .contains(HRMReportParser.logReference(location))
+                            .containsPattern("could not be unmarshalled \\(UnmarshalException <- SAXParseException\\w* at line \\d+, column \\d+\\)"));
+            assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
+        }
+    }
+
+    @Test
+    @DisplayName("should log a rejected report path by its reference only, in the parser's own log")
+    void shouldLogReferenceOnly_whenReportPathRejected() {
+        String location = "../FAKE-PATIENT-NAME-report.xml";
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class);
+             LogCapture logs = LogCapture.forLogger(HRMReportParser.class)) {
+            CarlosProperties props = mock(CarlosProperties.class);
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+            when(props.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+
+            assertThat(HRMReportParser.parseReport(null, location, new ArrayList<>())).isNull();
+
+            assertThat(logs.messages())
+                    .anySatisfy(message -> assertThat(message).contains(HRMReportParser.logReference(location)))
+                    .allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PATIENT-NAME"));
+            assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
+        }
+    }
+
+    @Test
+    @DisplayName("should log a missing report file by its reference only, in one line")
+    void shouldLogReferenceOnly_whenReportFileMissing() {
+        String location = "FAKE-PATIENT-NAME-missing.xml";
+        try (MockedStatic<CarlosProperties> propsMock = mockStatic(CarlosProperties.class);
+             LogCapture logs = LogCapture.forLogger(HRMReportParser.class)) {
+            CarlosProperties props = mock(CarlosProperties.class);
+            propsMock.when(CarlosProperties::getInstance).thenReturn(props);
+            when(props.getProperty("DOCUMENT_DIR")).thenReturn(documentDir.toString());
+
+            List<Throwable> errors = new ArrayList<>();
+            assertThat(HRMReportParser.parseReport(null, location, errors)).isNull();
+
+            // A missing file's exception message is its path.
+            assertThat(errors).hasSize(1);
+            assertThat(errors.get(0).getMessage()).contains("FAKE-PATIENT-NAME");
+            assertThat(logs.messages())
+                    .contains("HRM report " + HRMReportParser.logReference(location) + " could not be opened (FileNotFoundException)")
+                    .allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PATIENT-NAME"));
+            // One line at the levels a server runs at; the trace is for debug only.
+            assertThat(logs.events())
+                    .filteredOn(event -> event.getLevel().isMoreSpecificThan(Level.INFO))
+                    .isNotEmpty()
+                    .allSatisfy(event -> assertThat(event.getMessage().getFormattedMessage()).doesNotContain("\n"));
+            assertThat(logs.events()).extracting(LogEvent::getThrown).containsOnlyNulls();
         }
     }
 }

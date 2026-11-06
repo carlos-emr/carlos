@@ -1,0 +1,105 @@
+/*
+ * Shared print layout for Administration report pages (issue #3342).
+ *
+ * Purpose: print only the report (title, selected criteria, results) and none
+ * of the application chrome around it. Loaded by the Visit Report, PCN, PHCP
+ * Encounter and Ontario billing reconciliation pages. Everything except the
+ * hidden-on-screen .report-print-only rule applies to print only, so the
+ * interactive UI is unchanged.
+ *
+ * These pages are reached three ways: standalone, injected into the
+ * Administration shell (#dynamic-content) by jQuery .load() (Visit Report,
+ * PCN), or framed in the shell's #myFrame (PHCP, billing reconciliation). The
+ * shell's own chrome (side navigation, schedule menu, content-pane width) is
+ * hidden by the @media print block in WEB-INF/jsp/administration/index.jsp, so
+ * that a browser print of the shell is clean for every panel; this file only
+ * covers what the report page itself owns.
+ *
+ * Page markup contract:
+ *   .report-print-hide      controls and navigation that must not print
+ *                           (Print button, filters, pagination, manage links)
+ *   .report-print-only      printed criteria summary: hidden on screen, shown
+ *                           in print (the filter form it summarises is hidden)
+ *   .report-print-table     a result table: header row repeats on every page
+ *                           and rows are not split across pages
+ *   .report-print-wide      a table too wide for portrait: smaller type
+ *
+ * Do NOT rely on Bootstrap's d-print-none alone: the standalone PHCP page and
+ * several legacy fragments do not load Bootstrap at all.
+ */
+
+/* Criteria summary: invisible on screen (the live form shows the criteria). */
+.report-print-only {
+    display: none;
+}
+
+/* Consistent buffer from every printable page edge (issue #3396). Kept outside
+   @media print: @page is a top-level rule. */
+@page {
+    margin: 12mm;
+}
+
+@media print {
+    .report-print-only {
+        display: block !important;
+        margin: 0 0 0.5rem 0;
+    }
+
+    html,
+    body {
+        background: #fff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Report-owned controls. */
+    .report-print-hide {
+        display: none !important;
+    }
+
+    /* Screen-only cards become plain blocks so the filter panel (hidden) and
+       the report context do not print with a grey panel background. */
+    .card.report-print-plain {
+        border: 0 !important;
+        background: transparent !important;
+        padding: 0 !important;
+    }
+
+    .report-print-table {
+        width: 100% !important;
+        border-collapse: collapse;
+    }
+
+    .report-print-table thead {
+        /* Repeat the column headings on every printed page. */
+        display: table-header-group;
+    }
+
+    .report-print-table tfoot {
+        display: table-footer-group;
+    }
+
+    .report-print-table tr {
+        /* A row is never split between two pages. */
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .report-print-wide {
+        font-size: 8pt !important;
+    }
+
+    /* Keep row shading and header fills (Bootstrap striping, legacy bgcolor)
+       where the browser allows; plain white if it does not. */
+    .report-print-table th,
+    .report-print-table td {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* The shell strips link targets elsewhere; do the same here so URLs are
+       not printed after report links. */
+    a[href]::after {
+        content: "" !important;
+    }
+}

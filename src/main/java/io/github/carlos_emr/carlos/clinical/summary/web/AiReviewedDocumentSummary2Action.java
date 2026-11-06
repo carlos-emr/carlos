@@ -99,6 +99,10 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
             }
             var snapshot = context.load(actor, documentId);
             request.setAttribute("documentSummaryId", documentId);
+            if (!"en".equals(snapshot.noticeLanguage())) {
+                request.setAttribute("documentSummaryNotice",
+                        io.github.carlos_emr.carlos.clinical.summary.DocumentSummaryReviewBinding.unreviewedNotice(snapshot.noticeLanguage()));
+            }
             request.setAttribute("documentSummaryTitle", snapshot.metadata().title());
             request.setAttribute("documentSummaryReviewWorkflow", true);
             // The sender stack is an explicit integration dependency, never implied by review.
@@ -124,7 +128,7 @@ public final class AiReviewedDocumentSummary2Action extends ActionSupport {
                                 // Called only once the cap has admitted this request, before any model call.
                                 audit(auditActor, "DocumentSummary.reviewGenerate", snapshot.scope());
                                 return context.read(snapshot);
-                            }, generator, model, actor);
+                            }, generator, model, actor, snapshot.noticeLanguage());
                 } catch (DocumentSummaryReviewSession.CapacityFullException refused) {
                     // A refusal is its own audit row, never a generation that did not happen.
                     audit(auditActor, "DocumentSummary.reviewGenerateRefused", snapshot.scope());

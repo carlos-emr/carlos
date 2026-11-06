@@ -57,6 +57,7 @@
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
+const { closeBrowserWithChartCleanup, releaseChartLocks } = require('./lib/chart-lock-cleanup');
 const { clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
 const { assertAuditClean, auditCatalogue, catalogueLinks, dedupe } = require('./lib/playwright-link-audit');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -104,25 +105,112 @@ async function waitForNavbars(chartPage, timeout) {
   await chartPage.locator('#leftNavBar, #rightNavBar').first()
     .waitFor({ state: 'attached', timeout })
     .catch(() => {});
-  // EACH CONTAINER ON ITS OWN. The two were summed, so a fully empty
-  // #rightNavBar was masked by a populated #leftNavBar and vice versa -- and
-  // they are filled from separate module groups, so losing one is exactly the
-  // half-broken chart a clinician would report. The sum could only ever catch
-  // both failing at once.
-  const counts = await chartPage.waitForFunction(() => {
+  // Link counts can stay unchanged while a cold module request is still in
+  // flight, or forever after that request failed. Observe the actual loader's
+  // completion instead. Unrelated note polling does not delay this predicate.
+  const settled = await chartPage.waitForFunction(() => {
+    const state = window.carlosNavbarLoadState;
+    if (!state || !state.scheduled || state.pending !== 0 || !Object.keys(state.modules).length) return null;
     const count = (id) => {
       const element = document.getElementById(id);
       return element ? element.querySelectorAll('a').length : 0;
     };
-    const left = count('leftNavBar');
-    const right = count('rightNavBar');
-    return left > 0 && right > 0 ? { left, right } : null;
+    return { left: count('leftNavBar'), right: count('rightNavBar'), failed: state.failed };
   }, undefined, { timeout }).then((handle) => handle.jsonValue()).catch(() => null);
-
-  assert(counts,
+  if (!settled) {
+    const pending = await chartPage.evaluate(() => {
+      const state = window.carlosNavbarLoadState;
+      return state ? Object.keys(state.modules).filter(name => state.modules[name].status === 'loading') : ['loader not started'];
+    });
+    assert(false, `The eChart navigation modules never finished loading: ${pending.join(', ')}`);
+  }
+  assert(settled.failed.length === 0,
+    `The eChart navigation modules failed to load: ${settled.failed.join(', ')}`);
+  assert(settled.left > 0 && settled.right > 0,
     'The eChart navigation modules never loaded: #leftNavBar and #rightNavBar do not BOTH contain links after the '
     + 'AJAX load. They are filled from separate module groups, so one empty container is a chart missing half its '
     + 'sections -- no Allergies, Prescriptions, Labs or Preventions where the clinician expects them.');
+
+  return { left: settled.left, right: settled.right };
+}
+
+/** Hold one real module request while the others finish, as on a cold server. */
+async function openChartWithDelayedNavbar(context, masterPage, recorder, timeout) {
+  let release;
+  let intercepted = false;
+  const gate = new Promise(resolve => { release = resolve; });
+  const pattern = '**/encounter/displayPrevention?*';
+  const handler = async route => {
+    if (!intercepted) {
+      intercepted = true;
+      await gate;
+    }
+    await route.continue();
+  };
+  await context.route(pattern, handler);
+  try {
+    const chart = await openChart(context, masterPage, recorder, timeout);
+    await chart.waitForFunction(() => {
+      const state = window.carlosNavbarLoadState;
+      return state && state.scheduled && state.modules.preventions?.status === 'loading'
+        && Object.entries(state.modules).every(([name, module]) => name === 'preventions' || module.status !== 'loading');
+    }, undefined, { timeout });
+    assert(intercepted, 'The delayed prevention request was not intercepted');
+    assert(await chart.locator('#leftNavBar').getAttribute('aria-busy') === 'true',
+      'The chart reported its left navigation ready while Preventions was still pending');
+    await chart.locator('#leftColLoader').waitFor({ state: 'visible', timeout });
+    let settled = false;
+    const waiting = waitForNavbars(chart, timeout);
+    waiting.then(() => { settled = true; }, () => { settled = true; });
+    // Longer than the former three 250ms stable-count polls. The request is
+    // deliberately held, so finishing during this interval is a false pass.
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    assert(!settled, 'Navbar readiness accepted stable link counts while one module was pending');
+    release();
+    await waiting;
+    assert(await chart.locator('#leftColLoader').count() === 0,
+      'The completed navigation retained its loading indicator');
+    console.log('  PASS delayed prevention module keeps navigation busy until its actual response');
+    return chart;
+  } finally {
+    release();
+    await context.unroute(pattern, handler);
+  }
+}
+
+/** Arm before closing a registered popup; its interval-driven loadDiv is outside navbar load state. */
+async function watchPopupModuleRefresh(chart, popup, timeout) {
+  if (popup.isClosed()) return null;
+  const name = await popup.evaluate(() => window.name);
+  const reload = await chart.evaluate(name => {
+    const url = window.reloadWindows?.[name];
+    const div = window.reloadWindows?.[name + 'div'];
+    if (!url || !div || !window.openWindows?.[name]) return null;
+    return {url: new URL(url, document.baseURI).href, div};
+  }, name);
+  if (!reload) return null;
+  const previous = await chart.locator('id=' + reload.div).locator(':scope > *').first().elementHandle({timeout});
+  assert(previous, 'The popup refresh target has no existing module content');
+  // The request is armed while the popup is still open. A successful response alone is not
+  // enough: wait until loadDiv has replaced the old content before resolving another link.
+  const response = chart.waitForResponse(candidate => candidate.request().method() === 'POST'
+    && candidate.url() === reload.url, {timeout});
+  const settled = (async () => {
+    try {
+      const refreshed = await response;
+      await refreshed.finished();
+      assert(refreshed.status() === 200, 'The popup-triggered module refresh failed');
+      await chart.waitForFunction(node => !node.isConnected, previous, {timeout});
+      await chart.waitForFunction(({name, div}) => !Object.hasOwn(window.reloadWindows, name)
+        && !Object.hasOwn(window.openWindows, name)
+        && document.getElementById(div)?.children.length > 0, {name, div: reload.div}, {timeout});
+    } finally {
+      await previous.dispose();
+    }
+  })();
+  // auditCatalogue closes the popup after its hook returns and awaits this at the next item.
+  settled.catch(() => {});
+  return {settled};
 }
 
 async function main() {
@@ -141,8 +229,7 @@ async function main() {
     const { masterPage } = await openMasterRecord(context, schedulePage, recorder, {
       searchTerm, preferredDemographicNo, timeout,
     });
-    const chartPage = await openChart(context, masterPage, recorder, timeout);
-    await waitForNavbars(chartPage, timeout);
+    const chartPage = await openChartWithDelayedNavbar(context, masterPage, recorder, timeout);
 
     // Chart initialisation is the densest JavaScript in the product and it runs
     // before any item is clicked, so auditCatalogue's per-item snapshots never
@@ -150,10 +237,27 @@ async function main() {
     // discarded.
     assertStrictPage(recorder, ['login', 'patient-search', 'master-record', 'echart']);
 
-    const items = dedupe(await catalogueLinks(chartPage, { selector: NAVBAR_SELECTOR }));
+    // Closing a destination can legitimately refresh one module and insert
+    // links ahead of later items. Preserve each original destination/handler
+    // and module ancestry, rather than treating its first DOM index as stable.
+    const catalogued = dedupe(await catalogueLinks(chartPage, { selector: NAVBAR_SELECTOR, identity: true }));
+    // These rows are replaced as the Preventions box refreshes. Their routes,
+    // including the saved-record transition, are exercised by the dedicated
+    // echart-prevention-row-links workflow. Auditing a stale copy here can only
+    // report that its original node vanished after another module was opened.
+    const preventionRows = catalogued.filter(item => /addPreventionData/.test(item.identity?.onclick || ''));
+    const items = catalogued.filter(item => !preventionRows.includes(item));
+    console.log(`  delegated ${preventionRows.length} live Preventions row link(s) to echart-prevention-row-links`);
     assert(items.length > 0,
       'The eChart navigation loaded but offered no navigable links');
 
+    let pendingRefresh = null;
+    const finishRefresh = async () => {
+      const pending = pendingRefresh;
+      pendingRefresh = null;
+      if (pending) await pending;
+      await waitForNavbars(chartPage, timeout);
+    };
     const result = await auditCatalogue({
       context,
       hostPage: chartPage,
@@ -164,13 +268,20 @@ async function main() {
       limit,
       timeout,
       screenshotDir,
+      beforeItem: finishRefresh,
+      beforePopupClose: async page => {
+        await releaseChartLocks(context, config.baseUrl, [page]);
+        const watcher = await watchPopupModuleRefresh(chartPage, page, timeout);
+        pendingRefresh = watcher?.settled || null;
+      },
     });
+    await finishRefresh();
 
     console.log(`  opened ${result.opened.length} eChart module link(s), skipped ${result.skipped} by policy`);
     assertAuditClean(result, { surface: 'eChart navigation', minimumOpened: limit ? 1 : 5 });
     return { opened: result.opened.length, skipped: result.skipped };
   } finally {
-    await browser.close().catch(() => {});
+    await closeBrowserWithChartCleanup(browser, config.baseUrl);
   }
 }
 
@@ -178,4 +289,4 @@ if (require.main === module) {
   runCheck({ name: 'echart-navbar-modules', run: main });
 }
 
-module.exports = { NAVBAR_SELECTOR, SKIP_ITEMS, main, openChart, waitForNavbars };
+module.exports = { NAVBAR_SELECTOR, SKIP_ITEMS, main, openChart, waitForNavbars, watchPopupModuleRefresh };

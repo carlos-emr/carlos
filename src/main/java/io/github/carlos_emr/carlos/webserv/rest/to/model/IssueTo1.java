@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 
@@ -48,6 +50,7 @@ public class IssueTo1 implements Serializable {
     private String code;
     private String description;
     private String role;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date update_date;
     private String priority;
     private String type;

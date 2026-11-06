@@ -20,6 +20,9 @@ import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService
 import io.github.carlos_emr.carlos.email.core.EmailComposeWorkingDirectory;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFailureMessage;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.email.core.EmailStatusResult;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -301,13 +304,19 @@ public class ManageEmails2Action extends ActionSupport {
      *   <li>Refreshes all email attachments by re-rendering PDF documents</li>
      *   <li>Retrieves patient consent status and email addresses</li>
      *   <li>Populates request attributes for the email compose page</li>
+     *   <li>Binds the attachments to this window's own one-time compose submission token, together
+     *       with the logged email's patient as trusted context, for the send (#4425)</li>
      * </ul>
      *
      * If PDF regeneration fails for any attachment, an error message is set and the user
      * is advised to create a new email instead of resending. The method returns null in
      * case of validation errors (invalid log ID).
      *
-     * Email data including encryption settings, chart display options, and additional
+     * An email whose delivery another workflow owns is never composed here: an unresolved
+     * portal password email goes to {@code /email/portalDelivery}, and a patient portal
+     * invitation to the patient's {@code /demographic/portalManage} page.
+     *
+     * Email data including the footer, encryption settings, chart display options, and additional
      * parameters are preserved from the original email for potential modification before
      * resending. A new PDF passphrase and delivery instruction are generated for each
      * resend instead of reusing the original email's password values.
@@ -344,7 +353,20 @@ public class ManageEmails2Action extends ActionSupport {
         /*
          * The purpose of the EmailComposeManager is to help prepare all necessary data to display on the emailCompose.jsp page.
          */
-        EmailLog emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        EmailLog emailLog;
+        try {
+            emailLog = emailComposeManager.prepareEmailForResend(loggedInInfo, Integer.parseInt(emailLogId));
+        } catch (EmailComposeManager.PortalInviteEmailException portalInvite) {
+            // An invitation is never reopened: its code must not reach this window. The patient's portal
+            // page, which checks its own privileges, resolves the delivery and resends with a new code.
+            try {
+                response.sendRedirect(request.getContextPath() + "/demographic/portalManage?demographicNo="
+                        + portalInvite.demographicNo());
+            } catch (IOException redirectFailure) {
+                throw new UncheckedIOException(redirectFailure);
+            }
+            return NONE;
+        }
         // Recovery has one owner, which also handles its authorization and portal errors, and
         // shows its own "still sending" state for a fresh email.
         if (emailLog != null && emailLog.isPortalDeliveryUnresolved()) {
@@ -388,17 +410,19 @@ public class ManageEmails2Action extends ActionSupport {
         List<EmailAttachment> emailAttachmentList = new ArrayList<>();
         try {
             emailAttachmentList = refreshEmailAttachments(request, response, emailLog, workingDirectory);
-        } catch (PDFGenerationException e) {
+        } catch (SecurityException e) {
             workingDirectory.close();
-            logger.warn("Unable to refresh email attachments during resend");
+            throw e;
+        } catch (PDFGenerationException | RuntimeException e) {
+            workingDirectory.close();
+            String reference = EmailFailureMessage.newReference();
+            logger.error("Unable to prepare attachments to resend an email; causeType={}, reference={}{}",
+                    e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
             EmailCompose2Action.cleanupEmailSessionAttributes(request);
-            request.setAttribute(EMAIL_ERROR_MESSAGE,
-                    "This previously sent email cannot be re-opened for editing/resending. "
-                            + "Please generate a new email instead.");
+            request.setAttribute(EMAIL_ERROR_MESSAGE, EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
+                    EmailFailureMessage.RESEND_ATTACHMENTS_KEY, reference));
             request.setAttribute(IS_EMAIL_ERROR, true);
             return COMPOSE_RESULT;
-        } catch (RuntimeException e) {
-            return resendComposeUnavailable(workingDirectory);
         }
 
         int demographicNo;
@@ -416,12 +440,14 @@ public class ManageEmails2Action extends ActionSupport {
             return resendComposeUnavailable(workingDirectory);
         }
         EmailComposeSubmissionStateService.EmailPdfPasswordSubmissionState emailPdfPasswordSubmissionState;
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterSnapshot clinic;
         try {
+            clinic = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class).snapshot();
             emailPdfPasswordSubmissionState = emailComposeSubmissionStateService.preparePdfPasswordSubmissionState(
                     request,
                     emailPdfPasswordService,
                     emailAttachmentList,
-                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)),
+                    EmailComposeSubmissionContext.direct(String.valueOf(demographicNo)).withClinicFooter(clinic),
                     workingDirectory);
         } catch (RuntimeException e) {
             return resendComposeUnavailable(workingDirectory);
@@ -447,6 +473,15 @@ public class ManageEmails2Action extends ActionSupport {
                 emailLog.getIsEncrypted(), emailLog.getBody(), emailLog.getEncryptedMessage());
         request.setAttribute("message", EmailData.mergeMessage(
                 isEmailEncrypted, emailLog.getBody(), emailLog.getEncryptedMessage()));
+        // A resend is a new email. Its historical combined footer remains audit-only;
+        // the new optional personal text is the current user's default; the clinic preview is current.
+        String personalDefault = SpringUtils.getBean(io.github.carlos_emr.carlos.email.core.EmailFooterService.class)
+                .ownFooter(loggedInInfo.getLoggedInProviderNo());
+        request.setAttribute("footerEmail", personalDefault);
+        request.setAttribute("personalFooterRevision",
+                io.github.carlos_emr.carlos.email.core.EmailFooterService.revisionOf(
+                        loggedInInfo.getLoggedInProviderNo(), personalDefault));
+        io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.expose(request, clinic);
         request.setAttribute("emailPDFPassword", emailPdfPasswordSubmissionState.emailPDFPassword());
         request.setAttribute("emailPDFPasswordClue", emailPdfPasswordSubmissionState.emailPDFPasswordClue());
         request.setAttribute("emailAttachmentList", emailAttachmentList);

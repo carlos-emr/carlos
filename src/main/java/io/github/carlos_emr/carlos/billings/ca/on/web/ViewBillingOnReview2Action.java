@@ -26,6 +26,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnReviewViewModel;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.apache.struts2.ActionSupport;
@@ -101,6 +102,10 @@ public class ViewBillingOnReview2Action extends ActionSupport {
         dxPersister.persistIfRequested(request, userNo);
         this.reviewModel = assembler.assemble(request, loggedInInfo);
         request.setAttribute("reviewModel", this.reviewModel);
+        // Each rendering of the review saves one claim (issue #4225): BillingOnSave2Action claims
+        // this token, so a repeated Save of this page cannot write a second bill for the patient.
+        request.setAttribute("formSubmissionToken", FormSubmissionGuard.issue(request.getSession(),
+                FormSubmissionGuard.Scope.BILLING_ON_SAVE, request.getParameter("demographic_no")));
 
         return SUCCESS;
     }

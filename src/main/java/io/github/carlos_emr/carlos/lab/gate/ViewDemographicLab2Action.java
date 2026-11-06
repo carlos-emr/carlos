@@ -13,6 +13,8 @@
 package io.github.carlos_emr.carlos.lab.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -41,6 +43,16 @@ public final class ViewDemographicLab2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
             throw new SecurityException("missing required sec object (_lab)");
+        }
+
+        String demographic = request.getParameter("demographicNo");
+        if (demographic != null && !demographic.isEmpty() && !"0".equals(demographic)) {
+            Integer demographicNo = LabPatientAccess.positiveIdentity(demographic);
+            if (demographicNo == null) {
+                ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            LabPatientAccess.requirePatient(securityInfoManager, loggedInInfo, demographicNo);
         }
 
         return SUCCESS;

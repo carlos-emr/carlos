@@ -70,6 +70,13 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
         replaceSpringUtilsBean(MessengerDemographicManager.class, mockDemoManager);
 
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn(TEST_PROVIDER);
+        var message = new io.github.carlos_emr.carlos.commn.model.MessageTbl();
+        message.setSentByNo(TEST_PROVIDER);
+        var messages = mock(io.github.carlos_emr.carlos.commn.dao.MessageTblDao.class);
+        when(messages.find(100)).thenReturn(message);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.commn.dao.MessageTblDao.class, messages);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao.class,
+                mock(io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao.class));
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(loggedInInfoKey, mockLoggedInInfo);
         setSessionAttribute("user", TEST_PROVIDER);
@@ -132,8 +139,8 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should redirect when message is not found")
-    void shouldRedirect_whenMessageNotFound() throws Exception {
+    @DisplayName("should return 404 when message is not found")
+    void shouldReturn404_whenMessageNotFound() throws Exception {
         // Given - valid ID but no message exists
         allowPrivilege("_msg", "r");
         addRequestParameter("messageID", "12345");
@@ -145,7 +152,8 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
 
         // Then
         assertThat(result).isEqualTo(ActionSupport.NONE);
-        assertThat(getMockResponse().getRedirectedUrl()).contains("DisplayMessages");
+        assertThat(getMockResponse().getStatus()).isEqualTo(404);
+        verify(mockMessagingManager, never()).getInboxMessage(any(), anyInt());
     }
 
     @Test
@@ -197,6 +205,7 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
         addRequestParameter("messageID", "100");
         addRequestParameter("linkMsgDemo", "true");
         addRequestParameter("demographic_no", "invalid"); // converts to 0
+        getMockRequest().setMethod("POST");
 
         MsgDisplayMessage msg = createMockMessage("100");
         when(mockMessagingManager.getInboxMessage(any(LoggedInInfo.class), eq(100)))
@@ -209,6 +218,56 @@ class MsgViewMessage2ActionTest extends CarlosWebTestBase {
 
         // Then - attachDemographicToMessage should NOT be called since demoNo is 0
         verify(mockDemoManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
+    }
+
+    @Test
+    @DisplayName("should link the patient before reading the attached patients the page shows")
+    void shouldListLinkedPatient_whenLinkMsgDemoRequested() throws Exception {
+        // Given
+        allowPrivilege("_msg", "r");
+        addRequestParameter("messageID", "100");
+        addRequestParameter("linkMsgDemo", "true");
+        addRequestParameter("demographic_no", "42");
+        getMockRequest().setMethod("POST");
+
+        MsgDisplayMessage msg = createMockMessage("100");
+        when(mockMessagingManager.getInboxMessage(any(LoggedInInfo.class), eq(100)))
+                .thenReturn(msg);
+        HashMap<Integer, String> attached = new HashMap<>();
+        attached.put(42, "FAKE-Doe, Pat");
+        when(mockDemoManager.getAttachedDemographicNameMap(any(), eq(100)))
+                .thenReturn(attached);
+
+        // When
+        executeAction(action);
+
+        // Then - the link is written first, so the list the page renders includes it
+        InOrder order = inOrder(mockDemoManager);
+        order.verify(mockDemoManager).attachDemographicToMessage(any(), eq(100), eq(42));
+        order.verify(mockDemoManager).getAttachedDemographicNameMap(any(), eq(100));
+    }
+
+    @Test
+    @DisplayName("should refuse a GET that asks to link a patient, before any read or write")
+    void shouldReturn405_whenLinkMsgDemoRequestedByGet() throws Exception {
+        // Given - a crafted ViewMessage link (CSRFGuard does not validate GET)
+        allowPrivilege("_msg", "r");
+        addRequestParameter("messageID", "100");
+        addRequestParameter("linkMsgDemo", "true");
+        addRequestParameter("demographic_no", "42");
+        getMockRequest().setMethod("GET");
+
+        // When
+        String result = executeAction(action);
+
+        // Then
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(getMockResponse().getStatus()).isEqualTo(405);
+        assertThat(getMockResponse().getHeader("Allow")).isEqualTo("POST");
+        verify(mockDemoManager, never()).attachDemographicToMessage(any(), anyInt(), anyInt());
+        verify(mockMessagingManager, never()).setMessageRead(any(), anyLong(), any());
+        verify(mockMessagingManager, never()).getInboxMessage(any(), anyInt());
+        verify(mockDemoManager, never()).getAttachedDemographicNameMap(any(), anyInt());
     }
 
     private MsgDisplayMessage createMockMessage(String messageId) {
