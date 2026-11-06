@@ -37,7 +37,12 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.WorkFlow;
 
 public interface WorkFlowDao extends AbstractDao<WorkFlow> {
-    /** Latest form bound to this patient and pregnancy; null when none exists. */
+    /**
+     * Finds the latest RH form bound to this patient and pregnancy, ordered by edit date then ID.
+     * @param demographicNo int patient identifier
+     * @param workflowId int pregnancy workflow identifier
+     * @return Integer latest form ID, or null when none exists
+     */
     Integer findLatestRhFormId(int demographicNo, int workflowId);
 
     List<WorkFlow> findByWorkflowType(String type);

@@ -17,6 +17,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /** Physical MariaDB priority hints, counts, nullable columns and export metadata. */
 @Tag("integration")
+@Tag("dao")
 @Tag("flyway-schema")
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_DAO", matches = "true")
 class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {

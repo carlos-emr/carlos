@@ -189,8 +189,8 @@ establish MariaDB-native comparison, metadata or transaction behavior.
 
 ## Lab, inbox, Messenger and RH workflow follow-up (#5548)
 
-The connection parameters in `MessageUploader` and CML `ABCDParser` were read
-adapters; report, patient, result and routing writes already used managed DAOs.
+In `MessageUploader` and CML `ABCDParser`, the passed connections served only
+the read adapters; report, patient, result and routing writes already used managed DAOs.
 `LabRoutingLookupDao` now returns patient/provider projections from bound native
 queries. It preserves Ontario OHIP padding, non-Ontario LIKE matching, provider
 identifier allowlisting, optional length ordering/limits and separate CML gender

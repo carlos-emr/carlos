@@ -85,6 +85,12 @@ public class CategoryData {
         return totalNumDocs;
     }
 
+    /**
+     * Counts labs matching the requested abnormal flag.
+     * @param abnormal boolean true for abnormal labs, false for normal labs
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getAbnormalCount() {
         return abnormalCount;
     }
@@ -107,6 +113,19 @@ public class CategoryData {
     }
 
 
+    /**
+     * Creates one inbox request's filters and patient-count accumulator.
+     * @param patientLastName String optional surname fragment
+     * @param patientFirstName String optional given-name fragment
+     * @param patientHealthNumber String optional HIN fragment
+     * @param patientSearch boolean whether to filter patients
+     * @param providerSearch boolean whether to filter provider
+     * @param searchProviderNo String provider identifier
+     * @param status String optional routing status
+     * @param abnormalStatus String optional normal/abnormal restriction
+     * @param startDate String optional inclusive start date
+     * @param endDate String optional inclusive end date
+     */
     public CategoryData(String patientLastName, String patientFirstName, String patientHealthNumber,
                         boolean patientSearch, boolean providerSearch, String searchProviderNo,
                         String status, String abnormalStatus, String startDate, String endDate) {
@@ -143,14 +162,51 @@ public class CategoryData {
         return result.total();
     }
 
+    /** @return String current date-search preference */
     public String getDateSearchType() { return dao.getDateSearchType(); }
+    /**
+     * Counts unmatched labs.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getLabCountForUnmatched() throws SQLException { return count(Operation.LAB_UNMATCHED, null); }
     public int getAbnormalCount(boolean abnormal) throws SQLException { return count(abnormal ? Operation.ABNORMAL : Operation.NORMAL, null); }
+    /**
+     * Counts unmatched documents.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getDocumentCountForUnmatched() throws SQLException { return count(Operation.DOCUMENT_UNMATCHED, null); }
+    /**
+     * Counts patient labs and accumulates lab summaries.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getLabCountForPatientSearch() throws SQLException { return count(Operation.LAB_PATIENT, null); }
+    /**
+     * Counts labs for the specified patient.
+     * @param demographicNo String patient identifier
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getLabCountForDemographic(String demographicNo) throws SQLException { return count(Operation.LAB_DEMOGRAPHIC, demographicNo); }
+    /**
+     * Counts patient documents and replaces each returned patient entry before lab/HRM accumulation.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getDocumentCountForPatientSearch() throws SQLException { return count(Operation.DOCUMENT_PATIENT, null); }
+    /**
+     * Counts patient HRM reports and accumulates document and HRM summaries.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getHRMDocumentCountForPatient() throws SQLException { return count(Operation.HRM_PATIENT, null); }
+    /**
+     * Counts unmatched HRM reports.
+     * @return int total matching items
+     * @throws SQLException if the underlying count query fails
+     */
     public int getHRMDocumentCountForUnmatched() throws SQLException { return count(Operation.HRM_UNMATCHED, null); }
 
     public void populateCountsAndPatients() throws SQLException {

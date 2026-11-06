@@ -45,7 +45,10 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-/** Inbox count SQL and typed projections. Query state is local to each invocation. */
+/**
+ * Inbox count SQL and typed projections. Query state is local to each invocation.
+ * @since 2026-11-06
+ */
 @Repository
 @Transactional(readOnly = true)
 public class InboxCategoryDao {
@@ -53,23 +56,63 @@ public class InboxCategoryDao {
     private EntityManager entityManager;
     private final SystemPreferencesDao preferences;
 
+    /** @param preferences SystemPreferencesDao supplying inbox date-search preferences */
     public InboxCategoryDao(SystemPreferencesDao preferences) { this.preferences = preferences; }
 
+    /**
+     * Immutable request filters; SQL values are bound separately from the query shape.
+     * @param lastName String optional surname fragment
+     * @param firstName String optional given-name fragment
+     * @param healthNumber String optional HIN fragment
+     * @param patientSearch boolean whether patient filters apply
+     * @param providerSearch boolean whether provider filtering applies
+     * @param providerNo String provider identifier
+     * @param status String optional routing status
+     * @param abnormalStatus String optional normal/abnormal restriction
+     * @param startDate String optional inclusive start date
+     * @param endDate String optional inclusive end date
+     */
     public record Filter(String lastName, String firstName, String healthNumber, boolean patientSearch,
                          boolean providerSearch, String providerNo, String status, String abnormalStatus,
                          String startDate, String endDate) { }
+    /** Selects the lab, document or HRM count and patient-summary operation. */
     public enum Operation { LAB_UNMATCHED, ABNORMAL, NORMAL, DOCUMENT_UNMATCHED, LAB_PATIENT,
                             LAB_DEMOGRAPHIC, DOCUMENT_PATIENT, HRM_PATIENT, HRM_UNMATCHED }
+    /**
+     * One patient summary returned by a count operation.
+     * @param id int demographic identifier
+     * @param firstName String given name
+     * @param lastName String surname
+     * @param labs int lab count
+     * @param documents int document count
+     * @param hrm int HRM count
+     */
     public record PatientCount(int id, String firstName, String lastName, int labs, int documents, int hrm) { }
+    /**
+     * Immutable count result.
+     * @param total int total matching items
+     * @param patients List&lt;PatientCount&gt; associated patient summaries
+     */
     public record Counts(int total, List<PatientCount> patients) {
+        /** Copies the patient list to prevent caller mutation. */
         public Counts { patients = List.copyOf(patients); }
     }
 
+    /** @return String current date-search preference, defaulting to serviceObservation */
     public String getDateSearchType() {
         var preference = preferences.findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
         return preference == null || StringUtils.isEmpty(preference.getValue()) ? "serviceObservation" : preference.getValue();
     }
 
+    /**
+     * Counts one category using a consistent per-invocation date preference.
+     * @param filter Filter bound search values
+     * @param operation Operation count category to execute
+     * @param demographicNo String patient identifier for LAB_DEMOGRAPHIC, otherwise unused
+     * @return Counts immutable total and patient summaries
+     * @throws SQLException if the count cannot be read
+     * @throws IllegalArgumentException if LAB_DEMOGRAPHIC has a blank demographicNo
+     */
     public Counts count(Filter filter, Operation operation, String demographicNo) throws SQLException {
         QueryState state = new QueryState(entityManager, preferences, filter.lastName(), filter.firstName(),
                 filter.healthNumber(), filter.patientSearch(), filter.providerSearch(), filter.providerNo(),
@@ -96,7 +139,7 @@ public class InboxCategoryDao {
         private static final String SQL_IS_NOT_NULL = " IS NOT NULL ";
         private static final String SQL_IS_NOT_NULL_NO_PREFIX = "IS NOT NULL ";
 
-        private final SystemPreferencesDao systemPreferencesDao;
+        private final String dateSearchType;
 
         private final EntityManager entityManager;
 
@@ -145,7 +188,6 @@ public class InboxCategoryDao {
                             String startDate, String endDate) {
 
             this.entityManager = entityManager;
-            this.systemPreferencesDao = systemPreferencesDao;
             this.patientLastName = patientLastName;
             this.searchProviderNo = searchProviderNo;
             this.status = status;
@@ -163,6 +205,8 @@ public class InboxCategoryDao {
                     dateSearchType = systemPreferences.getValue();
                 }
             }
+
+            this.dateSearchType = dateSearchType;
 
             if (startDate != null && !startDate.equals("")) {
                 if (dateSearchType.equals("receivedCreated")) {
@@ -242,16 +286,7 @@ public class InboxCategoryDao {
             return !matchesAnyStatus();
         }
 
-        public String getDateSearchType() {
-            SystemPreferences systemPreferences = systemPreferencesDao.findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
-            if (systemPreferences != null) {
-                if (systemPreferences.getValue() != null && !systemPreferences.getValue().isEmpty()) {
-                    return systemPreferences.getValue();
-                }
-            }
-
-            return "serviceObservation";
-        }
+        private String getDateSearchType() { return dateSearchType; }
 
         public int getLabCountForUnmatched()
                 throws SQLException {

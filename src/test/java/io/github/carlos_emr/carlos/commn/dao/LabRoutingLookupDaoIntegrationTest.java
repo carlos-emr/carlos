@@ -15,6 +15,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /** Patient matching SQL semantics on H2 and the physical MariaDB DAO lane. */
 @Tag("integration")
+@Tag("dao")
 class LabRoutingLookupDaoIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager em;
     @Autowired private LabRoutingLookupDao lookup;
@@ -53,7 +54,7 @@ class LabRoutingLookupDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldKeepCmlGenderRulesSeparateFromHl7WildcardGender() {
+    void shouldKeepCmlGenderRules_separateFromHl7WildcardGender() {
         assertThat(lookup.findCmlPatients("5548000000", "2000", "01", "02", "F", "Fixture", "Alpha", true)).isEmpty();
         assertThat(lookup.findCmlPatients("5548000001", "2000", "01", "02", "F", "Other", "Beta", false))
                 .containsExactly(new LabRoutingLookupDao.Patient(1900554802, "554802"));

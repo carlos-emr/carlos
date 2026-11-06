@@ -28,6 +28,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /** Actual upload service, parser, DAO writes and transaction completion, verified independently. */
 @Tag("integration")
+@Tag("dao")
 @Tag("lab")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class LegacyLabUploadDaoIntegrationTest extends CarlosTestBase {
