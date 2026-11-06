@@ -452,6 +452,7 @@ public class InboxCategoryDao {
         }
 
         private List<Tuple> queryRows(String sql, List<Object> params) {
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string -- private SQL shapes use only fixed clauses; every patient/provider/date/status value is bound below.
             Query query = entityManager.createNativeQuery(sql, Tuple.class);
             for (int i = 0; i < params.size(); i++) query.setParameter(i + 1, params.get(i));
             return query.getResultList();
