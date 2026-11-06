@@ -381,5 +381,5 @@ source files, including exact generated-case multiplicities and source hashes.
   installed billing region and rejects mismatches or duplicate configuration.
 - The required matrix now contains 83 checks and 218 executions across 40
   workstreams. At `a78b9ce`, the normal CI fixture gate passes all fifteen scripts
-  and the native lanes pass 3,079 generated, 229 ON Flyway and 61 BC Flyway cases
+  and the native lanes pass 3,079 generated, 227 ON Flyway and 61 BC Flyway cases
   without failures or skips. Those receipts retain their original source identity.

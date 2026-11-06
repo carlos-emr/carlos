@@ -280,8 +280,12 @@ pointing to the locked executable, and `PLAYWRIGHT_BROWSERS_PATH` pointing to it
 installed cache. The cache must also contain the default headless executable:
 `job-types-datatable-browser-check.js` launches Playwright's default browser.
 
-Run it through `verify-release-evidence.py run --check fixture-ci-browser` with a
-fresh evidence directory. Real provider observations require the locked Chromium
+Run it through `verify-release-evidence.py run --check fixture-ci-browser` with the
+same `--evidence` root as the other checks. Each run creates a fresh UUID directory
+under that root, outside the checkout or under `target/`. Both the configured
+Chromium executable and Playwright's selected default headless executable are
+hashed before the run and checked for changes afterward.
+Real provider observations require the locked Chromium
 version and disconnected browsers; direct assertion floors total 2,522 across the
 15 fixtures. The navigation fixture additionally requires all six exact Node
 engine cases with no skips, TODOs or cancellations. The observer delegates original

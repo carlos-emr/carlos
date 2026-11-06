@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from junit_evidence import EvidenceError
 
@@ -80,6 +81,13 @@ class CiBrowserFixturesTest(unittest.TestCase):
         single['summary']['counts'].update(tests=1, passed=True)
         with self.assertRaises(EvidenceError):
             self.validate(row={**row, 'requiredCases': ['first']}, engines=[single])
+        for truncate_counts in (False, True):
+            missing = copy.deepcopy(engine)
+            missing['cases'] = missing['cases'][:1]
+            if truncate_counts:
+                missing['summary']['counts'].update(tests=1, passed=1)
+            with self.subTest(truncate_counts=truncate_counts), self.assertRaises(EvidenceError):
+                self.validate(row=row, engines=[missing])
         for field in ('failed', 'cancelled', 'skipped', 'todo'):
             bad = copy.deepcopy(engine); bad['summary']['counts'][field] = 1
             with self.assertRaises(EvidenceError): self.validate(row=row, engines=[bad])
@@ -90,6 +98,44 @@ class CiBrowserFixturesTest(unittest.TestCase):
             elif mutation == 'foreign-file': bad['cases'][1]['file'] = '/OTHER/source.js'
             else: bad['cases'][1]['outcome'] = 'SKIP'
             with self.assertRaises(EvidenceError): self.validate(row=row, engines=[bad])
+
+    def test_private_target_output_preserves_source_and_symlink_guards(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            source = root / 'source'; source.mkdir(mode=0o700)
+            target = source / 'target' / 'run'; target.mkdir(parents=True, mode=0o700)
+            outside = root / 'outside'; outside.mkdir(mode=0o700)
+            with patch.object(fixtures.gate, 'ROOT', source):
+                for directory in (target, outside):
+                    self.assertEqual(fixtures.validate_output(directory / 'result.json'), directory)
+                for directory in (source, source / 'target-other'):
+                    directory.mkdir(mode=0o700, exist_ok=True)
+                    with self.assertRaises(EvidenceError): fixtures.validate_output(directory / 'result.json')
+                link = target / 'linked'; link.symlink_to(outside, target_is_directory=True)
+                with self.assertRaises(EvidenceError): fixtures.validate_output(link / 'result.json')
+                result = target / 'result.json'; result.write_text('existing')
+                with self.assertRaises(EvidenceError): fixtures.validate_output(result)
+                result.unlink(); result.symlink_to(outside / 'missing')
+                with self.assertRaises(EvidenceError): fixtures.validate_output(result)
+                outside.chmod(0o755)
+                with self.assertRaises(EvidenceError): fixtures.validate_output(outside / 'result.json')
+
+    def test_default_headless_executable_is_bound_and_mutation_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            configured = root / 'configured'; configured.write_bytes(b'FAKE configured executable')
+            default = root / 'headless'; default.write_bytes(b'FAKE default executable')
+            (root / 'browser-selection.json').write_text(json.dumps({'defaultHeadless': str(default)}))
+            with patch.object(fixtures, 'run_process_group', return_value=subprocess.CompletedProcess([], 0)):
+                identities = fixtures.browser_identities(configured, root)
+            self.assertEqual(identities['defaultHeadless']['path'], str(default))
+            self.assertNotEqual(identities['configured']['sha256'], identities['defaultHeadless']['sha256'])
+            fixtures.verify_browser_identities(identities)
+            for path in (default, configured):
+                before = path.read_bytes(); path.write_bytes(b'FAKE changed executable')
+                with self.assertRaisesRegex(EvidenceError, 'executable changed'):
+                    fixtures.verify_browser_identities(identities)
+                path.write_bytes(before)
 
     def test_assertion_observer_preserves_provider_arguments_identity_results_and_failures(self):
         with tempfile.TemporaryDirectory() as temporary:
