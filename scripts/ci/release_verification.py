@@ -134,6 +134,21 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
             (check.get('caseManifest') for check in checks if check['id'] == 'node-all'), None)
             != 'docs/testing/release-2026.08-node-cases.json'):
         raise EvidenceError('Release Node acceptance requires its reviewed complete case inventory')
+    if 'scope-and-main-disposition' in names:
+        fixture = next((check for check in checks if check['id'] == 'fixture-ci-browser'), {})
+        required = {name for row in work for name in row.get('requiredChecks', [])}
+        fixture_assertions = {'complete-ci-browser-selection', 'real-locked-browser-and-assertions',
+            'all-node-browser-cases-passed', 'owned-processes-stopped', 'fixture-source-unchanged'}
+        result = fixture.get('resultContract', {})
+        if (fixture.get('kind') != 'command' or fixture.get('profiles') != ['all']
+                or fixture.get('repetitions', 1) != 1 or 'fixture-ci-browser' not in required
+                or fixture.get('command') != ['python3', 'scripts/ci/run-ci-browser-fixtures.py',
+                    '--output', '{run}/fixture-result.json']
+                or fixture.get('runtimeConstraints') != {'python': '3.14', 'node': '22', 'npm': '10.9.9'}
+                or set(fixture.get('requiresEnvironment', [])) != {'CARLOS_FIXTURE_CHROMIUM', 'PLAYWRIGHT_BROWSERS_PATH'}
+                or result.get('file') != 'fixture-result.json'
+                or set(result.get('assertions', [])) != fixture_assertions):
+            raise EvidenceError('Full release acceptance requires complete qualified CI browser fixture evidence')
     role_checks = {check['id']: check['lifecycleRoles'] for check in checks if 'lifecycleRoles' in check}
     if role_checks:
         expected_roles = {'package-clean-reinstall': ['clean'], 'package-main-upgrade': ['main'],

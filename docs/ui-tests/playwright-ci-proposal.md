@@ -1372,3 +1372,11 @@ The Node lane uses evidence schema 3 and the reviewed source/case inventory.
 Regenerate that inventory only from a complete passing qualified Node run after
 intentional test changes; final collection and verification recheck its source
 hashes and every generated case multiplicity.
+
+The qualification proposal also requires `fixture-ci-browser` from the release
+matrix, using the same qualified Node 22 and locked browser installation. This
+executes the 15 direct browser fixture commands already present in
+`script-regressions.yml`, checks actual browser/assertion evidence, and retains
+exact Node outcomes for navigation cancellation. Both the explicit Chromium
+executable and the default Playwright cache must be configured. No workflow file
+is amended by this proposal.

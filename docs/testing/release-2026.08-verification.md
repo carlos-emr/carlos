@@ -272,3 +272,19 @@ The full case/acceptance text and required checks are in the JSON matrix.
 | T38 | Cache publication and invalidation |
 | T39 | Patient merge and refusal contracts |
 | T40 | Production JSP and executed JavaScript |
+
+The required `fixture-ci-browser` check reconciles all 15 direct browser fixture
+commands in `script-regressions.yml` with a source-hashed contract. It requires
+qualified Python/Node/npm, checkout-local locked Playwright, `CARLOS_FIXTURE_CHROMIUM`
+pointing to the locked executable, and `PLAYWRIGHT_BROWSERS_PATH` pointing to its
+installed cache. The cache must also contain the default headless executable:
+`job-types-datatable-browser-check.js` launches Playwright's default browser.
+
+Run it through `verify-release-evidence.py run --check fixture-ci-browser` with a
+fresh evidence directory. Real provider observations require the locked Chromium
+version and disconnected browsers; direct assertion floors total 2,522 across the
+15 fixtures. The navigation fixture additionally requires all six exact Node
+engine cases with no skips, TODOs or cancellations. The observer delegates original
+assertions and browser calls, preserving arguments, results and failures. Missing
+commands, changed fixture sources, zero-assertion success and incomplete browser
+cleanup fail. These isolated source fixtures complement installed-page acceptance.

@@ -871,7 +871,11 @@
         "scripts/ci/run-browser-process-oracle.py",
         "scripts/ci/node_case_inventory.py",
         "scripts/ci/test_node_case_inventory.py",
-        "scripts/node-release-gate.test.js"
+        "scripts/node-release-gate.test.js",
+        "scripts/ci/run-ci-browser-fixtures.py",
+        "scripts/ci/observe-fixture-browser.cjs",
+        "scripts/ci/fixture-test-reporter.cjs",
+        "scripts/ci/test_ci_browser_fixtures.py"
       ],
       "implementation": "Perform the final-source real-OS-signal inventory on applicable mutating check families. Extend unit tests only for newly found gaps; retain exact ownership/byte guards and fatal cleanup outcomes.",
       "cases": "Before/after accepted SQL/app writes, upload chunks, delayed response, shutdown and cleanup; both SIGINT and SIGTERM; exit 130/interrupted structured outcome; owned versus foreign SQL references; file bytes/type/inode/owner/mode; configs and new defaults restored; killed-run reconciliation and process groups. Exercise real SIGINT/SIGTERM and crash/SIGKILL where cleanup/recovery is promised. Serialize every global profile and verify owned-row snapshots and exact restoration.",
@@ -894,7 +898,8 @@
         "packaged-profile-no-pin",
         "packaged-profile-private-consent",
         "installed-smoke-signals",
-        "browser-process-oracle"
+        "browser-process-oracle",
+        "fixture-ci-browser"
       ]
     },
     {
@@ -1090,7 +1095,11 @@
       "sources": [
         "pom.xml",
         "scripts/coverage/changed_line_audit.py",
-        "scripts/measurement-whtr-browser-check.js"
+        "scripts/measurement-whtr-browser-check.js",
+        "scripts/ci/run-ci-browser-fixtures.py",
+        "scripts/ci/observe-fixture-browser.cjs",
+        "scripts/ci/fixture-test-reporter.cjs",
+        "scripts/ci/test_ci_browser_fixtures.py"
       ],
       "implementation": "Compile production JSPs with the Tomcat 11 Jasper profile, map JSP fragment includes to parent routes, execute actual production JS and retain source-bound coverage.",
       "cases": "All changed JSP/JS paths including inline scripts, includes, removed resources and error routes; ON/BC, locale and authenticated/restricted renders; code ranges, source hashes and unmatched files.",
@@ -1115,7 +1124,8 @@
         "fixture-messenger-reply-form",
         "fixture-search-sort-messenger-inbox",
         "fixture-clinical-risk",
-        "production-js-view-coverage"
+        "production-js-view-coverage",
+        "fixture-ci-browser"
       ]
     }
   ],
@@ -1135,7 +1145,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 306,
+      "minimumCases": 312,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1216,6 +1226,12 @@
         "test_cds_war_manifest.WarManifestTest.test_streamed_content_reads_are_fixed_buffers",
         "test_cds_war_manifest.WarManifestTest.test_symlink_special_directory_payload_and_unsupported_compression_reject",
         "test_cds_war_manifest.WarManifestTest.test_unsafe_names_duplicate_nodes_and_file_ancestor_collisions_fail_closed",
+        "test_ci_browser_fixtures.CiBrowserFixturesTest.test_assertion_observer_preserves_provider_arguments_identity_results_and_failures",
+        "test_ci_browser_fixtures.CiBrowserFixturesTest.test_ci_command_omission_extra_selection_and_source_substitution_are_refused",
+        "test_ci_browser_fixtures.CiBrowserFixturesTest.test_missing_replaced_skipped_or_duplicate_node_browser_cases_are_refused",
+        "test_ci_browser_fixtures.CiBrowserFixturesTest.test_no_browser_wrong_browser_unclosed_browser_or_missing_assertions_cannot_pass",
+        "test_ci_browser_fixtures.CiBrowserFixturesTest.test_pinned_contract_covers_all_current_ci_browser_commands",
+        "test_ci_browser_fixtures.CiBrowserFixturesTest.test_successful_exit_cannot_hide_changed_or_unbound_fixture_source",
         "test_command_evidence.CommandEvidenceTest.test_duplicate_inputs_and_parent_symlinks_are_refused",
         "test_command_evidence.CommandEvidenceTest.test_host_ancestor_links_are_allowed_but_run_root_links_are_refused",
         "test_command_evidence.CommandEvidenceTest.test_malformed_result_does_not_prevent_failed_receipt_inventory",
@@ -4711,6 +4727,43 @@
       ],
       "runtimeConstraints": {
         "node": "22"
+      }
+    },
+    {
+      "id": "fixture-ci-browser",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "python3",
+        "scripts/ci/run-ci-browser-fixtures.py",
+        "--output",
+        "{run}/fixture-result.json"
+      ],
+      "runtimeConstraints": {
+        "python": "3.14",
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "requiresEnvironment": [
+        "CARLOS_FIXTURE_CHROMIUM",
+        "PLAYWRIGHT_BROWSERS_PATH"
+      ],
+      "requiresExecutables": [
+        "node"
+      ],
+      "timeoutSeconds": 3600,
+      "resultContract": {
+        "file": "fixture-result.json",
+        "assertions": [
+          "complete-ci-browser-selection",
+          "real-locked-browser-and-assertions",
+          "all-node-browser-cases-passed",
+          "owned-processes-stopped",
+          "fixture-source-unchanged"
+        ]
       }
     }
   ],

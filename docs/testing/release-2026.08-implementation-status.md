@@ -352,3 +352,13 @@ source files, including exact generated-case multiplicities and source hashes.
 - Tightened JSON comparison to preserve signed zero, numeric scale and exponent spelling. Six fault pairs fail against the previous canonicalizer and pass against the correction; object-key order and insignificant JSON whitespace remain equivalent. New numeric forms require client review rather than silently comparing equal. All 305 Python tooling checks pass.
 - The serialized Chromium oracle actually stops all three process trees but exposes a result-variable lifetime bug in its newly added partial-evidence writer. Renaming the caught exception fixes reporting; the complete tracked diagnostic passes timeout, SIGTERM and SIGINT with nine stopped processes per mode. Failed attempts remain unchanged; partial failure evidence now includes owned process identities and failed signal details.
 - Review reproduced an evidence-writing regression introduced by `b467591`: Python clears a caught exception target, so successful interruption checks left the final failure record undefined. A distinct exception variable fixes the success path. The new control fails on the old code and all 305 evidence self-tests pass after the fix. Real locked Chromium 149.0.7827.55 passes timeout, SIGTERM and SIGINT modes, stopping seven owned processes per mode and writing all three assertions with no failure. This is development evidence, separate from the earlier failed receipts.
+
+- Added required CI browser fixture reconciliation: 15 source-pinned scripts,
+  2,522 direct assertion floors, exact six-case Node navigation inventory,
+  actual browser identity/closure and owned-process shutdown. Fourteen fixtures
+  pass the first development attempt; the fifteenth exposes a missing default
+  Playwright cache and passes separately with the installed locked cache. The
+  original failed attempt remains failed. The cache is now an explicit matrix
+  prerequisite. A complete source-bound run remains required. Six negative-control
+  tooling tests cover omissions, replacement/skipped cases, stale sources,
+  assertion-free success and instrumentation delegation.
