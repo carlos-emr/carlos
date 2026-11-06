@@ -2,12 +2,36 @@
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 
-from installed_package_state import stored_files, version_allowed, document_preservation
+from installed_package_state import (stored_files, version_allowed, document_preservation,
+    validated_rows, query, clinical_state)
 from junit_evidence import EvidenceError
 
 
 class PackagePreservationTest(unittest.TestCase):
+    def test_sql_null_empty_binary_and_duplicate_rows_remain_distinct(self):
+        rows = ['[null,"H","H00FF"]', '["H","H","H00FF"]', '[null,"H","H00FF"]']
+        self.assertEqual(validated_rows(rows, 3), sorted(rows))
+        self.assertEqual(len(validated_rows(rows, 3)), 3)
+
+    def test_warning_allocation_failure_truncation_and_wrong_cell_shapes_cannot_be_hashed(self):
+        for row in ('NULL', 'null', '["H!"]', '["H0"]', '["h00"]', '["HGG"]',
+                    '[""]', '[0]', '[false]', '{}', '[]', '["H00",null]', '["H00"',
+                    'Warning (Code 1301): Result was larger than max_allowed_packet'):
+            with self.subTest(row=row), self.assertRaises(EvidenceError):
+                validated_rows([row], 1)
+        for count in (0, -1, True, None):
+            with self.assertRaises(EvidenceError): validated_rows([], count)
+
+    def test_successful_client_with_warning_cannot_certify_an_independent_snapshot(self):
+        with patch('installed_package_state.subprocess.run',
+                return_value=SimpleNamespace(returncode=0, stdout='["H00"]\n', stderr='Warning: truncated')):
+            with self.assertRaises(EvidenceError): query('SELECT FAKE')
+        with patch('installed_package_state.query', side_effect=[['id\tint'], 'NULL'.splitlines()]):
+            with self.assertRaises(EvidenceError): clinical_state()
+
     def test_equal_row_counts_or_file_counts_cannot_hide_replaced_bytes_or_permissions(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

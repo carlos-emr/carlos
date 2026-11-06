@@ -25,9 +25,10 @@ MANAGED_DOCUMENT_ASSETS = {
 def query(sql):
     result = subprocess.run(['mariadb', '--no-defaults', '--protocol=socket',
         '--socket=/run/mysqld/mysqld.sock', '--user=root', '--database=carlos',
-        '--batch', '--raw', '--skip-column-names', '--default-character-set=utf8mb4', '-e', sql],
+        '--batch', '--raw', '--skip-column-names', '--show-warnings',
+        '--default-character-set=utf8mb4', '-e', sql],
         capture_output=True, text=True, timeout=60)
-    if result.returncode:
+    if result.returncode or result.stderr.strip():
         raise EvidenceError('Independent installed clinical snapshot query failed')
     return result.stdout.splitlines()
 
@@ -37,7 +38,7 @@ def quote_identifier(name):
 
 
 def cell_encoding(name, column_type):
-    value = quote_identifier(name)
+    original = value = quote_identifier(name)
     kind = column_type.lower().split('(', 1)[0].split()[0]
     # Character-set upgrades preserve characters, not their original byte encoding.
     # Binary columns must remain byte-exact (never pass them through CONVERT).
@@ -47,7 +48,27 @@ def cell_encoding(name, column_type):
     # Widen it exactly to DOUBLE before string conversion; never widen DECIMAL.
     if kind == 'float':
         value = 'CAST(' + value + ' AS DOUBLE)'
-    return 'HEX(CAST(' + value + ' AS BINARY))'
+    # SQL NULL is distinct from a failed conversion/HEX allocation. MariaDB can
+    # return NULL with a warning when an expression exceeds max_allowed_packet.
+    # A non-NULL source must therefore carry a valid tagged byte string.
+    return ('IF(' + original + " IS NULL,NULL,CONCAT('H',COALESCE(HEX(CAST("
+            + value + " AS BINARY)), '!')))")
+
+
+def validated_rows(rows, column_count):
+    """Reject SQL warnings, truncated JSON and silent non-NULL conversion failures."""
+    if type(column_count) is not int or column_count < 1:
+        raise EvidenceError('Clinical snapshot has no complete column inventory')
+    for row in rows:
+        try:
+            cells = json.loads(row)
+        except (ValueError, TypeError) as failure:
+            raise EvidenceError('Clinical snapshot contains incomplete JSON or SQL warnings') from failure
+        if (not isinstance(cells, list) or len(cells) != column_count
+                or any(cell is not None and (not isinstance(cell, str)
+                    or re.fullmatch(r'H(?:[0-9A-F]{2})*', cell) is None) for cell in cells)):
+            raise EvidenceError('Clinical snapshot lost a cell value or its byte encoding')
+    return sorted(rows)
 
 
 def clinical_state(prior_columns=None):
@@ -64,8 +85,8 @@ def clinical_state(prior_columns=None):
         # Cast before HEX: HEX(number) coerces to BIGINT and loses fractions.
         # Binary strings preserve cell values, NULL and bytes; JSON supplies unambiguous
         # boundaries. Sort whole rows, preserving duplicates and ignoring query order.
-        rows = sorted(query('SELECT JSON_ARRAY(' + ','.join(cell_encoding(name, types[name])
-            for name in names) + ') FROM ' + quote_identifier(table)))
+        rows = validated_rows(query('SELECT JSON_ARRAY(' + ','.join(cell_encoding(name, types[name])
+            for name in names) + ') FROM ' + quote_identifier(table)), len(names))
         result[table] = {'columns': names, 'rows': len(rows),
             'dataSha256': hashlib.sha256(json.dumps(rows, ensure_ascii=True).encode()).hexdigest()}
     return result
