@@ -175,10 +175,25 @@ and qualification below are still required to complete issue 5700. No release-re
 - A separate Java 25 API oracle passes all ten assertions with real client
   compilation failures and a still-inlined old constant. The expanded comparison
   retains 28 changed/removed and 35 additive API type candidates; none is waived.
-- Python tooling now pins all 246 required case identities as well as its count;
+- Python tooling pins required case identities as well as its count;
   replacing an omitted regression with an unrelated passing test cannot qualify.
-  All 246 execute successfully on Python 3.14. The live transition adapter also
+  The current development suite executes 252 cases successfully on Python 3.14. The live transition adapter also
   refused an equal-version "upgrade" before any package transaction or canary.
+- Package preservation now recognizes the explicitly managed eForm editor script
+  using exact old/new package entries and unchanged metadata. Clinical files and
+  seeded/customizable templates remain exact; this does not waive JS behavior
+  acceptance. The earlier blanket file-equality attempt remains failed.
+- Version comparison uses the actual Debian control field. The earlier note
+  inferred a dotted control version from an asset filename; published beta6 is
+  actually `2026.08.0~beta6`. The adapter already read the field correctly; the
+  test name and documentation are corrected, with both version forms covered.
+
+- Added a distinct beta5 historical package baseline in both provinces; beta6 alone
+  cannot exercise the six later migrations or CLI 1.3.0 dependency transition.
+- Fixed Rx fixture cleanup to remove note extensions before parent notes. Real
+  SQLite checks reproduce both restrictive-FK failure and orphan behavior before
+  the fix; both pass afterward. All 7,310 Node cases pass with no skips or TODOs.
+  These are development checks; fresh frozen-source qualification remains required.
 
 ## Review corrections
 
@@ -195,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The Python tooling registry pins 258 required case identities, including the
+- The combined Python tooling registry pins 264 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;

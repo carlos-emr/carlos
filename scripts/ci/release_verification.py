@@ -191,7 +191,7 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
             raise EvidenceError("Known-failure ledger omits or duplicates a manifest expectation")
         node_cases = [row["case"] for row in ledger["retiredNodeTodos"]]
         required_node = next(check for check in checks if check["id"] == "node-all").get("requiredCases", [])
-        if len(node_cases) != len(set(node_cases)) or set(node_cases) != set(required_node):
+        if len(node_cases) != len(set(node_cases)) or not set(node_cases) <= set(required_node):
             raise EvidenceError("Retired Node TODOs must remain required active regressions")
         if plan.get("requireManualBrowserCoverage"):
             required = {name for row in work for name in row["requiredChecks"]}

@@ -1335,9 +1335,15 @@ The required `installed-package-reinstall` runs on exclusive ON and BC installs.
 Supply exact candidate EMR/DrugRef paths and SHA-256 values, the pinned CLI path,
 and the original candidate WAR. The inner transition adapter independently checks
 whole clinical-cell and document preservation and the actual package/WAR byte
-identities. Its version gate rejects a downgrade before mutation: Debian sorts
-`2026.08.0~beta7` below published `2026.08.0.beta6`. Use the release pipeline's
-correctly ordered version; never force a downgrade to obtain upgrade evidence.
+identities. Its version gate reads the actual package control versions before
+mutation. Published asset filenames normalize `~` to `.`, so a filename must not
+be used as the installed version: the beta6 control field is `2026.08.0~beta6`.
+Never force a downgrade to obtain upgrade evidence.
+The file comparison permits only the explicitly mapped stock managed eForm
+editor script to transition between its old/new package bytes while preserving
+ownership/modes. All other clinical files and seeded templates remain exact;
+there is no filename-suffix exclusion. Managed-code behavior still needs its
+separate browser/JS acceptance.
 The full clean/main-upgrade/reinstall/unsupported-upgrade orchestration remains a
 separate required gate.
 

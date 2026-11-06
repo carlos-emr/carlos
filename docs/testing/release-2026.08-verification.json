@@ -737,9 +737,11 @@
         "scripts/ci/installed_package_state.py",
         "scripts/ci/test_installed_package_state.py",
         "scripts/ci/release_deployment.py",
-        "scripts/ci/test_release_deployment.py"
+        "scripts/ci/test_release_deployment.py",
+        "scripts/ci/lifecycle_baselines.py",
+        "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -773,7 +775,9 @@
         "scripts/ci/installed_package_state.py",
         "scripts/ci/test_installed_package_state.py",
         "scripts/ci/release_deployment.py",
-        "scripts/ci/test_release_deployment.py"
+        "scripts/ci/test_release_deployment.py",
+        "scripts/ci/lifecycle_baselines.py",
+        "scripts/ci/test_lifecycle_baselines.py"
       ],
       "implementation": "Run current multi-window messaging and local mail-capture workflows, and verify the separate restricted reporting connection after the JDBC cleanup refactor.",
       "cases": "Refused reply preserves body/recipients/attachments; multiline forward; encrypted MIME boundary; Send and Archive commits one message with correct archive; overlength fields rejected rather than truncated; attachments belong to email patient; QBE can read only approved reporting views and cannot write or use clinical-account privileges.",
@@ -839,7 +843,8 @@
         "scripts/ci/run-installed-smoke-signals.py",
         "scripts/ci/test_installed_smoke_signals.py",
         "scripts/lib/document-upload-files.js",
-        "scripts/document-upload-files.test.js"
+        "scripts/document-upload-files.test.js",
+        "scripts/lib/mutation-families.js"
       ],
       "implementation": "Perform the final-source real-OS-signal inventory on applicable mutating check families. Extend unit tests only for newly found gaps; retain exact ownership/byte guards and fatal cleanup outcomes.",
       "cases": "Before/after accepted SQL/app writes, upload chunks, delayed response, shutdown and cleanup; both SIGINT and SIGTERM; exit 130/interrupted structured outcome; owned versus foreign SQL references; file bytes/type/inode/owner/mode; configs and new defaults restored; killed-run reconciliation and process groups. Exercise real SIGINT/SIGTERM and crash/SIGKILL where cleanup/recovery is promised. Serialize every global profile and verify owned-row snapshots and exact restoration.",
@@ -1102,7 +1107,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 258,
+      "minimumCases": 264,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1198,12 +1203,18 @@
         "test_generate_path_bindings.PathCandidatesTest.test_writing_candidates_without_review_is_refused",
         "test_installed_first_login.InstallationStageTest.test_private_complete_installer_file_is_required",
         "test_installed_first_login.InstallationStageTest.test_success_requires_real_password_change_reset_clear_and_preserved_identity",
-        "test_installed_package_state.PackagePreservationTest.test_debian_tilde_version_is_not_an_upgrade_from_published_dot_version",
+        "test_installed_package_state.PackagePreservationTest.test_comparison_uses_control_versions_instead_of_normalized_asset_filenames",
         "test_installed_package_state.PackagePreservationTest.test_equal_row_counts_or_file_counts_cannot_hide_replaced_bytes_or_permissions",
+        "test_installed_package_state.PackagePreservationTest.test_managed_asset_rule_does_not_hide_added_removed_or_changed_clinical_files",
+        "test_installed_package_state.PackagePreservationTest.test_only_exact_managed_stock_bytes_may_change_with_preserved_metadata",
         "test_installed_package_state.PackagePreservationTest.test_outside_symlinks_and_replaced_directory_roots_fail",
+        "test_installed_package_state.PackagePreservationTest.test_same_asset_basename_elsewhere_and_seeded_templates_are_not_exempt",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_omitted_duplicated_or_wrong_signal_execution_cannot_qualify",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_row_counts_alone_cannot_hide_changed_credentials_or_leftover_files",
         "test_installed_smoke_signals.InstalledSignalEvidenceTest.test_timeout_records_failure_and_stops_before_another_installed_audit",
+        "test_lifecycle_baselines.LifecycleBaselineTest.test_a_second_tag_on_the_same_commit_cannot_replace_historical_qualification",
+        "test_lifecycle_baselines.LifecycleBaselineTest.test_distinct_historical_migration_and_cli_predecessor_is_required",
+        "test_lifecycle_baselines.LifecycleBaselineTest.test_incomplete_package_province_or_published_identity_cannot_qualify",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_added_abstract_methods_enum_constants_and_overloads_require_client_review",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_malformed_release_xml_fails_while_a_repaired_main_response_is_reported",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_missing_fields_duplicate_json_keys_and_nonfinite_numbers_are_not_silently_accepted",
@@ -1416,7 +1427,9 @@
         "Framingham refuses HDL above total cholesterol and clears stale risk",
         "UKPDS refuses HDL equal to total cholesterol and clears stale risk",
         "UKPDS refuses HDL above total cholesterol and clears stale risk",
-        "shouldConfigureWsServicesRateLimits_forEveryProxyingServer"
+        "shouldConfigureWsServicesRateLimits_forEveryProxyingServer",
+        "Rx cleanup removes owned note extensions before parents with foreign keys enabled",
+        "Rx cleanup removes owned note extensions before parents with foreign keys disabled"
       ]
     },
     {

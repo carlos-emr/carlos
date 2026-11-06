@@ -14,6 +14,13 @@ from junit_evidence import EvidenceError
 TABLES = ('demographic', 'appointment', 'prescription', 'drugs', 'allergies',
           'consultationRequests', 'casemgmt_note', 'preventions', 'hl7TextMessage', 'document', 'tickler')
 
+# EFormAssetDeployer explicitly owns this application script and refreshes it
+# at startup. This is a concrete stock-to-stock transition, not a glob exclusion.
+# Other files (including seeded/customizable templates) remain exact comparisons.
+MANAGED_DOCUMENT_ASSETS = {
+    'file:carlos/eform/images/editControl2.js': 'WEB-INF/eform-assets/editControl2.js',
+}
+
 
 def query(sql):
     result = subprocess.run(['mariadb', '--no-defaults', '--protocol=socket',
@@ -95,6 +102,26 @@ def encryption_key():
     if len(matches) != 1 or not matches[0]:
         raise EvidenceError('Installed encryption key is absent or ambiguous')
     return hashlib.sha256(matches[0].encode()).hexdigest()
+
+
+def document_preservation(before, after, old_package_entries, new_package_entries):
+    updates = []
+    if set(before) != set(after):
+        return {'preserved': False, 'managedAssetUpdates': updates}
+    for path, previous in before.items():
+        current = after[path]
+        if previous == current:
+            continue
+        entry = MANAGED_DOCUMENT_ASSETS.get(path)
+        old = old_package_entries.get(entry, {})
+        new = new_package_entries.get(entry, {})
+        if (entry is None or len(previous) != 5 or len(current) != 5
+                or previous[1:4] != current[1:4]
+                or (previous[0], previous[4]) != (old.get('bytes'), old.get('sha256'))
+                or (current[0], current[4]) != (new.get('bytes'), new.get('sha256'))):
+            return {'preserved': False, 'managedAssetUpdates': updates}
+        updates.append({'path': path, 'packageEntry': entry, 'previousSha256': previous[4], 'currentSha256': current[4]})
+    return {'preserved': True, 'managedAssetUpdates': updates}
 
 
 def version_allowed(mode, before, after):

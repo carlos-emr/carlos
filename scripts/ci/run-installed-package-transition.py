@@ -16,6 +16,7 @@ import uuid
 import installed_package_state as state
 import release_verification as gate
 from junit_evidence import EvidenceError
+from lifecycle_baselines import select_baseline
 from release_deployment import attest, attest_package, local_target, package_contents
 from process_group import ProcessGroupFailure, run_process_group
 
@@ -70,6 +71,7 @@ def main():
     parser.add_argument('--drugref-sha256', required=True)
     parser.add_argument('--ctl', type=Path, required=True)
     parser.add_argument('--before-package', type=Path)
+    parser.add_argument('--baseline-tag', help='Reviewed predecessor tag; defaults to current main')
     parser.add_argument('--candidate-war', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
@@ -86,6 +88,9 @@ def main():
     failure_type = None
     try:
         pins = gate.read_json(gate.ROOT / 'docs/testing/release-2026.08-lifecycle-baselines.json')
+        if args.baseline_tag and args.mode != 'upgrade':
+            raise EvidenceError('Predecessor selection applies only to an upgrade')
+        selected = select_baseline(pins, args.baseline_tag)
         ctl_pin = next(row for row in pins['assets'] if row['name'].startswith('carlos-ctl_'))
         if (not pinned(args.emr, args.emr_sha256) or not pinned(args.drugref, args.drugref_sha256)
                 or not pinned(args.ctl, ctl_pin['sha256'])
@@ -111,16 +116,21 @@ def main():
         details['candidatePackageSha256'] = args.emr_sha256
         details['candidateDrugrefSha256'] = args.drugref_sha256
         if args.mode == 'reinstall':
+            previous_contents = candidate
             previous = attest_package(args.emr, args.emr_sha256, base_url=os.environ['BASE_URL'])
         else:
             if not args.before_package:
-                raise EvidenceError('Upgrade requires the pinned main predecessor package')
-            pin = next(row for row in pins['assets'] if row['name'].startswith('carlos-emr_'))
+                raise EvidenceError('Upgrade requires its pinned predecessor package')
+            pin = next(row for row in selected['assets'] if row['name'].startswith('carlos-emr_'))
+            previous_contents = package_contents(args.before_package, pin['sha256'])
             previous = attest_package(args.before_package, pin['sha256'], base_url=os.environ['BASE_URL'])
             if package_field(args.before_package, 'Version') != prior_version:
-                raise EvidenceError('Installed predecessor version differs from pinned main')
-        if installed_version('carlos-emr-drugref') != prior_version or installed_version('carlos-ctl') != package_field(args.ctl, 'Version'):
-            raise EvidenceError('Predecessor DrugRef or unchanged client version differs')
+                raise EvidenceError('Installed predecessor version differs from its reviewed package')
+            details['baselineTag'] = selected['tag']
+            details['baselineSourceCommit'] = selected['sourceCommit']
+        prior_cli = selected['cliVersion'] if args.mode == 'upgrade' else package_field(args.ctl, 'Version')
+        if installed_version('carlos-emr-drugref') != prior_version or installed_version('carlos-ctl') != prior_cli:
+            raise EvidenceError('Predecessor DrugRef or reviewed client version differs')
         details['previousDeployment'] = previous
         assertions['predecessor-application-bound'] = True
         environment = {**os.environ, 'ADMIN_USER': os.environ.get('TEST_USER', 'carlosdoc')}
@@ -153,7 +163,10 @@ def main():
                  'files': state.stored_files(), 'keySha256': state.encryption_key()}
         after_file = directory / 'private-state-after.json'; gate.write_json(after_file, after); inputs.append(after_file)
         assertions['clinical-cells-preserved'] = before['clinical'] == after['clinical']
-        assertions['document-bytes-and-metadata-preserved'] = before['files'] == after['files']
+        documents = state.document_preservation(before['files'], after['files'],
+            previous_contents['entries'], candidate['entries'])
+        assertions['document-bytes-and-metadata-preserved'] = documents['preserved']
+        details['managedDocumentAssetUpdates'] = documents['managedAssetUpdates']
         assertions['encryption-key-preserved'] = before['keySha256'] == after['keySha256']
         with (directory / 'private-preservation-check.log').open('xb') as output:
             verified = run_process_group(['bash', str(gate.ROOT / 'scripts/deb-upgrade-verify.sh')],
