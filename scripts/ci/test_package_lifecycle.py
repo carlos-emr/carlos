@@ -1,0 +1,114 @@
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+import copy
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+import release_verification as gate
+from junit_evidence import EvidenceError
+from package_lifecycle import CELL_ASSERTIONS, validate_config, validate_inventory
+
+
+class PackageLifecycleTest(unittest.TestCase):
+    def fixture(self, root):
+        source = {'commit': 'a' * 40, 'tree': 'b' * 40, 'clean': True}
+        document = {'schemaVersion': 1, 'source': source, 'profile': 'ON', 'warSha256': 'c' * 64, 'cells': []}
+        for role in ('clean', 'main', 'historical'):
+            cell = {'role': role, 'profile': 'ON', 'source': source, 'warSha256': 'c' * 64,
+                'failureType': None, 'assertions': dict.fromkeys(CELL_ASSERTIONS, True),
+                'initialDeployment': {'scope': 'installed-package-application', 'packageSha256': 'd' * 64,
+                    'contentSha256': 'e' * 64},
+                'candidateDeployment': {'scope': 'installed-package-application', 'warSha256': 'c' * 64,
+                    'contentSha256': 'f' * 64}}
+            path = root / (role + '.json'); gate.write_json(path, cell)
+            document['cells'].append({'role': role, 'path': path.name, 'sha256': gate.digest(path)})
+        (root / 'lifecycle.json').write_text(json.dumps(document))
+        return source, document
+
+    def validate(self, root, source, document):
+        (root / 'lifecycle.json').write_text(json.dumps(document))
+        return validate_inventory(document, source, 'ON', 'c' * 64, root, gate.read_json, gate.digest)
+
+    def test_main_cannot_replace_the_distinct_historical_or_clean_cell(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            self.assertEqual(self.validate(root, source, document)['scope'], 'orchestrated-package-lifecycle')
+            for roles in (document['cells'][:2], [document['cells'][0], document['cells'][1], document['cells'][1]]):
+                broken = copy.deepcopy(document); broken['cells'] = roles
+                with self.assertRaises(EvidenceError): self.validate(root, source, broken)
+
+    def test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            row = document['cells'][1]; path = root / row['path']; original = gate.read_json(path)
+            for name, value in [('source', {}), ('profile', 'BC'), ('warSha256', '0' * 64),
+                    ('failureType', 'TimeoutExpired'), ('candidateDeployment', {}), ('initialDeployment', {})]:
+                broken = dict(original); broken[name] = value; path.write_text(json.dumps(broken))
+                row['sha256'] = gate.digest(path)
+                with self.assertRaises(EvidenceError): self.validate(root, source, document)
+            for value in (False, 1, None):
+                broken = copy.deepcopy(original); broken['assertions']['clinical-cleanup-preserved'] = value
+                path.write_text(json.dumps(broken)); row['sha256'] = gate.digest(path)
+                with self.assertRaises(EvidenceError): self.validate(root, source, document)
+
+    def test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary); source, document = self.fixture(root)
+            row = document['cells'][0]; path = root / row['path']
+            path.write_text(path.read_text() + '\n')
+            with self.assertRaises(EvidenceError): self.validate(root, source, document)
+            path.unlink(); path.symlink_to(root / 'main.json'); row['sha256'] = gate.digest(root / 'main.json')
+            with self.assertRaises(EvidenceError): self.validate(root, source, document)
+
+    def test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused(self):
+        packages = {name: {'path': '/FAKE/' + name + '.deb', 'sha256': 'd' * 64}
+                    for name in ('emr', 'drugref', 'ctl')}
+        config = {'runtimeImage': 'sha256:' + 'a' * 64, 'caFile': '/FAKE/ca.pem',
+                  'browserDirectory': '/FAKE/browser', 'packages': {key: packages for key in
+                    ('target', '2026.08.0-beta6', '2026.08.0-beta5')}}
+        validate_config(config)
+        for name, value in [('runtimeImage', 'ubuntu:26.04'), ('caFile', 'relative'), ('packages', {'target': packages})]:
+            broken = copy.deepcopy(config); broken[name] = value
+            with self.assertRaises(EvidenceError): validate_config(broken)
+        for name in ('drugref', 'ctl'):
+            broken = copy.deepcopy(config); broken['packages']['2026.08.0-beta5'].pop(name)
+            with self.assertRaises(EvidenceError): validate_config(broken)
+
+    def test_host_collection_and_final_verification_require_lifecycle_byte_binding(self):
+        from test_verify_release_evidence import ReleaseEvidenceTest
+        helper = ReleaseEvidenceTest('test_clean_source_bound_control_is_ready')
+        helper.setUp(); self.addCleanup(helper.doCleanups)
+        producer = helper.root / 'lifecycle.py'
+        producer.write_text('''import sys,json,pathlib
+sys.path.insert(0,sys.argv[1])
+import release_verification as gate
+from package_lifecycle import CELL_ASSERTIONS
+directory=pathlib.Path(sys.argv[2]); artifact=pathlib.Path(sys.argv[3]); source=gate.source_identity(pathlib.Path.cwd())
+document={'schemaVersion':1,'source':source,'profile':'ON','warSha256':gate.digest(artifact),'cells':[]}
+for role in ['clean','main','historical']:
+ cell={'role':role,'profile':'ON','source':source,'warSha256':gate.digest(artifact),'failureType':None,
+  'assertions':dict.fromkeys(CELL_ASSERTIONS,True),
+  'initialDeployment':{'scope':'installed-package-application','packageSha256':'d'*64,'contentSha256':'e'*64},
+  'candidateDeployment':{'scope':'installed-package-application','warSha256':gate.digest(artifact),'contentSha256':'f'*64}}
+ path=directory/(role+'.json');gate.write_json(path,cell)
+ document['cells'].append({'role':role,'path':path.name,'sha256':gate.digest(path)})
+gate.write_json(directory/'lifecycle.json',document)
+gate.write_json(directory/'lifecycle-result.json',{'schemaVersion':1,'assertions':{'complete-lifecycle-core':True},'inputs':[
+ {'path':p.name,'sha256':gate.digest(p)} for p in directory.glob('*.json')]})
+''')
+        check = {'id': 'lifecycle-core', 'kind': 'command', 'profiles': ['ON'], 'packaged': True,
+            'deploymentScope': 'orchestrated-package-lifecycle',
+            'command': [__import__('sys').executable, str(producer), str(Path(__file__).parent), '{run}', '{artifact}'],
+            'resultContract': {'file': 'lifecycle-result.json', 'assertions': ['complete-lifecycle-core']}}
+        helper.plan['checks'].append(check)
+        helper.plan['workstreams'][0]['requiredChecks'].append(check['id'])
+        helper.save_plan(); helper.commit(); helper.seed()
+        receipt = gate.run_check(helper.plan_path, check['id'], helper.evidence, 'ON', 1,
+                                  artifact=helper.artifact, root=helper.root)
+        self.assertEqual(receipt['outcome'], 'PASS', receipt)
+        self.assertTrue(helper.verify()['releaseReady'])
+        receipt_path = helper.evidence / receipt['runId'] / 'receipt.json'
+        receipt['deployment']['warSha256'] = '0' * 64; receipt_path.write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(EvidenceError, 'installed-byte binding'): helper.verify()
+

@@ -651,7 +651,9 @@
       "priority": "P0",
       "area": "Imports, migrations and main-only omissions",
       "sources": [
-        "pom.xml"
+        "pom.xml",
+        "scripts/ci/run-package-lifecycle.py",
+        "scripts/ci/run-package-lifecycle-cell.py"
       ],
       "implementation": "The six migrations V1.0.59.27 through V1.0.59.32 exist on both pinned heads; verify history, entity/manifest/consent behavior and supported upgrades. Preserve historical migration bytes; use forward repair if needed. Add upgrades from both older supported installs and the current main schema.",
       "cases": "ON and BC fresh, N-1 upgrade, resumed OSCAR19 import; long text beyond former capacities, BCAR2007 urine culture, archive values/timestamps, duplicate/live consent history and idempotent reapply; pinned CLI/manifest/schema hashes; imported appointment name and RxSummary behavior. If a main-to-release path is unsupported, refuse before mutation.",
@@ -666,7 +668,8 @@
         "scope-and-main-disposition",
         "deb-clean-upgrade-reinstall",
         "debian-python",
-        "o19-generator-python"
+        "o19-generator-python",
+        "package-lifecycle-core"
       ]
     },
     {
@@ -677,7 +680,9 @@
         "scripts/deb-upgrade-verify.sh",
         "scripts/ci/run-pinned-carlos-ctl-suite.py",
         "scripts/ci/run-installed-first-login.py",
-        "scripts/ci/test_installed_first_login.py"
+        "scripts/ci/test_installed_first_login.py",
+        "scripts/ci/run-package-lifecycle.py",
+        "scripts/ci/run-package-lifecycle-cell.py"
       ],
       "implementation": "Run real clean-install, predecessor-upgrade, reconfigure and data-preserving reinstall on the supported packaged OS; reconcile main-only host/MariaDB recovery fixes. Test both app and DrugRef locks and pinned carlos-ctl 1.3.0.",
       "cases": "Installed version/build identity; MariaDB system tables and existing clinical datadir; IPv4/IPv6 nginx default sites; ports in use; cert renewal, service user/modes/paths; paused import guard; dependency-lock enforcement; app/DrugRef startup; failed configure and recovery; published predecessor version layouts; no source-copied fixtures substituted for package files.",
@@ -694,7 +699,8 @@
         "java-development-seed",
         "o19-generator-python",
         "carlos-ctl-pinned-suite",
-        "manual-deb-login"
+        "manual-deb-login",
+        "package-lifecycle-core"
       ]
     },
     {
@@ -1107,7 +1113,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 264,
+      "minimumCases": 269,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1240,6 +1246,11 @@
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_nested_name_collision_is_explicit_and_does_not_hide_a_failed_attempt",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_parenthesized_surefire_schema_suffixes_are_bound_to_the_filename",
         "test_mariadb_report_evidence.MariaDbReportEvidenceTest.test_summary_omits_configuration_and_console_output",
+        "test_package_lifecycle.PackageLifecycleTest.test_green_cell_without_same_source_province_war_or_cleanup_cannot_qualify",
+        "test_package_lifecycle.PackageLifecycleTest.test_host_collection_and_final_verification_require_lifecycle_byte_binding",
+        "test_package_lifecycle.PackageLifecycleTest.test_main_cannot_replace_the_distinct_historical_or_clean_cell",
+        "test_package_lifecycle.PackageLifecycleTest.test_modified_or_linked_cell_is_rejected_even_when_summary_stays_green",
+        "test_package_lifecycle.PackageLifecycleTest.test_mutable_runtime_or_missing_drugref_cli_and_baselines_are_refused",
         "test_process_group.ProcessGroupTest.test_cleanup_os_error_remains_a_failure_with_unverified_quiescence",
         "test_process_group.ProcessGroupTest.test_outer_termination_is_forwarded_to_the_separate_child_session",
         "test_process_group.ProcessGroupTest.test_successful_parent_cannot_leave_a_mutating_child_running",
@@ -4416,6 +4427,44 @@
           "owned-file-canary-cleaned"
         ]
       }
+    },
+    {
+      "id": "package-lifecycle-core",
+      "kind": "command",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "packaged": true,
+      "deploymentScope": "orchestrated-package-lifecycle",
+      "requiresEnvironment": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "CARLOS_PACKAGE_LIFECYCLE_CONFIG"
+      ],
+      "requiresExecutables": [
+        "docker",
+        "dpkg-deb",
+        "dpkg"
+      ],
+      "command": [
+        "python3",
+        "scripts/ci/run-package-lifecycle.py",
+        "--profile",
+        "{profile}",
+        "--artifact",
+        "{artifact}",
+        "--output",
+        "{run}/lifecycle-result.json"
+      ],
+      "resultContract": {
+        "file": "lifecycle-result.json",
+        "assertions": [
+          "complete-lifecycle-core"
+        ]
+      },
+      "timeoutSeconds": 18000
     }
   ],
   "requireJavaDiscovery": true,

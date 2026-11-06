@@ -210,7 +210,7 @@ and qualification below are still required to complete issue 5700. No release-re
 - Upload cleanup binds the document and rendering directories to their observed
   identities. Replaced directories and symlinks fail cleanup without deleting
   unrelated files; independent safe cleanup actions still run.
-- The combined Python tooling registry pins 264 required case identities, including the
+- The combined Python tooling registry pins 269 required case identities, including the
   coverage-command, stale-class, process-group and source-cleanliness regressions. `xmllint` is an
   explicit prerequisite for the existing streaming XML fixture tests.
 - Every class-bound Java lane discards old compiler outputs before compiling;
@@ -228,6 +228,16 @@ and qualification below are still required to complete issue 5700. No release-re
 - No-op path-binding updates retain plan bytes. Evidence path checks stop at the
   owned root, login fixtures use the same MySQL connection as their smoke test,
   and the proposed qualification archive lives outside the source checkout.
+
+- Added a host/container package lifecycle core controller with candidate clean
+  install/reinstall, main upgrade and distinct beta5 upgrade in ON and BC. It
+  preserves read-only clients, first-login ordering, whole-data cleanup checks and
+  private failed-cell recovery evidence. Its explicit orchestrated deployment
+  scope keeps packaged-byte binding during collection and final verification.
+  Five regression checks cover missing baselines, wrong bytes/source/province,
+  failed cleanup, modified evidence and the actual host receipt path. Live/final
+  qualification and the broader unsupported/interrupted lifecycle cases remain.
+  See [execution prerequisites](release-2026.08-package-lifecycle.md).
 
 ## Remaining work before this PR can complete issue 5700
 

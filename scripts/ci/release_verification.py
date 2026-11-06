@@ -25,6 +25,7 @@ import uuid
 from junit_evidence import EvidenceError, read_surefire
 from java_discovery import reconcile, expected_families
 from release_deployment import attest
+from package_lifecycle import validate_inventory as validate_lifecycle_inventory
 from cds_war_manifest import build_manifest
 from command_evidence import validate_contract, results as command_results, relative_file
 import compiled_classes
@@ -123,6 +124,10 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     if not names or len(set(names)) != len(names):
         raise EvidenceError("Empty or duplicate check registry")
     for check in checks:
+        if 'deploymentScope' in check and (check['deploymentScope'] != 'orchestrated-package-lifecycle'
+                or not check.get('packaged') or check.get('kind') != 'command'
+                or 'resultContract' not in check):
+            raise EvidenceError('Orchestrated lifecycle requires packaged command evidence')
         if 'requiredCases' in check and (check.get('kind') not in ('python', 'node')
                 or not isinstance(check['requiredCases'], list)
                 or any(not isinstance(case, str) or not case for case in check['requiredCases'])
@@ -439,7 +444,7 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
         elif (check.get("packaged") or check.get('requiresArtifact')) and artifact is None:
             receipt["reason"] = "Packaged acceptance requires the exact built WAR"
         else:
-            if check.get("packaged"):
+            if check.get("packaged") and not check.get('deploymentScope'):
                 receipt["deployment"] = attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root)
             substitutions = {"run": str(run_dir.resolve()), "root": str(root.resolve()),
                              "runId": run_id,
@@ -485,7 +490,10 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 raise EvidenceError("Source or plan changed during execution")
             if artifact is not None and digest(artifact) != receipt["artifactSha256"]:
                 raise EvidenceError("Packaged bytes changed during execution")
-            if check.get("packaged") and attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root) != receipt["deployment"]:
+            if check.get('deploymentScope'):
+                receipt['deployment'] = validate_lifecycle_inventory(read_json(run_dir / 'lifecycle.json'),
+                    source, profile, receipt['artifactSha256'], run_dir, read_json, digest)
+            elif check.get("packaged") and attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root) != receipt["deployment"]:
                 raise EvidenceError("Installed application changed during execution")
             receipt["outcome"] = "PASS" if receipt["summary"]["ready"] else "FAIL"
     except Exception as failure:
@@ -560,7 +568,7 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
             raise EvidenceError("Installed acceptance belongs to different packaged bytes")
         if check.get("packaged") and receipt.get("outcome") == "PASS" and (
                 receipt.get("deployment", {}).get("warSha256") != artifact_hash
-                or receipt["deployment"].get("scope") != "installed-package-application"
+                or receipt["deployment"].get("scope") != check.get('deploymentScope', 'installed-package-application')
                 or not HEX.fullmatch(receipt["deployment"].get("contentSha256", ""))):
             raise EvidenceError("Packaged acceptance has no installed-byte binding")
         inputs = receipt.get("inputs", [])
@@ -579,6 +587,9 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
             continue
         if receipt.get("command") != check.get("command") or check["kind"] == "external":
             raise EvidenceError("Receipt was not produced by its reviewed executable check")
+        if check.get('deploymentScope') and validate_lifecycle_inventory(read_json(path.parent / 'lifecycle.json'),
+                source, key[1], artifact_hash, path.parent, read_json, digest) != receipt.get('deployment'):
+            raise EvidenceError('Lifecycle installed-byte binding changed')
         actual_inputs = {str(p.relative_to(path.parent)) for p in evidence_files(check, path.parent)}
         if actual_inputs != set(input_names):
             raise EvidenceError("Evidence file inventory changed")

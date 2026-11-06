@@ -1356,3 +1356,9 @@ operator's password/reset state. It rejects historical handler injection. Supply
 runbook's username lockout setting and vascular dictionary first. Keep it serial
 with every other install/profile mutation. This is additional coverage; the full
 `harness-crash-qualification` inventory and SIGKILL recovery remain required.
+
+The required `package-lifecycle-core` ON/BC slots run on the dedicated disposable
+Docker host using [the lifecycle configuration](../testing/release-2026.08-package-lifecycle.md).
+Keep the broader unsupported/interrupted lifecycle acceptance blocking until its
+separate cases are implemented and executed. The orchestrated deployment scope
+retains `packaged: true` and validates in-container application bytes.
