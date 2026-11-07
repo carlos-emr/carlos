@@ -1,6 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.report;
 
+import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -10,11 +11,28 @@ import javax.xml.stream.XMLOutputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
-/** Small, typed OOXML export. Strings remain strings, including formula-looking values. */
+/**
+ * Small, typed OOXML export. Strings remain strings, including formula-looking values.
+ *
+ * <p>The workbook is streamed, never buffered, so exports may be large. The caller's stream is
+ * flushed only once the whole package, central directory included, has been written. When
+ * anything fails part-way the package is abandoned: no central directory, no flush, no close. A
+ * servlet response that has not yet filled its buffer therefore stays uncommitted, and the
+ * caller can still reset it and report an error instead of sending a truncated workbook.
+ */
 public final class SpreadsheetExport {
     public static final String CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private static final String NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-    private static final java.util.regex.Pattern EXCEL_ESCAPE = java.util.regex.Pattern.compile("_(?=x[0-9a-fA-F]{4}_)");
+    /**
+     * A literal underscore that a reader could take as the start of an {@code _xHHHH_} escape.
+     * The closing underscore is deliberately not required: it may be supplied by the escape this
+     * writer generates for the next character (unprotected, {@code "_x0041\r"} would be written
+     * {@code _x0041_x000D_} and read back as {@code "Ax000D_"}). Every such underscore is written
+     * as {@code _x005F_}, which always decodes to {@code _}, so over-escaping is harmless.
+     */
+    private static final java.util.regex.Pattern EXCEL_ESCAPE = java.util.regex.Pattern.compile("_(?=x[0-9a-fA-F]{4})");
+    /** StAX factories are thread-safe once configured; this one is never reconfigured. */
+    private static final XMLOutputFactory XML_OUTPUT = XMLOutputFactory.newFactory();
     private SpreadsheetExport() { }
 
     /** Writes one sheet; the caller owns the response stream. Cells are Strings or finite Doubles. */
@@ -26,7 +44,11 @@ public final class SpreadsheetExport {
         writeSheet(output, java.util.Arrays.asList(rows), "OSCAR_Report", null);
     }
 
-    /** Streams a named table with a frozen header and 22-character columns; the caller owns output. */
+    /**
+     * Streams a named table with a frozen header and 22-character columns; the caller owns output.
+     * Rows are validated as they are read, so an invalid row aborts the export part-way; the
+     * package is then abandoned as described on the class.
+     */
     public static void writeTable(OutputStream output, String sheetName, String[] headers,
                                   Iterable<Object[]> rows) throws IOException {
         if (sheetName == null || sheetName.isEmpty() || sheetName.length() > 31
@@ -42,70 +64,81 @@ public final class SpreadsheetExport {
 
     private static void writeSheet(OutputStream output, Iterable<Object[]> rows, String sheetName,
                                    String[] headers) throws IOException {
-        // finish(), not close(): a servlet container owns output. The ZIP deflater is still
-        // released by closing the wrapper over a non-closing stream.
-        try (ZipOutputStream zip = new ZipOutputStream(new java.io.FilterOutputStream(output) {
-            @Override public void close() throws IOException { flush(); }
-            @Override public void write(byte[] bytes, int offset, int length) throws IOException {
-                out.write(bytes, offset, length);
+        UncommittedOutput target = new UncommittedOutput(output);
+        ZipOutputStream zip = new ZipOutputStream(target, StandardCharsets.UTF_8);
+        try {
+            writePackage(zip, rows, sheetName, headers);
+            // close() finishes the archive (central directory) and releases the Deflater; the
+            // guard keeps it from closing the caller's stream.
+            zip.close();
+        } catch (IOException | RuntimeException | Error failure) {
+            // Do not let close() finish the archive: a finished ZIP would look like a complete,
+            // shorter workbook. Discard the remaining bytes and only release the Deflater.
+            target.abandon();
+            try {
+                zip.close();
+            } catch (IOException | RuntimeException cleanup) {
+                if (cleanup != failure) failure.addSuppressed(cleanup);
             }
-        }, StandardCharsets.UTF_8)) {
-            entry(zip, "[Content_Types].xml", """
-                    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-                      <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-                      <Default Extension="xml" ContentType="application/xml"/>
-                      <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-                      <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
-                    </Types>""");
-            entry(zip, "_rels/.rels", """
-                    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-                      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
-                    </Relationships>""");
-            workbook(zip, sheetName);
-            entry(zip, "xl/_rels/workbook.xml.rels", """
-                    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-                      <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
-                    </Relationships>""");
-            zip.putNextEntry(new ZipEntry("xl/worksheets/sheet1.xml"));
-            XMLStreamWriter xml = XMLOutputFactory.newFactory().createXMLStreamWriter(zip, StandardCharsets.UTF_8.name());
-            xml.writeStartDocument(StandardCharsets.UTF_8.name(), "1.0");
-            xml.writeStartElement("worksheet");
-            xml.writeDefaultNamespace(NS);
-            if (headers != null) {
-                xml.writeStartElement("sheetViews");
-                xml.writeStartElement("sheetView");
-                xml.writeAttribute("workbookViewId", "0");
-                xml.writeEmptyElement("pane");
-                xml.writeAttribute("ySplit", "1");
-                xml.writeAttribute("topLeftCell", "A2");
-                xml.writeAttribute("activePane", "bottomLeft");
-                xml.writeAttribute("state", "frozen");
-                xml.writeEndElement();
-                xml.writeEndElement();
-                xml.writeStartElement("cols");
-                xml.writeEmptyElement("col");
-                xml.writeAttribute("min", "1");
-                xml.writeAttribute("max", Integer.toString(headers.length));
-                xml.writeAttribute("width", "22");
-                xml.writeAttribute("customWidth", "1");
-                xml.writeEndElement();
-            }
-            xml.writeStartElement("sheetData");
-            int rowNumber = 0;
-            if (headers != null) writeRow(xml, headers, ++rowNumber);
-            for (Object[] row : rows) {
-                if (rowNumber >= 1_048_576) throw new IOException("Export exceeds worksheet row limit");
-                validateRow(row);
-                writeRow(xml, row, ++rowNumber);
-            }
-            xml.writeEndElement();
-            xml.writeEndElement();
-            xml.writeEndDocument();
-            xml.flush();
-            zip.closeEntry();
-        } catch (XMLStreamException failure) {
-            throw new IOException("Cannot write spreadsheet", failure);
+            throw failure;
         }
+        output.flush();
+    }
+
+    private static void writePackage(ZipOutputStream zip, Iterable<Object[]> rows, String sheetName,
+                                     String[] headers) throws IOException {
+        entry(zip, "[Content_Types].xml", """
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+                  <Default Extension="xml" ContentType="application/xml"/>
+                  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+                  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+                </Types>""");
+        entry(zip, "_rels/.rels", """
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+                </Relationships>""");
+        xmlEntry(zip, "xl/workbook.xml", xml -> workbook(xml, sheetName));
+        entry(zip, "xl/_rels/workbook.xml.rels", """
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+                </Relationships>""");
+        xmlEntry(zip, "xl/worksheets/sheet1.xml", xml -> worksheet(xml, rows, headers));
+    }
+
+    private static void worksheet(XMLStreamWriter xml, Iterable<Object[]> rows, String[] headers)
+            throws IOException, XMLStreamException {
+        xml.writeStartElement("worksheet");
+        xml.writeDefaultNamespace(NS);
+        if (headers != null) {
+            xml.writeStartElement("sheetViews");
+            xml.writeStartElement("sheetView");
+            xml.writeAttribute("workbookViewId", "0");
+            xml.writeEmptyElement("pane");
+            xml.writeAttribute("ySplit", "1");
+            xml.writeAttribute("topLeftCell", "A2");
+            xml.writeAttribute("activePane", "bottomLeft");
+            xml.writeAttribute("state", "frozen");
+            xml.writeEndElement();
+            xml.writeEndElement();
+            xml.writeStartElement("cols");
+            xml.writeEmptyElement("col");
+            xml.writeAttribute("min", "1");
+            xml.writeAttribute("max", Integer.toString(headers.length));
+            xml.writeAttribute("width", "22");
+            xml.writeAttribute("customWidth", "1");
+            xml.writeEndElement();
+        }
+        xml.writeStartElement("sheetData");
+        int rowNumber = 0;
+        if (headers != null) writeRow(xml, headers, ++rowNumber);
+        for (Object[] row : rows) {
+            if (rowNumber >= 1_048_576) throw new IOException("Export exceeds worksheet row limit");
+            validateRow(row);
+            writeRow(xml, row, ++rowNumber);
+        }
+        xml.writeEndElement();
+        xml.writeEndElement();
     }
 
     private static void validateRow(Object[] row) {
@@ -123,11 +156,8 @@ public final class SpreadsheetExport {
         }
     }
 
-    private static void workbook(ZipOutputStream zip, String sheetName) throws IOException, XMLStreamException {
-        zip.putNextEntry(new ZipEntry("xl/workbook.xml"));
-        XMLStreamWriter xml = XMLOutputFactory.newFactory().createXMLStreamWriter(zip, StandardCharsets.UTF_8.name());
+    private static void workbook(XMLStreamWriter xml, String sheetName) throws XMLStreamException {
         String relationships = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-        xml.writeStartDocument(StandardCharsets.UTF_8.name(), "1.0");
         xml.writeStartElement("workbook");
         xml.writeDefaultNamespace(NS);
         xml.writeNamespace("r", relationships);
@@ -138,9 +168,6 @@ public final class SpreadsheetExport {
         xml.writeAttribute("r", relationships, "id", "rId1");
         xml.writeEndElement();
         xml.writeEndElement();
-        xml.writeEndDocument();
-        xml.flush();
-        zip.closeEntry();
     }
 
     private static void writeRow(XMLStreamWriter xml, Object[] row, int number) throws XMLStreamException {
@@ -175,6 +202,33 @@ public final class SpreadsheetExport {
         zip.closeEntry();
     }
 
+    /** One XML part written through StAX; a writer of part content may also fail with I/O. */
+    @FunctionalInterface
+    private interface XmlPart {
+        void write(XMLStreamWriter xml) throws IOException, XMLStreamException;
+    }
+
+    private static void xmlEntry(ZipOutputStream zip, String name, XmlPart part) throws IOException {
+        zip.putNextEntry(new ZipEntry(name));
+        try {
+            XMLStreamWriter xml = XML_OUTPUT.createXMLStreamWriter(zip, StandardCharsets.UTF_8.name());
+            xml.writeStartDocument(StandardCharsets.UTF_8.name(), "1.0");
+            part.write(xml);
+            xml.writeEndDocument();
+            // StAX close() releases the writer and, by contract, never closes the ZIP stream. On
+            // failure the writer is not closed: the whole package is abandoned by writeSheet.
+            xml.close();
+        } catch (XMLStreamException failure) {
+            // StAX wraps a failure of the underlying stream (a client abort, a full disk); report
+            // that I/O failure itself rather than a generic writer error.
+            for (Throwable cause = failure.getCause(); cause != null; cause = cause.getCause()) {
+                if (cause instanceof IOException io) throw io;
+            }
+            throw new IOException("Cannot write spreadsheet", failure);
+        }
+        zip.closeEntry();
+    }
+
     private static String columnName(int index) {
         StringBuilder name = new StringBuilder();
         for (int n = index + 1; n > 0; n = (n - 1) / 26) name.append((char) ('A' + (n - 1) % 26));
@@ -182,9 +236,11 @@ public final class SpreadsheetExport {
     }
 
     private static String escapeExcelText(String text) {
-        // OOXML encodes XML-forbidden code units as _xHHHH_. Escape literal occurrences first.
-        // Match only the opening underscore so overlapping escapes such as _x0041_x0042_
-        // both remain literal instead of allowing the second token to decode as a character.
+        // OOXML encodes XML-forbidden code units as _xHHHH_. Escape literal underscores first, on
+        // the original text, so the escapes generated below are never themselves escaped. Match
+        // only the opening underscore and do not require the closing one (see EXCEL_ESCAPE), so
+        // overlapping text such as _x0041_x0042_, and text such as _x0041 followed by U+0001
+        // (whose generated _x0001_ would supply a closing underscore), both stay literal.
         String literal = EXCEL_ESCAPE.matcher(text).replaceAll("_x005F_");
         StringBuilder result = new StringBuilder();
         literal.codePoints().forEach(codePoint -> {
@@ -197,5 +253,42 @@ public final class SpreadsheetExport {
             }
         });
         return result.toString();
+    }
+
+    /**
+     * Passes package bytes to the caller's stream but never flushes or closes it: flushing a
+     * servlet response commits it, and the caller owns the stream. {@link #abandon()} discards
+     * every later byte, so releasing a failed {@link ZipOutputStream} cannot complete the archive.
+     */
+    private static final class UncommittedOutput extends FilterOutputStream {
+        private boolean abandoned;
+
+        UncommittedOutput(OutputStream target) {
+            super(target);
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+            if (!abandoned) out.write(value);
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
+            if (!abandoned) out.write(bytes, offset, length);
+        }
+
+        @Override
+        public void flush() {
+            // writeSheet flushes the caller's stream itself, once, after the archive is complete.
+        }
+
+        @Override
+        public void close() {
+            // The caller owns the target stream.
+        }
+
+        void abandon() {
+            abandoned = true;
+        }
     }
 }

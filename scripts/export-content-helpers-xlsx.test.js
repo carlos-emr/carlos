@@ -66,3 +66,35 @@ test('xlsx readers preserve overlapping literal OOXML escape tokens', () => {
     { type: 'text', value: '_x005F_x0041_' }, { type: 'text', value: '_x0041_x0042_' },
   ]);
 });
+
+test('xlsx readers keep a self-closing empty row from swallowing the next row', () => {
+  const workbook = zip({
+    'xl/workbook.xml': '<workbook/>',
+    'xl/worksheets/sheet1.xml': '<worksheet><sheetData>'
+      + '<row r="1"><c r="A1" t="inlineStr"><is><t>first</t></is></c></row>'
+      + '<row r="2"/>'
+      + '<row r="3" spans="1:2"/>'
+      + '<row r="4"><c r="A4" t="inlineStr"><is><t>fourth</t></is></c><c r="B4" t="n"><v>4</v></c></row>'
+      + '</sheetData></worksheet>',
+  });
+  assert.deepEqual(x.xlsxRows(workbook), [['first'], [], [], ['fourth', '4']]);
+  assert.deepEqual(x.xlsxCells(workbook), [
+    [{ type: 'text', value: 'first' }], [], [],
+    [{ type: 'text', value: 'fourth' }, { type: 'number', value: 4 }],
+  ]);
+});
+
+test('xlsx readers keep a literal escape prefix whose closing underscore comes from the next escape', () => {
+  // What SpreadsheetExport writes for "ref_x1234\r\nnext", "_x0041\u0001" and "_x00e9" plus a lone
+  // high surrogate: the literal underscore is _x005F_ even though the text has no closing "_".
+  const workbook = zip({
+    'xl/workbook.xml': '<workbook/>',
+    'xl/worksheets/sheet1.xml': '<worksheet><sheetData><row r="1">'
+      + '<c r="A1" t="inlineStr"><is><t xml:space="preserve">ref_x005F_x1234_x000D_\nnext</t></is></c>'
+      + '<c r="B1" t="inlineStr"><is><t xml:space="preserve">_x005F_x0041_x0001_</t></is></c>'
+      + '<c r="C1" t="inlineStr"><is><t xml:space="preserve">_x005F_x00e9_xD800_</t></is></c>'
+      + '</row></sheetData></worksheet>',
+  });
+  assert.deepEqual(x.xlsxRows(workbook)[0], ['ref_x1234\r\nnext', '_x0041\u0001', '_x00e9\uD800']);
+  assert.deepEqual(x.xlsxCells(workbook)[0].map(cell => cell.value), ['ref_x1234\r\nnext', '_x0041\u0001', '_x00e9\uD800']);
+});

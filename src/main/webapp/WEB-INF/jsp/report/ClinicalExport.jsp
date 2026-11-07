@@ -61,9 +61,6 @@
     }
     action = request.getParameter("getXLS");
     if (action != null) {
-        response.setContentType("application/octet-stream");
-        response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xlsx\"");
-
         // Parse CSV using Apache Commons CSV
         String[][] data;
         try (CSVParser parser = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT)) {
@@ -91,8 +88,13 @@
             }
         }
         try {
+            // The attachment headers are set together, only once the workbook is about to be
+            // written: a CSV parse failure above must not leave a download disposition on the
+            // error page. SpreadsheetExport flushes only a complete workbook, so the failure
+            // branch below can still replace an uncommitted response with a 500.
             response.setContentType(SpreadsheetExport.CONTENT_TYPE);
             response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xlsx\"");
             SpreadsheetExport.write(response.getOutputStream(), cells);
             return;
         } catch (Exception e) {

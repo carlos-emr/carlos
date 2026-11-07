@@ -26,7 +26,7 @@
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
  */
-//This action generates the CSV and XLS files on request
+//This action generates the CSV and XLSX files on request
 
 
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
@@ -172,7 +172,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
     }
 
     /**
-     * Guards both the CSV and XLS export paths against null or oversized payloads.
+     * Guards both the CSV and XLSX export paths against null or oversized payloads.
      *
      * <p>Size is measured in UTF-8 bytes rather than Java char count because the
      * server-side limit ({@link SQLReporter#MAX_CSV_EXPORT_LENGTH}) was set in bytes

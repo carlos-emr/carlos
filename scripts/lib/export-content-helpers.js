@@ -103,7 +103,9 @@ function xmlText(value) {
 
 /**
  * Excel's own escape for characters XML cannot carry: _xHHHH_ is the code unit, and a literal
- * "_xHHHH_" in the text is written as _x005F_xHHHH_. Decoded after the XML entities, as Excel does.
+ * underscore that could open one is written _x005F_ (SpreadsheetExport does so before every
+ * "xHHHH", closed or not, since its next escape may close it). Decoded after the XML entities,
+ * left to right and without overlap, as Excel and Apache POI do.
  */
 function excelText(value) {
   // Decode each token once. Consuming a following literal token would swallow the
@@ -111,6 +113,12 @@ function excelText(value) {
   return value.replace(/_x([0-9A-Fa-f]{4})_/g,
     (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
+
+/**
+ * One worksheet <row>, with its cells in group 1. A row without cells may be written self-closing
+ * (<row r="3"/>, as Woodstox does); matching it as an opening tag would swallow the next row.
+ */
+const ROW = /<row\b(?:[^>]*?\/>|[^>]*>([\s\S]*?)<\/row>)/g;
 
 /**
  * The first worksheet of an .xlsx as rows of cells { type: 'text' | 'number', value }: a numeric
@@ -128,9 +136,9 @@ function xlsxCells(buffer) {
   const sheetName = Object.keys(entries).filter(name => /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort()[0];
   h.assert(sheetName, 'The workbook has no worksheet');
   const rows = [];
-  for (const row of entries[sheetName].toString('utf8').matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  for (const row of entries[sheetName].toString('utf8').matchAll(ROW)) {
     const cells = [];
-    for (const cell of row[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    for (const cell of (row[1] || '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const ref = /\br="([A-Z]+)\d+"/.exec(cell[1]);
       const type = /\bt="(\w+)"/.exec(cell[1]);
       let column = 0;
@@ -162,9 +170,9 @@ function xlsxRows(buffer) {
   const sheetName = Object.keys(entries).filter(name => /^xl\/worksheets\/sheet\d+\.xml$/.test(name)).sort()[0];
   h.assert(sheetName, 'The workbook has no worksheet');
   const rows = [];
-  for (const row of entries[sheetName].toString('utf8').matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
+  for (const row of entries[sheetName].toString('utf8').matchAll(ROW)) {
     const cells = [];
-    for (const cell of row[1].matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
+    for (const cell of (row[1] || '').matchAll(/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g)) {
       const ref = /\br="([A-Z]+)\d+"/.exec(cell[1]);
       const type = /\bt="(\w+)"/.exec(cell[1]);
       let column = 0;
