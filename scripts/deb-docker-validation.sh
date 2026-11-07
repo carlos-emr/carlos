@@ -81,7 +81,7 @@
 #   CONTAINER           container name (default carlos-deb-validation)
 #   IMAGE               image tag (default carlos-deb-validation:26.04)
 #   BASE_IMAGE          default ubuntu:26.04
-#   PLAYWRIGHT_VERSION  default 1.60.0 (runbook section 5; do not run
+#   PLAYWRIGHT_VERSION  default 1.61.1 (runbook section 5; do not run
 #                       `playwright install`: the package ships Chromium)
 #   AXE_CORE_VERSION    default 4.14.0 (accessibility-smoke prerequisite)
 #   BUILD_PROXY         optional http(s) proxy URL for apt and npm while
@@ -104,7 +104,7 @@ RESET_PASSWORD="${RESET_PASSWORD:-Carlos2026!Verify}"
 CONTAINER="${CONTAINER:-carlos-deb-validation}"
 IMAGE="${IMAGE:-carlos-deb-validation:26.04}"
 BASE_IMAGE="${BASE_IMAGE:-ubuntu:26.04}"
-PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.60.0}"
+PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.61.1}"
 # Match the repository's exact dependency; a floating install changes the audit rules.
 AXE_CORE_VERSION="4.14.0"
 ENTITIES_VERSION="4.5.0"

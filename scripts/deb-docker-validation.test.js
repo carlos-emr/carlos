@@ -69,11 +69,14 @@ fi
 exit 1
 `, {mode:0o755});
   const r = run(['up'], {...box.env, CARLOS_DISPOSABLE_HOST:'true', DEBS_DIR:debs,
-    CGROUP_ROOT:cgroups, CONTAINER_NETWORK:'bridge', AXE_CORE_VERSION:'', BUILD_CA_BUNDLE:''});
+    CGROUP_ROOT:cgroups, CONTAINER_NETWORK:'bridge', AXE_CORE_VERSION:'', PLAYWRIGHT_VERSION:'', BUILD_CA_BUNDLE:''});
   assert.equal(r.status, 1);
   assert.match(r.stderr, /image build failed/);
   const dockerfile = fs.readFileSync(captured, 'utf8');
   assert.match(dockerfile, /npm install --save-exact[^\n]+"playwright@\$\{PLAYWRIGHT_VERSION\}" "axe-core@\$\{AXE_CORE_VERSION\}"/);
+  const driver = require('../package-lock.json').packages['node_modules/playwright'].version;
+  assert.equal(require('../package.json').devDependencies.playwright, driver);
+  assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg PLAYWRIGHT_VERSION=${driver}`));
   const pin = require('../package-lock.json').packages['node_modules/axe-core'].version;
   assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg AXE_CORE_VERSION=${pin}`));
 });
