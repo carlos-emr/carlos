@@ -42,6 +42,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocument;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.documentManager.ConvertToEdoc;
 
@@ -124,8 +125,12 @@ public class HRMPDFCreator extends PdfPageEventHelper {
      * <p>Dispatches to the appropriate rendering strategy based on the report's content type:
      * text reports use a structured table layout, image attachments are scaled to fit the page,
      * HTML reports are converted via Flying Saucer, and other binary content is written directly.</p>
+     *
+     * @throws PDFGenerationException if an HTML report cannot be converted to PDF; nothing has been
+     *         written to the output stream in that case. The I/O and document errors of the other
+     *         content types are logged, as they always were.
      */
-    public void printPdf() {
+    public void printPdf() throws PDFGenerationException {
         try {
             if (!hrmReport.isBinary()) {
                 document = new Document();
@@ -180,7 +185,15 @@ public class HRMPDFCreator extends PdfPageEventHelper {
                 byte[] htmlHrmReportData = hrmReport.getBinaryContent();
                 eFormData.setFormData(new String(htmlHrmReportData, StandardCharsets.UTF_8));
                 Path path = ConvertToEdoc.saveAsTempPDF(eFormData);
-                outputStream.write(Files.readAllBytes(path));
+                if (path == null) {
+                    // saveAsTempPDF reports a failed conversion by returning null (it has already logged why).
+                    throw new PDFGenerationException("HTML HRM report could not be converted to PDF");
+                }
+                try {
+                    outputStream.write(Files.readAllBytes(path));
+                } finally {
+                    deleteTemporaryPdf(path);
+                }
             } else {
                 logger.info("HRM Report is binary, only printing the attachment");
                 outputStream.write(hrmReport.getBinaryContent()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- binary PDF bytes to OutputStream
@@ -191,6 +204,19 @@ public class HRMPDFCreator extends PdfPageEventHelper {
             logger.error("An I/O Exception has occurred while either getting a PDFWriter Instance or creating the BaseFont", e);
         } catch (DocumentException e) {
             logger.error("A Document Exception occurred while either getting a PDFWriter or creating the BaseFont", e);
+        }
+    }
+
+    /**
+     * Removes the temporary PDF that the HTML conversion left, which holds the whole report. A failure to
+     * delete it is logged without the file's name or the exception, and never replaces the outcome of
+     * the print.
+     */
+    private void deleteTemporaryPdf(Path path) {
+        try {
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            logger.warn("Could not delete the temporary PDF of an HTML HRM report ({})", e.getClass().getSimpleName());
         }
     }
 

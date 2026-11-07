@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
+import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -75,7 +76,12 @@ public class EmailComposeManager {
     private PatientConsentManager patientConsentManager;
     @Autowired
     private NioFileManager nioFileManager;
+    @Autowired
+    private AttachmentOwnershipService attachmentOwnershipService;
     private final SecurityInfoManager securityInfoManager;
+
+    /** The failure for an attachment of another patient, or one that cannot be found; it names no record. */
+    private static final String ATTACHMENT_NOT_RENDERED = "A selected email attachment could not be rendered";
 
     @Autowired
     public EmailComposeManager(SecurityInfoManager securityInfoManager) {
@@ -109,14 +115,21 @@ public class EmailComposeManager {
      * represents a featured form that will be prepended to the list of attached forms. Each EForm
      * is rendered with proper security context and file size calculation.
      *
+     * <p>Every eForm, the featured one included, must belong to {@code demographicNo} (its
+     * {@code eform_data} patient). If one does not, nothing is rendered and the attachment is refused
+     * like one that cannot be found.</p>
+     *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param fdid String the featured/primary EForm document ID to prepend to attachments (optional, may be null)
      * @param attachedEForms String[] array of EForm IDs to attach to the email
+     * @param demographicNo the email's patient, whom every attachment must belong to
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
-     * @throws PDFGenerationException if PDF rendering fails for any EForm
+     * @throws PDFGenerationException if PDF rendering fails for any EForm, or an eForm cannot be found
+     *         or belongs to another patient
      * @throws SecurityException if the user lacks the required _eform READ privilege
      */
-    public List<EmailAttachment> prepareEFormAttachments(LoggedInInfo loggedInInfo, String fdid, String[] attachedEForms) throws PDFGenerationException {
+    public List<EmailAttachment> prepareEFormAttachments(LoggedInInfo loggedInInfo, String fdid, String[] attachedEForms,
+            Integer demographicNo) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_eform)");
         }
@@ -127,10 +140,10 @@ public class EmailComposeManager {
         }
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (String eFormId : attachedEFormIds) {
-            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, Integer.parseInt(eFormId));
+        for (Integer eFormId : patientAttachmentIds(DocumentType.EFORM, attachedEFormIds, demographicNo)) {
+            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
             if (eFormPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, Integer.parseInt(eFormId), getFileSize(eFormPDFPath)));
+                emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, eFormId, getFileSize(eFormPDFPath)));
             }
         }
 
@@ -143,13 +156,20 @@ public class EmailComposeManager {
      * This method converts selected electronic documents into PDF format for email attachment.
      * Each EDoc is rendered with proper security context and file size calculation.
      *
+     * <p>Every document must belong to {@code demographicNo} (a {@code ctl_document} link to that
+     * patient, not deleted). If one does not, nothing is rendered and the attachment is refused like
+     * one that cannot be found.</p>
+     *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param attachedDocuments String[] array of EDoc IDs to attach to the email
+     * @param demographicNo the email's patient, whom every attachment must belong to
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
-     * @throws PDFGenerationException if PDF rendering fails for any electronic document
+     * @throws PDFGenerationException if PDF rendering fails for any electronic document, or a document
+     *         cannot be found or belongs to another patient
      * @throws SecurityException if the user lacks the required _edoc READ privilege
      */
-    public List<EmailAttachment> prepareEDocAttachments(LoggedInInfo loggedInInfo, String[] attachedDocuments) throws PDFGenerationException {
+    public List<EmailAttachment> prepareEDocAttachments(LoggedInInfo loggedInInfo, String[] attachedDocuments,
+            Integer demographicNo) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_edoc", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
@@ -157,11 +177,11 @@ public class EmailComposeManager {
         List<String> attachedEDocIds = convertToList(attachedDocuments);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (String eDocId : attachedEDocIds) {
+        for (Integer eDocId : patientAttachmentIds(DocumentType.DOC, attachedEDocIds, demographicNo)) {
             Path eDocPDFPath = applicationTempFile(
-                    documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, Integer.parseInt(eDocId)));
+                    documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId));
             if (eDocPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, Integer.parseInt(eDocId), getFileSize(eDocPDFPath)));
+                emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, eDocId, getFileSize(eDocPDFPath)));
             }
         }
 
@@ -200,13 +220,20 @@ public class EmailComposeManager {
      * This method converts selected laboratory results into PDF format for email attachment.
      * Each lab result is rendered with proper security context and file size calculation.
      *
+     * <p>Every lab must belong to {@code demographicNo} (an HL7 {@code patientLabRouting} row for that
+     * patient; the lab renderer renders HL7 labs only). If one does not, nothing is rendered and the
+     * attachment is refused like one that cannot be found.</p>
+     *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param attachedLabs String[] array of lab result IDs to attach to the email
+     * @param demographicNo the email's patient, whom every attachment must belong to
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata
-     * @throws PDFGenerationException if PDF rendering fails for any laboratory result
+     * @throws PDFGenerationException if PDF rendering fails for any laboratory result, or a lab cannot
+     *         be found or belongs to another patient
      * @throws SecurityException if the user lacks the required _lab READ privilege
      */
-    public List<EmailAttachment> prepareLabAttachments(LoggedInInfo loggedInInfo, String[] attachedLabs) throws PDFGenerationException {
+    public List<EmailAttachment> prepareLabAttachments(LoggedInInfo loggedInInfo, String[] attachedLabs,
+            Integer demographicNo) throws PDFGenerationException {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
             throw new SecurityException("missing required sec object (_lab)");
         }
@@ -214,10 +241,10 @@ public class EmailComposeManager {
         List<String> attachedLabIds = convertToList(attachedLabs);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (String labId : attachedLabIds) {
-            Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, Integer.parseInt(labId));
+        for (Integer labId : patientAttachmentIds(DocumentType.LAB, attachedLabIds, demographicNo)) {
+            Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, labId);
             if (labPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, Integer.parseInt(labId), getFileSize(labPDFPath)));
+                emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, labId, getFileSize(labPDFPath)));
             }
         }
 
@@ -231,12 +258,19 @@ public class EmailComposeManager {
      * HRM functionality is only available in Ontario billing regions. If not in Ontario, an empty list is returned.
      * Security violations are logged but do not throw exceptions, instead returning an empty list.
      *
+     * <p>Every report must belong to {@code demographicNo} (an {@code HRMDocumentToDemographic} link
+     * to that patient). If one does not, nothing is rendered and the attachment is refused like one
+     * that cannot be found.</p>
+     *
      * @param loggedInInfo LoggedInInfo the current logged-in user session information
      * @param attachedHRMDocuments String[] array of HRM document IDs to attach to the email
+     * @param demographicNo the email's patient, whom every attachment must belong to
      * @return List&lt;EmailAttachment&gt; list of prepared PDF email attachments with metadata, or empty list if not in Ontario or lacking privileges
-     * @throws PDFGenerationException if PDF rendering fails for any hospital report
+     * @throws PDFGenerationException if PDF rendering fails for any hospital report, or a report cannot
+     *         be found or belongs to another patient
      */
-    public List<EmailAttachment> prepareHRMAttachments(LoggedInInfo loggedInInfo, String[] attachedHRMDocuments) throws PDFGenerationException {
+    public List<EmailAttachment> prepareHRMAttachments(LoggedInInfo loggedInInfo, String[] attachedHRMDocuments,
+            Integer demographicNo) throws PDFGenerationException {
         if (!CarlosProperties.getInstance().isOntarioBillingRegion()) {
             return new ArrayList<>();
         }
@@ -249,10 +283,10 @@ public class EmailComposeManager {
         List<String> attachedHRMIds = convertToList(attachedHRMDocuments);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (String hrmId : attachedHRMIds) {
-            Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, Integer.parseInt(hrmId));
+        for (Integer hrmId : patientAttachmentIds(DocumentType.HRM, attachedHRMIds, demographicNo)) {
+            Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
             if (hrmPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, Integer.parseInt(hrmId), getFileSize(hrmPDFPath)));
+                emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, hrmId, getFileSize(hrmPDFPath)));
             }
         }
 
@@ -507,6 +541,25 @@ public class EmailComposeManager {
     private boolean isValidEmail(String email) {
         EmailValidator emailValidator = EmailValidator.getInstance();
         return emailValidator.isValid(email);
+    }
+
+    /**
+     * The selected ids of one attachment type, parsed, once each is known to belong to the email's
+     * patient ({@code demographicNo}) through {@link AttachmentOwnershipService}, the rule the send
+     * applies too. Email attachments must belong to the email's patient: a record of another patient,
+     * or one that cannot be found, is refused the same way, before anything is rendered and with
+     * nothing about the record in the failure.
+     */
+    private List<Integer> patientAttachmentIds(DocumentType type, List<String> selected, Integer demographicNo)
+            throws PDFGenerationException {
+        List<Integer> ids = new ArrayList<>(selected.size());
+        for (String id : selected) {
+            ids.add(Integer.parseInt(id));
+        }
+        if (!ids.isEmpty() && !attachmentOwnershipService.allBelongToDemographic(type, demographicNo, ids)) {
+            throw new PDFGenerationException(ATTACHMENT_NOT_RENDERED);
+        }
+        return ids;
     }
 
     /**

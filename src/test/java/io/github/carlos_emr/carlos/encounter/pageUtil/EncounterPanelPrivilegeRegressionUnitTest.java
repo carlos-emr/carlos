@@ -22,8 +22,10 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.commn.dao.EpisodeDao;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.daos.security.SecobjprivilegeDao;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.OscarRoleObjectPrivilege;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -92,6 +94,14 @@ class EncounterPanelPrivilegeRegressionUnitTest extends CarlosUnitTestBase {
         request.getSession().setAttribute("userrole", "doctor");
         request.getSession().setAttribute("user", "999998");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        Provider provider = new Provider();
+        provider.setProviderNo("999998");
+        provider.setFirstName("Synthetic");
+        provider.setLastName("Provider");
+        when(loggedInInfo.getLoggedInProvider()).thenReturn(provider);
+        Secuserrole role = new Secuserrole();
+        role.setRoleName("doctor");
+        when(securityInfoManager.getRoles(loggedInInfo)).thenReturn(List.of(role));
         when(securityInfoManager.isAllowedAccessToPatientRecord(org.mockito.ArgumentMatchers.eq(loggedInInfo),
                 org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
 

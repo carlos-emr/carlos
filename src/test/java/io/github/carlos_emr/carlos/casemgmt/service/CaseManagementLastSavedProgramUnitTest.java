@@ -133,6 +133,50 @@ class CaseManagementLastSavedProgramUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldKeepTheOwnedEditor_whenImportedUnknownDatesAreReadable() {
+        Map<String, Object> imported = row(40L, "imported-date-only", "7", "", null);
+        when(dao.getUnsignedRawNoteInfoMapByDemographic(PATIENT)).thenReturn(List.of(
+                imported, row(31L, "other-program", "8", PROVIDER, 3000),
+                row(30L, "owned", "7", PROVIDER, 2000)));
+        CaseManagementNote expected = note("30", PROVIDER);
+
+        assertThat(manager.getLastSaved("7", PATIENT, PROVIDER)).isSameAs(expected);
+
+        assertThat(imported.get("observation_date")).isNull();
+        assertThat(imported.get("providerNo")).isEqualTo("");
+        verify(manager, never()).getNote("31");
+        verify(manager, never()).getNote("40");
+    }
+
+    @Test
+    void shouldRejectAnUnattributedEditor_whenOnlyImportedUnknownDatesMatchTheProgram() {
+        Map<String, Object> imported = row(40L, "imported-date-only", "7", "", null);
+        when(dao.getUnsignedRawNoteInfoMapByDemographic(PATIENT)).thenReturn(List.of(
+                imported, row(31L, "other-program", "8", PROVIDER, 3000)));
+        note("40", "");
+
+        assertThat(manager.getLastSaved("7", PATIENT, PROVIDER)).isNull();
+
+        assertThat(imported.get("observation_date")).isNull();
+        assertThat(imported.get("providerNo")).isEqualTo("");
+        verify(manager).getNote("40");
+        verify(manager, never()).getNote("31");
+    }
+
+    @Test
+    void shouldRetainAnOwnedUnknownDate_whenNoKnownDateMatchesTheProgram() {
+        Map<String, Object> owned = row(40L, "owned-unknown-date", "7", PROVIDER, null);
+        when(dao.getUnsignedRawNoteInfoMapByDemographic(PATIENT)).thenReturn(List.of(
+                owned, row(31L, "other-program", "8", PROVIDER, 3000)));
+        CaseManagementNote expected = note("40", PROVIDER);
+
+        assertThat(manager.getLastSaved("7", PATIENT, PROVIDER)).isSameAs(expected);
+
+        assertThat(owned.get("observation_date")).isNull();
+        verify(manager, never()).getNote("31");
+    }
+
+    @Test
     void shouldNotRestoreSupersededRevision_whenLatestRevisionBelongsToAnotherProgram() {
         when(dao.getUnsignedRawNoteInfoMapByDemographic(PATIENT)).thenReturn(List.of(
                 row(31L, "same-note", "8", PROVIDER, 3000), row(30L, "same-note", "7", PROVIDER, 2000)));
@@ -191,12 +235,16 @@ class CaseManagementLastSavedProgramUnitTest extends CarlosUnitTestBase {
     }
 
     private Map<String, Object> row(long id, String uuid, String program, String provider, long timestamp) {
+        return row(id, uuid, program, provider, new Date(timestamp));
+    }
+
+    private Map<String, Object> row(long id, String uuid, String program, String provider, Date timestamp) {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("id", id);
         row.put("uuid", uuid);
         row.put("program_no", program);
         row.put("providerNo", provider);
-        row.put("observation_date", new Date(timestamp));
+        row.put("observation_date", timestamp);
         row.put("reporter_caisi_role", "1");
         return row;
     }

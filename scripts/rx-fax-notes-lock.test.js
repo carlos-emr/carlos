@@ -161,6 +161,38 @@ for (const previewState of ['absent-frame', 'absent-document', 'absent-elements'
   });
 }
 
+for (const [input, expected] of [
+  ['', ''], [' \t\r\n ', ''], ['\u00a0\u2003', ''],
+  ['  Keep internal  spaces\nSecond line \r\n', 'Keep internal  spaces\nSecond line'],
+]) {
+  test(`Fax & Paste trims surrounding notes and omits blank notes: ${JSON.stringify(input)}`, () => {
+    const { context, notes } = setup();
+    notes.value = input;
+    let captured;
+    context.onPrint2 = (_method, _script, _pdf, _paste, text) => { captured = text; };
+    assert.equal(context.sendFax(true), true);
+    assert.equal(captured, 'prescription\n' + (expected ? expected + '\n' : ''));
+    assert.equal(notes.value, input, 'Pasting must not rewrite the stored prescription note');
+  });
+
+  test(`Print and Paste trims surrounding notes and omits blank notes: ${JSON.stringify(input)}`, async () => {
+    const { context, notes } = setup();
+    context.window.parent = { opener: null };
+    context.preview = { document: { forms: [{ rx_no_newlines: { value: 'prescription' } }] } };
+    const writes = [];
+    context.writeToEncounter = (_print, text) => { writes.push(text); return Promise.resolve(true); };
+    context.alert = message => { throw new Error(message); };
+    vm.runInContext(browserFunction('printPaste2Parent', 'writeToEncounter'), context);
+    notes.value = '';
+    assert.equal(await context.printPaste2Parent(true, false, true), true);
+    notes.value = input;
+    assert.equal(await context.printPaste2Parent(true, false, true), true);
+    assert.equal(writes[1], writes[0].replace('prescription\n',
+      'prescription\n' + (expected ? expected + '\n' : '')));
+    assert.equal(notes.value, input, 'Pasting must not rewrite the stored prescription note');
+  });
+}
+
 for (const pasteAfterSuccess of [false, true]) {
   test(`pending ${pasteAfterSuccess ? 'Fax & Paste' : 'Fax'} blocks later note writes`, async () => {
     const fixture = setup();
@@ -307,6 +339,58 @@ function faxResultFixture({ submitThrows = false, notesReject = false, notesGate
   context.onPrint2('oscarRxFax', '12345', 'attempt-id', false, 'captured prescription text', () => 'unsaved');
   return { ...fixture, submissions: () => submissions, load: (state) => { result = state; handler(); } };
 }
+
+test('half-letter printing preserves a delayed fax target and locked notes', async () => {
+  let finishNotes;
+  const notesGate = new Promise((resolve) => { finishNotes = resolve; });
+  const fixture = faxResultFixture({ notesGate });
+  const { context, elements, notes } = fixture;
+  const form = elements.preview.contentWindow.document.getElementById('preview2Form');
+  const submissions = [];
+  const submit = form.submit;
+  form.submit = () => {
+    submissions.push({ target: form.target, action: form.action });
+    submit();
+  };
+
+  context.printHalfLetter('print', '12345');
+  assert.equal(submissions.length, 1);
+  assert.equal(submissions[0].target, '_blank');
+  const print = new URL(submissions[0].action, 'https://fixture.invalid');
+  assert.equal(print.searchParams.get('__method'), 'print');
+  assert.equal(print.searchParams.get('scriptId'), '12345');
+  assert.equal(print.searchParams.get('rxPageSize'), 'PageSize.HALFLETTER');
+  assert.equal(context.faxSubmissionPending, true);
+  assert.equal(notes.readOnly, true);
+
+  finishNotes();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(submissions.length, 2);
+  assert.equal(submissions[1].target, '');
+  const fax = new URL(submissions[1].action, 'https://fixture.invalid');
+  assert.equal(fax.searchParams.get('__method'), 'oscarRxFax');
+  assert.equal(fax.searchParams.get('scriptId'), '12345');
+  assert.equal(context.faxSubmissionPending, true);
+  assert.equal(notes.readOnly, true);
+});
+
+test('half-letter printing requires an available preview and permits reprints', () => {
+  const { context } = setup();
+  const submissions = [];
+  context.onPrint2 = (...args) => submissions.push(args);
+  context.hasPreview = false;
+  context.printHalfLetter('print', '12345');
+  context.hasPreview = true;
+  context.frames.preview = null;
+  context.printHalfLetter('print', '12345');
+  assert.equal(submissions.length, 0);
+  context.frames.preview = {};
+  context.isReprint = true;
+  context.printHalfLetter('rePrint', '12345');
+  assert.equal(submissions.length, 1);
+  assert.equal(submissions[0][0], 'rePrint');
+  assert.equal(submissions[0][6], 'PageSize.HALFLETTER');
+});
 
 for (const cancellation of ['modal hide', 'reset', 'unload']) {
   test(`${cancellation} cancels a deferred fax without claiming an in-flight fax was cancelled`, async () => {

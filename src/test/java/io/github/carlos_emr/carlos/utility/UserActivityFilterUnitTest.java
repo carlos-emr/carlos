@@ -127,13 +127,14 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
                 .isBetween(before, System.currentTimeMillis());
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"/tickler/ticklerMain", "/form/cdsImportStatus"})
     @DisplayName("should not count an autoRefresh=true request as activity")
-    void shouldNotRecordActivity_whenRequestAutoRefreshes() throws Exception {
+    void shouldNotRecordActivity_whenRequestAutoRefreshes(String path) throws Exception {
         MockHttpSession session = authenticatedSession();
         long recent = System.currentTimeMillis() - 60_000L;
         session.setAttribute(UserActivityFilter.LAST_USER_ACTIVITY, recent);
-        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
+        MockHttpServletRequest request = request(path, session);
         request.setParameter("autoRefresh", "true");
         MockFilterChain chain = new MockFilterChain();
 
@@ -188,12 +189,14 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
         assertThat(session.getAttribute(UserActivityFilter.LAST_USER_ACTIVITY)).isEqualTo(newer);
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(strings = {"/tickler/ticklerMain", "/form/cdsImportStatus"})
     @DisplayName("should redirect an inactive session to the logout page before the chain runs")
-    void shouldRedirectToLogoutPage_whenSessionIsInactive() throws Exception {
+    void shouldRedirectToLogoutPage_whenSessionIsInactive(String path) throws Exception {
         MockHttpSession session = authenticatedSession();
         session.setAttribute(UserActivityFilter.LAST_USER_ACTIVITY, System.currentTimeMillis() - STALE);
-        MockHttpServletRequest request = request("/tickler/ticklerMain", session);
+        MockHttpServletRequest request = request(path, session);
+        request.setParameter("autoRefresh","true");
         request.setRemoteAddr("192.0.2.10");
         MockHttpServletResponse response = new MockHttpServletResponse();
         MockFilterChain chain = new MockFilterChain();

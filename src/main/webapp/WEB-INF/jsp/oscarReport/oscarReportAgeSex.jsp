@@ -46,18 +46,18 @@
 
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@page import="java.math.*, java.util.*, java.sql.*, io.github.carlos_emr.*, java.net.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@page import="java.math.*, java.util.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ClinicLocationDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ClinicLocation" %>
+
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.ReportAgeSexDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ReportAgeSex" %>
+
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%

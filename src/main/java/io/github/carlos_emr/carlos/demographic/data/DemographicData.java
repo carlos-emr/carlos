@@ -182,16 +182,8 @@ public class DemographicData {
     }
 
     public String getDemographicNotes(String demographicNo) {
-        String retval = "";
         DemographicCust demographicCust = demographicCustDao.find(Integer.parseInt(demographicNo));
-        if (demographicCust != null) {
-            retval = demographicCust.getNotes();
-        }
-
-        if (retval.startsWith("<unotes>")) retval = retval.substring(8);
-        if (retval.endsWith("</unotes>")) retval = retval.substring(0, retval.length() - 9);
-
-        return retval;
+        return demographicCust == null ? "" : DemographicCust.patientNotesText(demographicCust.getNotes());
     }
 
     public Demographic getDemographic(LoggedInInfo loggedInInfo, String DemographicNo) {

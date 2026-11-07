@@ -68,7 +68,6 @@ public interface LookupDao {
 
     public void SaveAsOrgCode(LookupCodeValue orgVal, String tableId) throws SQLException;
 
-    public void runProcedure(String procName, String[] params) throws SQLException;
 
     public int getCountOfActiveClient(String orgCd) throws SQLException;
 

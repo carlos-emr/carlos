@@ -123,7 +123,7 @@ class ApplicationTempPurgeJobUnitTest {
         Instant cutoff = now.minus(24, ChronoUnit.HOURS);
 
         // NioFileManagerImpl.createTempFile stages multi-patient demographic import files under
-        // tempDirectory<ts> subdirectories (see ImportDemographicDataAction42Action). Pre-fix, the
+        // tempDirectory<ts> subdirectories. Pre-fix, the
         // tempPDF*-only filter never matched this prefix, so these directories were retained forever.
         Path oldTempDirectoryDir = Files.createDirectory(tempRoot.resolve("tempDirectory1700000000000"));
         Path nestedImportFile = Files.createFile(oldTempDirectoryDir.resolve("import-batch.csv"));

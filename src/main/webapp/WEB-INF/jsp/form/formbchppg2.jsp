@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -46,7 +46,7 @@
 %>
 
 <%@ page
-        import="java.util.*, io.github.carlos_emr.carlos.util.UtilDateUtilities, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*, io.github.carlos_emr.carlos.prevention.PreventionData,io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
+        import="java.util.*, io.github.carlos_emr.carlos.util.UtilDateUtilities, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.prevention.PreventionData, io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -115,8 +115,9 @@
             String oldDateFormat = "yyyy-MM-dd";
             String newDateFormat = "dd/MM/yyyy";
 
-            Date date = UtilDateUtilities.StringToDate((String) vacHash.get("prevention_date"), oldDateFormat);
-            String vacDate = UtilDateUtilities.DateToString(date, newDateFormat);
+            Date date = (Date) vacHash.get("prevention_date_asDate");
+            String vacDate = date == null ? (String) vacHash.get("prevention_date_no_time")
+                    : UtilDateUtilities.DateToString(date, newDateFormat);
 
             if (!type.equals("Pneu-C") && !type.equals("Td") && !type.equals("HepA") && !type.equals("HepB") && !type.equals(props.getProperty("pg1_otherVac"))) {
 

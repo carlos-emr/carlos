@@ -67,7 +67,7 @@ permissions:
 jobs:
   tests:
     name: Debian Python regressions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
@@ -100,7 +100,7 @@ jobs:
           fi
       # Ubuntu 26.04 ships Python 3.14. The runner's 3.12 CSV reader has
       # a known QUOTE_NOTNULL bug and cannot validate the target semantics.
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       - name: Install the CLI's runtime dependency
@@ -108,7 +108,10 @@ jobs:
       - name: Packaging-contract tests
         # Do not import these as debian.assets: python-debian, installed on
         # Debian development hosts, owns the top-level debian package.
-        run: python3 -m unittest discover -s debian/assets/tests
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends restic
+          python3 -m unittest discover -s debian/assets/tests
       - name: Manifest generator and shipped-manifest tests
         run: python3 -m unittest discover -s scripts/migration/o19/tests -t .
       # Standalone data belongs to carlos-emr and can advance independently

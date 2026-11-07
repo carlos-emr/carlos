@@ -15,7 +15,7 @@ const endpoint = 'http://127.0.0.1:8080/carlos/CaseManagementEntry';
 const note = 'FAKE print regression body';
 function load({ fileSystem } = {}) {
   const source = fs.readFileSync(process.env.ECHART_PRINT_REVIEW_SOURCE || driver, 'utf8');
-  const boundary = source.indexOf('(async () => {');
+  const boundary = source.indexOf("require('./lib/legacy-check').runLegacyCheck(");
   assert.ok(boundary > 0);
   const ownRequire = createRequire(driver);
   const context = vm.createContext({
@@ -202,6 +202,8 @@ function nativeNavigation(t, change) {
   page.context = () => ({ cookies: async () => [{ name: 'JSESSIONID', value: 'owned.route' }], newCDPSession: async () => cdp });
   page.evaluate = async () => departed ? { url: target, timeOrigin: 2 } : { ...form };
   box.wirePage(page, 'owned-print');
+  const requestObservers = ['request', 'requestfinished', 'requestfailed']
+    .map(event => [event, page.listeners(event)]);
   const rows = [['1', 'owned', 'ip', '999998', '0', '101', 'date'], ['2', 'other', 'ip', '99', '0', '202', 'date']];
   const sql = { rows(query) {
     if (query.includes('FROM casemgmt_note_lock ORDER BY')) return departed ? rows.slice(1) : rows;
@@ -224,7 +226,15 @@ function nativeNavigation(t, change) {
     return { url: () => target, status: () => 200,
       headers: () => ({ [require('./lib/playwright-harness').APPLICATION_HEADER]: 'none' }) };
   };
-  return { box, page, sql, artifacts, cdp, preservedBeforeConsume: () => preservedBeforeConsume };
+  return { box, page, sql, artifacts, cdp, requestObservers, preservedBeforeConsume: () => preservedBeforeConsume };
+}
+
+function cleanNavigationObservers(state) {
+  for (const [event, permanent] of state.requestObservers) {
+    assert.deepEqual(state.page.listeners(event), permanent,
+      `the private ${event} observer is removed and every permanent strict observer remains`);
+  }
+  assert.equal(state.cdp.listenerCount('Network.loadingFailed'), 0);
 }
 
 test('actual print navigation observes native events, preserves private proof, and acknowledges only its original entry', async t => {
@@ -238,23 +248,20 @@ test('actual print navigation observes native events, preserves private proof, a
   assert.equal(artifact.audit.rawFailures[0].errorText, 'net::ERR_ABORTED');
   assert.equal(artifact.audit.witness.operations[0].acknowledgment.requestId, 'native1');
   assert.equal(fs.statSync(state.artifacts[0]).mode & 0o777, 0o600);
-  assert.equal(state.page.listenerCount('request'), 1); // Original strict recorder remains.
-  assert.equal(state.page.listenerCount('requestfinished'), 0);
-  assert.equal(state.page.listenerCount('requestfailed'), 1); // Original strict recorder remains.
-  assert.equal(state.cdp.listenerCount('Network.loadingFailed'), 0);
+  cleanNavigationObservers(state);
 });
 
 test('a real unrelated failure remains strict after the exact native print abort is acknowledged', async t => {
   const state = nativeNavigation(t, 'unknown');
   await state.box.completePrintNavigation(state.page, state.sql);
   assert.throws(state.box.check, /browser reported/);
+  cleanNavigationObservers(state);
 });
 for (const change of ['duplicate', 'refused']) test(`native print ${change} refuses acknowledgment and retires private observers`, async t => {
   const state = nativeNavigation(t, change);
   await assert.rejects(state.box.completePrintNavigation(state.page, state.sql));
   assert.throws(state.box.check, /browser reported/);
-  assert.equal(state.page.listenerCount('requestfailed'), 1);
-  assert.equal(state.cdp.listenerCount('Network.loadingFailed'), 0);
+  cleanNavigationObservers(state);
 });
 
 for (const change of ['artifact', 'refused-artifact', 'directory']) test(`native print ${change} failure preserves evidence and always retires observers`, async t => {
@@ -267,10 +274,7 @@ for (const change of ['artifact', 'refused-artifact', 'directory']) test(`native
     return true;
   });
   if (change !== 'directory') assert.throws(state.box.check, /browser reported/);
-  assert.equal(state.page.listenerCount('request'), 1);
-  assert.equal(state.page.listenerCount('requestfinished'), 0);
-  assert.equal(state.page.listenerCount('requestfailed'), 1);
-  assert.equal(state.cdp.listenerCount('Network.loadingFailed'), 0);
+  cleanNavigationObservers(state);
   assert.equal(state.preservedBeforeConsume(), false);
 });
 
@@ -278,6 +282,5 @@ test('a coherently changed native endpoint with force fails before private obser
   const state = nativeNavigation(t, 'force');
   await assert.rejects(state.box.completePrintNavigation(state.page, state.sql), /exact owned editor authority/);
   assert.doesNotThrow(state.box.check);
-  assert.equal(state.page.listenerCount('requestfailed'), 1);
-  assert.equal(state.cdp.listenerCount('Network.loadingFailed'), 0);
+  cleanNavigationObservers(state);
 });

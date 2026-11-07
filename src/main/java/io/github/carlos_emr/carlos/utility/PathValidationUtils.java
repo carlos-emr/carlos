@@ -1,3 +1,26 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * Modifications by CARLOS Contributors, 2026.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
 package io.github.carlos_emr.carlos.utility;
 
 import io.github.carlos_emr.CarlosProperties;
@@ -394,6 +417,33 @@ public final class PathValidationUtils {
         }
         validateWithinDirectory(file, allowedDir);
         return file;
+    }
+
+    /**
+     * Validates protected import paths without logging their names or an exception chain.
+     *
+     * <p>CDS source filenames can contain patient names or birth dates. LogSafe prevents log
+     * injection but does not redact that clinical information. Import callers record the safe
+     * rejection code in ordinary logs and retain necessary source context only in protected
+     * diagnostics. This method preserves the canonical containment check of the ordinary API;
+     * it deliberately does not change existing callers' logging contract.</p>
+     */
+    public static File validatePrivateImportPath(File file, File allowedDir) {
+        if (file == null || allowedDir == null) {
+            throw new SecurityException("CDS_PATH_INVALID");
+        }
+        try {
+            File canonicalBase = allowedDir.getCanonicalFile();
+            File canonicalFile = file.getCanonicalFile();
+            java.nio.file.Path base = canonicalBase.toPath();
+            if (!canonicalFile.toPath().startsWith(base)) {
+                throw new SecurityException("CDS_PATH_OUTSIDE_ROOT");
+            }
+            return canonicalFile;
+        } catch (IOException failure) {
+            // Do not attach the cause: lower-level filesystem messages may include PHI paths.
+            throw new SecurityException("CDS_PATH_CANONICALIZATION_FAILED");
+        }
     }
 
     /**

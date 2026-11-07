@@ -664,8 +664,7 @@ preview flows. Each cycle sweeps two locations:
   `PathValidationUtils.APPLICATION_TEMP_ROOT_NAME`) — every direct child (file or directory,
   regardless of name) older than the max age is removed. This root is exclusively CARLOS-owned
   (`NioFileManagerImpl.saveTempFile`'s `tempPDF*` subdirectories and `createTempFile`'s
-  `tempDirectory*` subdirectories, the latter used by `ImportDemographicDataAction42Action` to
-  stage multi-patient demographic import files), so there is no name-prefix gate — any old-enough
+  `tempDirectory*` subdirectories for generated working files), so there is no name-prefix gate — any old-enough
   direct child is a purgeable orphan.
 - **Document preview cache** (`document_cache`, see
   `NioFileManagerImpl.resolveDocumentCacheDirectory()`) — stale `*.png` files older than the max
@@ -865,7 +864,9 @@ probes the servlet without a grant (401 on loopback, 403/405 on POST, refused th
 It also pins the save result view: the form action `EForm` writes carries
 `efmfid`/`efmdemographic_no` rather than `fid`/`demographic_no`, and the interactive lookup route
 (`eform/efmformapconfig_lookup`, via `ApCacheLookupParameterResolver`) accepts both spellings, so
-the lookups a form re-runs after a save-and-download resolve instead of answering "Invalid fid".
+the lookups a form re-runs after a save-and-download resolve instead of answering "Invalid fid". Patient-independent
+forms may omit both patient parameters; their AP queries retain an absent patient context.
+When a patient is supplied, the existing patient-scoped prevention precision check still applies.
 
 ### 3. Look at the PDF
 

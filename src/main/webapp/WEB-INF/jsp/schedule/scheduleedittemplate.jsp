@@ -35,7 +35,7 @@
 <%@ page import="java.nio.charset.StandardCharsets" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page
-        import="java.util.*, java.net.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*"
+        import="java.util.*, java.net.*, io.github.carlos_emr.*, java.lang.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

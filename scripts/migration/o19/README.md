@@ -107,6 +107,16 @@ those so a baseline-skipped key cannot flip behaviour silently), and
 A declared bundle prefix that matches no O19 key, or that still resolves in the
 CARLOS bundle, fails generation.
 
+The exact `drugs.special` regression in `verify_sql_semantics.py` uses the
+isolated synthetic `fixtures/drug-special.sql` oracle. It requires the fixed
+CLI from [carlos-ctl #18](https://github.com/carlos-emr/carlos-ctl/pull/18);
+until that package is published, select the reviewed checkout through
+`CARLOS_CTL_SRC`. Capable CLIs run this check automatically; the pinned 1.2.1
+CLI prints an explicit skip while the existing checks still run. Add
+`--require-exact-special-repair` to make a missing capability fail, including
+when validating the fixed CLI for release. The fixture is
+loaded only into the verifier's disposable schemas, never a clinic database.
+
 ## Verifying the DDL parse
 
 `generate_manifests.py` reads the SQL with a hand-written DDL reader

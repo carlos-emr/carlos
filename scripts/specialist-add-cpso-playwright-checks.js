@@ -45,6 +45,8 @@
  *   MYSQL_HOST/USER/PASSWORD/DATABASE
  */
 
+
+const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
 const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
@@ -189,62 +191,76 @@ function runCleanup() {
 }
 // Node does not run finally blocks on SIGINT/SIGTERM (the suite loop's `timeout`
 // sends TERM), so restore the fixtures here too before exiting.
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    console.error(`${signal} received; restoring fixtures before exiting.`);
-    runCleanup();
-    cleanupMysqlDefaults();
-    process.exit(130);
-  });
-}
+// Signals unwind through the shared entry point and the existing finally below.
 
-(async () => {
+legacyHarness.runLegacyCheck('specialist-add-cpso',async({cancellation})=>{
   const recorder = createRecorder();
   initMysqlDefaults();
   // Staging and the browser launch sit inside the protected scope so a failure in
   // either still reaches the fixture cleanup below.
   try {
     cleanupRows();
-    browser = await chromium.launch(getLaunchOptions(config.chromePath));
+    browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    cancellation?.throwIfCancelled();
     const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
+    cancellation?.throwIfCancelled();
     await login(context, config, recorder);
+    cancellation?.throwIfCancelled();
 
     // Live proxy probe: the server must degrade gracefully when the registry
     // is unreachable (the usual state of a test host) and never error.
     const probe = await openAddSpecialist(context, recorder, 'cpso-live-probe');
+    cancellation?.throwIfCancelled();
     const [liveResponse] = await Promise.all([
       probe.waitForResponse((response) => /\/encounter\/CpsoSearch\?/.test(response.url()), { timeout: 30000 }),
       probe.locator('#cpsoLastName').fill('Smith'),
     ]);
+    cancellation?.throwIfCancelled();
     assert(liveResponse.status() === 200, `CpsoSearch proxy answered HTTP ${liveResponse.status()}`);
     const liveJson = await liveResponse.json().catch(() => null);
+    cancellation?.throwIfCancelled();
     assert(liveJson && (Array.isArray(liveJson.results) || liveJson.errorCode === 'CPSO_SERVICE_UNAVAILABLE'),
       `CpsoSearch proxy returned an unexpected body: ${JSON.stringify(liveJson).slice(0, 200)}`);
     await probe.locator('#cpsoResults').waitFor({ state: 'visible', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     const liveText = await probe.locator('#cpsoResults').innerText();
+    cancellation?.throwIfCancelled();
     assert(/CPSO search unavailable|No results|Too many results|CPSO/i.test(liveText), `CPSO widget rendered unexpected text: ${liveText}`);
     await probe.close();
+    cancellation?.throwIfCancelled();
 
     // 1-2. Deterministic lookup through a stubbed registry answer.
     const page = await openAddSpecialist(context, recorder, 'add-specialist');
+    cancellation?.throwIfCancelled();
     await page.route('**/encounter/CpsoSearch**', (route) => route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(cannedCpsoPayload()),
     }));
+    cancellation?.throwIfCancelled();
     await page.locator('#cpsoLastName').fill(specialist.lastName);
+    cancellation?.throwIfCancelled();
     const resultRow = page.locator('#cpsoResults .cpso-result-item').first();
     await resultRow.waitFor({ state: 'visible', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     const resultText = await resultRow.innerText();
+    cancellation?.throwIfCancelled();
     assert(resultText.includes(specialist.lastName) && resultText.includes(specialist.cpsoNumber) && /Active/.test(resultText),
       `CPSO result did not render the physician: ${resultText}`);
     await resultRow.click();
+    cancellation?.throwIfCancelled();
     assert((await page.locator('#lastName').inputValue()) === specialist.lastName, 'CPSO pick did not fill the last name');
+    cancellation?.throwIfCancelled();
     assert((await page.locator('#firstName').inputValue()) === specialist.firstName, 'CPSO pick did not fill the first name');
+    cancellation?.throwIfCancelled();
     assert((await page.locator('#address').inputValue()) === specialist.address, `CPSO pick filled address "${await page.locator('#address').inputValue()}"`);
+    cancellation?.throwIfCancelled();
     assert((await page.locator('#phone').inputValue()) === specialist.phone, 'CPSO pick did not fill the phone');
+    cancellation?.throwIfCancelled();
     assert((await page.locator('#fax').inputValue()) === specialist.fax, 'CPSO pick did not fill the fax');
+    cancellation?.throwIfCancelled();
     assert(!(await page.locator('#cpsoResults').isVisible()), 'CPSO results stayed open after picking a physician');
+    cancellation?.throwIfCancelled();
 
     // 3. Complete and submit.
     const specTypeSelect = page.locator('#specType');
@@ -252,18 +268,26 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
       const real = options.find((option) => option.value && option.value !== '0');
       return real ? real.value : null;
     });
+    cancellation?.throwIfCancelled();
     assert(specTypeValue, 'Add Specialist offered no specialty to choose');
     await specTypeSelect.selectOption(specTypeValue);
+    cancellation?.throwIfCancelled();
     await page.locator('#proLetters').fill(specialist.proLetters);
+    cancellation?.throwIfCancelled();
     await page.locator('#referralNo').fill(specialist.referralNo);
+    cancellation?.throwIfCancelled();
     await Promise.all([
       page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/encounter/AddSpecialist'), { timeout: 30000 }),
       page.locator('input[name="transType"][value="Add Specialist"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await page.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(page, 'add specialist result');
+    cancellation?.throwIfCancelled();
     const savedBanner = await page.locator('.alert-success').first().innerText().catch(() => '');
+    cancellation?.throwIfCancelled();
     assert(savedBanner.includes(`Specialist ${specialist.firstName} ${specialist.lastName} has been saved`),
       `add specialist banner was "${savedBanner}"`);
     const row = specialistRow();
@@ -276,9 +300,11 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     assert(row.referralNo === specialist.referralNo, `saved referral number was ${row.referralNo}`);
     assert(row.deleted === '0', 'new specialist was created already deleted');
     await page.unroute('**/encounter/CpsoSearch**');
+    cancellation?.throwIfCancelled();
 
     // 4. Listed for editing and offered as a consultant.
     const listPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     // The Delete button asks through window.confirm; answer in-page so the
     // shared recorder (which dismisses stray dialogs) cannot cancel it.
     await listPage.addInitScript(() => {
@@ -287,82 +313,121 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         return true;
       };
     });
+    cancellation?.throwIfCancelled();
     wirePage(listPage, 'edit-specialists', recorder);
     await gotoApp(listPage, config.baseUrl, '/encounter/oscarConsultationRequest/config/ViewEditSpecialists');
+    cancellation?.throwIfCancelled();
     await listPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(listPage, 'edit specialists');
+    cancellation?.throwIfCancelled();
     const editLink = listPage.locator(`a[href*="/encounter/EditSpecialists?specId=${row.specId}"]`).first();
     assert(await editLink.count(), 'Edit Specialists list did not show the new consultant');
+    cancellation?.throwIfCancelled();
 
     // Creating a specialist must assign the selected specialty automatically.
     assert(sql(`SELECT COUNT(*) FROM serviceSpecialists WHERE serviceId=${Number(specTypeValue)} AND specId=${Number(row.specId)}`) === '1',
       'Add Specialist did not assign the selected consultation service');
     // An unchanged service update must preserve that assignment and all others.
     const servicesPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(servicesPage, 'show-all-services', recorder);
     await gotoApp(servicesPage, config.baseUrl, '/encounter/ShowAllServices');
+    cancellation?.throwIfCancelled();
     await servicesPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(servicesPage, 'show all services');
+    cancellation?.throwIfCancelled();
     await servicesPage.locator(`a[href*="/encounter/ShowAllServices?serviceId=${specTypeValue}&"]`).first().click();
+    cancellation?.throwIfCancelled();
     await servicesPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(servicesPage, 'service specialists');
+    cancellation?.throwIfCancelled();
     const assignedBefore = Number(sql(`SELECT COUNT(*) FROM serviceSpecialists WHERE serviceId=${Number(specTypeValue)}`));
     const preChecked = await servicesPage.locator('input[name="specialists"]:checked').count();
+    cancellation?.throwIfCancelled();
     assert(preChecked === assignedBefore, `service page pre-checked ${preChecked} specialists but ${assignedBefore} are assigned; updating would clobber assignments`);
     const newBox = servicesPage.locator(`input[name="specialists"][value="${row.specId}"]`);
     assert(await newBox.count(), 'service page did not list the new consultant');
+    cancellation?.throwIfCancelled();
     assert(await newBox.isChecked(), 'selected specialty was not checked after saving the consultant');
+    cancellation?.throwIfCancelled();
     await Promise.all([
       servicesPage.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/encounter/UpdateServiceSpecialists'), { timeout: 30000 }),
       servicesPage.locator('form[action$="/encounter/UpdateServiceSpecialists"] input[type="submit"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await servicesPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(servicesPage, 'service specialists after update');
+    cancellation?.throwIfCancelled();
     assert(sql(`SELECT COUNT(*) FROM serviceSpecialists WHERE serviceId=${Number(specTypeValue)} AND specId=${Number(row.specId)}`) === '1',
       'Update these Services Specialists did not write the serviceSpecialists row');
     assert(Number(sql(`SELECT COUNT(*) FROM serviceSpecialists WHERE serviceId=${Number(specTypeValue)}`)) === assignedBefore,
       'service update changed the other specialists assigned to the service');
     await servicesPage.close();
+    cancellation?.throwIfCancelled();
 
     const consultPage = await context.newPage();
+    cancellation?.throwIfCancelled();
     wirePage(consultPage, 'consult-picker', recorder);
     await gotoApp(consultPage, config.baseUrl, '/encounter/oscarConsultationRequest/ViewConsultationFormRequest?de=1&teamVar=&appNo=');
+    cancellation?.throwIfCancelled();
     await consultPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+    cancellation?.throwIfCancelled();
     // The picker loads its specialist list asynchronously; typing (not
     // fill) drives the jQuery UI autocomplete search.
     // The form expects a service first (clicking the consultant box without
     // one hands focus back to the service box), so pick the service the new
     // consultant was assigned to, then type the consultant's name.
     await consultPage.waitForFunction(() => Array.isArray(window.allSpecialistsData) && window.allSpecialistsData.length > 0, null, { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await consultPage.locator('#serviceInput').click();
+    cancellation?.throwIfCancelled();
     const serviceEntry = consultPage.locator('ul.ui-autocomplete:visible li.ui-menu-item', { hasText: serviceLabelFor(specTypeValue) }).first();
     await serviceEntry.waitFor({ state: 'visible', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     await serviceEntry.click();
+    cancellation?.throwIfCancelled();
     assert((await consultPage.locator('#service').inputValue()) === specTypeValue, 'consult form did not select the service');
+    cancellation?.throwIfCancelled();
     await consultPage.locator('#specialistInput').click();
+    cancellation?.throwIfCancelled();
     await consultPage.keyboard.type(specialist.lastName.slice(0, 16), { delay: 30 });
+    cancellation?.throwIfCancelled();
     const pickerEntry = consultPage.locator('ul.ui-autocomplete:visible li.ui-menu-item', { hasText: specialist.lastName }).first();
     await pickerEntry.waitFor({ state: 'visible', timeout: 15000 });
+    cancellation?.throwIfCancelled();
     await pickerEntry.click();
+    cancellation?.throwIfCancelled();
     assert((await consultPage.locator('#specialist').inputValue()) === row.specId, 'consult picker did not select the new consultant');
+    cancellation?.throwIfCancelled();
     await consultPage.close();
+    cancellation?.throwIfCancelled();
 
     // 5. Soft delete through the list.
     const rowCheckbox = listPage.locator(`input[name="specialists"][value="${row.specId}"]`);
     await rowCheckbox.check();
+    cancellation?.throwIfCancelled();
     await Promise.all([
       listPage.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname.endsWith('/encounter/EditSpecialists'), { timeout: 30000 }),
       listPage.locator('input[name="delete"]').click(),
     ]);
+    cancellation?.throwIfCancelled();
     await listPage.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    cancellation?.throwIfCancelled();
     await assertNotErrorPage(listPage, 'edit specialists after delete');
+    cancellation?.throwIfCancelled();
     const lastConfirm = await listPage.evaluate(() => { try { return sessionStorage.getItem('pwLastConfirm') || ''; } catch (ignored) { return ''; } });
+    cancellation?.throwIfCancelled();
     assert(/delete the selected specialists/i.test(lastConfirm), `delete did not ask for confirmation (last prompt: "${lastConfirm}")`);
     const deletedRow = specialistRow();
     assert(deletedRow && deletedRow.deleted === '1', `delete did not soft-delete the consultant (deleted=${deletedRow && deletedRow.deleted})`);
     assert(!(await listPage.locator(`a[href*="/encounter/EditSpecialists?specId=${row.specId}"]`).count()), 'deleted consultant is still listed');
+    cancellation?.throwIfCancelled();
 
     const { badResponses, consoleIssues } = recorder;
     assertNoPageErrors(recorder);
@@ -380,4 +445,4 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
     runCleanup();
     cleanupMysqlDefaults();
   }
-})();
+});

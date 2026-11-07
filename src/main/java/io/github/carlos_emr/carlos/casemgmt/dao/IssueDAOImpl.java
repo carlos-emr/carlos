@@ -84,6 +84,12 @@ public class IssueDAOImpl extends AbstractJpaDao implements IssueDAO {
     }
 
     @Override
+    public List<Issue> findCandidatesByCode(String code) {
+        return entityManager().createQuery("select i from Issue i where i.code=:code order by i.id", Issue.class)
+                .setParameter("code", code).setMaxResults(2).getResultList();
+    }
+
+    @Override
     public Issue findIssueByTypeAndCode(String type, String code) {
         List<Issue> list = (List<Issue>) JpqlQueryHelper.find(entityManager(), "from Issue i where i.type=?1 and i.code = ?2",
                 type, code);

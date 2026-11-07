@@ -46,13 +46,23 @@ public class ProviderDao extends OscarSuperDao {
     public ProviderDao() {
     }
 
+    @Override
+    public java.util.List<java.util.Map<String, Object>> executeSelectQuery(String queryName, Object[] params) {
+        if ("intake_preventions".equals(queryName)) {
+            Integer demographicNo = params == null || params.length == 0 || params[0] == null
+                    ? null : Integer.valueOf(params[0].toString());
+            io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(demographicNo);
+        }
+        return super.executeSelectQuery(queryName, params);
+    }
+
     private String[][] dbQueries = new String[][]{
             {"searchappointmentday", "select * from appointment where provider_no=? and appointment_date=? and program_id=? order by start_time, status desc "},
             {"searchappointmentdaywithlocation", "select * from appointment where provider_no=? and appointment_date=? and program_id=? and location=? order by start_time, status desc "},
             {"searchmygroupprovider", "select provider_no, last_name, first_name from mygroup where mygroup_no=? order by vieworder,provider_no"},
 
             {"searchmygroupno", "select mygroup_no from mygroup group by mygroup_no order by mygroup_no"},
-            {"updateapptstatus", "update appointment set status=?, lastupdateuser=?, updatedatetime=now() where appointment_no=? "},
+            {"updateapptstatus", "update appointment set status=?, lastupdateuser=?, updatedatetime=greatest(current_timestamp, coalesce(timestampadd(second, 1, updatedatetime), current_timestamp)) where appointment_no=? "},
             {"updatepreference", "update preference set start_hour=?, end_hour=?, every_min=?, mygroup_no=?, default_servicetype=?, color_template=? where provider_no=? "},
 
             {"search_demograph", "select *  from demographic where demographic_no=?"},

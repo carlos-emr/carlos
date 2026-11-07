@@ -144,6 +144,7 @@ public class HHSEmrDownloadHandler extends DefaultGenericHandler implements Mess
         msg = p.parse(hl7Body.replaceAll("\n", "\r\n"));
 
         terser = new Terser(msg);
+        segmentNames = GenericSegmentNames.of(terser.getFinder().getRoot());
 
         int obrCount = getOBRCount();
 

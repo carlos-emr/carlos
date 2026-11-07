@@ -84,6 +84,9 @@ class CaseManagementViewPatientIsolationUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void prepare() {
+        registerMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService.class,
+                new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService(
+                        mock(io.github.carlos_emr.carlos.commn.dao.PartialDateDao.class)));
         action = mock(CaseManagementView2Action.class, CALLS_REAL_METHODS);
         session = new MockHttpSession();
         request = new MockHttpServletRequest();

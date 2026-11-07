@@ -56,7 +56,7 @@ import org.apache.logging.log4j.Logger;
 
 import ca.uhn.hl7v2.model.Segment;
 import ca.uhn.hl7v2.HL7Exception;
-import ca.uhn.hl7v2.model.Varies;
+import ca.uhn.hl7v2.model.Variable;
 import ca.uhn.hl7v2.model.v231.datatype.CX;
 import ca.uhn.hl7v2.model.v231.datatype.ST;
 import ca.uhn.hl7v2.model.v231.datatype.XCN;
@@ -226,7 +226,7 @@ public class ExcellerisOntarioHandler implements MessageHandler {
             String type = cx.getCx5_IdentifierTypeCode().getValue();
             String ver = "";
             if (cx.getExtraComponents() != null && cx.getExtraComponents().numComponents() == 5) {
-                Varies v = cx.getExtraComponents().getComponent(4);
+                Variable v = cx.getExtraComponents().getComponent(4);
                 ver = v.getData().toString();
             }
 

@@ -28,7 +28,7 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
+
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
@@ -52,9 +52,9 @@
 <fmt:message key="form.rourke2020.preparingPrint" var="rourkePreparingPrintMessage"/>
 
 
-<%@ page import="io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.form.*, io.github.carlos_emr.carlos.form.data.*" %>
+<%@ page import="io.github.carlos_emr.carlos.form.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>

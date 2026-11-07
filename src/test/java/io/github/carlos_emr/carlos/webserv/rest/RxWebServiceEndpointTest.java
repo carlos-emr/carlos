@@ -125,6 +125,8 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
     @Override
     protected Object getServiceBean() {
         RxWebService service = new RxWebService();
+        injectDependency(service, "legacyProjection", org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class));
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
         injectDependency(service, "rxManager", mockRxManager);
         injectDependency(service, "drugConverter", mockDrugConverter);

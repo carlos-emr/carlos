@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026: publish lazily loaded program maps safely across request threads.
  */
 package io.github.carlos_emr.carlos.PMmodule.utility;
 
@@ -32,6 +33,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProgramAccessDAO;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramAccess;
@@ -40,7 +42,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class ProgramAccessCache {
 
     static ProgramAccessDAO programAccessDAO = (ProgramAccessDAO) SpringUtils.getBean(ProgramAccessDAO.class);
-    static Map<String, Map> accessMaps = new HashMap<String, Map>();
+    static Map<String, Map> accessMaps = new ConcurrentHashMap<String, Map>();
 
 
     public static Map getAccessMap(long programId) {

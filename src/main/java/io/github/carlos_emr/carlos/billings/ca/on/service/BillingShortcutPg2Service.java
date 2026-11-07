@@ -286,7 +286,7 @@ public class BillingShortcutPg2Service {
     private void applyJspViewFieldsToBuilder(BillingShortcutPg2ViewModel.Builder b,
                                              HttpServletRequest request) {
         java.util.Properties providerBean;
-        Object beanObj = request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request -- providerBean is built post-auth from DAO-sourced active providers (see ImportDemographicDataAction42Action)
+        Object beanObj = request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request -- providerBean is built post-auth from DAO-sourced active providers
         providerBean = (beanObj instanceof java.util.Properties) ? (java.util.Properties) beanObj : new java.util.Properties();
 
         String xmlProvider = nullToEmpty(request.getParameter("xml_provider"));

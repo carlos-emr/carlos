@@ -50,6 +50,22 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("billing")
 class BillingONCHeader1UnitTest {
 
+
+    @Test
+    void shouldKeepCxfBlankContract_forAdmissionDate() throws Exception {
+        BillingONCHeader1 header = new BillingONCHeader1();
+        Field field = BillingONCHeader1.class.getDeclaredField("admissionDate");
+        field.setAccessible(true);
+        for (String value : java.util.Arrays.asList(null, "", " ", "\u0000\t\u001f")) {
+            field.set(header, value);
+            assertThat(header.getAdmissionDate()).isNull();
+        }
+        for (String value : List.of("null", "\u2003", "\u00a0")) {
+            field.set(header, value);
+            assertThatThrownBy(header::getAdmissionDate).isInstanceOf(java.text.ParseException.class);
+        }
+    }
+
     @Nested
     @DisplayName("setTotal")
     class SetTotal {

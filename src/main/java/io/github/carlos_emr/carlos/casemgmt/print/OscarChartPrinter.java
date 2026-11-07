@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.casemgmt.print;
 
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService;
+
 import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 
 import java.io.IOException;
@@ -75,6 +77,7 @@ import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
+import io.github.carlos_emr.carlos.commn.model.PartialDate;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Tickler;
 import io.github.carlos_emr.carlos.managers.TicklerManager;
@@ -108,6 +111,7 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
  * @since 2011-08-16
  */
 public class OscarChartPrinter implements java.io.Closeable {
+    private final java.util.function.Supplier<io.github.carlos_emr.carlos.prevention.PreventionDateService> preventionDates;
 
     /** Line spacing multiplier for paragraph leading calculations. */
     public final int LINESPACING = 1;
@@ -151,8 +155,16 @@ public class OscarChartPrinter implements java.io.Closeable {
      * @throws IOException       if the base font cannot be loaded
      */
     public OscarChartPrinter(HttpServletRequest request, OutputStream os) throws DocumentException, IOException {
+        this(request, os, () -> SpringUtils.getBean(io.github.carlos_emr.carlos.prevention.PreventionDateService.class));
+    }
+
+    /** Optional prevention rendering resolves the precision reader through this legacy boundary. */
+    public OscarChartPrinter(HttpServletRequest request, OutputStream os,
+            java.util.function.Supplier<io.github.carlos_emr.carlos.prevention.PreventionDateService> preventionDates)
+            throws DocumentException, IOException {
         this.request = request;
         this.os = os;
+        this.preventionDates = preventionDates;
 
         document = new Document();
         document.setPageSize(PageSize.LETTER);
@@ -442,7 +454,7 @@ public class OscarChartPrinter implements java.io.Closeable {
         if (demographicCust != null) {
             PdfFonts.addText(phrase, "Alerts: " + demographicCust.getAlert() + "\n", phrase.getFont());
             if (demographicCust.getNotes().length() > 0) {
-                PdfFonts.addText(phrase, "Notes: " + SxmlMisc.getXmlContent(demographicCust.getNotes(), "unotes") + "\n", phrase.getFont());
+                PdfFonts.addText(phrase, "Notes: " + io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(demographicCust.getNotes()) + "\n", phrase.getFont());
             }
         }
         PdfFonts.addText(phrase, "\n", phrase.getFont());
@@ -727,7 +739,11 @@ public class OscarChartPrinter implements java.io.Closeable {
             if (drug.isCurrent() && !drug.isArchived()) {
                 curFont = normal;
                 phrase = PdfFonts.phrase(LEADING, "", curFont);
-                PdfFonts.addText(phrase, formatter.format(drug.getRxDate()) + " - ", phrase.getFont());
+                String startLabel = SpringUtils.getBean(
+                        CdsTemporalReadService.class)
+                        .display(drug.getRxDate(), PartialDate.DRUGS, drug.getDrugId(),
+                                PartialDate.DRUGS_STARTDATE, formatter);
+                PdfFonts.addText(phrase, startLabel + " - ", phrase.getFont());
                 PdfFonts.addText(phrase, drug.getFullOutLine().replace(';', ' '), phrase.getFont());
                 p.add(phrase);
                 document.add(p);
@@ -760,11 +776,11 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         for (Prevention prevention : preventions) {
             String type = prevention.getPreventionType();
-            Date date = prevention.getPreventionDate();
+            String date = preventionDates.get().displayDate(prevention, formatter);
 
             p = new Paragraph();
             phrase = PdfFonts.phrase(LEADING, "", getFont());
-            PdfFonts.addText(phrase, type + " " + formatter.format(date) + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, type + " " + date + "\n", phrase.getFont());
             p.add(phrase);
             getDocument().add(p);
         }

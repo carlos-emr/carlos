@@ -6,9 +6,9 @@ import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.WebappShutdownResources;
 import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletContextEvent;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.security.NoSuchAlgorithmException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
@@ -27,7 +27,9 @@ import org.mockito.MockedStatic;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -311,36 +313,59 @@ class StartupUnitTest extends CarlosUnitTestBase {
         Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
         keySpecField.setAccessible(true);
         Object originalKeySpec = keySpecField.get(null);
-
-        CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        Field singletonField = CarlosProperties.class.getDeclaredField("carlosProperties");
+        singletonField.setAccessible(true);
+        Object originalProperties = singletonField.get(null);
         String originalUserHome = System.getProperty("user.home");
-
-        Path webappRoot = tempDir.resolve("webapps").resolve("carlos");
-        Files.createDirectories(webappRoot);
-        ServletContextEvent event = mock(ServletContextEvent.class);
-        ServletContext servletContext = mock(ServletContext.class);
-        when(event.getServletContext()).thenReturn(servletContext);
-        when(servletContext.getResource("/")).thenReturn(webappRoot.toUri().toURL());
+        Constructor<CarlosProperties> constructor = CarlosProperties.class.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        CarlosProperties props = constructor.newInstance();
+        singletonField.set(null, props);
+        ServletContextEvent event = newStartupEvent(tempDir);
 
         try {
             System.setProperty("user.home", tempDir.toString());
             String existingKey = EncryptionUtils.generateSecretKey();
-            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, existingKey);
+            Files.writeString(tempDir.resolve("carlos.properties"), "AbandonOldChart=true\n"
+                    + EncryptionUtils.SECRET_KEY_ENV_VAR + "=" + existingKey + "\n");
             keySpecField.set(null, null);
 
             new Startup().contextInitialized(event);
 
-            // The existing key is used as-is (not rotated) and the cached spec is prepared.
             assertThat(props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR)).isEqualTo(existingKey);
             assertThat(keySpecField.get(null)).isNotNull();
-
             String encrypted = EncryptionUtils.encrypt("startup-password");
             assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
         } finally {
             restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
+            singletonField.set(null, originalProperties);
             keySpecField.set(null, originalKeySpec);
+        }
+    }
+
+    @Test
+    @Tag("create")
+    void shouldAbortBeforeResourceSetup_whenCutoverGuardFails(@TempDir Path tempDir) throws Exception {
+        CarlosProperties properties = mock(CarlosProperties.class);
+        when(properties.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR))
+                .thenReturn("AAAAAAAAAAAAAAAAAAAAAA==");
+        doThrow(new IOException("AbandonOldChart=true cannot be persisted; refusing to start"))
+                .when(properties).ensureModernChartRollbackSafety();
+        ServletContextEvent event = newStartupEvent(tempDir);
+
+        try (MockedStatic<CarlosProperties> settings = mockStatic(CarlosProperties.class);
+             MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
+            settings.when(CarlosProperties::getInstance).thenReturn(properties);
+
+            assertThatThrownBy(() -> new Startup().contextInitialized(event))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasCauseInstanceOf(IOException.class)
+                    .hasMessageContaining("AbandonOldChart=true")
+                    .hasMessageContaining("refusing to start");
+
+            encryption.verify(EncryptionUtils::prepareSecretKeySpec);
+            verify(properties).ensureModernChartRollbackSafety();
+            verify(properties, never()).getProperty("BASE_DOCUMENT_DIR");
         }
     }
 
@@ -360,77 +385,6 @@ class StartupUnitTest extends CarlosUnitTestBase {
         // bad-Base64 decode path, through the same Startup catch.
         String wrongLengthKey = Base64.getEncoder().encodeToString(new byte[33]);
         assertStartupAbortsForInvalidKey(wrongLengthKey, tempDir);
-    }
-
-    @Test
-    @Tag("create")
-    @DisplayName("should abort startup when key generation fails")
-    void shouldAbortStartup_whenKeyGenerationFails(@TempDir Path tempDir) throws Exception {
-        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-        keySpecField.setAccessible(true);
-        Object originalKeySpec = keySpecField.get(null);
-
-        CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-        String originalUserHome = System.getProperty("user.home");
-
-        ServletContextEvent event = newStartupEvent(tempDir);
-
-        try (MockedStatic<EncryptionUtils> encryption = mockStatic(EncryptionUtils.class)) {
-            System.setProperty("user.home", tempDir.toString());
-            // A blank key forces Startup into the generate-and-persist branch.
-            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
-            keySpecField.set(null, null);
-            encryption.when(EncryptionUtils::generateSecretKey)
-                    .thenThrow(new NoSuchAlgorithmException("AES unavailable"));
-
-            // Generation failure must abort startup rather than booting with no key. The
-            // IllegalStateException is re-wrapped by contextInitialized's outer catch, so it is
-            // reachable only as the cause of the propagated RuntimeException.
-            assertThatThrownBy(() -> new Startup().contextInitialized(event))
-                    .isInstanceOf(RuntimeException.class)
-                    .hasCauseInstanceOf(IllegalStateException.class);
-        } finally {
-            restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
-            keySpecField.set(null, originalKeySpec);
-        }
-    }
-
-    @Test
-    @Tag("create")
-    @DisplayName("should generate and persist a new key when startup finds a blank key")
-    void shouldGenerateAndPersistKey_whenStartupFindsBlankKey(@TempDir Path tempDir) throws Exception {
-        Field keySpecField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
-        keySpecField.setAccessible(true);
-        Object originalKeySpec = keySpecField.get(null);
-
-        CarlosProperties props = CarlosProperties.getInstance();
-        String originalProp = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-        String originalUserHome = System.getProperty("user.home");
-
-        ServletContextEvent event = newStartupEvent(tempDir);
-
-        try {
-            System.setProperty("user.home", tempDir.toString());
-            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, "   ");
-            keySpecField.set(null, null);
-
-            new Startup().contextInitialized(event);
-
-            // A fresh 32-byte (AES-256) key is generated, persisted, and usable for a round-trip.
-            String generated = props.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
-            assertThat(generated).isNotBlank();
-            assertThat(Base64.getDecoder().decode(generated)).hasSize(32);
-            assertThat(keySpecField.get(null)).isNotNull();
-
-            String encrypted = EncryptionUtils.encrypt("startup-password");
-            assertThat(EncryptionUtils.decrypt(encrypted)).isEqualTo("startup-password");
-        } finally {
-            restoreUserHome(originalUserHome);
-            restoreProperty(props, originalProp);
-            keySpecField.set(null, originalKeySpec);
-        }
     }
 
     @Test

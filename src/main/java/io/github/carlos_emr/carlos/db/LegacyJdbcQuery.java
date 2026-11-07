@@ -31,6 +31,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayDeque;
@@ -38,9 +39,13 @@ import java.util.Deque;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 import org.springframework.jdbc.datasource.DataSourceUtils;
@@ -126,6 +131,114 @@ public final class LegacyJdbcQuery {
         return getPreparedResultSet(trustedReportSelectSql(sql.getSql()), false, sql.getParamsArray());
     }
 
+    /**
+     * Executes a template report with a forward-only, streaming MySQL cursor.
+     * The extra row lets the consumer detect overflow instead of silently truncating.
+     * Other legacy callers retain their scrollable cursor contract.
+     *
+     * @param sql validated report template and bound parameters
+     * @param maxRows positive JDBC row ceiling, including the overflow sentinel
+     * @param deadlineNanos absolute deadline from System.nanoTime(), shared by the request
+     * @return owned cursor; closing it releases the statement and connection
+     * @throws SQLException if validation, setup or execution fails
+     */
+    public static ResultSet getBoundedReportResultSet(ParameterizedSql sql, int maxRows, long deadlineNanos)
+            throws SQLException {
+        return getBoundedReportResultSet(trustedReportSelectSql(sql.getSql()), maxRows, deadlineNanos,
+                sql.getParamsArray());
+    }
+
+    /**
+     * Streams a validated legacy report using an exact JDBC row ceiling and absolute deadline.
+     * Unlike {@link ParameterizedSql}, this path preserves quoted question marks in legacy SQL.
+     * Callers requesting a complete result include one overflow sentinel in {@code maxRows};
+     * first-row and metadata reads need no sentinel.
+     *
+     * <p>Connection acquisition consumes the deadline, although its blocking wait is governed
+     * by the datasource's pool timeout. Once acquired, the connection is interrupted at the
+     * deadline, including during statement setup and result consumption.</p>
+     *
+     * @param sql validated report SELECT
+     * @param maxRows positive JDBC row ceiling, including any caller-required overflow sentinel
+     * @param deadlineNanos absolute deadline from {@link System#nanoTime()}
+     * @param params JDBC-bound query values
+     * @return owned cursor that releases its statement and managed connection when closed
+     * @throws SQLException if acquisition, setup, execution or the deadline fails
+     */
+    public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maxRows, long deadlineNanos,
+            Object... params) throws SQLException {
+        return getBoundedReportResultSet(sql, maxRows, deadlineNanos, System::nanoTime, params);
+    }
+
+    static ResultSet getBoundedReportResultSet(TrustedSql sql, int maxRows, long deadlineNanos,
+            LongSupplier nanoTime, Object... params) throws SQLException {
+        if (maxRows < 1) {
+            throw new IllegalArgumentException("Report row limit must be positive");
+        }
+        if (deadlineNanos - nanoTime.getAsLong() <= 0) {
+            throw new SQLTimeoutException("Report query deadline exceeded");
+        }
+        DataSource dataSource = dataSource();
+        Connection connection = getRequiredConnection(dataSource);
+        PreparedStatement ps = null;
+        ReportQueryDeadline deadline = null;
+        try {
+            if (deadlineNanos - nanoTime.getAsLong() <= 0) {
+                throw new SQLTimeoutException("Report query deadline exceeded");
+            }
+            deadline = new ReportQueryDeadline(connection, deadlineNanos);
+            ps = prepareStreamingReportStatement(connection, sql);
+            ps.setMaxRows(maxRows);
+            // The negative streaming sentinel is specific to Connector/J. Other
+            // JDBC drivers (including H2) require a non-negative fetch size.
+            ps.setFetchSize(switch (connection.getMetaData().getDatabaseProductName()) {
+                case "MySQL", "MariaDB" -> Integer.MIN_VALUE;
+                case null, default -> Math.min(100, maxRows);
+            });
+            bindParams(ps, params);
+            long remainingNanos = deadlineNanos - nanoTime.getAsLong();
+            if (remainingNanos <= 0) {
+                throw new SQLTimeoutException("Report query deadline exceeded");
+            }
+            // JDBC uses integer seconds; only this fallback rounds up. The timer
+            // retains the original absolute deadline, including acquisition/setup.
+            ps.setQueryTimeout(Math.clamp(
+                    (remainingNanos + TimeUnit.SECONDS.toNanos(1) - 1) / TimeUnit.SECONDS.toNanos(1),
+                    1, Integer.MAX_VALUE));
+            ResultSet rs = ps.executeQuery(); // NOSONAR javasecurity:S3649 -- validated, parameterized report boundary
+            return registerThreadResource(ReportQueryDeadline.wrap(
+                    StatementClosingResultSet.wrap(rs, ps, connection, dataSource), deadline));
+        } catch (SQLException | RuntimeException e) {
+            PreparedStatement failedStatement = ps;
+            Runnable cleanup = () -> {
+                try {
+                    closeStatement(failedStatement);
+                } finally {
+                    DataSourceUtils.releaseConnection(connection, dataSource);
+                }
+            };
+            if (deadline == null) {
+                cleanup.run();
+            } else {
+                deadline.discard(cleanup);
+            }
+            if (deadline != null && deadline.isExpired() && e instanceof SQLException) {
+                throw new SQLTimeoutException("Report query deadline exceeded", e);
+            }
+            throw e;
+        }
+    }
+
+    @SuppressFBWarnings(
+            value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"},
+            justification = "Only TrustedSql created by structural SELECT validation reaches this preparation sink")
+    private static PreparedStatement prepareStreamingReportStatement(Connection connection, TrustedSql sql)
+            throws SQLException {
+        // codeql[java/sql-injection] -- TrustedSql is constructed only after SELECT validation; values are bound by the caller.
+        return connection.prepareStatement(sql.sql(), ResultSet.TYPE_FORWARD_ONLY,
+                ResultSet.CONCUR_READ_ONLY); // nosemgrep: java.lang.security.audit.formatted-sql-string-deepsemgrep.formatted-sql-string-deepsemgrep -- validated TrustedSql boundary
+    }
+
     public static ResultSet getPreparedResultSet(TrustedSql sql, Object... params) throws SQLException {
         return getPreparedResultSet(sql, false, params);
     }
@@ -170,6 +283,20 @@ public final class LegacyJdbcQuery {
 
     public static ResultSet getPreparedResultSet(TrustedSql sql, boolean updatable, Object... params) throws SQLException {
         return getPreparedResultSetValidated(sql, updatable, params);
+    }
+
+    /**
+     * Bounded streaming compatibility path for server-configured reports.
+     * Callers must close the result, detect the extra sentinel row, and enforce their output budget.
+     * This retains the managed legacy datasource; Query by Example uses its separate reporting account.
+     */
+    public static ResultSet getBoundedReportResultSet(TrustedSql sql, int maximumRows, int timeoutSeconds,
+            Object... params) throws SQLException {
+        if (maximumRows < 1 || maximumRows == Integer.MAX_VALUE || timeoutSeconds < 1) {
+            throw new IllegalArgumentException("Invalid report query budget");
+        }
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
+        return getBoundedReportResultSet(sql, maximumRows + 1, deadlineNanos, params);
     }
 
     private static ResultSet getPreparedResultSetValidated(TrustedSql sql, boolean updatable, Object... params) throws SQLException {

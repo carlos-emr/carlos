@@ -69,7 +69,7 @@
 
     @since 2026-09-20
 --%>
-<%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.*" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*" %>
@@ -78,7 +78,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDropdownOptions" %>
 <%@ page import="io.github.carlos_emr.carlos.dxresearch.bean.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowsheetDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Flowsheet" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Validations" %>
@@ -96,7 +96,7 @@
 <%@ page import="java.util.*" %>
 <%@ page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -303,6 +303,7 @@
             padding: 4px 8px;
         }
 
+        .history-entry { flex: 0 0 auto; text-align: center; }
         .history-value {
             flex: 0 0 auto;
             min-width: 92px;
@@ -836,6 +837,7 @@
                                 point.put("v", String.valueOf(mdb.getDataField()));
                                 plotPoints.add(point);
                         %>
+                            <div class="history-entry">
                             <%-- Opens the value's detail/delete modal, so it carries the same
                                  button semantics and keyboard handler as the prevention tiles. --%>
                             <div class="history-value" role="button" tabindex="0"
@@ -861,6 +863,11 @@
                                 <span class="indicator-label" style="color:<%= indicatorColour %>"><carlos:encode
                                         value='<%= indicatorLabel(mdb.getIndicationColour()) %>' context="html"/></span>
                                 <% } %>
+                            </div>
+                            <% if (mdb.getSourceLabNo() != null) { %>
+                            <a class="source-lab" href="<%= SafeEncode.forHtmlAttribute(request.getContextPath()) %>/lab/CA/ALL/ViewLabDisplay?segmentID=<%= SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(String.valueOf(mdb.getSourceLabNo()))) %>"
+                               target="_blank" rel="noopener"><fmt:message key="encounter.oscarMeasurements.sourceLab"/></a>
+                            <% } %>
                             </div>
                         <%  } %>
                         </div>

@@ -188,6 +188,13 @@ public class MsgCreateMessage2Action extends ActionSupport {
                         + " or clear the message.", parsedDemoNo);
             }
 
+            // A message holds a fixed amount of PDF text (MessageTbl.PDF_ATTACHMENT_MAX_BYTES) and the database cuts the
+            // rest off without a word, so what does not fit is refused here, with everything kept, and not stored in two.
+            if (!MsgMessageData.pdfAttachmentFits(pdfAtt)) {
+                MiscUtils.getLogger().warn("Refused a message whose chart PDFs are larger than a message can hold");
+                return redisplay(session, staged, MsgAttachPDF2Action.PDFS_TOO_LARGE, parsedDemoNo);
+            }
+
             java.util.ArrayList<MsgProviderData> providerListing;
 
 

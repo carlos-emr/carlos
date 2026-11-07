@@ -174,6 +174,8 @@ public class RptByExample2Action extends ActionSupport {
         } catch (SQLTimeoutException _) {
             request.setAttribute("queryTimeout", true);
             request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException _) {
+            request.setAttribute("queryPreventionDateReview", true);
         } catch (SQLException | RuntimeException _) {
             request.setAttribute("queryExecutionError", true);
         }

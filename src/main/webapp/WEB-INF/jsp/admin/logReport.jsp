@@ -31,15 +31,15 @@
 --%>
 
 <%@ page import="java.util.*" %>
-<%@ page import="java.sql.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*, io.github.carlos_emr.carlos.db.*, io.github.carlos_emr.MyDateFormat" %>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -72,9 +72,9 @@
     if (propName == null) propName = new Properties();
 %>
 
-<%@page import="io.github.carlos_emr.Misc" %>
-<%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <html>
     <head>

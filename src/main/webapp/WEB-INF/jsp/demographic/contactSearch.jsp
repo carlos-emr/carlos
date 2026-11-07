@@ -38,14 +38,14 @@ Parameters: form, elementId and elementName identify opener fields; keyword,
 @since 2026.08 punctuation-safe selection handoff
 --%>
 
-<%@ page import="java.util.*,java.sql.*, java.net.*" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+<%@ page import="java.util.*" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.web.Contact2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Contact" %>
-<%@ page import="org.apache.commons.text.WordUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%@ include file="/taglibs.jsp" %>

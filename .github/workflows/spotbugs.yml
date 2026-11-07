@@ -79,7 +79,7 @@ permissions:
 jobs:
   spotbugs:
     name: SpotBugs + Find Security Bugs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     if: github.actor != 'dependabot[bot]'
     steps:
@@ -161,7 +161,7 @@ jobs:
         run: python3 scripts/summarize_security_locations.py spotbugs-security-report.sarif
 
       - name: Upload security SARIF to GitHub Code Scanning
-        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370
         if: >
           always() &&
           hashFiles('spotbugs-security-report.sarif') != '' &&

@@ -229,8 +229,7 @@ public class CaseManagementPrint {
         CarlosProperties p = CarlosProperties.getInstance();
         String noteSort = p.getProperty("CMESort", "");
         if (noteSort.trim().equalsIgnoreCase("UP")) {
-            Collections.sort(notes, CaseManagementNote.noteObservationDateComparator);
-            Collections.reverse(notes);
+            Collections.sort(notes, CaseManagementNote.observationDateComparator(true));
         } else {
             Collections.sort(notes, CaseManagementNote.noteObservationDateComparator);
         }

@@ -1366,7 +1366,7 @@ public class ManageDocument2Action extends ActionSupport {
             EDoc curDoc = EDocUtil.getDoc(doc_no);
             ResourceBundle props = ResourceBundle.getBundle("oscarResources", locale);
             out.println("<br>" + props.getString("dms.documentBrowser.DocumentUpdated") + ": " + Encode.forHtml(Objects.toString(curDoc.getDateTimeStamp(), "")));
-            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + Encode.forHtml(Objects.toString(curDoc.getContentDateTime(), "")));
+            out.println("<br>" + props.getString("dms.documentBrowser.ContentUpdated") + ": " + Encode.forHtml(curDoc.getContentDateTimeDisplay()));
             out.println("<br>" + props.getString("dms.documentBrowser.ObservationDate") + ": " + Encode.forHtml(Objects.toString(curDoc.getObservationDate(), "")));
             out.println("<br>" + props.getString("dms.documentBrowser.Type") + ": " + Encode.forHtml(Objects.toString(curDoc.getType(), "")));
             out.println("<br>" + props.getString("dms.documentBrowser.Class") + ": " + Encode.forHtml(Objects.toString(curDoc.getDocClass(), "")));
@@ -1824,7 +1824,7 @@ public class ManageDocument2Action extends ActionSupport {
             response.setContentType("application/pdf");
             response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(sanitizedPdfName + UtilDateUtilities.getToday("yyyy-MM-dd.hh.mm.ss") + ".pdf") + "\"");
             try (InputStream input = Files.newInputStream(extracted.path())) {
-                org.apache.commons.io.IOUtils.copy(input, response.getOutputStream());
+                input.transferTo(response.getOutputStream());
             }
         } catch (BoundedPdfTask.BusyException busy) {
             sendIncomingPreviewBusy(busy);
@@ -1984,7 +1984,7 @@ public class ManageDocument2Action extends ActionSupport {
             File validatedFile = PathValidationUtils.validateExistingPath(file, baseDir);
             bfis = new BufferedInputStream(new FileInputStream(validatedFile));
 
-            org.apache.commons.io.IOUtils.copy(bfis, outs);
+            bfis.transferTo(outs);
             outs.flush();
 
         } catch (Exception e) {
@@ -2092,7 +2092,7 @@ public class ManageDocument2Action extends ActionSupport {
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();
                 bfis = new BufferedInputStream(new FileInputStream(imageFile));
-                org.apache.commons.io.IOUtils.copy(bfis, outs);
+                bfis.transferTo(outs);
                 outs.flush();
                 return;
             }
@@ -2110,7 +2110,7 @@ public class ManageDocument2Action extends ActionSupport {
                 response.setHeader("Content-Disposition", "inline;filename=\"" + sanitizeHeaderValue(sanitizedPdfName) + "\"");
                 outs = response.getOutputStream();
                 bfis = new BufferedInputStream(new FileInputStream(outfile));
-                org.apache.commons.io.IOUtils.copy(bfis, outs);
+                bfis.transferTo(outs);
                 outs.flush();
 
             } else {
@@ -2301,7 +2301,7 @@ public class ManageDocument2Action extends ActionSupport {
     private HttpServletResponse setResponse(HttpServletResponse response, byte[] pdfBytes) {
         try (ServletOutputStream outs = response.getOutputStream();
              ByteArrayInputStream fileInputStream = new ByteArrayInputStream(pdfBytes)) {
-            org.apache.commons.io.IOUtils.copy(fileInputStream, outs);
+            fileInputStream.transferTo(outs);
         } catch (Exception e) {
             log.error("Error retrieving PDF document", e);
         }
@@ -2319,7 +2319,7 @@ public class ManageDocument2Action extends ActionSupport {
         try (ServletOutputStream outs = response.getOutputStream();
              FileInputStream fileInputStream = new FileInputStream(output)
         ) {
-            org.apache.commons.io.IOUtils.copy(fileInputStream, outs);
+            fileInputStream.transferTo(outs);
         } catch (Exception e) {
             log.error("Error retrieving document: {}", LogSafe.sanitize(output.getPath()), e); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
         }

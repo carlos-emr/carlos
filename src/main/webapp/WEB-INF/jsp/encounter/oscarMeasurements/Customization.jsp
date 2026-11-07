@@ -36,9 +36,9 @@
 <fmt:setBundle basename="oscarResources"/>
 
 
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.*" %>
-<%@ page import="java.util.Vector" %>
+
+
+
 
 <html>
     <head>

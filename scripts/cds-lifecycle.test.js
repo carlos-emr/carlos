@@ -1,0 +1,837 @@
+/* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
+'use strict';
+const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const {randomUUID} = require('node:crypto');
+const {createHash} = require('node:crypto');
+const {EventEmitter} = require('node:events');
+const {spawnSync} = require('node:child_process');
+const {pathToFileURL} = require('node:url');
+const h = require('./lib/playwright-harness');
+const gate = require('./demographic-cds-lifecycle-playwright-checks');
+const ordinary = () => ({CDS_LIFECYCLE_PROVIDER_NO:'EDU1',CDS_LIFECYCLE_PROGRAM_ID:'7',CDS_LIFECYCLE_FACILITY_ID:'1',
+  CDS_LIFECYCLE_SOURCE_NAMESPACE:'browser-synthetic',CDS_LIFECYCLE_SOURCE_PROFILE:'pcon-2024-02'});
+function state() {
+  const options = gate.optionsFrom(ordinary()), source = gate.fixture('LIFE0123456789ABCDEF');
+  return {version:1,attempt:randomUUID(),sourceId:'LIFE0123456789ABCDEF',sourceSha256:source.sourceSha256,
+    options,optionsDigest:gate.optionsDigest(options),artifactSha256:'a'.repeat(64),completed:[]};
+}
+
+test('the ordinary fault fixture fixes one patient,256 real notes and514 native/source units', () => {
+  const source = gate.fixture('LIFE0123456789ABCDEF');
+  assert.equal(source.notes,256); assert.equal(source.units,514);
+  assert.equal((source.buffer.toString().match(/<ClinicalNotes>/g) || []).length,256);
+  assert.equal((source.buffer.toString().match(/<PatientRecord>/g) || []).length,1);
+  assert.equal(gate.fixture('LIFE0123456789ABCDEF',1).units,4);
+  assert.throws(() => gate.fixture('../unsafe'),/identity/);
+  assert.throws(() => gate.fixture('LIFE1',257),/count/);
+});
+
+test('nondefault effective options require explicit provider/program/facility and a separate synthetic context', () => {
+  const options = gate.optionsFrom(ordinary());
+  assert.equal(options.matchProviderNames,false); assert.equal(options.mergeExisting,false);
+  assert.equal(options.programId,7); assert.equal(options.facilityId,1); assert.equal(options.synthetic,false);
+  assert.throws(() => gate.optionsFrom({...ordinary(),CDS_LIFECYCLE_PROGRAM_ID:''}),/reviewed context/);
+  assert.throws(() => gate.optionsFrom({...ordinary(),CDS_LIFECYCLE_SOURCE_NAMESPACE:'bad\nname'}),/namespace/);
+  assert.throws(() => gate.optionsFrom(ordinary(),true),/reviewed context/);
+  const course = gate.optionsFrom({...ordinary(),CDS_LIFECYCLE_COURSE_ID:'42',CDS_LIFECYCLE_SHIFT_DAYS:'7'},true);
+  assert.equal(course.courseId,42); assert.equal(course.timeshiftInDays,7);
+  assert.throws(() => gate.optionsFrom({...ordinary(),CDS_LIFECYCLE_COURSE_ID:'42',CDS_LIFECYCLE_SHIFT_DAYS:'0'},true),/nonzero/);
+});
+
+test('clinical options fingerprint binds all mutable clinical choices while excluding source transport identity', () => {
+  const options = gate.optionsFrom(ordinary()), expected = gate.optionsDigest(options);
+  for (const [name,value] of Object.entries({providerNo:'EDU2',programId:8,facilityId:2,mergeExisting:true,
+    matchProviderNames:true,timeshiftInDays:7,courseId:42,synthetic:true})) {
+    assert.notEqual(gate.optionsDigest({...options,[name]:value}),expected,name);
+  }
+  assert.equal(gate.optionsDigest({...options,sourceNamespace:'another-source',dryRun:true}),expected);
+});
+
+test('all JSON protocol probes send contract2 and independently require both response markers', async () => {
+  let sent;
+  const call = async (_frame,_route,params) => {sent=params;return {apiVersion:'2',body:{apiVersion:2}};};
+  await gate.contractApi(null,'cdsImportStatus',{runId:'accepted'},'GET',call);
+  assert.equal(sent.apiVersion,2);
+  for (const result of [{apiVersion:'1',body:{apiVersion:2}},{apiVersion:'2',body:{apiVersion:1}},{body:{ok:true}}])
+    await assert.rejects(gate.contractApi(null,'cdsImportStatus',{},'GET',async () => result),/contract2/);
+  await gate.contractApi(null,'cdsImportReport',{type:'receipt'},'GET',call);
+  assert.equal(sent.apiVersion,undefined);
+});
+
+test('private durable state retains exact accepted source/options/artifact and refuses replacement', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(),'cds-lifecycle-'));
+  try {
+    const file = path.join(directory,'attempt.json'), initial = state();
+    gate.writeState(file,initial,true);
+    assert.equal(fs.statSync(file).mode & 0o077,0);
+    initial.runId = randomUUID(); gate.writeState(file,initial);
+    const saved = gate.readState(file), source = gate.fixture(saved.sourceId);
+    assert.equal(saved.runId,initial.runId);
+    gate.bindState(saved,saved.options,source,saved.artifactSha256);
+    assert.throws(() => gate.writeState(file,initial,true),/EEXIST/);
+    assert.throws(() => gate.bindState(saved,{...saved.options,providerNo:'OTHER'},source,saved.artifactSha256),/never create a replacement/);
+    assert.throws(() => gate.bindState(saved,saved.options,source,'b'.repeat(64)),/never create a replacement/);
+    fs.chmodSync(file,0o644); assert.throws(() => gate.readState(file),/private/);
+    fs.unlinkSync(file); fs.symlinkSync(path.join(directory,'other'),file);
+    assert.throws(() => gate.readState(file),/private/);
+  } finally { fs.rmSync(directory,{recursive:true,force:true}); }
+});
+
+test('faults require actual written native data, checkpoints, pending units and a held patient', () => {
+  const written = {expected:514,checkpoints:4,pending:510,patients:1,holds:1,notes:1};
+  gate.requirePending(written);
+  for (const change of [{checkpoints:0},{checkpoints:514},{pending:0},{patients:0},{holds:0},{notes:0},{expected:518}])
+    assert.throws(() => gate.requirePending({...written,...change}),/progress window/);
+});
+
+test('completion rejects accepted-only, pending cleanup/reports, resumed work and changed immutable provenance', () => {
+  const expected = {runId:randomUUID(),optionsDigest:'a',sourceDigest:'b',rulesetDigest:'c',manifestDigest:'d',units:514,copies:1};
+  const value = {job:{id:expected.runId,...expected},summary:{clinicalComplete:true,discoveryComplete:true,reportsDelivered:true,
+    cleanupComplete:true,cleanComplete:true,resumeRequested:false,maintenanceReleasePending:false,
+    maintenanceReleaseState:'RELEASED',pendingUnits:0,inventoryState:'SEALED',sourcePatients:1,expectedUnits:514,expectedPatients:1,targetCopiesPlanned:1}};
+  gate.assertCompletion(value,expected);
+  for (const key of ['clinicalComplete','discoveryComplete','reportsDelivered','cleanupComplete','cleanComplete'])
+    assert.throws(() => gate.assertCompletion({...value,summary:{...value.summary,[key]:false}},expected),/evidence/);
+  for (const patch of [{resumeRequested:true},{maintenanceReleasePending:true},{maintenanceReleaseState:'HELD'},{pendingUnits:1}])
+    assert.throws(() => gate.assertCompletion({...value,summary:{...value.summary,...patch}},expected),/pending/);
+  assert.throws(() => gate.assertCompletion({...value,job:{...value.job,optionsDigest:'changed'}},expected),/provenance/);
+});
+
+test('sanitized web job ownership comes from its real owner route and an independent durable scalar', () => {
+  const options=gate.optionsFrom(ordinary()),runId=randomUUID(),fingerprint=gate.optionsDigest(options);
+  const response={status:200,body:{apiVersion:2,job:{id:runId,sourceNamespace:options.sourceNamespace,
+    profile:options.sourceProfile,optionsDigest:fingerprint}}};
+  const expected={runId,options,optionsDigest:fingerprint,owner:'web-130'};
+  gate.assertAcceptance(response,expected,'web-130');
+  assert.equal(response.body.job.operator,undefined);
+  assert.throws(() => gate.assertAcceptance(response,expected,'web-131'),/operator/);
+  for(const patch of [{sourceNamespace:'another'},{profile:'another'},{optionsDigest:'changed'},{id:randomUUID()}])
+    assert.throws(() => gate.assertAcceptance({...response,body:{...response.body,job:{...response.body.job,...patch}}},expected,'web-130'),/acceptance/);
+});
+
+test('a browser-simulated timeout is never counted as the genuine proxy fault', () => {
+  const recorder = h.createRecorder(), request = {url:() => 'http://localhost/carlos/form/cdsImportSubmit'};
+  const raw = {errorText:'net::ERR_TIMED_OUT',requestRef:new WeakRef(request)};
+  recorder.requestFailures.push(raw);
+  const fault = {request,accepted:true,runId:randomUUID()};
+  assert.throws(() => gate.assertScopedFault(recorder,fault),/genuine Nginx/);
+  assert.throws(() => gate.assertScopedFault(recorder),/request failed/);
+  assert.equal(recorder.requestFailures[0],raw);
+});
+
+test('real Nginx504 proof excuses only its exact raw response and explicit non-JSON cancellation', () => {
+  const recorder=h.createRecorder(),request={url:() => 'http://localhost:18085/carlos/form/cdsImportSubmit'};
+  const raw={status:504,url:request.url(),method:'POST',resourceType:'fetch'};
+  recorder.badResponses.push(raw);
+  recorder.requestFailures.push({errorText:'net::ERR_ABORTED',requestRef:new WeakRef(request)});
+  recorder.consoleIssues.push({text:'Failed to load resource: the server responded with a status of 504 (Gateway Time-out)',location:{url:request.url()}});
+  const fault={kind:'nginx',request,accepted:true,runId:randomUUID(),status:504,proxyVerified:true,badResponse:raw};
+  gate.assertScopedFault(recorder,fault);
+  assert.equal(recorder.badResponses[0],raw);assert.equal(recorder.requestFailures.length,1);
+  assert.throws(() => gate.assertScopedFault(recorder,{...fault,proxyVerified:false}),/real-proxy/);
+  recorder.badResponses.push({...raw});
+  assert.throws(() => gate.assertScopedFault(recorder,fault),/HTTP|504|JavaScript/);
+  recorder.badResponses.pop();recorder.requestFailures.push({errorText:'net::ERR_CONNECTION_RESET',requestRef:new WeakRef(request)});
+  assert.throws(() => gate.assertScopedFault(recorder,fault),/request failed/);
+});
+
+test('bounded evidence hashing refuses symlinks and capacity overflow', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(),'cds-lifecycle-hash-'));
+  try {
+    const file = path.join(directory,'bytes'); fs.writeFileSync(file,'original');
+    const proof = gate.hashFile(file,8); assert.equal(proof.bytes,8);
+    assert.throws(() => gate.hashFile(file,7),/capacity/);
+    fs.symlinkSync(file,path.join(directory,'link'));
+    assert.throws(() => gate.hashFile(path.join(directory,'link')),/ELOOP/);
+    const env = {CDS_LIFECYCLE_SERVER_ROOT:'/server/private',CDS_LIFECYCLE_LOCAL_ROOT:directory};
+    assert.equal(gate.evidencePath('/server/private/bytes',env),file);
+    assert.throws(() => gate.evidencePath('/server/outside',env),/escaped/);
+  } finally { fs.rmSync(directory,{recursive:true,force:true}); }
+});
+
+test('the session helper receives only the selected synthetic cookie through stdin and rejects false scope', () => {
+  const selected = 'A'.repeat(32);
+  const command = [process.execPath,'-e',`let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{
+    if(s!=='${selected}\\n')process.exit(1);console.log(JSON.stringify({expired:true,scope:'selected-HttpSession',naturalTimeout:false,atomicReference:true,pid:123,startEpochMillis:456}));});`];
+  assert.deepEqual(gate.expireSession(command,selected,{pid:123,startEpochMillis:456}),{pid:123,startEpochMillis:456});
+  assert.throws(() => gate.expireSession(command,selected,{pid:123,startEpochMillis:457}),/process identity changed/);
+  assert.throws(() => gate.expireSession(command,'not-a-cookie'),/identity/);
+  assert.throws(() => gate.expireSession([process.execPath,'-e',"console.log('{}')"],selected),/receipt/);
+});
+
+test('unsupported atomic attach is refused before a new acceptance', () => {
+  const command=[process.execPath,'-e',"console.log(JSON.stringify({preflight:true,supported:true,atomicReference:true,pid:123,startEpochMillis:456}))"];
+  assert.deepEqual(gate.preflightSession(command),{pid:123,startEpochMillis:456});
+  assert.throws(() => gate.preflightSession(null),/preflight argv/);
+  assert.throws(() => gate.preflightSession([process.execPath,'-e',"console.log('{}')"]),/before acceptance/);
+  assert.throws(() => gate.preflightSession([process.execPath,'-e','process.exit(1)']),/no new acceptance/);
+});
+
+test('default lifecycle execution makes no acceptance and explicitly reports NOT_EXECUTED', async () => {
+  assert.equal((await gate.run({})).outcome,'NOT_EXECUTED');
+});
+
+function privateEvidenceFixture(serializedPaths = true) {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(),'cds-lifecycle-evidence-'));
+  const selected = state(), source = gate.fixture(selected.sourceId);
+  const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+  selected.runId = randomUUID(); selected.uploadId = randomUUID(); selected.owner = 'web-130';
+  selected.rulesetDigest = 'b'.repeat(64); selected.manifestDigest = 'c'.repeat(64);
+  const env = {CDS_LIFECYCLE_SERVER_ROOT:'/server/private',CDS_LIFECYCLE_LOCAL_ROOT:directory};
+  const serverJob = '/server/private/jobs/' + selected.runId;
+  const local = remote => path.join(directory,path.relative('/server/private',remote));
+  const put = (remote,bytes) => { const file=local(remote);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,bytes);return file; };
+  const journal = Buffer.alloc(52);journal.writeBigInt64BE(0n,0);journal.writeBigInt64BE(0n,8);
+  journal.writeInt32BE(source.buffer.length,16);Buffer.from(source.sourceSha256,'hex').copy(journal,20);
+  selected.sourceDigest = sha(journal);
+  put('/server/private/uploads/' + selected.uploadId + '/chunks.bin',journal);
+  const {timeshiftInDays,...options} = selected.options;
+  const document = {actor:{operator:selected.owner},uploadId:selected.uploadId,acceptedRulesetDigest:selected.rulesetDigest,
+    snapshot:null,jobRoot:serverJob,command:{...options,input:'/server/private/uploads/' + selected.uploadId + '/source.xml',
+      timeshiftDays:timeshiftInDays,courseId:null}};
+  if (serializedPaths) {
+    document.command.input = pathToFileURL(document.command.input).href;
+    document.jobRoot = pathToFileURL(document.jobRoot + '/').href;
+  }
+  let accepted;
+  const saveDocument = () => { const bytes=Buffer.from(JSON.stringify(document));accepted=serverJob + '/job-' + sha(bytes) + '.json';put(accepted,bytes); };
+  saveDocument();
+  const snapshot = serverJob + '/snapshot';
+  const inventory = JSON.stringify({relativeName:source.name,member:'000000000000.bin',sha256:source.sourceSha256,
+    length:source.buffer.length,patientXml:true}) + '\n';
+  put(snapshot + '/files.jsonl',inventory);put(snapshot + '/members/000000000000.bin',source.buffer);
+  put(snapshot + '/snapshot.seal',JSON.stringify({version:2,manifestSha256:sha(inventory),archiveSha256:'',files:1,patientXmlFiles:1,totalBytes:source.buffer.length}));
+  const reports = serverJob + '/reports-1/report-set.json';
+  const names = {completion:'completion.json',error:'ImportErrorLog.jsonl',event:'ImportEventLog.jsonl',units:'units.jsonl'};
+  const files = {};
+  for (const [key,name] of Object.entries(names)) {
+    const bytes = Buffer.from(key === 'error' ? '' : '{}\n');put(path.dirname(reports) + '/' + name,bytes);
+    files[key]={name,bytes:bytes.length,sha256:sha(bytes)};
+  }
+  const manifest = JSON.stringify({runId:selected.runId,sourceDigest:selected.sourceDigest,manifestDigest:selected.manifestDigest,files});
+  put(reports,manifest);
+  const sql = {rows(query) {
+    if (query.startsWith('SELECT snapshot_location')) return [[accepted,reports,sha(manifest)]];
+    if (query.startsWith('SELECT expected_bytes')) return [[String(source.buffer.length),String(source.buffer.length),'1',selected.sourceDigest]];
+    throw Error('Unexpected evidence query');
+  }};
+  return {directory,selected,env,sql,document,saveDocument,put,snapshot,reports};
+}
+
+test('web acceptance snapshot remains null while actual worker seal,original source,journal and all report bytes verify', () => {
+  const fixture = privateEvidenceFixture();
+  try {
+    const result = gate.protectedEvidence(fixture.sql,fixture.selected,fixture.env);
+    assert.deepEqual(Object.keys(result).sort(),['completion','error','event','units']);
+    assert.equal(fixture.document.snapshot,null);
+    assert.ok(fixture.document.command.input.startsWith('file:///') && fixture.document.jobRoot.startsWith('file:///'));
+    for(const [key,entry] of Object.entries(result)) {
+      const expected=Buffer.from(key==='error'?'':'{}\n');
+      assert.equal(entry.bytes,expected.length);assert.equal(entry.sha256,createHash('sha256').update(expected).digest('hex'));
+    }
+  } finally {fs.rmSync(fixture.directory,{recursive:true,force:true});}
+});
+
+test('shouldVerifyCompleteProtectedEvidence_withHistoricalAbsoluteDescriptorPaths',()=>{
+  const fixture=privateEvidenceFixture(false);
+  try {
+    const result=gate.protectedEvidence(fixture.sql,fixture.selected,fixture.env);
+    assert.deepEqual(Object.keys(result).sort(),['completion','error','event','units']);
+    for(const [key,entry] of Object.entries(result)) {
+      const expected=Buffer.from(key==='error'?'':'{}\n');
+      assert.equal(entry.bytes,expected.length);
+      assert.equal(entry.sha256,createHash('sha256').update(expected).digest('hex'));
+    }
+  } finally {fs.rmSync(fixture.directory,{recursive:true,force:true});}
+});
+
+test('shouldRejectUnsafeSerializedPaths_inCompleteProtectedEvidence',()=>{
+  const unsafe=['file://localhost/server/private/source.xml','file://remote/server/private/source.xml',
+    'file://user:secret@remote/server/private/source.xml','file:///server/private/source.xml?',
+    'file:///server/private/source.xml#','file:///server/private/%2Fsource.xml',
+    'file:///server/private/%5Csource.xml','file:///server/private/source%00.xml',
+    'file:///server/private/source%0a.xml','file:///server/private/source%0d.xml',
+    'file:///server/private/%zz','file:///server/private/%2e%2e/%2e%2e/outside/source.xml',
+    'file:///server/private/../../outside/source.xml',' file:///server/private/source.xml',
+    'file:/server/private/source.xml','https://example.invalid/source.xml','/outside/source.xml'];
+  for(const field of ['input','jobRoot'])for(const value of unsafe) {
+    const fixture=privateEvidenceFixture();
+    try {
+      if(field==='input')fixture.document.command.input=value;else fixture.document.jobRoot=value;
+      fixture.saveDocument();
+      assert.throws(()=>gate.protectedEvidence(fixture.sql,fixture.selected,fixture.env),undefined,field+': '+value);
+    } finally {fs.rmSync(fixture.directory,{recursive:true,force:true});}
+  }
+});
+
+for (const [name,mutate,match] of [
+  ['changed retained original',f => f.put(f.snapshot + '/members/000000000000.bin','changed'),/original accepted source/],
+  ['old snapshot seal',f => f.put(f.snapshot + '/snapshot.seal',JSON.stringify({version:1})),/seal\/inventory/],
+  ['missing inventory',f => fs.unlinkSync(f.put(f.snapshot + '/files.jsonl','')),/ENOENT/],
+  ['changed protected report',f => f.put(path.dirname(f.reports) + '/units.jsonl','wrong'),/report bytes/],
+  ['wrong accepted UI option',f => {f.document.command.matchProviderNames=true;f.saveDocument();},/effective option/],
+  ['wrong native snapshot assumption',f => {f.document.snapshot={root:f.snapshot};f.saveDocument();},/acceptance/]
+]) test('protected completeness refuses ' + name, () => {
+  const fixture = privateEvidenceFixture();
+  try {mutate(fixture);assert.throws(() => gate.protectedEvidence(fixture.sql,fixture.selected,fixture.env),match);}
+  finally {fs.rmSync(fixture.directory,{recursive:true,force:true});}
+});
+
+
+test('an enabled required lifecycle gate refuses missing native credentials before fixture or acceptance work',async()=>{
+  await assert.rejects(()=>gate.run({CDS_LIFECYCLE_EXECUTE:'true'}),error=>error.name!=='SkipCheck'
+    && error.message.includes('Required lifecycle native prerequisite missing: TEST_USER'));
+  const native={TEST_USER:'synthetic',TEST_PASSWORD:'private-unit',TEST_PIN:'2026',MYSQL_PASSWORD:''};
+  assert.doesNotThrow(()=>gate.requireNativeEnvironment(native));
+  for(const name of Object.keys(native)) {
+    const env={...native};delete env[name];
+    assert.throws(()=>gate.requireNativeEnvironment(env),error=>error.name!=='SkipCheck'&&error.message.includes(name));
+  }
+});
+
+test('a nested missing-prerequisite SkipCheck becomes required-gate FAIL1 while actual cleanup still runs',async()=>{
+  const processRef={env:{}};let cleaned=false;
+  const result=await h.runCheck({name:'required-lifecycle-unit',processRef,stdout:{log(){}},
+    createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+    run:()=>gate.requiredLifecycleStep(()=>{throw new h.SkipCheck('unit prerequisite unavailable');}),
+    cleanup(){cleaned=true;}});
+  assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);
+  assert.match(result.detail,/cannot skip/);
+});
+
+function proxyTimeoutFixture(finished=()=>new Promise(()=>{})) {
+  const page=new EventEmitter(),recorder=h.createRecorder(),stages=[];
+  const request={url:()=> 'http://localhost:18085/carlos/form/cdsImportSubmit'};
+  const proxy={proxyHeader:'X-Owned-Proxy',proxyToken:'1'.repeat(32)};
+  const response={request:()=>request,status:()=>504,headers:()=>({'x-owned-proxy':proxy.proxyToken}),finished};
+  const options={page,recorder,response,request,proxy,onStage:stage=>stages.push(stage),timeoutMillis:20};
+  const abort=(selected=request,errorText='net::ERR_ABORTED')=>{
+    recorder.requestFailures.push({requestRef:new WeakRef(selected),errorText});page.emit('requestfailed',selected);
+  };
+  return {...options,options,stages,abort};
+}
+
+test('the real proxy response records verified headers before a normal finished EOF',async()=>{
+  const f=proxyTimeoutFixture(async()=>{assert.equal(f.stages[0].stage,'proxy-response-headers');return null;});
+  assert.deepEqual(await gate.awaitActualProxyTimeout(f.options),{terminal:'RESPONSE_FINISHED'});
+  assert.equal(f.stages.at(-1).stage,'proxy-response-finished');assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('an already recorded exact raw cancellation does not wait on Playwright finished',async()=>{
+  let called=false;const f=proxyTimeoutFixture(()=>{called=true;return new Promise(()=>{});});f.abort();
+  assert.deepEqual(await gate.awaitActualProxyTimeout(f.options),{terminal:'EXACT_REQUEST_ABORTED'});
+  assert.equal(called,false);assert.equal(f.recorder.requestFailures.length,1);assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('a late exact raw cancellation releases a response whose finished promise never settles',async()=>{
+  const f=proxyTimeoutFixture();const pending=gate.awaitActualProxyTimeout(f.options);
+  assert.equal(f.page.listenerCount('requestfailed'),1);f.abort();
+  assert.deepEqual(await pending,{terminal:'EXACT_REQUEST_ABORTED'});
+  assert.equal(f.page.listenerCount('requestfailed'),0);assert.equal(f.recorder.requestFailures.length,1);
+});
+
+test('a cancellation recorded during observer registration cannot be missed',async()=>{
+  const f=proxyTimeoutFixture();const on=f.page.on;
+  f.page.on=function(name,listener){on.call(this,name,listener);f.abort();return this;};
+  assert.deepEqual(await gate.awaitActualProxyTimeout(f.options),{terminal:'EXACT_REQUEST_ABORTED'});
+  assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+for(const [name,change,pattern] of [
+  ['another response request',f=>{f.response.request=()=>({url:f.request.url});},/exact Nginx504/],
+  ['another response status',f=>{f.response.status=()=>502;},/exact Nginx504/],
+  ['missing proxy header',f=>{f.response.headers=()=>({});},/approved listener/],
+  ['wrong proxy header',f=>{f.response.headers=()=>({'x-owned-proxy':'2'.repeat(32)});},/approved listener/],
+  ['unexpected selected request error',f=>f.abort(f.request,'net::ERR_CONNECTION_RESET'),/unexpected error/],
+  ['duplicate selected request cancellations',f=>{f.abort();f.abort();},/duplicate cancellations/],
+  ['an aborted finished result without raw evidence',f=>{f.response.finished=async()=>Error('net::ERR_ABORTED');},/successful finished/]
+])test('real proxy timeout proof refuses '+name,async()=>{
+  const f=proxyTimeoutFixture();change(f);
+  await assert.rejects(gate.awaitActualProxyTimeout(f.options),pattern);
+  assert.equal(f.stages.at(-1).stage,'proxy-response-failed');assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('another request object with the same URL cannot prove cancellation and expires visibly',async()=>{
+  const f=proxyTimeoutFixture();f.abort({url:f.request.url});
+  await assert.rejects(gate.awaitActualProxyTimeout(f.options),/deadline elapsed/);
+  assert.equal(f.stages.at(-1).stage,'proxy-response-failed');assert.equal(f.page.listenerCount('requestfailed'),0);
+  assert.equal(f.recorder.requestFailures.length,1);
+});
+
+test('late wrong or duplicate exact cancellations fail and detach their observer',async()=>{
+  for(const duplicate of [false,true]){
+    const f=proxyTimeoutFixture();const pending=gate.awaitActualProxyTimeout(f.options);
+    if(duplicate){f.abort();f.abort();}else f.abort(f.request,'net::ERR_FAILED');
+    await assert.rejects(pending,duplicate?/duplicate/:/unexpected error/);
+    assert.equal(f.page.listenerCount('requestfailed'),0);assert.equal(f.stages.at(-1).finished,false);
+  }
+});
+
+test('a response without EOF or a raw cancellation reaches a finite failed stage',async()=>{
+  const f=proxyTimeoutFixture();await assert.rejects(gate.awaitActualProxyTimeout(f.options),/deadline elapsed/);
+  assert.deepEqual(f.stages.map(stage=>stage.stage),['proxy-response-headers','proxy-response-failed']);
+  assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('failed durable header recording cannot start a body wait or publish a finished stage',async()=>{
+  let finished=false;const f=proxyTimeoutFixture(async()=>{finished=true;return null;});
+  f.options.onStage=stage=>{f.stages.push(stage);if(stage.stage==='proxy-response-headers')throw Error('owned state write failed');};
+  await assert.rejects(gate.awaitActualProxyTimeout(f.options),/owned state write failed/);
+  assert.equal(finished,false);assert.equal(f.stages.at(-1).stage,'proxy-response-failed');
+  assert.equal(f.page.listenerCount('requestfailed'),0);
+});
+
+test('a later finished rejection after exact cancellation is handled without an unhandled rejection',async()=>{
+  let rejectFinished;const f=proxyTimeoutFixture(()=>new Promise((_resolve,reject)=>{rejectFinished=reject;}));
+  const unhandled=[];const observe=error=>unhandled.push(error);process.on('unhandledRejection',observe);
+  try {
+    const pending=gate.awaitActualProxyTimeout(f.options);await new Promise(resolve=>setImmediate(resolve));f.abort();
+    await pending;rejectFinished(Error('late finished rejection'));
+    await new Promise(resolve=>setImmediate(resolve));assert.deepEqual(unhandled,[]);
+    assert.equal(f.page.listenerCount('requestfailed'),0);
+  } finally {process.off('unhandledRejection',observe);}
+});
+
+test('a failed proxy wait persists failure before cleanup and retains accepted handles without retry',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-proxy-state-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const selected={...state(),runId:randomUUID(),uploadId:randomUUID(),submitRequested:true};
+  const file=path.join(directory,'state.json');gate.writeState(file,selected,true);
+  const f=proxyTimeoutFixture();f.options.onStage=stage=>{selected.proxyClientResponse=stage;gate.writeState(file,selected);};
+  let cleanups=0;const processRef={env:{}};
+  const result=await h.runCheck({name:'proxy-state-unit',processRef,stdout:{log(){}},
+    createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+    run:()=>gate.requiredLifecycleStep(()=>gate.awaitActualProxyTimeout(f.options)),
+    cleanup(){cleanups++;assert.equal(gate.readState(file).proxyClientResponse.stage,'proxy-response-failed');}});
+  assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleanups,1);
+  const retained=gate.readState(file);
+  for(const key of ['runId','uploadId','submitRequested','sourceSha256','optionsDigest','artifactSha256'])assert.equal(retained[key],selected[key]);
+  assert.deepEqual(retained.completed,[]);assert.deepEqual(fs.readdirSync(directory),['state.json']);
+});
+
+test('cleanup uses an idempotent same-attempt stop marker and records only confirmed closures',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-proxy-cleanup-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const selected={...state(),runId:randomUUID()};const stop=path.join(directory,'stop.json');let closes=0,disposals=0,saves=0;
+  const options={state:selected,save(){saves++;},log(){},browser:{async close(){closes++;}},sql:{dispose(){disposals++;}},
+    relay:{child:{pid:123},file:()=>stop,closed:Promise.resolve(0)}};
+  await gate.cleanupLifecycle(options);const marker=fs.readFileSync(stop);await gate.cleanupLifecycle(options);
+  assert.deepEqual(fs.readFileSync(stop),marker);assert.equal(closes,2);assert.equal(disposals,2);assert.equal(saves,4);
+  assert.equal(selected.cleanup.stage,'cleanup-settled');assert.equal(selected.cleanup.browser,'CLOSED');assert.equal(selected.cleanup.relay,'CLOSED');
+  fs.writeFileSync(stop,JSON.stringify({attempt:randomUUID()}),{mode:0o600});const foreign=fs.readFileSync(stop);
+  await assert.rejects(gate.cleanupLifecycle(options),/cleanup is incomplete/);assert.deepEqual(fs.readFileSync(stop),foreign);
+});
+
+test('browser and relay cleanup deadlines retain unknown process closure and accepted identity',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-proxy-cleanup-timeout-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const selected={...state(),runId:randomUUID(),submitRequested:true};const stop=path.join(directory,'stop.json');let disposals=0;
+  await assert.rejects(gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(()=>{})},
+    sql:{dispose(){disposals++;}},relay:{child:{pid:123},file:()=>stop,closed:new Promise(()=>{})},
+    browserTimeoutMillis:5,relayTimeoutMillis:5,timeoutMillis:100}),/cleanup is incomplete/);
+  assert.equal(selected.cleanup.browser,'UNKNOWN');assert.equal(selected.cleanup.relay,'UNKNOWN');assert.equal(selected.cleanup.relayPid,123);
+  assert.equal(selected.cleanup.stage,'cleanup-failed');assert.equal(selected.submitRequested,true);assert.equal(disposals,1);
+  assert.equal(JSON.parse(fs.readFileSync(stop)).attempt,selected.attempt);
+});
+
+test('the overall cleanup bound does not claim a later browser close or continue later cleanup actions',async()=>{
+  let close;let disposals=0;const selected=state();
+  const pending=gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(resolve=>{close=resolve;})},
+    sql:{dispose(){disposals++;}},browserTimeoutMillis:50,timeoutMillis:5});
+  await assert.rejects(pending,/cleanup is incomplete/);assert.equal(selected.cleanup.browser,'UNKNOWN');
+  close();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(selected.cleanup.browser,'UNKNOWN');assert.equal(selected.cleanup.stage,'cleanup-failed');assert.equal(disposals,0);
+});
+
+test('cleanup state persistence failure remains a failed gate after confirmed resource closure',async()=>{
+  let closed=false;const selected=state();
+  await assert.rejects(gate.cleanupLifecycle({state:selected,save(){throw Error('owned state write failed');},log(){},
+    browser:{async close(){closed=true;}}}),/cleanup is incomplete/);
+  assert.equal(closed,true);assert.equal(selected.cleanup.browser,'CLOSED');assert.equal(selected.cleanup.stage,'cleanup-failed');
+});
+
+test('an operation-specific close deadline stops workflow continuation even if owned closure finishes later',async()=>{
+  let close;let continued=false;let disposed=false;
+  const pending=gate.requiredLifecycleStep(async()=>{
+    await gate.boundedLifecycleAction(()=>new Promise(resolve=>{close=()=>{disposed=true;resolve();};}),5,'owned close deadline');
+    continued=true;
+  });
+  await assert.rejects(pending,/owned close deadline/);close();await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(disposed,true);assert.equal(continued,false);
+});
+
+test('workflow failure recording retains the primary failure when state persistence or logging fails',()=>{
+  for(const failedStep of ['save','log']){
+    const primary=Error('primary proxy failure'),secondary=Error('owned evidence unavailable');const selected=state();
+    assert.throws(()=>gate.recordWorkflowFailure(primary,{state:selected,
+      save(){if(failedStep==='save')throw secondary;},log(){if(failedStep==='log')throw secondary;}}),error=>{
+      assert.ok(error instanceof AggregateError);assert.deepEqual(error.errors,[primary,secondary]);
+      assert.match(error.message,/primary failure and accepted state retained/);return true;
+    });
+    assert.equal(selected.workflowFailure.stage,'workflow-failed');assert.equal(selected.workflowFailure.acceptedStateRetained,true);
+  }
+});
+
+test('successful workflow failure recording rethrows the exact primary failure after durable evidence',()=>{
+  const primary=Error('primary proxy failure'),selected=state(),steps=[];
+  assert.throws(()=>gate.recordWorkflowFailure(primary,{state:selected,
+    save(){steps.push('saved');assert.equal(selected.workflowFailure.stage,'workflow-failed');},
+    log(label,payload){steps.push('logged');assert.equal(label,'LIFECYCLE_STAGE');assert.equal(JSON.parse(payload).acceptedStateRetained,true);}}),
+  error=>error===primary);
+  assert.deepEqual(steps,['saved','logged']);
+});
+
+test('the actual runner retains both safe workflow and evidence reasons plus cleanup status',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-safe-reasons-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  for(const failedStep of ['save','log']){
+    const primary=Error('The exact real-proxy response deadline elapsed; accepted state retained');
+    const secondary=Object.assign(Error('private evidence details'),{code:failedStep==='save'?'ENOSPC':'EPIPE'});
+    const selected=state(),lines=[],resultFile=path.join(directory,failedStep+'.json'),processRef={env:{RESULT_JSON:resultFile}};let thrown,cleanups=0;
+    const result=await h.runCheck({name:'lifecycle-recording-boundary-unit',processRef,stdout:{log:line=>lines.push(line)},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      run(){try {gate.recordWorkflowFailure(primary,{state:selected,save(){if(failedStep==='save')throw secondary;},
+        log(){if(failedStep==='log')throw secondary;}});} catch(error){thrown=error;throw error;}},
+      cleanup(){cleanups++;if(failedStep==='log')throw Error('controlled cleanup pending');}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleanups,1);
+    assert.ok(thrown instanceof AggregateError);assert.deepEqual(thrown.errors,[primary,secondary]);
+    assert.match(result.detail,/primary=\[PROXY_RESPONSE_TIMEOUT: verify owned proxy response evidence/);
+    assert.match(result.detail,failedStep==='save'?/evidence=\[ENOSPC: evidence filesystem full; restore owned free space\]/
+      :/evidence=\[EPIPE: evidence output closed; restore owned log capture\]/);
+    assert.equal(result.cleanupFailed,failedStep==='log'?true:undefined);
+    const retained=JSON.parse(fs.readFileSync(resultFile));assert.equal(retained.detail,result.detail);assert.equal(retained.outcome,'FAIL');
+    assert.equal(retained.cleanupFailed,result.cleanupFailed);
+    t.diagnostic('RETAINED_RUNNER_RESULT '+JSON.stringify({case:failedStep,outcome:retained.outcome,
+      detail:retained.detail,cleanupFailed:retained.cleanupFailed || false}));
+    assert.ok(lines.some(line=>line.includes(result.detail)));assert.ok(result.detail.length<600);
+    assert.equal(selected.workflowFailure.acceptedStateRetained,true);
+  }
+});
+
+test('the actual runner redacts unexpected primary and evidence secrets into bounded fingerprints',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-safe-fingerprints-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const sensitive='password=synthetic-secret SELECT diagnosis FROM patient /workspace/protected/clinical.json cookie=private-token\n';
+  const primary=Error(sensitive.repeat(100)),secondary=Object.assign(Error('evidence '+sensitive.repeat(100)),{code:'ENOSPC\n'+sensitive});
+  const lines=[],resultFile=path.join(directory,'result.json'),processRef={env:{RESULT_JSON:resultFile}};let thrown,cleaned=false;
+  const result=await h.runCheck({name:'lifecycle-private-diagnostic-unit',processRef,stdout:{log:line=>lines.push(line)},
+    createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+    run(){try {gate.recordWorkflowFailure(primary,{state:state(),save(){throw secondary;},log(){}});}
+      catch(error){thrown=error;throw error;}},cleanup(){cleaned=true;}});
+  assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);
+  assert.deepEqual(thrown.errors,[primary,secondary]);
+  const serialized=fs.readFileSync(resultFile,'utf8');assert.equal(JSON.parse(serialized).detail,result.detail);
+  for(const error of [primary,secondary])assert.ok(result.detail.includes('message-prefix4096-sha256='
+    +createHash('sha256').update(error.message.slice(0,4096)).digest('hex')));
+  for(const secret of ['synthetic-secret','SELECT','diagnosis','/workspace/protected','private-token','\n']){
+    assert.equal(result.detail.includes(secret),false);assert.equal(lines.join('').includes(secret),false);
+    if(secret!=='\n')assert.equal(serialized.includes(secret),false);
+  }
+  assert.ok(result.detail.length<600);assert.ok(lines.every(line=>line.length<700));
+});
+
+test('the actual pre-run CLI catch reports a safe missing prerequisite and exit1 before native work',()=>{
+  const secret='synthetic-cli-secret SELECT patient /workspace/protected/private.json';
+  const child=spawnSync(process.execPath,[path.join(__dirname,'demographic-cds-lifecycle-playwright-checks.js')],
+    {encoding:'utf8',timeout:5000,maxBuffer:8192,env:{...process.env,CDS_LIFECYCLE_EXECUTE:'true',
+      TEST_USER:'',CARLOS_USER:'',TEST_PASSWORD:secret,CARLOS_PASSWORD:secret,MYSQL_PASSWORD:secret}});
+  assert.equal(child.error,undefined);assert.equal(child.signal,null);assert.equal(child.status,1);assert.equal(child.stdout,'');
+  assert.match(child.stderr,/FAIL lifecycle gate: MISSING_NATIVE_PREREQUISITE: configure TEST_USER before execution/);
+  assert.match(child.stderr,/accepted state retained/);assert.ok(child.stderr.length<400);
+  for(const privateText of ['synthetic-cli-secret','SELECT','patient','/workspace/protected'])assert.equal(child.stderr.includes(privateText),false);
+});
+
+test('the actual composed proxy timeout and two evidence failures retain all safe reasons through the runner',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-nested-reasons-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const secret='password=synthetic-nested-secret SELECT patient /workspace/protected/nested.json';
+  const innerEvidence=Object.assign(Error(secret),{code:'ENOSPC'}),outerEvidence=Object.assign(Error(secret),{code:'ENOSPC'});
+  const f=proxyTimeoutFixture();f.options.onStage=stage=>{f.stages.push(stage);if(stage.stage==='proxy-response-failed')throw innerEvidence;};
+  const resultFile=path.join(directory,'result.json'),processRef={env:{RESULT_JSON:resultFile}},lines=[];
+  let inner,thrown,cleanups=0;
+  const result=await h.runCheck({name:'nested-proxy-diagnostic-unit',processRef,stdout:{log:line=>lines.push(line)},
+    createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+    async run(){
+      try {await gate.awaitActualProxyTimeout(f.options);} catch(error){
+        inner=error;
+        try {gate.recordWorkflowFailure(inner,{state:state(),save(){throw outerEvidence;},log(){}});}
+        catch(outer){thrown=outer;throw outer;}
+      }
+    },cleanup(){cleanups++;}});
+  assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleanups,1);
+  assert.ok(inner instanceof AggregateError);assert.equal(inner.errors[1],innerEvidence);
+  assert.match(inner.errors[0].message,/exact real-proxy response deadline elapsed/);
+  assert.deepEqual(thrown.errors,[inner,outerEvidence]);assert.equal(f.page.listenerCount('requestfailed'),0);
+  assert.match(result.detail,/primary=\[AGGREGATE_FAILURE: \[PROXY_RESPONSE_TIMEOUT:/);
+  assert.equal((result.detail.match(/ENOSPC: evidence filesystem full/g) || []).length,2);
+  const serialized=fs.readFileSync(resultFile,'utf8');assert.equal(JSON.parse(serialized).detail,result.detail);
+  assert.ok(lines.some(line=>line.includes(result.detail)));assert.equal(result.cleanupFailed,undefined);
+  for(const text of [result.detail,serialized,...lines])for(const privateText of ['synthetic-nested-secret','SELECT','/workspace/protected'])
+    assert.equal(text.includes(privateText),false);
+  t.diagnostic('RETAINED_COMPOSED_RESULT '+JSON.stringify({outcome:result.outcome,detail:result.detail,cleanupFailed:false}));
+});
+
+test('nested aggregate diagnostics have finite cause depth,width and output while retaining original objects',async()=>{
+  const secret='synthetic-aggregate-secret /workspace/protected/aggregate.json SELECT patient';
+  const cyclic=new AggregateError([],secret);cyclic.errors.push(cyclic);
+  const wide=new AggregateError(Array.from({length:20},()=>Error(secret)),secret);
+  const truncated=new AggregateError([wide,wide,wide],secret);
+  const shared=new AggregateError([Object.assign(Error(secret),{code:'ENOSPC'})],secret),aliases=new AggregateError([shared,shared],secret);
+  let deep=Error(secret);for(let index=0;index<10;index++)deep=new AggregateError([deep],secret);
+  for(const [primary,marker] of [[cyclic,'CAUSE_CYCLE'],[wide,'ADDITIONAL_CAUSES_RETAINED'],[deep,'CAUSE_DEPTH_LIMIT'],
+    [aliases,'AGGREGATE_FAILURE'],[truncated,'DIAGNOSTIC_TRUNCATED']]){
+    const secondary=Object.assign(Error(secret),{code:'ENOSPC'}),processRef={env:{}};let thrown,cleaned=false;
+    const result=await h.runCheck({name:'bounded-aggregate-unit',processRef,stdout:{log(){}},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      run(){try {gate.recordWorkflowFailure(primary,{state:state(),save(){throw secondary;},log(){}});}
+        catch(error){thrown=error;throw error;}},cleanup(){cleaned=true;}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);
+    assert.deepEqual(thrown.errors,[primary,secondary]);assert.ok(result.detail.includes(marker));assert.ok(result.detail.length<2300);
+    if(primary===aliases){assert.equal(result.detail.includes('CAUSE_CYCLE'),false);assert.equal((result.detail.match(/ENOSPC:/g) || []).length,3);}
+    for(const privateText of ['synthetic-aggregate-secret','/workspace/protected','SELECT'])assert.equal(result.detail.includes(privateText),false);
+  }
+});
+
+test('the real runner preserves plain and nested failures with successful or failed outer recording',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-aggregate-matrix-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  for(const nested of [false,true])for(const recordingFails of [false,true]){
+    const name=(nested?'nested':'plain')+'-'+(recordingFails?'failed-record':'saved-record');
+    const secret='synthetic-matrix-secret SELECT patient /workspace/protected/matrix.json';
+    const innerEvidence=Object.assign(Error(secret),{code:'ENOSPC'}),outerEvidence=Object.assign(Error(secret),{code:'ENOSPC'});
+    const f=proxyTimeoutFixture();f.options.onStage=stage=>{f.stages.push(stage);if(nested && stage.stage==='proxy-response-failed')throw innerEvidence;};
+    const selected={...state(),runId:randomUUID(),submitRequested:true},stateFile=path.join(directory,name+'-state.json');
+    gate.writeState(stateFile,selected,true);
+    const resultFile=path.join(directory,name+'-result.json'),processRef={env:{RESULT_JSON:resultFile}},lines=[];
+    let primary,thrown,cleaned=false;
+    const result=await h.runCheck({name:'aggregate-matrix-unit',processRef,stdout:{log:line=>lines.push(line)},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      async run(){try {await gate.awaitActualProxyTimeout(f.options);} catch(error){
+        primary=error;
+        try {gate.recordWorkflowFailure(primary,{state:selected,save(){if(recordingFails)throw outerEvidence;
+          gate.writeState(stateFile,selected);},log(){}});} catch(recorded){thrown=recorded;throw recorded;}
+      }},cleanup(){cleaned=true;}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);assert.equal(result.cleanupFailed,undefined);
+    if(nested){assert.ok(primary instanceof AggregateError);assert.equal(primary.errors[1],innerEvidence);assert.equal(primary.cause,primary.errors[0]);}
+    if(recordingFails){assert.deepEqual(thrown.errors,[primary,outerEvidence]);assert.equal(thrown.cause,primary);}
+    else {assert.equal(thrown,primary);assert.equal(result.detail,primary.message);}
+    if(nested || recordingFails)assert.match(result.detail,/PROXY_RESPONSE_TIMEOUT:/);
+    else assert.match(result.detail,/exact real-proxy response deadline elapsed/);
+    assert.equal((result.detail.match(/ENOSPC: evidence filesystem full/g) || []).length,Number(nested)+Number(recordingFails));
+    const retained=JSON.parse(fs.readFileSync(resultFile));assert.equal(retained.detail,result.detail);
+    assert.ok(lines.some(line=>line.includes(result.detail)));assert.equal(gate.readState(stateFile).runId,selected.runId);
+    for(const output of [result.detail,JSON.stringify(retained),...lines])for(const privateText of ['synthetic-matrix-secret','SELECT','/workspace/protected'])
+      assert.equal(output.includes(privateText),false);
+    t.diagnostic('RETAINED_AGGREGATE_MATRIX '+JSON.stringify({case:name,outcome:result.outcome,detail:result.detail,cleanupFailed:false}));
+  }
+});
+
+test('the actual runner retains actionable cleanup aggregate reasons and original causes',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-cleanup-diagnostics-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  for(const overall of [false,true]){
+    const name=overall?'overall':'browser-and-relay',selected={...state(),runId:randomUUID(),submitRequested:true};
+    const resultFile=path.join(directory,name+'-result.json'),processRef={env:{RESULT_JSON:resultFile}},lines=[];let thrown;
+    const result=await h.runCheck({name:'cleanup-aggregate-unit',processRef,stdout:{log:line=>lines.push(line)},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),run(){return'workflow-finished';},
+      async cleanup(){try {await gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(()=>{})},
+        relay:overall?undefined:{child:{pid:123},file:()=>path.join(directory,'stop.json'),closed:new Promise(()=>{})},
+        browserTimeoutMillis:overall?20:5,relayTimeoutMillis:5,timeoutMillis:overall?5:100});}
+        catch(error){thrown=error;throw error;}}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(result.cleanupFailed,true);
+    assert.ok(thrown instanceof AggregateError);assert.equal(thrown.cause,thrown.errors[0]);
+    if(overall)assert.match(result.detail,/CLEANUP_TIMEOUT:/);
+    else {assert.match(result.detail,/BROWSER_CLOSE_TIMEOUT:/);assert.match(result.detail,/RELAY_CLOSE_TIMEOUT:/);
+      assert.match(thrown.errors[0].message,/browser close deadline/);assert.match(thrown.errors[1].message,/relay did not stop/);}
+    assert.equal(selected.cleanup.browser,'UNKNOWN');assert.equal(selected.cleanup.stage,'cleanup-failed');assert.equal(selected.submitRequested,true);
+    assert.equal(JSON.parse(fs.readFileSync(resultFile)).detail,result.detail);assert.ok(lines.some(line=>line.includes(result.detail)));
+    t.diagnostic('RETAINED_CLEANUP_RESULT '+JSON.stringify({case:name,outcome:result.outcome,detail:result.detail,cleanupFailed:true}));
+  }
+});
+
+function intentionalCloseFixture({auxiliaryLogin=false,retainedLoginClosed=false}={}) {
+  const page=new EventEmitter(),recorder=h.createRecorder(),pending=new Set(),runId=randomUUID();let closed=false;
+  const frame={page:()=>page};page.mainFrame=()=>frame;page.isClosed=()=>closed;
+  const fail=(request,errorText='net::ERR_ABORTED')=>{
+    pending.delete(request);recorder.requestFailures.push({errorText,requestRef:new WeakRef(request)});page.emit('requestfailed',request);
+  };
+  const request=(changes={})=>{
+    const selected={url:()=> 'http://localhost/carlos/form/cdsImportStatus?apiVersion=2&runId='+runId,
+      method:()=> 'GET',resourceType:()=> 'fetch',frame:()=>frame,...changes};pending.add(selected);page.emit('request',selected);return selected;
+  };
+  let action=()=>{for(const selected of [...pending])fail(selected);};
+  page.close=async()=>{action();closed=true;page.emit('close');};
+  const closer=gate.createLifecyclePageCloser(page,recorder,{baseUrl:'http://localhost/carlos',auxiliaryLogin,retainedLoginClosed});
+  return{page,recorder,runId,request,fail,closer,setAction(value){action=value;},markClosed(){closed=true;page.emit('close');}};
+}
+
+test('intentional close permits only exact new read cancellations and preserves their unqualified raw evidence',async()=>{
+  const f=intentionalCloseFixture(),request=f.request();
+  const closed=await f.closer.close({runId:f.runId});assert.equal(closed.evidence.cancellations,1);
+  assert.equal(f.recorder.requestFailures[0].requestRef.deref(),request);assert.equal(f.recorder.requestFailures.length,1);
+  assert.throws(()=>h.assertStrictPage(f.recorder),/request failed/);assert.deepEqual(closed.audit(),closed.evidence);
+  for(const event of ['request','requestfinished','requestfailed','close'])assert.equal(f.page.listenerCount(event),0);
+});
+
+test('intentional close captures a queued eligible request only until the actual close event',async()=>{
+  const f=intentionalCloseFixture();f.setAction(()=>{const late=f.request();f.fail(late);});
+  assert.equal((await f.closer.close({runId:f.runId})).evidence.cancellations,1);
+  const after=intentionalCloseFixture();after.setAction(()=>{after.markClosed();after.fail(after.request());});
+  await assert.rejects(after.closer.close({runId:after.runId}),/request failed/);
+});
+
+for(const [name,change] of [
+  ['POST request',f=>({method:()=> 'POST'})],['other origin',f=>({url:()=> 'http://example.invalid/carlos/form/cdsImportStatus?apiVersion=2&runId='+f.runId})],
+  ['other route',f=>({url:()=> 'http://localhost/carlos/form/cdsImportSubmit?apiVersion=2&runId='+f.runId})],
+  ['other run',()=>({url:()=> 'http://localhost/carlos/form/cdsImportStatus?apiVersion=2&runId='+randomUUID()})],
+  ['duplicate protocol',f=>({url:()=> 'http://localhost/carlos/form/cdsImportStatus?apiVersion=2&apiVersion=2&runId='+f.runId})],
+  ['other frame',f=>({frame:()=>({page:()=>f.page})})]
+])test('intentional close refuses cancellation of '+name,async()=>{
+  const f=intentionalCloseFixture();f.request(change(f));await assert.rejects(f.closer.close({runId:f.runId}),/request failed/);
+});
+
+test('intentional close rejects prior aborts, resets, duplicate aborts and late HTTP or script errors',async()=>{
+  for(const kind of ['prior','reset','duplicate','http','console','script']){
+    const f=intentionalCloseFixture(),request=f.request();
+    if(kind==='prior')f.fail(request);
+    f.setAction(()=>{
+      if(kind!=='prior')f.fail(request,kind==='reset'?'net::ERR_CONNECTION_RESET':'net::ERR_ABORTED');
+      if(kind==='duplicate')f.fail(request);
+      if(kind==='http')f.recorder.badResponses.push({status:500,url:request.url(),method:'GET',resourceType:'fetch'});
+      if(kind==='console')f.recorder.consoleIssues.push({text:'late synthetic console error'});
+      if(kind==='script')f.recorder.pageErrors.push({message:'late synthetic page error'});
+    });
+    await assert.rejects(f.closer.close({runId:f.runId}));
+  }
+});
+
+test('actual target closure records unobserved requests honestly and rejects unproven closure,overflow or later errors',async()=>{
+  const unsettled=intentionalCloseFixture(),request=unsettled.request();unsettled.setAction(()=>{});
+  const retired=await unsettled.closer.close({runId:unsettled.runId,timeoutMillis:5});
+  assert.equal(retired.evidence.retiredByObservedPageClosure,1);assert.equal(retired.evidence.observedRequestTerminals,0);
+  assert.equal(retired.evidence.cancellations,0);assert.equal(retired.evidence.retiredRequestRefs[0].deref(),request);
+  assert.equal(unsettled.recorder.requestFailures.length,0);assert.equal(retired.evidence.classification,'CONTROLLED_PAGE_CLOSED');
+  const unclosed=intentionalCloseFixture();unclosed.page.close=async()=>{};
+  await assert.rejects(unclosed.closer.close({runId:unclosed.runId}),/bounded actual closure/);
+  const hanging=intentionalCloseFixture();hanging.page.close=()=>new Promise(()=>{});
+  await assert.rejects(hanging.closer.close({runId:hanging.runId,timeoutMillis:5}),/close deadline/);
+  const overflow=intentionalCloseFixture();for(let index=0;index<129;index++)overflow.request();
+  await assert.rejects(overflow.closer.close({runId:overflow.runId}),/bounded actual closure/);
+  const f=intentionalCloseFixture();f.request();const closed=await f.closer.close({runId:f.runId});
+  f.recorder.pageErrors.push({message:'late synthetic error'});assert.throws(()=>closed.audit());
+});
+
+test('auxiliary login closure preserves the precise503 exception and rejects unrelated failures',async()=>{
+  const f=intentionalCloseFixture({auxiliaryLogin:true,retainedLoginClosed:true});
+  f.recorder.badResponses.push({status:503,resourceType:'document',url:'http://localhost/carlos/provider/providercontrol'});
+  f.request({url:()=> 'http://localhost/carlos/status/SessionHeartbeat'});
+  assert.equal((await f.closer.close()).evidence.cancellations,1);
+  const bad=intentionalCloseFixture({auxiliaryLogin:true});bad.request({url:()=> 'http://localhost/carlos/provider/readOnlyPoll'});
+  await assert.rejects(bad.closer.close(),/Native login/);
+});
+
+test('started downloads have finite completion bounds and cannot advance workflow after a late completion',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-download-bound-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  const file=path.join(directory,'report');fs.writeFileSync(file,'protected synthetic report');
+  for(const step of ['failure','path']){
+    let finish,hashed=false,cleaned=false;const processRef={env:{}};
+    const download={failure:()=>step==='failure'?new Promise(resolve=>{finish=resolve;}):Promise.resolve(null),
+      path:()=>step==='path'?new Promise(resolve=>{finish=resolve;}):Promise.resolve(file)};
+    const result=await h.runCheck({name:'stalled-download-unit',processRef,stdout:{log(){}},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      async run(){const selected=await gate.completedLifecycleDownload(download,5);gate.hashFile(selected);hashed=true;},cleanup(){cleaned=true;}});
+    assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(cleaned,true);assert.equal(hashed,false);
+    finish(step==='failure'?null:file);await new Promise(resolve=>setImmediate(resolve));assert.equal(hashed,false);
+  }
+  assert.equal(await gate.completedLifecycleDownload({failure:async()=>null,path:async()=>file}),file);
+  await assert.rejects(gate.completedLifecycleDownload({failure:async()=> 'cancelled',path:async()=>file}),/did not finish/);
+});
+
+test('relay ownership is retained before readiness failure and only an actual exit0 confirms cleanup',async t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-owned-relay-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
+  for(const mode of ['0','1','signal','no-ready']){
+    const selected={...state(),runId:randomUUID()},script=`const fs=require('node:fs'),path=require('node:path');
+      const root=process.argv[2],attempt=process.argv[3],mode=${JSON.stringify(mode)};
+      if(mode!=='no-ready')fs.writeFileSync(path.join(root,attempt+'.ready.json'),JSON.stringify({ready:true,attempt,port:18086,pid:process.pid}),{mode:0o600});
+      setInterval(()=>{if(mode!=='no-ready'&&fs.existsSync(path.join(root,attempt+'.stop.json'))){
+        if(mode==='signal')process.kill(process.pid,'SIGTERM');else process.exit(Number(mode));}},5);`;
+    const relay=gate.startOwnedRelay({CDS_LIFECYCLE_PROXY_RELAY_ARGV:JSON.stringify([process.execPath,'-e',script])},path.join(directory,'state.json'),selected);
+    assert.ok(relay.child.pid>0);t.after(async()=>{if(relay.child.exitCode===null)relay.child.kill('SIGTERM');await relay.closed;});
+    let failure;const processRef={env:{}};
+    const result=await h.runCheck({name:'owned-relay-exit-unit',processRef,stdout:{log(){}},
+      createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),
+      run:()=>gate.awaitRelayReady(relay,selected,mode==='no-ready'?10:2000),
+      async cleanup(){try {await gate.cleanupLifecycle({state:selected,save(){},log(){},relay,relayTimeoutMillis:mode==='no-ready'?5:2000});}
+        catch(error){failure=error;throw error;}}});
+    if(mode==='0'){assert.equal(failure,undefined);assert.equal(selected.cleanup.relay,'CLOSED');assert.equal(result.outcome,'PASS');assert.equal(processRef.exitCode,0);}
+    else {assert.ok(failure instanceof AggregateError);assert.equal(selected.cleanup.relay,'UNKNOWN');assert.equal(selected.cleanup.relayPid,relay.child.pid);
+      assert.equal(result.outcome,'FAIL');assert.equal(result.cleanupFailed,true);assert.equal(processRef.exitCode,1);}
+    assert.deepEqual(selected.completed,[]);
+  }
+});
+
+test('expired-session proof accepts only native unauthorized content or the exact same-context logout redirect',async()=>{
+  const response=(status,headers={},body='')=>({status:()=>status,headers:()=>headers,body:async()=>Buffer.from(body)});
+  for(const body of ['Unauthorized','{"error":"unauthorized"}'])await gate.assertExpiredSessionDenial(
+    response(401,{'content-type':body[0]==='{'?'application/json':'text/plain;charset=UTF-8'},body),'http://localhost/carlos');
+  await gate.assertExpiredSessionDenial(response(302,{location:'/carlos/logoutPage'}),'http://localhost/carlos');
+  for(const location of ['/login.jsp','/carlos/logoutPage?next=private','http://example.invalid/carlos/logoutPage','http://user:private@localhost/carlos/logoutPage','/other/logoutPage'])
+    await assert.rejects(gate.assertExpiredSessionDenial(response(302,{location}),'http://localhost/carlos'),/redirect/);
+  for(const invalid of [response(200),response(401,{'content-type':'text/html'},'Unauthorized'),response(401,{'content-type':'text/plain'},'upstream unauthorized')])
+    await assert.rejects(gate.assertExpiredSessionDenial(invalid,'http://localhost/carlos'));
+});
+
+test('native per-copy note hashes reject same-count duplication,omission,corruption and cross-copy loss',()=>{
+  const selected={...state(),runId:randomUUID(),notePadding:0},source={notes:256};
+  const expected=Array.from({length:256},(_,index)=>createHash('sha256').update('FAKE-CDS-LIFE-'+selected.sourceId+' note '+(index+1)).digest('hex'));
+  const rows=expected.flatMap(digest=>[['copy-a',digest],['copy-b',digest]]);
+  const sql={rows(query){assert.match(query,/SHA2\(n.note,256\)/);assert.match(query,/LIMIT 513$/);return rows;}};
+  assert.equal(gate.assertNativeNoteHashes(sql,selected,source,2).totalNotes,512);
+  for(const mutate of [copy=>{copy[0]=copy[2];},copy=>{copy[0]=['copy-a','0'.repeat(64)];},copy=>copy.pop(),copy=>{copy[0]=['copy-c',copy[0][1]];}]){
+    const altered=rows.map(row=>[...row]);mutate(altered);
+    assert.throws(()=>gate.assertNativeNoteHashes({rows:()=>altered},selected,source,2));
+  }
+});
+
+function uploadAcceptanceSql(runs) {
+  const owner='web-129',uploadId='e57b96fc-f7ab-41a9-8836-64023c8ed503',key='upload-lifecycle-source';
+  return {owner,uploadId,key,value(query) {
+    const executed=spawnSync('python3',['-c',
+      "import json,sqlite3,sys\nrequest=json.load(sys.stdin)\ndb=sqlite3.connect(':memory:')\n"
+      + "db.create_function('CONCAT',2,lambda left,right:left+right)\n"
+      + "db.execute('CREATE TABLE cds_import_upload(id TEXT,submission_key TEXT)')\n"
+      + "db.execute('CREATE TABLE cds_import_run(operator TEXT,submission_key TEXT)')\n"
+      + "db.execute('INSERT INTO cds_import_upload VALUES (?,?)',request['upload'])\n"
+      + "db.executemany('INSERT INTO cds_import_run VALUES (?,?)',request['runs'])\n"
+      + "print(db.execute(request['query']).fetchone()[0])"],
+    {input:JSON.stringify({upload:[uploadId,key],runs,query}),encoding:'utf8',timeout:5000,maxBuffer:65536});
+    assert.equal(executed.status,0,executed.stderr);return executed.stdout.trim();
+  }};
+}
+
+test('shouldCountOneAcceptedImport_forTheActualUploadModeKey',()=>{
+  const actual=uploadAcceptanceSql([['web-129','upload-lifecycle-source-import']]);
+  gate.assertSingleUploadAcceptance(actual,actual.owner,actual.uploadId);
+  assert.equal(actual.value("SELECT COUNT(*) FROM cds_import_run WHERE operator='web-129'"
+    + " AND submission_key=(SELECT submission_key FROM cds_import_upload WHERE id='"+actual.uploadId+"')"),'0');
+  const sql=uploadAcceptanceSql([['web-129','upload-lifecycle-source-import'],
+    ['web-129','upload-lifecycle-source'],['web-129','upload-lifecycle-source-dry-run'],
+    ['web-130','upload-lifecycle-source-import'],['web-129','other-upload-import']]);
+  gate.assertSingleUploadAcceptance(sql,sql.owner,sql.uploadId);
+  // This is the old assertion against the same real rows: an unrelated bare key
+  // could make it pass, even when the actual import acceptance is absent.
+  const missing=uploadAcceptanceSql([['web-129','upload-lifecycle-source']]);
+  assert.equal(missing.value("SELECT COUNT(*) FROM cds_import_run WHERE operator='web-129'"
+    + " AND submission_key=(SELECT submission_key FROM cds_import_upload WHERE id='"+missing.uploadId+"')"),'1');
+  assert.throws(()=>gate.assertSingleUploadAcceptance(missing,missing.owner,missing.uploadId),/acceptance is missing/);
+});
+
+test('shouldRejectMissingAcceptance_forZeroMatchingImportModeKeys',()=>{
+  for(const rows of [[],[['web-129','upload-lifecycle-source-dry-run']],
+    [['web-130','upload-lifecycle-source-import']]]) {
+    const sql=uploadAcceptanceSql(rows);
+    assert.throws(()=>gate.assertSingleUploadAcceptance(sql,sql.owner,sql.uploadId),/acceptance is missing/);
+  }
+});
+
+test('shouldRejectDuplicateAcceptance_forTheSameUploadImportModeKey',()=>{
+  const sql=uploadAcceptanceSql([['web-129','upload-lifecycle-source-import'],
+    ['web-129','upload-lifecycle-source-import']]);
+  assert.throws(()=>gate.assertSingleUploadAcceptance(sql,sql.owner,sql.uploadId),/another accepted run/);
+});

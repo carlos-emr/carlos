@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.util.Date;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 
 public class PreventionTo1 {
 
@@ -41,6 +42,7 @@ public class PreventionTo1 {
     private Date creationDate = new Date();
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date preventionDate;
+    private PreventionDateDTO preventionDateInfo;
 
     private String providerNo;
     private String preventionType;
@@ -71,6 +73,9 @@ public class PreventionTo1 {
     public void setPreventionDate(Date preventionDate) {
         this.preventionDate = preventionDate;
     }
+
+    public PreventionDateDTO getPreventionDateInfo() { return preventionDateInfo; }
+    public void setPreventionDateInfo(PreventionDateDTO value) { preventionDateInfo = value; }
 
     public String getProviderNo() {
         return providerNo;

@@ -97,9 +97,9 @@
                         return;
                     }
                     element.prop('checked', true);
-                    // Older lab versions sit in a collapsed list; show the one that is attached.
+                    // Older lab and HRM versions sit in collapsed lists; show the attached one.
                     if (element.attr('data-version') && typeof expandLabVersionList === 'function') {
-                        expandLabVersionList(element.closest('.lab').find('.collapse-arrow'));
+                        expandLabVersionList(element.closest('.lab, .hrm').find('.collapse-arrow'));
                     }
                 });
             }).dialog({

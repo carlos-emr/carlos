@@ -155,6 +155,9 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     static Stream<Arguments> unconditionalMutators() {
         return Stream.of(
+            Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsUpload2Action", "_demographic", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.SubmitCdsImport2Action", "_demographic", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportControl2Action", "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
                     "_prevention", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
@@ -386,6 +389,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.waitinglist.pageUtil.WLRemoveFromWaitingList2Action",
                     "_demographic", "w"),
             // --- eform ---
+            Arguments.of("io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action",
+                    "_eform", "w"),
             Arguments.of("io.github.carlos_emr.carlos.eform.EFormAttachDocs2Action", "_eform", "u"),
             Arguments.of("io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
                     "_admin.eform", "w"),
@@ -609,6 +614,8 @@ class MutatorActionGetRejectionContractUnitTest {
         // GET/HEAD and PUT/PATCH/DELETE alike); getFaxSchedularStatus/getPendingIncomingFaxes
         // stay verb-open (see ConfigureFax2ActionUnitTest).
         "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
+        // Email: only method=setResolved mutates; covered by ManageEmails2ActionUnitTest.
+        "io.github.carlos_emr.carlos.email.admin.ManageEmails2Action",
         // Security/MFA: execute() renders a view on a bare GET; only the method=resetMfa dispatch
         // (a privileged reset of another account's MFA) is POST-only (see MfaActions2ActionUnitTest).
         "io.github.carlos_emr.carlos.security.MfaActions2Action",
@@ -661,6 +668,14 @@ class MutatorActionGetRejectionContractUnitTest {
      * {@link #CONDITIONAL_MUTATORS} entry instead.
      */
     private static final Set<String> NON_MUTATOR_GATES = Set.of(
+        // CDS reads retain GET/HEAD; only the three upload/control/submission actions mutate.
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportReport2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportDiagnostic2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.ViewCdsImport2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportStatus2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.LegacyCdsImportLog2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsSourceFieldContent2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.ViewCdsSourceFields2Action",
         "io.github.carlos_emr.carlos.encounter.pageUtil.FormExists2Action",
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
@@ -697,6 +712,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * follow-up waves.
      */
     private static final List<String> IN_SCOPE_PACKAGE_PREFIXES = List.of(
+        "io.github.carlos_emr.carlos.demographic.cdsimport.web.",
         "io.github.carlos_emr.carlos.appointment.",
         "io.github.carlos_emr.carlos.decision.",
         // Measurements (issue #3335): every *2Action in the slice was audited; the writes are
@@ -779,6 +795,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.login.gate.SelectFacility2Action",
         "io.github.carlos_emr.carlos.provider.web.DocumentDescriptionTemplate2Action",
         // eform slice: only these are registered; broader slice audit tracked in issue #2828.
+        "io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action",
         "io.github.carlos_emr.carlos.eform.actions.DelEForm2Action",
         "io.github.carlos_emr.carlos.eform.actions.SaveEFormAsEDoc2Action",
         // Fax slice: the fax package is not in IN_SCOPE_PACKAGE_PREFIXES, so its gated
@@ -786,6 +803,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.fax.action.Fax2Action",
         "io.github.carlos_emr.carlos.fax.admin.ManageFaxes2Action",
         "io.github.carlos_emr.carlos.fax.admin.ConfigureFax2Action",
+        "io.github.carlos_emr.carlos.email.admin.ManageEmails2Action",
         // providers slice: ProEditPhoneNum2Action persists the provider's rxPhone; the providers
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly here.
         "io.github.carlos_emr.carlos.providers.pageUtil.ProEditPhoneNum2Action",
@@ -1198,6 +1216,17 @@ class MutatorActionGetRejectionContractUnitTest {
 
     private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
             throws Exception {
+        if (actionClass.getPackageName().equals("io.github.carlos_emr.carlos.demographic.cdsimport.web")) {
+            // New CDS actions use one explicit constructor; method rejection must run before any injected service.
+            var constructors = actionClass.getConstructors();
+            assertThat(constructors).as("one constructor for the CDS action boundary").hasSize(1);
+            Class<?>[] types = constructors[0].getParameterTypes();
+            Object[] arguments = new Object[types.length];
+            for (int index = 0; index < types.length; index++) {
+                arguments[index] = autoMocks.computeIfAbsent(types[index], Mockito::mock);
+            }
+            return constructors[0].newInstance(arguments);
+        }
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
         }

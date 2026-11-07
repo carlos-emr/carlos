@@ -17,6 +17,7 @@
  *
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv;
 
@@ -62,13 +63,29 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
 
     @Mock
     private AllergyManager allergyManager;
+    @Mock
+    private io.github.carlos_emr.carlos.commn.dao.PartialDateDao partialDates;
+
+    @Mock
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
 
     private AllergyWs ws;
 
     @Override
     protected Object getServiceBean() {
         ws = new AllergyWs();
+        injectDependency(ws,"projections",projections);
         return ws;
+    }
+
+    @Test
+    void shouldFaultInsteadOfReturningEmptySubset_whenStructuredSourceCannotBeProjected() {
+        when(allergyManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class),eq(123),any(java.util.Date.class))).thenReturn(java.util.List.of());
+        org.mockito.Mockito.doThrow(new org.apache.cxf.binding.soap.SoapFault("Structured projection requires review",
+                org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT))
+                .when(projections).requireSoapSupported(123,java.util.Set.of("AllergiesAndAdverseReactions"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(AllergyWs.class).getAllergiesByDemographicIdAfter(java.util.Calendar.getInstance(),123))
+                .hasMessageContaining("Structured projection requires review");
     }
 
     @Override
@@ -79,7 +96,24 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
     @BeforeEach
     void setUpMocks() {
         registerMock(AllergyManager.class, allergyManager);
+        registerMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService.class,
+                new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadService(partialDates));
         injectDependency(ws, "allergyManager", allergyManager);
+    }
+
+    @Test
+    void shouldKeepLegacyAnchorPayload_forNativePartialDateAllergy() {
+        Allergy source = new Allergy();
+        source.setId(42);
+        source.setDemographicNo(123);
+        source.setDescription("Synthetic allergy");
+        source.setStartDate(java.sql.Date.valueOf("2020-01-01"));
+        when(partialDates.getFormat(1, 42, 1)).thenReturn("YYYY");
+        when(allergyManager.getAllergy(any(LoggedInInfo.class), eq(42))).thenReturn(source);
+        AllergyTransfer result = createClient(AllergyWs.class).getAllergy(42);
+        assertThat(result.getStartDate()).isEqualTo(java.sql.Date.valueOf("2020-01-01"));
+        assertThat(result.getDescription()).isEqualTo("Synthetic allergy");
+        org.mockito.Mockito.verify(projections).requireSoapSupported(123, java.util.Set.of("AllergiesAndAdverseReactions"));
     }
 
     /** Tests for the getAllergy SOAP operation. */

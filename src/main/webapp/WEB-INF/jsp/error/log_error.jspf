@@ -1,6 +1,6 @@
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils"%>
 <%@page import="org.apache.logging.log4j.Logger"%>
-<%@page import="java.io.*,io.github.carlos_emr.*"%>
+<%@page import="io.github.carlos_emr.*"%>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%
 	Logger logger=MiscUtils.getLogger();

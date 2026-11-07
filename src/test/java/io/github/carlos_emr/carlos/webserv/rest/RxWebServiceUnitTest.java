@@ -669,6 +669,8 @@ class RxWebServiceUnitTest {
 
         TestableRxWebService() {
             super();
+            this.legacyProjection = org.mockito.Mockito.mock(
+                    io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
             this.rxManager = new MockRxManager(RxWebServiceUnitTest.this);
             this.drugConverter = new MockDrugConverter();
             this.securityInfoManager = new TestMockSecurityInfoManager();

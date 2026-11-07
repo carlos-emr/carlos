@@ -30,7 +30,7 @@
 --%>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -54,7 +54,7 @@
     }
 %>
 <%@ page
-        import="java.sql.*, io.github.carlos_emr.carlos.login.*, java.util.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*,io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
+        import="java.sql.*, java.util.*, io.github.carlos_emr.*, io.github.carlos_emr.carlos.providers.data.ProviderBillCenter"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.dao.SiteDao" %>

@@ -32,6 +32,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Calendar;
 import java.util.List;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -80,6 +82,7 @@ import io.github.carlos_emr.carlos.managers.MeasurementManager;
 import io.github.carlos_emr.carlos.managers.NoteManager;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import io.github.carlos_emr.carlos.webserv.rest.conversion.AllergyConverter;
@@ -121,16 +124,21 @@ import io.github.carlos_emr.carlos.waitinglist.util.WLWaitingListUtil;
 public class DemographicService extends AbstractServiceImpl {
 
     private enum IncludeType {
-        ALLERGIES("allergies"),
-        MEASUREMENTS("measurements"),
-        NOTES("notes"),
-        MEDICATIONS("medications"),
-        CONTACTS("contacts");
+        ALLERGIES("allergies", "_allergy", Set.of("AllergiesAndAdverseReactions")),
+        MEASUREMENTS("measurements", "_measurement", Set.of("CareElements")),
+        // This route returns CPP histories and explicitly excludes Concerns below.
+        NOTES("notes", "_casemgmt.notes", Set.of("PersonalHistory", "FamilyHistory", "PastHealth", "RiskFactors", "AlertsAndSpecialNeeds")),
+        MEDICATIONS("medications", "_rx", Set.of("MedicationsAndTreatments")),
+        CONTACTS("contacts", null, Set.of());
 
         private final String value;
+        private final String securityObject;
+        private final Set<String> sourceCategories;
 
-        IncludeType(String value) {
+        IncludeType(String value, String securityObject, Set<String> sourceCategories) {
             this.value = value;
+            this.securityObject = securityObject;
+            this.sourceCategories = sourceCategories;
         }
 
     public String getValue() {
@@ -190,6 +198,12 @@ public class DemographicService extends AbstractServiceImpl {
     @Autowired
     private SecurityInfoManager securityInfoManager;
 
+    private final CdsLegacyProjectionService projections;
+
+    @Autowired
+    public DemographicService(CdsLegacyProjectionService projections) {
+        this.projections = java.util.Objects.requireNonNull(projections);
+    }
 
     private DemographicConverter demoConverter = new DemographicConverter();
     private DemographicContactFewConverter demoContactFewConverter = new DemographicContactFewConverter();
@@ -228,15 +242,21 @@ public class DemographicService extends AbstractServiceImpl {
     /**
      * Finds all demographics.
      * <p/>
-     * In case limit or offset parameters are set to null or zero, the entire result set is returned.
+     * A null or zero offset starts at the first row; a null or zero limit uses the DAO
+     * maximum (500). Negative values and limits above the maximum are rejected with HTTP 400.
      *
      * @param offset First record in the entire result set to be returned
      * @param limit  Maximum total number of records that should be returned
      * @return Returns all demographics.
+     * @throws BadRequestException if pagination is negative or the limit exceeds the DAO maximum
      */
     @GET
     public OscarSearchResponse<DemographicTo1> getAllDemographics(@QueryParam("offset") Integer offset, @QueryParam("limit") Integer limit) {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r");
+        if ((offset != null && offset < 0)
+                || (limit != null && (limit < 0 || limit > DemographicDao.MAX_SEARCH_RESULT_SIZE))) {
+            throw new BadRequestException("Invalid demographic list pagination");
+        }
         OscarSearchResponse<DemographicTo1> result = new OscarSearchResponse<DemographicTo1>();
 
         if (offset == null) {
@@ -268,11 +288,28 @@ public class DemographicService extends AbstractServiceImpl {
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
     public DemographicTo1 getDemographicData(@PathParam("dataId") Integer id, @QueryParam("includes[]") List<String> include) throws PatientDirectiveException {
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("r", id);
+        Set<String> categories = authorizeIncludedClinicalCategories(loggedInInfo, id, include);
         Demographic demo = demographicManager.getDemographic(loggedInInfo, id);
         if (demo == null) {
             throw new WebApplicationException(Response.status(Response.Status.NOT_FOUND).entity("Demographic record not found: " + id).build());
         }
+        if (!categories.isEmpty()) projections.requireRestSupported(id, categories);
         return buildDemographicTo1(loggedInInfo, demo, id, include);
+    }
+
+    /** Authorize every requested clinical category before any patient or provenance read. */
+    private Set<String> authorizeIncludedClinicalCategories(LoggedInInfo loggedInInfo, Integer demographicNo, List<String> includes) {
+        Set<String> categories = new LinkedHashSet<>();
+        for (IncludeType type : IncludeType.values()) {
+            if (includes.contains(type.value) && !type.sourceCategories.isEmpty()) {
+                if (!securityInfoManager.hasPrivilege(loggedInInfo, type.securityObject, "r", demographicNo.toString()))
+                    throw new SecurityException("missing required sec object (" + type.securityObject + ")");
+                categories.addAll(type.sourceCategories);
+            }
+        }
+        if (!categories.isEmpty() && !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo))
+            throw new SecurityException("Access Denied");
+        return Set.copyOf(categories);
     }
 
     private DemographicTo1 buildDemographicTo1(LoggedInInfo loggedInInfo, Demographic demo, Integer id, List<String> include) {
@@ -601,6 +638,7 @@ public class DemographicService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body is required").build());
         }
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
+        validateFieldLengths(demographic);
         demographicManager.createDemographic(loggedInInfo, demographic, data.getAdmissionProgramId());
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
     }
@@ -620,6 +658,9 @@ public class DemographicService extends AbstractServiceImpl {
             throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity("Request body with demographicNo is required").build());
         }
         LoggedInInfo loggedInInfo = requireDemographicPrivilege("u", data.getDemographicNo());
+        Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
+        // Reject the whole request before custom fields or waiting-list entries can be changed.
+        validateFieldLengths(demographic);
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
             DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
@@ -640,10 +681,18 @@ public class DemographicService extends AbstractServiceImpl {
             WLWaitingListUtil.updateWaitingListRecord(data.getWaitingListID().toString(), data.getWaitingListNote(), data.getDemographicNo().toString(), null);
         }
 
-        Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         demographicManager.updateDemographic(loggedInInfo, demographic);
 
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
+    }
+
+    private static void validateFieldLengths(Demographic demographic) {
+        List<String> errors = demographic.validateFieldLengths();
+        if (!errors.isEmpty()) {
+            // The validator names fields and limits; it never includes submitted patient values.
+            throw new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                    .type(MediaType.TEXT_PLAIN).entity(String.join("; ", errors)).build());
+        }
     }
 
     /**

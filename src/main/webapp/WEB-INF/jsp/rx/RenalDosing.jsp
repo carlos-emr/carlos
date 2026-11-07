@@ -30,22 +30,23 @@
 --%>
 
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 <%@page %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.commn.model.Demographic" %>
-<%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler,java.util.*,io.github.carlos_emr.carlos.rx.util.*" %>
+<%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler, java.util.*" %>
 <%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.SortHashtable" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.util.RenalDosingInput" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RenalDosingFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.DosingRecomendation" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -66,6 +67,10 @@
 <%
     String atc = StringUtils.noNull(request.getParameter("atcCode"));
     String demographicNo = StringUtils.noNull(request.getParameter("demographicNo"));
+    String divId = request.getParameter("divId");
+    if (divId == null) {
+        divId = "renalDosing";
+    }
 
     DosingRecomendation rd = RenalDosingFactory.getDosingInformation(atc);
     if (rd == null) {  // No data so don't continue
@@ -75,36 +80,29 @@
     DemographicData demoData = new DemographicData();
     Demographic demographic = demoData.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demographicNo);
 
-    int age = demographic.getAgeInYears();
+    int age = RenalDosingInput.validBirthDate(demographic.getYearOfBirth(),
+            demographic.getMonthOfBirth(), demographic.getDateOfBirth()) ? demographic.getAgeInYears() : -1;
     boolean female = DemographicData.isFemale(demographic);
     double weight = -1;
     Hashtable measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "WT");
 
-    String wt = null;
     Date wtDate = null;
-if (measurementHash != null &&
-    measurementHash.get("value") != null &&
-    !((String)measurementHash.get("value")).trim().isEmpty()) {
-    try {
-        double value = Double.parseDouble((String)measurementHash.get("value"));
-        if (!Double.isNaN(value) && !Double.isInfinite(value)) {
-            // value is a valid non-null, non-empty, parseable double
-            // proceed with using the value
-            weight = Double.parseDouble((String) measurementHash.get("value"));
-            wtDate = (Date) measurementHash.get("dateObserved_date");
-        }
-    } catch (NumberFormatException e) {
-        // Handle or log invalid number format
+    boolean invalidInput = age < 0;
+    if (measurementHash != null && measurementHash.get("value") != null) {
+        weight = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
+        wtDate = (Date) measurementHash.get("dateObserved_date");
+        invalidInput |= !Double.isFinite(weight);
     }
-}
 
     double measurementsCr = -1;
     Date measurementsCrDate = null;
 
     measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "sCr");
     if (measurementHash != null && measurementHash.get("value") != null) {
-        measurementsCr = Double.parseDouble((String) measurementHash.get("value"));
+        measurementsCr = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
         measurementsCrDate = (Date) measurementHash.get("dateObserved_date");
+        // An undated unusable reading cannot safely be ordered against a valid lab.
+        invalidInput |= measurementsCrDate == null && !Double.isFinite(measurementsCr);
     }
 
 
@@ -118,11 +116,7 @@ if (measurementHash != null &&
         Hashtable hash = (Hashtable) labs.get(0);
         String sCrStr = (String) hash.get("result");
         sCrDate = (Date) hash.get("collDateDate");
-        try {
-            sCr = Double.parseDouble(sCrStr);
-        } catch (Exception e) {
-            MiscUtils.getLogger().debug("No idea if this is ok or not, some one else left the block blank", e);
-        }
+        sCr = RenalDosingInput.positiveNumber(sCrStr);
     }
 
 
@@ -138,7 +132,14 @@ if (measurementHash != null &&
 
 
 //////
-
+    // Validate the selected source, retaining its date even when unusable: an older
+    // valid lab must not silently override a newer invalid measurement.
+    invalidInput |= sCrDate != null && !Double.isFinite(sCr);
+    if (invalidInput) {
+        // Keep the N/A panel and Refresh link in the refusal response so a correction
+        // can be reread without retaining a previously highlighted recommendation.
+        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+    }
 
     boolean ageb, weightb, sCrb, equate;
     ageb = weightb = sCrb = equate = false;
@@ -156,7 +157,7 @@ if (measurementHash != null &&
 
 
     int Clcr = 0;
-    if (ageb & weightb & sCrb) {
+    if (!invalidInput && ageb && weightb && sCrb) {
         equate = true;
         Clcr = RxUtil.getClcr(age, weight, sCr, female);
     }
@@ -210,9 +211,9 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
         font-size: 11px;
     }
 </style>
-<div style="float:left; margin-left:10px; margin-right: 10px;">
-    <h3>Dosing Information <small><a href="javascript: function myFunction() {return false; }"
-                                     onclick="getRenalDosingInformation();">Refresh</a></small></h3>
+<div data-renal-dosing-panel style="float:left; margin-left:10px; margin-right: 10px;">
+    <h3>Dosing Information <small><button type="button" class="btn btn-link"
+        onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>');">Refresh</button></small></h3>
     <table class="sofT">
         <tr class="heading">
             <th>Clcr</th>
@@ -222,7 +223,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
             for (int i = 0; i < list.size(); i++) {
                 Hashtable h = (Hashtable) list.get(i);
                 String sel = "";
-                if (rd.valueInRangeOfDose(Clcr, h) & ageb & weightb & sCrb) {
+                if (equate && rd.valueInRangeOfDose(Clcr, h)) {
                     sel = "class=\"selected\" ";
                 }
 
@@ -271,10 +272,6 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 
     <div style="clear:left"><carlos:encode value='<%= rd.getMoreinfo() %>' context="html"/>
     </div>
-    <%if (request.getParameter("divId") != null) { %>
-    <div style="float:right"><a href="javascript:void(0);" onclick="jQuery('#<carlos:encode value='<%= StringUtils.noNull(request.getParameter("divId")) %>' context="javaScriptAttribute"/>').toggle();">hide</a>
-    </div>
-    <%}%>
 </div>
 <%--
   -Right now only works for CML

@@ -22,6 +22,7 @@
  * status is snapshotted, changed through the UI and restored (run with EXCLUSIVE=1: the status
  * label/colour is clinic-wide). Cleanup deletes only rows carrying the marker or owned keys.
  */
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const {randomInt} = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
@@ -455,7 +456,7 @@ async function workflow(s) {
       `/appointment/appointmentTypeAction?oper=save&name=${encodeURIComponent(typeName)}&duration=15`,
     ];
     for (const probe of probes) {
-      const response = await context.request.get(h.appUrl(s.config.baseUrl, probe), {maxRedirects: 0});
+      const response = await authenticatedProbe({context, config: s.config}, h.appUrl(s.config.baseUrl, probe), {maxRedirects: 0});
       h.assert(response.status() === 405, `GET ${probe.split('?')[0]} answered HTTP ${response.status()}`);
     }
     h.assert(holidayRows().length === 0 && codeRow().length === 0 && typeRows().length === 0

@@ -50,7 +50,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -119,7 +119,7 @@
         formdata.setObservationDate(currentDoc.getObservationDate());
         formdata.setReviewerId(currentDoc.getReviewerId());
         formdata.setReviewDateTime(currentDoc.getReviewDateTime());
-        formdata.setContentDateTime(UtilDateUtilities.DateToString(currentDoc.getContentDateTime(), EDocUtil.CONTENT_DATETIME_FORMAT));
+        formdata.setContentDateTime(currentDoc.getContentDateTimeDisplay(EDocUtil.CONTENT_DATETIME_FORMAT));
         formdata.setHtml(currentDoc.getHtml());
         lastUpdate = currentDoc.getDateTimeStamp();
         fileName = currentDoc.getFileName();

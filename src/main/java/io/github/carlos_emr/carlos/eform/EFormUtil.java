@@ -629,6 +629,12 @@ public class EFormUtil {
      *         nothing; {@code null} when the query could not be executed or read
      */
     public static ArrayList<String> getValuesOrNull(List<String> names, ParameterizedSql sql) {
+        return getValuesOrNull(names, sql, null);
+    }
+
+    /** Patient-scoped precision refusal happens before SQL can filter unknown dates out. */
+    public static ArrayList<String> getValuesOrNull(List<String> names, ParameterizedSql sql, Integer demographicNo) {
+        requirePreventionDateSafety(sql, demographicNo);
         ResultSet resultSet;
         try {
             EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
@@ -705,6 +711,11 @@ public class EFormUtil {
      *         {@code null} when it could not be executed or read
      */
     public static ArrayNode getJsonValuesOrNull(List<String> names, ParameterizedSql sql) {
+        return getJsonValuesOrNull(names, sql, null);
+    }
+
+    public static ArrayNode getJsonValuesOrNull(List<String> names, ParameterizedSql sql, Integer demographicNo) {
+        requirePreventionDateSafety(sql, demographicNo);
         ResultSet resultSet;
         try {
             EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
@@ -1490,6 +1501,12 @@ public class EFormUtil {
             logger.error("Error", sqe);
         }
         return (rs);
+    }
+
+    private static void requirePreventionDateSafety(ParameterizedSql sql, Integer demographicNo) {
+        if (demographicNo != null && io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(sql.getSql())) {
+            io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(demographicNo);
+        }
     }
 
     private static void setFormStatus(String fid, boolean status) {

@@ -13,37 +13,37 @@
   @since 2026-10-04 (date-field submission correction, issue #4155)
 --%>
 <%@ page import="java.util.*" %>
-<%@ page import="java.text.SimpleDateFormat" %>
-<%@ page import="java.util.Date" %>
+
+
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@ page import="io.github.carlos_emr.AppointmentMainBean" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.Misc" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.Gender" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.ProvinceNames" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicEditHelper" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.LookupListManager" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.PatientConsentManager" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.managers.ProgramManager2" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
-<%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
+
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.waitinglist.WaitingList" %>
+
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${ pageContext.request.contextPath }"/>
 <%-- Retrieve variables from request attributes (set by DemographicAdd2Action) --%>
@@ -219,10 +219,10 @@
                                        class="form-control" value="">
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:</label>
+                                <label for="nameUsed" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formNameUsed"/>:</label>
                             </div>
                             <div class="col-sm-4">
-                                <input type="text" name="nameUsed" class="form-control" value="" onBlur="upCaseCtrl(this)"/>
+                                <input type="text" name="nameUsed" id="nameUsed" class="form-control" value="" onBlur="upCaseCtrl(this)"/>
                             </div>
                         </div>
 
@@ -784,7 +784,7 @@
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></label>
+                                <label for="patientPronouns" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formPronouns"/></label>
                             </div>
                             <div class="col-sm-4">
                                 <input type="text" id="patientPronouns" name="pronouns" class="form-control"/>
@@ -821,7 +821,7 @@
                                 </div>
                             </div>
                             <div class="col-sm-2 text-end">
-                                <label class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></label>
+                                <label for="patientGender" class="fw-bold col-form-label py-0"><fmt:message key="demographic.demographicaddrecordhtm.formGender"/></label>
                             </div>
                             <div class="col-sm-4">
                                 <input type="text" id="patientGender" name="gender" class="form-control"/>

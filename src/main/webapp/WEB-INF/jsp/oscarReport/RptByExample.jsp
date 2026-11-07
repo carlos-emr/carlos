@@ -61,14 +61,14 @@
     @since 2001-2002
 --%>
 
-<%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.report.data.*" %>
+
+
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = session.getAttribute("userrole") + "," + session.getAttribute("user");
@@ -202,6 +202,9 @@
                         <div class="alert alert-danger" role="alert">
                             <fmt:message key="oscarReport.RptByExample.MsgExecutionError"/>
                         </div>
+                    </c:if>
+                    <c:if test="${queryPreventionDateReview}">
+                        <div class="alert alert-warning" role="alert">Prevention timing requires review before this report can run.</div>
                     </c:if>
                     <c:if test="${queryHistoryError}">
                         <div class="alert alert-warning" role="alert">

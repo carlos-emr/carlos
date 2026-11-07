@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -31,6 +32,7 @@
 package io.github.carlos_emr;
 
 import io.github.carlos_emr.carlos.utility.BuildInfo;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -40,7 +42,15 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -78,8 +88,20 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class CarlosProperties extends Properties {
     private static final long serialVersionUID = -5965807410049845132L;
-    private static CarlosProperties carlosProperties = new CarlosProperties();
+    /** The retired legacy-chart switch; the modern chart is mandatory (#4793). */
+    private static final String ABANDON_OLD_CHART = "AbandonOldChart";
+    @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED",
+            justification = "Deserialized properties must not inherit a writable source; only readFromFile establishes provenance.")
+    private transient File loadedPropertiesFile;
+    @SuppressFBWarnings(value = "SE_TRANSIENT_FIELD_NOT_RESTORED",
+            justification = "The source description is process-local provenance and is intentionally absent after deserialization.")
+    private transient String loadedPropertiesLocation;
+    // Keep file descriptors and their locks serialized among instances in this class loader.
+    // The filesystem locks additionally coordinate separate application processes.
+    private static final Object CONFIGURATION_FILE_LOCK = new Object();
+    // Keep shared boolean markers available before any singleton startup initialization.
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
+    private static CarlosProperties carlosProperties = new CarlosProperties();
     /**
      * Keys already reported as "missing or not configured". That warning is per key per JVM, not
      * per lookup: several of these keys are read on every page render, and at the WARN root default
@@ -137,18 +159,29 @@ public class CarlosProperties extends Properties {
      * 
      * <p>This method applies validation to detect and ignore deprecated namespace
      * values (org.oscarehr.*, oscar.*), returning configured defaults when applicable.</p>
+     * <p>{@code AbandonOldChart} always returns {@code "true"}, including when absent or
+     * explicitly disabled, because the modern chart is mandatory.</p>
      *
      * @param key the property key
-     * @return the validated property value, or null if not found
+     * @return String the effective property value or configured default, or null if neither exists;
+     *         {@code AbandonOldChart} always returns {@code "true"}
+     * @throws IllegalArgumentException if the key is null or blank
      */
     public String getProperty(String key) {
+        if (key == null || key.trim().isEmpty()) {
+            MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
+            throw new IllegalArgumentException("Property key cannot be blank.");
+        }
+
         if (key.equals("FORMS_PROMOTEXT")) {
             return "";
         }
 
-        if (key == null || key.trim().isEmpty()) {
-            MiscUtils.getLogger().warn("Attempted to retrieve property with blank key.");
-            throw new IllegalArgumentException("Property key cannot be blank.");
+        // The modern chart is mandatory (#4793), including on installs with an old false
+        // override. Keep this at the shared reader so getProperty(key, defaultValue) and
+        // boolean accessors agree. Remove the obsolete flag and legacy branches in #5599.
+        if (ABANDON_OLD_CHART.equals(key)) {
+            return "true";
         }
 
         String value = super.getProperty(key);
@@ -225,7 +258,9 @@ public class CarlosProperties extends Properties {
 
             String overrideProperties = System.getProperty("carlos_override_properties");
             if (overrideProperties != null) {
-                MiscUtils.getLogger().info("Applying override properties : " + overrideProperties);
+                if (MiscUtils.getLogger().isInfoEnabled()) {
+                    MiscUtils.getLogger().info("Applying override properties : {}", LogSafe.sanitize(overrideProperties));
+                }
                 readFromFile(overrideProperties);
             }
         } catch (IOException e) {
@@ -233,25 +268,168 @@ public class CarlosProperties extends Properties {
         }
     }
 
-    public void readFromFile(String url) throws IOException {
-        InputStream is = getClass().getResourceAsStream(url);
-        if (is == null) {
-            File propertyFile;
-            try {
-                propertyFile = PathValidationUtils.resolveConfiguredFile(url, "carlos properties file");
-            } catch (SecurityException e) {
-                // Honour the declared throws IOException: a blank or un-canonicalizable configured
-                // path surfaces as IOException rather than an unchecked SecurityException. (resolveConfiguredFile
-                // permits a merely missing path; that surfaces below as FileNotFoundException from the stream.)
-                throw new IOException("Unable to resolve carlos properties file", e);
-            }
-            is = new FileInputStream(propertyFile);
+    /**
+     * Reports a final loaded {@code AbandonOldChart} value ignored by the mandatory modern-chart
+     * policy (#4793), immediately before the startup cutover guard persists the safe setting.
+     * The guard runs after all configuration sources, including the Tomcat-user home file, load.
+     *
+     * @return String the ignored stored value, or null when the setting is absent or agrees with the policy
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive match of a configuration boolean; not a security or authorization decision. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive match of a configuration boolean; not a security or authorization decision")
+    String warnIfLegacyChartSettingIgnored() {
+        String stored = super.getProperty(ABANDON_OLD_CHART);
+        if (stored == null || activeMarkers.contains(stored.trim().toLowerCase(Locale.ROOT))) {
+            return null;
         }
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn("AbandonOldChart={} in the loaded configuration is ignored: the modern chart is"
+                    + " mandatory (#4793) and the legacy eChart editor is retired. Set AbandonOldChart=true in the"
+                    + " external configuration and retain it on rollback.",
+                    LogSafe.sanitize(stored));
+        }
+        return stored;
+    }
 
-        try {
-            load(is);
-        } finally {
-            is.close();
+    /**
+     * Loads configuration and records its source after the read completes successfully.
+     * File reads share the locking protocol used by first-key initialization.
+     *
+     * @param url String classpath resource or filesystem path
+     * @throws IOException if the configuration cannot be read
+     */
+    public void readFromFile(String url) throws IOException {
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            InputStream resource = getClass().getResourceAsStream(url);
+            File propertyFile = null;
+            if (resource != null) {
+                try (resource) {
+                    load(resource);
+                }
+            } else {
+                try {
+                    propertyFile = PathValidationUtils.resolveConfiguredFile(url, "carlos properties file");
+                } catch (SecurityException e) {
+                    throw new IOException("Unable to resolve carlos properties file", e);
+                }
+                // FileInputStream retains the FileNotFoundException contract used by Startup.
+                // Release the lock before closing either owner of the same file descriptor.
+                try (FileInputStream input = new FileInputStream(propertyFile);
+                     FileChannel channel = input.getChannel();
+                     FileLock _ = channel.lock(0, Long.MAX_VALUE, true)) {
+                    load(input);
+                }
+            }
+            // Bundled resources are not operator-writable configuration files.
+            loadedPropertiesFile = propertyFile;
+            loadedPropertiesLocation = url;
+        }
+    }
+
+    /**
+     * Obtains a persisted encryption key from the loaded external configuration.
+     * An exclusive file lock covers re-reading, generation, append and flush, so an
+     * instance with an outdated blank-key snapshot adopts another instance's key.
+     *
+     * @return String the persisted key to install in the active configuration
+     * @throws IOException if the loaded configuration cannot be updated
+     * @throws NoSuchAlgorithmException if AES key generation is unavailable
+     */
+    public String getOrCreateEncryptionKey() throws IOException, NoSuchAlgorithmException {
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            String keyName = EncryptionUtils.SECRET_KEY_ENV_VAR;
+            if (loadedPropertiesFile == null) {
+                throw new IOException("Configuration source " + loadedPropertiesLocation
+                        + " is not an external properties file; refusing to generate an unpersisted encryption key. "
+                        + "Set " + keyName + " in the loaded configuration, or supply a writable external properties "
+                        + "file with -Dcarlos_override_properties=/path/to/carlos.properties before restarting. "
+                        + "Restore the original key if encrypted data already exists. "
+                        + "See https://github.com/carlos-emr/carlos/blob/release/2026.08/docs/startup-encryption-key.md "
+                        + "for configuration and recovery instructions.");
+            }
+            // Do not create a replacement/stub if the loaded file has since disappeared.
+            // Keep one descriptor open for both reading and writing throughout the lock.
+            try (FileChannel channel = FileChannel.open(loadedPropertiesFile.toPath(),
+                         StandardOpenOption.READ, StandardOpenOption.WRITE);
+                 Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
+                 FileLock _ = channel.lock()) {
+                Properties persisted = new Properties();
+                persisted.load(reader);
+                String key = persisted.getProperty(keyName);
+                if (key == null || key.isBlank()) {
+                    key = EncryptionUtils.generateSecretKey();
+                    // A trailing continuation may consume the first line terminator.
+                    ByteBuffer entry = StandardCharsets.ISO_8859_1.encode("\n\n" + keyName + "=" + key + "\n");
+                    channel.position(channel.size());
+                    while (entry.hasRemaining()) {
+                        channel.write(entry);
+                    }
+                    channel.force(true);
+                }
+                return key;
+            } catch (IOException e) {
+                throw new IOException("Unable to update loaded configuration file " + loadedPropertiesFile
+                        + ". Set " + keyName + " in that file before restarting; restore the original key "
+                        + "if encrypted data already exists.", e);
+            }
+        }
+    }
+
+    /**
+     * Persists the mandatory modern-chart setting before this deployment accepts writes.
+     * Older binaries must read the same external configuration on rollback, because modern
+     * saves no longer mirror into historical eChart rows. Existing true settings need only
+     * read access; otherwise a final entry is appended without rewriting operator content.
+     *
+     * @throws IOException if durable external configuration cannot be verified or updated
+     */
+    public void ensureModernChartRollbackSafety() throws IOException {
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            if (loadedPropertiesFile == null) {
+                throw new IOException("Configuration source " + loadedPropertiesLocation
+                        + " is not a durable external properties file. Set AbandonOldChart=true in an external "
+                        + "configuration loaded by both this release and any rollback release, using "
+                        + "-Dcarlos_override_properties=/path/to/carlos.properties; refusing to start. "
+                        + "See docs/modern-chart-cutover.md.");
+            }
+            warnIfLegacyChartSettingIgnored();
+            try {
+                // Read-only deployments with an explicit true setting need no write permission.
+                try (FileInputStream input = new FileInputStream(loadedPropertiesFile);
+                     FileChannel channel = input.getChannel();
+                     var _ = channel.lock(0, Long.MAX_VALUE, true)) {
+                    Properties persisted = new Properties();
+                    persisted.load(input);
+                    if (Boolean.parseBoolean(persisted.getProperty(ABANDON_OLD_CHART))) {
+                        super.setProperty(ABANDON_OLD_CHART, "true");
+                        return;
+                    }
+                }
+                // Re-read under the exclusive lock: another process may have completed the
+                // cutover or initialized the encryption key since the read-only check.
+                try (FileChannel channel = FileChannel.open(loadedPropertiesFile.toPath(),
+                             StandardOpenOption.READ, StandardOpenOption.WRITE);
+                     Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
+                     var _ = channel.lock()) {
+                    Properties persisted = new Properties();
+                    persisted.load(reader);
+                    if (!Boolean.parseBoolean(persisted.getProperty(ABANDON_OLD_CHART))) {
+                        // Two terminators safely end a trailing properties continuation.
+                        ByteBuffer entry = StandardCharsets.ISO_8859_1.encode(
+                                "\n\n# Mandatory modern-chart cutover; retain this on rollback (#4793).\nAbandonOldChart=true\n");
+                        channel.position(channel.size());
+                        while (entry.hasRemaining()) {
+                            channel.write(entry);
+                        }
+                        channel.force(true);
+                    }
+                }
+                super.setProperty(ABANDON_OLD_CHART, "true");
+            } catch (IOException e) {
+                throw new IOException("Unable to persist AbandonOldChart=true in loaded configuration file "
+                        + loadedPropertiesFile + ". Set that property in this external file before restarting "
+                        + "and retain it when rolling back; refusing to start. See docs/modern-chart-cutover.md.", e);
+            }
         }
     }
 
@@ -598,8 +776,8 @@ public class CarlosProperties extends Properties {
 	 * Updates the in-memory reference of the properties.
 	 *
 	 * @param propFilePath The path to the properties file.
-	 * @param key          The key of the property to be saved.
-	 * @param value        The value of the property to be saved.
+	 * @param key          String the key of the property to be saved.
+	 * @param value        String the value of the property to be saved.
 	 * @throws IOException If an I/O error occurs while writing to the file.
 	 */
 	public void saveProperty(String propFilePath, String key, String value) throws IOException {
@@ -614,8 +792,8 @@ public class CarlosProperties extends Properties {
 		try (FileWriter writer = new FileWriter(propertyFile, true)) {
 			// Write the new key-value pair
 			writer.write("\n" + key + "=" + value + "\n");
-			carlosProperties.setProperty(key, value);
 		}
+		setProperty(key, value);
 	}
 
 }

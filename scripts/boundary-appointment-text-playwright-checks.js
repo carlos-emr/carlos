@@ -4,7 +4,7 @@
  * Special characters and field lengths on the appointment booking and edit popups (wave 6, boundary values).
  * User path (throwaway login, its own day sheet): Schedule > empty slot > Add Appointment popup > patient
  * search > reason / notes / resources > Add Appointment > the appointment's own link (edit popup) > Update.
- * Asserts: a reason and notes that fill their boxes exactly (80 and 255 UTF-16 units) and carry an
+ * Asserts: a reason and notes that fill their supported limits (80 UTF-16 units and 32768 Unicode codepoints) and carry an
  * apostrophe, accents, CJK, an emoji, "&amp;", quotes, backslash, "%41", "+" and ";" are stored byte for
  * byte, redisplayed identically by the edit popup, and an unchanged Update leaves every column as it was.
  * A reason and notes that fill their box with a line break inside are stored whole
@@ -329,9 +329,9 @@ async function workflow(s) {
   const T = b.TOKENS;
   const parts = [T.apostrophe, T.latin, T.cjk, T.emoji, T.entity, T.quotes, T.backslash, T.percent, T.plus, T.semicolon];
   const reasonColumn = b.columnLength(sql, 'appointment', 'reason');
-  const notesColumn = b.columnLength(sql, 'appointment', 'notes');
+  const notesColumn = Math.min(32768, b.columnLength(sql, 'appointment', 'notes'));
   const reason = fillUnits(reasonColumn, parts);
-  const notes = fillUnits(notesColumn, parts);
+  const notes = b.exactly(notesColumn, parts.join(' '));
   const resources = fillUnits(60, parts);
   const field = (popup, name) => popup.locator(`form#addappt [name="${name}"]`);
   const byApptNo = () => `provider_no=${owner} AND appointment_no=`;

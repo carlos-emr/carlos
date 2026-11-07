@@ -92,14 +92,14 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 
 <%@ page import="org.w3c.dom.*" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.util.Msgxml" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.*" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessagingManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Groups" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.data.MsgProviderData" %>
 
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
+
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
@@ -109,12 +109,12 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
-<%@ page import="java.util.ResourceBundle" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -453,7 +453,9 @@ function validateFields() {
 
         document.getElementsByName("message")[0].setAttribute("style", "display:none;");
         if (typeof editor !== 'undefined') {
-            editor.setMarkdown("<br>" + document.getElementsByName("message")[0].value);
+            // A refused send restores a draft, so do not add the blank line used
+            // before a fresh reply's quote: it would become part of the retry.
+            editor.setMarkdown((submissionerror ? "" : "<br>") + document.getElementsByName("message")[0].value);
             editor.moveCursorToStart();
         }
 

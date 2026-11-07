@@ -13,7 +13,7 @@ const DEFAULTS = Object.freeze({
   encounterWindowMaximize: 'no', dashboard_share: 'no',
   prevention_sso_warning: 'false', prevention_ispa_warning: 'false', prevention_non_ispa_warning: 'false',
 });
-const AFFECTED = new Set(['application-health', 'document-upload', 'schedule-links']);
+const AFFECTED = new Set(['application-health', 'document-upload', 'schedule-links','document-metadata-controls','document-clinical-followup','responsive-hit-test','accessibility-smoke','i18n-locale-walk','dialog-confirmations-tickler','tickler-demo-main-status','tickler-patient-erase','inbox-preview-boundary-resync','waf-clinical-text-corpus','incoming-docs-delete-pdf-mrp','incoming-docs-quick-pick-filing']);
 const quote = name => {
   assert(/^[A-Za-z_][A-Za-z0-9_]*$/.test(name), 'Invalid navigation fixture column');
   return `\`${name}\``;
@@ -71,6 +71,12 @@ function providerNavigationFixture(sql, testUser, checkName) {
   const provider = sql.value(`SELECT provider_no FROM security WHERE user_name=${q(testUser)}`);
   assert(/^\d+$/.test(provider), 'Navigation cleanup needs one authenticated provider');
   const defaults = checkName === 'schedule-links' ? DEFAULTS : {incoming_document_default_queue: '1'};
+  // IncomingDocUtil persists Normal even on a first read with no saved choice.
+  // The quick-pick check owns its Fast preference; the MRP check only opens the page.
+  if (checkName === 'incoming-docs-delete-pdf-mrp') defaults.incoming_document_entry_mode = 'Normal';
+  if (checkName === 'incoming-docs-delete-pdf-mrp' || checkName === 'incoming-docs-quick-pick-filing') {
+    defaults.view_document_as = 'Pdf';
+  }
   const specifications = [{table: 'property', owner: 'provider_no',
     suffix: ` AND name IN (${Object.keys(defaults).map(q).join(',')})`}];
   if (checkName === 'schedule-links') {

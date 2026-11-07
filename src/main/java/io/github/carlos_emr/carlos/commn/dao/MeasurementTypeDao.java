@@ -35,13 +35,46 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 
 public interface MeasurementTypeDao extends AbstractDao<MeasurementType> {
+    /**
+     * Returns every measurement type ordered by type code.
+     *
+     * <p>Served from the shared {@code measurementTypes} cache. Every call returns an unmodifiable list of
+     * new detached copies, so changing an element affects only the caller's copy, never another
+     * reader or the cache, and writes nothing to the database. Persist changes through
+     * {@code merge}/{@code saveEntity}, which evict the cache.</p>
+     *
+     * @return all measurement types, as detached copies
+     */
     List<MeasurementType> findAll();
 
+    /**
+     * Returns every measurement type ordered by display name.
+     *
+     * <p>Served from the shared {@code measurementTypes} cache. Every call returns an unmodifiable list of
+     * new detached copies, so changing an element affects only the caller's copy, never another
+     * reader or the cache, and writes nothing to the database. Persist changes through
+     * {@code merge}/{@code saveEntity}, which evict the cache.</p>
+     *
+     * @return all measurement types, as detached copies
+     */
     List<MeasurementType> findAllOrderByName();
 
+    /**
+     * Returns every measurement type ordered by id.
+     *
+     * <p>Served from the shared {@code measurementTypes} cache. Every call returns an unmodifiable list of
+     * new detached copies, so changing an element affects only the caller's copy, never another
+     * reader or the cache, and writes nothing to the database. Persist changes through
+     * {@code merge}/{@code saveEntity}, which evict the cache.</p>
+     *
+     * @return all measurement types, as detached copies
+     */
     List<MeasurementType> findAllOrderById();
 
     List<MeasurementType> findByType(String type);
+
+    /** Existence-only bounded admission check; never loads an unbounded duplicate type list. */
+    boolean hasCdsImportType(String type, String expectedInstruction);
 
     List<MeasurementType> findByMeasuringInstructionAndTypeDisplayName(String measuringInstruction, String typeDisplayName);
 

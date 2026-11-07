@@ -55,23 +55,23 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
-<%@ taglib uri="/WEB-INF/oscarProperties-tag.tld" prefix="oscarProp" %>
+
+
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <jsp:useBean id="oscarVariables" class="java.util.Properties" scope="page"/>
 
-<%@page import="java.nio.charset.StandardCharsets" %>
-<%@page import="java.net.URLDecoder, java.net.URLEncoder,java.util.Date, java.util.List" %>
+
+<%@page import="java.net.URLDecoder, java.net.URLEncoder, java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.documentManager.EDocUtil,io.github.carlos_emr.carlos.documentManager.EDoc" %>
-<%@page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
+
 <%@page import="java.util.Hashtable" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao,io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
-<%@page import="org.springframework.web.context.WebApplicationContext" %>
-<%@page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
+<%@page import="io.github.carlos_emr.carlos.commn.dao.QueueDao" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -535,7 +535,7 @@ Remote documents not supported
                             for (int i2 = 0; i2 < docs.size(); i2++) {
                                 EDoc cmicurdoc = docs.get(i2);
                         %>
-                        <option VALUE="<carlos:encode value='<%= cmicurdoc.getDocId() + "-" + cmicurdoc.getContentType() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? UtilDateUtilities.DateToString(cmicurdoc.getContentDateTime(), "yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
+                        <option VALUE="<carlos:encode value='<%= cmicurdoc.getDocId() + "-" + cmicurdoc.getContentType() %>' context="htmlAttribute"/>"><carlos:encode value='<%= sortorder.equals("Content") ? cmicurdoc.getContentDateTimeDisplay("yyyy-MM-dd") : cmicurdoc.getDateTimeStamp() %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= cmicurdoc.getObservationDate() %>' context="html"/>
                             [<carlos:encode value='<%= cmicurdoc.getType() %>' context="html"/>] <carlos:encode value='<%= cmicurdoc.getDescription() %>' context="html"/>
                         </option>
                         <%}%>

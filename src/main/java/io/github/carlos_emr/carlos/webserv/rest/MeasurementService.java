@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: enforce CDS maintenance and disclosure compatibility.
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
@@ -99,6 +100,13 @@ public class MeasurementService extends AbstractServiceImpl {
     /** Business logic manager for measurement operations. */
     @Autowired
     private MeasurementManager measurementManager;
+    private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+
+    /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
+    @Autowired
+    public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
+        this.projections = java.util.Objects.requireNonNull(service);
+    }
 
     /**
      * Retrieves measurements of specified types for a patient via REST API.
@@ -146,6 +154,7 @@ public class MeasurementService extends AbstractServiceImpl {
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demoId)) {
             throw new ForbiddenException("Access Denied: measurement or patient-record access is restricted");
         }
+        projections.requireRestSupported(demoId, java.util.Set.of("CareElements"));
         MeasurementResponse response = new MeasurementResponse();
         ArrayNode jsonArray = (ArrayNode) json.get("types");
         List<String> typesList = new ArrayList<>();

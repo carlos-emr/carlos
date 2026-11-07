@@ -74,7 +74,7 @@ public class FluReport implements PreventionReport {
             ArrayList<String> fieldList = list.get(i);
             Integer demo = Integer.valueOf(fieldList.get(0));
 
-            ArrayList<Map<String, Object>> prevs = PreventionData.getPreventionData(loggedInInfo, "Flu", demo);
+            ArrayList<Map<String, Object>> prevs = PreventionData.getExactPreventionData(loggedInInfo, "Flu", demo);
 
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);

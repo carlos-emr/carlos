@@ -368,7 +368,8 @@ public class HRMUtil {
             HRMPDFCreator hrmpdfCreator = new HRMPDFCreator(outputStream, hrmId, loggedInInfo);
             hrmpdfCreator.printPdf();
             path = nioFileManager().saveTempFile("temporaryPDF" + new Date().getTime(), outputStream);
-        } catch (IOException e) {
+        } catch (IOException | PDFGenerationException e) {
+            // printPdf reports a failed HTML conversion as a PDFGenerationException; name the report as for an I/O failure.
             throw new PDFGenerationException("Error Details: HRM [" + getHRMDocumentDisplayName(hrmId) + "] could not be converted into a PDF", e);
         }
         return path;

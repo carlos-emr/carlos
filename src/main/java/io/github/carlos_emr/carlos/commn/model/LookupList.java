@@ -70,6 +70,57 @@ public class LookupList extends AbstractModel<Integer> {
     @OrderBy("displayOrder")
     private List<LookupListItem> items = new ArrayList<LookupListItem>();
 
+    /**
+     * Creates an empty instance, as JPA and the existing callers do. Declared explicitly
+     * because the private copy constructor behind {@link #copyOf(LookupList)} would
+     * otherwise remove the implicit no-argument constructor JPA requires.
+     */
+    public LookupList() {
+    }
+
+    private LookupList(LookupList source) {
+        this.id = source.id;
+        this.name = source.name;
+        this.listTitle = source.listTitle;
+        this.description = source.description;
+        this.categoryId = source.categoryId;
+        this.active = source.active;
+        this.createdBy = source.createdBy;
+        this.dateCreated = source.dateCreated == null ? null : (Date) source.dateCreated.clone();
+        this.items = copyItems(source.items);
+    }
+
+    /**
+     * Returns a detached deep copy that shares no mutable state with {@code source}.
+     *
+     * <p>{@code LookupListDaoImpl} keeps copies in the shared {@code lookupLists} cache and
+     * hands each caller its own copy, so one caller changing a list, its item list, or one of
+     * its items cannot change what every other reader sees until the cache expires. The items
+     * are copied one by one, in order, into a new modifiable list; the creation date is cloned
+     * (keeping its runtime type, such as {@link java.sql.Timestamp}). The copy and its items
+     * keep their database ids, so {@code equals}/{@code hashCode} still match the rows, but
+     * none of them is managed by a persistence context: changing them writes nothing.</p>
+     *
+     * <p>The source's items must already be loaded (they are fetched eagerly).</p>
+     *
+     * @param source the lookup list to copy; may be {@code null}
+     * @return a new detached copy, or {@code null} when {@code source} is {@code null}
+     */
+    public static LookupList copyOf(LookupList source) {
+        return source == null ? null : new LookupList(source);
+    }
+
+    private static List<LookupListItem> copyItems(List<LookupListItem> source) {
+        if (source == null) {
+            return null;
+        }
+        List<LookupListItem> copies = new ArrayList<>(source.size());
+        for (LookupListItem item : source) {
+            copies.add(LookupListItem.copyOf(item));
+        }
+        return copies;
+    }
+
     public Integer getId() {
         return id;
     }

@@ -36,15 +36,15 @@
 --%>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
@@ -450,13 +450,19 @@
             }
             bindFaxModalCancellation();
 
+            function printHalfLetter(method, scriptId) {
+                if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']
+                        || signatureAssociationPending || signatureAssociationFailed) return;
+                onPrint2(method, scriptId, null, false, null, null, 'PageSize.HALFLETTER');
+            }
+
             function onPrint2(method, scriptId, faxDocumentId, pasteAfterSuccess, capturedPasteText,
-                              previousUnloadHandler) {
+                              previousUnloadHandler, pageSizeOverride) {
                 if (method === 'oscarRxFax' && (faxQueued || faxSubmissionUncertain || faxPreviewReloading
                         || signatureAssociationPending || signatureAssociationFailed)) return false;
                 var useSC = false;
                 var scAddress = "";
-                var rxPageSize = document.getElementById('printPageSize').value;
+                var rxPageSize = pageSizeOverride || document.getElementById('printPageSize').value;
                 console.log("rxPagesize  " + rxPageSize);
 
                 <% if(vecAddressName != null) { %>
@@ -771,7 +777,10 @@
                             }
 
                             if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
-                                text += document.getElementById('additionalNotes').value + "\n";
+                                var additionalNotes = document.getElementById('additionalNotes').value.trim();
+                                if (additionalNotes) {
+                                    text += additionalNotes + "\n";
+                                }
                             }
                         }
                         <% if (props.isPropertyActive("rx_paste_asterisk")) {
@@ -1272,7 +1281,10 @@
                     capturedPasteText = previewForm.elements['rx_no_newlines'].value +
                             (document.all ? '' : '\n');
                     if (document.getElementById('additionalNotes') !== null) {
-                        capturedPasteText += document.getElementById('additionalNotes').value + '\n';
+                        var additionalNotes = document.getElementById('additionalNotes').value.trim();
+                        if (additionalNotes) {
+                            capturedPasteText += additionalNotes + '\n';
+                        }
                     }
                 }
                 lastFaxPasteText = null;
@@ -1342,9 +1354,28 @@
 function updateSignatureAssociationControls() {
     const warning = document.getElementById('signatureAssociationError');
     if (warning) warning.hidden = !signatureAssociationFailed;
+    updateHalfLetterPrintControls();
     if (typeof canFaxScript !== 'undefined') {
         setFaxControlsDisabled(shouldDisableFaxControls());
     }
+}
+
+function updateHalfLetterPrintControls() {
+    let button;
+    try {
+        const previewFrame = frames['preview'];
+        button = previewFrame && previewFrame.document
+                ? previewFrame.document.getElementById('halfLetterPrint') : null;
+    } catch (unavailablePreview) {
+        // Navigation can temporarily hide the preview document. Its load handler resynchronizes
+        // the button, and the click guard still prevents printing during the signature save.
+        return;
+    }
+    if (!button) return;
+    const blocked = signatureAssociationPending || signatureAssociationFailed;
+    button.disabled = blocked;
+    button.style.opacity = blocked ? '0.5' : '';
+    button.style.cursor = signatureAssociationPending ? 'wait' : (signatureAssociationFailed ? 'not-allowed' : 'pointer');
 }
 
 function associateSavedSignature(event, scriptId) {
@@ -1463,7 +1494,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 				<td>
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
-                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
+                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment(); updateHalfLetterPrintControls()"
 							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
 							align=center border=0 frameborder=0></iframe></div>
 					<% } %>

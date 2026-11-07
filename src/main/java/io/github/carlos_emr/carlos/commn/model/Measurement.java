@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications made by CARLOS Contributors in 2026: preserve imported care values and source authorship.
  */
 
 
@@ -104,7 +105,7 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
     private String providerNo;
 
     /**
-     * The longest value {@code measurements.dataField} holds ({@code varchar(255)}). The packaged install runs MariaDB
+     * The ordinary native-entry limit, retained for existing native writers. The packaged install runs MariaDB
      * with {@code sql_mode=""} and sets {@code jdbcCompliantTruncation=false} in its JDBC URL, so a longer value is cut
      * to fit without an error; writers that must not file a cut value check this first.
      */
@@ -115,7 +116,7 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      * Format depends on measurement type - may be numeric ("120/80"), 
      * textual ("Normal"), or structured data.
      */
-    @Column(name = "dataField", nullable = false, length = DATA_FIELD_MAX_LENGTH)
+    @Column(name = "dataField", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String dataField = "";
 
     /** 
@@ -233,6 +234,16 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      */
     public void setProviderNo(String providerNo) {
         this.providerNo = StringUtils.trimToNull(providerNo);
+    }
+
+    /** Empty legacy-compatible reference means the imported source did not identify a local author. */
+    public void setImportedSourceProviderNo(String providerNo) {
+        if (providerNo != null && !providerNo.isEmpty() && (providerNo.isBlank()
+                || providerNo.codePointCount(0, providerNo.length()) > 6
+                || providerNo.chars().anyMatch(c -> c < 32 || c == 127))) {
+            throw new IllegalArgumentException("Invalid imported measurement source-provider reference");
+        }
+        this.providerNo = providerNo == null ? "" : providerNo;
     }
 
     /**

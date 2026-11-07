@@ -9,8 +9,11 @@ import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.MessagingManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.services.security.SecurityManager;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,6 +24,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.logging.log4j.Level;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -64,7 +68,12 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
         login = mock(LoggedInInfo.class);
         Provider provider = new Provider();
         provider.setProviderNo("999998");
+        provider.setFirstName("Synthetic");
+        provider.setLastName("Provider");
         when(login.getLoggedInProvider()).thenReturn(provider);
+        Secuserrole role = new Secuserrole();
+        role.setRoleName("doctor");
+        when(security.getRoles(login)).thenReturn(List.of(role));
         session = new MockHttpSession();
         session.setAttribute("user", "999998");
         session.setAttribute("userrole", "doctor");
@@ -431,6 +440,117 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** Reproduces both logout timing windows without depending on concurrent thread scheduling. */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldKeepAuthorizedProvider_whenLogoutInvalidatesSessionDuringPreparation(boolean duringAppointmentLookup) throws Exception {
+        MockHttpServletRequest request = request("101", "9002");
+        request.removeParameter("curProviderNo");
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        if (duringAppointmentLookup) {
+            when(appointments.find(Integer.valueOf(9002))).thenAnswer(invocation -> {
+                session.invalidate();
+                return appointment(202, "B22222");
+            });
+        } else {
+            when(security.isAllowedAccessToPatientRecord(login, 101)).thenAnswer(invocation -> {
+                session.invalidate();
+                return true;
+            });
+        }
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        try (var logs = LogCapture.forLogger(EctDisplayAction.class);
+             var moduleSecurity = mockConstruction(SecurityManager.class,
+                (mock, context) -> when(mock.hasReadAccess(anyString(), anyString())).thenReturn(true))) {
+            RecordingDisplay action = execute(request, response);
+
+            assertThat(action.result).isEqualTo("success");
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(logs.events()).filteredOn(event -> event.getLevel().isMoreSpecificThan(Level.ERROR)).isEmpty();
+            assertThat(action.loaded.curProviderNo).isEqualTo("999998");
+            assertThat(action.loaded.providerNo).isEqualTo("999998");
+            assertThat(action.loaded.userName).isEqualTo("Synthetic Provider");
+            assertThat(action.loadedLogin).isSameAs(login);
+            assertThat(action.loadedRoleNames).isEqualTo("doctor,999998");
+            assertThat(action.loadedProviderNo).isEqualTo("999998");
+            assertThat(action.loaded.appointmentNo).isEqualTo("0");
+            assertThat(LoggedInInfo.getLoggedInInfoFromSession(request)).isNull();
+            assertThat(request.getSession()).isNotSameAs(session);
+            assertThat(action.getLoggedInInfo(request)).isNull();
+            assertThat(action.getProviderNo(request)).isNull();
+            assertThat(action.getRoleNames(request)).isEqualTo("null,null");
+            verify(security).hasPrivilege(login, "_eChart", "r", "101");
+            verify(security).isAllowedAccessToPatientRecord(login, 101);
+            verify(moduleSecurity.constructed().getFirst()).hasReadAccess("_measurements", "doctor,999998");
+            verifyNoInteractions(demographics, templates, groups, charts, messages);
+        }
+    }
+
+    /** Keeps each real module's privilege check bound to the login authorized before logout. */
+    @ParameterizedTest
+    @CsvSource({"forms,_form", "eforms,_eform", "docs,_edoc", "msgs,_msg"})
+    void shouldUseAuthorizedLogin_forModulePrivilegesAfterConcurrentLogout(String command, String object) throws Exception {
+        createAndRegisterMock(MessagingManager.class);
+        MockHttpServletRequest request = request("101", "9002");
+        request.removeParameter("curProviderNo");
+        request.setParameter("cmd", command);
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(appointments.find(Integer.valueOf(9002))).thenAnswer(invocation -> {
+            session.invalidate();
+            return appointment(202, "B22222");
+        });
+        try (var servlet = mockStatic(ServletActionContext.class);
+             var moduleSecurity = mockConstruction(SecurityManager.class,
+                     (mock, context) -> when(mock.hasReadAccess(anyString(), anyString())).thenReturn(true))) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            EctDisplayAction action = switch (command) {
+                case "forms" -> new EctDisplayForm2Action();
+                case "eforms" -> new EctDisplayEForm2Action();
+                case "docs" -> new EctDisplayDocs2Action();
+                case "msgs" -> new EctDisplayMsg2Action();
+                default -> throw new AssertionError(command);
+            };
+
+            assertThat(action.execute()).isEqualTo("success");
+            verify(security).hasPrivilege(login, object, "r", null);
+            verify(security, never()).hasPrivilege(isNull(), eq(object), eq("r"), isNull());
+            assertThat(LoggedInInfo.getLoggedInInfoFromSession(request)).isNull();
+            assertThat(action.getLoggedInInfo(request)).isNull();
+            verifyNoInteractions(demographics, templates, groups, charts, messages);
+        }
+    }
+
+    @Test
+    void shouldKeepModuleRefusal_whenLogoutInvalidatesSessionAfterPatientAuthorization() throws Exception {
+        MockHttpServletRequest request = request("101", "9002");
+        request.removeParameter("curProviderNo");
+        when(security.hasPrivilege(login, "_eChart", "r", "101")).thenReturn(true);
+        when(appointments.find(Integer.valueOf(9002))).thenAnswer(invocation -> {
+            session.invalidate();
+            return appointment(202, "B22222");
+        });
+        try (var moduleSecurity = mockConstruction(SecurityManager.class)) {
+            RecordingDisplay action = execute(request, new MockHttpServletResponse());
+            assertThat(action.result).isNull();
+            assertThat(action.loaded).isNull();
+            verify(moduleSecurity.constructed().getFirst()).hasReadAccess("_measurements", "doctor,999998");
+            verifyNoInteractions(demographics, templates, groups, charts, messages);
+        }
+    }
+
+    @Test
+    void shouldRefuseMissingLogin_beforeConstructingOrLoadingNavbarData() {
+        MockHttpServletRequest request = request("101", "9001");
+        session.invalidate();
+        try (var beans = mockConstruction(EctSessionBean.class)) {
+            assertThatThrownBy(() -> execute(request, new MockHttpServletResponse()))
+                    .isInstanceOf(SecurityException.class);
+            assertThat(beans.constructed()).isEmpty();
+            verifyNoInteractions(security, demographics, templates, groups, charts, appointments, messages);
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"missing", "conflictingAliases", "conflictingDuplicates", "overflow", "zero"})
     void shouldReturn400BeforeConstructingOrLoadingChartData(String invalid) throws Exception {
@@ -567,11 +687,17 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
 
     private static final class RecordingDisplay extends EctDisplayAction {
         EctSessionBean loaded;
+        LoggedInInfo loadedLogin;
+        String loadedRoleNames;
+        String loadedProviderNo;
         String result;
 
         @Override public String getCmd() { return "measurements"; }
         @Override public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO dao) {
             loaded = bean;
+            loadedLogin = getLoggedInInfo(request);
+            loadedRoleNames = getRoleNames(request);
+            loadedProviderNo = getProviderNo(request);
             return true;
         }
     }

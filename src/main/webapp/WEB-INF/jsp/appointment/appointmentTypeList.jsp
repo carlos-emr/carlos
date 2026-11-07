@@ -56,13 +56,13 @@
     @since 2016-06-28
 --%>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*, io.github.carlos_emr.carlos.appt.*, io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao, io.github.carlos_emr.carlos.commn.model.AppointmentType, io.github.carlos_emr.carlos.utility.SpringUtils" %>
+        import="java.util.*, io.github.carlos_emr.*, java.lang.*, io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao, io.github.carlos_emr.carlos.commn.model.AppointmentType, io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib prefix="s" uri="/struts-tags" %>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ include file="/WEB-INF/jsp/admin/dbconnection.jsp" %>
 <%--RJ 07/07/2006 --%>
@@ -76,10 +76,10 @@
 
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="java.util.*" %>
-<%@ page import="java.sql.*" %>
-<%@ page import="io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.login.*" %>
-<%@ page import="io.github.carlos_emr.carlos.log.*" %>
+
+
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <html>

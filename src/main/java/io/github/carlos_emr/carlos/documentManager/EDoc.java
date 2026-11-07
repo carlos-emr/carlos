@@ -76,6 +76,7 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
     private String docPublic = "0";
     private String contentType = "";
     private Date contentDateTime = null;
+    private String cdsContentPrecision;
     private String observationDate = "";
     private String reviewerId = "";
     private String reviewDateTime = null;
@@ -295,6 +296,28 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
 
     public Date getContentDateTime() {
         return (contentDateTime);
+    }
+
+    public String getCdsContentPrecision() { return cdsContentPrecision; }
+
+    public void setCdsContentPrecision(String value) { cdsContentPrecision=value; }
+
+    public String getContentDateTimeDisplay() {
+        return contentDateTime==null?sourcePrecisionDisplay():contentDateTime.toString();
+    }
+
+    public String getContentDateTimeDisplay(String pattern) {
+        return contentDateTime==null?sourcePrecisionDisplay():UtilDateUtilities.DateToString(contentDateTime, pattern);
+    }
+
+    private String sourcePrecisionDisplay() {
+        if (cdsContentPrecision==null) return "";
+        return switch (cdsContentPrecision) {
+            case "YEAR" -> "Year only; see imported report details";
+            case "MONTH" -> "Month only; see imported report details";
+            case "FULL_DATE" -> "Date without a time; see imported report details";
+            default -> "Unknown time; see imported report details";
+        };
     }
 
     public void setContentDateTime(Date contentDateTime) {
@@ -589,6 +612,7 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
         document.setResponsible(this.getResponsibleId());
         document.setProgramId(this.getProgramId());
         document.setUpdatedatetime(this.getDateTimeStampAsDate());
+        document.setCdsContentPrecision(this.getCdsContentPrecision());
         document.setContentdatetime(this.getContentDateTime());
         document.setStatus(this.getStatus());
         document.setContenttype(this.getContentType());

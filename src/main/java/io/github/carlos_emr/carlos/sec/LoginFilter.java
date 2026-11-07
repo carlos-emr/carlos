@@ -462,7 +462,9 @@ public class LoginFilter implements Filter {
                     }
                 }
 
-                if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT)) {
+                // Background polls still pass authentication and expiry checks above.
+                if (!inListOfExemptions(requestURI, contextPath, EXEMPT_URLS_FOR_REQUEST_TIMEOUT)
+                        && (lastRequestDate == null || !Boolean.parseBoolean(httpRequest.getParameter("autoRefresh")))) {
                     logger.debug("reseting timer list uri {}", LogSafe.sanitizeUri(httpRequest.getRequestURI()));
                     // nosemgrep: tainted-session-from-http-request -- thisRequestDate is a server-generated Date object (new Date()), not user input
                     session.setAttribute("last_request_time", thisRequestDate);
@@ -683,6 +685,11 @@ public class LoginFilter implements Filter {
 
     private boolean isFacilitySelectionAllowed(String requestURI, String contextPath) {
         String normalizedUri = normalizeUri(requestURI);
+        // The chooser's own files need exact matches, without the route matcher's PATH_INFO allowance.
+        if (normalizedUri.equals(contextPath + "/css/caisi_css.css")
+                || normalizedUri.equals(contextPath + "/js/global.js")) {
+            return true;
+        }
         return inListOfExemptions(normalizedUri, contextPath, PENDING_FACILITY_SELECTION_URLS);
     }
 

@@ -17,6 +17,7 @@ Run (from the repository root):
 """
 
 import os
+import importlib.util
 import re
 import subprocess
 import tempfile
@@ -27,6 +28,23 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 BACKUP = ROOT / "debian" / "assets" / "bin" / "carlos-emr-backup"
 POSTRM = ROOT / "debian" / "carlos-emr.postrm"
+
+
+class TestCdsPublishedDocumentMode(unittest.TestCase):
+    def test_installed_qualification_accepts_only_shared_group_readable_documents(self):
+        spec = importlib.util.spec_from_file_location("packaged_cds_document_gate", ROOT / "scripts/ci/run-cds-performance.py")
+        gate = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gate)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            document = root / "owned-synthetic-report.pdf"
+            document.write_bytes(b"synthetic packaging proof")
+            document.chmod(0o600)
+            with self.assertRaises(RuntimeError):
+                gate.native_document_proof(document, root)
+            document.chmod(0o640)
+            self.assertEqual(gate.native_document_proof(document, root),
+                             (document.stat().st_size, gate.digest(document)))
 
 
 def backup_excludes():

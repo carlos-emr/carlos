@@ -50,10 +50,11 @@
     @since 2005-10-26
 --%>
 
+<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsentDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Consent" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
@@ -64,12 +65,12 @@
 <%@ page import="io.github.carlos_emr.carlos.managers.DHIRSubmissionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.model.UserProperty" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
@@ -83,9 +84,9 @@
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao, io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+
 <%@page import="io.github.carlos_emr.carlos.utility.WebUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@page import="io.github.carlos_emr.carlos.managers.PreventionManager" %>
@@ -96,7 +97,7 @@
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -189,7 +190,7 @@
 "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
 
-<%@page import="io.github.carlos_emr.carlos.utility.SessionConstants" %>
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionDS" %>
@@ -643,6 +644,7 @@
     </head>
 
     <body class="BodyStyle">
+    <div><source:cdsSourceFields demographicNo="${param.demographic_no}" category="Immunizations"/></div>
     <!--  -->
     <%=WebUtils.popErrorAndInfoMessagesAsHtml(session)%>
     <%

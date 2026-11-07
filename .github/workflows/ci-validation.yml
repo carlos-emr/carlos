@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   ci-validation:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Check out source
@@ -51,6 +51,13 @@ jobs:
           "$RUNNER_TEMP/ci-validation-venv/bin/python" -m pip install \
             --disable-pip-version-check --require-hashes -r scripts/ci/requirements.txt
           echo "$RUNNER_TEMP/ci-validation-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install actual XML schema validator for resource fixture tests
+        # The workload producer tests validate original XML through the pinned
+        # OntarioMD XSD. Missing xmllint must fail setup, not skip this proof.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxml2-utils
 
       - name: Test CI helpers
         run: python3 -m unittest discover -s scripts/ci -p 'test_*.py' -v

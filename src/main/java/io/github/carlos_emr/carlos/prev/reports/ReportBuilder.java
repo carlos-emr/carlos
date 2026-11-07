@@ -149,7 +149,7 @@ public class ReportBuilder {
     }
 
     private List<Prevention> getPreventionData(LoggedInInfo loggedInInfo, PreventionSearchConfigTo1 preventionSearchConfig, Integer demographicNo) {
-        List<Prevention> prevs = PreventionData.getPrevention(loggedInInfo, preventionSearchConfig.getName(), demographicNo);
+        List<Prevention> prevs = PreventionData.getExactPrevention(loggedInInfo, preventionSearchConfig.getName(), demographicNo);
         return prevs;
     }
 
