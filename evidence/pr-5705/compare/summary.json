@@ -1,0 +1,160 @@
+[
+  {
+    "title": "New Growth 0-36 form (demographic prefill)",
+    "before": "01-new-form.png",
+    "after": "01-new-form.png",
+    "size_before": [
+      1280,
+      900
+    ],
+    "size_after": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null,
+    "composite": "/home/user/build/visual/compare/01-new-form-compare.png"
+  },
+  {
+    "title": "Redisplay after Save (before: legacy JDBC save; after: JPA save of the same values)",
+    "before": "02-after-save.png",
+    "after": "02-after-save.png",
+    "size_before": [
+      1280,
+      900
+    ],
+    "size_after": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null,
+    "composite": "/home/user/build/visual/compare/02-after-save-compare.png"
+  },
+  {
+    "title": "Saved row written by the legacy code (after: read by the new JPA code)",
+    "before": "03-saved-legacy-row.png",
+    "after": "03-saved-legacy-row.png",
+    "size_before": [
+      1280,
+      900
+    ],
+    "size_after": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null,
+    "composite": "/home/user/build/visual/compare/03-saved-legacy-row-compare.png"
+  },
+  {
+    "title": "Legacy-saved row (before) vs JPA-saved row with the same values (after)",
+    "before": "03-saved-legacy-row.png",
+    "after": "03b-saved-jpa-row.png",
+    "size_before": [
+      1280,
+      900
+    ],
+    "size_after": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null,
+    "composite": "/home/user/build/visual/compare/03-saved-legacy-row-vs-03b-saved-jpa-row-compare.png"
+  },
+  {
+    "title": "Print Growth PDF (length/weight chart), page 1",
+    "before": "04-print-growth-1.png",
+    "after": "04-print-growth-1.png",
+    "size_before": [
+      510,
+      660
+    ],
+    "size_after": [
+      510,
+      660
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null,
+    "composite": "/home/user/build/visual/compare/04-print-growth-1-compare.png"
+  },
+  {
+    "title": "Head Circ(1) PDF, page 1",
+    "before": "05-print-headcirc-1.png",
+    "after": "05-print-headcirc-1.png",
+    "size_before": [
+      510,
+      660
+    ],
+    "size_after": [
+      510,
+      660
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null,
+    "composite": "/home/user/build/visual/compare/05-print-headcirc-1-compare.png"
+  },
+  {
+    "title": "Legacy row with all twenty slots SQL NULL",
+    "before": "08-null-slot-legacy-row.png",
+    "after": "08-null-slot-legacy-row.png",
+    "size_before": [
+      1280,
+      900
+    ],
+    "size_after": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null,
+    "composite": "/home/user/build/visual/compare/08-null-slot-legacy-row-compare.png"
+  },
+  {
+    "title": "eChart left navigation (Forms module lists Growth 0-36m)",
+    "before": "07-echart-leftnav.png",
+    "after": "07-echart-leftnav.png",
+    "size_before": [
+      198,
+      446
+    ],
+    "size_after": [
+      198,
+      446
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null,
+    "composite": "/home/user/build/visual/compare/07-echart-leftnav-compare.png"
+  },
+  {
+    "title": "eChart page",
+    "before": "06-echart.png",
+    "after": "06-echart.png",
+    "size_before": [
+      1024,
+      710
+    ],
+    "size_after": [
+      1024,
+      710
+    ],
+    "changed_pixels": 32,
+    "changed_ratio": 4.4e-05,
+    "diff_bbox": [
+      565,
+      645,
+      571,
+      654
+    ],
+    "composite": "/home/user/build/visual/compare/06-echart-compare.png"
+  }
+]

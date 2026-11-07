@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="carlos-playwright-suite" tests="15" failures="1" skipped="0">
+    <properties>
+      <property name="browserVersion" value="chromium 154.0.8025.0"/>
+    </properties>
+    <testcase classname="playwright-suite" name="echart-navbar-modules" time="66.358">
+      <failure message="exit 1"/>
+    </testcase>
+    <testcase classname="playwright-suite" name="form-rourke2017" time="13.625"></testcase>
+    <testcase classname="playwright-suite" name="select-forms-panel" time="6.093"></testcase>
+    <testcase classname="playwright-suite" name="form-catalog-smoke" time="103.071"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth" time="61.715"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-head-circumference" time="29.983"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-measure-date" time="31.071"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-storage" time="39.789"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-print-null" time="30.798"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-print-sex" time="30.935"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-print-gestation" time="31.541"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-print-notes" time="35.741"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-print-dob" time="31.771"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-print-bmi" time="19.873"></testcase>
+    <testcase classname="playwright-suite" name="form-rourke2020-growth-graph-title" time="30.293"></testcase>
+  </testsuite>
+</testsuites>
