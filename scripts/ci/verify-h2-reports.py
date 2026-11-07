@@ -12,29 +12,29 @@ from release_verification import junit_results
 ROOT = Path(__file__).resolve().parents[2]
 PERMISSION_CLASS = 'io.github.carlos_emr.CarlosPropertiesModernChartPersistenceUnitTest'
 PERMISSION_CASE = 'shouldRefuseCutover_whenUnsafeSourceIsReadOnly'
+PERMISSION_CASES = json.loads(Path(__file__).with_name('permission-cases.json').read_text())
 
 
 def verify(reports, permission_reports):
     plan = json.loads((ROOT / 'docs/testing/release-2026.08-verification.json').read_text())
     check = next(row for row in plan['checks'] if row['id'] == 'java-all')
-    # Root-run containers cannot exercise POSIX write refusal; a separate
-    # unprivileged execution below must pass that exact case without a skip.
-    check['routedSkips'][PERMISSION_CLASS] = {
-        'check': 'ci-unprivileged-permission', 'cases': [PERMISSION_CASE]}
+    # Every exact root-sensitive skip must pass in the separate lane. Other
+    # skipped methods, including new assumptions, still fail this gate.
+    for row in PERMISSION_CASES:
+        check['routedSkips'][row['classname']] = {
+            'check': 'ci-unprivileged-permission',
+            'cases': [{'name': row['name'], 'container': row['container']}]}
     summary = junit_results(reports, check)
     if not summary['ready']:
         raise EvidenceError('H2 run failed, lost required coverage, or contains unrouted skips')
-    permission = junit_results(permission_reports, {'minimumCases': 1})
-    required = PERMISSION_CLASS.rsplit('.', 1)[-1]
-    if not permission['ready'] or permission['tests'] != 1 or permission['families'].get(required) != 1:
-        raise EvidenceError('Unprivileged permission execution is incomplete')
-    # Inspect the actual case identity too: another passing method cannot
-    # substitute for the read-only startup-refusal regression.
+    permission = junit_results(permission_reports, {'minimumCases': len(PERMISSION_CASES)})
     from junit_evidence import read_surefire
     paths = list(permission_reports.glob('TEST-*.xml'))
     cases = [case for path in paths for case in read_surefire(path, path.stem.removeprefix('TEST-'))]
-    if [(case.classname, case.name, case.outcome) for case in cases] != [(PERMISSION_CLASS, PERMISSION_CASE, 'pass')]:
-        raise EvidenceError('Required permission case was replaced')
+    required = {(row['classname'], row['name'], row['container'], 'pass') for row in PERMISSION_CASES}
+    actual = [(case.classname, case.name, case.container, case.outcome) for case in cases]
+    if not permission['ready'] or len(actual) != len(required) or set(actual) != required:
+        raise EvidenceError('Required permission cases missing, replaced, skipped, or failed')
     return {key: summary[key] for key in ('tests', 'failed', 'skipped', 'ready')}
 
 

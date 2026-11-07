@@ -29,16 +29,17 @@ class H2ReportEvidenceTest(unittest.TestCase):
         self.addCleanup(patch.stopall)
         patch.object(GATE, 'ROOT', self.root).start()
         self.report(self.reports, 'example.Native', [('required', 'skipped')])
-        self.report(self.reports, GATE.PERMISSION_CLASS, [(GATE.PERMISSION_CASE, 'skipped')])
-        self.report(self.permission, GATE.PERMISSION_CLASS, [(GATE.PERMISSION_CASE, 'pass')])
+        for row in GATE.PERMISSION_CASES:
+            self.report(self.reports, row['classname'], [(row['name'], 'skipped')], row['container'])
+            self.report(self.permission, row['classname'], [(row['name'], 'pass')], row['container'])
 
-    def report(self, directory, family, cases):
+    def report(self, directory, family, cases, container=''):
         from xml.etree.ElementTree import Element, SubElement, tostring
         root = Element('testsuite', name=family, tests=str(len(cases)),
                        failures=str(sum(outcome == 'failure' for _, outcome in cases)), errors='0',
                        skipped=str(sum(outcome == 'skipped' for _, outcome in cases)))
         for name, outcome in cases:
-            case = SubElement(root, 'testcase', classname=family, name=name)
+            case = SubElement(root, 'testcase', classname=container or family, name=name)
             if outcome != 'pass':
                 SubElement(case, outcome)
         (directory / f'TEST-{family}.xml').write_bytes(tostring(root))
@@ -63,6 +64,10 @@ class H2ReportEvidenceTest(unittest.TestCase):
                 GATE.verify(self.reports, self.permission)
 
     def test_missing_permission_report_is_not_success(self):
-        next(self.permission.iterdir()).unlink()
-        with self.assertRaises(EvidenceError):
-            GATE.verify(self.reports, self.permission)
+        for row in GATE.PERMISSION_CASES:
+            report = self.permission / f"TEST-{row['classname']}.xml"
+            contents = report.read_bytes()
+            report.unlink()
+            with self.assertRaises(EvidenceError):
+                GATE.verify(self.reports, self.permission)
+            report.write_bytes(contents)

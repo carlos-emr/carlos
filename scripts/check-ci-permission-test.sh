@@ -11,7 +11,14 @@ if [ "$(id -u)" = 0 ]; then
   # checks Files.isWritable; the report gate refuses a skipped invocation.
   command=(setpriv --bounding-set=-dac_override,-dac_read_search)
 fi
+selector=$(python3 - <<'SELECTOR'
+import json
+from pathlib import Path
+cases = json.loads(Path('scripts/ci/permission-cases.json').read_text())
+print(','.join(row['classname'] + '#' + row['name'] for row in cases))
+SELECTOR
+)
 "${command[@]}" mvn -B -ntp surefire:test \
-  '-Dtest=CarlosPropertiesModernChartPersistenceUnitTest#shouldRefuseCutover_whenUnsafeSourceIsReadOnly' \
+  "-Dtest=$selector" \
   -Dtest.forkCount=1 -Dtest.reportsDirectory="$reports" \
   -Djacoco.destFile="$reports/jacoco.exec" "$@"

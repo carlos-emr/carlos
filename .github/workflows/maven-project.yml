@@ -204,6 +204,8 @@ jobs:
               shutil.rmtree(destination)
           destination.mkdir(parents=True)
           reports = sorted(source.glob("TEST-*.xml"))
+          for extra in ("ci-permission-reports", "ci-legacy-reports"):
+              reports.extend(sorted((Path("target") / extra).glob("TEST-*.xml")))
           if not reports:
               print("::warning::No Surefire XML reports were generated; no Java failure inventory is available.")
           for report in reports:
@@ -218,7 +220,9 @@ jobs:
                   for child in list(parent):
                       if child.tag.rsplit("}", 1)[-1] in {"properties", "system-out", "system-err"}:
                           parent.remove(child)
-              tree.write(destination / report.name, encoding="utf-8", xml_declaration=True)
+              report_destination = destination if report.parent == source else destination / report.parent.name
+              report_destination.mkdir(parents=True, exist_ok=True)
+              tree.write(report_destination / report.name, encoding="utf-8", xml_declaration=True)
               # Derive concise TXT diagnostics from the safe copy, not console-output files.
               lines = [root.get("name", report.stem), " ".join(
                   f"{key}={root.get(key, 'unknown')}" for key in ("tests", "failures", "errors", "skipped", "time"))]
@@ -235,7 +239,7 @@ jobs:
                       print(f"::error title=Java test {kind}::{escaped_id}")
                       lines.extend([f"{kind.upper()}: {case.get('classname', '')}.{case.get('name', '')}",
                                     problem.get("type", ""), problem.get("message", ""), problem.text or ""])
-              (destination / (report.stem.removeprefix("TEST-") + ".txt")).write_text(
+              (report_destination / (report.stem.removeprefix("TEST-") + ".txt")).write_text(
                   "\n".join(lines) + "\n", encoding="utf-8")
           print(f"Prepared {len(reports)} sanitized Surefire XML/TXT report pairs")
           PY

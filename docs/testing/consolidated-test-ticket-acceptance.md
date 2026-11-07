@@ -14,7 +14,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#4492](https://github.com/carlos-emr/carlos/issues/4492) | test(scripts): Playwright coverage plan, upgrade-path check, remaining Ontario checks, configuration profiles and hardening (plan Tasks 17 and 35–48) | Implementation and installed acceptance pending. |
 | [#5177](https://github.com/carlos-emr/carlos/issues/5177) | Consolidated validation-harness findings and packaged retakes | Outstanding original source acceptance and complete ON/BC repetitions remain pending. |
 | [#5700](https://github.com/carlos-emr/carlos/issues/5700) | Test: Release 2026.08 full verification coverage plan (Java, Node, Playwright) | Existing merged tooling retained. Scope ownership, compatibility decisions, installed execution and vendor prerequisites remain open. |
-| [#5707](https://github.com/carlos-emr/carlos/issues/5707) | Test: cover successful key-pair creation through the administration UI | Independent native creation/download/signature/reopen/duplicate lifecycle implemented; installed acceptance pending. |
+| [#5707](https://github.com/carlos-emr/carlos/issues/5707) | Test: cover successful key-pair creation through the administration UI | Native creation/download/signature/reopen/duplicate lifecycle passes on the installed ON package with a temporary synthetic primary prerequisite, whose removal restores its original absence; strict missing-prerequisite failure retained. BC/final qualification pending. |
 | [#5708](https://github.com/carlos-emr/carlos/issues/5708) | Test: cover multi-recipient lab-forwarding rule updates and selective removal | Implementation and installed acceptance pending. |
 | [#5709](https://github.com/carlos-emr/carlos/issues/5709) | Test: broaden lookup-list CRUD coverage and verify consumer/list isolation | Implementation and installed acceptance pending. |
 | [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implementation and installed acceptance pending. |
@@ -40,9 +40,9 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5771](https://github.com/carlos-emr/carlos/issues/5771) | Test: Tomcat shutdown leak smoke check doesn't match MariaDB Connector/J thread names | Matcher and independent warning controls implemented; actual installed shutdown retake pending. |
 | [#5779](https://github.com/carlos-emr/carlos/issues/5779) | Test: #5548 inbox counts are only partly exercised on physical MariaDB | Seven cases pass on both physical ON and BC Flyway schemas with zero skips at 239cd330e1a; final expanded normal/abnormal assertions and final-head retakes pending. |
 | [#5793](https://github.com/carlos-emr/carlos/issues/5793) | Test: Release adds 11 expected-failure pins, including security and audit checks | Implementation and installed acceptance pending. |
-| [#5794](https://github.com/carlos-emr/carlos/issues/5794) | Test: Front-door check for sanitized error bodies was removed while ResponseSanitizationFilter was rewritten | Temporary installed fault-route adapter and sensitive output assertions added; installed front-door qualification pending. |
+| [#5794](https://github.com/carlos-emr/carlos/issues/5794) | Test: Front-door check for sanitized error bodies was removed while ResponseSanitizationFilter was rewritten | Installed ON REQUEST exception, /ws and observed ERROR-dispatch 500 sanitization pass; exact descriptor restoration and fixture removal verified. BC/final qualification pending. |
 | [#5795](https://github.com/carlos-emr/carlos/issues/5795) | Test: Missing browser-check prerequisites now SKIP instead of failing, including the CDS import gate | Packaged runner enforces strict release/residue checking and fails on report loss; packaged runs pending. |
-| [#5796](https://github.com/carlos-emr/carlos/issues/5796) | Test: Stored partial-precision allergy start dates are no longer covered (allergy-partial-start-date removed) | Stored year/year-month display and reaction-only amendment restored; installed acceptance pending. |
+| [#5796](https://github.com/carlos-emr/carlos/issues/5796) | Test: Stored partial-precision allergy start dates are no longer covered (allergy-partial-start-date removed) | Installed ON year/year-month display and both reaction-only amendments pass with clean residue audit. BC/final qualification pending. |
 | [#5797](https://github.com/carlos-emr/carlos/issues/5797) | Test: Two new tests never run in CI, and the H2 test job doesn't fail on unexpected skips | Dedicated permission and legacy-library CI lanes plus exact-result checks implemented; full CI/native acceptance pending. |
 
 ## Execution and review
@@ -93,3 +93,24 @@ mapping, with an independent dispatch witness and missing-mapping negative
 control. The HTML servlet uses a JSP-suffixed exact mapping to pass the real
 Struts exclusion contract. APT index failures are fatal in both image/setup
 steps. Final installed retakes, green final-head CI and CodeRabbit remain open.
+
+Installed ON evidence at harness head `458c284d9fd0` uses the locally built
+`carlos-emr_2026.09.0~snapshot28_amd64.deb` (SHA-256
+`428f5a7f525359fc8a15f80bb84bf04d402aa7d83dbc43ba382e306ff78ecf28`)
+from source `239cd330e1a6`, the matching pinned DrugRef package and CLI 1.3.1,
+on Ubuntu 26.04.1 with Java 25 and Playwright Chromium 149. No production bytes
+changed in the intervening harness commits. Error sanitization and both stored
+allergy precision amendments pass. Key creation first reports a strict
+prerequisite skip; after separately staging an owned synthetic primary key,
+creation/download/independent signature/reopen/duplicate checks pass. Its
+prerequisite is removed with exact ownership verification, restoring the
+original absence. All three checks report clean residue audits. These are
+focused evidence, not a full qualification receipt or issue-closure claim.
+
+The first full CI H2 evidence contains 34,077 cases, no failures, and 139 skips.
+Four additional exact root-sensitive methods were discovered by the new gate.
+They join startup refusal in a dedicated five-case lane; all five pass
+unprivileged on Ubuntu 26.04 without skips. The gate rejects missing, substituted,
+skipped and failed required methods, and sanitized artifacts now preserve the
+separate permission and legacy reports. CodeRabbit accepted a full-review
+request after its rate-limit window; review completion remains pending.
