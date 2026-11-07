@@ -41,6 +41,11 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
     private final CdsExportCapturedTextRowsReader rows = mock(CdsExportCapturedTextRowsReader.class);
     private final CdsExportCohortService.Patient patient = mock(CdsExportCohortService.Patient.class);
     private final CdsExportDemographicOccurrenceService service = new CdsExportDemographicOccurrenceService(values, verification, witnesses, captures, rows);
+    private CdsExportXmlComposer.SectionEmitter emitter() throws Exception {
+        var emitter = mock(CdsExportXmlComposer.SectionEmitter.class);
+        doAnswer(call -> { ((CdsExportXmlComposer.Sections) call.getArgument(0)).write(emitter); return null; }).when(emitter).source(any());
+        return emitter;
+    }
     private CdsExportLeaseDto lease() {
         var command = new CdsExportCommand("test", "999998", null, CdsLogicalProfile.ONTARIO_MD_5_2, CdsExportCommand.Selection.SELECTED_PATIENTS,
                 List.of(), List.of(27), Set.of(CdsCategory.DEMOGRAPHICS), "receiver", "audit");
@@ -53,31 +58,43 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
         when(capture.index()).thenReturn(new CdsExportStagedFileDto("2".repeat(64), "SOURCE_INDEX", HASH, 1));
         return new CdsExportPatientCaptureDto(capture, new CdsExportStagedFileDto("3".repeat(64), "SOURCE_MANIFEST", HASH, 1));
     }
-    @Test void shouldRejectMissingNativeDomains_beforeOpeningAnySourceOrRetainedValues() {
+    @Test void shouldRejectMissingNativeDomains_beforeOpeningAnySourceOrRetainedValues() throws Exception {
         var source = source(Map.of("demographic", new CdsExportCapturedTableDto(Set.of("demographic_no"), 1, HASH)));
         assertThatThrownBy(() -> service.append(lease(), patient, HASH, source.capture().tables().keySet(), source,
                 new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
-                mock(CdsExportRunControl.class), mock(CdsExportXmlComposer.SectionEmitter.class), receipt -> {}))
+                mock(CdsExportRunControl.class), emitter(), receipt -> {}))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
         verifyNoInteractions(values, verification, witnesses, captures, rows);
     }
-    @Test void shouldRejectInvalidPatientIdentity_beforeEmittingAnyXml() {
+    @Test void shouldRejectInvalidPatientIdentity_beforeEmittingAnyXml() throws Exception {
         var source = source(Map.of("demographic", new CdsExportCapturedTableDto(Set.of("demographic_no"), 1, HASH)));
         assertThatThrownBy(() -> service.append(lease(), patient, "bad", source.capture().tables().keySet(), source,
                 new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
-                mock(CdsExportRunControl.class), mock(CdsExportXmlComposer.SectionEmitter.class), receipt -> {}))
+                mock(CdsExportRunControl.class), emitter(), receipt -> {}))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
         verifyNoInteractions(values, verification, witnesses, captures, rows);
     }
-    @Test void shouldEnforceEachTableRowBudget_beforeTheMergeOrClinicalSourceScan() {
+    @Test void shouldEnforceEachTableRowBudget_beforeTheMergeOrClinicalSourceScan() throws Exception {
         var tables = new LinkedHashMap<String, CdsExportCapturedTableDto>();
         for (String table : List.of("demographic", "demographicExt", "demographiccust", "demographicArchive", "provider", "Contact", "DemographicContact", "pharmacyInfo", "demographicPharmacy"))
             tables.put(table, new CdsExportCapturedTableDto(Set.of("id"), table.equals("Contact") ? 11 : 0, HASH));
         var source = source(tables);
         assertThatThrownBy(() -> service.append(lease(), patient, HASH, tables.keySet(), source,
                 new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
-                mock(CdsExportRunControl.class), mock(CdsExportXmlComposer.SectionEmitter.class), receipt -> {}))
+                mock(CdsExportRunControl.class), emitter(), receipt -> {}))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_RESOURCE_LIMIT");
         verifyNoInteractions(values, verification, witnesses, captures, rows);
+    }    @Test void shouldPoisonTheWholeDocument_whenTheCallerSwallowsASourceScopeFailure() {
+        var source = source(Map.of("demographic", new CdsExportCapturedTableDto(Set.of("demographic_no"), 1, HASH)));
+        var output = new java.io.ByteArrayOutputStream();
+        assertThatThrownBy(() -> new CdsExportXmlComposer().composeFromSource(output, HASH, HASH, "2026.08.0-test", CdsLogicalProfile.ONTARIO_MD_5_2,
+                Set.of(CdsCategory.DEMOGRAPHICS), xml -> {
+                    try {
+                        service.append(lease(), patient, HASH, source.capture().tables().keySet(), source,
+                                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
+                                mock(CdsExportRunControl.class), xml, receipt -> {});
+                    } catch (java.io.IOException refused) { /* The composer must remain poisoned. */ }
+                }, ignored -> {}, 1L << 20, () -> {})).hasMessage("CDS_EXPORT_SECTION_WRITE_FAILED");
     }
+
 }

@@ -69,6 +69,18 @@ public class CdsExportDemographicOccurrenceService {
             CdsExportStagedFileDto payloadManifest, CdsExportClinicalOccurrenceService.Bounds bounds,
             CdsExportRunControl control, CdsExportXmlComposer.SectionEmitter xml,
             CdsExportClinicalOccurrenceService.Receipts output) throws IOException {
+        Objects.requireNonNull(xml);
+        var result = new CdsExportClinicalOccurrenceService.Result[1];
+        xml.source(emitter -> result[0] = assemble(lease, patient, patientKey, requiredTables, source,
+                payloadManifest, bounds, control, emitter, output));
+        return Objects.requireNonNull(result[0]);
+    }
+
+    private CdsExportClinicalOccurrenceService.Result assemble(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient,
+            String patientKey, Set<String> requiredTables, CdsExportPatientCaptureDto source,
+            CdsExportStagedFileDto payloadManifest, CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control, CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output) throws IOException {
         Objects.requireNonNull(xml); Objects.requireNonNull(output); patient.require(lease);
         var tables = Set.copyOf(requiredTables);
         if (patientKey == null || !patientKey.matches("[0-9a-f]{64}") || !tables.equals(source.capture().tables().keySet())
