@@ -139,7 +139,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
         read.executeWithoutResult(status -> {
             var columns = notes.readCdsExportIssueLinkReceiptColumns();
             assertThat(columns).extracting(column -> column.name()).containsExactly("id", "note_id");
-            assertThat(columns).allSatisfy(column -> { assertThat(column.type()).isEqualTo("BIGINT"); assertThat(column.precision()).isEqualTo(19); assertThat(column.scale()).isZero(); });
+            assertThat(columns).allSatisfy(column -> { assertThat(column.type()).isEqualTo("INT"); assertThat(column.precision()).isEqualTo(10); assertThat(column.scale()).isZero(); });
             assertThat(new io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkSourceReader(notes).receiptColumns()).isEqualTo(columns);
         });
         assertThatThrownBy(() -> notes.readCdsExportIssueLinkReceiptColumns()).isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
