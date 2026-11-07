@@ -1078,3 +1078,8 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 ### Independent demographic field closure
 
 `CdsExportDemographicClosureValidator` compares the assembled result with the exact captured row universe and authenticated parent source-field IDs supplied independently by the caller. It rejects deferred or substituted identities, presence mismatches, review blockers and overlapping XML replacement claims. A receipt proves closure only for that supplied authenticated demographic scope; it does not prove that the overall source catalogue is complete, that every serialized clinical fact is correct, or that disclosure is authorized.
+
+
+### Scoped demographic occurrence service
+
+`CdsExportDemographicOccurrenceService` connects the coordinated demographic mapper, registered sender identity and independent field closure to the same synchronous scoped XML emitter used by the clinical occurrence services. It loads bounded authenticated rows, rejects active merge scope, verifies retained parent receipts, requires every captured demographic field and source ID to be accounted for, and checks final source authority before returning. XML and receipt callbacks stay private until the complete enclosing operation succeeds. Native-only demographics, multiple applied demographic parents, nonempty unrepresented ancillary values and unresolved archive/care facts still require dedicated reconciliation; they cannot produce a partial demographic fallback.
