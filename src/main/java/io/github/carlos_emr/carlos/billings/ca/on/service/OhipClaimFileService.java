@@ -1258,15 +1258,21 @@ public class OhipClaimFileService {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void readInBillingNo() {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        java.io.File safeOhipFile = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
+                ohipFilename, new java.io.File(home_dir));
         BillingImportedFiles.requireResolved(diskNameDao.importedFilenameReviews(ohipFilename),
-                ohipFilename, java.nio.file.Path.of(home_dir).resolve(ohipFilename));
+                ohipFilename, safeOhipFile.toPath());
+        if (htmlFilename != null && !htmlFilename.isBlank()) {
+            java.io.File safeHtmlFile = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
+                    htmlFilename, new java.io.File(home_dir));
+            BillingImportedFiles.requireResolved(diskNameDao.importedFilenameReviews(htmlFilename),
+                    htmlFilename, safeHtmlFile.toPath());
+        }
         propBillingNo = new Properties();
         // Path-validate the filename before opening — companion writeFile/
         // writeHtml already do this; defense-in-depth so a future caller
         // that sets ohipFilename from user input can't traverse out of
         // home_dir.
-        java.io.File safeOhipFile = io.github.carlos_emr.carlos.utility.PathValidationUtils.validatePath(
-                ohipFilename, new java.io.File(home_dir));
         if (!safeOhipFile.isFile()) {
             // Nothing to dedup against: the file was never written (a failed
             // generation) or was removed. The empty set selects no claim, so the

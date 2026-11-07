@@ -68,7 +68,7 @@ public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
                 "SELECT COUNT(b) FROM BillingONDiskName b WHERE b.ohipFilename = ?1");
         query.setParameter(1, ohipFilename);
         return ((Number) query.getSingleResult()).longValue() > 0
-                || BillingFilenameImportDao.isReserved(entityManager, "billing_on_diskname", ohipFilename);
+                || BillingFilenameImportDao.isReserved(entityManager, ohipFilename);
     }
 
     public List<BillingFilenameImportDao.FileReview> importedFilenameReviews(String filename) {

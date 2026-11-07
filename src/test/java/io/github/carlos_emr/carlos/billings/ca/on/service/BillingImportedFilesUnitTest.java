@@ -26,12 +26,12 @@ class BillingImportedFilesUnitTest {
         return new FileReview("shared.001", "o19-claim-2021-2-0.claim", "reconciled", sha, "billing-admin", true);
     }
 
-    @Test void ordinaryFilesKeepTheirExistingBehavior() {
+    @Test void shouldPreserveExistingBehavior_whenFileHasNoImportAudit() {
         assertThatCode(() -> BillingImportedFiles.requireResolved(List.of(), "ordinary.001", directory.resolve("missing")))
                 .doesNotThrowAnyException();
     }
 
-    @Test void sharedSurvivingFileDoesNotProveSubmissionOwnership() throws Exception {
+    @Test void shouldRejectSharedFile_whenOwnershipIsAmbiguous() throws Exception {
         Path file = Files.writeString(directory.resolve("shared.001"), "one surviving submission");
         FileReview review = new FileReview("shared.001", "o19-claim-2021-2-0.claim", "ambiguous", null, null, false);
         assertThatThrownBy(() -> BillingImportedFiles.requireResolved(List.of(review), "shared.001", file))
@@ -39,14 +39,14 @@ class BillingImportedFilesUnitTest {
                 .hasMessageContaining("requires reconciliation").hasMessageNotContaining("shared.001");
     }
 
-    @Test void newNameAloneDoesNotAuthorizeUnreviewedContent() throws Exception {
+    @Test void shouldRejectContent_whenAllocatedNameIsUnreviewed() throws Exception {
         Path file = Files.writeString(directory.resolve("o19-claim-2021-2-0.claim"), "unassigned");
         FileReview review = new FileReview("shared.001", file.getFileName().toString(), "ambiguous", null, null, false);
         assertThatThrownBy(() -> BillingImportedFiles.requireResolved(List.of(review), review.importedFilename(), file))
                 .isInstanceOf(BillingFileWriteException.class);
     }
 
-    @Test void reconciledContentMustMatchItsRecordedDigest() throws Exception {
+    @Test void shouldRejectChangedContent_whenDigestDiffersFromReview() throws Exception {
         FileReview review = resolved(digest("verified submission"));
         Path file = Files.writeString(directory.resolve(review.importedFilename()), "verified submission");
         assertThatCode(() -> BillingImportedFiles.requireResolved(List.of(review), review.importedFilename(), file))
@@ -56,21 +56,21 @@ class BillingImportedFilesUnitTest {
                 .isInstanceOf(BillingFileWriteException.class);
     }
 
-    @Test void sharedOriginalStaysBlockedAfterOneRowIsReconciled() throws Exception {
+    @Test void shouldRejectSharedOriginal_whenAllocatedRowIsReconciled() throws Exception {
         FileReview review = resolved(digest("verified submission"));
         Path file = Files.writeString(directory.resolve(review.originalFilename()), "verified submission");
         assertThatThrownBy(() -> BillingImportedFiles.requireResolved(List.of(review), review.originalFilename(), file))
                 .isInstanceOf(BillingFileWriteException.class);
     }
 
-    @Test void resolutionRequiresAnActorAndDate() throws Exception {
+    @Test void shouldRejectResolution_whenReviewerMetadataIsMissing() throws Exception {
         Path file = Files.writeString(directory.resolve("o19-claim-2021-2-0.claim"), "verified");
         FileReview review = new FileReview("shared.001", file.getFileName().toString(), "reconciled", digest("verified"), "", false);
         assertThatThrownBy(() -> BillingImportedFiles.requireResolved(List.of(review), review.importedFilename(), file))
                 .isInstanceOf(BillingFileWriteException.class);
     }
 
-    @Test void missingOrSymlinkedResolvedFilesRemainUnavailable() throws Exception {
+    @Test void shouldRejectResolvedFile_whenMissingOrSymlinked() throws Exception {
         FileReview review = resolved(digest("verified"));
         Path absent = directory.resolve(review.importedFilename());
         assertThatThrownBy(() -> BillingImportedFiles.requireResolved(List.of(review), review.importedFilename(), absent))

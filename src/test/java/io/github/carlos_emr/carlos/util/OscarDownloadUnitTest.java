@@ -79,7 +79,7 @@ class OscarDownloadUnitTest {
     }
 
     @Test
-    void shouldRefuseAmbiguousBillingDownloadBeforeOpeningResponseStream() throws Exception {
+    void shouldRefuseDownload_whenImportedFileIsAmbiguous() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
         request.addParameter("filename", "o19-claim-2021-2-0.claim");
         request.addParameter("homepath", "ohipdownload");
@@ -95,7 +95,7 @@ class OscarDownloadUnitTest {
     }
 
     @Test
-    void shouldTransferReviewedBillingDownloadAfterGuardPasses() throws Exception {
+    void shouldTransferDownload_whenImportedFileIsReviewed() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
         request.addParameter("filename", "o19-claim-2021-2-0.claim");
         request.addParameter("homepath", "ohipdownload");
@@ -107,6 +107,28 @@ class OscarDownloadUnitTest {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(servlet.billingChecked).isTrue();
         assertThat(servlet.transferCalled).isTrue();
+    }
+
+    @Test
+    void shouldRefuseDownload_whenAlternateSessionKeyPointsToBillingDirectory() throws Exception {
+        try (org.mockito.MockedStatic<io.github.carlos_emr.CarlosProperties> properties =
+                     org.mockito.Mockito.mockStatic(io.github.carlos_emr.CarlosProperties.class)) {
+            io.github.carlos_emr.CarlosProperties props = org.mockito.Mockito.mock(io.github.carlos_emr.CarlosProperties.class);
+            org.mockito.Mockito.when(props.getProperty("HOME_DIR")).thenReturn(tempDir.toString());
+            properties.when(io.github.carlos_emr.CarlosProperties::getInstance).thenReturn(props);
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+            request.addParameter("filename", "shared.001");
+            request.addParameter("homepath", "homepath");
+            request.getSession().setAttribute("homepath", tempDir.resolve(".").toString());
+            request.getSession().setAttribute("user", "999998");
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            RecordingOscarDownload servlet = new RecordingOscarDownload();
+            servlet.rejectBilling = true;
+            servlet.service(request, response);
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(servlet.billingChecked).isTrue();
+            assertThat(servlet.transferCalled).isFalse();
+        }
     }
 
     private static final class RecordingOscarDownload extends OscarDownload {

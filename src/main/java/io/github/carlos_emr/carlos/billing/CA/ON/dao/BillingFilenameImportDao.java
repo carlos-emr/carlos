@@ -19,11 +19,10 @@ public class BillingFilenameImportDao {
                              String status, String sha256, String reviewer, boolean dated) { }
 
     /** Old names remain occupied even when every colliding row received a new name. */
-    public static boolean isReserved(EntityManager manager, String table, String filename) {
+    public static boolean isReserved(EntityManager manager, String filename) {
         Query query = manager.createNativeQuery("SELECT COUNT(*) FROM billing_filename_import "
-                + "WHERE source_table = ?1 AND original_filename = ?2");
-        query.setParameter(1, table);
-        query.setParameter(2, filename);
+                + "WHERE original_filename = ?1");
+        query.setParameter(1, filename);
         return ((Number) query.getSingleResult()).longValue() > 0;
     }
 

@@ -846,8 +846,9 @@ Every member of a colliding group receives a deterministic name such as
 import identifiers, not newly submitted MOH filenames. Allocation reserves
 all original names, including names resembling these generated candidates.
 An old file named by several submissions cannot establish which submission
-it belongs to, so no row is assigned that file automatically. All original
-files stay preserved in the restored tree; external/custom `HOME_DIR` files
+it belongs to, so no row is assigned that file automatically. Original
+files included in the restored tree stay preserved; missing source files
+and external/custom `HOME_DIR` files
 still require the operator's existing transfer/reconciliation procedure.
 
 The mappings are retained at `o19_archive.billing_on_diskname__filenames`

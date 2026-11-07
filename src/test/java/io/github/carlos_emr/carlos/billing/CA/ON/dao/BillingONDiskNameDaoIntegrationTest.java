@@ -55,6 +55,30 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private BillingONDiskNameDao dao;
 
+    @Autowired
+    private BillingONFilenameDao filenameDao;
+
+    @Autowired
+    private io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao activityDao;
+
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
+    @Test
+    void shouldReserveAllHistoricalNames_whenOnlyAuditRetainsOriginal() {
+        entityManager.createNativeQuery("INSERT INTO billing_filename_import "
+                + "(source_table, source_id, original_filename, imported_filename, group_size, reason, file_status) "
+                + "VALUES ('billing_on_filename', 990201, 'legacy.001', 'o19-html-2020-990201-0.html', 2, 'collision', 'ambiguous')")
+                .executeUpdate();
+        assertThat(dao.existsByOhipFilename("legacy.001")).isTrue();
+        assertThat(filenameDao.existsByHtmlFilename("legacy.001")).isTrue();
+        assertThat(activityDao.isImportedFilenameReserved("legacy.001")).isTrue();
+        assertThat(dao.importedFilenameReviews("legacy.001")).hasSize(1);
+        assertThat(dao.importedFilenameReviews("o19-html-2020-990201-0.html")).hasSize(1);
+        assertThat(dao.importedFilenameReviews("Legacy.001")).isEmpty();
+        assertThat(dao.existsByOhipFilename("unused.001")).isFalse();
+    }
+
     @Test
     @Tag("create")
     @DisplayName("should persist entity with generated ID")

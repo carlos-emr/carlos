@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.util;
 import java.io.File;
 import java.io.IOException;
 import java.util.Set;
+import io.github.carlos_emr.CarlosProperties;
 
 import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
@@ -90,10 +91,13 @@ public class OscarDownload extends GenericDownload {
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
-                if ("ohipdownload".equals(homepath)) {
-                    requireBillingFile(rawFilename, downloadDir.toPath().resolve(rawFilename));
+                String billingHome = CarlosProperties.getInstance().getProperty("HOME_DIR");
+                boolean billingDirectory = billingHome != null && !billingHome.isBlank()
+                        && downloadDir.equals(new File(billingHome).getCanonicalFile());
+                if ("ohipdownload".equals(homepath) || billingDirectory) {
+                    requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, downloadDir).toPath());
                     if (!filename.equals(rawFilename)) {
-                        requireBillingFile(filename, downloadDir.toPath().resolve(filename));
+                        requireBillingFile(filename, PathValidationUtils.validatePath(filename, downloadDir).toPath());
                     }
                 }
                 ServletOutputStream stream = res.getOutputStream();
