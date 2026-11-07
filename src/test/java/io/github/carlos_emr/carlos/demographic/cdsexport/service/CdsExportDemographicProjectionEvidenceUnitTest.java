@@ -133,6 +133,10 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     void preparedPrimaryProvider(String provider) {
         source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), provider, source.details(), source.relations(), source.diagnostics()); oldField("provider_no", provider==null?"":provider);
     }
+    void preparedPharmacy(CdsDemographicRelationsDto.Pharmacy pharmacy) {
+        var relations = new CdsDemographicRelationsDto(source.relations().familyPhysician(), source.relations().referringPhysician(), pharmacy, 0, List.of());
+        source = new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), source.primaryProvider(), source.details(), relations, source.diagnostics());
+    }
     void preparedRoster(CdsDemographicDetailsDto.Enrollment roster, long count) {
         var d=source.details(); var details=new CdsDemographicDetailsDto(d.spokenLanguage(), d.statusDate(), d.healthCardExpiry(), d.patientNote(), roster, count, d.diagnostics());
         source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), source.primaryProvider(), details, source.relations(), source.diagnostics());

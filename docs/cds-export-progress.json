@@ -4,17 +4,18 @@
   "qualifiedProfiles": [],
   "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
   "verifiedBaseline": {
-    "javaChecks": 2901,
+    "javaChecks": 2941,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "63c2a28c63f251e880a7b9f29b86332c08d87b6fb5cdf74aec6cc5e69bcb93c9",
+    "packagedWarSha256": "3b4234f69dd0cc8eee0b78e66b705c612db4550458f465aa40e5a72deb2cc715",
     "ordinaryInstalledSourceChecks": 63,
     "shiftedInstalledSourceChecks": 64,
     "capturedSources": 19,
     "clinicalPublication": false,
     "professionalInstalledChecks": 44,
-    "totalInstalledChecks": 171
+    "totalInstalledChecks": 222,
+    "careAssemblyInstalledChecks": 51
   },
   "implemented": [
     "Shared pinned wire-schema and scalar contracts with importer facades",
@@ -24,11 +25,11 @@
     "Personal contact, pharmacy, allergy, medication, appointment and immunization mapping/reconciliation components",
     "XML, ZIP/ZIP64, encryption and package validation components",
     "External family/referring-physician binding and witnessed name reconciliation through the demographic parent receipt",
-    "External family/referring-physician binding and witnessed name reconciliation through the demographic parent receipt"
+    "Retained preferred-pharmacy reconciliation and coordinated personal/professional/pharmacy demographic assembly with exact field ownership"
   ],
   "remaining": [
-    "Complete demographic histories, care relationships and remaining native/source field closure",
-    "Complete the remaining demographic, care-relationship and archive columns; retained/current/archive enrolment is packaged and installed component verified",
+    "Complete remaining demographic/archive fields and supporting native projections for unrepresented care attributes",
+    "Finish whole-demographic source/native field closure; core, enrolment, primary physician and coordinated care components are packaged and installed verified",
     "Complete source catalogue and all selected clinical domain mappings, attachments and merged-chart ownership",
     "Connect a concrete clinical export engine and independent expected-fact inventory to coverage validation",
     "Complete review, audit, recipient encryption, delivery, download authorization and retention lifecycle",
@@ -90,5 +91,17 @@
     "missingMovedDeletedAndInactiveRelationshipsRequireReview": true,
     "otherNativeContactDetailsNeedSupportingProjection": true,
     "installedChecks": 44
+  },
+  "demographicCareAssembly": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedCoordinatedChecks": 104,
+    "installedChecks": 51,
+    "allCareFieldIdentitiesAccounted": true,
+    "professionalNameUsesRetained": true,
+    "sourceOnlyConflictsRequireReview": true,
+    "sourceAddressTypeAndUnchangedStreetLinesPreserved": true,
+    "jurisdictionAndPostalChoiceReconciledTogether": true,
+    "wholeOwnedPharmacyRowsAndTimestampRestored": true,
+    "wholeDemographicQualified": false
   }
 }
