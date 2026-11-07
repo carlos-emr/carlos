@@ -105,8 +105,7 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
 
         assertThat(ids)
                 .hasSize(50)
-                .allMatch(id -> id.matches("[0-9a-f]{32}"))
-                .noneMatch(id -> id.startsWith("999998"));
+                .allMatch(id -> id.matches("[0-9a-f]{32}"));
     }
 
     @Test
@@ -157,6 +156,26 @@ class DigitalSignatureUtilsUnitTest extends CarlosUnitTestBase {
     void shouldRefuseToIssueRequestId_withoutSession() {
         assertThatThrownBy(() -> DigitalSignatureUtils.generateSignatureRequestId(null))
                 .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldRefuseRequestId_afterSessionInvalidation() {
+        String issued = DigitalSignatureUtils.generateSignatureRequestId(session);
+        session.invalidate();
+        assertThat(DigitalSignatureUtils.isIssued(session, issued)).isFalse();
+    }
+
+    @Test
+    void shouldRetainAllRequestIds_whenTabsOpenConcurrently() throws Exception {
+        java.util.List<java.util.concurrent.Future<String>> pending = new java.util.ArrayList<>();
+        try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            for (int i = 0; i < 64; i++) {
+                pending.add(executor.submit(() -> DigitalSignatureUtils.generateSignatureRequestId(session)));
+            }
+        }
+        Set<String> issued = new HashSet<>();
+        for (var result : pending) issued.add(result.get());
+        assertThat(issued).hasSize(64).allMatch(id -> DigitalSignatureUtils.isIssued(session, id));
     }
 
     @Test

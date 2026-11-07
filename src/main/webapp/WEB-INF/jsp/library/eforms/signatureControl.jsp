@@ -24,19 +24,18 @@
         alert("The signatureControl library requires jQuery. Please ensure that it is loaded first");
     }
 
-    var signaturePadIFrameStart = "Signature:<br/><iframe style=\"width:500px; height:132px;\"id=\"signatureFrame\" src=\"";
-    var signaturePadIFrameEnd = "\" ></iframe>";
     var signatureControl = {
         initialize: function (options) {
             var element = this;
             // Generating an eform configuration.
             if (typeof options == "undefined" || options == null || options.eform) {
-                options = typeof options == "undefined" ? {} : options;
+                options = options || {};
                 element.sigHTML = "<%= request.getContextPath() %>/signature_pad/tabletSignature?inWindow=true&saveToDB=true&demographicNo=";
                 element.signatureDisplay = "#signatureDisplay";
                 element.signatureInput = "#signatureInput";
                 element.signatureValue = "#signatureValue"
-                element.demographicNo = 0; //TODO: Keep on trucking
+                // Use this eForm's patient, including on saved-form reloads; never session-global state.
+                element.demographicNo = options.demographicNo || jQuery('input[name="demographicNo"]').first().val();
                 element.imgAttributes = "";
 
                 var placeholder = jQuery(element.signatureInput);
@@ -123,8 +122,19 @@
                     }
                 }
                 : options.signatureHandler;
-            if ($(element.signatureInput)) {
-                $(element.signatureInput).html(signaturePadIFrameStart + element.sigHTML + signaturePadIFrameEnd);
+            if (jQuery(element.signatureInput).length) {
+                if (!/^[1-9][0-9]*$/.test(String(element.demographicNo)) || Number(element.demographicNo) > 2147483647) {
+                    alert("The signature pad could not determine this form's patient. Please reopen the form.");
+                    return element;
+                }
+                // RTL supplies demographicNo separately from sigHTML. Both the patient and module
+                // must reach the upload: a row saved with -1/null cannot be previewed or printed.
+                var padUrl = new URL(element.sigHTML, document.baseURI);
+                padUrl.searchParams.set('demographicNo', element.demographicNo);
+                if (!padUrl.searchParams.has('ModuleType')) padUrl.searchParams.set('ModuleType', 'E_FORM');
+                var padFrame = jQuery('<iframe>').attr({id: 'signatureFrame', src: padUrl.href})
+                    .css({width: '500px', height: '132px'});
+                jQuery(element.signatureInput).empty().append('Signature:', jQuery('<br>'), padFrame);
             }
             return element;
         }

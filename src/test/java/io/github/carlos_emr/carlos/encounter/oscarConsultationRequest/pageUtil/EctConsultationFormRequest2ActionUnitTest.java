@@ -82,6 +82,7 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -1108,6 +1109,47 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(existing.getSignatureImg()).isNull();
         assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
         verify(consultationRequestDao).merge(existing);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Submit", "Update", "UpdateSigned"})
+    @DisplayName("warns when an explicitly submitted capture has expired, including replacement of a stored signature")
+    void shouldWarn_whenSubmittedManualCaptureHasExpired(String operation) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        when(loggedInInfo.getSession()).thenReturn(session);
+        String expiredId = DigitalSignatureUtils.generateSignatureRequestId(session);
+        for (int i = 0; i < 200; i++) DigitalSignatureUtils.generateSignatureRequestId(session);
+        assertThat(DigitalSignatureUtils.isIssued(session, expiredId)).isFalse();
+
+        ConsultationRequest[] persisted = null;
+        ConsultationRequest existing = null;
+        boolean update = operation.startsWith("Update");
+        if (update) {
+            existing = consultationRequest(1, operation.equals("UpdateSigned") ? "123" : null);
+            when(consultationRequestDao.find(9)).thenReturn(existing);
+            action.setRequestId("9");
+        } else {
+            persisted = capturePersistedConsultationRequest();
+        }
+        action.setSubmission(update ? "Update" : "Submit");
+        action.setService("1");
+        action.setSpecialist("7");
+        action.setSignatureImg(expiredId);
+        request.setParameter("newSignature", "true");
+        when(consultationSignatureService.resolveManualSignatureRequestId(expiredId, "sig-request"))
+                .thenReturn(expiredId);
+        // Neither the reader nor the manager may accept the expired capture. The submitted
+        // marker must still cause a visible warning instead of the benign unsigned path.
+        when(consultationSignatureService.wasManualSignatureCaptured(session, expiredId)).thenReturn(false);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, expiredId, 1, ModuleType.CONSULTATION))
+                .thenReturn(null);
+
+        action.execute();
+
+        assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
+        ConsultationRequest saved = update ? existing : persisted[0];
+        assertThat(saved.getSignatureImg()).isEqualTo(operation.equals("UpdateSigned") ? "123" : null);
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
     }
 

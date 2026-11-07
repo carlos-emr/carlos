@@ -132,6 +132,9 @@ class SaveSignatureUpload2ActionIssuedKeyUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return 403, write nothing and save nothing when the key belongs to another session")
     void shouldReturn403AndSaveNothing_whenKeyBelongsToAnotherSession() throws Exception {
+        File foreignCapture = new File(DigitalSignatureUtils.getTempFilePath(otherSessionsKey));
+        byte[] original = new byte[] {9, 8, 7};
+        Files.write(foreignCapture.toPath(), original);
         mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, otherSessionsKey);
         mockRequest.setParameter("saveToDB", "true");
         mockRequest.setParameter("demographicNo", "1");
@@ -140,7 +143,26 @@ class SaveSignatureUpload2ActionIssuedKeyUnitTest extends CarlosUnitTestBase {
         assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-        assertThat(new File(DigitalSignatureUtils.getTempFilePath(otherSessionsKey))).doesNotExist();
+        assertThat(Files.readAllBytes(foreignCapture.toPath())).isEqualTo(original);
+        verifyNoInteractions(mockDigitalSignatureManager);
+    }
+
+    @Test
+    void shouldRefuseOverwriteAndPersistence_whenCapturedKeyHasExpired() throws Exception {
+        File capture = new File(DigitalSignatureUtils.getTempFilePath(issuedKey));
+        byte[] original = new byte[] {9, 8, 7};
+        Files.write(capture.toPath(), original);
+        for (int i = 0; i < 200; i++) DigitalSignatureUtils.generateSignatureRequestId(mockRequest.getSession());
+        mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, issuedKey);
+        mockRequest.setParameter("source", "IPAD");
+        mockRequest.setParameter("signatureImage", "data:image/png;base64,AQID");
+        mockRequest.setParameter("saveToDB", "true");
+        mockRequest.setParameter("demographicNo", "1");
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+        assertThat(Files.readAllBytes(capture.toPath())).isEqualTo(original);
         verifyNoInteractions(mockDigitalSignatureManager);
     }
 

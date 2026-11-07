@@ -2079,13 +2079,19 @@ if (!DigitalSignatureUtils.isIssued(session, signatureRequestId)) {
     signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
 }
 ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
+boolean signatureCaptureLost = false;
 if (retryManualSignature) {
-    signatureImgValue = consultationSignatureService.wasManualSignatureCaptured(session, signatureRequestId)
-            ? signatureRequestId : "";
+    boolean captured = consultationSignatureService.wasManualSignatureCaptured(session, signatureRequestId);
+    signatureCaptureLost = !captured && !signatureImgValue.isEmpty() && !SignatureReference.isStoredId(signatureImgValue);
+    signatureImgValue = captured ? signatureRequestId : "";
 }
 String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+SafeEncode.forUriComponent(signatureRequestId);
 String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_stored.name()+"&digitalSignatureId=";
 %>
+        <fmt:message key="tabletSignature.msgCaptureLost" var="signatureCaptureLostMessage"/>
+        if (<%=signatureCaptureLost%>) {
+            alert('<carlos:encode value="${signatureCaptureLostMessage}" context="javaScriptBlock"/>');
+        }
 
         var POLL_TIME = 1500;
         var counter = 0;

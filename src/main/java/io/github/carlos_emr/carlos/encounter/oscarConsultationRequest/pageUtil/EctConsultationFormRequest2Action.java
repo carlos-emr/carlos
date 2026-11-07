@@ -522,14 +522,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
 
                 if (newSignature) {
-                    // Manual signature from tablet/signature pad. Capture intent up front: a null result
-                    // is a genuine failure only when a signature was actually collected (a stamp-less
-                    // provider who simply did not sign is the benign, common case).
+                    // The submitted capture marker survives session-ID eviction and a missing temp
+                    // file. Do not mistake a rejected capture for a provider who never signed.
                     boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(loggedInInfo.getSession(), manualSignatureRequestId);
+                    boolean manualSubmitted = !trimmedSignatureImg.isEmpty() && !SignatureReference.isStoredId(trimmedSignatureImg);
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else if (manualCaptured) {
+                    } else if (manualCaptured || manualSubmitted) {
                         // A signature was collected but could not be persisted; the consultation is still
                         // saved. Log at error so it surfaces at the production default root level and warn
                         // the provider that the consultation saved without a signature.
@@ -670,26 +670,20 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         : null;
 
                 if (newSignature) {
-                    // Manual re-sign from tablet/signature pad. See create-path note: warn only when a
-                    // signature was actually collected but failed to persist.
+                    // As on create, the posted marker preserves capture intent even after eviction.
                     boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(loggedInInfo.getSession(), manualSignatureRequestId);
+                    boolean manualSubmitted = !trimmedSignatureImg.isEmpty() && !SignatureReference.isStoredId(trimmedSignatureImg);
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else if (preservedStoredSignatureId != null) {
-                        // Manual capture failed - fall back to the existing stored signature already on the
-                        // consultation record; do not trust the submitted field value.
-                        signatureId = preservedStoredSignatureId;
-                    } else if (manualCaptured) {
-                        // A signature was collected but could not be persisted and there is nothing to fall
-                        // back to; the update still saves. Log at error and warn the provider.
-                        signatureId = null;
-                        logger.error("Captured manual signature could not be persisted for provider {} on consultation update (requestId={})", LogSafe.sanitize(signatureProviderNo), LogSafe.sanitize(requestId));
-                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
                     } else {
-                        // No signature was collected - benign, leave the update unsigned silently.
-                        signatureId = null;
-                        logger.debug("No manual signature captured for consultation update (requestId={}); saved without a signature", requestId);
+                        // Preserve only the record's own stored signature, and disclose a failed
+                        // replacement even when that older signature remains available.
+                        signatureId = preservedStoredSignatureId;
+                        if (manualCaptured || manualSubmitted) {
+                            logger.error("Captured manual signature could not be persisted on consultation update");
+                            request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+                        }
                     }
                 } else if (signatureRef.isStamp()) {
                     // Stamp signature with no existing DigitalSignature - create immutable copy.
