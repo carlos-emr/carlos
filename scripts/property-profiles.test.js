@@ -68,6 +68,19 @@ test('active profile environment marker cannot bypass the private inherited hand
   const {verifyActiveProfile}=require('./lib/property-profiles');
   await assert.rejects(verifyActiveProfile('address-lock',{env:{CARLOS_PROPERTY_PROFILE_ACTIVE:'address-lock'},file:'/unreadable/should-not-be-opened'}),/private parent handoff/);
 });
+
+test('strict profile CLI completes its internal preflight before requesting the disposable host', () => {
+  const {spawnSync} = require('node:child_process');
+  const cli = path.join(__dirname, 'run-playwright-suite.js');
+  const result = spawnSync(process.execPath, [cli, '--strict-release', '--profile', 'appointment-options',
+    '--only', 'appointment-email-option'], {encoding: 'utf8', env: {...process.env,
+      BASE_URL: 'https://127.0.0.1/carlos', MYSQL_HOST: 'localhost', CARLOS_DISPOSABLE_HOST: '',
+      CARLOS_PROPERTY_PROFILE_ACTIVE: '', CARLOS_PROFILE_READINESS_SECONDS: '120'}});
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /Would run 1 check/);
+  assert.match(result.stderr, /Property profiles require CARLOS_DISPOSABLE_HOST=true/);
+  assert.doesNotMatch(result.stderr, /does not permit --dry-run/);
+});
 test('profile readiness budget is validated before any configuration mutation',async t=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-profile-budget-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const file=path.join(dir,'properties');fs.writeFileSync(file,'original');let restarted=false;

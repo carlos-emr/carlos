@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Modifications by CARLOS Contributors, 2026.
 /*
  * Browser CRUD checks for the CARLOS Tickler interface.
  *
@@ -200,6 +201,15 @@ async function login(page) {
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 }
 
+async function waitForTicklerDraw(page) {
+  await page.waitForFunction(() => {
+    const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+    if (!table) return false;
+    const settings = table.settings()[0];
+    return !settings.bDrawing && settings.jqXHR && settings.jqXHR.readyState === 4;
+  }, null, { timeout: 30000 });
+}
+
 async function waitForTicklerListReady(page) {
   await page.locator('#ticklerResults').waitFor({ state: 'visible', timeout: 30000 });
   await page.waitForFunction(() => (
@@ -209,7 +219,21 @@ async function waitForTicklerListReady(page) {
       && window.jQuery.fn.DataTable.isDataTable('#ticklerResults')
       && window.jQuery('#ticklerResults').DataTable().settings()[0].bInitialised
   ), null, { timeout: 30000 });
-  await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+  await waitForTicklerDraw(page);
+}
+
+// A successful edit broadcasts a list refresh. Observe that refresh before the
+// save, then wait for its body and draw instead of aborting it with page.reload().
+async function refreshTicklerListAfter(page, save) {
+  const [response] = await Promise.all([
+    page.waitForResponse(response => response.request().method() === 'GET'
+      && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'),
+    { timeout: 30000 }),
+    save(),
+  ]);
+  assert(response.status() === 200, `tickler list refresh returned HTTP ${response.status()}`);
+  assert(!await response.finished(), 'tickler list refresh did not finish');
+  await waitForTicklerListReady(page);
 }
 
 async function setTicklerListStatus(page, status) {
@@ -314,37 +338,29 @@ async function findRowInList(page, message, expectedStatus) {
   return row;
 }
 
-async function fillTicklerSearch(page, needle) {
-  const previousDraw = await page.evaluate(() => (
-    window.jQuery('#ticklerResults').DataTable().settings()[0].iDraw
-  ));
-  // Exercise the input handler once and wait through its server-side debounce.
-  const [searchResponse] = await Promise.all([
-    page.waitForResponse(response => {
-      const url = new URL(response.url());
-      return response.request().method() === 'GET'
-        && url.pathname.endsWith('/tickler/ListTicklers')
-        && url.searchParams.get('search[value]') === needle;
-    }, { timeout: 30000 }),
-    page.locator('#ticklerResults_filter input[type="search"]').fill(needle),
-  ]);
-  assert(searchResponse.ok(), `tickler search returned HTTP ${searchResponse.status()}`);
-  assert(await searchResponse.finished() === null, 'tickler search did not finish');
-  await page.waitForFunction(({ previousDraw, needle }) => {
-    const settings = window.jQuery('#ticklerResults').DataTable().settings()[0];
-    return settings.iDraw > previousDraw && settings.oPreviousSearch.sSearch === needle
-      && !settings.bDrawing && settings.jqXHR && settings.jqXHR.readyState === 4;
-  }, { previousDraw, needle }, { timeout: 30000 });
+async function searchTicklerList(page, message) {
+  const field = page.locator('#ticklerResults_filter input[type="search"]');
+  if (await field.inputValue() !== message) await field.fill(message);
+  // Use DataTables' native input handler and debounce. An extra API draw can
+  // cancel its request; a fixed delay does not prove either draw has finished.
+  await page.waitForFunction(needle => {
+    const table = window.jQuery && window.jQuery('#ticklerResults').DataTable();
+    if (!table) return false;
+    const settings = table.settings()[0];
+    return table.search() === needle && !settings.bDrawing
+      && settings.jqXHR && settings.jqXHR.readyState === 4;
+  }, message, { timeout: 30000 });
 }
 
 async function probeTicklerSearch(page, message) {
-  await fillTicklerSearch(page, message);
+  await searchTicklerList(page, message);
   const found = await page.evaluate(() => {
     const needle = document.querySelector('#ticklerResults_filter input[type="search"]').value;
     const table = window.jQuery('#ticklerResults').DataTable();
     return table.rows({ search: 'applied' }).data().toArray().some((row) => row.message === needle);
   });
-  await fillTicklerSearch(page, '');
+  // Reset is a request too: settle it before the next workflow changes the list.
+  await searchTicklerList(page, '');
   return found;
 }
 
@@ -372,16 +388,15 @@ async function createTickler(context) {
     return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-save-ok');
   }, null, { timeout: 30000 });
 
-  await page.waitForTimeout(750);
+  // Observe persistence from a separate database connection before closing the
+  // page; a fixed delay after the iframe acknowledgement does not prove it.
+  const row = await waitForTicklerStatus('A');
   await page.close().catch(() => {});
 
-  const rows = getTicklerRows();
-  assert(rows.length === 1, `expected one created tickler row, found ${rows.length}`);
-  assert(rows[0].status === 'A', `created tickler status was ${rows[0].status}`);
-  assert(rows[0].priority === 'High', `created tickler priority was ${rows[0].priority}`);
-  assert(rows[0].serviceDate === '2026-02-18', `created tickler service date was ${rows[0].serviceDate}`);
-  assert(rows[0].assignee === providerNo, `created tickler assignee was ${rows[0].assignee}`);
-  return rows[0].id;
+  assert(row.priority === 'High', `created tickler priority was ${row.priority}`);
+  assert(row.serviceDate === '2026-02-18', `created tickler service date was ${row.serviceDate}`);
+  assert(row.assignee === providerNo, `created tickler assignee was ${row.assignee}`);
+  return row.id;
 }
 
 async function editTicklerFromList(context, listPage, ticklerNo) {
@@ -396,8 +411,15 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   await editPage.locator('#newMessage').fill(editedMessage);
   await editPage.locator('#priority').selectOption('Low');
   await editPage.locator('#xml_appointment_date').fill('2026-02-19');
-  await saveTicklerEdit(editPage, listPage);
-  await editPage.close().catch(() => {});
+  await refreshTicklerListAfter(listPage, async () => {
+    await editPage.locator('input[name="updateTickler"]').click();
+    await editPage.waitForFunction(() => {
+      const frame = document.getElementById('ticklerEditFrame');
+      return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
+    }, null, { timeout: 30000 });
+    await editPage.waitForTimeout(750).catch(() => {});
+    await editPage.close().catch(() => {});
+  });
 
   const rows = getTicklerRows();
   assert(rows.length === 1 && rows[0].id === String(ticklerNo), `edited tickler row was not found for ${ticklerNo}`);
@@ -419,29 +441,17 @@ async function completeTicklerViaEdit(context, listPage, ticklerNo) {
     { timeout: 30000, waitUntil: 'domcontentloaded' });
   await page.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
   await page.locator('#status').selectOption('C');
-  await saveTicklerEdit(page, listPage);
-  await page.close().catch(() => {});
+  await refreshTicklerListAfter(listPage, async () => {
+    await page.locator('input[name="updateTickler"]').click();
+    await page.waitForFunction(() => {
+      const frame = document.getElementById('ticklerEditFrame');
+      return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
+    }, null, { timeout: 30000 });
+    await page.close().catch(() => {});
+  });
 
   const rows = getTicklerRows();
   assert(rows.length === 1 && rows[0].status === 'C', `completed tickler status was ${rows[0] && rows[0].status}`);
-}
-
-async function saveTicklerEdit(editPage, listPage) {
-  // The iframe's success marker precedes the BroadcastChannel refresh. Capture
-  // that actual request before saving, then finish it before another draw.
-  const [refreshResponse] = await Promise.all([
-    listPage.waitForResponse(response => response.request().method() === 'GET'
-      && new URL(response.url()).pathname.endsWith('/tickler/ListTicklers'),
-    { timeout: 30000 }),
-    editPage.locator('input[name="updateTickler"]').click(),
-    editPage.waitForFunction(() => {
-      const frame = document.getElementById('ticklerEditFrame');
-      return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
-    }, null, { timeout: 30000 }),
-  ]);
-  assert(refreshResponse.ok(), `tickler edit refresh returned HTTP ${refreshResponse.status()}`);
-  assert(await refreshResponse.finished() === null, 'tickler edit refresh did not finish');
-  await waitForTicklerListReady(listPage);
 }
 
 async function deleteTicklerFromList(page, message) {

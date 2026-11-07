@@ -53,6 +53,8 @@ import java.util.List;
 @XmlAccessorType(XmlAccessType.FIELD)
 public class BpmhForm2Bean implements Serializable {
 
+    // Formatting machinery is not form data; binding it produced invalid <2DigitYearStart> XML.
+    @jakarta.xml.bind.annotation.XmlTransient
     private final SimpleDateFormat formatter = new SimpleDateFormat("MM-dd-yyyy");
 
     private Date formDate;

@@ -30,10 +30,10 @@
 --%>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils" %>
-<%@page import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*, java.text.SimpleDateFormat,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,java.net.*,io.github.carlos_emr.carlos.eform.*" %>
+<%@page import="io.github.carlos_emr.carlos.demographic.data.*, java.util.*, java.text.SimpleDateFormat, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.data.*, io.github.carlos_emr.carlos.prevention.pageUtil.*" %>
 <%@page import="io.github.carlos_emr.CarlosProperties"%>
-<%@page import="io.github.carlos_emr.carlos.utility.SpringUtils"%>
-<%@ page import="org.owasp.encoder.Encode" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicNameAgeString" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay" %>
@@ -52,7 +52,7 @@
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");

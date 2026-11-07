@@ -321,12 +321,17 @@ override_dh_auto_install:
 	# (/usr/lib/carlos-ctl, /usr/sbin/carlos-ctl and the carlosctl alias);
 	# through 2026.08.0~alpha15 (snapshot24) it was installed here.
 	install -d $(STAGE)/$(LIBDIR)
+	install -m 0755 debian/assets/bin/carlos-emr-mariadb-init $(STAGE)/$(LIBDIR)/
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
 	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
 	# ExecCondition= and by the postinst (see the file's header).
 	install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard
+	# Names (and, for another packaged web server, stops) what holds the
+	# front-door ports or keeps MariaDB from answering root; the postinst runs
+	# it on configure (see the file's header).
+	install -m 0755 debian/assets/bin/carlos-emr-host-conflicts $(STAGE)/$(LIBDIR)/carlos-emr-host-conflicts
 	# The OSCAR 19 import manifests, generated from THIS tree's schema by
 	# scripts/migration/o19/generate_manifests.py and read by carlos-ctl's
 	# importer at run time (its loader checks the "format" every file
@@ -386,9 +391,10 @@ override_dh_auto_install:
 ifeq ($(SKIP_DRUGREF),)
 	install -d debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2
 	cd debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2 && $(JAVA_HOME)/bin/jar xf $(BUILDDIR)/drugref2.war
-	# Exact, validated datasource transform; preserve private db_url/credentials.
-	python3 debian/apply-drugref-jdbc-default.py \
-	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/spring_config.xml
+	# The application owns MariaDB/legacy URL compatibility. Reject old prebuilt
+	# WARs instead of reintroducing the removed MySQL-only metadata parser.
+	python3 debian/check-drugref-jdbc.py \
+	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2
 	# Retain the explicit MariaDB dialect, independently of datasource metadata.
 	install -m 0644 debian/assets/drugref-hibernate.properties \
 	    debian/$(DPKG)/$(SHAREDIR)/webapp/drugref2/WEB-INF/classes/hibernate.properties

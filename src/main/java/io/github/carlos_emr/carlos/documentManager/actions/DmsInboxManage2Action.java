@@ -668,7 +668,7 @@ public class DmsInboxManage2Action extends ActionSupport {
      *
      * <p>Order matters: the HTTP method is rejected first (405, {@code Allow: POST}) so no privilege lookup or
      * write happens for GET/HEAD, then {@code _edoc} write is required, then the name is validated (400 when
-     * missing or blank). The security object is only created when the queue insert succeeded.
+     * missing or blank). The queue and its security object are committed in the same transaction.
      *
      * @return {@link #NONE}; the JSON body {@code {"addNewQueue":true|false}} is written directly. A missing
      *         write privilege throws {@link SecurityException}
@@ -683,17 +683,24 @@ public class DmsInboxManage2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
         String qn = request.getParameter("newQueueName");
-        qn = qn == null ? "" : qn.trim();
-        if (qn.isEmpty()) {
+        String queueName = qn == null ? "" : qn.trim();
+        if (queueName.isEmpty()) {
             return writeAddNewQueueResult(HttpServletResponse.SC_BAD_REQUEST, false);
         }
         boolean success = false;
         try {
             QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
-            success = queueDao.addNewQueue(qn);
-            if (success) {
-                addQueueSecObjectName(qn, queueDao.getLastId());
-            }
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            success = Boolean.TRUE.equals(transaction.execute(status -> {
+                Integer queueId = queueDao.addNewQueueAndGetId(queueName);
+                if (queueId == null) {
+                    status.setRollbackOnly();
+                    return false;
+                }
+                addQueueSecObjectName(queueName, queueId.toString());
+                return true;
+            }));
         } catch (Exception e) {
             logger.error("Error", e);
         }

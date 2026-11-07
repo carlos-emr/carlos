@@ -69,7 +69,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
         try (var input = Files.newInputStream(Path.of(selector))) {
             properties.load(input);
         }
-        String jdbcUrl = properties.getProperty("jdbcUrl").replace("jdbc:mariadb:", "jdbc:mysql:");
+        String jdbcUrl = properties.getProperty("jdbcUrl");
         var dataSource =
                 new DriverManagerDataSource(
                         jdbcUrl,

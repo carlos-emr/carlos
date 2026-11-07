@@ -322,14 +322,32 @@ public interface ConsultationManager {
     public Path renderConsultationForm(HttpServletRequest request) throws PDFGenerationException;
 
     /**
-     * Retrieves patient forms attached to a consultation request.
+     * Retrieves patient forms attached to a consultation request and available to the current user.
      *
      * @param loggedInInfo LoggedInInfo the current user's session info
      * @param consultRequestId int the consultation request ID
      * @param demographicNo int the patient demographic number
-     * @return List of PatientForm attached forms
+     * @return List of PatientForm attached forms, empty when clinical-form read access is denied
      */
     public List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId, int demographicNo);
+
+    /**
+     * Filters already-fetched clinical-form relationships through the patient's readable forms.
+     * Callers must authorize the consultation and its stored patient before fetching relationships.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * The default preserves compatibility for alternate managers by using the existing loader;
+     * implementations can override this method to avoid reloading the relationships.
+     *
+     * @param consultRequestId int the verified consultation request ID
+     * @param demographicNo int the verified consultation's patient demographic number
+     * @param attachedForms List of stored clinical-form relationships for that consultation
+     * @return List of PatientForm attached forms, empty when clinical-form read access is denied
+     */
+    public default List<EctFormData.PatientForm> getAttachedForms(LoggedInInfo loggedInInfo, int consultRequestId,
+            int demographicNo, List<ConsultDocs> attachedForms) {
+        return getAttachedForms(loggedInInfo, consultRequestId, demographicNo);
+    }
 
     /**
      * Retrieves eForms currently attached to a consultation request.
@@ -348,6 +366,24 @@ public interface ConsultationManager {
      * @return ArrayList of HashMap containing HRM document metadata
      */
     public ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo, String demographicNo, String requestId);
+
+    /**
+     * Filters already-fetched HRM relationships through the patient's visible HRM documents.
+     * Callers must authorize the consultation and its stored patient before fetching relationships.
+     *
+     * @param loggedInInfo LoggedInInfo the current user's session info
+     * The default preserves compatibility for alternate managers by using the existing loader;
+     * implementations can override this method to avoid reloading the relationships.
+     *
+     * @param demographicNo String the verified consultation's patient demographic number
+     * @param requestId String the verified consultation request ID
+     * @param attachedHRMDocuments List of stored HRM relationships for that consultation
+     * @return ArrayList of HashMap containing visible attached HRM document metadata
+     */
+    public default ArrayList<HashMap<String, ? extends Object>> getAttachedHRMDocuments(LoggedInInfo loggedInInfo,
+            String demographicNo, String requestId, List<ConsultDocs> attachedHRMDocuments) {
+        return getAttachedHRMDocuments(loggedInInfo, demographicNo, requestId);
+    }
 
     /**
      * Archives a consultation request by copying it and its extensions to archive tables.

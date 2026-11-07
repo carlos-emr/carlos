@@ -87,11 +87,11 @@
  */
 --%>
 
-<%@ page import=" java.util.*, org.w3c.dom.*" %>
+<%@ page import="org.w3c.dom.*" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode,io.github.carlos_emr.carlos.utility.PatientRecordAccess,io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page
         import="io.github.carlos_emr.carlos.messenger.docxfer.send.*,io.github.carlos_emr.carlos.messenger.docxfer.util.*" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -130,7 +130,7 @@
 
 
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.messenger.pageUtil.MsgSessionBean" %>
+
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.util.MsgCommxml" %>
 <%@ page import="io.github.carlos_emr.carlos.messenger.docxfer.send.MsgGenerate" %>
 <html>

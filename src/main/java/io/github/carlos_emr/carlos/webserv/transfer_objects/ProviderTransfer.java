@@ -35,11 +35,14 @@ import java.util.Date;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
+/** Provider representation shared by SOAP and REST, including direct REST XML responses. */
+@XmlRootElement
 public final class ProviderTransfer {
     private String providerNo;
     private String comments;

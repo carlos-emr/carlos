@@ -28,6 +28,22 @@ Use this header for **new files** created as part of the CARLOS project:
  */
 ```
 
+### Accepted short form
+
+New files may instead carry the SPDX short form, which states the same licence and copyright
+holder in two lines and is what most files added since 2026 use:
+
+```java
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 CARLOS Contributors
+ */
+```
+
+Both forms are equivalent for new CARLOS files; pick one per file and do not mix them. The
+short form is **only** for files CARLOS created. A file inherited from OSCAR or OpenO keeps its
+original notice in full (see below), and a short form must never replace an existing header.
+
 ## When Modifying Existing Files
 
 When making **functional changes** (not just namespace changes) to existing files:

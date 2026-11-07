@@ -35,7 +35,7 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="http://displaytag.sf.net" prefix="display" %>
-<%@ page import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
+<%@ page import="java.util.*, io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData" %>
 
 <html>
     <head>

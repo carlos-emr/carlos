@@ -42,8 +42,8 @@
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
+
+
 
 <%
     String curProvider_no = (String) session.getAttribute("user");

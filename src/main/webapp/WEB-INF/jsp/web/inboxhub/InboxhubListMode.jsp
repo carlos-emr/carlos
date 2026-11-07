@@ -1,19 +1,19 @@
 <%@ page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.ca.on.*" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 
-<%@ page import="org.apache.logging.log4j.Logger" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.OscarLogDao" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.inboxhub.query.InboxhubQuery" %>
-<%@ page import="io.github.carlos_emr.carlos.mds.data.CategoryData" %>
+
+
+
+
+
+
+
 
 <% pageContext.setAttribute("currentUser", session.getAttribute("user")); %>
 
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -143,7 +143,8 @@
         } else {
             windowprops = "height=660, width=960, location=no, scrollbars=yes, menubars=no, toolbars=no, resizable=yes, top=0, left=0";
         }
-        var popup = window.open(encodeURI(page), "labreport", windowprops);
+        // LabDataController already URL-encodes each parameter, including duplicateLabIds.
+        var popup = window.open(page, "labreport", windowprops);
         if (popup != null) {
             if (popup.opener == null) {
                 popup.opener = self;

@@ -53,6 +53,7 @@ public class EctMeasurementsDataBean {
     private Date dateObservedAsDate = null;
     private Date dateEnteredAsDate = null;
     private String indicationColour = null;
+    private Integer sourceLabNo;
 
     public EctMeasurementsDataBean() {
     }
@@ -98,6 +99,15 @@ public class EctMeasurementsDataBean {
 
     public int getId() {
         return id;
+    }
+
+    /** HL7 report identity from measurementsExt.lab_no, absent for manually entered readings. */
+    public Integer getSourceLabNo() {
+        return sourceLabNo;
+    }
+
+    public void setSourceLabNo(Integer sourceLabNo) {
+        this.sourceLabNo = sourceLabNo;
     }
 
     public String getType() {

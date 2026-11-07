@@ -614,37 +614,54 @@ function parseTemplate(){
 	//replace template placeholders with database pulls
 	var contents=editControlContents(cfg_editorname, true);
 	var temp = contents.split('##'); //parse for template place holders identified by ##value##
-	var keys = [];
 	var needLookup = false;
+	for (var placeholder = 1; placeholder < temp.length; placeholder += 2) {
+		if (!cache.contains(temp[placeholder])) { needLookup = true; break; }
+	}
+	if (!needLookup) { populateTemplate(); return; }
+	var keys = [];
+	var mappings = [];
+	var visited = [];
+	function collectKey(key) {
+		if (visited.indexOf(key) !== -1) { return; }
+		visited.push(key);
+		var mapping = cache.getMapping(key);
+		if (mapping == null) { keys.push(key); return; }
+		for (var index = 0; index < mapping.values.length; index++) {
+			var component = mapping.values[index];
+			// Self mappings (such as sex) transform a real AP value as it arrives.
+			if (component === key) { keys.push(key); }
+			else { collectKey(component); }
+		}
+		// Composite names are local, not apconfig.xml keys. Compose nested mappings
+		// in dependency order after the response has stored all server values.
+		if (mapping.values.indexOf(key) === -1) { mappings.push(mapping); }
+	}
+	function populateResolvedTemplate() {
+		for (var index = 0; index < mappings.length; index++) {
+			mappings[index].onStoreInCache();
+		}
+		populateTemplate();
+	}
 	var x;
 	for (x in temp) {
 		if ((x % 2)){ //odd numbered values contain placeholders
-			if(!cache.contains(temp[x])){
-				needLookup = true;
-				if (cache.getMapping(temp[x]) != null) {
-					var mapKeys = cache.getMapping(temp[x]).values;
-					var index;					
-					for (index = 0; index < mapKeys.length; index++) {
-						keys.push(mapKeys[index]);
-					}					
-				}
-				keys.push(temp[x]);				
-			}
+			// A lookup clears the entire default cache, including cached placeholders.
+			if (cache.flushCache || !cache.contains(temp[x])) { collectKey(temp[x]); }
 		}		
 	}
-	if (!needLookup) { populateTemplate(); }
+	if (keys.length === 0) { populateResolvedTemplate(); }
 	else {
 		var templateMapping = cache.getMapping("template");
 		if (templateMapping != null) {			
 			templateMapping.values = keys;
-			if (!cache.flushCache && cache.contains("template")) { populateTemplate(); return; }
 			measureTemplateLookupsPending++;
 			try { cache.lookup("template", 15000, {
                 isCurrent: templateIsCurrent,
                 onStale: function() { finishTemplateLookup(true, true); },
                 onResponse: function() {
                     var populated = false;
-                    try { populateTemplate(); populated = true; }
+                    try { populateResolvedTemplate(); populated = true; }
                     catch (error) { console.warn('RTL: template population failed.'); }
                     finally { finishTemplateLookup(populated); }
                 },

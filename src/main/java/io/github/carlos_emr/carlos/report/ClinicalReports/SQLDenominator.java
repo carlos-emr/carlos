@@ -30,16 +30,14 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports;
 
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.Hashtable;
 import java.util.List;
 
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 
 /**
  * This is for straight SQLDenominators  not sure if it should return a more specialised list
@@ -86,15 +84,10 @@ public class SQLDenominator implements Denominator {
             }
 
             MiscUtils.getLogger().debug("SQL Statement: " + exeSql);
-            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                    LegacyJdbcQuery.trustedReportSelectSql(exeSql), paramValues.toArray())) {
-                while (rs.next()) {
-                    String toAdd = Misc.getString(rs, resultString);
-                    list.add(toAdd);
-                }
-            }
+            list.addAll(ConfiguredReportQuery.identifierColumn(exeSql, resultString, paramValues.toArray()));
         } catch (Exception e) {
-            MiscUtils.getLogger().error("Clinical report denominator query failed — results may be incomplete", e);
+            MiscUtils.getLogger().error("Clinical report denominator query failed", e);
+            throw new IllegalStateException("Clinical report could not be completed; narrow the filters or retry", e);
         }
         return list;
     }

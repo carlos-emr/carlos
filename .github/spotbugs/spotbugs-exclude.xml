@@ -88,6 +88,20 @@
         <Bug pattern="RV_RETURN_VALUE_OF_PUTIFABSENT_IGNORED"/>
     </Match>
 
+    <!--
+      Client-certificate store locations come only from deployment JDBC settings
+      or JVM SSL properties, never HTTP/request or clinical data. The private
+      storeInput helper has one TLS-configuration caller. URL-backed stores
+      preserve existing Connector/J and MariaDB behavior; rejecting them would
+      break supported operator configuration. Re-review this exact exclusion if
+      JDBC/TLS configuration becomes request-derived. Other SSRF checks remain enabled.
+    -->
+    <Match>
+        <Bug pattern="URLCONNECTION_SSRF_FD"/>
+        <Class name="io.github.carlos_emr.carlos.utility.MariaDbPreferredTlsPlugin"/>
+        <Method name="storeInput" params="java.lang.String" returns="java.io.InputStream"/>
+    </Match>
+
     <!-- TrustedSql is constructed only after legacy SELECT validation; values are bound below. -->
     <Match>
         <Bug pattern="SQL_INJECTION_JDBC"/>

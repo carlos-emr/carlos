@@ -120,8 +120,9 @@ SQL compatibility.
 It only accepts explicitly named disposable CDS test databases, verifies MariaDB 32K pages,
 snapshot isolation and the repository collation, applies the actual V1 baseline plus the complete
 province/common Flyway chain, validates checksums/no pending migrations, and checks native and
-admission InnoDB tables. Use the WAR Flyway/MySQL jars on its classpath. A `jdbc:mariadb:` selector
-is translated to `jdbc:mysql:` to exercise the WAR's actual Connector/J driver.
+admission InnoDB tables. Use the WAR's Flyway libraries (including `flyway-mysql`)
+and MariaDB Connector/J on its classpath. The bootstrap uses the `jdbc:mariadb:`
+selector directly to exercise the WAR's actual driver.
 
 Mount a service-readable copy of `.devcontainer/development/config/shared/my.cnf` as
 `/etc/mysql/my.cnf` before initializing the empty database volume. A workspace copy with mode
