@@ -108,7 +108,7 @@ jobs:
       - name: Check chart geometry and dashed grids in Chromium
         env:
           CHART_SCREENSHOT_DIR: target/chart-fixtures
-        run: npm run test:chart-draw-playwright
+        run: node scripts/chart-draw-playwright-checks.js
       - name: Preserve synthetic chart screenshots
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -118,7 +118,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Check migrated table interactions in Chromium
-        run: npm run test:dependency-tables-playwright
+        run: node scripts/dependency-tables-playwright-checks.js
       - name: Check CARLOS navigation cancellation diagnostics in Chromium
         run: node --test scripts/navigation-cancellation-browser-checks.js
       - name: Check measurement calculation DOM events in Chromium
