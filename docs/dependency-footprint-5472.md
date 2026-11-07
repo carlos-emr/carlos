@@ -30,17 +30,21 @@ does not supply it; the existing WAR packaging check also requires the API and i
   label insets, label space sized in Java's metrics with edge labels overhanging the plot, the
   title centred on the image, and the legend's `FlowArrangement` (one centred row, or rows from the
   left edge once it wraps, items padded 2px with 14px line or shape-width graphics and outlined
-  markers). Every plot rectangle lies within 2px of the data area JFreeChart recorded. 1px lines,
+  markers). Text is drawn as Java2D drew it: Latin-1 labels glyph by glyph at Java's integer
+  advances (Chromium's fractional spacing ran a long medication name into the next legend
+  marker), and vertical-axis labels centred on Java's baseline rather than the canvas "middle".
+  Every plot rectangle lies within 2px of the data area JFreeChart recorded. 1px lines,
   6x6 markers, item labels (`DecimalFormat` without grouping, on the first series only), high-low
-  range bars, flat bars with their 4px gray shadow, and a combined chart's equal subplot slots
+  range bars, flat bars with their 4px gray shadow painted bar by bar (a repeat prescription's
+  shadow edge still crosses an earlier bar on its row), and a combined chart's equal subplot slots
   with the measurement plot's own 4px offset complete it. A medication request that matches no
   prescription keeps the former empty "Meds" panel. `MeasurementChart` describes each chart's
   look as the former action configured it (margins, zero, plot background, gridlines, shapes,
   item-label rules by tens of points, or sixes beside medications, green or sequence-coloured
   reference ranges). `scripts/fixtures/chart/jfreechart` holds recordings made with JFreeChart
   1.5.6 from the former code paths, including a single reading's two-millisecond axis,
-  scientific and grouped tick labels, blood pressure on the lab chart and an empty medication
-  chart; `scripts/chart-draw-playwright-checks.js` requires the same ranges, ticks, labels,
+  scientific and grouped tick labels, blood pressure on the lab chart, an empty medication
+  chart and a medication prescribed again inside an earlier prescription; `scripts/chart-draw-playwright-checks.js` requires the same ranges, ticks, labels,
   colours, fonts, legend, bar geometry and plot rectangles. Pixel checks also require visible
   dashed gridlines on both axes wherever a recorded tick falls inside the plot. Kept as they
   were, because this change replaces the library and not the charts: the reference range chart's

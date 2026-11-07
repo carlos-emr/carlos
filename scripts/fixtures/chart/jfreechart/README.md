@@ -29,10 +29,11 @@ docker run --rm -v "$PWD/scripts/fixtures/chart/jfreechart:/jfc" -v "$JAR:/jfc/j
   && cp out/*.json .'
 ```
 
-`carlos-chart-draw.js` also carries Java's integer glyph advances for DejaVu Sans at 8, 10 and
-12px (`JAVA_ADVANCES`), recorded the same way with `FontMetrics.charWidth` under JFreeChart's
-rendering hints for U+0020 to U+00FF; regenerate them alongside the fixtures if the bundled font
-changes.
+`carlos-chart-draw.js` also carries Java's integer glyph advances for DejaVu Sans, plain at 8, 10
+and 12px and bold at 12, 14, 18 and 20px (`JAVA_ADVANCES`), recorded the same way by
+`JavaAdvances.java` with `FontMetrics.charWidth` under JFreeChart's rendering hints for U+0020 to
+U+00FF. The draw script sizes labels with them and draws Latin-1 text a glyph at a time at those
+advances, as Java2D placed it; regenerate them alongside the fixtures if the bundled font changes.
 
 The program writes each chart's JSON and a PNG of it under `out/` in its working directory; the
 JSON files are copied here, the PNGs are for comparison by eye and are not committed.

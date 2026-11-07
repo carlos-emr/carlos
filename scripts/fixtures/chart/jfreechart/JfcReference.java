@@ -70,6 +70,13 @@ public class JfcReference {
         }
         many.add(task("SYNTHETIC SINGLE DOSE", "2024-02-14", "2024-02-14"));
         record("chartmeds-13", chartMeds(title, many), 1000, 600, input(title, "Days", "MEDS", true, jfree, "", meds(many), null));
+        // A medication prescribed again inside an earlier prescription: XYBarRenderer painted the later
+        // bar's shadow over the earlier bar, leaving a gray edge across that row.
+        TaskSeries repeated = task("SYNTHETIC MEDICATION 2", "2023-03-01", "2023-12-01");
+        repeated.add(new Task("SYNTHETIC MEDICATION 2", day("2023-08-01"), day("2023-11-01")));
+        List<TaskSeries> repeat = List.of(task("SYNTHETIC MEDICATION WITH A VERY LONG PRODUCT NAME 500MG TABLET", "2023-01-15", "2023-06-15"),
+                repeated, task("SYNTHETIC SINGLE DOSE", "2023-05-10", "2023-05-10"));
+        record("chartmeds-repeat", chartMeds(title, repeat), 1000, 600, input(title, "Days", "MEDS", true, jfree, "", meds(repeat), null));
         XYSeries sc = new XYSeries("ALT-in U/L"); sc.add(0, 23); sc.add(549, 37);
         record("scatter-2pt", scatter("ALT-in U/L", sc), 550, 360,
                 input("ALT-in U/L", "Day (note: only the last data on the same observation date is plotted)", "Test Results", false, scatterStyle, xy("ALT-in U/L", "#ff0000", false, true, sc), "[]", null));

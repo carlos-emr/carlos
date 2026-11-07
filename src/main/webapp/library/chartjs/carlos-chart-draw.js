@@ -79,33 +79,117 @@
     }
 
     // Java's integer advances for DejaVu Sans (what "Tahoma", "SansSerif" and "helvetica" resolved to in
-    // the renderer's Ubuntu 26.04 container), U+0020 to U+00FF at the plain sizes the charts measure,
-    // recorded with JFreeChart's rendering hints (scripts/fixtures/chart/jfreechart/README.md).
+    // the renderer's Ubuntu 26.04 container), U+0020 to U+00FF at the plain and bold sizes the charts
+    // draw, recorded with JFreeChart's rendering hints by scripts/fixtures/chart/jfreechart/JavaAdvances.java.
     const JAVA_ADVANCES = {
         8: [3,3,4,7,5,8,6,2,3,3,4,7,3,3,3,3,5,5,5,5,5,5,5,5,5,5,3,3,7,7,7,4,8,5,5,6,6,5,5,6,6,2,2,5,4,7,6,6,5,6,6,5,5,6,5,8,5,5,5,3,3,3,7,4,4,5,5,4,5,5,3,5,5,2,2,5,2,8,5,5,5,5,3,4,3,5,5,7,5,5,4,5,3,5,7,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,5,5,5,5,3,4,4,8,4,5,7,0,8,4,4,7,3,3,4,5,5,3,4,3,4,5,8,8,8,4,5,5,5,5,5,5,8,6,5,5,5,5,2,2,2,2,6,6,6,6,6,6,6,7,6,6,6,6,6,5,5,5,5,5,5,5,5,5,8,4,5,5,5,5,2,2,2,2,5,5,5,5,5,5,5,7,5,5,5,5,5,5,5,5],
         10: [3,4,5,8,6,10,9,3,4,4,5,8,3,4,3,3,6,6,6,6,6,6,6,6,6,6,3,3,8,8,8,5,11,7,7,8,8,7,6,8,8,3,3,7,6,9,8,8,7,8,7,7,5,8,7,9,6,7,6,4,3,4,8,5,5,6,6,5,6,6,4,6,6,2,2,5,2,10,6,6,6,6,4,5,4,6,6,8,6,6,5,6,3,6,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,3,4,6,6,6,6,3,5,5,10,5,6,8,0,10,5,5,8,4,4,5,7,6,3,5,4,5,6,10,10,10,5,7,7,7,7,7,7,10,8,7,7,7,7,3,3,3,3,8,8,8,8,8,8,8,8,8,8,8,8,8,7,7,6,6,6,6,6,6,6,10,5,6,6,6,6,2,2,2,2,6,6,6,6,6,6,6,8,6,6,6,6,6,6,6,6],
         12: [4,5,5,10,8,11,10,3,5,5,6,10,4,4,4,4,8,8,8,8,8,8,8,8,8,8,4,4,10,10,10,6,13,8,8,8,9,8,7,9,9,3,3,7,6,10,9,9,8,9,8,8,7,9,8,11,7,7,9,5,4,5,10,6,6,8,8,7,8,8,4,8,8,3,3,7,3,11,8,8,8,8,5,7,5,8,6,9,6,6,5,8,4,8,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,5,8,8,8,8,4,6,6,12,6,7,10,0,12,6,6,10,5,5,6,8,8,4,6,5,6,7,12,12,12,6,8,8,8,8,8,8,12,8,8,8,8,8,3,3,3,3,9,9,9,9,9,9,9,10,9,9,9,9,9,7,8,8,8,8,8,8,8,8,12,7,8,8,8,8,3,3,3,3,8,8,8,8,8,8,8,10,8,8,8,8,8,6,8,6],
+        bold12: [4,5,6,10,8,12,10,4,5,5,6,10,5,5,5,4,8,8,8,8,8,8,8,8,8,8,5,5,10,10,10,7,12,9,9,9,10,8,8,10,10,4,4,9,8,12,10,11,9,10,9,9,8,10,9,14,9,8,10,5,4,5,10,6,6,9,9,7,9,9,5,9,9,4,4,8,4,12,9,9,9,9,6,8,6,9,7,12,7,8,8,9,4,9,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4,5,8,8,8,8,4,6,6,12,7,8,10,0,12,6,6,10,5,5,6,9,8,5,6,5,7,8,12,12,12,7,9,9,9,9,9,9,13,9,8,8,8,8,4,4,4,4,10,10,11,11,11,11,11,10,11,10,10,10,10,8,9,9,9,9,9,9,9,9,14,7,9,9,9,9,4,4,4,4,9,9,9,9,9,9,9,10,9,9,9,9,9,8,9,8],
+        bold14: [5,6,7,12,10,14,13,4,6,6,7,12,5,6,5,5,10,10,10,10,10,10,10,10,10,10,6,6,12,12,12,8,14,11,10,11,11,9,9,12,11,4,4,11,9,13,11,12,10,12,10,10,10,11,11,15,10,10,11,6,5,6,12,7,7,9,10,9,10,10,6,10,10,4,4,9,4,14,10,10,10,10,7,9,6,10,9,14,9,9,9,10,5,10,12,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,6,10,10,9,10,5,7,7,14,8,9,12,0,14,7,7,12,6,6,7,10,9,5,7,6,8,9,15,15,15,8,11,11,11,11,11,11,15,11,9,9,9,9,4,4,4,4,11,11,12,12,12,12,12,12,12,11,11,11,11,10,10,10,9,9,9,9,9,9,16,9,10,10,10,10,4,4,4,4,10,10,10,10,10,10,10,12,10,10,10,10,10,9,10,9],
+        bold18: [6,8,9,15,13,18,16,6,8,8,9,15,7,7,7,7,13,13,13,13,13,13,13,13,13,13,7,7,15,15,15,10,18,14,14,13,15,12,12,15,16,7,7,14,11,18,15,15,13,15,14,13,12,16,14,20,14,13,13,8,7,8,15,9,9,12,13,11,13,12,8,13,13,6,6,12,6,18,13,12,13,13,9,11,9,13,12,16,12,12,10,13,7,13,15,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,6,8,13,13,11,13,7,9,9,18,10,12,15,0,18,9,9,15,8,8,9,13,11,7,9,8,10,12,19,19,19,10,14,14,14,14,14,14,20,13,12,12,12,12,7,7,7,7,15,15,15,15,15,15,15,15,15,16,16,16,16,13,13,14,12,12,12,12,12,12,18,11,12,12,12,12,6,6,6,6,12,13,12,12,12,12,12,15,12,13,13,13,13,12,13,12],
+        bold20: [7,9,10,17,14,20,17,6,9,9,10,17,8,8,8,7,14,14,14,14,14,14,14,14,14,14,8,8,17,17,17,12,20,15,15,15,17,14,14,16,17,7,7,16,13,20,17,17,15,17,15,14,14,16,15,22,15,14,15,9,7,9,17,10,10,14,14,12,14,14,9,14,14,7,7,13,7,21,14,14,14,14,10,12,10,14,13,18,13,13,12,14,7,14,17,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,7,9,14,14,13,14,7,10,10,20,11,13,17,0,20,10,10,17,9,9,10,15,13,8,10,9,11,13,21,21,21,12,15,15,15,15,15,15,22,15,14,14,14,14,7,7,7,7,17,17,17,17,17,17,17,17,17,16,16,16,16,14,15,14,14,14,14,14,14,14,21,12,14,14,14,14,7,7,7,7,14,14,14,14,14,14,14,17,14,14,14,14,14,13,14,13],
     };
 
     /**
      * Java sums integer glyph advances. Text in the recorded range uses Java's own advances; anything
-     * else (bold, other sizes, other scripts) falls back to Chromium's advances rounded per glyph,
-     * which agree with Java's for most glyphs.
+     * else (other sizes, other scripts) falls back to Chromium's advances rounded per glyph, which
+     * agree with Java's for most glyphs.
      */
-    function textWidth(text, size, weight) {
-        const table = weight === 'bold' ? null : JAVA_ADVANCES[size];
+    function glyphAdvances(text, size, weight) {
+        const table = JAVA_ADVANCES[weight === 'bold' ? `bold${size}` : size];
         scratch.font = font(size, weight);
-        let width = 0;
-        for (const character of text) {
-            const code = character.codePointAt(0);
+        return Array.from(text, glyph => {
+            const code = glyph.codePointAt(0);
             const java = table && code >= 32 && code <= 255 ? table[code - 32] : 0;
-            width += java || Math.round(scratch.measureText(character).width);
-        }
-        return width;
+            return { glyph, advance: java || Math.round(scratch.measureText(glyph).width) };
+        });
+    }
+
+    function textWidth(text, size, weight) {
+        return glyphAdvances(text, size, weight).reduce((width, glyph) => width + glyph.advance, 0);
+    }
+
+    /**
+     * Java2D placed each glyph at the previous glyph's integer advance, without kerning, so its labels
+     * were exactly as wide as textWidth says. Chromium spaces a string by fractional advances: a long
+     * medication name in the legend came out four pixels wider and ran into the next item's marker.
+     * Latin-1 text is therefore drawn a glyph at a time at those advances. Other scripts keep
+     * Chromium's own shaping, which joining and combining marks need.
+     */
+    function javaText(canvas) {
+        const ctx = canvas.getContext('2d');
+        const fillText = ctx.fillText;
+        ctx.fillText = function (text, x, y, maxWidth) {
+            const value = String(text);
+            const size = /(\d+(?:\.\d+)?)px/.exec(this.font);
+            // eslint-disable-next-line no-control-regex
+            if (!size || !value || /[^\u0020-\u00ff]/.test(value)) {
+                return maxWidth === undefined ? fillText.call(this, value, x, y) : fillText.call(this, value, x, y, maxWidth);
+            }
+            const advances = glyphAdvances(value, Number(size[1]), /\bbold\b|\b[6-9]00\b/.test(this.font) ? 'bold' : 'normal');
+            const width = advances.reduce((sum, glyph) => sum + glyph.advance, 0);
+            const align = this.textAlign;
+            let left = align === 'center' ? x - width / 2 : (align === 'right' || align === 'end') ? x - width : x;
+            this.textAlign = 'left';
+            try {
+                advances.forEach(glyph => { fillText.call(this, glyph.glyph, left, y); left += glyph.advance; });
+            } finally {
+                this.textAlign = align;
+            }
+        };
+        return canvas;
     }
 
     function textHeight(size) {
         return LINE_HEIGHT * size;
+    }
+
+    /**
+     * Java2D's antialiased stroke normalisation moved each coordinate to a quarter pixel, so a 0.5px
+     * outline, axis line, tick mark or gridline filled the one pixel at floor(v + 0.25) at half
+     * strength. Plot edges and tick positions are fractional, as JFreeChart's were: a 1px canvas line
+     * at half opacity through that pixel's centre draws the same pixels.
+     */
+    function javaPixel(v) {
+        return Math.floor(v + 0.25) + 0.5;
+    }
+
+    /** Chart.js centres a gridline on the rounded tick pixel; put it where JFreeChart drew it. */
+    function javaGrid(scale) {
+        if (scale.carlosGrid) return;
+        scale.carlosGrid = true;
+        const compute = scale._computeGridLineItems;
+        scale._computeGridLineItems = function (area) {
+            const items = compute.call(this, area);
+            // One item per tick; anything else is a layout this adjustment does not know.
+            if (items.length !== this.ticks.length) return items;
+            items.forEach((item, index) => {
+                const pixel = javaPixel(this.getPixelForTick(index));
+                if (this.isHorizontal()) { item.tx1 = item.tx2 = item.x1 = item.x2 = pixel; } else { item.ty1 = item.ty2 = item.y1 = item.y2 = pixel; }
+            });
+            return items;
+        };
+    }
+
+    // Java's integer FontMetrics ascent and descent for DejaVu Sans at the tick label sizes (the
+    // fixtures' "metrics"), and its LineMetrics descent per pixel of font size.
+    const JAVA_FONT_METRICS = { 8: [8, 2], 10: [10, 3], 12: [12, 3], 14: [13, 4] };
+    const JAVA_DESCENT = 0.2358;
+
+    /**
+     * How far below Chromium's "middle" baseline Java put a centred label's baseline. TextUtils centred
+     * a vertical axis' tick label (TextAnchor.CENTER_RIGHT/LEFT) with its baseline half the
+     * FontMetrics height, less the LineMetrics descent, below the tick: about 1.5px lower than a
+     * canvas label centred on the same tick.
+     */
+    function javaCentreShift(size) {
+        const [ascent, descent] = JAVA_FONT_METRICS[size] || [Math.ceil(size * (LINE_HEIGHT - JAVA_DESCENT)), Math.ceil(size * JAVA_DESCENT)];
+        scratch.font = font(size);
+        scratch.textBaseline = 'middle';
+        const chromium = -scratch.measureText('H').alphabeticBaseline;
+        scratch.textBaseline = 'alphabetic';
+        return (ascent + descent) / 2 - size * JAVA_DESCENT - chromium;
     }
 
     function shorten(label) {
@@ -465,6 +549,7 @@
      */
     function fitLikeJava(scale, size) {
         uncompressedTitle(scale);
+        javaGrid(scale);
         if (scale.isHorizontal()) { scale.paddingLeft = 0; scale.paddingRight = 0; return; }
         scale.paddingTop = 0; scale.paddingBottom = 0;
         if (scale.options.ticks.display === false) return;
@@ -570,7 +655,8 @@
             },
             ticks: tickOptions(look, null, shared ? { padding: 2 } : { display: false }),
             grid: { ...gridOptions(gridColour), ...tickGap(shared, offset, true) },
-            border: { display: shared && !offset, color: AXIS_LINE, width: 1, dash: [2, 2] },
+            // drawOffsetAxes draws the axis line; Chart.js's border keeps only the gridline dash.
+            border: { display: false, color: AXIS_LINE, width: 1, dash: [2, 2] },
             title: shared ? axisTitle(combined ? 'Date/Time' : spec.xLabel, look) : { display: false },
             afterFit(scale) { fitLikeJava(scale, look.tick.size); },
         });
@@ -581,17 +667,18 @@
                 scale.carlosTicks = chosen.ticks;
                 scale.ticks = chosen.ticks.map(tick => ({ value: tick.value }));
             },
-            ticks: tickOptions(look, colour, { padding: 4 }),
+            ticks: tickOptions(look, colour, { padding: 4, labelOffset: javaCentreShift(look.tick.size) }),
             grid: { ...gridOptions(style.gridlines), ...(id === 'y' ? {} : { drawOnChartArea: false }), ...tickGap(true, offset) },
-            border: { display: !offset, color: AXIS_LINE, width: 1, dash: [2, 2] },
+            border: { display: false, color: AXIS_LINE, width: 1, dash: [2, 2] },
             title: axisTitle(label, look, colour, true),
             afterFit(scale) { fitLikeJava(scale, look.tick.size); },
         });
 
         /**
-         * The axis lines and outward tick marks of an offset plot, drawn in the gap around the plot. A plot
-         * without an offset keeps Chart.js's axis lines and vertical tick marks; its date axis tick marks
-         * are drawn here because that axis reserves extra transparent tick length for its labels.
+         * The axis lines, and the outward tick marks of an offset plot, drawn in the gap around the plot.
+         * Without an offset the axis line lies on the plot outline, darkening it as JFreeChart's did;
+         * Chart.js still draws that plot's vertical tick marks, and its date axis tick marks are drawn
+         * here because that axis reserves extra transparent tick length for its labels.
          */
         const drawOffsetAxes = (chart, offset) => {
             const ctx = chart.ctx;
@@ -600,18 +687,18 @@
             ctx.strokeStyle = AXIS_LINE; ctx.lineWidth = 1;
             Object.values(chart.scales).forEach(scale => {
                 if (scale.options.display === false || scale.options.ticks.display === false) return;
-                if (!offset && !scale.isHorizontal()) return;
                 const ticks = (scale.carlosTicks || []).filter(tick => tick.label !== '');
                 ctx.beginPath();
                 if (scale.isHorizontal()) {
-                    const y = area.bottom + offset + 0.5;
-                    if (offset) { ctx.moveTo(area.left, y); ctx.lineTo(area.right, y); }
-                    ticks.forEach(tick => { const x = Math.round(scale.getPixelForValue(tick.value)) + 0.5; ctx.moveTo(x, y); ctx.lineTo(x, y + 2); });
+                    const y = javaPixel(area.bottom + offset);
+                    ctx.moveTo(javaPixel(area.left), y); ctx.lineTo(javaPixel(area.right), y);
+                    ticks.forEach(tick => { const x = javaPixel(scale.getPixelForValue(tick.value)); ctx.moveTo(x, y); ctx.lineTo(x, y + 2); });
                 } else {
                     const left = scale.position === 'left';
-                    const x = left ? area.left - offset - 0.5 : area.right + offset + 0.5;
-                    ctx.moveTo(x, area.top); ctx.lineTo(x, area.bottom);
-                    ticks.forEach(tick => { const y = Math.round(scale.getPixelForValue(tick.value)) + 0.5; ctx.moveTo(x, y); ctx.lineTo(left ? x - 2 : x + 2, y); });
+                    const x = javaPixel(left ? area.left - offset : area.right + offset);
+                    ctx.moveTo(x, javaPixel(area.top)); ctx.lineTo(x, javaPixel(area.bottom));
+                    // Without an offset, Chart.js draws a vertical axis' tick marks.
+                    if (offset) ticks.forEach(tick => { const y = javaPixel(scale.getPixelForValue(tick.value)); ctx.moveTo(x, y); ctx.lineTo(left ? x - 2 : x + 2, y); });
                 }
                 ctx.stroke();
             });
@@ -633,34 +720,41 @@
                 chart.ctx.fillRect(area.left, area.top, area.right - area.left, area.bottom - area.top);
                 chart.ctx.restore();
             },
+            // XYBarRenderer painted each prescription's shadow and then its bar, one prescription at a time,
+            // so a later prescription of the same medication left its shadow's edge across an earlier,
+            // longer bar on that row. The bars are drawn here in that order instead of by Chart.js.
+            beforeDatasetDraw(chart, args) {
+                if (panel.bars && args.index === 0) return false;
+                return undefined;
+            },
             beforeDatasetsDraw(chart) {
                 if (!panel.bars) return;
                 const ctx = chart.ctx;
+                const area = chart.chartArea;
+                const fills = [].concat(chart.data.datasets[0].backgroundColor);
                 chart.carlosShadows = [];
-                ctx.save();
-                ctx.fillStyle = '#808080';
-                chart.getDatasetMeta(0).data.forEach(bar => {
+                chart.getDatasetMeta(0).data.forEach((bar, index) => {
                     const left = Math.round(Math.min(bar.x, bar.base)), right = Math.max(left + 1, Math.round(Math.max(bar.x, bar.base)));
                     const top = Math.round(bar.y - bar.height / 2);
+                    ctx.save();
+                    ctx.fillStyle = '#808080';
                     ctx.fillRect(left + 4, top + 4, right - left, Math.round(bar.height));
                     chart.carlosShadows.push({ dx: 4, dy: 4, colour: '#808080' });
+                    ctx.beginPath(); ctx.rect(area.left, area.top, area.right - area.left, area.bottom - area.top); ctx.clip();
+                    bar.draw(ctx, area);
+                    // A zero-length interval is still drawn: a one pixel line in the series colour.
+                    if (Math.abs(bar.x - bar.base) <= 1.5) {
+                        ctx.fillStyle = fills[index];
+                        ctx.fillRect(left, top, 1, Math.round(bar.height));
+                    }
+                    ctx.restore();
                 });
-                ctx.restore();
             },
             afterDatasetsDraw(chart) {
                 const ctx = chart.ctx;
                 const area = chart.chartArea;
                 ctx.save();
                 ctx.beginPath(); ctx.rect(area.left, area.top, area.right - area.left, area.bottom - area.top); ctx.clip();
-                if (panel.bars) {
-                    // A zero-length interval is still drawn: a one pixel line in the series colour.
-                    const fills = [].concat(chart.data.datasets[0].backgroundColor);
-                    chart.getDatasetMeta(0).data.forEach((bar, index) => {
-                        if (Math.abs(bar.x - bar.base) > 1.5) return;
-                        ctx.fillStyle = fills[index];
-                        ctx.fillRect(Math.round(Math.min(bar.x, bar.base)), Math.round(bar.y - bar.height / 2), 1, Math.round(bar.height));
-                    });
-                }
                 if (panel.series) {
                     chart.carlosRanges = [];
                     chart.carlosItemLabels = [];
@@ -708,7 +802,8 @@
                 const ctx = chart.ctx;
                 ctx.save();
                 ctx.strokeStyle = look.outline; ctx.lineWidth = 1;
-                ctx.strokeRect(area.left + 0.5, area.top + 0.5, area.right - area.left - 1, area.bottom - area.top - 1);
+                const left = javaPixel(area.left), top = javaPixel(area.top);
+                ctx.strokeRect(left, top, javaPixel(area.right) - left, javaPixel(area.bottom) - top);
                 ctx.restore();
                 drawOffsetAxes(chart, panel.offset || 0);
                 if (panel.legend) { drawLegend(chart, legend, chartLook); chart.carlosLegend = legendItems; }
@@ -728,7 +823,7 @@
             mainChart = null; medicationChart = null;
             // No matching prescriptions is a valid medication request; retain its title and axes.
             if (datasets.length || !combined) {
-                const main = document.createElement('canvas');
+                const main = javaText(document.createElement('canvas'));
                 main.style.display = 'block';
                 main.width = width;
                 main.height = combined ? topHeight : height;
@@ -751,7 +846,7 @@
                 charts.push(mainChart);
             }
             if (combined) {
-                const meds = document.createElement('canvas');
+                const meds = javaText(document.createElement('canvas'));
                 meds.style.display = 'block';
                 meds.width = width;
                 meds.height = mainChart ? height - topHeight : height;
@@ -769,10 +864,11 @@
                         scales: { x: xScale(LOOKS.plain, true, '#c0c0c0'),
                             // reverse: the first medication listed sits at the bottom, as on the former symbol axis.
                             y: { type: 'category', labels: rows, reverse: true, offset: true,
-                                ticks: { ...tickOptions(LOOKS.plain, '#000000'), callback(value) { return shorten(names[rows.indexOf(this.getLabelForValue(value))] ?? ''); } },
-                                grid: { ...gridOptions('#c0c0c0'), offset: false }, border: { display: true, color: 'rgba(128, 128, 128, 0.5)', width: 1, dash: [2, 2] },
-                                // The symbol axis kept 4px more between its label and its row names.
-                                title: axisTitle('Meds', LOOKS.plain, '#000000', true, 4),
+                                ticks: { ...tickOptions(LOOKS.plain, '#000000'), padding: 4, labelOffset: javaCentreShift(LOOKS.plain.tick.size), callback(value) { return shorten(names[rows.indexOf(this.getLabelForValue(value))] ?? ''); } },
+                                grid: { ...gridOptions('#c0c0c0'), offset: false }, border: { display: false, color: 'rgba(128, 128, 128, 0.5)', width: 1, dash: [2, 2] },
+                                // The row names sat their 4px insets clear of the tick mark and of the
+                                // axis label ("Meds"), which keeps no extra gap of its own.
+                                title: axisTitle('Meds', LOOKS.plain, '#000000', true),
                                 afterFit(scale) { fitLikeJava(scale, LOOKS.plain.tick.size); } } },
                         layout: { padding: { ...basePadding, top: mainChart ? 5 : basePadding.top, bottom: basePadding.bottom + legend.height } },
                         plugins: { title: titleOptions(!mainChart), legend: { display: false }, tooltip: { enabled: false } } } });

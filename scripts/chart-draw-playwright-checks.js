@@ -75,7 +75,8 @@ async function draw(page, input, width, height) {
             const last = Math.floor(horizontal ? area.bottom : area.right) - 8;
             const counts = { colour: axis.options.grid.color, dash: [...axis.options.border.dash], painted: 0, gaps: 0 };
             axis.ticks.forEach((tick, index) => {
-                const cross = Math.round(axis.getPixelForTick(index) - 0.5);
+                // JFreeChart's gridline filled the pixel at floor(v + 0.25) (Java2D stroke normalisation).
+                const cross = Math.floor(axis.getPixelForTick(index) + 0.25);
                 if (cross < (horizontal ? area.left : area.top) + 3 || cross > (horizontal ? area.right : area.bottom) - 3) return;
                 for (let along = first; along < last; along++) {
                     // A perpendicular gridline must not make an absent line pass this check.
@@ -376,6 +377,17 @@ async function main() {
         assert.equal(colour, '#c000c0', `a same-day prescription is drawn as a line in its colour (saw ${colour})`);
         const shadow = await pixelAt(page, 0, single.base + 4, single.y + single.height / 2 + 2);
         assert.equal(shadow, '#808080', `its shadow is drawn (saw ${shadow})`);
+
+        // XYBarRenderer painted each prescription's shadow and then its bar, in order: a medication
+        // prescribed again inside an earlier prescription left its shadow's edge across the earlier bar.
+        const repeat = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'chartmeds-repeat.json'), 'utf8'));
+        const repeatBars = (await draw(page, repeat.input, repeat.width, repeat.height)).charts[0].datasets[0].bars;
+        const inner = repeatBars[2];
+        const innerEnd = Math.round(Math.max(inner.x, inner.base));
+        const seam = await pixelAt(page, 0, innerEnd + 2, inner.y);
+        assert.equal(seam, '#808080', `the later prescription's shadow edge crosses the earlier bar (saw ${seam})`);
+        const after = await pixelAt(page, 0, innerEnd + 8, inner.y);
+        assert.equal(after, '#5555ff', `the earlier bar continues past that edge (saw ${after})`);
 
         // A series observed within one day falls back to hourly ticks with the time on each label.
         const t0 = Date.UTC(2024, 0, 15, 9, 30);
