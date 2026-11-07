@@ -727,10 +727,13 @@
       "area": "Forms, eForms and secondary-operation truthfulness",
       "sources": [
         "scripts/forms-timed-autosave.test.js",
-        "src/test/java/io/github/carlos_emr/carlos/email/action/EmailCompose2ActionUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/email/action/EmailCompose2ActionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/eform/EFormExportZipLimitsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/ImportZipInputStreamUnitTest.java",
+        "docs/eform-zip-import-limits.md"
       ],
       "implementation": "Extend real save/reopen/print workflows for every changed form and eForm resource. Keep saved primary state distinct from failed email/PDF/fax/EDoc work and assert visible, retry-safe recovery.",
-      "cases": "Unticked/checked/blank/long/multiline/quoted/Unicode data; autosave pending/error and multiple clicks; form version and refresh; editor toolbar/Bootstrap/jQuery aliases/AP values/calendar/signature; Mac ZIPs, bounded bulk export, path and collision attacks; primary save succeeds then secondary preparation fails; expired email draft.",
+      "cases": "Unticked/checked/blank/long/multiline/quoted/Unicode data; autosave pending/error and multiple clicks; form version and refresh; editor toolbar/Bootstrap/jQuery aliases/AP values/calendar/signature; Mac ZIPs, bounded bulk export, path and collision attacks; actual expanded ZIP bytes/count and properties/retained-HTML budgets, exact-limit acceptance, rejection before publication and owned staging cleanup; primary save succeeds then secondary preparation fails; expired email draft.",
       "acceptance": "All entered values survive reopen and print, no duplicate primary save on retry, and the user sees exactly which operation failed with no clinical diagnostic disclosure.",
       "requiredChecks": [
         "evidence-self-tests",
@@ -1607,7 +1610,10 @@
         "DownloadInInterceptorUnitTest": 10,
         "AttachmentResolverSpiUnitTest": 18,
         "CalendarDateTimeXmlAdapterUnitTest": 12,
-        "DemographicBirthdayXmlContractUnitTest": 9
+        "DemographicBirthdayXmlContractUnitTest": 9,
+        "EFormExportZipLimitsUnitTest": 16,
+        "ImportZipInputStreamUnitTest": 23,
+        "CdsSnapshotServiceUnitTest": 23
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -5252,6 +5258,30 @@
       ],
       "workstreams": [
         "T31"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormExportZip.java": {
+      "reason": "Real importer regressions prove exact default byte/count/text limit acceptance, over-limit rejection before form/asset publication, accounting for skipped metadata/properties and referenced HTML, input closure and owned staging cleanup.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/eform/EFormExportZipLimitsUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T27"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ImportZipInputStream.java": {
+      "reason": "Direct ZIP stream regressions exercise read, skip, closeEntry and next-entry accounting with exact limits, unknown/false-small entry descriptors, aggregate bytes and excess empty-entry refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/ImportZipInputStreamUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T27"
       ]
     },
     "scripts/signal-cleanup-audit.js": {

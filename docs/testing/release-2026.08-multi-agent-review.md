@@ -112,7 +112,9 @@ differences or incomplete installed/vendor qualification.
 
 ## Validation reconciliation
 
-The final application-code commit is `0570af4f329e4ba0aba5818127a66d6850e2d922`.
+The first completed application-code review is recorded at
+`0570af4f329e4ba0aba5818127a66d6850e2d922`; the target refresh below adds the
+subsequent ZIP-stream correction.
 The following metadata-only correction also requires the two new birthday test
 families (12 adapter cases and nine direct/nested contract cases), lists their
 real T08 sources, and binds only the new adapter path to that evidence.
@@ -122,7 +124,7 @@ real T08 sources, and binds only the new adapter path to that evidence.
   six Content-ID cases were added and therefore does not satisfy the final
   18-case resolver family floor by itself. Its strict reconciliation preserves
   that missing-family result rather than silently qualifying the earlier run.
-- Clean final-code checkout: all 444 focused XML/EBS cases pass without skips,
+- Clean checkout of that reviewed code: all 444 focused XML/EBS cases pass without skips,
   including all 18 resolver cases, both production JSON mappers and the frozen
   legacy-reader corpus. Final-head CI's whole-suite execution remains separate
   evidence from these focused results.
@@ -144,6 +146,39 @@ limit during Javadoc. That attempt remains failed. The repeat runs serially with
 explicit Maven/Javadoc heap limits; packaging, final binary comparison and current
 CI outcomes are linked from [PR #5710](https://github.com/carlos-emr/carlos/pull/5710).
 The comparison's remaining findings are not waived by successful ordinary CI.
+
+## Target refresh during final CI
+
+After all 16 workflows and DCO passed on topic head
+`049fc0362bd787dea3774724869a7327d6d1fc93`, the release target advanced from
+`94c75c772aa0e32c962c1346d9977ed17bc0ce4f` to
+`90c1e7976c558fa9fbc71ce076190f24220eaec8` through #5500. The target comparison
+now contains 122 commits and 2,080 changed paths against the same published main.
+The six incoming paths add bounded eForm ZIP extraction and update its tests and
+documentation. They merge without conflicts.
+
+Security, clinical and release reviewers performed a cycle-three follow-up on
+the new delta. Independent JDK 25 probes verify inherited read/skip/advance/drain
+paths, exact byte limits, skipped-entry accounting and truncated-input rejection.
+Staging and text preflight remain ahead of publication; the CDS production,
+schema and mapping bytes are unchanged. All five inline threads on #5500 are
+resolved. The merged importer/CDS/XML/EBS run passes 489 cases with no skips.
+
+The coverage follow-up then reproduces a compatibility defect in the new wrapper:
+a valid zero-length read after close returns success where native
+`ZipInputStream` throws `IOException`. The narrow correction delegates that path
+to the superclass. New cases cover invalid limits before input ownership,
+zero-length reads before/after exact budgets, closed reads, null destinations and
+invalid ranges without consuming input. The utility suite now contains 23 cases.
+Paired original/fixed probes retain the failing and corrected behavior.
+
+The registry requires the actual ZIP stream/importer/CDS families (23/16/23),
+adds their T27 sources, and binds only the two production paths to real proofs.
+No CDS implementation hash was blindly regenerated. Eighty relevant Python
+contracts pass. Coverage floors for new executable classes are measured from
+fresh reports with explicit source/class/report provenance; existing floors are
+preserved. The earlier 489-case run and green head are historical evidence,
+not a substitute for the refreshed source and CI results linked in the PR.
 
 ## Review-comment reconciliation
 
