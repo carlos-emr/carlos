@@ -26,14 +26,44 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("unit")
 class ImportZipInputStreamUnitTest {
+    private static final class TrackedInput extends ByteArrayInputStream {
+        private int reads;
+        private boolean closed;
+
+        private TrackedInput(byte[] bytes) {
+            super(bytes);
+        }
+
+        @Override
+        public synchronized int read() {
+            reads++;
+            return super.read();
+        }
+
+        @Override
+        public synchronized int read(byte[] buffer, int offset, int length) {
+            reads++;
+            return super.read(buffer, offset, length);
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+    }
+
     private byte[] archive(int... sizes) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
@@ -44,6 +74,90 @@ class ImportZipInputStreamUnitTest {
             }
         }
         return bytes.toByteArray();
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0,16,2", "-1,16,2", "8,0,2", "8,-1,2", "8,16,0", "8,16,-1"})
+    void shouldRejectNonPositiveLimits_beforeTakingOwnershipOfInput(long entryBytes, long totalBytes, int entries)
+            throws Exception {
+        var input = new TrackedInput(archive(8));
+        int available = input.available();
+
+        assertThatThrownBy(() -> new ImportZipInputStream(input, entryBytes, totalBytes, entries))
+                .isInstanceOf(IllegalArgumentException.class).hasMessage("ZIP import limits must be positive");
+
+        assertThat(input.reads).isZero();
+        assertThat(input.available()).isEqualTo(available);
+        assertThat(input.closed).isFalse();
+    }
+
+    @Test
+    void shouldPreserveZeroLengthReads_beforeAndAfterExactEntryLimits() throws Exception {
+        var input = new TrackedInput(archive(8));
+        try (var zip = new ImportZipInputStream(input, 8, 8, 1)) {
+            assertZeroReadLeavesInputUntouched(zip, input);
+            assertThat(zip.getNextEntry()).isNotNull();
+            assertZeroReadLeavesInputUntouched(zip, input);
+            assertThat(zip.readNBytes(8)).hasSize(8);
+            assertZeroReadLeavesInputUntouched(zip, input);
+            assertThat(zip.read()).isEqualTo(-1);
+            assertZeroReadLeavesInputUntouched(zip, input);
+            assertThat(zip.getNextEntry()).isNull();
+            assertZeroReadLeavesInputUntouched(zip, input);
+        }
+        assertThat(input.closed).isTrue();
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 1})
+    void shouldMatchClosedZipReads_whenDestinationRangeIsValid(int length) throws Exception {
+        byte[] bytes = archive(8);
+        try (var nativeZip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
+            nativeZip.close();
+            assertThatThrownBy(() -> nativeZip.read(new byte[1], 0, length)).isInstanceOf(IOException.class);
+        }
+        var input = new TrackedInput(bytes);
+        try (var zip = new ImportZipInputStream(input, 8, 8, 1)) {
+            zip.close();
+            int reads = input.reads;
+            assertThatThrownBy(() -> zip.read(new byte[1], 0, length)).isInstanceOf(IOException.class);
+            assertThat(input.reads).isEqualTo(reads);
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"-1,0", "0,-1", "3,0", "1,2", "2147483647,1", "1,2147483647", "0,3"})
+    void shouldRejectInvalidDestinationRanges_withoutConsumingInput(int offset, int length) throws Exception {
+        var input = new TrackedInput(archive(8));
+        try (var zip = new ImportZipInputStream(input, 8, 8, 1)) {
+            assertThat(zip.getNextEntry()).isNotNull();
+            int reads = input.reads;
+            assertThatThrownBy(() -> zip.read(new byte[2], offset, length))
+                    .isInstanceOf(IndexOutOfBoundsException.class);
+            assertThat(input.reads).isEqualTo(reads);
+            assertThat(zip.readAllBytes()).hasSize(8);
+        }
+    }
+
+    @Test
+    void shouldRejectNullDestination_withoutConsumingInput() throws Exception {
+        var input = new TrackedInput(archive(8));
+        try (var zip = new ImportZipInputStream(input, 8, 8, 1)) {
+            assertThat(zip.getNextEntry()).isNotNull();
+            int reads = input.reads;
+            assertThatThrownBy(() -> zip.read(null, 0, 0)).isInstanceOf(NullPointerException.class);
+            assertThat(input.reads).isEqualTo(reads);
+            assertThat(zip.readAllBytes()).hasSize(8);
+        }
+    }
+
+    private static void assertZeroReadLeavesInputUntouched(ImportZipInputStream zip, TrackedInput input)
+            throws IOException {
+        byte[] destination = {7};
+        int reads = input.reads;
+        assertThat(zip.read(destination, destination.length, 0)).isZero();
+        assertThat(destination).containsExactly((byte) 7);
+        assertThat(input.reads).isEqualTo(reads);
     }
 
     @Test

@@ -93,7 +93,8 @@ public final class ImportZipInputStream extends ZipInputStream {
     @Override
     public int read(byte[] buffer, int offset, int length) throws IOException {
         Objects.checkFromIndexSize(offset, length, buffer.length);
-        if (length == 0) return 0;
+        // Keep ZipInputStream's closed-stream check even when no bytes are requested.
+        if (length == 0) return super.read(buffer, offset, 0);
         long remaining = Math.min(maxEntryBytes - entryBytes, maxTotalBytes - totalBytes);
         // Read at most one byte beyond the budget, including when probing EOF at an exact limit.
         int request = (int) Math.min(length, remaining < length ? remaining + 1 : length);

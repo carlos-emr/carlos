@@ -197,18 +197,20 @@ class JaxbImplementationCompatibilityUnitTest {
             String newXml = xml(glassfish, type, value);
             structure(newXml);
             String frozen = BASELINE_XML.getOrDefault(type.getName(), Map.of()).get(populated ? "populated" : "default");
+            String expectedWrite = frozen == null ? null : XmlBaselineAssertions.withPublishedMainBirthday(frozen);
             boolean formatterFix = frozen != null && type.getName().endsWith(".BpmhForm2Bean");
             if (formatterFix) {
                 // Run this even when the legacy context fails: the removed formatter must be
                 // the only difference from the independently captured production XML.
                 assertThat(frozen).contains("<formatter>");
                 assertThat(newXml).doesNotContain("<formatter>");
-                assertThat(structure(newXml)).isEqualTo(withoutFormatter(frozen));
+                assertThat(structure(newXml)).isEqualTo(withoutFormatter(expectedWrite));
             }
             if (moxy == null) continue; // No legacy XML existed: exact failure is pinned above.
             String oldXml = frozen == null ? xml(moxy, type, value) : frozen;
+            String expectedXml = XmlBaselineAssertions.withPublishedMainBirthday(oldXml);
             assertThat(structure(newXml)).as(type + " populated=" + populated)
-                    .isEqualTo(formatterFix ? withoutFormatter(oldXml) : structure(oldXml));
+                    .isEqualTo(formatterFix ? withoutFormatter(expectedXml) : structure(expectedXml));
             Object read = glassfish.createUnmarshaller()
                     .unmarshal(new javax.xml.transform.stream.StreamSource(new StringReader(oldXml)), type).getValue();
             Object oldRead = moxy.createUnmarshaller()
