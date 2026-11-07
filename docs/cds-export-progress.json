@@ -353,5 +353,19 @@
     "originalCompletedImportRulesetRetained": true,
     "nativeNoteIssueRevisionReconciliationComplete": false,
     "clinicalPublication": false
+  },
+  "currentCaseManagementProjectionEvidence": {
+    "state": "FOCUSED_COMPONENT_VERIFIED_PENDING_RECONCILER",
+    "focusedChecks": 21,
+    "physicalTables": [
+      "casemgmt_note",
+      "casemgmt_note_ext",
+      "casemgmt_issue",
+      "issue"
+    ],
+    "allScalarFieldsMatchedToWholeRowWitness": true,
+    "missingAndExtraColumnsRefused": true,
+    "clinicalPrecedenceImplemented": false,
+    "clinicalPublication": false
   }
 }
