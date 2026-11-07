@@ -1,0 +1,47 @@
+PASS application health routes rendered without HTTP, auth, or browser failures
+PASS application-health
+PASS day sheet renders bookable slots for 2027-12-12
+PASS add appointment: duration 7500 refused with actionable feedback and no write
+PASS booked appointment 15 from a day-sheet slot for demographic 1
+PASS appointment labels print patient data without controls and preserve calibrated offsets
+PASS edit appointment: duration 7500 refused with actionable feedback and no write
+PASS edit persisted reason, notes and the recomputed end_time (08:00:00-08:29:00)
+PASS day sheet status letter advanced the status t -> T
+PASS edit popup cancelled the appointment (status=C) without deleting it
+PASS delete dismissed at its confirmation sent nothing and kept the appointment
+PASS delete removed the appointment and left an appointmentArchive record behind
+PASS appointment lifecycle: 13 checks, 0 failures
+PASS appointment-lifecycle
+PASS demographic, tickler, consultation, and admin browser surfaces rendered correctly
+PASS browser-surface
+PASS chart document Forward: visible dialog, empty-recipient refusal, autocomplete, persisted routing
+PASS document upload: carlos-upload-probe-1794085655186.pdf uploaded through the Inbox hub popup and the eDocs chart form, both document rows created, the eDocs row attached to the patient, and an empty file was rejected without a 500
+PASS document-upload
+PASS drug search: "amox" returned 47 result(s) over HTTP 200, list rendered, DrugRef banner clear
+PASS drug-search
+PASS echart
+PASS app-backed eForm render pipeline Playwright check
+PASS eform-render
+PASS error sanitization: former server-error probes return controlled HTTP 400 refusals through the packaged front door without reflected input or stack traces
+PASS error-sanitization
+PASS mutator-get-rejection-live
+PASS schedule links rendered without HTTP or browser console failures
+PASS schedule-links
+PASS tickler CRUD interface flow for tickler 2
+PASS tickler-crud
+PASS app root renders a nonblank login page
+PASS failed login redirects to a nonblank failure flow
+PASS public login entry route rejects POST and allows GET
+PASS unauthenticated protected browser pages redirect to login
+PASS unauthenticated structured and download routes return 401
+PASS normal login reaches a nonblank authenticated schedule page
+PASS direct authenticated appointment-day action renders nonblank HTML
+PASS missing reset credential redirects instead of rendering reset form
+PASS forced reset page posts to protected endpoint and includes CSRF token
+PASS missing-CSRF forced reset POST is rejected and leaves DB unchanged
+PASS weak direct forced reset POST is rejected server-side with token retained
+PASS wrong old password keeps reset token reusable, then valid reset persists
+PASS after valid reset, old password fails and new password reaches schedule
+PASS legacy /login forced-reset POST cannot change password without reset cache token
+PASS login
+  12 passed, 0 failed, 0 skipped

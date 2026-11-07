@@ -30,6 +30,7 @@ old code saved (row 1) before saving its own.
   `form-rourke2020-growth` (+ `-print-dob`, `-window-title`, `-graph-title`),
   `echart-forms-latest-item`, `echart-forms-list-paging`, `popup-opener-echart-forms`,
   `rourke-measurement`, `get-reject-rourke-form`.
+* Smoke tier on the after install (`reports/smoke-after.txt`): 12 of 12 pass.
 * `negative/` (after only): opening another patient's row, and saving with another
   patient's row as the source, are refused with the generic error page. No data from the
   other patient is shown, no row is written, the source row is unchanged, and the log
