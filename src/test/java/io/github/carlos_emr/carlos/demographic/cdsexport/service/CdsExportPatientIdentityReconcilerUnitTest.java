@@ -140,5 +140,9 @@ class CdsExportPatientIdentityReconcilerUnitTest {
                 .isInstanceOf(java.util.concurrent.CancellationException.class);
         assertThat(closed.get()).isTrue();
     }
+    @Test void shouldRejectAnOutOfRangeNativeNumber_inTheImmutableIdentityCarrier() {
+        assertThatThrownBy(() -> new CdsExportPatientIdentityReconciler.Identity("clinic", "C9999999999"))
+                .hasMessage("CDS_EXPORT_PATIENT_IDENTITY_INVALID");
+    }
 
 }

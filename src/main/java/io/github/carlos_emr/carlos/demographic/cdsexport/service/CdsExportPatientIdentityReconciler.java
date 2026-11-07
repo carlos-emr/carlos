@@ -47,6 +47,9 @@ public final class CdsExportPatientIdentityReconciler {
                     || senderPatientId == null || !senderPatientId.matches("C[1-9][0-9]{0,9}")) {
                 throw new IllegalArgumentException("CDS_EXPORT_PATIENT_IDENTITY_INVALID");
             }
+            try {
+                if (Integer.parseInt(senderPatientId.substring(1)) < 1) throw new NumberFormatException();
+            } catch (NumberFormatException invalid) { throw new IllegalArgumentException("CDS_EXPORT_PATIENT_IDENTITY_INVALID"); }
         }
         @Override public String toString() { return "CdsExportPatientIdentityReconciler.Identity[protected]"; }
     }
