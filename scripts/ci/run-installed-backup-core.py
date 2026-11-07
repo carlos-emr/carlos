@@ -180,7 +180,8 @@ def seed_named_canaries(namespace, payload, records, directories):
             path.chmod(0o644)
         row['state'] = file_state(path)
     nested = IMPORT_WORKSPACE / namespace
-    for label, name in (('admin', 'admin-credentials.txt'), ('derived', 'o19-derived-carlos.properties'), ('source', 'source.properties')):
+    # Synthetic backup-exclusion canary labels and filenames, never authentication values.
+    for label, name in (('admin', 'admin-credentials.txt'), ('derived', 'o19-derived-carlos.properties'), ('source', 'source.properties')):  # ggignore
         seed(label + '-base', IMPORT_WORKSPACE / name, True, True)
         seed(label + '-suffix', IMPORT_WORKSPACE / (name + '.' + namespace), True)
         seed(label + '-nested', nested / name, True)
