@@ -129,7 +129,7 @@
                 </tr></c:forEach></tbody>
 </table>
                 </c:if>
-<c:if test="${empty sites}"><p class="table-empty"><fmt:message key="admin.sitesAdmin.empty"/></p></c:if>
+<c:if test="${empty sites}"><fmt:message key="table.msg.emptyList"/></c:if>
 
 
             </td>

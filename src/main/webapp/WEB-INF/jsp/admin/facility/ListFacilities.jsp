@@ -90,7 +90,7 @@
         </tr></c:forEach></tbody>
 </table>
         </c:if>
-<c:if test="${empty facilities}"><p class="table-empty"><fmt:message key="admin.facility.list.msgNoFacilities"/></p></c:if>
+<c:if test="${empty facilities}"><fmt:message key="admin.facility.list.msgNoFacilities"/></c:if>
     </form>
     <!--
             <p><a href="< tml:rewrite action="/FacilityManager"/>?method=add">

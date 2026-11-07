@@ -77,7 +77,7 @@ function add_status(form) {
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty client_statuses}"><p class="table-empty">No statuses are currently defined for this program.</p></c:if>
+<c:if test="${empty client_statuses}">No statuses are currently defined for this program.</c:if>
 <br />
 <html:hidden property="client_status.id" />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">

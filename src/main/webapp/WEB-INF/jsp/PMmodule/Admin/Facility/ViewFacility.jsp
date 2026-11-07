@@ -109,7 +109,7 @@
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty associatedPrograms}"><p class="table-empty">No programs.</p></c:if>
+<c:if test="${empty associatedPrograms}">No programs.</c:if>
 
 <br/>
 <div class="tabs" id="tabs">

@@ -1,20 +1,44 @@
+<%--
+    SPDX-License-Identifier: GPL-2.0-or-later
+    Copyright (C) 2026 CARLOS Contributors
+
+    Shared assets for the JSTL tables that replaced displaytag (#5472): carlos-tables.js (local
+    sorting and paging), carlos-tables.css, and the paging-banner text. The English values of
+    the table.paging.* keys are displaytag's defaults, so a paged table reads exactly as it did
+    ("63 items found, displaying 1 to 15." / "[First/Prev] 1, 2, 3 [Next/Last]"). Include it once
+    per rendered page, in the page itself or in the page that composes a table fragment
+    (CarlosTableAssetsJspRegressionTest enforces this).
+
+    @since 2026-11-02
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources" var="tableMessages"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.itemName" var="tableLabelItemName"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.itemsName" var="tableLabelItemsName"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.noItemsFound" var="tableLabelNoItems"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.oneItemFound" var="tableLabelOneItem"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.allItemsFound" var="tableLabelAllItems"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.someItemsFound" var="tableLabelSomeItems"/>
 <fmt:message bundle="${tableMessages}" key="table.paging.first" var="tableLabelFirst"/>
 <fmt:message bundle="${tableMessages}" key="table.paging.previous" var="tableLabelPrevious"/>
 <fmt:message bundle="${tableMessages}" key="table.paging.next" var="tableLabelNext"/>
 <fmt:message bundle="${tableMessages}" key="table.paging.last" var="tableLabelLast"/>
-<fmt:message bundle="${tableMessages}" key="table.paging.page" var="tableLabelPage"/>
+<fmt:message bundle="${tableMessages}" key="table.paging.goToPage" var="tableLabelGoToPage"/>
 <fmt:message bundle="${tableMessages}" key="table.paging.pages" var="tableLabelPages"/>
-<fmt:message bundle="${tableMessages}" key="table.paging.of" var="tableLabelOf"/>
+<%-- No <fmt:param> is passed, so the {n} placeholders reach carlos-tables.js unformatted. --%>
 <template data-carlos-table-labels
+          data-item-name="${carlos:forHtmlAttribute(tableLabelItemName)}"
+          data-items-name="${carlos:forHtmlAttribute(tableLabelItemsName)}"
+          data-no-items="${carlos:forHtmlAttribute(tableLabelNoItems)}"
+          data-one-item="${carlos:forHtmlAttribute(tableLabelOneItem)}"
+          data-all-items="${carlos:forHtmlAttribute(tableLabelAllItems)}"
+          data-some-items="${carlos:forHtmlAttribute(tableLabelSomeItems)}"
           data-first="${carlos:forHtmlAttribute(tableLabelFirst)}"
           data-previous="${carlos:forHtmlAttribute(tableLabelPrevious)}"
           data-next="${carlos:forHtmlAttribute(tableLabelNext)}"
           data-last="${carlos:forHtmlAttribute(tableLabelLast)}"
-          data-page="${carlos:forHtmlAttribute(tableLabelPage)}"
-          data-pages="${carlos:forHtmlAttribute(tableLabelPages)}"
-          data-of="${carlos:forHtmlAttribute(tableLabelOf)}"></template>
+          data-go-to-page="${carlos:forHtmlAttribute(tableLabelGoToPage)}"
+          data-pages="${carlos:forHtmlAttribute(tableLabelPages)}"></template>
 <link rel="stylesheet" href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/css/carlos-tables.css"/>
 <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/js/carlos-tables.js" defer></script>

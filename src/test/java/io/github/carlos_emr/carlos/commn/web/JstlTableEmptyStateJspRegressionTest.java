@@ -18,10 +18,10 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * A migrated JSTL table that answers an empty list with a {@code table-empty} message must not
- * also render its header row above that message: displaytag showed only the message, and an
+ * A migrated JSTL table that answers an empty list with its message must not also render its
+ * header row above that message: displaytag showed only the message (as plain text), and an
  * orphan header reads as a broken table. The {@code <c:if test="${not empty X}">} guard around the
- * table has to name the same attribute as the {@code ${empty X}} guard around the message.
+ * table has to name the same attribute as the {@code ${empty X}} guard that follows it.
  */
 @Tag("unit")
 @Tag("web")
@@ -29,13 +29,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 class JstlTableEmptyStateJspRegressionTest {
 
     private static final Path JSP_ROOT = Path.of("src/main/webapp/WEB-INF/jsp");
-    private static final Pattern EMPTY_GUARD = Pattern.compile("<c:if test=\"\\$\\{empty ([A-Za-z_][\\w.]*)\\}\">\\s*<p class=\"table-empty\"");
+    /** The empty-list guard directly after a guarded table; its message is plain text, as displaytag's was. */
+    private static final Pattern EMPTY_GUARD = Pattern.compile("</table>\\s*</c:if>\\s*<c:if test=\"\\$\\{empty ([A-Za-z_][\\w.]*)\\}\">");
+    /** Every migrated table answers an empty list (30 at the time of the displaytag removal, #5472). */
+    private static final int MINIMUM_GUARDS = 30;
     private static final Pattern CARLOS_TABLE = Pattern.compile("<table\\b[^>]*\\bdata-carlos-table\\b[^>]*>");
 
     @Test
     @DisplayName("should hide the table, header included, when its list is empty")
     void shouldGuardTable_whenListIsEmpty() throws IOException {
         List<String> problems = new ArrayList<>();
+        int guards = 0;
         try (Stream<Path> files = Files.walk(JSP_ROOT)) {
             for (Path path : files.filter(file -> file.toString().endsWith(".jsp")).toList()) {
                 String page = Files.readString(path, StandardCharsets.UTF_8);
@@ -49,6 +53,7 @@ class JstlTableEmptyStateJspRegressionTest {
                     int table = -1;
                     while (tables.find()) table = tables.start();
                     if (table < 0) continue;
+                    guards++;
                     if (!before.substring(0, table).contains("<c:if test=\"${not empty " + attribute + "}\">")) {
                         problems.add(path + " renders its table header before the empty message for " + attribute);
                     }
@@ -56,5 +61,6 @@ class JstlTableEmptyStateJspRegressionTest {
             }
         }
         assertThat(problems).isEmpty();
+        assertThat(guards).as("migrated tables with an empty-list guard").isGreaterThanOrEqualTo(MINIMUM_GUARDS);
     }
 }

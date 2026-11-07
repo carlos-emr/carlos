@@ -55,4 +55,4 @@
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty service_restrictions}"><p class="table-empty">No service restrictions currently in place for this program.</p></c:if>
+<c:if test="${empty service_restrictions}">No service restrictions currently in place for this program.</c:if>

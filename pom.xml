@@ -616,9 +616,10 @@
                 <version>3.0.4</version>
             </dependency>
             <!-- Expression Language 6.0, the version Tomcat 11 implements (#5416).
-                 Provided on every path: displaytag's JSTL API still asks for EL 5 at
-                 compile scope, and Tomcat always loads jakarta.el.* from its own
-                 lib/el-api.jar, so a copy in WEB-INF/lib is never used. See
+                 Provided on every path: the JSTL API (jakarta.servlet.jsp.jstl-api)
+                 still asks for EL 5 at compile scope, and Tomcat always loads
+                 jakarta.el.* from its own lib/el-api.jar, so a copy in WEB-INF/lib is
+                 never used. See
                  docs/container-provided-apis.md. -->
             <dependency>
                 <groupId>jakarta.el</groupId>
@@ -690,7 +691,7 @@
              org.slf4j:jcl-over-slf4j redefines the same classes and adds a
              META-INF/services entry that reroutes JCL through SLF4J. Shipping
              both left the winning LogFactory to class-loader order, so it is
-             excluded from hapi-fhir-base; the poi, displaytag and javamelody-core
+             excluded from hapi-fhir-base; the poi and javamelody-core
              exclusions date from older releases of those libraries and are kept
              as defence in depth. It is banned
              outright by maven-enforcer-plugin (ban-duplicate-commons-logging).

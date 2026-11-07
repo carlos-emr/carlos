@@ -46,4 +46,4 @@
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty client_statuses}"><p class="table-empty">No statuses are currently defined for this program.</p></c:if>
+<c:if test="${empty client_statuses}">No statuses are currently defined for this program.</c:if>

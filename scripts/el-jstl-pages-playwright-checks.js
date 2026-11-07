@@ -191,11 +191,14 @@ async function checkFacilityManager(context, recorder, config, contextPath) {
   await assertRendered(page, response, label);
   const table = page.locator('table#facility');
   // The JSTL table renders only with rows; with none, the empty-list message
-  // (${noFacilitiesMessage}) stands in its place as <p class="table-empty">.
-  const emptyMessage = (await page.locator('p.table-empty').allInnerTexts()).join(' ').trim();
-  assert(await table.count() === 1 || emptyMessage, 'the facility page rendered neither its table (table#facility) nor an empty-list message');
+  // (${noFacilitiesMessage}, "No facilities found." in English) stands in its place as plain
+  // text, as displaytag printed it.
+  const tableCount = await table.count();
+  const emptyMessage = tableCount === 0 && /No facilities found\./.test(await page.locator('body').innerText());
+  assert(tableCount === 1 || emptyMessage, 'the facility page rendered neither its table (table#facility) nor an empty-list message');
   const headers = await table.locator('thead th').evaluateAll(ths => ths.map(th => th.innerText.trim()));
-  assert(headers.length === 0 || (headers.length >= 2 && headers[0] && headers[1]),
+  // Zero headers only when the table itself is absent; a rendered table must label its columns.
+  assert(tableCount === 0 || (headers.length >= 2 && headers[0] && headers[1]),
     `column headers from <fmt:message> keys are blank: ${JSON.stringify(headers)}`);
   const rows = await table.locator('tbody tr').evaluateAll(trs => trs.map(tr => ({
     cells: tr.cells.length,

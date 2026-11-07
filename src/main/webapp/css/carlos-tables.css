@@ -1,33 +1,16 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
-/* Match the former table spacing hints without overriding a page's own cell styles. */
+/*
+ * Shared rules for the JSTL tables that replaced displaytag (#5472). Sort links, the paging
+ * banner (span.pagebanner, span.pagelinks) and empty-list text use displaytag's own markup and
+ * take their look from each page's stylesheets, as before, so nothing here styles them.
+ */
+/* Match the former cellspacing/cellpadding hints without overriding a page's own cell styles. */
 :where(table.carlos-table-spaced, table.carlos-table-history) { border-spacing: 2px; }
 :where(table.carlos-table-spaced > thead > tr > th,
        table.carlos-table-spaced > tbody > tr > td) { padding: 3px; }
 :where(table.carlos-table-history > thead > tr > th,
        table.carlos-table-history > tbody > tr > td) { padding: 9px; }
-.table-action {
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    color: var(--bs-link-color, LinkText);
-    text-decoration: underline;
-    cursor: pointer;
-}
-.table-sort {
-    background: none;
-    border: 0;
-    padding: 0;
-    font: inherit;
-    color: inherit;
-    text-decoration: underline;
-    cursor: pointer;
-}
-th[aria-sort="ascending"] .table-sort::after { content: " ▲"; }
-th[aria-sort="descending"] .table-sort::after { content: " ▼"; }
-.pagelinks button { margin: 0 .15rem; }
-.pagelinks [aria-current="page"] { font-weight: bold; }
-.table-empty { margin: .5rem 0; }
+/* Accessible name for a row's selection checkbox; never visible. */
 .table-selection-label {
     position: absolute;
     width: 1px;

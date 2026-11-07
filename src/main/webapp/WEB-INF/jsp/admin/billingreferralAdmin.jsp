@@ -99,7 +99,9 @@
             }
 
             function checkUncheck(referralId) {
-                var checked = $("input[name^='checked_" + referralId + "']").prop("checked");
+                // Exact name: every page of the list is in the document, so a prefix match on
+                // checked_5 would also find checked_50 (hidden, disabled, unchecked) on another page.
+                var checked = $("input[name='checked_" + referralId + "']").prop("checked");
 
                 $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral",
                     { method: "modifyBatch", id: referralId, checked: checked },
@@ -220,9 +222,9 @@
                                name="checked_${carlos:forHtmlAttribute(referral.id)}"
                                onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/>
                         <label class="table-selection-label" for="referral-select-${carlos:forHtmlAttribute(referral.id)}"><fmt:message key="dms.incomingDocs.select"/> ${carlos:forHtml(referral.firstName)} ${carlos:forHtml(referral.lastName)}</label></td>
-                    <td><button type="button" class="table-action"
+                    <td><a href="javascript:void(0)"
                                        onclick="openEditSpecialist('${carlos:forJavaScriptAttribute(referral.id)}')"><carlos:encode value='<%= linkName %>'/>
-                    </button></td>
+                    </a></td>
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.firstName))}" data-sort-type="${carlos:tableSortType(referral.firstName)}">${carlos:forHtml(referral.firstName)}</td>
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.lastName))}" data-sort-type="${carlos:tableSortType(referral.lastName)}">${carlos:forHtml(referral.lastName)}</td>
                     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.specialtyType))}" data-sort-type="${carlos:tableSortType(referral.specialtyType)}">${carlos:forHtml(referral.specialtyType)}</td>
@@ -233,7 +235,7 @@
                 </tr></c:forEach></tbody>
 </table>
                 </c:if>
-<c:if test="${empty referrals}"><p class="table-empty"><fmt:message key="admin.billingreferralAdmin.msgNoResults"/></p></c:if>
+<c:if test="${empty referrals}"><fmt:message key="table.msg.emptyList"/></c:if>
             </td>
         </tr>
         <tr>

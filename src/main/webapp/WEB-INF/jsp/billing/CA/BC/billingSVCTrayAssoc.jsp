@@ -108,7 +108,8 @@
             <input type="submit" name="submitButton" value="Save Association"
                    onclick="setMode('edit');"/> <input type="reset" value="Clear"/></fieldset>
     </form>
-    <%-- Paging is local; rejected save fields are never repeated into navigation URLs. --%>
+    <%-- Paging is local; rejected save fields are never repeated into navigation URLs. As under
+         displaytag (sort.amount=page), the default sort orders the rows within each page of 50. --%>
     <p/><c:if test="${not empty list}">
 <table class="displayGrid" data-carlos-table data-page-size="50" data-default-sort="1" data-default-order="descending">
 <thead><tr>
@@ -119,10 +120,10 @@
 <tbody><c:forEach var="tableRow" items="${list}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceNo)}">${carlos:forHtml(tableRow.billingServiceNo)}</td>
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceTrayNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceTrayNo)}">${carlos:forHtml(tableRow.billingServiceTrayNo)}</td>
-        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.associationStatus))}" data-sort-type="${carlos:tableSortType(tableRow.associationStatus)}"><button type="button" class="table-action" onclick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</button><br><button type="button" class="table-action" onclick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</button></td>
+        <td><a href="#" onClick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</a><br /><a href="#" onClick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</a></td>
     </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty list}"><p class="table-empty">Nothing found to display.</p></c:if>
+<c:if test="${empty list}">Nothing found to display.</c:if>
     </body>
 </html>

@@ -95,7 +95,7 @@
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty functional_users}"><p class="table-empty">No functional users defined for this program</p></c:if>
+<c:if test="${empty functional_users}">No functional users defined for this program</c:if>
 <br/>
 <br/>
 <table width="100%" border="1" cellspacing="2" cellpadding="3">

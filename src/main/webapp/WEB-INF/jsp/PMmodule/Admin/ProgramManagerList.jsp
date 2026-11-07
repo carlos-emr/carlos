@@ -148,14 +148,15 @@
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.type))}" data-sort-type="${carlos:tableSortType(program.type)}">${carlos:forHtml(program.type)}</td>
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.programStatus))}" data-sort-type="${carlos:tableSortType(program.programStatus)}">${carlos:forHtml(program.programStatus)}</td>
     <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.location))}" data-sort-type="${carlos:tableSortType(program.location)}">${carlos:forHtml(program.location)}</td>
-    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(program.numOfMembers))}" data-sort-type="number">
+    <%-- No property backed this column, so displaytag sorted it by the text shown. --%>
+    <td>
         ${carlos:forHtml(program.numOfMembers)}/${carlos:forHtml(program.maxAllowed)}
         (${carlos:forHtml(program.queueSize)} waiting)
     </td>
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty programs}"><p class="table-empty">No programs found.</p></c:if>
+<c:if test="${empty programs}">No programs found.</c:if>
 
 <div>
     <p><a href="${pageContext.request.contextPath}/PMmodule/ProgramManager?method=add">Add new program</a></p>

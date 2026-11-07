@@ -76,7 +76,7 @@ function removeFromRemoteQueue(remoteReferralId) {
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty queue}"><p class="table-empty">Queue is empty.</p></c:if>
+<c:if test="${empty queue}">Queue is empty.</c:if>
 
 <c:if test="${remoteQueue!=null}">
 	<br /><br />
@@ -115,5 +115,5 @@ function removeFromRemoteQueue(remoteReferralId) {
     </tr></c:forEach></tbody>
 </table>
     </c:if>
-<c:if test="${empty remoteQueue}"><p class="table-empty">Queue is empty.</p></c:if>
+<c:if test="${empty remoteQueue}">Queue is empty.</c:if>
 </c:if>

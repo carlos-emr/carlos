@@ -102,7 +102,7 @@
     </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty facilities}"><p class="table-empty">No facilities found.</p></c:if>
+<c:if test="${empty facilities}">No facilities found.</c:if>
 </form>
 <div>
     <p><a

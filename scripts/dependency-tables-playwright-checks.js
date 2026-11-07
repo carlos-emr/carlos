@@ -33,6 +33,22 @@ async function main() {
           <tbody><tr><td data-sort-value="10.00" data-sort-type="number">10.00</td></tr>
           <tr><td data-sort-value="2.00" data-sort-type="number">2.00</td></tr>
           <tr><td data-sort-value="0.50" data-sort-type="number">0.50</td></tr></tbody>
+        </table>
+        <table id="mixed" data-carlos-table data-default-sort="1">
+          <thead><tr><th><span data-table-sort>Value</span></th></tr></thead>
+          <tbody><tr><td data-sort-value="b" data-sort-type="number">b</td></tr>
+          <tr><td data-sort-value="10" data-sort-type="number">10</td></tr>
+          <tr><td data-sort-value="2" data-sort-type="number">2</td></tr></tbody>
+        </table>
+        <table id="whole" data-carlos-table data-page-size="2" data-sort-amount="list" data-banner-placement="bottom">
+          <thead><tr><th><span data-table-sort>Name</span></th></tr></thead>
+          <tbody><tr><td>Charlie</td></tr><tr><td>alpha</td></tr><tr><td>Bravo</td></tr></tbody>
+        </table>
+        <table id="fits" data-carlos-table data-page-size="15">
+          <thead><tr><th>Name</th></tr></thead><tbody><tr><td>One</td></tr><tr><td>Two</td></tr></tbody>
+        </table>
+        <table id="single" data-carlos-table data-page-size="15">
+          <thead><tr><th>Name</th></tr></thead><tbody><tr><td>Only</td></tr></tbody>
         </table></body></html>`;
     let browser;
     try {
@@ -58,46 +74,97 @@ async function main() {
             }));
         });
         const visible = () => page.locator('#codes tbody tr:visible td:first-child').allTextContents();
+        // The table's own banner: the summary and page links directly above it, or directly below
+        // it for data-banner-placement="bottom".
+        const banner = selector => page.evaluate(id => {
+            const table = document.querySelector(id);
+            const above = Boolean(table.previousElementSibling && table.previousElementSibling.matches('span.pagelinks'));
+            const summary = above ? table.previousElementSibling.previousElementSibling : table.nextElementSibling;
+            const links = summary && summary.nextElementSibling;
+            return {
+                above,
+                summary: summary && summary.matches('span.pagebanner') ? summary.textContent : null,
+                links: links && links.matches('span.pagelinks') ? links.textContent : null,
+            };
+        }, selector);
+        const linkStyle = () => page.locator('#codes th a').first().evaluate(link => ({
+            tag: link.tagName, href: link.getAttribute('href'), arrow: getComputedStyle(link, '::after').content,
+            headerClass: link.closest('th').className,
+        }));
+        const stripes = () => page.locator('#codes tbody tr:visible').evaluateAll(trs => trs.map(tr => tr.className));
+
+        // Unpaged tables sort the whole list by their typed keys; a stray value sorts the column as text.
         assert.deepEqual(await page.locator('#participation tbody td').allTextContents(),
             ['2/20 (0 waiting)', '9/20 (0 waiting)', '10/20 (0 waiting)']);
         assert.deepEqual(await page.locator('#prices tbody td').allTextContents(), ['0.50', '2.00', '10.00']);
-        assert.deepEqual(await visible(), ['100', '12']);
-        assert.equal(await page.getByRole('button', {name: 'Previous', exact: true}).isDisabled(), true);
-        await page.locator('input[name="records"][value="100"]').check();
-        await page.locator('input[name="head"][value="100"]').check();
-        await page.getByRole('button', {name: 'Next', exact: true}).click();
-        assert.deepEqual(await visible(), ['2']);
+        assert.deepEqual(await page.locator('#mixed tbody td').allTextContents(), ['10', '2', 'b']);
+        assert.equal(await page.locator('#prices').evaluate(table => table.previousElementSibling?.className ?? ''), '',
+            'an unpaged table gets no banner');
+
+        // displaytag's banner, above the table, and its header markup: a link in th.sortable, with
+        // sorted/order1/order2 on the sorted column and no added arrow.
+        assert.deepEqual(await banner('#codes'), {above: true, summary: '3 items found, displaying 1 to 2.',
+            links: '[First/Prev] 1, 2 [Next/Last]'});
+        assert.deepEqual(await linkStyle(), {tag: 'A', href: '#', arrow: 'none', headerClass: 'sortable sorted order2'});
+        assert.deepEqual(await banner('#fits'), {above: true, summary: '2 items found, displaying all items.', links: '1'});
+        assert.deepEqual(await banner('#single'), {above: true, summary: 'One item found.', links: '1'});
+        assert.equal(await page.locator('#whole').evaluate(table => table.nextElementSibling?.className), 'pagebanner',
+            'banner placement bottom keeps the banner below the table');
+
+        // sort.amount=page: the default descending sort orders the rows of each page; rows on every
+        // page restart at "odd".
+        assert.deepEqual(await visible(), ['12', '2']);
+        assert.deepEqual(await stripes(), ['odd', 'even']);
+        await page.locator('input[name="records"][value="12"]').check();
+        await page.locator('input[name="head"][value="12"]').check();
+        const codesLinks = page.locator('#fixture span.pagelinks');
+        await codesLinks.getByRole('link', {name: 'Next', exact: true}).click();
+        assert.deepEqual(await visible(), ['100']);
+        assert.deepEqual(await stripes(), ['odd']);
+        assert.deepEqual(await banner('#codes'), {above: true, summary: '3 items found, displaying 3 to 3.',
+            links: '[First/Prev] 1, 2 [Next/Last]'});
+        assert.equal(await codesLinks.getByRole('link', {name: 'Next', exact: true}).count(), 0, 'Next is plain text on the last page');
         assert.deepEqual(await page.evaluate(() => [...new FormData(document.querySelector('#fixture')).entries()]), []);
-        assert.equal(await page.getByRole('button', {name: 'Page 2', exact: true}).evaluate(el => el === document.activeElement), true);
-        await page.getByRole('button', {name: 'Page 1', exact: true}).click();
-        assert.equal(await page.getByRole('button', {name: 'Page 1', exact: true}).evaluate(el => el === document.activeElement), true);
-        assert.equal(await page.locator('input[name="records"][value="100"]').isChecked(), false);
-        await page.getByRole('button', {name: 'Number', exact: true}).click();
+        assert.equal(await page.locator('#codes').evaluate(() => document.activeElement.textContent), '2');
+        await codesLinks.getByRole('link', {name: '1', exact: true}).click();
+        assert.equal(await page.locator('#codes').evaluate(() => document.activeElement.textContent), '1');
+        assert.equal(await page.locator('input[name="records"][value="12"]').isChecked(), false);
+
+        // Header links toggle ascending first, as displaytag did, within the page.
+        const codes = page.locator('#codes');
+        await codes.getByRole('button', {name: 'Number', exact: true}).click();
         assert.deepEqual(await visible(), ['2', '12']);
         assert.equal(await page.locator('#codes th').first().getAttribute('aria-sort'), 'ascending');
-        await page.getByRole('button', {name: 'Code', exact: true}).click();
-        assert.deepEqual(await visible(), ['2', '100']);
+        assert.equal((await linkStyle()).headerClass, 'sortable sorted order1');
+        await codes.getByRole('button', {name: 'Code', exact: true}).click();
+        assert.deepEqual(await visible(), ['2', '12']);
+        assert.equal((await linkStyle()).headerClass, 'sortable');
         await page.locator('#codes tbody tr:visible .edit').first().click();
         assert.equal(await page.evaluate(() => window.edited), '2');
-        await page.getByRole('button', {name: 'Number', exact: true}).focus();
+        await codes.getByRole('button', {name: 'Number', exact: true}).focus();
         await page.keyboard.press('Enter');
         assert.deepEqual(await visible(), ['2', '12']);
         assert.equal(await page.locator('#codes th').first().getAttribute('aria-sort'), 'ascending');
-        await page.keyboard.press('Enter');
-        assert.deepEqual(await visible(), ['100', '12']);
+        await page.keyboard.press('Space');
+        assert.deepEqual(await visible(), ['12', '2']);
         assert.equal(await page.locator('#codes th').first().getAttribute('aria-sort'), 'descending');
         assert.equal(await page.evaluate(() => window.submits), 0);
+
+        // sort.amount=list sorts across pages and returns to the first page.
+        await page.locator('#whole').getByRole('button', {name: 'Name', exact: true}).click();
+        assert.deepEqual(await page.locator('#whole tbody tr:visible td').allTextContents(), ['alpha', 'Bravo']);
         assert.deepEqual(errors, []);
+
         const noScript = await browser.newContext({javaScriptEnabled: false});
         const plain = await noScript.newPage();
         // Reuse the same static fixture to verify readability with JavaScript disabled; no user data enters html.
         // nosemgrep: javascript.playwright.security.audit.playwright-setcontent-injection.playwright-setcontent-injection
         await plain.setContent(html);
         assert.equal(await plain.locator('#codes tbody tr:visible').count(), 3);
-        assert.equal(await plain.locator('.table-sort').count(), 0);
+        assert.equal(await plain.locator('.table-sort, .pagebanner').count(), 0);
         await noScript.close();
         await checkRegistryResults(browser);
-        console.log('PASS: typed sorting, paging, keyboard control, form isolation, and registry result filtering');
+        console.log('PASS: displaytag banner, header links, per-page stripes and sorting, list sorting, paging, keyboard control, form isolation, and registry paging/filtering');
     } finally {
         if (browser) await browser.close();
     }
@@ -135,13 +202,16 @@ async function checkRegistryResults(browser) {
     assert.equal(await page.locator('#listview_wrapper').count(), 1);
     assert.equal(await page.locator('#listview').getAttribute('data-table-ready'), null);
     assert.equal(await page.locator('#listview .table-sort').count(), 0);
-    assert.equal(await page.locator('#listview tbody tr:visible').count(), 12);
+    // DataTables' own default paging, as before: ten rows a page, with its length and page controls.
+    assert.equal(await page.locator('#listview tbody tr:visible').count(), 10);
+    assert.equal(await page.locator('#listview_paginate').count(), 1);
+    assert.equal(await page.locator('#listview_length select').count(), 1);
     await page.locator('#listview_filter input').fill('SyntheticSelected');
     assert.deepEqual(await firstNames(), ['Fixture01', 'Fixture12']);
     await page.locator('#listview th').first().click();
     assert.deepEqual(await firstNames(), ['Fixture12', 'Fixture01']);
     await page.locator('#listview_filter input').fill('');
-    assert.equal(await page.locator('#listview tbody tr:visible').count(), 12);
+    assert.equal(await page.locator('#listview tbody tr:visible').count(), 10);
     assert.deepEqual(errors, []);
     await page.close();
 }

@@ -62,4 +62,4 @@
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty teams}"><p class="table-empty">No teams are currently defined for this program.</p></c:if>
+<c:if test="${empty teams}">No teams are currently defined for this program.</c:if>

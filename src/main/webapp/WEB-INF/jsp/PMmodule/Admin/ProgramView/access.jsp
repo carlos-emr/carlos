@@ -57,4 +57,4 @@
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty accesses}"><p class="table-empty">No access currently defined for this program.</p></c:if>
+<c:if test="${empty accesses}">No access currently defined for this program.</c:if>

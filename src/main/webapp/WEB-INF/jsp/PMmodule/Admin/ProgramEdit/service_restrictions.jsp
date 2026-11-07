@@ -127,7 +127,7 @@ Please define the following parameters control the behaviour of new service rest
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty service_restrictions}"><p class="table-empty">No service restrictions currently in place for this program.</p></c:if>
+<c:if test="${empty service_restrictions}">No service restrictions currently in place for this program.</c:if>
 
 <br/>
 <div class="tabs" id="tabs">
@@ -173,4 +173,4 @@ Please define the following parameters control the behaviour of new service rest
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty disabled_service_restrictions}"><p class="table-empty">No service restrictions currently in place for this program.</p></c:if>
+<c:if test="${empty disabled_service_restrictions}">No service restrictions currently in place for this program.</c:if>

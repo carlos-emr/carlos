@@ -61,7 +61,7 @@
     </tr></c:forEach></tbody>
 </table>
     </c:if>
-<c:if test="${empty programSignatures}"><p class="table-empty">Nothing found to display.</p></c:if>
+<c:if test="${empty programSignatures}">Nothing found to display.</c:if>
 
     </body>
 </html>

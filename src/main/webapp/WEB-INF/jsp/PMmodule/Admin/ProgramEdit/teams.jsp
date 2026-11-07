@@ -92,7 +92,7 @@ function add_team(form) {
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty teams}"><p class="table-empty">No teams are currently defined for this program.</p></c:if>
+<c:if test="${empty teams}">No teams are currently defined for this program.</c:if>
 <br />
 <table width="100%" border="1" cellspacing="2" cellpadding="3">
 	<html:hidden property="team.id" />

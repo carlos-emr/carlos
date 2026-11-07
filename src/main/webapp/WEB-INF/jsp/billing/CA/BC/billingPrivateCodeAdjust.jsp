@@ -100,12 +100,13 @@
 <tbody><c:forEach var="tableRow" items="${test}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
             <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.serviceCode))}" data-sort-type="${carlos:tableSortType(tableRow.serviceCode)}">${carlos:forHtml(tableRow.serviceCode)}</td>
             <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.description))}" data-sort-type="${carlos:tableSortType(tableRow.description)}">${carlos:forHtml(tableRow.description)}</td>
-            <td data-sort-value="${carlos:forHtmlAttribute(tableRow.value)}" data-sort-type="number">${carlos:forHtml(tableRow.value)}</td>
-            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingserviceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingserviceNo)}"><a href="ViewBillingEditCode?codeId=${carlos:forUriComponent(tableRow.billingserviceNo)}&amp;code=${carlos:forUriComponent(tableRow.serviceCode)}&amp;desc=${carlos:forUriComponent(tableRow.description)}&amp;value=${carlos:forUriComponent(tableRow.value)}&amp;whereTo=private">Edit</a><br><button type="button" class="table-action" onclick="deletePrivateCode('${carlos:forJavaScriptAttribute(tableRow.billingserviceNo)}'); return false;">Delete</button></td>
+            <%-- Price is a String property, which displaytag sorted as text. --%>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.value))}" data-sort-type="${carlos:tableSortType(tableRow.value)}">${carlos:forHtml(tableRow.value)}</td>
+            <td><a href="ViewBillingEditCode?codeId=${carlos:forUriComponent(tableRow.billingserviceNo)}&amp;code=${carlos:forUriComponent(tableRow.serviceCode)}&amp;desc=${carlos:forUriComponent(tableRow.description)}&amp;value=${carlos:forUriComponent(tableRow.value)}&amp;whereTo=private">Edit</a> <br><a href="#" onclick="deletePrivateCode('${carlos:forJavaScriptAttribute(tableRow.billingserviceNo)}'); return false;">Delete</a></td>
         </tr></c:forEach></tbody>
 </table>
         </c:if>
-<c:if test="${empty test}"><p class="table-empty">Nothing found to display.</p></c:if>
+<c:if test="${empty test}">Nothing found to display.</c:if>
         <%}%>
     </div>
     </body>

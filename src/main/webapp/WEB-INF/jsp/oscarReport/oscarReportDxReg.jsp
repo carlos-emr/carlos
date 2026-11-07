@@ -109,10 +109,8 @@
             };
 
             $(document).ready(function () {
-                // DataTables alone owns result filtering and sorting; keep every matching row on one page.
                 $('#listview').DataTable({
-                    responsive: true,
-                    paging: false
+                    responsive: true
                 });
             });
 
@@ -214,18 +212,18 @@
                 <c:if test="${not empty codeSearch}">
                 <table class="table table-sm table-striped" id="codeSearch" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
 <thead><tr>
-                    <th scope="col"><span data-table-sort>Code System</span></th>
-                    <th scope="col"><span data-table-sort>Code</span></th>
-                    <th scope="col"><span data-table-sort>Description</span></th>
+                    <th scope="col">Code System</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Description</th>
                 </tr></thead>
 <tbody><c:forEach var="codeSearch" items="${codeSearch}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.type))}" data-sort-type="${carlos:tableSortType(codeSearch.type)}">${carlos:forHtml(codeSearch.type)}</td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.dxSearchCode))}" data-sort-type="${carlos:tableSortType(codeSearch.dxSearchCode)}">${carlos:forHtml(codeSearch.dxSearchCode)}</td>
-                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(codeSearch.description))}" data-sort-type="${carlos:tableSortType(codeSearch.description)}">${carlos:forHtml(codeSearch.description)}</td>
+                    <td>${carlos:forHtml(codeSearch.type)}</td>
+                    <td>${carlos:forHtml(codeSearch.dxSearchCode)}</td>
+                    <td>${carlos:forHtml(codeSearch.description)}</td>
                 </tr></c:forEach></tbody>
 </table>
                 </c:if>
-<c:if test="${empty codeSearch}"><p class="table-empty">Nothing found to display.</p></c:if>
+<c:if test="${empty codeSearch}">Nothing found to display.</c:if>
             </div>
             <div class="row">
                 <div class="form-check form-check-inline">

@@ -259,9 +259,11 @@
 <br/>
 <c:if test="${requestScope.clients != null}">
     <form method="post" name="mergeform" action="<%=request.getContextPath()%>/admin/MergeRecords">
-        <%-- Local paging excludes hidden-row controls from this merge form. --%>
+        <%-- Local paging excludes hidden-row controls from this merge form. The banner sits below
+             the table and a sort orders the whole list, as this page set paging.banner.placement
+             and sort.amount for displaytag. --%>
         <c:if test="${not empty clients}">
-        <table class="carlos-table-spaced simple" id="client" data-carlos-table data-page-size="10" data-default-sort="0" data-default-order="ascending">
+        <table class="carlos-table-spaced simple" id="client" data-carlos-table data-page-size="10" data-default-sort="0" data-default-order="ascending" data-banner-placement="bottom" data-sort-amount="list">
 <thead><tr>
 
 
@@ -356,7 +358,7 @@
         </tr></c:forEach></tbody>
 </table>
         </c:if>
-<c:if test="${empty clients}"><p class="table-empty">No clients found.</p></c:if> <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
+<c:if test="${empty clients}">No clients found.</c:if> <security:oscarSec roleName="<%=roleName$%>" objectName="_merge"
                                             rights="r">
 
         <input type="hidden" name="mergeAction" value="merge"/>

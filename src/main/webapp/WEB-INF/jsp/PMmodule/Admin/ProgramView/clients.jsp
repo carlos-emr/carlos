@@ -201,7 +201,7 @@
 </tr></c:forEach></tbody>
 </table>
 </c:if>
-<c:if test="${empty admissions}"><p class="table-empty">No clients currently admitted to this program.</p></c:if>
+<c:if test="${empty admissions}">No clients currently admitted to this program.</c:if>
 <br/>
 
 
