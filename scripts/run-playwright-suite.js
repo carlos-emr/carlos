@@ -749,13 +749,17 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
   }
 
   const results = [];
+  // The standalone tier renders repository fixtures without an application.
+  // Mixed tiers and any declared database/mutation work still require deployment identity.
+  const deploymentRequired = selected.some(check => check.tiers.length !== 1
+    || check.tiers[0] !== 'standalone' || check.assertsDatabase || mutatesOf([check]).length);
   try {
-    const identityBefore = probeIdentity(env);
-    if (options.strictRelease && !identityBefore) {
+    const identityBefore = deploymentRequired ? probeIdentity(env) : null;
+    if (options.strictRelease && deploymentRequired && !identityBefore) {
       results.push({name: 'application-identity', outcome: 'FAIL',
         detail: 'strict release: no deployment identity was established before execution', durationMs: 0});
     }
-    for (const check of options.strictRelease && !identityBefore ? [] : selected) {
+    for (const check of options.strictRelease && deploymentRequired && !identityBefore ? [] : selected) {
       out.log(`\n--- ${check.name} (${check.tiers.join(',')}) ---`);
       // `env`, not process.env: main() validated BASE_URL and MYSQL_HOST out of
       // the environment it was HANDED, so the child has to receive that same one
@@ -773,10 +777,10 @@ function main(argv = process.argv.slice(2), env = process.env, out = console, de
         }
       }
     }
-    const identityAfter = probeIdentity(env);
+    const identityAfter = deploymentRequired ? probeIdentity(env) : null;
 
     if ((identityBefore && identityAfter && identityBefore !== identityAfter)
-        || (options.strictRelease && !identityAfter)) {
+        || (options.strictRelease && deploymentRequired && !identityAfter)) {
       results.push({
         name: 'application-identity',
         outcome: 'FAIL',

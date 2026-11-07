@@ -13,7 +13,8 @@ for(const signal of ['SIGINT','SIGTERM'])for(const uncertain of [false,true]) {
     let current='https://127.0.0.1/carlos/',logins=0;
     const locator={async fill(){},async waitFor(){},async count(){return 1;},first(){return this;},
       async innerText(){return 'invalid login or reset form';},async getAttribute(){return '/carlos/forcepasswordresetSubmit';}};
-    const page={locator:()=>locator,url:()=>current,on(){},async goto(){return {status:()=>200,headers:()=>({'strict-transport-security':'max-age=1'})};},
+    const fieldValues=new Map();
+    const page={locator:selector=>({...locator,async fill(value){fieldValues.set(selector,value);},async inputValue(){return fieldValues.get(selector);}}),url:()=>current,on(){},async goto(){return {status:()=>200,headers:()=>({'strict-transport-security':'max-age=1'})};},
       async waitForURL(){},async waitForLoadState(){},async content(){return '/csrfguard Schedule';}};
     const browser={async newContext(){return {async newPage(){return page;}};},
       async close(){events.push('closed');assert(output.includes('generated password: generated-synthetic-recovery'));
@@ -21,7 +22,7 @@ for(const signal of ['SIGINT','SIGTERM'])for(const uncertain of [false,true]) {
     await vm.runInNewContext(source,{URL,process:signalProcess,console:{log:value=>output.push(value),error(){}},require(name){
       if(name==='./lib/legacy-check')return {runLegacyCheck:(_name,operation)=>operation({cancellation})};
       if(name==='./lib/playwright-harness')return {...h,launchBrowser:async()=>browser};
-      if(name==='./lib/deb-login-password')return {generatedPassword:()=> 'generated-synthetic-recovery'};
+      if(name==='./lib/deb-login-password')return {...require(name),generatedPassword:()=> 'generated-synthetic-recovery'};
       if(name==='./lib/deb-login-navigation')return {
         LOGIN_NAVIGATION_TIMEOUT_MS:100,
         async submitLoginDocument(_page,_button,{label}) {

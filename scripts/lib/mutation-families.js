@@ -520,6 +520,7 @@ function rxSave(s) {
       if (notes.length) {
         s.sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN (${notes.join(',')});
           DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes.join(',')});
+          DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes.join(',')});
           DELETE FROM casemgmt_note WHERE demographic_no=${s.patient} AND note_id IN (${notes.join(',')})`);
       }
       s.sql.execute(`DELETE FROM drugReason WHERE demographicNo=${s.patient};

@@ -1191,3 +1191,192 @@ Not run, and only a first run on GitHub (or a maintainer's machine) can settle:
    the skip and failure counts and any outbound connection to a host that is not the registry or a package
    mirror, and tune `shards` and the environment step.
 5. Decide on the migration leg separately, as its own pull request, with its exceptions file.
+
+## November 2026 correction for issue 5700
+
+The older sections above are historical proposals. Apply the changes below to
+those proposals and the current workflows before rollout. No `.github/**` file
+was changed for issue 5700. The native and evidence commands were exercised
+locally; these proposed GitHub jobs have not run on GitHub. The 10.8-second
+standalone number above is an older measurement, not a timing of today's suite.
+The current full installed tiers still need measured timings; retain the existing
+nightly sharding and timeout ceiling until measurements justify a change.
+
+Add this step after the existing isolated Chromium checks in
+`script-regressions.yml` (use the Chromium installed from the current lock):
+
+```diff
+--- a/.github/workflows/script-regressions.yml
++++ b/.github/workflows/script-regressions.yml
+@@
+       - name: Install Chromium for the isolated RTL fixture
+         run: npx --no-install playwright install --with-deps chromium
++      - name: Standalone strict browser contracts
++        run: node scripts/run-playwright-suite.js --tier standalone --strict-release --junit target/standalone.xml
+```
+
+For the new `playwright-smoke.yml`, retain the complete isolated-stack setup in
+section 3, apply these exact changes, and pin the actions to the SHAs in the
+current repository. A dev-stack smoke pass is not packaged-front-door evidence.
+Remove the old advice to make a job required after a fixed period of green runs:
+known failures must be investigated, and readiness is determined by the matrix.
+
+```diff
+--- a/.github/workflows/playwright-smoke.yml
++++ b/.github/workflows/playwright-smoke.yml
+@@
+-      - 'release/*'
++      - 'release/**'
+@@
+-            select=(--tier "$TIER" --province ON)
++            select=(--tier "$TIER" --province ON --strict-release)
+@@
+-              select=(--province ON)
++              select=(--province ON --strict-release)
+@@
+-              # Older branches have a runner without the audit; run them unaudited, loudly.
+-              if grep -q -- "--residue-audit" scripts/run-playwright-suite.js; then
+-                args+=(--residue-audit)
+-              else
+-                echo "::warning::the runner on this ref has no --residue-audit; running without it"
+-              fi
++              args+=(--residue-audit)
+```
+
+The nightly caller in section 4 must continue to pass `residue_audit: true`, run
+strict mode through that reusable workflow, preserve each shard's failures and
+use one isolated database/application stack per shard. A shard may not retry a
+known failure until green or drop manual cases from their separate required
+matrix executions. Keep outbound vendor checks out of these jobs; Ministry and
+SRFax staging qualification remains blocked pending authorized access.
+
+Add the omitted billing report family to the ON Flyway selector in
+`maven-project.yml` and run the CDS harness as its own native lane after compiling
+tests. The harness creates and destroys its own database/network and validates
+all twelve required families with no skips. Do not run the CDS suites under the
+ordinary generated-DAO schema or count their H2 assumption aborts as coverage.
+
+```diff
+--- a/.github/workflows/maven-project.yml
++++ b/.github/workflows/maven-project.yml
+@@
+-            -Dtest=ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest \
++            -Dtest=BilledProviderReportDaoIntegrationTest,ConsultationArchiveDaoIntegrationTest,ArchiveAuditTimestampIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,ConsultationListProjectionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest \
+@@
+-      - name: Verify MariaDB coverage and summarize results
++      - name: Run separately owned CDS native database contracts
++        run: |
++          python3 -m venv "$RUNNER_TEMP/cds-native-venv"
++          "$RUNNER_TEMP/cds-native-venv/bin/pip" install --require-hashes -r scripts/ci/requirements.txt
++          "$RUNNER_TEMP/cds-native-venv/bin/python" scripts/ci/run-cds-native-tier.py --container carlos-tomcat-dev --container-workspace /workspace
++      - name: Verify MariaDB coverage and summarize results
+```
+
+For `release-verification.yml`, the current tooling job is deliberately not a
+release verdict. Preserve its diagnostic inventory. Add a separate dispatch-only
+qualification job after provisioning the frozen candidate and its complete
+private evidence archive under `$RUNNER_TEMP/qualification`, outside the checkout.
+Use these exact steps inside that job after checkout
+of the archive's source SHA, Python 3.14, Node 22/npm 10.9.9 and `npm ci`:
+
+```yaml
+- name: Validate the committed execution requirements
+  run: python3 scripts/ci/verify-release-evidence.py validate-plan
+- name: Require reviewed ownership across every pinned comparison
+  run: python3 scripts/ci/release-scope-audit.py --output "$RUNNER_TEMP/qualification/scope.json"
+- name: Verify complete candidate-bound evidence
+  run: |
+    set -euo pipefail
+    python3 scripts/ci/verify-release-evidence.py verify \
+      --artifact "$RUNNER_TEMP/qualification/candidate/carlos.war" \
+      --evidence "$RUNNER_TEMP/qualification/evidence" \
+      --output "$RUNNER_TEMP/qualification/readiness.json"
+    python3 - <<'PY'
+    import json, os
+    from pathlib import Path
+    result = json.loads((Path(os.environ['RUNNER_TEMP']) / 'qualification/readiness.json').read_text())
+    assert result['releaseReady'] is True
+    assert not result['incomplete']
+    PY
+```
+
+The archive must contain the candidate WAR, all receipt directories and every
+hashed underlying input; never publish private raw logs. Collection must execute
+the Java coverage union only after all source/class-identical Java lanes, and
+include production JS/view mapping, manual/profiles, warning/privacy windows and
+package lifecycle checks. An unimplemented or blocked external adapter prevents
+this job from passing. Provisioning and cross-run artifact transfer must be
+reviewed before adding the job; the three steps are not a substitute for that
+boundary. No workflow should convert a missing readiness file into success.
+
+
+The required `main-release-wire-compatibility` check needs both the source-bound
+candidate WAR and the published main package from
+`release-2026.08-lifecycle-baselines.json`. Supply `CARLOS_MAIN_PACKAGE` and
+`CARLOS_TOMCAT_CORE` and `CARLOS_TOMCAT_JSP_API` (Tomcat 11.0.27; the adapter verifies
+both exact SHA-256 values). Run it through the existing verifier with `--artifact`; retain all
+underlying observations and changed-type inventories. A main/release difference
+must not be replaced with a candidate-only pass or a Maven provider baseline.
+See [the comparison findings](../testing/release-2026.08-main-release-comparison.md).
+This check supplements installed HTTP/persistence and package lifecycle comparisons.
+The required `public-api-oracle` needs Java 25 and javac. It compiles unchanged
+clients to prove sensitivity to protected access, abstract methods, competing
+overloads, exhaustive enum switches and inlined constant changes. Run it in the
+tooling lane; its synthetic fixtures do not need a deployed application.
+
+Run `manual-deb-login` through the verifier at installation time, before any normal
+suite authentication. Supply the private installer file and an explicit privately
+retained reset password that fits the form. The adapter requires the actual reset
+flag and verifies the resulting password, identity/PIN preservation and locked
+browser. An already-reset account fails before browser launch and must never be
+used as a substitute for clean-install first-login evidence.
+
+The required `installed-package-reinstall` runs on exclusive ON and BC installs.
+Supply exact candidate EMR/DrugRef paths and SHA-256 values, the pinned CLI path,
+and the original candidate WAR. The inner transition adapter independently checks
+whole clinical-cell and document preservation and the actual package/WAR byte
+identities. Its version gate reads the actual package control versions before
+mutation. Published asset filenames normalize `~` to `.`, so a filename must not
+be used as the installed version: the beta6 control field is `2026.08.0~beta6`.
+Never force a downgrade to obtain upgrade evidence.
+The file comparison permits only the explicitly mapped stock managed eForm
+editor script to transition between its old/new package bytes while preserving
+ownership/modes. All other clinical files and seeded templates remain exact;
+there is no filename-suffix exclusion. Managed-code behavior still needs its
+separate browser/JS acceptance.
+The full clean/main-upgrade/reinstall/unsupported-upgrade orchestration remains a
+separate required gate.
+
+The narrower `installed-smoke-signals` requirement runs document upload, tickler
+CRUD and a disposable login on ON and BC. It delivers actual SIGINT and SIGTERM
+at awaited post-write checkpoints and requires exit 130/143, an interrupted
+structured outcome, unchanged file stores and exact restoration of the original
+operator's password/reset state. It rejects historical handler injection. Supply
+`CARLOS_DISPOSABLE_HOST=true` and the actual `CARLOS_SUITE_PROVINCE`; stage the
+runbook's username lockout setting and vascular dictionary first. Keep it serial
+with every other install/profile mutation. This is additional coverage; the full
+`harness-crash-qualification` inventory and SIGKILL recovery remain required.
+
+The required `package-clean-reinstall`, `package-main-upgrade` and `package-beta5-upgrade` ON/BC slots run on the dedicated disposable
+Docker host using [the lifecycle configuration](../testing/release-2026.08-package-lifecycle.md).
+Keep the broader unsupported/interrupted lifecycle acceptance blocking until its
+separate cases are implemented and executed. The orchestrated deployment scope
+retains `packaged: true` and validates in-container application bytes.
+
+Run the required `browser-process-oracle` after installing the locked Playwright
+Chromium (or supplying its verified `CHROME_PATH`). It uses real detached browser
+processes and validates forced cleanup after timeout, SIGTERM and SIGINT. This
+process proof does not replace installed fixture restoration or SIGKILL recovery.
+
+The Node lane uses evidence schema 3 and the reviewed source/case inventory.
+Regenerate that inventory only from a complete passing qualified Node run after
+intentional test changes; final collection and verification recheck its source
+hashes and every generated case multiplicity.
+
+The qualification proposal also requires `fixture-ci-browser` from the release
+matrix, using the same qualified Node 22 and locked browser installation. This
+executes the 15 direct browser fixture commands already present in
+`script-regressions.yml`, checks actual browser/assertion evidence, and retains
+exact Node outcomes for navigation cancellation. Both the explicit Chromium
+executable and the default Playwright cache must be configured. No workflow file
+is amended by this proposal.

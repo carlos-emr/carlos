@@ -10,7 +10,7 @@ runLegacyCheck('legacy-fixture',async({cancellation})=>{
     await new Promise(resolve=>setTimeout(()=>{
       fs.writeFileSync(path.join(directory,'settled'),'yes');resolve();
     },100));
-    cancellation.throwIfCancelled();
+    await cancellation.throwIfCancelled();
     if(process.env.LEGACY_CHECK_RESULT)process.exitCode=Number(process.env.LEGACY_CHECK_RESULT);
     fs.writeFileSync(path.join(directory,'continued'),'yes');
   } catch(error) {
@@ -19,4 +19,4 @@ runLegacyCheck('legacy-fixture',async({cancellation})=>{
     if(!fs.existsSync(path.join(directory,'settled')))throw new Error('Cleanup raced the accepted write');
     fs.writeFileSync(path.join(directory,'cleaned'),'yes');
   }
-});
+},{realSignalCheckpoints:process.env.LEGACY_CHECK_OS_CHECKPOINTS==='true'});

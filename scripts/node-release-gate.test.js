@@ -58,3 +58,21 @@ test('real Node subprocess outcomes cannot hide behind exit zero or TODO annotat
   }
   await assert.rejects(execute([], path.join(directory, 'empty.json')), /Empty/);
 });
+
+test('passing Node cases cannot qualify test source modified during execution', t => {
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'node-release-source-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const source=path.join(directory,'controlled.test.cjs');
+  const output=path.join(directory,'result.json');
+  const driver=path.join(directory,'driver.cjs');
+  fs.writeFileSync(source,"const test=require('node:test');test('passing but changed',()=>require('node:fs').appendFileSync(__filename,'\\n// FAKE changed assertions'));\n");
+  fs.writeFileSync(driver,'require(process.argv[2]).execute([process.argv[3]],process.argv[4]).then(code=>process.exitCode=code)');
+  const environment={...process.env};delete environment.NODE_TEST_CONTEXT;
+  const child=spawnSync(process.execPath,[driver,require.resolve('./run-node-release-tests'),source,output],
+    {env:environment,encoding:'utf8',timeout:15000});
+  assert.equal(child.status,1,child.stderr);
+  const report=JSON.parse(fs.readFileSync(output));
+  assert.equal(report.cases.length,1);assert.equal(report.cases[0].outcome,'PASS');
+  assert.equal(report.sourceChanged,true);
+  assert.match(Object.values(report.sourceFiles)[0],/^[0-9a-f]{64}$/);
+});

@@ -14,4 +14,15 @@ function generatedPassword() {
   return `${password}!Aa1`;
 }
 
-module.exports = { generatedPassword };
+async function fillResetPasswords(page, currentPassword, nextPassword) {
+  for (const [name, expected] of [['oldPassword', currentPassword],
+    ['newPassword', nextPassword], ['confirmPassword', nextPassword]]) {
+    const field = page.locator(`input[name="${name}"]`);
+    await field.fill(expected);
+    if (await field.inputValue() !== expected) {
+      throw new Error(`Reset field ${name} changed or truncated its input; no credential change was submitted`);
+    }
+  }
+}
+
+module.exports = { generatedPassword, fillResetPasswords };

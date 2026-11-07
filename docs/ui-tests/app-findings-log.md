@@ -808,6 +808,12 @@ blocker #5277 asked to be reported rather than worked around.
 | 347 | **With legacy PIN disabled, the security editor cannot enable MFA because its submit handler reads absent PIN lock controls.** It unconditionally accesses `b_RemoteLockSet.checked` and `b_LocalLockSet.checked`, rendered only in the legacy-PIN block. | Live managed `no-pin` profile, current tests-only release package (2026-11-01): basic no-PIN workflow and all 14 login checks pass; `login-mfa-no-pin` fails at “Enable MFA on the security record sets usingMfa and stores no secret yet” with TypeError reading `checked`. Source: `securityupdatesecurity.jsp` conditional PIN controls and submit handler. Owned login removed; no SQL residue. Later MFA lifecycle assertions remain blocked. | `open` |
 | 348 | **The Inbox list omits the stored description of a routed document.** The list renders `labResult.description`, but the document result builders do not populate that field. | Live `document-clinical-followup`, current tests-only release package (2026-11-01): native provider activation and forwarding pass; the owned DOC row appears for the intended reviewer but its declared description is absent. Source: `InboxhubListMode.jsp` description column and the three `DocumentResultsDaoImpl` result builders, which never set `LabResultData.description`. The exact rendered-field assertion fails before review/comment/acknowledgement; prior complete handoff evidence remains separately identified. Owned rows/files removed; no residue. | `open` |
 
+## 29. Found while validating issue 5700 (6 November 2026)
+
+| # | Defect | Evidence | Status |
+|---|---|---|---|
+| 349 | **The opt-in EBS download interceptor logs SOAP payload content.** The default transport does not register it, but enabling the existing option exposes the body on standard output. This is pre-existing on main and release, not a new release regression. | Live isolated binary probe: `scripts/ci/run-ebs-payload-privacy.py` records `soapPayloadLeaked: true`; the unchanged synthetic canary in `WarWireCompatibilityProbe.java` reproduces it against pinned main beta6 and candidate `53709c7`. Source: `DownloadInInterceptor.handleMessage` prints the response body. Required privacy acceptance stays failed; no vendor was contacted and no canary body is retained. Tracked in [#5700](https://github.com/carlos-emr/carlos/issues/5700#issuecomment-6686872991). | `issue-filed` |
+
 ## How this list is meant to be used
 
 1. A finding here is **not** a reason to weaken a check. The suite's rule is

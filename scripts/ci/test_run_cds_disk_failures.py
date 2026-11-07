@@ -29,7 +29,7 @@ class DiskFailureEvidenceTest(unittest.TestCase):
     def setUp(self):
         self.temporary=tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root=Path(self.temporary.name)
+        self.root=Path(self.temporary.name).resolve()
 
     def test_operator_failure_requires_unique_submission_and_cannot_hide_an_acceptance_or_result(self):
         log=self.root/'operator.log'

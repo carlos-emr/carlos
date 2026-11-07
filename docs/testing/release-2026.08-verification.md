@@ -100,6 +100,13 @@ migrations and the branch version/SCM metadata are preserved.
   control that exposes canaries. A real `find -P` traversal checks the shipped
   purge predicate against nested credentials, retained ledgers and outside
   symlinks. Full installed backup/recovery qualification remains required.
+  T36 follows `debian/carlos-emr.README.Debian` section 7: named staging,
+  TLS and bootstrap paths are excluded; operational configuration needed for
+  recovery is intentionally retained under restic encryption. Verify that the
+  application account cannot read backup credentials or repository storage,
+  and that recovery preserves the encryption key. A blanket assertion that
+  every credential must be absent from encrypted snapshots is an invalid oracle.
+  Keep its failed diagnostic attempt visible when correcting that scope.
 * Chromium runs the unchanged calculator HTML/JS and exports source hashes and
   V8 execution ranges. This is explicitly an isolated fixture, separate from
   installed navigation, authorization and persistence acceptance.
@@ -110,6 +117,12 @@ Use the supported qualification tools: Java 25, Node 22, npm 10.9.9, the locked
 Playwright browser, physical MariaDB 11.8.8 and the target packaging tools.
 Install the hash-pinned Python parser and the system prerequisites used by the
 selected checks (`xmllint`, restic, nginx/ModSecurity/CRS, and so on).
+
+For `node-all`, set `CARLOS_CTL_SRC` to a separate checkout of the CLI release
+named by `debian/carlos-ctl.pin` (currently tag `1.3.1`). The Node suite exercises
+that CLI's installation and proxy contracts; omitting its source skips four
+cases and cannot produce passing release evidence. Use the published tag, with
+the pin's fallback commit only when that tag is unavailable, as CI does.
 
 ```sh
 python3 -m venv /tmp/carlos-release-verification-venv
@@ -259,3 +272,50 @@ The full case/acceptance text and required checks are in the JSON matrix.
 | T38 | Cache publication and invalidation |
 | T39 | Patient merge and refusal contracts |
 | T40 | Production JSP and executed JavaScript |
+
+The required `fixture-ci-browser` check reconciles all 15 direct browser fixture
+commands in `script-regressions.yml` with a source-hashed contract. It requires
+qualified Python/Node/npm, checkout-local locked Playwright, `CARLOS_FIXTURE_CHROMIUM`
+pointing to the locked executable, and `PLAYWRIGHT_BROWSERS_PATH` pointing to its
+installed cache. The cache must also contain the default headless executable:
+`job-types-datatable-browser-check.js` launches Playwright's default browser.
+
+Run it through `verify-release-evidence.py run --check fixture-ci-browser` with the
+same `--evidence` root as the other checks. Each run creates a fresh UUID directory
+under that root, outside the checkout or under `target/`. Both the configured
+Chromium executable and Playwright's selected default headless executable are
+hashed before the run and checked for changes afterward.
+Real provider observations require the locked Chromium
+version and disconnected browsers; direct assertion floors total 2,522 across the
+15 fixtures. The navigation fixture additionally requires all six exact Node
+engine cases with no skips, TODOs or cancellations. The observer delegates original
+assertions and browser calls, preserving arguments, results and failures. Missing
+commands, changed fixture sources, zero-assertion success and incomplete browser
+cleanup fail. These isolated source fixtures complement installed-page acceptance.
+
+### Installed backup core
+
+`installed-backup-core` is required independently on ON and BC. Run it as root
+inside the exclusive disposable installed package, with the exact candidate WAR,
+`--profile ON` or `--profile BC` matching the installed billing region,
+`BASE_URL` set to its loopback URL, `CARLOS_DISPOSABLE_HOST=true` and `EXCLUSIVE=1`.
+The installed backup script and effective service units must match the checkout;
+service drop-ins fail. Use a fresh local repository and an empty installer-created
+restore database. Existing backup history is refused before fixture creation.
+Keep the evidence directory private and outside the source checkout.
+
+The adapter starts the shipped backup and verification services, independently
+compares all cells and DDL in eleven clinical tables, the migration ledger and a
+Unicode/binary/high-precision canary, restores document bytes and metadata,
+checks eighteen named exclusions and two allowed import controls, and restores
+operational configuration and its encryption key. Encryption and access refusals
+have positive controls. A controlled repository disappearance must produce the
+specific refusal in fresh journal records, leave snapshot history and freshness
+markers unchanged, and recover the original directory inode. Cleanup waits for
+owned workers, checks fixture ownership and restores prior timer states. An
+unexpected replacement repository is retained for reconciliation.
+
+Private recovery archives include encrypted repository bytes and credential/key
+escrow; publish only receipt hashes. The separate `backup-retention-purge` check
+still requires retention, interruption and terminal purge qualification. This core
+does not claim those phases or complete issue 5700 by itself.
