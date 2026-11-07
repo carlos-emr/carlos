@@ -95,3 +95,40 @@ test('strict release reports a missing private result under the actual check nam
   assert.equal(result.outcome, 'FAIL');
   assert.match(result.detail, /cannot create a private structured result/);
 });
+
+test('strict standalone fixtures require structured PASS without contacting a deployment', () => {
+  let children = 0;
+  const result = suite.main(['--tier', 'standalone', '--strict-release'], {}, quiet, {
+    checks: [{...check, tiers: ['standalone']}],
+    readBuildIdentity: () => {throw new Error('fixture must not contact an application');},
+    run: (_binary, _args, options) => {
+      children++;
+      fs.writeFileSync(options.env.RESULT_JSON, JSON.stringify({outcome: 'PASS'}));
+      return {status: 0};
+    },
+  });
+  assert.equal(result, 0);
+  assert.equal(children, 1);
+});
+
+test('standalone classification cannot hide database, mutation or mixed-tier work', () => {
+  for (const candidate of [
+    {...check, tiers: ['standalone'], assertsDatabase: true},
+    {...check, tiers: ['standalone'], mutates: ['synthetic']},
+    {...check, tiers: ['standalone', 'core']},
+  ]) {
+    let children = 0;
+    assert.equal(suite.main(['--strict-release'], {}, quiet, {
+      checks: [candidate], readBuildIdentity: () => null,
+      run: () => {children++; return {status: 0};},
+    }), 1);
+    assert.equal(children, 0);
+  }
+});
+
+test('exit-zero standalone no-op remains a strict failure', () => {
+  assert.equal(suite.main(['--strict-release'], {}, quiet, {
+    checks: [{...check, tiers: ['standalone']}],
+    readBuildIdentity: () => null, run: () => ({status: 0}),
+  }), 1);
+});

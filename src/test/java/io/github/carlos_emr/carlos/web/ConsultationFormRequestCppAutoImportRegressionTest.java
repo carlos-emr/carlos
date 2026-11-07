@@ -115,6 +115,19 @@ class ConsultationFormRequestCppAutoImportRegressionTest {
                 .contains("appendAutoImportedClinicalSection(target, section.label, data.note);");
     }
 
+    @Test
+    @DisplayName("should prefill other medications from current modern CPP notes")
+    void shouldPrefillOtherMedications_fromCurrentModernCppNotes() throws Exception {
+        String jsp = readJsp("encounter/oscarConsultationRequest/ConsultationFormRequest.jsp");
+        assertThat(jsp)
+                .contains("new CppTextLoader(SpringUtils.getBean(CaseManagementManager.class), securityInfoManager)")
+                .contains(".load(request, loggedInInfo, demo, CaseManagementManager.IssueType.OMEDS)")
+                .contains("request.setAttribute(\"consultationCppUnavailable\", Boolean.TRUE)")
+                .contains("${requestScope.consultationCppUnavailable}")
+                .contains("encounter.oscarConsultationRequest.cppPrefillUnavailable")
+                .doesNotContain("EctInfo.getFamilyHistory()", "new EctInformation(");
+    }
+
     private static String readJsp(String relativePath) throws Exception {
         return Files.readString(JSP_ROOT.resolve(relativePath));
     }

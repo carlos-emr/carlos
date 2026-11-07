@@ -36,7 +36,6 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.sql.Connection;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.struts2.ActionSupport;
@@ -113,7 +112,6 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRecordChecksumAndSaveInOneTransaction_whenAuthorizedUploadIsNew() throws Exception {
         Path uploaded = Files.writeString(root.resolve("source.hl7"), "MSH|fixture CML content");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
-        Connection database = mock(Connection.class);
         AtomicReference<BufferedReader> parserReader = new AtomicReference<>();
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
@@ -129,7 +127,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                  doAnswer(invocation -> {
                      assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
                      return null;
-                 }).when(parser).save(any(Connection.class));
+                 }).when(parser).save();
              })) {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
             checksums.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
@@ -142,13 +140,12 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                         assertThat(stream.readAllBytes()).isEqualTo("MSH|fixture CML content".getBytes(StandardCharsets.UTF_8));
                         return 1;
                     });
-            jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
 
             assertThat(execute(uploaded, "original.hl7")).isEqualTo(ActionSupport.SUCCESS);
 
             assertThat(request.getAttribute("outcome")).isEqualTo("uploaded");
             assertThat(parsers.constructed()).hasSize(1);
-            verify(parsers.constructed().get(0)).save(database);
+            verify(parsers.constructed().get(0)).save();
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")));
             assertThat(transactions.commits).isEqualTo(1);
             assertThat(transactions.rollbacks).isZero();
@@ -238,7 +235,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
             assertThat(transactions.rollbacks).isEqualTo(1);
             assertThat(transactions.commits).isZero();
-            verify(parsers.constructed().get(0), never()).save(any());
+            verify(parsers.constructed().get(0), never()).save();
             jdbc.verifyNoInteractions();
             assertArchiveEmpty(documentDir);
         }
@@ -248,13 +245,12 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     void shouldRollBackChecksumWithLab_whenSavingFails() throws Exception {
         Path uploaded = Files.writeString(root.resolve("unsaved.hl7"), "MSH|unsaved CML content");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
-        Connection database = mock(Connection.class);
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
              MockedStatic<FileUploadCheck> checksums = mockStatic(FileUploadCheck.class, CALLS_REAL_METHODS);
              MockedStatic<LegacyJdbcQuery> jdbc = mockStatic(LegacyJdbcQuery.class);
              MockedConstruction<ABCDParser> parsers = mockConstruction(ABCDParser.class, (parser, context) ->
-                     doThrow(new IllegalStateException("result insert failed")).when(parser).save(any(Connection.class)))) {
+                     doThrow(new IllegalStateException("result insert failed")).when(parser).save())) {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
             checksums.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
             checksums.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")))
@@ -262,7 +258,6 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
                         assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
                         return 1;
                     });
-            jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 
@@ -272,7 +267,7 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")));
             assertThat(transactions.rollbacks).isEqualTo(1);
             assertThat(transactions.commits).isZero();
-            verify(database).close();
+            jdbc.verifyNoInteractions();
             assertArchiveEmpty(documentDir);
         }
     }
@@ -304,7 +299,6 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
     void shouldReportException_whenCommitOutcomeIsUnknown() throws Exception {
         Path uploaded = Files.writeString(root.resolve("unconfirmed-commit.hl7"), "MSH|unconfirmed commit");
         Path documentDir = Files.createDirectory(root.resolve("document-store"));
-        Connection database = mock(Connection.class);
         transactions.failCommit = true;
         try (MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class, CALLS_REAL_METHODS);
              MockedStatic<CarlosProperties> configuration = mockStatic(CarlosProperties.class);
@@ -314,14 +308,13 @@ class LabUpload2ActionUnitTest extends CarlosUnitTestBase {
             stubAuthorizedUpload(paths, configuration, uploaded, documentDir);
             checksums.when(() -> FileUploadCheck.isFileRecorded(any(InputStream.class))).thenReturn(false);
             checksums.when(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998"))).thenReturn(1);
-            jdbc.when(LegacyJdbcQuery::getConnection).thenReturn(database);
 
             assertThat(execute(uploaded)).isEqualTo(ActionSupport.SUCCESS);
 
             // Checksum and lab rows share the commit, so they stand or fall together and a retry
             // sees a consistent answer either way; there is nothing to clean up afterwards.
             assertThat(request.getAttribute("outcome")).isEqualTo("exception");
-            verify(parsers.constructed().get(0)).save(database);
+            verify(parsers.constructed().get(0)).save();
             checksums.verify(() -> FileUploadCheck.recordFile(anyString(), any(InputStream.class), eq("999998")));
             // The lab may have committed and reference its archive, so the archive is kept.
             try (var children = Files.list(documentDir)) {
