@@ -1,0 +1,67 @@
+{
+  "01-new-form": {
+    "base_size": [
+      1280,
+      900
+    ],
+    "pr_size": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null
+  },
+  "02-filled": {
+    "base_size": [
+      1280,
+      900
+    ],
+    "pr_size": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null
+  },
+  "03-saved-redisplay": {
+    "base_size": [
+      1280,
+      900
+    ],
+    "pr_size": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null
+  },
+  "04-formlist": {
+    "base_size": [
+      1280,
+      900
+    ],
+    "pr_size": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null
+  },
+  "05-reopen-saved": {
+    "base_size": [
+      1280,
+      900
+    ],
+    "pr_size": [
+      1280,
+      900
+    ],
+    "changed_pixels": 0,
+    "changed_ratio": 0.0,
+    "diff_bbox": null
+  }
+}
