@@ -425,7 +425,7 @@ class CdsExportSelectionIntegrationTest {
             var proof = new CdsExportNativeCaptureReader().verify(new java.io.ByteArrayInputStream(values.toByteArray()), new java.io.ByteArrayInputStream(index.toByteArray()),
                     Map.of("appointment", new CdsExportNativeCaptureReader.Table(java.util.Set.copyOf(
                             io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns()), 34)), 1000, 8L << 20, () -> {});
-            assertThat(proof.fields()).isEqualTo(34L * 26); assertThat(values.toString(StandardCharsets.UTF_8)).contains(note, "23:59:30", "00:00:30", "2024-02-29", "Original imported status");
+            assertThat(proof.fields()).isEqualTo(34L * 27); assertThat(values.toString(StandardCharsets.UTF_8)).contains(note, "23:59:30", "00:00:30", "2024-02-29", "Original imported status");
         } finally { for (int id : ids) sql.update("delete from appointment where appointment_no=? and demographic_no in (?,?)", id, first, first + 1); }
     }
     @Test @org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "cds.export.test.properties", matches = ".+")
@@ -601,7 +601,7 @@ class CdsExportSelectionIntegrationTest {
             var proof = new CdsExportNativeCaptureReader().verify(new java.io.ByteArrayInputStream(values.toByteArray()), new java.io.ByteArrayInputStream(index.toByteArray()),
                     Map.of("appointmentArchive", new CdsExportNativeCaptureReader.Table(java.util.Set.copyOf(io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.APPOINTMENT_ARCHIVE.columns()), 34)),
                     1000, 8L << 20, () -> {});
-            assertThat(proof.fields()).isEqualTo(884); assertThat(values.toString(StandardCharsets.UTF_8)).contains(notes);
+            assertThat(proof.fields()).isEqualTo(34L * 27); assertThat(values.toString(StandardCharsets.UTF_8)).contains(notes);
         } finally {
             for (int id : ids) sql.update("delete from appointmentArchive where id=? and demographic_no in (?,?)", id, first, first + 1);
             sql.update("delete from appointment_status where id=? and status='β'", -first - 100);
