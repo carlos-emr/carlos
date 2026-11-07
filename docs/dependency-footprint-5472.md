@@ -34,7 +34,7 @@ does not supply it; the existing WAR packaging check also requires the API and i
   advances (Chromium's fractional spacing ran a long medication name into the next legend
   marker), and vertical-axis labels centred on Java's baseline rather than the canvas "middle".
   Every plot rectangle lies within 2px of the data area JFreeChart recorded. 1px lines,
-  6x6 markers, item labels (`DecimalFormat` without grouping, on the first series only), high-low
+  6x6 markers filled and outlined in their series paint (7px), item labels (`DecimalFormat` without grouping, on the first series only), high-low
   range bars, flat bars with their 4px gray shadow painted bar by bar (a repeat prescription's
   shadow edge still crosses an earlier bar on its row), and a combined chart's equal subplot slots
   with the measurement plot's own 4px offset complete it. A medication request that matches no

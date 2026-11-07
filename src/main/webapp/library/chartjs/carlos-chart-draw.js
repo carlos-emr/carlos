@@ -19,7 +19,7 @@
  *  - tick units: NumberAxis's 1-2-5 units and DateAxis's standard units with their formats, chosen by
  *    JFreeChart's two-pass estimate from the label width (horizontal) or height (vertical) in Java's
  *    integer font metrics, and dated ticks anchored the way DateAxis.previousStandardDate anchors them;
- *  - the renderers: 1px lines, 6x6 filled markers from DefaultDrawingSupplier's shape sequence (a square for
+ *  - the renderers: 1px lines, 6x6 markers filled and outlined (7px) from DefaultDrawingSupplier's shape sequence (a square for
  *    the first series, a circle for the second, as blood pressure showed them), high-low range bars with 2px open
  *    and close ticks, item labels 4px above a point, and XYBarRenderer's flat bars with their gray
  *    shadow offset by 4px (a zero-length prescription stays a one pixel line);
@@ -424,6 +424,50 @@
         }
     }
 
+    /**
+     * A plotted item's marker. XYLineAndShapeRenderer filled the 6x6 shape and then drew its outline in
+     * the series paint with the series' 1px stroke, so a marker covers 7px. The recorded markers have
+     * crisp edges: their coordinates sit on pixel centres.
+     */
+    function drawPlotMarker(ctx, x, y, shape) {
+        const kind = shape === true ? 'circle' : shape || 'square';
+        ctx.save();
+        // A rectangle and its outline cover whole pixels: one exact block.
+        const block = (halfWidth, halfHeight) => {
+            const left = Math.floor(x - halfWidth), top = Math.floor(y - halfHeight);
+            ctx.fillRect(left, top, Math.floor(x + halfWidth) - left + 1, Math.floor(y + halfHeight) - top + 1);
+        };
+        const q = v => Math.floor(v) + 0.5;
+        const path = new Path2D();
+        const polygon = points => {
+            points.forEach(([dx, dy], i) => (i ? path.lineTo(q(x + dx), q(y + dy)) : path.moveTo(q(x + dx), q(y + dy))));
+            path.closePath();
+        };
+        const ellipse = (rx, ry) => {
+            const left = q(x - rx), right = q(x + rx), top = q(y - ry), bottom = q(y + ry);
+            path.ellipse((left + right) / 2, (top + bottom) / 2, (right - left) / 2, (bottom - top) / 2, 0, 0, 2 * Math.PI);
+        };
+        switch (kind) {
+            case 'square': block(3, 3); break;
+            case 'hRect': block(3, 1.5); break;
+            case 'vRect': block(1.5, 3); break;
+            case 'circle': ellipse(3, 3); break;
+            case 'upTriangle': polygon([[0, -3], [3, 3], [-3, 3]]); break;
+            case 'diamond': polygon([[0, -3], [3, 0], [0, 3], [-3, 0]]); break;
+            case 'downTriangle': polygon([[-3, -3], [3, -3], [0, 3]]); break;
+            case 'hEllipse': ellipse(3, 1.5); break;
+            case 'rightTriangle': polygon([[-3, -3], [3, 0], [-3, 3]]); break;
+            case 'leftTriangle': polygon([[-3, 0], [3, -3], [3, 3]]); break;
+            default: block(3, 3);
+        }
+        if (!['square', 'hRect', 'vRect'].includes(kind)) {
+            // BasicStroke's defaults: mitred joins and square caps, whatever Chart.js last left set.
+            ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = 1; ctx.lineJoin = 'miter'; ctx.lineCap = 'square'; ctx.setLineDash([]);
+            ctx.fill(path); ctx.stroke(path);
+        }
+        ctx.restore();
+    }
+
     // LegendTitle's item geometry: the graphic and the label each padded 2px on every side, items 2px
     // apart, and wrapped rows starting 2px in from the chart's edge.
     const GRAPHIC_PAD = 2;
@@ -444,7 +488,7 @@
     /**
      * {@code x} is the graphic's left edge and {@code y} the pixel centre of its row. JFreeChart drew a
      * legend line with square caps (half a pixel past each end) and outlined a legend marker in its own
-     * paint, so the marker covers 7px rather than the plot's 6px.
+     * paint, so the marker covers 7px, like the plot's.
      */
     function drawLegendGraphic(ctx, item, x, y) {
         ctx.fillStyle = item.colour; ctx.strokeStyle = item.colour; ctx.lineWidth = 1;
@@ -776,7 +820,7 @@
                         const elements = chart.getDatasetMeta(index).data;
                         if (source.shapes) {
                             ctx.fillStyle = colour;
-                            elements.forEach(element => drawMarker(ctx, Math.round(element.x), Math.round(element.y), shapeIndex(index)));
+                            elements.forEach(element => drawPlotMarker(ctx, element.x, element.y, shapeIndex(index)));
                         }
                         const labels = style.itemLabels;
                         if (!labels || source.kind !== 'line') return;
