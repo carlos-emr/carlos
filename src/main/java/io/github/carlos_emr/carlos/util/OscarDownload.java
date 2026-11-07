@@ -57,6 +57,13 @@ public class OscarDownload extends GenericDownload {
             "homepath", "ohipdownload", "obecdownload"
     );
 
+    /**
+     * Serves a validated basename from an authenticated user's session-approved directory.
+     * Billing paths, including aliases to HOME_DIR, require reconciled import evidence
+     * before the response stream opens.
+     *
+     * @throws IOException if response or file IO fails
+     */
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws IOException {

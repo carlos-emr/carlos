@@ -87,6 +87,7 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @TempDir
     Path billingDirectory;
 
+    /** Checks actual download and regeneration IO against durable review metadata. */
     @Test
     void shouldGateDownloadAndRegeneration_whenImportedFileNeedsReconciliation() throws Exception {
         String original = "HJ999998.001";

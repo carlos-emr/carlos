@@ -53,6 +53,7 @@ public class BillingFilenameImport extends AbstractModel<BillingFilenameImport.K
             this.sourceTable = sourceTable;
             this.sourceId = sourceId;
         }
+        /** The source table and row ID jointly identify one imported evidence row. */
         @Override public boolean equals(Object other) {
             return other instanceof Key key && Objects.equals(sourceTable, key.sourceTable)
                     && Objects.equals(sourceId, key.sourceId);

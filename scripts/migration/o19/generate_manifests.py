@@ -1346,6 +1346,7 @@ class TableRules(object):
     bucket it was never meant to see."""
 
     def __init__(self, ov, province: str = "on"):
+        """Resolve base and per-province table rulings for one destination profile."""
         self.ov = ov
         self.province = province
         # Rulings scoped to ONE province, dropped when generating any

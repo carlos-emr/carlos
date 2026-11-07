@@ -382,6 +382,10 @@ public class OhipReportGenerationService {
         return String.valueOf(max + 1);
     }
 
+    /**
+     * Advances the legacy sequence past claim or HTML names reserved by imported history.
+     * Exhausting the valid sequence range fails the batch before any output is written.
+     */
     private String unreservedBatchCount(String monthCode, String groupKey, String providerOhip,
                                         int year, boolean isGroup) {
         int first = parseStrictBatchCount(nextBatchCount(monthCode, groupKey, year));
