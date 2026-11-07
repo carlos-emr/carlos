@@ -144,9 +144,42 @@
     "exactIntegratedWarQualificationPending": false,
     "wholeSourceCatalogueComplete": false,
     "clinicalPublication": false,
-    "exactIntegratedWarAssertions": 37
+    "exactIntegratedWarAssertions": 37,
+    "exactComponentWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85"
   },
   "latestIntegratedPackage": {
+    "state": "PACKAGE_AND_EXACT_INSTALLED_HISTORY_SOURCE_COMPONENT_VERIFIED",
+    "head": "d1153c6ec70b5801e2e47b8e66c66d5cb5221791",
+    "javaChecks": 3889,
+    "javaSuites": 314,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "packagedWarSha256": "5141089a70940ca27cbff9c013bb93ae12344947eb7a63008dd175ac8840cd3f",
+    "genuineHistoryImportAssertions": 6,
+    "exactInstalledHistorySourceAssertions": 32,
+    "componentOverlays": false,
+    "nativeNoteIssueRevisionReconciliationComplete": false,
+    "clinicalPublication": false
+  },
+  "historyAndNoteAccess": {
+    "state": "PACKAGE_AND_EXACT_INSTALLED_SOURCE_COMPONENT_VERIFIED",
+    "focusedChecks": 118,
+    "includesActualMariaDbPermissionQueries": true,
+    "includesRealCliSpringBootstrap": true,
+    "sourceDatesPreservePrecisionOffsetFractionAndOriginalShift": true,
+    "resolutionAndReviewerDatesIncluded": true,
+    "retainedSourceReadRequiresExactNativeNoteAuthorization": true,
+    "lockedOrUnknownLockFlagRefused": true,
+    "currentNativeNoteIssueRevisionReconciliationComplete": false,
+    "concreteClinicalEngineComplete": false,
+    "clinicalPublication": false,
+    "genuineHistoryImportAssertions": 6,
+    "exactInstalledSourceAssertions": 32,
+    "midReadProgramRevocationRefused": true,
+    "nativeFixtureScopeEditsRestored": true
+  },
+  "previousIntegratedPackage": {
     "state": "PACKAGE_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "head": "7af49f0ccf18a7dbd9630c671219f4f0bec0b7e6",
     "fullSuiteHead": "a607a783c11b4388691413f3a860a4b02f25fab3",
@@ -158,19 +191,6 @@
     "errors": 0,
     "skipped": 0,
     "packagedWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85",
-    "clinicalPublication": false
-  },
-  "historyAndNoteAccess": {
-    "state": "ISOLATED_FOCUSED_COMPONENTS_VERIFIED",
-    "focusedChecks": 118,
-    "includesActualMariaDbPermissionQueries": true,
-    "includesRealCliSpringBootstrap": true,
-    "sourceDatesPreservePrecisionOffsetFractionAndOriginalShift": true,
-    "resolutionAndReviewerDatesIncluded": true,
-    "retainedSourceReadRequiresExactNativeNoteAuthorization": true,
-    "lockedOrUnknownLockFlagRefused": true,
-    "currentNativeNoteIssueRevisionReconciliationComplete": false,
-    "concreteClinicalEngineComplete": false,
     "clinicalPublication": false
   }
 }
