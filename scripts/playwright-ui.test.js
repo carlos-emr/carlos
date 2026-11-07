@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { EventEmitter } = require('node:events');
-const { clickOpensPopup, clickDownloadsOrOpens, clickOpensPopupOrNavigates } = require('./lib/playwright-ui');
+const { clickOpensPopup, clickDownloadsOrOpens, clickOpensPopupOrNavigates, typeAutocomplete } = require('./lib/playwright-ui');
 const { createRecorder, wireStrictPage, assertStrictPage } = require('./lib/playwright-harness');
 
 function eventPage(text = 'Working page') {
@@ -21,6 +21,37 @@ function noOutcomeListeners(page, context, navigationListeners = 0) {
   assert.equal(context.listenerCount('page'), 0, 'a later popup must not satisfy the old check');
   assert.equal(page.listenerCount('framenavigated'), navigationListeners);
   assert.equal(page.listenerCount('download'), 0);
+}
+
+for (const inputMode of [undefined, 'fill']) {
+  for (const bindsId of [true, false]) {
+    test(`autocomplete ${inputMode || 'type'} mode requires the selected widget id (bound: ${bindsId})`, async () => {
+      let value = 'old query';
+      let hidden = 'stale id';
+      const updates = [];
+      let picked = false;
+      const input = {
+        click: async () => {},
+        fill: async text => { value = text; hidden = ''; updates.push(text); },
+        type: async text => {
+          assert.equal(inputMode, undefined, 'complete-query mode must not send intermediate keystrokes');
+          for (const letter of text) { value += letter; updates.push(value); }
+        },
+      };
+      const suggestion = {
+        waitFor: async () => { assert.equal(value, 'Safety'); },
+        click: async () => { picked = true; if (bindsId) hidden = '41'; },
+      };
+      const menu = { locator: () => ({ first: () => suggestion }) };
+      const page = { locator: selector => selector === '#query' ? input
+        : selector === '#id' ? { inputValue: async () => hidden } : menu };
+      const result = typeAutocomplete(page, '#query', 'Safety', { inputMode, option: 'Safety', hidden: '#id' });
+      if (bindsId) assert.equal(await result, '41');
+      else await assert.rejects(result, /did not populate #id/);
+      assert.equal(picked, true, 'the rendered suggestion must be selected');
+      assert.deepEqual(updates, inputMode === 'fill' ? ['', 'Safety'] : ['', 'S', 'Sa', 'Saf', 'Safe', 'Safet', 'Safety']);
+    });
+  }
 }
 
 for (const navigates of [true, false]) {

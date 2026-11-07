@@ -453,8 +453,13 @@ async function workflow(s) {
 
   let pendingIssueId;
   await s.step('an issue assigned to the encounter remains pending before the CPP save', async () => {
+    // This workflow checks assignment and persistence. Enter the complete query
+    // in one input update: slow per-key typing can start superseded searches
+    // whose intentional XHR cancellations fail the strict page audit under load.
+    // Keep all request-failure assertions; still pick the rendered suggestion
+    // and require the widget to populate its hidden id.
     const picked = await ui.typeAutocomplete(echart, '#issueAutocomplete', 'Safety', {
-      option: 'Safety', hidden: '#newIssueId', timeout: 15000,
+      option: 'Safety', hidden: '#newIssueId', timeout: 15000, inputMode: 'fill',
     });
     const [assigned] = await Promise.all([
       echart.waitForResponse(response => isCaseManagementEntryPost(response, 'makeIssue')),

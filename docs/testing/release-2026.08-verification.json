@@ -1568,7 +1568,11 @@
         "premature Content-Length response cannot become a successful download",
         "missing final HTTP chunk cannot become a successful download",
         "unexpected compression is rejected before comparing decoded bytes with a wire Content-Length",
-        "passing Node cases cannot qualify test source modified during execution"
+        "passing Node cases cannot qualify test source modified during execution",
+        "autocomplete type mode requires the selected widget id (bound: true)",
+        "autocomplete type mode requires the selected widget id (bound: false)",
+        "autocomplete fill mode requires the selected widget id (bound: true)",
+        "autocomplete fill mode requires the selected widget id (bound: false)"
       ],
       "caseManifest": "docs/testing/release-2026.08-node-cases.json"
     },
