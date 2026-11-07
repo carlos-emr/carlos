@@ -137,6 +137,7 @@ class BaseObjectIdentityUnitTest {
     @Test
     void shouldCompareAllCompositeKeyParts_withNullSafety() {
         CtlDocumentPK key = new CtlDocumentPK("demographic", 1, 2);
+        assertThat(key.equals(key)).isTrue();
         assertThat(key).isEqualTo(new CtlDocumentPK("demographic", 1, 2))
                 .hasSameHashCodeAs(new CtlDocumentPK("demographic", 1, 2))
                 .isNotEqualTo(new CtlDocumentPK("program", 1, 2))

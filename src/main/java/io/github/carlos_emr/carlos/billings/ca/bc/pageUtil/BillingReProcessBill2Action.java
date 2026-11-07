@@ -63,7 +63,7 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingHistoryDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingNote;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
-import io.github.carlos_emr.carlos.util.SqlUtils;
+import io.github.carlos_emr.carlos.util.LegacyReadResult;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import org.apache.struts2.ActionSupport;
@@ -587,25 +587,13 @@ public class BillingReProcessBill2Action extends ActionSupport {
 
     private String[] getServiceCodePrice(String billingServiceCode, boolean usePrefix) {
         String prepend = usePrefix ? "A" : "";
-        String[] privateCodeRecord = SqlUtils.getRow(
-                "select value from billingservice where service_code = ?", prepend + billingServiceCode);
-        return privateCodeRecord;
+        String price = LegacyReadResult.orNull(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class)
+                .findFirstPrice(prepend + billingServiceCode));
+        return price == null ? null : new String[]{price};
     }
 
-    /**
-     * getPersistedBillType
-     *
-     * @param billingmasterNo String
-     * @return String
-     */
     private String getPersistedBillType(String billingmasterNo) {
-        String qry = "select billingstatus from billingmaster where billingmaster.billingmaster_no = ?";
-        String row[] = SqlUtils.getRow(qry, billingmasterNo);
-        String ret = null;
-        if (row != null) {
-            ret = row[0];
-        }
-        return ret;
+        return LegacyReadResult.orNull(() -> SpringUtils.getBean(BillingmasterDAO.class).findBillStatus(billingmasterNo));
     }
 
     /**

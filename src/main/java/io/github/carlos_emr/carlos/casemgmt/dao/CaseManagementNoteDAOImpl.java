@@ -68,6 +68,13 @@ import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 @Transactional
 public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseManagementNoteDAO {
 
+    @Override
+    public int replaceUnassignedReporterRole(int roleId) {
+        if (roleId <= 0) throw new IllegalArgumentException("Invalid reporter role");
+        return entityManager().createNativeQuery("UPDATE casemgmt_note SET reporter_caisi_role=?1 WHERE reporter_caisi_role='0'")
+                .setParameter(1, roleId).executeUpdate();
+    }
+
     private static Logger log = MiscUtils.getLogger();
 
     @SuppressWarnings("unchecked")

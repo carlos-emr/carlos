@@ -62,7 +62,8 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.commit()
 
     def git(self, *args):
-        return subprocess.check_output(["git", *args], cwd=self.root, stderr=subprocess.DEVNULL, text=True)
+        return subprocess.check_output(["git", *args], cwd=self.root, stderr=subprocess.DEVNULL, text=True,
+                                       env=gate.separate_checkout_environment())
 
     def commit(self):
         self.git("add", ".")
@@ -88,6 +89,111 @@ if '--nonzero' in sys.argv: sys.exit(7)
         self.assertTrue(result["releaseReady"])
         self.assertEqual(result["requiredExecutions"], 2)
         self.assertEqual(result["receivedExecutions"], 2)
+
+    def test_inherited_git_location_cannot_bind_receipts_to_another_checkout(self):
+        expected = gate.source_identity(self.root)
+        foreign = self.base / 'foreign'; foreign.mkdir()
+        environment = gate.separate_checkout_environment()
+        subprocess.run(['git', 'init', '-q'], cwd=foreign, env=environment, check=True)
+        (foreign / 'unrelated.txt').write_text('FAKE foreign source')
+        subprocess.run(['git', 'add', '.'], cwd=foreign, env=environment, check=True)
+        subprocess.run(['git', '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid',
+                        'commit', '-qm', 'test: foreign checkout'], cwd=foreign, env=environment, check=True)
+        with patch.dict(os.environ, {'GIT_DIR': str(foreign / '.git'), 'GIT_WORK_TREE': str(foreign),
+                                    'GIT_INDEX_FILE': str(foreign / '.git/index')}):
+            self.assertEqual(gate.source_identity(self.root), expected)
+            self.seed()
+            self.assertTrue(self.verify()['releaseReady'])
+
+    def test_stale_classes_cannot_be_relabelled_as_the_current_source(self):
+        (self.root / '.gitignore').write_text('/target/\n')
+        self.plan['checks'][1]['requireClassIdentity'] = True
+        self.save_plan(); self.commit()
+        stale = self.root / 'target/classes/example/Stale.class'
+        stale.parent.mkdir(parents=True)
+        stale.write_bytes(b'bytes from an older source tree')
+        # This command emits passing JUnit XML but does not compile anything.
+        result = self.run_check()
+        self.assertEqual(result['outcome'], 'FAIL')
+        self.assertIn('No compiled production classes', result['reason'])
+        self.assertFalse(stale.exists())
+        # A real lane must recreate the classes after the stale output is removed.
+        with self.tool.open('a') as script:
+            script.write("\np=pathlib.Path('target/classes/example/Current.class'); p.parent.mkdir(parents=True,exist_ok=True); p.write_bytes(b'current compilation')\n")
+        self.commit()
+        result = self.run_check()
+        self.assertEqual(result['outcome'], 'PASS')
+        classes = gate.read_json(self.evidence / result['runId'] / 'classes.json')
+        self.assertEqual(set(classes['classes']), {'example/Current.class'})
+        self.assertEqual(classes['sourceTree'], gate.source_identity(self.root)['tree'])
+
+    def test_compilation_cleanup_retains_evidence_and_refuses_linked_outputs(self):
+        target = self.root / 'target'
+        saved = target / 'evidence/previous/receipt.json'
+        saved.parent.mkdir(parents=True)
+        saved.write_text('previous retained evidence')
+        classes = target / 'classes'
+        classes.mkdir()
+        (classes / 'Old.class').write_bytes(b'old')
+        gate.compiled_classes.reset(self.root, saved.parent)
+        self.assertEqual(saved.read_text(), 'previous retained evidence')
+        classes.symlink_to(saved.parent, target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, 'symlink'):
+            gate.compiled_classes.reset(self.root)
+        self.assertTrue(saved.exists())
+
+    def test_binary_comparison_requires_artifact_without_requiring_an_installed_server(self):
+        self.plan['checks'][1]['requiresArtifact'] = True
+        self.save_plan(); self.commit()
+        receipt = self.run_check()
+        self.assertEqual(receipt['outcome'], 'BLOCKED')
+        self.assertNotIn('command', receipt)
+
+    def test_binary_artifact_binding_is_rechecked_at_final_verification(self):
+        self.plan['checks'][1]['requiresArtifact'] = True
+        self.save_plan(); self.commit()
+        build = self.run_check('build')
+        self.artifact = self.evidence / build['runId'] / 'carlos.war'
+        receipt = gate.run_check(self.plan_path, 'java', self.evidence, 'all', 1,
+                                 artifact=self.artifact, root=self.root)
+        self.assertEqual(receipt['outcome'], 'PASS')
+        self.assertTrue(self.verify()['releaseReady'])
+        receipt['artifactSha256'] = '0' * 64
+        (self.evidence / receipt['runId'] / 'receipt.json').write_text(json.dumps(receipt))
+        with self.assertRaisesRegex(EvidenceError, 'different packaged bytes'): self.verify()
+
+    def test_command_results_bind_underlying_inputs_through_final_verification(self):
+        producer = self.root / "measured.py"
+        producer.write_text('''import hashlib,json,pathlib,sys
+run=pathlib.Path(sys.argv[1])
+data=run/'metrics.json'; data.write_text('{"active":0}')
+(run/'result.json').write_text(json.dumps({'schemaVersion':1,'assertions':{'restored':True},
+ 'inputs':[{'path':'metrics.json','sha256':hashlib.sha256(data.read_bytes()).hexdigest()}]}))
+''')
+        self.plan["checks"].append({"id": "measured", "kind": "command", "profiles": ["all"],
+            "command": [sys.executable, str(producer), "{run}"],
+            "resultContract": {"file": "result.json", "assertions": ["restored"]}})
+        self.plan["workstreams"][0]["requiredChecks"].append("measured")
+        self.save_plan()
+        self.commit()
+        self.seed()
+        receipt = self.run_check("measured")
+        self.assertEqual(receipt["outcome"], "PASS")
+        self.assertEqual({row["path"] for row in receipt["inputs"]}, {"metrics.json", "result.json"})
+        self.assertTrue(self.verify()["releaseReady"])
+        (self.evidence / receipt["runId"] / "metrics.json").write_text('{"active":100}')
+        with self.assertRaisesRegex(EvidenceError, "Missing or changed evidence input"):
+            self.verify()
+
+    def test_command_exit_zero_without_result_retains_failed_receipt(self):
+        self.plan["checks"].append({"id": "noop", "kind": "command", "profiles": ["all"],
+            "command": [sys.executable, "-c", "pass"],
+            "resultContract": {"file": "result.json", "assertions": ["restored"]}})
+        self.save_plan()
+        self.commit()
+        receipt = self.run_check("noop")
+        self.assertEqual(receipt["outcome"], "FAIL")
+        self.assertEqual(gate.read_json(self.evidence / receipt["runId"] / "receipt.json")["outcome"], "FAIL")
 
     def test_python_children_use_the_entrypoint_interpreter_without_venv_activation(self):
         alternate = self.base / "alternate-bin"
@@ -217,6 +323,14 @@ if '--nonzero' in sys.argv: sys.exit(7)
         result = self.run_check()
         self.assertEqual(result["outcome"], "FAIL")
         self.assertIn("changed during", result["reason"])
+
+    def test_missing_executable_blocks_before_any_test_is_spawned(self):
+        self.plan["checks"][1]["requiresExecutables"] = ["release-test-prerequisite-not-installed"]
+        self.save_plan(); self.commit()
+        result = self.run_check()
+        self.assertEqual(result["outcome"], "BLOCKED")
+        self.assertIsNone(result["exitCode"])
+        self.assertFalse((self.evidence / result["runId"] / "reports").exists())
 
     def test_named_missing_prerequisite_produces_blocked_not_pass(self):
         self.plan["checks"][1]["requiresEnvironment"] = ["CARLOS_SYNTHETIC_UNSET_PREREQUISITE"]

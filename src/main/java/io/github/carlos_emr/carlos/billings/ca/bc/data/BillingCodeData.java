@@ -38,7 +38,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingService;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.SqlUtils;
+import io.github.carlos_emr.carlos.util.LegacyReadResult;
 
 /**
  * @author root
@@ -215,7 +215,8 @@ public final class BillingCodeData implements Comparable {
 
 
     public List getBillingCodesLookup(String searchTerm) {
-        return SqlUtils.getQueryResultsList("select service_code,description from billingservice where description like ?", searchTerm + "%");
+        var rows = LegacyReadResult.listOrNull(() -> billingServiceDao.findCodeDescriptions(searchTerm));
+        return rows == null ? null : rows.stream().map(row -> new String[]{row.code(), row.description()}).toList();
     }
 
     /**

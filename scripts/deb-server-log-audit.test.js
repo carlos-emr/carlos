@@ -39,6 +39,17 @@ function audit(t, lines, { baseline = '# none\n', args = [] } = {}) {
   return { status: result.status, out: result.stdout, err: result.stderr };
 }
 
+test('qualification explicitly audits unbaselined warnings without publishing payload text', t => {
+  const lines = ['2026-11-06 04:40:11,612 WARN example.Fake (Fake.java:17) - FAKE_PRIVATE_WARNING'];
+  assert.equal(audit(t, lines).status, 0, 'ordinary error-only audit preserves its contract');
+  const result = audit(t, lines, {args: ['--include-warn']});
+  assert.equal(result.status, 1);
+  assert.match(result.out, /WARN example.Fake/);
+  assert.doesNotMatch(result.out + result.err, /FAKE_PRIVATE_WARNING/);
+  assert.equal(audit(t, lines, {args: ['--include-warn'],
+    baseline: '^WARN example\\.Fake \\(Fake\\.java:17\\)\tReviewed synthetic warning: docs/testing/release-2026.08-verification.md\n'}).status, 0);
+});
+
 // Fictitious content shaped like the packaged log4j layout.
 const NPE_EVENT = [
   '2026-10-08 04:40:11,612 ERROR utility.DbConnectionFilter (DbConnectionFilter.java:96) - Unexpected error for FAKE-Doe, FAKE-Jane HIN 9876543210',
@@ -56,7 +67,7 @@ test('should reduce an ERROR event to logger, location, first non-filter CARLOS 
 });
 
 test('only the exact synthetic renderer probe is baselined at the AP lookup log site', (t) => {
-  const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:359) - ';
+  const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:353) - ';
   const message = 'AP config lookup requested an unconfigured key=';
   const baseline = fs.readFileSync(BASELINE, 'utf8');
   const probe = audit(t, [prefix + message + 'renderer_missing_ap_1793762614845 fid=1'], {baseline});
