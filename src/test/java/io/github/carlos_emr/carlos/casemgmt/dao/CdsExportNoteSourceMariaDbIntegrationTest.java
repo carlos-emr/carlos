@@ -51,6 +51,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
     private JdbcTemplate sql;
     private CaseManagementNoteDAO notes;
     private CdsExportNoteAccessDao access;
+    private CaseManagementNoteExtDAO extensions;
     private TransactionTemplate read;
     private final int id = 490_000_000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9_000_000);
     private final String marker = "OwnedNoteSource" + id;
@@ -68,7 +69,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "none", "hibernate.dialect", "org.hibernate.dialect.MariaDBDialect", "hibernate.show_sql", "false")); return factory;
         });
         context.registerBean(PersistenceAnnotationBeanPostProcessor.class); context.registerBean("transactionManager", JpaTransactionManager.class, () -> new JpaTransactionManager(context.getBean(EntityManagerFactory.class)));
-        context.register(CaseManagementNoteDAOImpl.class, CdsExportNoteAccessDao.class); context.refresh(); notes = context.getBean(CaseManagementNoteDAO.class); access = context.getBean(CdsExportNoteAccessDao.class);
+        context.register(CaseManagementNoteDAOImpl.class, CaseManagementNoteExtDAOImpl.class, CdsExportNoteAccessDao.class); context.refresh(); notes = context.getBean(CaseManagementNoteDAO.class); access = context.getBean(CdsExportNoteAccessDao.class); extensions = context.getBean(CaseManagementNoteExtDAO.class);
         read = new TransactionTemplate(context.getBean(PlatformTransactionManager.class)); read.setReadOnly(true); read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ); read.setTimeout(30);
         var write = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
         write.executeWithoutResult(status -> {
@@ -79,6 +80,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             for (int patient : List.of(id, id + 1)) {
                 sql.update("insert into demographic(demographic_no,first_name,last_name,patient_status,lastUpdateDate) values(?,'Synthetic',?,'IN',CURRENT_TIMESTAMP)", patient, marker);
                 sql.update("insert into casemgmt_note(note_id,demographic_no,note,history,program_no,reporter_caisi_role,update_date) values(?,?,?,'','17','1',CURRENT_TIMESTAMP)", patient, patient, patient == id ? body : "Other owned patient");
+                sql.update("insert into casemgmt_note_ext(id,note_id,key_val,value,date_value) values(?,?,'OwnedLargeNoteExt',?,'2020-02-29')", patient, patient, patient == id ? body : "Other owned extension");
             }
         }); ownsRows = true;
     }
@@ -86,6 +88,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
         try {
             if (ownsRows) {
                 for (int patient : List.of(id, id + 1)) {
+                    sql.update("delete e from casemgmt_note_ext e join casemgmt_note n on n.note_id=e.note_id join demographic d on d.demographic_no=n.demographic_no where e.id=? and e.key_val='OwnedLargeNoteExt' and d.last_name=?", patient, marker);
                     sql.update("delete n from casemgmt_note n join demographic d on d.demographic_no=n.demographic_no where n.note_id=? and n.demographic_no=? and d.first_name='Synthetic' and d.last_name=?", patient, patient, marker);
                     sql.update("delete from demographic where demographic_no=? and first_name='Synthetic' and last_name=?", patient, marker);
                 }
@@ -113,6 +116,22 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             var schema = notes.readCdsExportSourceSchema(); assertThatCode(() -> new CdsExportSourceSchemaValidator().verify(schema, Set.copyOf(CdsExportPatientTableReadSupport.Plan.CASE_NOTES.columns()))).doesNotThrowAnyException();
             var receipt = notes.readCdsExportReceiptColumns(); assertThat(receipt).hasSize(25); assertThat(receipt.stream().map(column -> column.name()).toList()).containsExactlyInAnyOrderElementsOf(CdsExportPatientTableReadSupport.Plan.CASE_NOTES.columns());
         });
+    }
+    @Test void shouldPreserveEveryOwnedNoteExtension_andStreamItsCompleteUtf8Value() {
+        read.executeWithoutResult(status -> {
+            assertThat(extensions.countCdsExportRows(id)).isEqualTo(1); var page = extensions.findCdsExportRowsAfter(id, null, 32); assertThat(page).hasSize(1);
+            var row = page.getFirst(); assertThat(row.id()).isEqualTo(id); assertThat(row.cells().get("value").inlineBytes()).isNull();
+            assertThat(new String(row.cells().get("date_value").inlineBytes(), StandardCharsets.UTF_8)).isEqualTo("2020-02-29");
+            var digest = io.github.carlos_emr.carlos.utility.CdsImportKeys.digest(); long offset = 0;
+            while (offset < row.cells().get("value").bytes()) {
+                byte[] chunk = extensions.readCdsExportValueChunk(id, id, "value", offset, (int) Math.min(65536, row.cells().get("value").bytes() - offset));
+                assertThat(chunk).isNotEmpty(); digest.update(chunk); offset += chunk.length;
+            }
+            assertThat(HexFormat.of().formatHex(digest.digest())).isEqualTo(row.cells().get("value").sha256());
+            assertThatCode(() -> new CdsExportSourceSchemaValidator().verify(extensions.readCdsExportSourceSchema(), Set.copyOf(CdsExportPatientTableReadSupport.Plan.CASE_NOTE_EXT.columns()))).doesNotThrowAnyException();
+            assertThat(extensions.readCdsExportReceiptColumns()).hasSize(5); assertThat(extensions.findCdsExportRowsAfter(id, (long) id, 32)).isEmpty();
+        });
+        assertThatThrownBy(() -> read.execute(status -> extensions.readCdsExportValueChunk(id, id + 1, "value", 0, 10))).isInstanceOf(IllegalStateException.class);
     }
     @Test void shouldKeepOneRealSnapshot_whenTheNoteScopeChangesOnAnotherConnection() {
         read.executeWithoutResult(status -> {

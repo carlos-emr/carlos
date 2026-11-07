@@ -57,7 +57,7 @@ public class CdsExportNativeRowReceiptReader {
             Map.entry("demographicExt", "id"),
             Map.entry("demographiccust", "demographic_no"),
             Map.entry("cds_import_field", "id"),
-            Map.entry("casemgmt_note", "note_id"),
+            Map.entry("casemgmt_note", "note_id"), Map.entry("casemgmt_note_ext", "id"),
             Map.entry("preventions", "id"),
             Map.entry("preventionsExt", "id"),
             Map.entry("prevention_precision", "id"));

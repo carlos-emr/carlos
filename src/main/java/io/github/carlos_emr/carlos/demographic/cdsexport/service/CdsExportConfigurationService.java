@@ -35,6 +35,13 @@ public class CdsExportConfigurationService {
     public CdsExportConfigurationService(@Qualifier("cdsExportProperties") Properties supplied) {
         properties = new Properties(); properties.putAll(supplied);
     }
+    /** Same trusted server facility policy used by the active case-management note reader. */
+    public boolean filterNotesOnFacility() {
+        String value = properties.getProperty("FILTER_ON_FACILITY", "true").strip();
+        if (value.equalsIgnoreCase("true")) return true;
+        if (value.equalsIgnoreCase("false")) return false;
+        throw new IllegalStateException("CDS_EXPORT_CONFIGURATION_INVALID");
+    }
     public boolean enabled() {
         String value = properties.getProperty("cds.export.enabled", "false").strip();
         if (!Set.of("true", "false").contains(value)) throw new IllegalStateException("CDS_EXPORT_CONFIGURATION_INVALID");

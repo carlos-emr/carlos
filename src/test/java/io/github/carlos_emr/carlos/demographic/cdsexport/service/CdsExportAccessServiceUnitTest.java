@@ -106,12 +106,12 @@ class CdsExportAccessServiceUnitTest {
     @Test void shouldRequireTheExactLiveNoteScope_beforeCheckingItsProgramGrant() {
         var command = noteCommand("100"); var actor = access.webActor(session, command);
         var scope = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, "17", "1");
-        when(notes.findScope(27, 91)).thenReturn(scope); when(notes.canRead("100", scope)).thenReturn(true);
+        when(notes.findScope(27, 91)).thenReturn(scope); when(notes.canRead("100", scope, null, true)).thenReturn(true);
         access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope);
-        verify(notes).canRead("100", scope); clearInvocations(notes);
+        verify(notes).canRead("100", scope, null, true); clearInvocations(notes);
         when(notes.findScope(27, 91)).thenReturn(new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, "18", "1"));
         assertThatThrownBy(() -> access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope)).hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
-        verify(notes, never()).canRead(anyString(), any());
+        verify(notes, never()).canRead(anyString(), any(), nullable(Integer.class), anyBoolean());
     }
     @Test void shouldDenyMissingNotesAndChangedReporterRoles_beforeCheckingProgramGrants() {
         var command = noteCommand("100"); var actor = access.webActor(session, command);
@@ -119,19 +119,19 @@ class CdsExportAccessServiceUnitTest {
         assertThatThrownBy(() -> access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope)).isInstanceOf(SecurityException.class);
         when(notes.findScope(27, 91)).thenReturn(new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, "17", "2"));
         assertThatThrownBy(() -> access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope)).isInstanceOf(SecurityException.class);
-        verify(notes, never()).canRead(anyString(), any());
+        verify(notes, never()).canRead(anyString(), any(), nullable(Integer.class), anyBoolean());
     }
     @Test void shouldRequireProgramRightsForBothDelegatedIdentities_onEveryCall() {
         var command = noteCommand("200"); var actor = access.webActor(session, command);
         var scope = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, "17", "1");
         when(notes.findScope(27, 91)).thenReturn(scope);
         for (String denied : List.of("100", "200")) {
-            when(notes.canRead(anyString(), eq(scope))).thenAnswer(call -> !denied.equals(call.getArgument(0)));
+            when(notes.canRead(anyString(), eq(scope), isNull(), eq(true))).thenAnswer(call -> !denied.equals(call.getArgument(0)));
             assertThatThrownBy(() -> access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope)).hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
         }
-        when(notes.canRead(anyString(), eq(scope))).thenReturn(true);
+        when(notes.canRead(anyString(), eq(scope), isNull(), eq(true))).thenReturn(true);
         access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope);
-        when(notes.canRead("100", scope)).thenReturn(false);
+        when(notes.canRead("100", scope, null, true)).thenReturn(false);
         assertThatThrownBy(() -> access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope)).isInstanceOf(SecurityException.class);
     }
     @Test void shouldDenyNoteReadsOutsideTheSelectedPatientAndCategory_beforeAnyLookup() {
@@ -151,10 +151,37 @@ class CdsExportAccessServiceUnitTest {
         verifyNoInteractions(notes);
     }
     @Test void shouldRejectMalformedOrOverflowingNoteScopes_withoutNumericCoercion() {
-        for (String value : List.of("", "01", "1x", " 1", "-1", "2147483648", "4294967296"))
+        for (String value : List.of("01", "1x", " 1", "-1", "2147483648", "4294967296"))
             assertThatThrownBy(() -> new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, value, "1")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, "1", "0")).isInstanceOf(IllegalArgumentException.class);
         assertThat(new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, "0", "1").toString()).isEqualTo("CdsExportNoteAccessDto[protected]");
+    }
+    @Test void shouldCheckBothIdentitiesChartRights_beforeReadingNoteMetadata() {
+        var command = noteCommand("200"); var actor = access.webActor(session, command);
+        var scope = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, "", "1");
+        for (String denied : List.of("100", "200")) {
+            for (String patient : new String[] {null, "27"}) {
+                reset(permissions);
+                when(permissions.hasPrivilegeReadOnly(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
+                when(permissions.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
+                when(permissions.hasPrivilegeReadOnly(any(), eq("_eChart"), eq("r"), eq(patient)))
+                        .thenAnswer(call -> !denied.equals(call.<LoggedInInfo>getArgument(0).getLoggedInProviderNo()));
+                assertThatThrownBy(() -> access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope)).hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
+                verifyNoInteractions(notes);
+            }
+        }
+    }
+    @Test void shouldApplyTheTrustedFacilityPolicy_toUnscopedImportedNotes() {
+        var policy = new Properties(); policy.setProperty("FILTER_ON_FACILITY", "false");
+        configuration = new CdsExportConfigurationService(policy);
+        access = new CdsExportAccessService(permissions, configuration, providers, accounts, mock(ProviderFacilityDao.class), notes);
+        var command = noteCommand("100"); var actor = access.webActor(session, command);
+        var scope = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(91, 27, "", "1");
+        when(notes.findScope(27, 91)).thenReturn(scope); when(notes.canRead("100", scope, null, false)).thenReturn(true);
+        access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope);
+        verify(notes).canRead("100", scope, null, false);
+        policy.setProperty("FILTER_ON_FACILITY", "sometimes");
+        assertThatThrownBy(() -> new CdsExportConfigurationService(policy).filterNotesOnFacility()).hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
     }
     private static CdsExportCommand noteCommand(String provider) {
         return new CdsExportCommand("note-rights", provider, null, CdsLogicalProfile.ONTARIO_MD_5_2,

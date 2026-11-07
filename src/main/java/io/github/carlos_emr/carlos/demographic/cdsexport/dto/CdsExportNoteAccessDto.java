@@ -24,7 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 /** Protected physical note scope; it carries identity and dependencies, never a saved grant. */
 public record CdsExportNoteAccessDto(long noteId, int patient, String program, String reporterRole) {
     public CdsExportNoteAccessDto {
-        if (noteId < 1 || patient < 1 || !number(program, true) || !number(reporterRole, false))
+        if (noteId < 1 || patient < 1 || (program == null || !program.isEmpty() && !number(program, true)) || !number(reporterRole, false))
             throw new IllegalArgumentException("CDS_EXPORT_NOTE_ACCESS_SCOPE_INVALID");
     }
     private static boolean number(String value, boolean zero) {

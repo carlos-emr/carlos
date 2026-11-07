@@ -195,7 +195,7 @@
     "clinicalPublication": false
   },
   "capturedNoteScopes": {
-    "state": "PACKAGE_AND_EXACT_NATIVE_CAPTURE_COMPONENT_VERIFIED",
+    "state": "ACTIVE_POLICY_AND_EXTENSION_COMPONENT_VERIFIED_PENDING_EXACT_PACKAGE",
     "focusedChecks": 129,
     "legacyManifestShapePreserved": true,
     "exactCapturedIdentityReauthorizedAfterFinalCallbacks": true,
@@ -209,7 +209,15 @@
     "wholeRowReceiptsVerified": true,
     "finalTextAndReceiptCallbackRevocationRefused": true,
     "requiresCompleteHistoryCategoryScope": true,
-    "emptyOrMalformedNativeProgramsRefused": true,
-    "exactPackagedAssertions": 44
+    "exactPackagedAssertions": 44,
+    "ordinaryUnscopedNotesUseActiveChartDomain": true,
+    "authorizationBasis": "active_filterNotes_and_chart_program_domain",
+    "noteExtensionReaderRegistered": true,
+    "noteExtensionPhysicalColumns": 5,
+    "activePolicyFocusedChecks": 183,
+    "activePolicyInstalledComponentAssertions": 55,
+    "activePolicyComponentOverlays": true,
+    "enabledFacilityPolicyTestedInMariaDb": true,
+    "priorDormantHelperAuthorizationEvidenceSuperseded": true
   }
 }

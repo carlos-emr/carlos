@@ -23,8 +23,6 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
 import java.util.List;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
@@ -70,55 +68,63 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
     }
 
     /**
-     * Matches CaseManagementManager.filterNotesByAccess: the reporter role's first literal
-     * space is removed, then "notes"/"access" must be granted through a provider membership.
-     * Default role grants and explicit program/all-role grants have the same union semantics.
-     * Program zero uses the owning reader's end-of-day admission interval, including its
-     * historical year-one sentinel. Empty, missing and malformed program/role values deny.
+     * Fresh scalar equivalent of the active chart's program-domain and filterNotes rules.
+     * Unscoped/zero-program chart reads still require the patient program domain. A scoped
+     * note uses its own program context, one unambiguous membership role, the same-role
+     * default or the active "read ROLE notes" grants, and the configured facility boundary.
+     * No dormant first-space/"ROLEnotes" compatibility grant is consulted.
      */
     @SuppressWarnings("unchecked")
-    public boolean canRead(String provider, CdsExportNoteAccessDto scope) {
-        if (provider == null || provider.isEmpty() || scope == null) return false;
-        List<String> roles = entityManager().createNativeQuery("SELECT role_name FROM secRole WHERE role_no = :role", String.class)
-                .setParameter("role", Long.valueOf(scope.reporterRole())).setMaxResults(2).getResultList();
-        if (roles.size() != 1 || roles.getFirst() == null || roles.getFirst().isEmpty()) return false;
-        String name = roles.getFirst(); int space = name.indexOf(' ');
-        if (space >= 0) name = name.substring(0, space) + name.substring(space + 1);
-        String accessName = name + "notes";
-        List<Long> programs;
-        if (scope.program().equals("0")) {
-            Calendar day = Calendar.getInstance(); day.set(Calendar.HOUR_OF_DAY, 23); day.set(Calendar.MINUTE, 59); day.set(Calendar.SECOND, 59);
-            // This deliberately matches DemographicDao.getProgramIdByDemoNo, including milliseconds.
-            List<Long> ids = entityManager().createNativeQuery("SELECT DISTINCT program_id FROM admission WHERE client_id = :patient AND admission_date <= :day AND (discharge_date >= :day OR discharge_date IS NULL OR discharge_date = :sentinel)", Long.class)
-                    .setParameter("patient", scope.patient()).setParameter("day", day.getTime())
-                    .setParameter("sentinel", new GregorianCalendar(1, 0, 1).getTime()).setMaxResults(4097).getResultList();
-            if (ids.size() > 4096 || ids.stream().anyMatch(id -> id == null || id < 1)) deny();
-            programs = ids;
-        } else programs = List.of(Long.valueOf(scope.program()));
-        for (Long program : programs) {
-            List<Object[]> rights = entityManager().createNativeQuery("""
-                    SELECT DISTINCT a.name, a.type FROM program_provider p
-                    JOIN default_role_access d ON d.role_id = p.role_id
-                    JOIN access_type a ON a.access_id = d.access_id
-                    WHERE p.provider_no = :provider AND p.program_id = :program
-                    UNION
-                    SELECT DISTINCT a.name, a.type FROM program_provider p
-                    JOIN program_access g ON g.program_id = p.program_id
-                    JOIN access_type a ON a.access_id = g.access_type_id
-                    WHERE p.provider_no = :provider AND p.program_id = :program
-                    AND (g.all_roles = 1 OR EXISTS (SELECT 1 FROM program_access_roles r WHERE r.id = g.id AND r.role_id = p.role_id))
-                    """, Object[].class).setParameter("provider", provider).setParameter("program", program).setMaxResults(4097).getResultList();
-            if (rights.size() > 4096) deny();
-            for (Object[] right : rights) if (matches(accessName, right)) return true;
+    public boolean canRead(String provider, CdsExportNoteAccessDto scope, Integer facility, boolean filterOnFacility) {
+        if (provider == null || provider.isEmpty() || scope == null || !inPatientDomain(provider, scope.patient())) return false;
+        if (scope.program().isEmpty() || scope.program().equals("0")) return true;
+        long program = Long.parseLong(scope.program());
+        if (filterOnFacility) {
+            if (facility == null) return false;
+            List<Integer> locations = entityManager().createNativeQuery("SELECT facilityId FROM program WHERE id = :program", Integer.class)
+                    .setParameter("program", program).setMaxResults(2).getResultList();
+            if (locations.size() != 1 || !facility.equals(locations.getFirst())) return false;
         }
-        return false;
+        List<Long> memberships = entityManager().createNativeQuery("SELECT DISTINCT role_id FROM program_provider WHERE provider_no = :provider AND program_id = :program", Long.class)
+                .setParameter("provider", provider).setParameter("program", program).setMaxResults(2).getResultList();
+        // The live reader takes its first membership. Ambiguous different roles cannot grant export by arbitrary row order.
+        if (memberships.size() != 1 || memberships.getFirst() == null || memberships.getFirst() < 1) return false;
+        long role = memberships.getFirst();
+        List<String> reporter = entityManager().createNativeQuery("SELECT role_name FROM secRole WHERE role_no = :role", String.class)
+                .setParameter("role", Long.parseLong(scope.reporterRole())).setMaxResults(2).getResultList();
+        List<Long> ownRole = entityManager().createNativeQuery("SELECT role_no FROM secRole WHERE role_no = :role", Long.class)
+                .setParameter("role", role).setMaxResults(2).getResultList();
+        if (reporter.size() != 1 || reporter.getFirst() == null || reporter.getFirst().isBlank() || ownRole.size() != 1) return false;
+        if (role == Long.parseLong(scope.reporterRole())) return true;
+        String accessName = "read " + reporter.getFirst().toLowerCase() + " notes";
+        // RoleProgramAccessDAO.hasAccess uses the database's equality semantics and does not filter AccessType.type.
+        List<?> defaults = entityManager().createNativeQuery("SELECT 1 FROM default_role_access d JOIN access_type a ON a.access_id = d.access_id WHERE d.role_id = :role AND a.name = :name")
+                .setParameter("role", role).setParameter("name", accessName).setMaxResults(1).getResultList();
+        if (!defaults.isEmpty()) return true;
+        List<Object[]> grants = entityManager().createNativeQuery("""
+                SELECT g.id, a.name, g.all_roles,
+                EXISTS (SELECT 1 FROM program_access_roles r WHERE r.id = g.id AND r.role_id = :role)
+                FROM program_access g JOIN access_type a ON a.access_id = g.access_type_id
+                WHERE g.program_id = :program AND a.name = :name
+                """, Object[].class).setParameter("role", role).setParameter("program", program).setParameter("name", accessName).setMaxResults(4097).getResultList();
+        if (grants.size() > 4096) deny();
+        Object[] selected = null;
+        for (Object[] grant : grants) if (grant[1] instanceof String name && accessName.equals(name.toLowerCase())) {
+            if (selected != null) return false; // duplicate map keys have no stable owning-reader precedence
+            selected = grant;
+        }
+        return selected != null && (truth(selected[2]) || truth(selected[3]));
     }
-
-    // FindSecBugs IMPROPER_UNICODE: preserves the owning note reader's established case-insensitive access-name/type comparison.
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Preserves the owning note reader's established case-insensitive access-name/type comparison")
-    private static boolean matches(String expected, Object[] right) {
-        return right.length == 2 && right[0] instanceof String name && right[1] instanceof String type
-                && expected.equalsIgnoreCase(name) && "access".equalsIgnoreCase(type);
+    private boolean inPatientDomain(String provider, int patient) {
+        List<?> admissions = entityManager().createNativeQuery("SELECT 1 FROM admission WHERE client_id = :patient")
+                .setParameter("patient", patient).setMaxResults(1).getResultList();
+        if (admissions.isEmpty()) return true;
+        List<?> member = entityManager().createNativeQuery("SELECT 1 FROM program_provider p JOIN admission a ON a.program_id = p.program_id WHERE p.provider_no = :provider AND a.client_id = :patient")
+                .setParameter("provider", provider).setParameter("patient", patient).setMaxResults(1).getResultList();
+        if (!member.isEmpty()) return true;
+        return !entityManager().createNativeQuery("SELECT 1 FROM program_provider p JOIN program_queue q ON q.program_id = p.program_id WHERE p.provider_no = :provider AND q.client_id = :patient AND q.status = 'active'")
+                .setParameter("provider", provider).setParameter("patient", patient).setMaxResults(1).getResultList().isEmpty();
     }
+    private static boolean truth(Object value) { return Boolean.TRUE.equals(value) || value instanceof Number number && number.intValue() != 0; }
     private static void deny() { throw new SecurityException("CDS_EXPORT_NOTE_AUTHORIZATION_DENIED"); }
 }

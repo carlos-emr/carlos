@@ -120,9 +120,13 @@ public class CdsExportAccessService {
         CurrentIdentity current = identity(actor, command);
         requireReads(current.effective(), command, expected.patient(), category, false);
         if (current.operator() != null) requireReads(current.operator(), command, expected.patient(), category, false);
+        for (var context : current.operator() == null ? java.util.List.of(current.effective()) : java.util.List.of(current.effective(), current.operator())) {
+            if (!security.hasPrivilegeReadOnly(context, "_eChart", "r", null)
+                    || !security.hasPrivilegeReadOnly(context, "_eChart", "r", Integer.toString(expected.patient()))) deny();
+        }
         if (!expected.equals(notes.findScope(expected.patient(), expected.noteId()))
-                || !notes.canRead(current.effective().getLoggedInProviderNo(), expected)
-                || current.operator() != null && !notes.canRead(current.operator().getLoggedInProviderNo(), expected)) deny();
+                || !notes.canRead(current.effective().getLoggedInProviderNo(), expected, command.facilityId(), configuration.filterNotesOnFacility())
+                || current.operator() != null && !notes.canRead(current.operator().getLoggedInProviderNo(), expected, command.facilityId(), configuration.filterNotesOnFacility())) deny();
     }
     private static void requireSelectedPatient(CdsExportCommand command, int patient) {
         if (patient < 1 || command == null || command.selection() == CdsExportCommand.Selection.SELECTED_PATIENTS
