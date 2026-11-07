@@ -15,6 +15,20 @@ import java.util.List;
 public final class BillingImportedFiles {
     private BillingImportedFiles() { }
 
+    /**
+     * Requires reviewed file evidence for an imported filename collision.
+     * An empty review list performs no checks or IO, preserving ordinary file handling.
+     * Shared original names remain unavailable; only the exact allocated name with
+     * reconciled status, a nonblank reviewer, review date and lowercase SHA-256 is accepted.
+     * The file must be regular, not a symlink, readable and match that digest.
+     * Regeneration that changes its bytes requires a new review and recorded digest.
+     *
+     * @param reviews the {@code List<FileReview>} returned by the audit DAO
+     * @param filename the exact requested {@code String} basename
+     * @param path the {@link Path} already validated by the caller for billing-directory containment
+     * @throws BillingFileWriteException if ownership or review is unresolved, the file is
+     *         missing, nonregular, symlinked or unreadable, or its SHA-256 does not match
+     */
     public static void requireResolved(List<FileReview> reviews, String filename, Path path) {
         if (reviews.isEmpty()) return;
         for (FileReview review : reviews) {
