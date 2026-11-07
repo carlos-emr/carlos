@@ -126,7 +126,7 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             String requestedId, int expectedStatus) throws Exception {
         EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
         try {
-            byte[] imageBytes = new byte[] {9, 8, 7};
+            byte[] imageBytes = {9, 8, 7};
             DigitalSignature signature = new DigitalSignature();
             signature.setSignatureImage(imageBytes);
             signature.setDemographicId(signaturePatient);

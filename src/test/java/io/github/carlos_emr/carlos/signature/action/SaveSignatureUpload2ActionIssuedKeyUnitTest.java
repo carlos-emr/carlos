@@ -133,7 +133,7 @@ class SaveSignatureUpload2ActionIssuedKeyUnitTest extends CarlosUnitTestBase {
     @DisplayName("should return 403, write nothing and save nothing when the key belongs to another session")
     void shouldReturn403AndSaveNothing_whenKeyBelongsToAnotherSession() throws Exception {
         File foreignCapture = new File(DigitalSignatureUtils.getTempFilePath(otherSessionsKey));
-        byte[] original = new byte[] {9, 8, 7};
+        byte[] original = {9, 8, 7};
         Files.write(foreignCapture.toPath(), original);
         mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, otherSessionsKey);
         mockRequest.setParameter("saveToDB", "true");
@@ -150,7 +150,7 @@ class SaveSignatureUpload2ActionIssuedKeyUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRefuseOverwriteAndPersistence_whenCapturedKeyHasExpired() throws Exception {
         File capture = new File(DigitalSignatureUtils.getTempFilePath(issuedKey));
-        byte[] original = new byte[] {9, 8, 7};
+        byte[] original = {9, 8, 7};
         Files.write(capture.toPath(), original);
         for (int i = 0; i < 200; i++) DigitalSignatureUtils.generateSignatureRequestId(mockRequest.getSession());
         mockRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, issuedKey);

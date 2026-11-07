@@ -132,7 +132,7 @@
                 var padUrl = new URL(element.sigHTML, document.baseURI);
                 padUrl.searchParams.set('demographicNo', element.demographicNo);
                 if (!padUrl.searchParams.has('ModuleType')) padUrl.searchParams.set('ModuleType', 'E_FORM');
-                var padFrame = jQuery('<iframe>').attr({id: 'signatureFrame', src: padUrl.href})
+                var padFrame = jQuery('<iframe title="Signature pad">').attr({id: 'signatureFrame', src: padUrl.href})
                     .css({width: '500px', height: '132px'});
                 jQuery(element.signatureInput).empty().append('Signature:', jQuery('<br>'), padFrame);
             }
