@@ -27,6 +27,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
@@ -112,6 +114,47 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
             assertThat(response.getContentAsByteArray()).containsExactly(imageBytes);
+        } finally {
+            EFormRenderTokenService.getInstance().invalidate(token);
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({"111, 42, 200", "222, 42, 403", "111, 43, 403"})
+    @DisplayName("should authorize RTL's saved image only for its referenced signature and patient")
+    void shouldBindSignature_whenRichTextLetterStoresEscapedImage(int signaturePatient,
+            String requestedId, int expectedStatus) throws Exception {
+        EFormRenderTokenService.RenderToken token = EFormRenderTokenService.getInstance().issue(4321, "999998");
+        try {
+            byte[] imageBytes = new byte[] {9, 8, 7};
+            DigitalSignature signature = new DigitalSignature();
+            signature.setSignatureImage(imageBytes);
+            signature.setDemographicId(signaturePatient);
+            DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
+            when(manager.getDigitalSignature(42)).thenReturn(signature);
+            registerMock(DigitalSignatureManager.class, manager);
+            registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
+
+            // The editor serializes an image URL with &amp;, then saveRTL() escapes the whole
+            // letter again. This is the exact representation produced by the live RTL pad.
+            EFormValue letter = new EFormValue();
+            letter.setVarName("Letter");
+            letter.setVarValue("&lt;img src=&quot;/carlos/imageRenderingServlet?source=signature_stored"
+                    + "&amp;amp;digitalSignatureId=42&amp;amp;r=852&quot;&gt;");
+            EFormValueDao values = mock(EFormValueDao.class);
+            when(values.findByFormDataId(4321)).thenReturn(List.of(letter));
+            registerMock(EFormValueDao.class, values);
+
+            MockHttpServletRequest request = new MockHttpServletRequest("GET", "/carlos/EFormSignatureViewForPdfGenerationServlet");
+            request.setRemoteAddr("127.0.0.1");
+            request.setParameter("digitalSignatureId", requestedId);
+            installRendererCookie(request, token);
+            MockHttpServletResponse response = new MockHttpServletResponse();
+            new EFormSignatureViewForPdfGenerationServlet().doGet(request, response);
+
+            assertThat(response.getStatus()).isEqualTo(expectedStatus);
+            assertThat(response.getContentAsByteArray())
+                    .containsExactly(expectedStatus == HttpServletResponse.SC_OK ? imageBytes : new byte[0]);
         } finally {
             EFormRenderTokenService.getInstance().invalidate(token);
         }
