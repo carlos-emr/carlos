@@ -128,7 +128,7 @@ public class CdsExportNativeCaptureService {
                                         for (var reader : selected) {
                                             var scope = scopes.get(reader.table());
                                             writer.beginTable(reader.table(), scope.columns(), scope.rows());
-                                            reader.capture(patient, writer); writer.endTable();
+                                            reader.capture(patient, writer, probe); writer.endTable();
                                         }
                                     });
                         }); owned.add(index[0]);

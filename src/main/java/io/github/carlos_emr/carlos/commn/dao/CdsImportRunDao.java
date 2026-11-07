@@ -56,6 +56,28 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun> implements Cd
     }
 
 
+    /** Exact selected applied copy keys for one patient, inside the caller's export snapshot. */
+    @Transactional(readOnly=true, propagation=Propagation.MANDATORY)
+    public List<String> readAppliedCdsExportCopyKeys(int patient, String runId, java.util.Set<String> selected) {
+        var allowed=java.util.Arrays.stream(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.values())
+                .map(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory::wireName).collect(java.util.stream.Collectors.toSet());
+        if (patient<1||runId==null||!runId.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}")||selected==null||selected.isEmpty()||!allowed.containsAll(selected)
+                ||!org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+                ||!org.springframework.transaction.support.TransactionSynchronizationManager.isCurrentTransactionReadOnly())
+            throw new IllegalArgumentException("CDS_EXPORT_APPLIED_COPY_SCOPE_INVALID");
+        var categories=new java.util.TreeSet<String>();
+        selected.forEach(category-> {categories.add(category); for (String suffix:java.util.List.of("_FIELDS", "_CONTACT", "_CARE"))categories.add(category+suffix); });
+        var copies=entityManager.createQuery("""
+                select distinct p.copyKey from CdsImportPatient p
+                where p.runId=:run and p.targetDemographicNo=:patient and exists
+                    (select u.id from CdsImportUnit u where u.runId=p.runId and u.patientKey=p.patientKey
+                    and u.category in :categories and u.state in ('COMMITTED','ALREADY_COMPLETE'))
+                order by p.copyKey
+                """, String.class).setParameter("run", runId).setParameter("patient", patient).setParameter("categories", categories)
+                .setHint("jakarta.persistence.query.timeout", 120_000).setMaxResults(4097).getResultList();
+        if (copies.size()>4096)throw new IllegalStateException("CDS_EXPORT_APPLIED_COPY_LIMIT"); return List.copyOf(copies);
+    }
+
     public CdsImportRunDao() { super(CdsImportRun.class); }
     public CdsImportRun lock(String id) { return entityManager.find(CdsImportRun.class, id, LockModeType.PESSIMISTIC_WRITE); }
     public CdsImportRun get(String id) { return entityManager.find(CdsImportRun.class, id); }

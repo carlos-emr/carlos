@@ -4,12 +4,14 @@
   "qualifiedProfiles": [],
   "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
   "verifiedBaseline": {
-    "javaChecks": 2747,
+    "javaChecks": 2797,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "85fec8a489862069a16a44b77d0dade801d87d8419f25049a66d5bddacf3cec7",
-    "actualRichImportReconciliationChecks": 27,
+    "packagedWarSha256": "34275eab9bf825a218c06f053843b1ef7ac2e27341f76126e004ab066fec9264",
+    "ordinaryInstalledSourceChecks": 24,
+    "shiftedInstalledSourceChecks": 25,
+    "capturedSources": 19,
     "clinicalPublication": false
   },
   "implemented": [
@@ -22,7 +24,7 @@
   ],
   "remaining": [
     "Complete demographic histories, care relationships and remaining native/source field closure",
-    "Verify course-copy preparation options using authenticated original import commands and copy plans",
+    "Finish native/current/archive enrolment reconciliation; captured original request and per-copy options are verified",
     "Complete source catalogue and all selected clinical domain mappings, attachments and merged-chart ownership",
     "Connect a concrete clinical export engine and independent expected-fact inventory to coverage validation",
     "Complete review, audit, recipient encryption, delivery, download authorization and retention lifecycle",
@@ -36,5 +38,15 @@
     "modernImporterAbsentFromDevelopAtInspection": true,
     "readyToMerge": false
   },
-  "evidenceLimits": "Component, transport, byte-level, metadata/control and synthetic-fixture checks do not establish a complete clinical migration or OntarioMD certification."
+  "evidenceLimits": "Component, transport, byte-level, metadata/control and synthetic-fixture checks do not establish a complete clinical migration or OntarioMD certification.",
+  "capturedImportOptions": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedChecks": 76,
+    "ordinaryInstalledChecks": 24,
+    "shiftedInstalledChecks": 25,
+    "captureTables": 19,
+    "optionsReadFromFrozenSource": true,
+    "originalFilesNeededOnlyDuringCapture": true,
+    "otherPatientsCopyBindingsExcluded": true
+  }
 }

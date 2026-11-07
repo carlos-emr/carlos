@@ -133,7 +133,7 @@ public class CdsExportRetainedPreparationReader {
         if (!run.equals(fields.get("run_id")) || !key.equals(fields.get("unit_key")) || !type.getName().equals(fields.get("payload_type"))
                 || !run.equals(unit.fields().get("run_id")) || !key.equals(unit.fields().get("unit_key")) || !run.equals(origin.fields().get("id"))
                 || !same(fields.get("source_digest"), unit.fields().get("source_digest"))
-                || !same(fields.get("options_digest"), origin.fields().get("options_digest"))
+                || !same(fields.get("options_digest"), index.effectiveOptionsByUnit().getOrDefault(address, origin.fields().get("options_digest")))
                 || !same(fields.get("ruleset_digest"), origin.fields().get("ruleset_digest")) || payload == null || payload.length() > MAXIMUM
                 || payload.getBytes(StandardCharsets.UTF_8).length > MAXIMUM) invalid();
         for (String digest : java.util.List.of("source_digest", "options_digest", "ruleset_digest", "digest")) {

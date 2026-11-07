@@ -64,6 +64,7 @@ public class CdsExportRetainedIndexService {
     public CdsExportRetainedIndexDto index(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, Set<String> requiredTables,
             CdsExportStagedFileDto manifest, long maximumFields, long maximumBytes, int maximumRows, long maximumIndexBytes,
             CdsExportRunControl control) throws IOException {
+        Map<String, CdsExportRetainedImportOptionsReader.Options> frozenOptions=null;
         if (!requiredTables.containsAll(PLANS.keySet()) || maximumRows < 1 || maximumRows > 1_000_000
                 || maximumIndexBytes < 1 || maximumIndexBytes > 64L << 20) throw new IllegalArgumentException("CDS_EXPORT_RETAINED_INDEX_SCOPE_INVALID");
         patient.require(lease); var tables = new TreeMap<String, Map<String, CdsExportCapturedTextRowDto>>();
@@ -80,15 +81,28 @@ public class CdsExportRetainedIndexService {
             if (count[0] > maximumRows || count[1] > maximumIndexBytes) throw new IOException("CDS_EXPORT_RETAINED_INDEX_RESOURCE_LIMIT");
             if (tables.get(row.table()).putIfAbsent(row.recordKey(), row) != null) invalid();
         });
+        if (requiredTables.contains("retained_import_options")) {
+            var optionRows=new TreeMap<String, CdsExportCapturedTextRowDto>(); var verified=new TreeMap<String, CdsExportRetainedImportOptionsReader.Options>();
+            rows.forEach(lease, patient, requiredTables, "retained_import_options", manifest, maximumFields, maximumBytes, (int) Math.min(maximumIndexBytes, 2_097_152L), control, row-> {
+                if (!"retained_import_options".equals(row.table())||!row.fields().keySet().equals(Set.of("options"))||!row.exactNumbers().isEmpty()
+                        ||!tables.get("cds_import_run").containsKey(row.recordKey())||optionRows.putIfAbsent(row.recordKey(), row)!=null)invalid();
+                count[0]=Math.addExact(count[0], 1); String encoded=row.fields().get("options");
+                count[1]=Math.addExact(count[1], 128L+(encoded==null?0:encoded.getBytes(StandardCharsets.UTF_8).length));
+                if (count[0]>maximumRows||count[1]>maximumIndexBytes)throw new IOException("CDS_EXPORT_RETAINED_INDEX_RESOURCE_LIMIT");
+                if (encoded!=null)verified.put(row.recordKey(), CdsExportRetainedImportOptionsReader.decodeCaptured(tables.get("cds_import_run").get(row.recordKey()), encoded));
+            });
+            if (!optionRows.keySet().equals(tables.get("cds_import_run").keySet())||frozenOptions!=null&&!frozenOptions.equals(verified))invalid();
+            tables.put("retained_import_options", optionRows); frozenOptions=Map.copyOf(verified);
+        }
         patient.require(lease); control.checkpoint();
         try {
-            var result = link(lease, patient.patient(), manifest.plaintextSha256(), tables, count[0], count[1], control);
+            var result = link(lease, patient.patient(), manifest.plaintextSha256(), tables, count[0], count[1], control, frozenOptions);
             captures.authorizeSources(lease, patient, requiredTables, control); patient.require(lease); control.checkpoint(); return result;
         }
         catch (IllegalArgumentException | NullPointerException malformed) { throw new IOException("CDS_EXPORT_RETAINED_INDEX_REQUIRES_REVIEW"); }
     }
     private CdsExportRetainedIndexDto link(CdsExportLeaseDto lease, int demographic, String source,
-            Map<String, Map<String, CdsExportCapturedTextRowDto>> tables, long rows, long bytes, CdsExportRunControl control) throws IOException {
+            Map<String, Map<String, CdsExportCapturedTextRowDto>> tables, long rows, long bytes, CdsExportRunControl control, Map<String, CdsExportRetainedImportOptionsReader.Options> frozenOptions) throws IOException {
         var runs = tables.get("cds_import_run"); var patients = new HashMap<String, CdsExportCapturedTextRowDto>();
         for (var row : runs.values()) {
             control.checkpoint();
@@ -150,17 +164,37 @@ public class CdsExportRetainedIndexService {
         for (var entry : references.entrySet()) for (var reference : entry.getValue()) {
             if (reference.table().equals("cds_import_field") && !tables.get("cds_import_field").containsKey(reference.id())) invalid();
         }
+        if (tables.containsKey("retained_import_options"))for (String unit:applied) {
+            var options=frozenOptions.get(unit.substring(0, 36)); if (options==null)throw new IOException("CDS_EXPORT_CAPTURED_IMPORT_OPTIONS_REQUIRED");
+            var owner=units.get(unit); var patient=patients.get(address(value(owner, "run_id"), value(owner, "patient_key")));
+            if (!options.copyOptionsSha256().containsKey(value(patient, "copy_key")))throw new IOException("CDS_EXPORT_RETAINED_COPY_OPTIONS_MISMATCH");
+        }
+        var effectiveOptions=new HashMap<String, String>(); var verifiedOptions=new HashMap<String, CdsExportRetainedImportOptionsReader.Options>(); long verifiedOptionBytes=0;
         for (var prepared : tables.get("cds_import_preparation").values()) {
             control.checkpoint();
             String run = value(prepared, "run_id"), key = address(run, value(prepared, "unit_key")); var unit = units.get(key);
             if (unit == null) invalid(); if (!applied.contains(key)) continue; var origin = runs.get(run);
+            String expectedOptions=value(origin, "options_digest"); var patient=patients.get(address(run, value(unit, "patient_key"))); String copy=patient.fields().get("copy_key");
+            if (copy!=null&&copy.startsWith("course-")) {
+                var options=verifiedOptions.get(run);
+                if (options==null) {
+                    if (frozenOptions!=null)options=frozenOptions.get(run);
+                    if (options==null)throw new IOException("CDS_EXPORT_RETAINED_COPY_OPTIONS_REQUIRED");
+                    CdsExportRetainedImportOptionsReader.requireBinding(origin, options);
+                    verifiedOptionBytes=Math.addExact(verifiedOptionBytes, CdsExportRetainedImportOptionsReader.retainedWeight(options));
+                    if (verifiedOptionBytes>8L<<20)throw new IOException("CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT"); verifiedOptions.put(run, options);
+                }
+                expectedOptions=options.copyOptionsSha256().get(copy);
+                if (expectedOptions==null||!expectedOptions.equals(value(prepared, "options_digest")))throw new IOException("CDS_EXPORT_RETAINED_COPY_OPTIONS_MISMATCH");
+                effectiveOptions.put(key, expectedOptions);
+            }
             String payload = value(prepared, "payload");
             if (payload.getBytes(StandardCharsets.UTF_8).length > 1_048_576 || !value(prepared, "source_digest").equals(value(unit, "source_digest"))
-                    || !value(prepared, "options_digest").equals(value(origin, "options_digest")) || !value(prepared, "ruleset_digest").equals(value(origin, "ruleset_digest"))
+                    || !value(prepared, "options_digest").equals(expectedOptions) || !value(prepared, "ruleset_digest").equals(value(origin, "ruleset_digest"))
                     || !CdsPreparationSeal.digest(value(prepared, "payload_type"), value(prepared, "source_digest"), value(prepared, "options_digest"),
                             value(prepared, "ruleset_digest"), payload).equals(value(prepared, "digest"))) invalid();
         }
-        return new CdsExportRetainedIndexDto(source, rows, bytes, tables, applied, references, nativeParents);
+        return new CdsExportRetainedIndexDto(source, rows, bytes, tables, applied, references, nativeParents, effectiveOptions);
     }
     private static List<CdsExportRetainedIndexDto.Reference> references(String encoded, int patient) throws IOException {
         if (encoded.length() > 65536) invalid(); JsonNode root = JSON.readTree(encoded); exact(root, Set.of("protocol", "refs"));

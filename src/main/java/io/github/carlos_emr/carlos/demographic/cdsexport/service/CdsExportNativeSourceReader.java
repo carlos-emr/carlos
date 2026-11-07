@@ -50,5 +50,9 @@ public interface CdsExportNativeSourceReader {
     long count(int patient);
     /** Bounded pre-capture discovery uses the same cancellation/ownership control as value streaming. */
     default long count(int patient, Runnable checkpoint){return count(patient); }
+    /** Bounded source/file work can observe cancellation before a row is emitted. */
+    default void capture(int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint)throws IOException {
+        java.util.Objects.requireNonNull(checkpoint).run(); capture(patient, output); checkpoint.run();
+    }
     void capture(int patient, CdsExportNativeCaptureComposer.Writer output) throws IOException;
 }

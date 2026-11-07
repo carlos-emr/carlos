@@ -36,7 +36,12 @@ import java.util.TreeMap;
  */
 public record CdsExportRetainedIndexDto(String sourceManifestSha256, long metadataRows, long metadataBytes,
         Map<String, Map<String, CdsExportCapturedTextRowDto>> tables, Set<String> appliedUnits,
-        Map<String, List<Reference>> references, Map<String, String> nativeParents) {
+        Map<String, List<Reference>> references, Map<String, String> nativeParents, Map<String, String> effectiveOptionsByUnit) {
+    public CdsExportRetainedIndexDto(String sourceManifestSha256, long metadataRows, long metadataBytes,
+            Map<String, Map<String, CdsExportCapturedTextRowDto>> tables, Set<String> appliedUnits,
+            Map<String, List<Reference>> references, Map<String, String> nativeParents) {
+        this(sourceManifestSha256, metadataRows, metadataBytes, tables, appliedUnits, references, nativeParents, Map.of());
+    }
     public record Reference(String table, String id, String digest) {
         @Override public String toString() { return "CdsExportRetainedIndexDto.Reference[protected]"; }
     }
@@ -46,7 +51,8 @@ public record CdsExportRetainedIndexDto(String sourceManifestSha256, long metada
         }
         var copied = new TreeMap<String, Map<String, CdsExportCapturedTextRowDto>>();
         tables.forEach((table, rows) -> copied.put(table, Collections.unmodifiableMap(new TreeMap<>(rows))));
-        tables = Collections.unmodifiableMap(copied); appliedUnits = Set.copyOf(appliedUnits); nativeParents = Map.copyOf(nativeParents);
+        tables = Collections.unmodifiableMap(copied); appliedUnits = Set.copyOf(appliedUnits); nativeParents = Map.copyOf(nativeParents); effectiveOptionsByUnit = Map.copyOf(effectiveOptionsByUnit);
+        if (!appliedUnits.containsAll(effectiveOptionsByUnit.keySet())||effectiveOptionsByUnit.values().stream().anyMatch(value-> !value.matches("[0-9a-f]{64}")))throw new IllegalArgumentException("CDS_EXPORT_RETAINED_INDEX_INVALID");
         var refs = new TreeMap<String, List<Reference>>(); references.forEach((unit, rows) -> refs.put(unit, List.copyOf(rows)));
         references = Collections.unmodifiableMap(refs);
     }

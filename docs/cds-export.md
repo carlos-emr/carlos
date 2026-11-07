@@ -24,7 +24,7 @@ asynchronous browser workflow. Both must call the same authorized application
 service and use the same durable jobs, captured generations, mapping revision,
 dispositions and publication checks. Passing component or metadata/control tests do not establish a complete clinical migration.
 
-The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,747 Java checks and 27 installed rich-import reconciliation checks. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
+The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,797 Java checks and 49 installed source-options and enrolment-reconstruction checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
 
 ## Baseline and integration
 
@@ -1018,3 +1018,13 @@ they are not reinterpreted as current wire values. All preparation decoders cons
 reject a sealed JSON `null` root with the safe integrity code. This decoder does not establish
 the child-to-parent source-field binding, unchanged native projection or a completed retained
 contact/demographic reconciliation; those gates remain required before clinical output.
+
+## Captured original import options
+
+Export capture now includes a finite `retained_import_options` source alongside the original run, patient and unit metadata. The owning run DAO identifies only the selected patient’s applied copy keys for the selected categories. The reader verifies the private hash-named acceptance document and, for course copies, its frozen copy plan, then recomputes the effective program/facility options digests. Only minimum verified settings and that patient’s bindings enter encrypted source capture. Unapplied attempts require no original files. Private commands, source paths and other patients’ copy bindings are excluded from this source and from clinical output.
+
+The ordinary provenance index and retained-values scope read these settings from the authenticated source generation. Preparation seals retain their original options digests; course-copy digests are verified against their effective options instead of being incorrectly compared with the original unexpanded request. Mapping and restart do not reopen import job documents. Original options/document/copy hashes remain bound to the captured run. Older captures without the necessary copy evidence fail closed.
+
+The retained enrolment source mapper applies the verified original shift to every historical date, including accepted logical corrections and source offsets, and verifies the selected event against the sealed preparation. Counts, duplicate paths, conditional dates and conflicting latest events are checked. This preserves history rather than reducing it to the native latest roster. Sixty focused provenance/source checks and sixteen enrolment-source checks pass. Installed genuine ordinary and shifted imports passed 24 and 25 component checks through nineteen captured sources. The combined package passed 2,797 Java checks without failures, errors or skips; the same packaged WAR passed the 24 ordinary and 25 shifted installed component checks. Native archive/current reconciliation, remaining demographic closure and clinical publication are still unfinished.
+
+The complete reviewed import/export test inventory is committed in `scripts/ci/cds-coordinated-test-classes.json`. To reproduce it, provide the three owned disposable test-database property files through `CDS_TEST_PROPERTIES`, `CDS_LEDGER_TEST_PROPERTIES` and `CDS_EXPORT_TEST_PROPERTIES`, then run `python3 scripts/ci/check-cds-transfer.py`. Optional `--offline`, `--settings` and `--maven-local-repository` select the build environment. The script provisions no databases and reads no configuration secrets into console output. All required database fixtures and dependencies must be available; a skipped suite is not full integration evidence.

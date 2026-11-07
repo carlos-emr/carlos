@@ -145,6 +145,37 @@ class CdsExportRetainedIndexServiceUnitTest {
         return row(Plan.IMPORT_UNITS, id, Map.of("run_id", RUN, "unit_key", key, "patient_key", "a".repeat(64), "category", category,
                 "ordinal", "1", "source_digest", "4".repeat(64), "state", "COMMITTED", "target_references", references, "target_digest", hex(references)));
     }
+    private static final String COPY="course-7-student-123456-program-11";
+    private CdsExportRetainedImportOptionsReader.Options syntheticCopy() {
+        change("run", "dry_run", "0"); change("run", "snapshot_location", "/owned/job-"+"a".repeat(64)+".json"); change("patient", "copy_key", COPY); change("prepared", "options_digest", "5".repeat(64));
+        var prepared=data.get("prepared").fields(); change("prepared", "digest", CdsPreparationSeal.digest(prepared.get("payload_type"), prepared.get("source_digest"), prepared.get("options_digest"), prepared.get("ruleset_digest"), prepared.get("payload")));
+        return new CdsExportRetainedImportOptionsReader.Options(RUN, "a".repeat(64), "1".repeat(64), "2".repeat(64), "omd-5.2", true, 365, Map.of(COPY, "5".repeat(64)), "b".repeat(64));
+    }
+    private CdsExportRetainedIndexDto capturedIndex(CdsExportRetainedImportOptionsReader.Options options, boolean include, boolean sqlNull)throws Exception {
+        var selected=new HashSet<>(TABLES); selected.add("retained_import_options");
+        when(rows.forEachTable(eq(lease), eq(patient), eq(selected), eq(TABLES), eq(manifest), anyLong(), anyLong(), anyInt(), eq(control), any())).thenAnswer(call-> {CdsExportCapturedTextRowsReader.Rows output=call.getArgument(9); for (var row:data.values())output.accept(row); return mock(CdsExportNativeCaptureDto.class); });
+        when(rows.forEach(eq(lease), eq(patient), eq(selected), eq("retained_import_options"), eq(manifest), anyLong(), anyLong(), anyInt(), eq(control), any())).thenAnswer(call-> {if (include){var map=new HashMap<String, String>(); map.put("options", sqlNull?null:CdsExportRetainedImportOptionsReader.encodeCaptured(options)); CdsExportCapturedTextRowsReader.Rows output=call.getArgument(9); output.accept(new CdsExportCapturedTextRowDto("retained_import_options", RUN, map)); }return mock(CdsExportNativeCaptureDto.class); });
+        service=new CdsExportRetainedIndexService(rows, captures); return service.index(lease, patient, selected, manifest, 10000, 8L<<20, 1000, 4L<<20, control);
+    }
+    @Test void shouldRestoreAppliedCopies_fromCapturedOptionsWithoutOriginalConfiguration()throws Exception {
+        var options=syntheticCopy(); var result=capturedIndex(options, true, false); assertThat(result.effectiveOptionsByUnit()).containsEntry(RUN+":"+NATIVE, "5".repeat(64)); assertThat(new CdsExportRetainedImportOptionsReader().fromCaptured(result, RUN)).isEqualTo(options);
+    }
+    @Test void shouldRejectMissingCapturedRunOptionRows_withoutFallingBackToOriginalFiles() {
+        var options=syntheticCopy(); assertThatThrownBy(()-> capturedIndex(options, false, false)).hasMessage("CDS_EXPORT_RETAINED_INDEX_REQUIRES_REVIEW");
+    }
+    @Test void shouldRefuseNullCapturedOptions_forAnAppliedRun() {
+        var options=syntheticCopy(); assertThatThrownBy(()-> capturedIndex(options, true, true)).hasMessage("CDS_EXPORT_CAPTURED_IMPORT_OPTIONS_REQUIRED");
+    }
+    @Test void shouldRejectAChangedCapturedOptionsBinding_beforeInterpretingThePreparation() {
+        var original=syntheticCopy(); var changed=new CdsExportRetainedImportOptionsReader.Options(RUN, original.documentSha256(), original.optionsSha256(), "3".repeat(64), original.sourceProfile(), true, 365, original.copyOptionsSha256(), original.copiesSha256()); assertThatThrownBy(()-> capturedIndex(changed, true, false)).hasMessage("CDS_EXPORT_RETAINED_IMPORT_DOCUMENT_BINDING_MISMATCH");
+    }
+    @Test void shouldRejectUnfrozenCopyOptions_whenAnOlderCaptureLacksOriginalOptions() {
+        syntheticCopy(); assertThatThrownBy(this::index).hasMessage("CDS_EXPORT_RETAINED_COPY_OPTIONS_REQUIRED");
+    }
+    @Test void shouldRejectAResealedPreparation_whenItsCapturedCopyDigestWasChanged() {
+        var options=syntheticCopy(); change("prepared", "options_digest", "6".repeat(64)); var prepared=data.get("prepared").fields(); change("prepared", "digest", CdsPreparationSeal.digest(prepared.get("payload_type"), prepared.get("source_digest"), prepared.get("options_digest"), prepared.get("ruleset_digest"), prepared.get("payload")));
+        assertThatThrownBy(()-> capturedIndex(options, true, false)).hasMessage("CDS_EXPORT_RETAINED_COPY_OPTIONS_MISMATCH");
+    }
     private static String refs(String table, String id) throws Exception {
         return new ObjectMapper().writeValueAsString(new LinkedHashMap<>(Map.of("protocol", 2, "refs", List.of(Map.of("table", table, "id", id, "digest", "6".repeat(64))))));
     }
