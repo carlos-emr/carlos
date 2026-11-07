@@ -861,6 +861,8 @@ against staging. The report gives counts; root-only
 `billing-files-details.txt` inventories the affected row IDs, names and files
 in the standard `billing/download` directory. A passing database verification
 does not assert that ambiguous or overwritten historical files were recovered.
+The update-audit fields record `carlos-ctl/import-o19` and the row's import
+time. A later reconciliation records its own administrator and update time.
 
 CARLOS refuses ambiguous historical downloads and regeneration with fixed
 reconciliation guidance. A missing renamed file is not treated as an empty
@@ -883,7 +885,9 @@ UPDATE billing_filename_import
 SET file_status = 'reconciled',
     file_sha256 = '<lowercase SHA-256 of the verified file>',
     reconciled_by = '<billing administrator>',
-    reconciled_at = UTC_TIMESTAMP()
+    reconciled_at = UTC_TIMESTAMP(),
+    lastUpdateUser = '<billing administrator>',
+    lastUpdateDate = CURRENT_TIMESTAMP
 WHERE source_table = 'billing_on_diskname'
   AND source_id = <verified source row ID>
   AND imported_filename = '<exact allocated filename>'

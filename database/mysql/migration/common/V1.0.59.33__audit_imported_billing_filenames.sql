@@ -13,6 +13,8 @@ CREATE TABLE billing_filename_import (
   file_sha256 CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
   reconciled_by VARCHAR(128) NULL,
   reconciled_at DATETIME NULL,
+  lastUpdateUser VARCHAR(100) NOT NULL,
+  lastUpdateDate TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (source_table, source_id),
   KEY imported_filename_lookup (imported_filename),
   KEY original_filename_lookup (original_filename),

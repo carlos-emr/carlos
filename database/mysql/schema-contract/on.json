@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "5364b3c7956a1324f074d7233468756afa677c9eb39a2c3562cf382656047aec",
+ "migration_sha256": "a56815d1ca6ccf107cb2f26624a04ed1f2f532f046176730f96ca091e1047c07",
  "province": "on",
  "schema": {
   "checks": [
@@ -9426,6 +9426,30 @@
     "utf8mb4_bin",
     null,
     4
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    11
    ],
    [
     "billing_filename_import",

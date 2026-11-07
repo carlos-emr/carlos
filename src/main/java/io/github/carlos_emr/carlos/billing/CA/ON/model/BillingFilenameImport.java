@@ -37,6 +37,10 @@ public class BillingFilenameImport extends AbstractModel<BillingFilenameImport.K
     private String reconciledBy;
     @Column(name = "reconciled_at")
     private LocalDateTime reconciledAt;
+    @Column(name = "lastUpdateUser", length = 100, nullable = false)
+    private String lastUpdateUser;
+    @Column(name = "lastUpdateDate", nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+    private LocalDateTime lastUpdateDate;
 
     @Override @Transient
     public Key getId() {

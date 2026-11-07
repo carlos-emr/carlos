@@ -95,8 +95,8 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
         String claim = "HEH" + " ".repeat(20) + "00000042" + "HCP" + " ".repeat(45) + "\n";
         Files.writeString(billingDirectory.resolve(original), claim);
         entityManager.createNativeQuery("INSERT INTO billing_filename_import "
-                + "(source_table, source_id, original_filename, imported_filename, group_size, reason, file_status) "
-                + "VALUES ('billing_on_diskname', 990102, ?1, ?2, 2, 'collision', 'ambiguous')")
+                + "(source_table, source_id, original_filename, imported_filename, group_size, reason, file_status, lastUpdateUser, lastUpdateDate) "
+                + "VALUES ('billing_on_diskname', 990102, ?1, ?2, 2, 'collision', 'ambiguous', 'fixture-importer', CURRENT_TIMESTAMP)")
                 .setParameter(1, original).setParameter(2, allocated).executeUpdate();
         var properties = CarlosProperties.getInstance();
         Object previousHome = properties.get("HOME_DIR");
@@ -125,7 +125,7 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
             String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
                     .digest(claim.getBytes(StandardCharsets.UTF_8)));
             entityManager.createNativeQuery("UPDATE billing_filename_import SET file_status='reconciled', "
-                    + "file_sha256=?1, reconciled_by='fixture-reviewer', reconciled_at=CURRENT_TIMESTAMP "
+                    + "file_sha256=?1, reconciled_by='fixture-reviewer', reconciled_at=CURRENT_TIMESTAMP, lastUpdateUser='fixture-reviewer', lastUpdateDate=CURRENT_TIMESTAMP "
                     + "WHERE source_table='billing_on_diskname' AND source_id=990102")
                     .setParameter(1, sha).executeUpdate();
             var response = download(allocated);
@@ -156,8 +156,8 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     @Test
     void shouldReserveAllHistoricalNames_whenOnlyAuditRetainsOriginal() {
         entityManager.createNativeQuery("INSERT INTO billing_filename_import "
-                + "(source_table, source_id, original_filename, imported_filename, group_size, reason, file_status) "
-                + "VALUES ('billing_on_filename', 990201, 'legacy.001', 'o19-html-2020-990201-0.html', 2, 'collision', 'ambiguous')")
+                + "(source_table, source_id, original_filename, imported_filename, group_size, reason, file_status, lastUpdateUser, lastUpdateDate) "
+                + "VALUES ('billing_on_filename', 990201, 'legacy.001', 'o19-html-2020-990201-0.html', 2, 'collision', 'ambiguous', 'fixture-importer', CURRENT_TIMESTAMP)")
                 .executeUpdate();
         assertThat(dao.existsByOhipFilename("legacy.001")).isTrue();
         assertThat(filenameDao.existsByHtmlFilename("legacy.001")).isTrue();

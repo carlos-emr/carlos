@@ -71,6 +71,13 @@ public class BillingONDiskNameDao extends AbstractDaoImpl<BillingONDiskName> {
                 || BillingFilenameImportDao.isReserved(entityManager, ohipFilename);
     }
 
+    /**
+     * Delegates exact original/allocated basename lookup for collision groups greater than one.
+     * An empty result retains ordinary file handling, including unchanged group-one imports.
+     *
+     * @param filename the exact {@code String} basename
+     * @return the matching {@code List<FileReview>}; empty when there is no collision evidence
+     */
     public List<BillingFilenameImportDao.FileReview> importedFilenameReviews(String filename) {
         return BillingFilenameImportDao.findFileReviews(entityManager, filename);
     }

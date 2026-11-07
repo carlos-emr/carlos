@@ -26,11 +26,26 @@ public class BillingFilenameImportDao {
         return ((Number) query.getSingleResult()).longValue() > 0;
     }
 
+    /**
+     * Finds exact original or allocated basenames in collision evidence ({@code group_size > 1}).
+     * An empty result keeps ordinary file handling, including unchanged imports with group size one.
+     *
+     * @param filename the exact {@code String} basename
+     * @return the matching {@code List<FileReview>}; empty when there is no collision evidence
+     */
     public List<FileReview> findFileReviews(String filename) {
         return findFileReviews(entityManager, filename);
     }
 
-    /** Binary equality matches the actual filesystem name, including case and trailing spaces. */
+    /**
+     * Finds collision evidence with exact Java equality, including case and trailing spaces.
+     * The SQL comparison supplies a superset; results are restricted to {@code group_size > 1}.
+     * An empty list preserves ordinary file handling and does not imply absence of a group-one audit.
+     *
+     * @param manager the audit table's {@code EntityManager}
+     * @param filename the exact {@code String} basename
+     * @return the matching {@code List<FileReview>}; empty when there is no collision evidence
+     */
     public static List<FileReview> findFileReviews(EntityManager manager, String filename) {
         Query query = manager.createNativeQuery("SELECT original_filename, imported_filename, "
                 + "file_status, file_sha256, reconciled_by, reconciled_at FROM billing_filename_import "
