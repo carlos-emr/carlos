@@ -100,6 +100,68 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         demo4 = createDemographic("Bob", "Johnson", "ON", uniquePrefix + "3", "IN");  // Inactive
     }
 
+    @Test
+    void shouldBindLabSearchTextAndBoundPages_whenSortContainsQuerySyntax() {
+        String quotedName = uniquePrefix + "Alpha' OR 1=1 --";
+        demo1.setLastName(quotedName);
+        demo2.setLastName(uniquePrefix + "Zulu");
+        demographicDao.save(demo1);
+        demographicDao.save(demo2);
+        hibernateTemplate.flush();
+
+        String invalidSort = "last_name; DELETE FROM demographic";
+        assertThat(demographicDao.findLabPatientChoices("search_name", uniquePrefix, invalidSort, 0, 1))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactly(demo1.getDemographicNo().toString());
+        assertThat(demographicDao.findLabPatientChoices("search_name", uniquePrefix, invalidSort, 1, 1))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactly(demo2.getDemographicNo().toString());
+        assertThat(demographicDao.findLabPatientChoices("search_name", quotedName, "last_name DESC", 0, 10))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactly(demo1.getDemographicNo().toString());
+        assertThat(demographicDao.findLabPatientChoices("search_name", "' OR 1=1 --", "last_name", 0, 10)).isEmpty();
+        assertThatThrownBy(() -> demographicDao.findLabPatientChoices("search_name", uniquePrefix, "last_name", -1, 1))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> demographicDao.findLabPatientChoices("search_name", uniquePrefix, "last_name", 0, 0))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> demographicDao.findLabPatientChoices("search_name", uniquePrefix, "last_name", 0,
+                DemographicDao.MAX_SEARCH_RESULT_SIZE + 1)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldRetainFirstNameFilter_whenLabSearchHasLeadingWhitespace() {
+        demo1.setLastName(uniquePrefix);
+        demo2.setLastName(uniquePrefix);
+        demo2.setFirstName("Jane");
+        demographicDao.save(demo1);
+        demographicDao.save(demo2);
+        hibernateTemplate.flush();
+
+        assertThat(demographicDao.findLabPatientChoices("search_name", "    " + uniquePrefix + ",Jo", "last_name", 0, 10))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactly(demo1.getDemographicNo().toString());
+        assertThat(demographicDao.findLabPatientChoices("search_name", "    " + uniquePrefix + ",  ", "last_name", 0, 10))
+                .extracting(DemographicDao.LabPatientChoice::id)
+                .containsExactly(demo1.getDemographicNo().toString(), demo2.getDemographicNo().toString());
+    }
+
+    @Test
+    void shouldKeepDisjointLabSearchPages_whenSelectedSortValuesTie() {
+        for (Demographic demographic : List.of(demo1, demo2, demo3)) {
+            demographic.setLastName(uniquePrefix);
+            demographic.setFirstName("Same");
+            demographicDao.save(demographic);
+        }
+        hibernateTemplate.flush();
+
+        List<String> expected = java.util.stream.Stream.of(demo1, demo2, demo3)
+                .map(Demographic::getDemographicNo).sorted().map(Object::toString).toList();
+        for (String sort : List.of("last_name", "first_name DESC", "invalid sort")) {
+            for (int offset = 0; offset < expected.size(); offset++) {
+                assertThat(demographicDao.findLabPatientChoices("search_name", uniquePrefix, sort, offset, 1))
+                        .extracting(DemographicDao.LabPatientChoice::id).containsExactly(expected.get(offset));
+            }
+        }
+        assertThat(demographicDao.findLabPatientChoices("search_name", uniquePrefix, "demographic_no DESC", 0, 3))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactlyElementsOf(expected.reversed());
+    }
+
     /**
      * Creates and persists a {@link Demographic} with the given attributes and no roster status.
      *
@@ -140,6 +202,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         Demographic demo = new Demographic();
         demo.setFirstName(firstName);
         demo.setLastName(lastName);
+        demo.setPrefName(""); // The published MariaDB schema requires a non-null preferred name.
         demo.setHcType(hcType);
         demo.setHin(hin);
         demo.setPatientStatus(patientStatus);

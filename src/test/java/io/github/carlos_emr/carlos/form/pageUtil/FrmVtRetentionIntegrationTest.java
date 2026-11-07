@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.form.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
@@ -10,6 +11,7 @@ import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.struts2.ActionSupport;
@@ -47,9 +49,9 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Actual action, XML rules, owned JDBC read, and FrmRecordHelp inserts against isolated H2.
+ * Actual action, XML rules, native DAO reads, and FrmRecordHelp inserts against isolated H2.
  * Authentication/demographics and the measurement DAO are mocked: this proves real form-row
- * retention plus absence of measurement DAO calls, not a Hibernate/MariaDB integration run.
+ * retention plus absence of measurement DAO calls, not a physical MariaDB integration run.
  */
 @Tag("integration")
 @Tag("controller")
@@ -58,6 +60,7 @@ class FrmVtRetentionIntegrationTest {
     private static final List<String> RETAINED = List.of("iExValue", "iExDate", "iExComments",
             "WHRValue", "WHRDate", "WHRComments");
     private Connection keeper;
+    private NativeDaoTestDatabase nativeDatabase;
     private JdbcTemplate jdbc;
     private MockedStatic<SpringUtils> spring;
     private MockedStatic<CarlosProperties> properties;
@@ -82,12 +85,14 @@ class FrmVtRetentionIntegrationTest {
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), eq("101"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), eq(101))).thenReturn(true);
-        var forms = mock(EncounterFormDao.class);
+        nativeDatabase = new NativeDaoTestDatabase(source);
+        var forms = nativeDatabase.dao(EncounterFormDaoImpl.class);
         for (String name : List.of("VTForm", "OtherForm")) {
             var registration = new EncounterForm();
+            registration.setFormName(name);
             registration.setFormTable("form" + name);
             registration.setFormValue("../form/SetupForm.do?formName=" + name + "&demographic_no=");
-            when(forms.findByFormTable("form" + name)).thenReturn(List.of(registration));
+            nativeDatabase.transaction(() -> forms.persist(registration));
         }
         var demographics = mock(DemographicManager.class);
         var patient = new Demographic();
@@ -148,6 +153,7 @@ class FrmVtRetentionIntegrationTest {
     void closeOwnedDatabase() throws SQLException {
         if (properties != null) properties.close();
         if (spring != null) spring.close();
+        if (nativeDatabase != null) nativeDatabase.close();
         if (keeper != null) keeper.close(); // Last connection closes and destroys this test's DB.
     }
 

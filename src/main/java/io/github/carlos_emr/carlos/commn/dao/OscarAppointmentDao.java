@@ -47,6 +47,9 @@ import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
 public interface OscarAppointmentDao extends AbstractDao<Appointment> {
 
+    List<AppointmentDaySheetRow> findDaySheet(String start, String end, String startTime, String endTime,
+            String providerNo, boolean newOnly, String sort);
+
     public boolean checkForConflict(Appointment appt);
 
     /**

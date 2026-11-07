@@ -65,54 +65,24 @@
         String orderBy = request.getParameter("orderby") == null ? "company_name" : request
                 .getParameter("orderby");
 
-        // Validate orderBy against allowlist to prevent SQL injection
-        java.util.Set<String> VALID_COLUMNS = java.util.Set.of("company_name", "attention", "address", "city", "province", "postcode", "telephone", "fax", "id");
-        if (!VALID_COLUMNS.contains(orderBy)) {
-            orderBy = "company_name";
-        }
-
-        String where = "";
-        java.util.List<String> params = new java.util.ArrayList<>();
-        if ("search_name".equals(search_mode)) {
-            String[] temp = keyword.split("\\,\\p{Space}*");
-            if (temp.length > 1) {
-                where = "company_name like ? and company_name like ?";
-                params.add(temp[0] + "%");
-                params.add(temp[1] + "%");
-            } else {
-                where = "company_name like ?";
-                params.add(temp[0] + "%");
-            }
-        } else {
-            // Validate search_mode column name
-            if (!VALID_COLUMNS.contains(search_mode)) {
-                search_mode = "company_name";
-            }
-            where = search_mode + " like ?";
-            params.add(keyword + "%");
-        }
-        String sql = "select * from billing_on_3rdPartyAddress where " + where + " order by " + orderBy;
-        try (ResultSet rs = LegacyJdbcQuery.queryResultsPaged(sql, params.toArray(new String[0]), Integer.parseInt(strLimit1))) {
-            int idx = 0;
-            while (rs.next() && idx < Integer.parseInt(strLimit2)) {
-                prop = new Properties();
-                prop.setProperty("id", Misc.getString(rs, "id"));
-                prop.setProperty("attention", Misc.getString(rs, "attention"));
-                prop.setProperty("company_name", Misc.getString(rs, "company_name"));
-                prop.setProperty("address", Misc.getString(rs, "address"));
-                prop.setProperty("city", Misc.getString(rs, "city"));
-                prop.setProperty("province", Misc.getString(rs, "province"));
-                prop.setProperty("postcode", Misc.getString(rs, "postcode"));
-                prop.setProperty("telephone", Misc.getString(rs, "telephone"));
-                prop.setProperty("fax", Misc.getString(rs, "fax"));
-                vec.add(prop);
-                idx++;
-            }
+        for (Billing3rdPartyAddress address : SpringUtils.getBean(Billing3rdPartyAddressDao.class)
+                .findAddresses(search_mode, orderBy, keyword, strLimit1, strLimit2)) {
+            prop = new Properties();
+            prop.setProperty("id", address.getId().toString());
+            prop.setProperty("attention", org.apache.commons.lang3.StringUtils.trimToEmpty(address.getAttention()));
+            prop.setProperty("company_name", org.apache.commons.lang3.StringUtils.trimToEmpty(address.getCompanyName()));
+            prop.setProperty("address", org.apache.commons.lang3.StringUtils.trimToEmpty(address.getAddress()));
+            prop.setProperty("city", org.apache.commons.lang3.StringUtils.trimToEmpty(address.getCity()));
+            prop.setProperty("province", org.apache.commons.lang3.StringUtils.trimToEmpty(address.getProvince()));
+            prop.setProperty("postcode", org.apache.commons.lang3.StringUtils.trimToEmpty(address.getPostalCode()));
+            prop.setProperty("telephone", org.apache.commons.lang3.StringUtils.trimToEmpty(address.getTelephone()));
+            prop.setProperty("fax", org.apache.commons.lang3.StringUtils.trimToEmpty(address.getFax()));
+            vec.add(prop);
         }
     }
 %>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp"
-         import="java.util.*,java.sql.*,java.net.*" %>
+         import="java.util.*,java.net.*" %>
 
 <%@ page import="org.apache.commons.text.WordUtils" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -121,8 +91,9 @@
 <fmt:setBundle basename="oscarResources"/>
 
 
-<%@page import="io.github.carlos_emr.Misc" %>
-<%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.Billing3rdPartyAddressDao" %>
+<%@ page import="io.github.carlos_emr.carlos.billing.CA.ON.model.Billing3rdPartyAddress" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>

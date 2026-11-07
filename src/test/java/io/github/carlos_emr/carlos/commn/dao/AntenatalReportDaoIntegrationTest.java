@@ -28,6 +28,7 @@ import jakarta.persistence.PersistenceContext;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -39,6 +40,30 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
     @Autowired private DemographicExtDao extensions;
     @Autowired private AntenatalReportDao reports;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
+
+    @Test
+    @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_DAO", matches = "true")
+    void shouldRetainPhysicalPlannerTextAndTinyintFlags_whenPatientOwnsTheForm() {
+        // This unmapped legacy table is absent from the maintained schema. The opt-in
+        // MariaDB harness owns its complete disposable database, including this fixture.
+        entityManager.createNativeQuery("CREATE TABLE formAR (ID INT PRIMARY KEY, demographic_no INT,"
+                + " c_finalEDB DATE, c_pName VARCHAR(80), pg1_wt DECIMAL(6,2), pg1_ht VARCHAR(20),"
+                + " risk_yes TINYINT, risk_no TINYINT, risk_null TINYINT, nonflag INT)").executeUpdate();
+        try {
+            entityManager.createNativeQuery("INSERT INTO formAR VALUES"
+                    + " (5547,101,'2026-08-19','  FAKE Planner  ',72.50,NULL,1,2,NULL,1)").executeUpdate();
+            var planner = reports.findPlanner(5547, 101);
+            assertThat(planner.edb()).isEqualTo("2026-08-19");
+            assertThat(planner.patientName()).isEqualTo("  FAKE Planner  ");
+            assertThat(planner.weight()).isEqualTo("72.50");
+            assertThat(planner.height()).isNull();
+            assertThat(planner.checked()).containsExactly("risk_yes");
+            assertThat(reports.findPlanner(5547, 202)).isNull();
+            assertThat(reports.findPlanner(5548, 101)).isNull();
+        } finally {
+            entityManager.createNativeQuery("DROP TABLE formAR").executeUpdate();
+        }
+    }
 
     @Test
     void shouldKeepOneLatestRowAcrossCohort_forLegacyExport() {
@@ -92,11 +117,12 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldChooseHighestIdentifier_whenLatestDatesTie() {
-        int patient = patient();
-        extension(patient, "tie5549", "first", 2000);
-        DemographicExt second = extension(patient, "tie5549", "second", 2000);
+        int firstPatient = patient();
+        int secondPatient = patient();
+        extension(firstPatient, "tie5549", "first", 2000);
+        DemographicExt second = extension(secondPatient, "tie5549", "second", 2000);
         entityManager.clear();
-        assertThat(extensions.findReportValues("tie5549", List.of(patient), true))
+        assertThat(extensions.findReportValues("tie5549", List.of(firstPatient, secondPatient), true))
                 .extracting(DemographicExtDao.ReportValue::id).containsExactly(second.getId());
     }
 
@@ -104,6 +130,7 @@ class AntenatalReportDaoIntegrationTest extends CarlosTestBase {
         var patient = new io.github.carlos_emr.carlos.commn.model.Demographic();
         patient.setFirstName("Synthetic");
         patient.setLastName("Antenatal5549");
+        patient.setPrefName("");
         patient.setSex("F");
         patient.setYearOfBirth("1990");
         patient.setMonthOfBirth("01");

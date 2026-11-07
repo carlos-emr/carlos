@@ -28,7 +28,6 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BillingHistory;
 import io.github.carlos_emr.carlos.commn.dao.BillingDao;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.util.SqlUtils;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,7 +65,6 @@ import static org.mockito.Mockito.verify;
 class BillingHistoryDAOUnitTest extends CarlosUnitTestBase {
 
     private AutoCloseable mockitoCloseable;
-    private MockedStatic<SqlUtils> sqlUtilsMock;
 
     @Mock private BillingHistoryDao mockBillingHistoryDao;
     @Mock private BillRecipientsDao mockBillRecipientsDao;
@@ -81,12 +79,10 @@ class BillingHistoryDAOUnitTest extends CarlosUnitTestBase {
         registerMock(BillRecipientsDao.class, mockBillRecipientsDao);
         registerMock(BillingDao.class, mockBillingDao);
         registerMock(BillingmasterDAO.class, mockBillingmasterDao);
-        sqlUtilsMock = mockStatic(SqlUtils.class);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        if (sqlUtilsMock != null) sqlUtilsMock.close();
         if (mockitoCloseable != null) mockitoCloseable.close();
     }
 
@@ -94,14 +90,12 @@ class BillingHistoryDAOUnitTest extends CarlosUnitTestBase {
     @DisplayName("should look the bill up by a bound ? parameter and archive its current state")
     void shouldArchiveCurrentState_byBoundBillingmasterNo() {
         // A private bill skips the Teleplan sequence-number lookup, which is not under test here.
-        sqlUtilsMock.when(() -> SqlUtils.getQueryResultsList(anyString(), ArgumentMatchers.<Object>any()))
-                .thenReturn(List.<String[]>of(new String[]{"999998", "Pri", "O", "27.90", "0"}));
+        org.mockito.Mockito.when(mockBillingmasterDao.findCurrentBillState("41"))
+                .thenReturn(new BillingmasterDAO.BillStateRow("999998", "Pri", "O", "27.90", "0"));
 
         new BillingHistoryDAO().createBillingHistoryArchive("41");
 
-        ArgumentCaptor<String> query = ArgumentCaptor.forClass(String.class);
-        sqlUtilsMock.verify(() -> SqlUtils.getQueryResultsList(query.capture(), eq("41")));
-        assertThat(query.getValue()).endsWith("bm.billingmaster_no = ?").doesNotContain("?1");
+        verify(mockBillingmasterDao).findCurrentBillState("41");
         ArgumentCaptor<BillingHistory> archived = ArgumentCaptor.forClass(BillingHistory.class);
         verify(mockBillingHistoryDao).persist(archived.capture());
         assertThat(archived.getValue().getBillingMasterNo()).isEqualTo(41);
@@ -113,8 +107,8 @@ class BillingHistoryDAOUnitTest extends CarlosUnitTestBase {
     @DisplayName("should archive a received payment with its amount and payment type")
     void shouldArchivePayment_withAmountAndPaymentType() {
         // The payment form (ReceivePayment2Action) used to find no bill here and archive nothing.
-        sqlUtilsMock.when(() -> SqlUtils.getQueryResultsList(anyString(), ArgumentMatchers.<Object>any()))
-                .thenReturn(List.<String[]>of(new String[]{"999998", "Pri", "P", "27.90", "0"}));
+        org.mockito.Mockito.when(mockBillingmasterDao.findCurrentBillState("41"))
+                .thenReturn(new BillingmasterDAO.BillStateRow("999998", "Pri", "P", "27.90", "0"));
 
         new BillingHistoryDAO().createBillingHistoryArchive("41", 12.5, "3");
 
@@ -128,7 +122,7 @@ class BillingHistoryDAOUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should still refuse to archive a bill that does not exist")
     void shouldThrow_whenBillDoesNotExist() {
-        sqlUtilsMock.when(() -> SqlUtils.getQueryResultsList(anyString(), ArgumentMatchers.<Object>any()))
+        org.mockito.Mockito.when(mockBillingmasterDao.findCurrentBillState("41"))
                 .thenReturn(null);
 
         BillingHistoryDAO dao = new BillingHistoryDAO();

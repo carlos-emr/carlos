@@ -45,6 +45,59 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> implements BillingServiceDao {
+
+    private static String legacyText(Object value) {
+        return org.apache.commons.lang3.StringUtils.trimToEmpty(io.github.carlos_emr.carlos.util.NativeQueryValues.asString(value));
+    }
+
+    @Override
+    public List<TimeRule> findTimeRules() {
+        // TINYINT(1) otherwise becomes Boolean; billing validation requires the legacy "0"/"1" flags.
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("SELECT billingservice_no,CAST(timeRange AS SIGNED) FROM billing_msp_servicecode_times", Object[].class).getResultList();
+        return rows.stream().map(row -> new TimeRule(legacyText(row[0]), legacyText(row[1]))).toList();
+    }
+
+    @Override
+    public List<ConditionRule> findConditionRules(String serviceCode) {
+        return findConditionRules(serviceCode, true);
+    }
+
+    @Override
+    public List<ConditionRule> findAllConditionRules() {
+        return findConditionRules(null, false);
+    }
+
+    private List<ConditionRule> findConditionRules(String serviceCode, boolean filterByCode) {
+        Query query = entityManager.createNativeQuery("SELECT serviceCode,conditionCode FROM billing_service_code_conditions"
+                + (filterByCode ? " WHERE serviceCode=?1" : ""), Object[].class);
+        if (filterByCode) query.setParameter(1, serviceCode);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(row -> new ConditionRule(legacyText(row[0]), legacyText(row[1]))).toList();
+    }
+
+    @Override
+    public List<String> findVisitTypes() {
+        @SuppressWarnings("unchecked")
+        List<?> rows = entityManager.createNativeQuery("SELECT visittype FROM billingvisit").getResultList();
+        return rows.stream().map(BillingServiceDaoImpl::legacyText).toList();
+    }
+
+    @Override
+    public List<CodeDescription> findCodeDescriptions(String descriptionPrefix) {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("SELECT service_code,description FROM billingservice WHERE description LIKE ?1", Object[].class)
+                .setParameter(1, descriptionPrefix + "%").getResultList();
+        return rows.stream().map(row -> new CodeDescription(legacyText(row[0]), legacyText(row[1]))).toList();
+    }
+
+    @Override
+    public String findFirstPrice(String serviceCode) {
+        List<?> rows = entityManager.createNativeQuery("SELECT value FROM billingservice WHERE service_code=?1")
+                .setParameter(1, serviceCode).setMaxResults(1).getResultList();
+        return rows.isEmpty() ? null : legacyText(rows.get(0));
+    }
     static public final String BC = "BC";
 
     public BillingServiceDaoImpl() {

@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.eform;
 
-import io.github.carlos_emr.Misc;
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
 import io.github.carlos_emr.carlos.model.security.Secobjprivilege;
@@ -63,7 +62,8 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.eform.data.EFormBase;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.commn.dao.ClinicalDataRow;
+import io.github.carlos_emr.carlos.commn.dao.EFormListingRow;
 import io.github.carlos_emr.carlos.messenger.data.MessengerSystemMessage;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -72,8 +72,6 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import jakarta.persistence.PersistenceException;
 import java.io.File;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -614,7 +612,7 @@ public class EFormUtil {
     /**
      * Resolves AP column values, keeping "the query failed" distinguishable from "it matched no rows".
      *
-     * <p>{@link #getValues(List, ParameterizedSql)} cannot express that difference: {@link #getSQL}
+     * <p>{@link #getValues(List, ParameterizedSql)} cannot express that difference: the DAO
      * logs and returns {@code null} for a blocked or failed statement, and {@code getValues} turns
      * that into an empty list — the same value a healthy query over a patient with no matching data
      * returns. Every AP caller then renders an empty clinical field, over HTTP 200, with nothing for
@@ -635,59 +633,32 @@ public class EFormUtil {
     /** Patient-scoped precision refusal happens before SQL can filter unknown dates out. */
     public static ArrayList<String> getValuesOrNull(List<String> names, ParameterizedSql sql, Integer demographicNo) {
         requirePreventionDateSafety(sql, demographicNo);
-        ResultSet resultSet;
-        try {
-            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
-            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
-        } catch (SecurityException | SQLException e) {
-            logger.error("eForm AP query could not be executed", e);
-            return null;
-        }
-        if (resultSet == null) {
-            return null;
-        }
-        ArrayList<String> values = new ArrayList<String>();
-        try (ResultSet rows = resultSet) {
-            while (rows.next()) {
-                values = new ArrayList<String>();
-                for (int i = 0; i < names.size(); i++) {
-                    try {
-                        values.add(Misc.getString(rows, names.get(i)));
-                    } catch (Exception columnError) {
-                        logger.error("eForm AP column could not be read: " + names.get(i), columnError);
-                        return null;
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("eForm AP result set could not be read", e);
-            return null;
-        }
-        return values;
+        return readApValues(names, sql, true);
     }
 
     public static ArrayList<String> getValues(List<String> names, ParameterizedSql sql) {
-        // gets the values for each column name in the sql (used by DatabaseAP)
-        ArrayList<String> values = new ArrayList<String>();
-        try (ResultSet rs = getSQL(sql)) {
-            if (rs == null) {
-                return values;
-            }
-            while (rs.next()) {
-                values = new ArrayList<String>();
-                for (int i = 0; i < names.size(); i++) {
+        return readApValues(names, sql, false);
+    }
+
+    private static ArrayList<String> readApValues(List<String> names, ParameterizedSql sql, boolean strict) {
+        ArrayList<String> values = new ArrayList<>();
+        try {
+            for (ClinicalDataRow row : eFormValueDao().findDatabaseApValues(sql, names)) {
+                values = new ArrayList<>();
+                for (String name : names) {
                     try {
-                        values.add(Misc.getString(rs, names.get(i)));
-                    } catch (Exception sqe) {
-                        values.add("<(" + names.get(i) + ")NotFound>");
-                        logger.error("Error", sqe);
+                        values.add(row.text(name));
+                    } catch (IllegalArgumentException e) {
+                        if (strict) return null;
+                        values.add("<(" + name + ")NotFound>");
                     }
                 }
             }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("eForm AP query failed (causeType={})", e.getClass().getName());
+            return strict ? null : new ArrayList<>();
         }
-        return (values);
+        return values;
     }
 
     /**
@@ -716,59 +687,31 @@ public class EFormUtil {
 
     public static ArrayNode getJsonValuesOrNull(List<String> names, ParameterizedSql sql, Integer demographicNo) {
         requirePreventionDateSafety(sql, demographicNo);
-        ResultSet resultSet;
-        try {
-            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
-            resultSet = LegacyJdbcQuery.getPreparedResultSet(sql);
-        } catch (SecurityException | SQLException e) {
-            logger.error("eForm AP JSON query could not be executed", e);
-            return null;
-        }
-        if (resultSet == null) {
-            return null;
-        }
-        ArrayNode values = objectMapper.createArrayNode();
-        try (ResultSet rows = resultSet) {
-            while (rows.next()) {
-                ObjectNode value = objectMapper.createObjectNode();
-                for (int i = 0; i < names.size(); i++) {
-                    try {
-                        value.put(names.get(i), Misc.getString(rows, names.get(i)));
-                    } catch (Exception columnError) {
-                        logger.error("eForm AP JSON column could not be read: " + names.get(i), columnError);
-                        return null;
-                    }
-                }
-                values.add(value);
-            }
-        } catch (SQLException e) {
-            logger.error("eForm AP JSON result set could not be read", e);
-            return null;
-        }
-        return values;
+        return readApJson(names, sql, true);
     }
 
     public static ArrayNode getJsonValues(List<String> names, ParameterizedSql sql) {
-        // gets the values for each column name in the sql (used by DatabaseAP)
+        return readApJson(names, sql, false);
+    }
+
+    private static ArrayNode readApJson(List<String> names, ParameterizedSql sql, boolean strict) {
         ArrayNode values = objectMapper.createArrayNode();
-        try (ResultSet rs = getSQL(sql)) {
-            if (rs == null) {
-                return values;
-            }
-            while (rs.next()) {
+        try {
+            for (ClinicalDataRow row : eFormValueDao().findDatabaseApValues(sql, names)) {
                 ObjectNode value = objectMapper.createObjectNode();
-                for (int i = 0; i < names.size(); i++) {
+                for (String name : names) {
                     try {
-                        value.put(names.get(i), Misc.getString(rs, names.get(i)));
-                    } catch (Exception sqe) {
-                        value.put(names.get(i), "<(" + names.get(i) + ")NotFound>");
-                        logger.error("Error", sqe);
+                        value.put(name, row.text(name));
+                    } catch (IllegalArgumentException e) {
+                        if (strict) return null;
+                        value.put(name, "<(" + name + ")NotFound>");
                     }
                 }
                 values.add(value);
             }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("eForm AP JSON query failed (causeType={})", e.getClass().getName());
+            return strict ? null : objectMapper.createArrayNode();
         }
         return values;
     }
@@ -806,53 +749,31 @@ public class EFormUtil {
 
     // --------------eform groups---------
     public static ArrayList<HashMap<String, String>> getEFormGroups() {
-        String sql;
-        sql = "SELECT DISTINCT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
-                + "LEFT JOIN eform ON eform.fid=eform_groups.fid WHERE eform.status=1 OR eform_groups.fid=0 "
-                + "GROUP BY eform_groups.group_name";
-        ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
-        try (ResultSet rs = getSQL(new ParameterizedSql(sql, List.of()))) {
-            if (rs == null) {
-                return al;
-            }
-            while (rs.next()) {
-                HashMap<String, String> curhash = new HashMap<String, String>();
-                curhash.put("groupName", Misc.getString(rs, "group_name"));
-                curhash.put("count", Misc.getString(rs, "count"));
-                al.add(curhash);
-            }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
-        }
-        return al;
+        return getGroupCounts(null);
     }
 
-    public static ArrayList<HashMap<String, String>> getEFormGroups(String demographic_no) {
-        String sql;
-        sql = "SELECT eform_groups.group_name, count(*)-1 AS 'count' FROM eform_groups "
-                + "LEFT JOIN eform_data ON eform_data.fid=eform_groups.fid "
-                + "WHERE (eform_data.status=1 AND eform_data.demographic_no=?"
-                + ") OR eform_groups.fid=0 " + "GROUP BY eform_groups.group_name";
-        ArrayList<HashMap<String, String>> al = new ArrayList<HashMap<String, String>>();
-        int demographicNo;
+    public static ArrayList<HashMap<String, String>> getEFormGroups(String demographicNo) {
         try {
-            demographicNo = Integer.parseInt(demographic_no);
-        } catch (NumberFormatException nfe) {
-            logger.error("Invalid demographic_no: " + demographic_no, nfe);
-            return al;
+            return getGroupCounts(Integer.valueOf(demographicNo));
+        } catch (NumberFormatException e) {
+            logger.error("Invalid patient number for eForm group lookup");
+            return new ArrayList<>();
         }
+    }
 
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, demographicNo)) {
-            while (rs.next()) {
-                HashMap<String, String> curhash = new HashMap<String, String>();
-                curhash.put("groupName", Misc.getString(rs, "group_name"));
-                curhash.put("count", Misc.getString(rs, "count"));
-                al.add(curhash);
+    private static ArrayList<HashMap<String, String>> getGroupCounts(Integer demographicNo) {
+        var result = new ArrayList<HashMap<String, String>>();
+        try {
+            for (EFormGroupDao.GroupCount row : eFormGroupDao().findActiveGroupCounts(demographicNo)) {
+                var value = new HashMap<String, String>();
+                value.put("groupName", StringUtils.trimToEmpty(row.name()));
+                value.put("count", Long.toString(row.count()));
+                result.add(value);
             }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("eForm group lookup failed (causeType={})", e.getClass().getName());
         }
-        return al;
+        return result;
     }
 
     public static void delEFormGroup(String name) {
@@ -861,23 +782,7 @@ public class EFormUtil {
     }
 
     public static void addEFormToGroup(String groupName, String fid) {
-        ResultSet rs = null;
-        try {
-            String sql1 = "SELECT eform_groups.fid FROM eform_groups, eform WHERE eform_groups.fid=? AND eform_groups.fid=eform.fid AND eform.status=1 AND eform_groups.group_name=?";
-            rs = LegacyJdbcQuery.getPreparedResultSet(sql1, ConversionUtils.fromIntString(fid), groupName);
-            if (!rs.next()) {
-                EFormGroup eg = new EFormGroup();
-                eg.setFormId(Integer.parseInt(fid));
-                eg.setGroupName(groupName);
-                eFormGroupDao().persist(eg);
-            }
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
-        } finally {
-            if (rs != null) {
-                try { rs.close(); } catch (SQLException ignored) { }
-            }
-        }
+        eFormGroupDao().addActiveFormIfMissing(groupName, Integer.parseInt(fid));
     }
 
     public static void remEFormFromGroup(String groupName, String fid) {
@@ -886,44 +791,31 @@ public class EFormUtil {
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listEForms(String sortBy, String deleted, String group, String userRoles) {
-        // sends back a list of forms that were uploaded (those that can be added to the patient)
-        String validatedSort = validateSortBy(sortBy);
-        String sql = "";
-        if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=0 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.status=1 AND eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform, eform_groups where eform.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        }
-        ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), group)) {
-            while (rs.next()) {
-                HashMap<String, String> curht = new HashMap<String, String>();
-                curht.put("fid", rsGetString(rs, "fid"));
-                curht.put("formName", rsGetString(rs, "form_name"));
-                curht.put("formSubject", rsGetString(rs, "subject"));
-                curht.put("formFileName", rsGetString(rs, "file_name"));
-                curht.put("formDate", rsGetString(rs, "form_date"));
-                curht.put("formTime", rsGetString(rs, "form_time"));
-                curht.put("roleType", rsGetString(rs, "roleType"));
-
-                // filter eform by role type
-                if (curht.get("roleType") != null && !curht.get("roleType").equals("")) {
-                    // ojectName: "_admin,_admin.eform"
-                    // roleName: "doctor,admin"
-                    String objectName = "_eform." + curht.get("roleType");
-                    Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
-                    if (!OscarRoleObjectPrivilege.checkPrivilege(userRoles, (Properties) v.get(0), (Vector) v.get(1))) {
-                        continue;
-                    }
-                }
-                results.add(curht);
+        validateSortBy(sortBy);
+        var results = new ArrayList<HashMap<String, ? extends Object>>();
+        try {
+            for (EFormListingRow row : eformDao().findLibraryInGroup(legacyStatus(deleted), group, sortBy)) {
+                if (canListRole(row.roleType(), userRoles, false)) results.add(row.toLegacyMap(false));
             }
-        } catch (Exception sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("eForm library lookup failed (causeType={})", e.getClass().getName());
         }
-        return (results);
+        return results;
+    }
+
+    private static Boolean legacyStatus(String deleted) {
+        return switch (deleted) {
+            case "current" -> true;
+            case "deleted" -> false;
+            case "all" -> null;
+            default -> throw new IllegalArgumentException("Invalid eForm status");
+        };
+    }
+
+    private static boolean canListRole(String role, String userRoles, boolean patient) {
+        if (role.isEmpty() || (patient && "null".equals(role))) return true;
+        Vector privileges = OscarRoleObjectPrivilege.getPrivilegeProp("_eform." + role);
+        return OscarRoleObjectPrivilege.checkPrivilege(userRoles, (Properties) privileges.get(0), (Vector) privileges.get(1));
     }
 
     public static ArrayList<HashMap<String, ? extends Object>> listPatientEForms(LoggedInInfo loggedInInfo, String sortBy, String deleted, String demographic_no, String groupName, int offset, int numToReturn) {
@@ -963,51 +855,17 @@ public class EFormUtil {
 
     @Deprecated
     public static ArrayList<HashMap<String, ? extends Object>> listPatientEForms(String sortBy, String deleted, String demographic_no, String groupName, String userRoles) {
-        // sends back a list of forms added to the patient
-        String validatedSort = validateSortBy(sortBy);
-        String sql = "";
-        if (deleted.equals("deleted")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=0 AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        } else if (deleted.equals("current")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.status=1 AND eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        } else if (deleted.equals("all")) {
-            sql = "SELECT * FROM eform_data, eform_groups WHERE eform_data.patient_independent=0 AND eform_data.demographic_no=? AND eform_data.fid=eform_groups.fid AND eform_groups.group_name=? ORDER BY " + validatedSort;
-        }
-        ArrayList<HashMap<String, ? extends Object>> results = new ArrayList<HashMap<String, ? extends Object>>();
-        int demographicNo;
+        validateSortBy(sortBy);
+        var results = new ArrayList<HashMap<String, ? extends Object>>();
         try {
-            demographicNo = Integer.parseInt(demographic_no);
-        } catch (NumberFormatException nfe) {
-            logger.error("Invalid demographic_no: " + demographic_no, nfe);
-            return results;
-        }
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql),
-                demographicNo, groupName)) {
-            while (rs.next()) {
-                // filter eform by role type
-                if (rsGetString(rs, "roleType") != null && !rsGetString(rs, "roleType").equals("") && !rsGetString(rs, "roleType").equals("null")) {
-                    // ojectName: "_admin,_admin.eform"
-                    // roleName: "doctor,admin"
-                    String objectName = "_eform." + rsGetString(rs, "roleType");
-                    Vector v = OscarRoleObjectPrivilege.getPrivilegeProp(objectName);
-                    if (!OscarRoleObjectPrivilege.checkPrivilege(userRoles, (Properties) v.get(0), (Vector) v.get(1))) {
-                        continue;
-                    }
-                }
-                HashMap<String, String> curht = new HashMap<String, String>();
-                curht.put("fdid", Misc.getString(rs, "fdid"));
-                curht.put("fid", rsGetString(rs, "fid"));
-                curht.put("formName", rsGetString(rs, "form_name"));
-                curht.put("formSubject", rsGetString(rs, "subject"));
-                curht.put("formDate", rsGetString(rs, "form_date"));
-                curht.put("formTime", rsGetString(rs, "form_time"));
-                curht.put("roleType", rsGetString(rs, "roleType"));
-                results.add(curht);
+            for (EFormListingRow row : eFormDataDao().findLegacyPatientFormsInGroup(
+                    legacyStatus(deleted), Integer.parseInt(demographic_no), groupName, sortBy)) {
+                if (canListRole(row.roleType(), userRoles, true)) results.add(row.toLegacyMap(true));
             }
-        } catch (Exception sqe) {
-            logger.error("Error", sqe);
+        } catch (RuntimeException e) {
+            logger.error("Patient eForm lookup failed (causeType={})", e.getClass().getName());
         }
-        return (results);
+        return results;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -1490,19 +1348,6 @@ public class EFormUtil {
         return eFormDataDao().isLatestShowLatestFormOnlyPatientForm(fdid);
     }
 
-    private static ResultSet getSQL(ParameterizedSql sql) {
-        ResultSet rs = null;
-        try {
-            EFormSqlSafety.validateLegacySqlSafety(sql.getSql());
-            rs = LegacyJdbcQuery.getPreparedResultSet(sql);
-        } catch (SecurityException secEx) {
-            logger.error("Blocked unsafe SQL execution in legacy eForm path", secEx);
-        } catch (SQLException sqe) {
-            logger.error("Error", sqe);
-        }
-        return (rs);
-    }
-
     private static void requirePreventionDateSafety(ParameterizedSql sql, Integer demographicNo) {
         if (demographicNo != null && io.github.carlos_emr.carlos.prevention.PreventionReadSafetyService.readsPreventions(sql.getSql())) {
             io.github.carlos_emr.carlos.prevention.PreventionData.requireExactDates(demographicNo);
@@ -1518,13 +1363,6 @@ public class EFormUtil {
         }
         eform.setCurrent(status);
         eformDao().merge(eform);
-    }
-
-    private static String rsGetString(ResultSet rs, String column) throws SQLException {
-        // protects agianst null values;
-        String thisStr = Misc.getString(rs, column);
-        if (thisStr == null) return "";
-        return thisStr;
     }
 
     /**

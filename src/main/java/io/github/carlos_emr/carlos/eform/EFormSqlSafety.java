@@ -12,12 +12,12 @@ import java.sql.SQLException;
 
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 
-final class EFormSqlSafety {
+public final class EFormSqlSafety {
 
     private EFormSqlSafety() {
     }
 
-    static void validateLegacySqlSafety(String sql) {
+    public static void validateLegacySqlSafety(String sql) {
         if (sql == null) {
             throw new SecurityException("Null SQL is not allowed");
         }

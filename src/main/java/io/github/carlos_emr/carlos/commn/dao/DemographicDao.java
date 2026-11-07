@@ -56,6 +56,11 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 public interface DemographicDao {
 
+    record LabPatientChoice(String id, String firstName, String lastName, String rosterStatus,
+            String patientStatus, String sex, String chartNo, String year, String month, String day, String providerNo) { }
+
+    List<LabPatientChoice> findLabPatientChoices(String mode, String keyword, String sort, int offset, int limit);
+
     /** Maximum number of patient search results returned in one request. */
     int MAX_SEARCH_RESULT_SIZE = 500;
 

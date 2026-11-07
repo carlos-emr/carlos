@@ -32,10 +32,29 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.List;
+import java.util.Date;
+import java.util.Map;
 
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 
 public interface EncounterFormDao extends AbstractDao<EncounterForm> {
+
+    /** Scalar history from an approved, registry-owned physical form table. */
+    record HistoryRow(int id, int demographicNo, Date created, Date edited) { }
+
+    List<HistoryRow> findPatientHistory(String table, String demographicNo, boolean grouped);
+
+    HistoryRow findNewestPatientHistory(String table, String demographicNo);
+
+    String findLatestPatientFormId(String table, String demographicNo, String legacyFormName, boolean byEdited);
+
+    /** Raw column values retain SQL NULL and whitespace for uneditable form history. */
+    Map<String, String> findPatientRecord(String table, int id, int demographicNo);
+
+    boolean importedRowExists(String table, String demographicNo, String edited);
+
+    /** Validates physical column names and binds every archive value; returns the generated ID. */
+    long insertImportedRow(String table, String demographicNo, String edited, Map<String, String> values);
 
     public List<EncounterForm> findAll();
 

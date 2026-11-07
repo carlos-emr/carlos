@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.*;
 class Alpha20MutationCsrfIntegrationTest {
     @ParameterizedTest
     @ValueSource(strings={"/report/ViewReportonbilledvisitprovider","/admin/UpdateDemographicProvider","/CaseManagementEntry",
-            "/billing/CA/BC/SaveBilling", "/billing/CA/BC/UpdateBilling"})
+            "/billing/CA/BC/SaveBilling", "/billing/CA/BC/UpdateBilling", "/report/ViewReportdaysheet"})
     void shouldRejectMissingAndWrongTokensButAllowValidPost(String path) throws Exception {
         try (CsrfGuardFixture fixture = CsrfGuardFixture.loadShippedConfiguration()) {
             runAgainstShippedGuard(fixture.guard(), path);

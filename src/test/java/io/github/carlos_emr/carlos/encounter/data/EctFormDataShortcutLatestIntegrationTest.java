@@ -42,24 +42,20 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
 
 /**
  * Pins the contract behind the eChart Forms module item (issue #4678): the row the item is
  * dated from, {@link EctFormData#getShortcutLatestPatientForm(String, String)}, is the row its
  * {@code formId=latest} link opens, {@link FrmData#getShortcutFormValue(String, String)}.
  *
- * <p>Both real lookups run their real SQL through {@link LegacyJdbcQuery} against an isolated
- * H2 database owned by each test. Only the form registry and the thread-scoped Spring bean
- * lookup are mocked. The table is registered as {@code formGrowth0_36}, a built-in table that
- * {@code EctFormData} accepts without consulting its class-level registry DAO, so the result
- * does not depend on which test first loaded that class in a reused fork.</p>
+ * <p>Both lookups run their real native DAO queries against an isolated H2 database
+ * owned by each test. The form registry is persisted, and only the thread-scoped Spring
+ * bean lookup is mocked. The table is registered as {@code formGrowth0_36}; each test owns
+ * the registry and database so reused forks cannot retain another test's mock DAO.</p>
  */
 @Tag("integration")
 @Tag("form")
@@ -72,6 +68,7 @@ class EctFormDataShortcutLatestIntegrationTest {
     private static final String PATIENT = "101";
     private static final String OTHER_PATIENT = "202";
 
+    private io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase nativeDatabase;
     private Connection keeper;
     private JdbcTemplate jdbc;
     private MockedStatic<SpringUtils> spring;
@@ -90,8 +87,9 @@ class EctFormDataShortcutLatestIntegrationTest {
         registration.setFormName(FORM_NAME);
         registration.setFormTable(FORM_TABLE);
         registration.setFormValue(FORM_PATH);
-        var forms = mock(EncounterFormDao.class);
-        when(forms.findByFormName(FORM_NAME)).thenReturn(List.of(registration));
+        nativeDatabase = new io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase(source);
+        var forms = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl.class);
+        nativeDatabase.transaction(() -> forms.persist(registration));
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
@@ -105,6 +103,7 @@ class EctFormDataShortcutLatestIntegrationTest {
             try {
                 if (spring != null) spring.close();
             } finally {
+                if (nativeDatabase != null) nativeDatabase.close();
                 if (keeper != null) keeper.close();
             }
         }
@@ -123,6 +122,20 @@ class EctFormDataShortcutLatestIntegrationTest {
         // The creation-ordered list the module used before #4678 leads with the other row.
         assertThat(EctFormData.getPatientFormsFromLocalAndRemote(null, PATIENT, FORM_TABLE)[0].getFormId())
                 .isEqualTo("20");
+    }
+
+    @Test
+    void shouldPreserveLegacyXmlFormDates_whenHistoryUsesFormNumbers() {
+        jdbc.execute("CREATE TABLE form (form_no INT PRIMARY KEY, demographic_no INT, form_date TIMESTAMP)");
+        jdbc.update("INSERT INTO form VALUES (21,101,'2026-03-09 14:00:00'),(22,202,'2026-04-01 09:00:00')");
+        var forms = EctFormData.getPatientFormsAsArrayList(PATIENT, "XML", "form");
+        assertThat(forms).hasSize(1);
+        assertThat(forms.get(0).getFormId()).isEqualTo("21");
+        assertThat(forms.get(0).getTable()).isEqualTo("form");
+        assertThat(forms.get(0).getCreated()).isEqualTo("09-03-2026");
+        assertThat(forms.get(0).getEdited()).isEqualTo("09-03-2026 00:00:00");
+        assertThat(EctFormData.getGroupedPatientFormsAsArrayList(PATIENT, "XML", "form", null))
+                .extracting(EctFormData.PatientForm::getFormId).containsExactly("21");
     }
 
     @Test

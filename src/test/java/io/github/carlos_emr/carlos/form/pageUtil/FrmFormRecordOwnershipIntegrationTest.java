@@ -37,6 +37,7 @@ import static org.mockito.Mockito.*;
 @Tag("form")
 @DisplayName("Form record ownership against a real isolated database")
 public class FrmFormRecordOwnershipIntegrationTest {
+    private io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase nativeDatabase;
     private Connection keeper;
     private JdbcTemplate jdbc;
     private MockedStatic<SpringUtils> spring;
@@ -56,11 +57,13 @@ public class FrmFormRecordOwnershipIntegrationTest {
         security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), eq(101))).thenReturn(true);
-        forms = mock(EncounterFormDao.class);
+        nativeDatabase = new io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase(source);
+        forms = nativeDatabase.dao(io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl.class);
         EncounterForm registration = new EncounterForm();
         registration.setFormTable("formVTForm");
         registration.setFormValue("../form/SetupForm.do?formName=VTForm&demographic_no=");
-        when(forms.findByFormTable("formVTForm")).thenReturn(List.of(registration));
+        registration.setFormName("VT");
+        nativeDatabase.transaction(() -> forms.persist(registration));
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
@@ -70,6 +73,7 @@ public class FrmFormRecordOwnershipIntegrationTest {
     @AfterEach
     void closeOwnedDatabase() throws SQLException {
         if (spring != null) spring.close();
+        if (nativeDatabase != null) nativeDatabase.close();
         if (keeper != null) keeper.close();
     }
 

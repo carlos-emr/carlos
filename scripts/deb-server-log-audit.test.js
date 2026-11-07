@@ -67,7 +67,7 @@ test('should reduce an ERROR event to logger, location, first non-filter CARLOS 
 });
 
 test('only the exact synthetic renderer probe is baselined at the AP lookup log site', (t) => {
-  const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:359) - ';
+  const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:353) - ';
   const message = 'AP config lookup requested an unconfigured key=';
   const baseline = fs.readFileSync(BASELINE, 'utf8');
   const probe = audit(t, [prefix + message + 'renderer_missing_ap_1793762614845 fid=1'], {baseline});

@@ -28,6 +28,7 @@ import org.mockito.Mock;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.commn.model.SecObjPrivilege;
@@ -37,6 +38,7 @@ import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManagerImpl;
 import io.github.carlos_emr.carlos.model.security.Secuserrole;
 import io.github.carlos_emr.carlos.test.base.CarlosRestTestBase;
+import io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.FormListTo1;
 import io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper;
 
@@ -66,6 +68,7 @@ class FormsServicePatientAuthorizationEndpointTest extends CarlosRestTestBase {
     private SecObjPrivilegeDao mockPrivilegeDao;
 
     private Connection database;
+    private NativeDaoTestDatabase nativeDatabase;
 
     @Override
     protected Object getServiceBean() {
@@ -77,7 +80,6 @@ class FormsServicePatientAuthorizationEndpointTest extends CarlosRestTestBase {
         when(mockRoleDao.findActiveByProviderNo("101")).thenReturn(List.of(role));
 
         registerMock(SecObjPrivilegeDao.class, mockPrivilegeDao);
-        createAndRegisterMock(EncounterFormDao.class);
         List<SecObjPrivilege> privileges = List.of(
                 privilege(FORMS_OBJECT, "r"), privilege(FORMS_OBJECT + "$1", "o"));
         when(mockPrivilegeDao.findByObjectNames(any())).thenAnswer(invocation -> {
@@ -101,7 +103,8 @@ class FormsServicePatientAuthorizationEndpointTest extends CarlosRestTestBase {
     @BeforeEach
     void setUpFormDatabase() throws SQLException {
         JdbcDataSource dataSource = new JdbcDataSource();
-        dataSource.setURL("jdbc:h2:mem:forms-authz-" + UUID.randomUUID());
+        dataSource.setURL("jdbc:h2:mem:forms-authz-" + UUID.randomUUID()
+                + ";MODE=MySQL;DATABASE_TO_UPPER=false");
         database = dataSource.getConnection();
         registerMock(DataSource.class, dataSource);
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
@@ -112,11 +115,19 @@ class FormsServicePatientAuthorizationEndpointTest extends CarlosRestTestBase {
         EncounterForm form = new EncounterForm();
         form.setFormName("Synthetic encounter form");
         form.setFormTable("formGrowth0_36");
+        form.setFormValue("../form/formgrowth0_36.jsp?demographic_no=");
+        nativeDatabase = new NativeDaoTestDatabase(dataSource);
+        var forms = nativeDatabase.dao(EncounterFormDaoImpl.class);
+        nativeDatabase.transaction(() -> forms.persist(form));
+        registerMock(EncounterFormDao.class, forms);
         when(mockFormsManager.getAllEncounterForms()).thenReturn(new ArrayList<>(List.of(form)));
     }
 
     @AfterEach
     void closeFormDatabase() throws SQLException {
+        if (nativeDatabase != null) {
+            nativeDatabase.close();
+        }
         if (database != null) {
             database.close();
         }

@@ -29,6 +29,7 @@ import org.w3c.dom.Document;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
+import io.github.carlos_emr.carlos.form.service.FormXmlImportService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
@@ -38,9 +39,11 @@ class JDBCUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPropagateInvalidEntry_insteadOfReportingSuccess() {
+        registerMock(FormXmlImportService.class, new FormXmlImportService(mock(EncounterFormDao.class)));
         var input = new ByteArrayInputStream("<Results/>".getBytes(StandardCharsets.UTF_8));
         assertThatThrownBy(() -> JDBCUtil.toDataBase(input, "invalid.xml"))
-                .isInstanceOf(JDBCUtil.XmlImportException.class);
+                .isInstanceOf(JDBCUtil.XmlImportException.class)
+                .hasMessage("Invalid form XML import entry name");
     }
 
     @Test
@@ -128,30 +131,17 @@ class JDBCUtilUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should take XML import patient identity from archive entry name")
     void shouldTakeXmlImportPatientIdentity_fromArchiveEntryName() throws Exception {
-        ResultSet rs = mock(ResultSet.class);
-        Document document = XmlUtils.createSecureDocumentBuilderFactory()
-                .newDocumentBuilder()
-                .parse(new ByteArrayInputStream("""
-                        <Results>
-                          <Row>
-                            <ID>99</ID>
-                            <demographic_no>999</demographic_no>
-                            <formEdited>attacker-controlled</formEdited>
-                            <notes>trusted body field</notes>
-                          </Row>
-                        </Results>
-                        """.getBytes(StandardCharsets.UTF_8)));
-        JDBCUtil.FormImportTarget target =
-                new JDBCUtil.FormImportTarget("formFoo", "123", "20260520145500");
-
-        JDBCUtil.toResultSet(document, rs);
-        JDBCUtil.applyTrustedImportTarget(target, rs);
-
-        verify(rs, never()).updateString("ID", "99");
-        verify(rs, never()).updateString("demographic_no", "999");
-        verify(rs, never()).updateString("formEdited", "attacker-controlled");
-        verify(rs).updateString("notes", "trusted body field");
-        verify(rs).updateString("demographic_no", "123");
-        verify(rs).updateString("formEdited", "20260520145500");
+        var forms = mock(EncounterFormDao.class);
+        var registration = new EncounterForm();
+        when(forms.findByFormTable("formFoo")).thenReturn(List.of(registration));
+        registerMock(EncounterFormDao.class, forms);
+        var input = new ByteArrayInputStream("""
+                <Results><Row><ID>99</ID><demographic_no>999</demographic_no>
+                <formEdited>untrusted</formEdited><notes>trusted body field</notes></Row></Results>
+                """.getBytes(StandardCharsets.UTF_8));
+        var request = JDBCUtil.readImportRequest(input, "formFoo_123_20260520145500.xml");
+        assertThat(request.target().demographicNo()).isEqualTo("123");
+        assertThat(request.target().timeStamp()).isEqualTo("20260520145500");
+        assertThat(request.values()).containsExactlyEntriesOf(java.util.Map.of("notes", "trusted body field"));
     }
 }

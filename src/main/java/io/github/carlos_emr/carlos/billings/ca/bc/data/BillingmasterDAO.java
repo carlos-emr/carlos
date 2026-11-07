@@ -61,6 +61,29 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @SuppressWarnings("unchecked")
 @Transactional(propagation = Propagation.REQUIRES_NEW)
 public class BillingmasterDAO {
+
+    public record BillStateRow(String practitionerNo, String billingType, String status, String amount, String paymentMethod) { }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public BillStateRow findCurrentBillState(String billMasterNo) {
+        List<Object[]> rows = entityManager.createNativeQuery("SELECT b.provider_no,b.billingtype,bm.billingstatus,bm.bill_amount,bm.paymentMethod"
+                        + " FROM billing b,billingmaster bm WHERE b.billing_no=bm.billing_no AND bm.billingmaster_no=?1", Object[].class)
+                .setParameter(1, billMasterNo).setMaxResults(1).getResultList();
+        if (rows.isEmpty()) return null;
+        Object[] row = rows.get(0);
+        String[] text = new String[row.length];
+        for (int i = 0; i < row.length; i++) text[i] = org.apache.commons.lang3.StringUtils.trimToEmpty(
+                io.github.carlos_emr.carlos.util.NativeQueryValues.asString(row[i]));
+        return new BillStateRow(text[0], text[1], text[2], text[3], text[4]);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public String findBillStatus(String billMasterNo) {
+        List<?> rows = entityManager.createNativeQuery("SELECT billingstatus FROM billingmaster WHERE billingmaster_no=?1")
+                .setParameter(1, billMasterNo).setMaxResults(1).getResultList();
+        return rows.isEmpty() ? null : org.apache.commons.lang3.StringUtils.trimToEmpty(
+                io.github.carlos_emr.carlos.util.NativeQueryValues.asString(rows.get(0)));
+    }
     private static Logger log = MiscUtils.getLogger();
     private static final String BILLING_TYPE_COLUMN = "b.billingtype";
     private static final String DEMOGRAPHIC_NO_PARAMETER = "demographicNo";
