@@ -57,7 +57,7 @@ public class CdsExportNativeRowReceiptReader {
             Map.entry("demographicExt", "id"),
             Map.entry("demographiccust", "demographic_no"),
             Map.entry("cds_import_field", "id"),
-            Map.entry("casemgmt_issue", "id"), Map.entry("issue", "issue_id"),
+            Map.entry("casemgmt_issue_notes", "id"), Map.entry("casemgmt_issue", "id"), Map.entry("issue", "issue_id"),
             Map.entry("casemgmt_note", "note_id"), Map.entry("casemgmt_note_ext", "id"),
             Map.entry("preventions", "id"),
             Map.entry("preventionsExt", "id"),
@@ -89,7 +89,7 @@ public class CdsExportNativeRowReceiptReader {
         private final Receipts consumer;
         private final Map<String, CdsExportCapturedFieldDto> headers = new HashMap<>();
         private final Map<String, Long> counts = new HashMap<>();
-        private String table, key, id;
+        private String table, key, id, noteId;
         private long available, unavailable, partialRows;
         private CdsExportCapturedFieldDto pending;
         private ByteArrayOutputStream identity;
@@ -100,7 +100,7 @@ public class CdsExportNativeRowReceiptReader {
             if (!KEYS.containsKey(field.table())) return OutputStream.nullOutputStream();
             if (!field.table().equals(table) || !field.recordKey().equals(key)) { finishRow(); table = field.table(); key = field.recordKey(); }
             pending = field;
-            if (KEYS.get(table).equals(field.column())) {
+            if (KEYS.get(table).equals(field.column()) || table.equals("casemgmt_issue_notes") && field.column().equals("note_id")) {
                 if (field.kind() != CdsExportCapturedFieldDto.Kind.UTF8 || field.bytes() > 128) scope();
                 identity = new ByteArrayOutputStream((int) field.bytes()); return identity;
             }
@@ -109,7 +109,7 @@ public class CdsExportNativeRowReceiptReader {
         @Override public void verified(CdsExportCapturedFieldDto field) throws IOException {
             if (!KEYS.containsKey(field.table())) return;
             if (closed || pending != field || headers.putIfAbsent(field.column(), field) != null) scope();
-            if (identity != null) { id = identity.toString(StandardCharsets.UTF_8); identity = null; }
+            if (identity != null) { if (table.equals("casemgmt_issue_notes") && field.column().equals("note_id")) noteId = identity.toString(StandardCharsets.UTF_8); else id = identity.toString(StandardCharsets.UTF_8); identity = null; }
             pending = null;
         }
         private void finishRow() throws IOException {
@@ -119,6 +119,13 @@ public class CdsExportNativeRowReceiptReader {
                 if (!id.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}") || !id.equals(key)) scope();
             } else if (Set.of("cds_import_field", "cds_import_file_reference").contains(table)) {
                 if (!id.matches("[0-9a-f]{64}") || !id.equals(key)) scope();
+            } else if (table.equals("casemgmt_issue_notes")) {
+                try {
+                    long note = Long.parseLong(noteId), issue = Long.parseLong(id);
+                    if (note < 1 || issue < 1 || !Long.toString(note).equals(noteId) || !Long.toString(issue).equals(id)
+                            || !(CdsExportPatientTableSourceReader.key(note) + CdsExportPatientTableSourceReader.key(issue)).equals(key)) scope();
+                    id = noteId + "_" + id;
+                } catch (NumberFormatException malformed) { scope(); }
             } else {
                 try {
                     long number = Long.parseLong(id); if (!Long.toString(number).equals(id)) scope();
@@ -141,7 +148,7 @@ public class CdsExportNativeRowReceiptReader {
             boolean partial = table.equals("demographiccust") && !plan.columns().contains("cust3") && state != null;
             if (state != null) { if (partial) partialRows++; else available++; }
             consumer.accept(new CdsExportNativeRowReceiptDto(physical(table), id, key, digest, state, partial)); counts.merge(table, 1L, Math::addExact);
-            table = null; key = null; id = null; headers.clear();
+            table = null; key = null; id = null; noteId = null; headers.clear();
         }
         @Override public void close() { closed = true; headers.clear(); identity = null; pending = null; id = null; }
     }

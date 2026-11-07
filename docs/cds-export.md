@@ -34,15 +34,29 @@ External family/referring-physician reconciliation passed package verification. 
 Preferred-pharmacy reconciliation and the coordinated demographic care assembler are packaged and installed component verified. The assembler combines personal contacts, family/referring physicians and preferred pharmacy with the demographic core, checks exact native/source field identities, and retains each use of shared physician names. Unchanged source address lines, address type, phone extensions and fax components survive import's flattened native projection. Explicit native edits replace only the corresponding source groups; city edits preserve unchanged street lines, and jurisdiction/postal changes are checked together. Conflicting source-only details, ambiguous preferences, shared personal/professional contact aliases and unsupported populated native attributes require review. All 104 focused checks pass. The exact packaged care run passed 51 checks, including real pharmacy name/city edits, receiving-schema XML validation, and full physical-row/timestamp restoration. Other demographic and archive fields remain deferred, so this is not whole-demographic or clinical-export qualification.
 
 
+Current history occurrence assembly uses one authenticated source session for all seven
+history sections. It binds the current note, extensions, physical note-to-issue links,
+patient issues and referenced catalogue to the same frozen generation. The link receipt
+uses the importer's existing `noteId_issueId` identity and actual ordered JDBC metadata.
+Every retained field and every current native field receives an explicit disposition;
+unchanged source dates keep their original precision, while an edited narrative replaces
+only its corresponding standard field. Missing date hints, changed authors or clinical
+issue flags, native-only notes and revision chains needing an audit carrier require
+review. They cannot silently replay an old source occurrence. Session expiry, duplicate
+or omitted categories, caught failures and final authorization revocation invalidate
+completion. These additions are source-level work until the next packaged checkpoint
+is recorded; they do not qualify a clinical export profile.
+
 ## Baseline and integration
 
 The implementation worktree starts at `release/2026.08` commit
 `b96e367945befe66eb333fe19aa1630aa9d10647`, which includes the modern importer.
-At verification, `develop` was `848ca460b2d5779a45950ae1451311f1c9409f33` and did
-not contain that importer. A trial merge-tree calculation detected conflicts in
-the prerequisite release-to-develop forward merge. This feature branch does not
-resolve or conceal those unrelated conflicts. Integration into `develop` remains
-required under the [release process](release-process.md).
+The feature branch includes the forward integration of `develop` commit
+`848ca460b2d5779a45950ae1451311f1c9409f33`. The 117 merge conflicts were resolved
+and the integrated importer/exporter baseline was packaged and tested at
+`2026.09.0-alpha1-SNAPSHOT`. The preserved package and installed component evidence
+below distinguish this completed integration from the remaining clinical export
+qualification under the [release process](release-process.md).
 
 The original checkout and its work remain intact. The separate `carlos-ctl`
 worktree starts at `c330ae97683757da4aeff18f70db665c561de1cf`. Its export adapter

@@ -35,7 +35,7 @@
   ],
   "remaining": [
     "Complete native-only, merged and unresolved demographic/archive cases and supporting native projections for unrepresented care attributes",
-    "Complete history/clinical-note native capture, issue/revision reconciliation and occurrence assembly with per-note authorization",
+    "Complete native-only history, changed date/author/issue mappings and the prior-revision audit carrier; current imported history now has complete captured context and coordinated occurrence assembly",
     "Complete source catalogue and all selected clinical domain mappings, attachments and merged-chart ownership",
     "Connect a concrete clinical export engine and independent expected-fact inventory to coverage validation",
     "Complete review, audit, recipient encryption, delivery, download authorization and retention lifecycle",
@@ -366,6 +366,28 @@
     "allScalarFieldsMatchedToWholeRowWitness": true,
     "missingAndExtraColumnsRefused": true,
     "clinicalPrecedenceImplemented": false,
+    "clinicalPublication": false
+  },
+  "currentHistoryOccurrenceAssembly": {
+    "state": "SOURCE_VERIFIED_PACKAGE_PENDING",
+    "focusedUnitChecks": 115,
+    "focusedFailures": 0,
+    "focusedErrors": 0,
+    "focusedSkipped": 0,
+    "priorSingleCategoryInstalledAssertions": 106,
+    "priorInstalledComponentOverlays": true,
+    "sharedHistorySessionPackagedQualificationPending": true,
+    "completeCapturedDomains": [
+      "casemgmt_note",
+      "casemgmt_note_ext",
+      "casemgmt_issue_notes",
+      "casemgmt_issue",
+      "issue"
+    ],
+    "historicalCompositeLinkReceiptFormatUnchanged": true,
+    "allSevenWirePositionsOneAuthenticatedSession": true,
+    "expectedMappingRefusalsRequireReview": true,
+    "nativeOnlyAndPriorRevisionAuditCarrierRequired": true,
     "clinicalPublication": false
   }
 }

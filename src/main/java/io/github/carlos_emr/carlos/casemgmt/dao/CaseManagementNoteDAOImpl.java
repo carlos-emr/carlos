@@ -75,6 +75,11 @@ public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseMan
     }
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportIssueLinkReceiptColumns() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.read(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.Table.CASE_NOTE_ISSUE_LINK);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public long countCdsExportIssueLinks(int patient) {
         return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.noteIssueLinkCount(entityManager(), patient);
     }

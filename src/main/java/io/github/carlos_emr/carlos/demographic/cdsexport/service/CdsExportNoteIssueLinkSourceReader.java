@@ -39,6 +39,7 @@ public class CdsExportNoteIssueLinkSourceReader implements CdsExportNativeSource
     @Override public Set<CdsCategory> categories() { return CdsExportNoteSourceReader.CATEGORIES; }
     @Override public Set<String> requiredTables() { return Set.of("casemgmt_note"); }
     @Override public CdsExportTableSchemaDto schema() { return source.readCdsExportIssueLinkSchema(); }
+    @Override public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> receiptColumns() { return source.readCdsExportIssueLinkReceiptColumns(); }
     @Override public long count(int patient) { return source.countCdsExportIssueLinks(patient); }
     @Override public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) throws IOException {
         CdsExportNoteIssueLinkDto after = null;

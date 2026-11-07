@@ -46,6 +46,18 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     private static final String SOURCE = "b".repeat(64), PATIENT_KEY = "a".repeat(64);
     private static final CdsCategory ALLERGY = CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, MEDICATION = CdsCategory.MEDICATIONS_AND_TREATMENTS;
     @TempDir Path directory;
+    @Test void shouldDispatchHistoryThroughTheSharedService_inTheSameSourceFailureScope() throws Exception {
+        var history = mock(CdsExportHistoryOccurrenceService.class); var captures = mock(CdsExportNativeCaptureService.class);
+        var values = mock(CdsExportRetainedValuesService.class); var receipts = mock(CdsExportNativeRowReceiptReader.class); var verification = mock(CdsExportRetainedReceiptVerificationService.class);
+        var service = new CdsExportClinicalOccurrenceService(values, verification, receipts, captures, mock(CdsExportImmunizationOccurrenceService.class), mock(CdsExportAppointmentOccurrenceService.class), history);
+        var lease = mock(CdsExportLeaseDto.class); var patient = mock(CdsExportCohortService.Patient.class); var source = mock(CdsExportPatientCaptureDto.class); var payload = mock(CdsExportStagedFileDto.class); var control = mock(CdsExportRunControl.class);
+        var xml = mock(CdsExportXmlComposer.SectionEmitter.class); var output = mock(CdsExportClinicalOccurrenceService.Receipts.class); var bounds = new CdsExportClinicalOccurrenceService.Bounds(1000, 1L << 20, 100, 1L << 20, 100, 100);
+        doAnswer(call -> { call.<CdsExportXmlComposer.Sections>getArgument(0).write(xml); return null; }).when(xml).source(any());
+        var result = new CdsExportClinicalOccurrenceService.Result(SOURCE, CdsCategory.FAMILY_HISTORY, 1, 1, 0, 2);
+        when(history.append(CdsCategory.FAMILY_HISTORY, lease, patient, PATIENT_KEY, Set.of("casemgmt_note"), source, payload, bounds, control, xml, output)).thenReturn(result);
+        assertThat(service.append(CdsCategory.FAMILY_HISTORY, lease, patient, PATIENT_KEY, Set.of("casemgmt_note"), source, payload, bounds, control, xml, output)).isEqualTo(result);
+        verifyNoInteractions(values, receipts, verification, captures); verify(xml).source(any());
+    }
     @Test void shouldAssembleEachNativeOnlyOccurrenceOnce_withItsOwnSerializationAndFieldReceipts() throws Exception {
         var f = nativeOnly(); var records = parse(compose(f, false), ALLERGY, "native");
         var received = new CdsClinicalNormalizationService(new CdsFieldParser()).allergy(records.get(1));

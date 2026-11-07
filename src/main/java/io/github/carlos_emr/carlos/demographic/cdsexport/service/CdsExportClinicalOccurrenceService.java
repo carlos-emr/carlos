@@ -60,6 +60,7 @@ public class CdsExportClinicalOccurrenceService {
     private final CdsExportNativeRowReceiptReader witnesses;
     private final CdsExportNativeCaptureService captures;
     private final CdsExportCapturedTextRowsReader rows;
+    private final CdsExportHistoryOccurrenceService histories;
     private final CdsExportImmunizationOccurrenceService immunizations;
     private final CdsExportAppointmentOccurrenceService appointments;
     public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
@@ -74,16 +75,35 @@ public class CdsExportClinicalOccurrenceService {
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportImmunizationOccurrenceService immunizations) {
         this(values, verification, witnesses, captures, new CdsExportCapturedTextRowsReader(captures), Objects.requireNonNull(immunizations), null);
     }
-    @Autowired public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
+    public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportImmunizationOccurrenceService immunizations, CdsExportAppointmentOccurrenceService appointments) {
         this(values, verification, witnesses, captures, new CdsExportCapturedTextRowsReader(captures), Objects.requireNonNull(immunizations), Objects.requireNonNull(appointments));
     }
+    @Autowired public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportImmunizationOccurrenceService immunizations,
+            CdsExportAppointmentOccurrenceService appointments, CdsExportHistoryOccurrenceService histories) {
+        this(values, verification, witnesses, captures, new CdsExportCapturedTextRowsReader(captures), Objects.requireNonNull(immunizations), Objects.requireNonNull(appointments), Objects.requireNonNull(histories));
+    }
     private CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows, CdsExportImmunizationOccurrenceService immunizations, CdsExportAppointmentOccurrenceService appointments) {
+        this(values, verification, witnesses, captures, rows, immunizations, appointments, null);
+    }
+    private CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows,
+            CdsExportImmunizationOccurrenceService immunizations, CdsExportAppointmentOccurrenceService appointments, CdsExportHistoryOccurrenceService histories) {
+        this.histories = histories;
         this.appointments=appointments;
         this.immunizations = immunizations;
         this.values = Objects.requireNonNull(values); this.verification = Objects.requireNonNull(verification);
         this.witnesses = Objects.requireNonNull(witnesses); this.captures = Objects.requireNonNull(captures); this.rows = Objects.requireNonNull(rows);
+    }
+    /** Keeps seven history wire positions within one authenticated patient source session. */
+    public void withHistorySource(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, String patientKey,
+            Set<String> requiredTables, CdsExportPatientCaptureDto source, CdsExportStagedFileDto payloadManifest,
+            Bounds bounds, CdsExportRunControl control, CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportHistoryOccurrenceService.Work work) throws IOException {
+        if (histories == null) scope();
+        histories.withSource(lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, xml, work);
     }
     public Result append(CdsCategory category, CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, String patientKey,
             Set<String> requiredTables, CdsExportPatientCaptureDto source, CdsExportStagedFileDto payloadManifest,
@@ -96,6 +116,10 @@ public class CdsExportClinicalOccurrenceService {
             Set<String> requiredTables, CdsExportPatientCaptureDto source, CdsExportStagedFileDto payloadManifest,
             Bounds bounds, CdsExportRunControl control, CdsExportXmlComposer.SectionEmitter xml, Receipts output) throws IOException {
         Objects.requireNonNull(output); patient.require(lease);
+        if (CdsExportNoteSourceReader.CATEGORIES.contains(category)) {
+            if (histories == null) scope();
+            return histories.append(category, lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, xml, output);
+        }
         if (category==CdsCategory.APPOINTMENTS){if (appointments==null)scope(); return appointments.append(lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, xml, output); }
         if (category == CdsCategory.IMMUNIZATIONS) {
             if (immunizations == null) scope();

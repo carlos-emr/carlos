@@ -33,7 +33,7 @@ public final class CdsExportNativeMetadataReadSupport {
         CASE_ISSUES("casemgmt_issue"), ISSUE_CATALOGUE("issue"),
         RETAINED_FILES("cds_import_file"), RETAINED_FILE_REFERENCES("cds_import_file_reference"),
         CONTACT("Contact"), DEMOGRAPHIC_CONTACT("DemographicContact"), PHARMACY_LINK("demographicPharmacy"), PHARMACY("pharmacyInfo"),
-        CASE_NOTE_EXT("casemgmt_note_ext"), CASE_NOTES("casemgmt_note"), PREVENTIONS_EXT("preventionsExt"),
+        CASE_NOTE_ISSUE_LINK("casemgmt_issue_notes"), CASE_NOTE_EXT("casemgmt_note_ext"), CASE_NOTES("casemgmt_note"), PREVENTIONS_EXT("preventionsExt"),
         PREVENTIONS("preventions"),
         CVC_IMMUNIZATION("CVCImmunization"), CVC_MAPPING("CVCMapping"),
         DEMOGRAPHIC("demographic"), DEMOGRAPHIC_ARCHIVE("demographicArchive"), DEMOGRAPHIC_MERGES("demographic_merged"), DRUGS("drugs"), ALLERGIES("allergies"), PARTIAL_DATE("partial_date"), APPOINTMENT("appointment"),

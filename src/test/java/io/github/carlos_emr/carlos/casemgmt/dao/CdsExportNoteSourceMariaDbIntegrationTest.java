@@ -135,6 +135,15 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             var receipt = notes.readCdsExportReceiptColumns(); assertThat(receipt).hasSize(25); assertThat(receipt.stream().map(column -> column.name()).toList()).containsExactlyInAnyOrderElementsOf(CdsExportPatientTableReadSupport.Plan.CASE_NOTES.columns());
         });
     }
+    @Test void shouldReadExactOrderedCompositeLinkMetadata_underTheOwningSnapshot() {
+        read.executeWithoutResult(status -> {
+            var columns = notes.readCdsExportIssueLinkReceiptColumns();
+            assertThat(columns).extracting(column -> column.name()).containsExactly("id", "note_id");
+            assertThat(columns).allSatisfy(column -> { assertThat(column.type()).isEqualTo("BIGINT"); assertThat(column.precision()).isEqualTo(19); assertThat(column.scale()).isZero(); });
+            assertThat(new io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkSourceReader(notes).receiptColumns()).isEqualTo(columns);
+        });
+        assertThatThrownBy(() -> notes.readCdsExportIssueLinkReceiptColumns()).isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+    }
     @Test void shouldPreserveEveryOwnedNoteExtension_andStreamItsCompleteUtf8Value() {
         read.executeWithoutResult(status -> {
             assertThat(extensions.countCdsExportRows(id)).isEqualTo(1); var page = extensions.findCdsExportRowsAfter(id, null, 32); assertThat(page).hasSize(1);

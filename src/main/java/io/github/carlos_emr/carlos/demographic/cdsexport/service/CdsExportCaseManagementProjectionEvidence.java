@@ -37,17 +37,24 @@ final class CdsExportCaseManagementProjectionEvidence {
                 || !row.table().equals(witness.table()) || !row.recordKey().equals(witness.recordKey()) || !row.exactNumbers().isEmpty()) invalid();
         var plan = switch (row.table()) {
             case "casemgmt_note" -> CdsExportPatientTableReadSupport.Plan.CASE_NOTES;
+            case "casemgmt_issue_notes" -> CdsExportPatientTableReadSupport.Plan.CASE_NOTE_ISSUE_LINK;
             case "casemgmt_note_ext" -> CdsExportPatientTableReadSupport.Plan.CASE_NOTE_EXT;
             case "casemgmt_issue" -> CdsExportPatientTableReadSupport.Plan.CASE_ISSUES;
             case "issue" -> CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE;
             default -> throw new IOException("CDS_EXPORT_CASE_MANAGEMENT_PROJECTION_INVALID");
         };
         String primary = switch (row.table()) { case "casemgmt_note" -> "note_id"; case "issue" -> "issue_id"; default -> "id"; };
-        if (!row.fields().keySet().equals(Set.copyOf(plan.columns())) || !Objects.equals(row.fields().get(primary), witness.id())
+        if (!row.fields().keySet().equals(Set.copyOf(plan.columns())) || !Objects.equals(row.table().equals("casemgmt_issue_notes") ? row.fields().get("note_id") + "_" + row.fields().get("id") : row.fields().get(primary), witness.id())
                 || !row.fields().keySet().equals(Set.copyOf(witness.state().columns().stream().map(CdsNativeRowDigest.Column::name).toList()))) invalid();
         try {
-            long id = Long.parseLong(witness.id());
-            if (!Long.toString(id).equals(witness.id()) || !CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())) invalid();
+            if (row.table().equals("casemgmt_issue_notes")) {
+                long note = Long.parseLong(row.fields().get("note_id")), issue = Long.parseLong(row.fields().get("id"));
+                if (note < 1 || issue < 1 || !Long.toString(note).equals(row.fields().get("note_id")) || !Long.toString(issue).equals(row.fields().get("id"))
+                        || !(CdsExportPatientTableSourceReader.key(note) + CdsExportPatientTableSourceReader.key(issue)).equals(row.recordKey())) invalid();
+            } else {
+                long id = Long.parseLong(witness.id());
+                if (id < 1 || !Long.toString(id).equals(witness.id()) || !CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())) invalid();
+            }
         } catch (NumberFormatException malformed) { invalid(); }
         for (var field : row.fields().entrySet()) if (!matches(witness.state(), field.getKey(), field.getValue())) invalid();
     }
