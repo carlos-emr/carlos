@@ -64,6 +64,11 @@ public abstract class FrmRecord {
 
     public abstract int saveFormRecord(Properties props) throws SQLException;
 
+    /** Carries the authenticated actor into migrated persistence services. */
+    public int saveFormRecord(LoggedInInfo actor, Properties props) throws SQLException {
+        return saveFormRecord(props);
+    }
+
     public abstract String findActionValue(String submit) throws SQLException;
 
     public abstract String createActionURL(String where, String action, String demoId, String formId) throws SQLException;
