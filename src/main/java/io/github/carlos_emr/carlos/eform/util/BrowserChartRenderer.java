@@ -34,6 +34,11 @@ public final class BrowserChartRenderer {
      */
     private static final Semaphore WAITERS = new Semaphore(16);
     private static volatile String bundledScripts;
+    /**
+     * The tallest image: ChartMeds grows 30px per drug past ten, and JFreeChart drew any count, so allow
+     * hundreds of rows while staying inside Chromium's canvas limits.
+     */
+    static final int MAX_HEIGHT = 16_000;
 
     private BrowserChartRenderer() { }
 
@@ -42,7 +47,7 @@ public final class BrowserChartRenderer {
 
     public static void write(ServletContext context, OutputStream output, MeasurementChart chart,
                              int width, int height, String format) throws IOException {
-        if (chart == null || width < 1 || width > 1800 || height < 1 || height > 3200
+        if (chart == null || width < 1 || width > 1800 || height < 1 || height > MAX_HEIGHT
                 || !("png".equals(format) || "jpeg".equals(format))) {
             throw new IllegalArgumentException("Invalid chart image request");
         }
@@ -67,9 +72,13 @@ public final class BrowserChartRenderer {
             Object drawn = browser.executeScript("return window.carlosDrawChart(arguments[0], arguments[1], arguments[2]).length > 0;",
                     chart.toConfig(), width, height);
             if (!Boolean.TRUE.equals(drawn)) throw new IOException("Chart image is unavailable");
-            Map<String, Object> screenshot = browser.executeCdpCommand("Page.captureScreenshot", Map.of(
-                    "format", format, "captureBeyondViewport", true,
-                    "clip", Map.of("x", 0, "y", 0, "width", width, "height", height, "scale", 1)));
+            Map<String, Object> capture = new java.util.LinkedHashMap<>();
+            capture.put("format", format);
+            capture.put("captureBeyondViewport", true);
+            capture.put("clip", Map.of("x", 0, "y", 0, "width", width, "height", height, "scale", 1));
+            // ChartUtils.writeChartAsJPEG was called with quality 1.0; Chromium's default is 80.
+            if ("jpeg".equals(format)) capture.put("quality", 100);
+            Map<String, Object> screenshot = browser.executeCdpCommand("Page.captureScreenshot", capture);
             Object data = screenshot.get("data");
             if (!(data instanceof String encoded) || encoded.isEmpty()) throw new IOException("Chart image is unavailable");
             output.write(Base64.getDecoder().decode(encoded));

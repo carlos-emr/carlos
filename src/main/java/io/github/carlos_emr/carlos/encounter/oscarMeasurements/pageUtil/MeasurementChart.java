@@ -38,6 +38,7 @@ public final class MeasurementChart {
     private final Map<String, Object> style = new LinkedHashMap<>();
     private String secondAxis;
     private boolean dateAxis = true;
+    private boolean medicationPanel;
 
     private MeasurementChart(String title, String xLabel, String yLabel) {
         this.title = title; this.xLabel = xLabel; this.yLabel = yLabel;
@@ -129,8 +130,13 @@ public final class MeasurementChart {
         return this;
     }
 
-    /** Prescription intervals; the chart becomes a combined plot with a medication panel below. */
-    MeasurementChart withMedications(List<Map<String, Object>> values) { medications.addAll(values); return this; }
+    /**
+     * Prescription intervals; the chart becomes a combined plot with a medication panel below, as the
+     * former chart did even when no prescription matched (an empty "Meds" panel).
+     */
+    MeasurementChart withMedications(List<Map<String, Object>> values) {
+        medications.addAll(values); medicationPanel = true; return this;
+    }
 
     MeasurementChart withDomainMargins(double lower, double upper) { style.put(DOMAIN_MARGINS, List.of(lower, upper)); return this; }
 
@@ -165,10 +171,18 @@ public final class MeasurementChart {
         return this;
     }
 
-    /** The actual-lab charts' label rule by tens of points: date and value, value, value in 8pt, none. */
+    /** The actual-lab chart's label rule by tens of points: date and value, value, value in 8pt, none. */
     static Map<String, Object> labItemLabels(int count) {
+        return labItemLabels(count, 10);
+    }
+
+    /**
+     * The actual-lab label rule in bands of {@code perBand} points: the lab-only chart counted in tens
+     * and the lab-plus-medication chart in sixes.
+     */
+    static Map<String, Object> labItemLabels(int count, int perBand) {
         Map<String, Object> labels = new LinkedHashMap<>();
-        switch (count / 10) {
+        switch (count / perBand) {
             case 0 -> { labels.put(FORMAT, "{1} \n {2}"); labels.put(FONT_SIZE, 12); }
             case 1 -> { labels.put(FORMAT, "{2}"); labels.put(FONT_SIZE, 12); }
             case 2 -> { labels.put(FORMAT, "{2}"); labels.put(FONT_SIZE, 8); }
@@ -210,6 +224,7 @@ public final class MeasurementChart {
         Map<String, Object> config = new LinkedHashMap<>();
         config.put("title", title); config.put("xLabel", xLabel); config.put("yLabel", yLabel);
         config.put("datasets", datasets); config.put("medications", medications);
+        if (medicationPanel) config.put("medicationPanel", true);
         config.put("dateAxis", dateAxis);
         config.put("timeZone", browserTimeZone(ZoneId.systemDefault()));
         config.put("style", style);

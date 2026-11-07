@@ -145,18 +145,24 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         verify(extensions, never()).find(anyInt());
     }
 
+    /**
+     * The former charts never found these bounds and still drew the measurement, so one malformed stored
+     * bound leaves that range out of the image instead of failing the whole chart.
+     */
     @Test
-    void shouldAnswer503WithoutRendering_whenStoredReferenceBoundsAreInvalid() throws Exception {
+    @SuppressWarnings("unchecked")
+    void shouldDrawTheChartWithoutTheRange_whenStoredReferenceBoundsAreInvalid() throws Exception {
         request.setParameter("method", "labRef");
         when(extensions.getMeasurementsExtByMeasurementId(42)).thenReturn(List.of(
                 extension("minimum", "synthetic invalid bound"), extension("maximum", "70")));
         AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
         executeMeasurementChart("63", rendered);
 
-        assertThat(rendered).hasNullValue();
-        assertThat(response.getStatus()).isEqualTo(503);
-        assertThat(response.getContentType()).isNotEqualTo("image/png");
-        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("image/png");
+        var datasets = (List<Map<String, Object>>) rendered.get().toConfig().get("datasets");
+        assertThat(datasets).noneMatch(dataset -> "range".equals(dataset.get("kind")));
+        assertThat(datasets).anyMatch(dataset -> "line".equals(dataset.get("kind")));
     }
 
     @Test
@@ -214,6 +220,38 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
             assertThat((List<Map<String, Object>>) dataset.get("data")).singleElement()
                     .satisfies(point -> assertThat(point).containsEntry("y", 63.0));
         });
+    }
+
+    /**
+     * The former lab-plus-medication chart drew an empty lab panel above the medications when the LOINC
+     * lookup failed, and LOINC rows without an observed date (the text "null") have no point to plot.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    @SuppressWarnings("unchecked")
+    void shouldDrawTheMedicationChart_whenLoincValuesFailOrHaveNoDate(boolean lookupFails) throws Exception {
+        request.setParameter("method", "actualLab");
+        request.setParameter("labType", "loinc");
+        request.setParameter("identifier", "synthetic-loinc");
+        request.setParameter("testName", "Synthetic weight");
+        request.setParameter("drug", new String[0]);
+        AtomicReference<MeasurementChart> rendered = new AtomicReference<>();
+        try (var labs = mockStatic(CommonLabTestValues.class)) {
+            if (lookupFails) {
+                labs.when(() -> CommonLabTestValues.findValuesByLoinc2("101", "synthetic-loinc"))
+                        .thenThrow(new IllegalStateException("Synthetic lookup failure"));
+            } else {
+                labs.when(() -> CommonLabTestValues.findValuesByLoinc2("101", "synthetic-loinc"))
+                        .thenReturn(List.of(Map.of("result", "63", "units", "kg", "collDateDate", "null")));
+            }
+            executeMeasurementChart(null, rendered);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentType()).isEqualTo("image/png");
+        assertThat(rendered.get().toConfig()).containsEntry("medicationPanel", true);
+        var datasets = (List<Map<String, Object>>) rendered.get().toConfig().get("datasets");
+        assertThat(datasets).singleElement().satisfies(dataset -> assertThat((List<?>) dataset.get("data")).isEmpty());
     }
 
     private void executeMeasurementChart(String result, AtomicReference<MeasurementChart> rendered) throws Exception {

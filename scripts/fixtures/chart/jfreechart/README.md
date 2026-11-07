@@ -14,17 +14,25 @@ Each `*.json` file holds:
   tick unit choice depends on.
 
 `JfcReference.java` produced them. It builds every chart exactly as the former
-`MeasurementGraphAction22Action` and `ScatterPlotChartServlet` did, with synthetic data, in the
-`carlos-tomcat-dev` image (its fonts decide the metrics) with the time zone `America/Toronto`:
+`MeasurementGraphAction22Action` and `ScatterPlotChartServlet` did, with synthetic data, in an
+Ubuntu 26.04 container with OpenJDK 25 and only `fonts-dejavu-core`, the fonts the packaged
+renderer has (they decide the metrics), with the time zone `America/Toronto`. Recordings made in
+the `carlos-tomcat-dev` image are byte-identical:
 
 ```bash
 JAR=~/.m2/repository/org/jfree/jfreechart/1.5.6/jfreechart-1.5.6.jar   # no longer a project dependency
 docker run --rm -v "$PWD/scripts/fixtures/chart/jfreechart:/jfc" -v "$JAR:/jfc/jfreechart.jar:ro" \
-  -e TZ=America/Toronto carlos-tomcat-dev bash -c 'cd /jfc && mkdir -p /tmp/classes \
+  -e TZ=America/Toronto ubuntu:26.04 bash -c 'apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+  openjdk-25-jdk-headless libharfbuzz0b fontconfig >/dev/null && cd /jfc && mkdir -p /tmp/classes \
   && javac -cp jfreechart.jar -d /tmp/classes JfcReference.java \
   && java -Djava.awt.headless=true -Duser.timezone=America/Toronto -cp jfreechart.jar:/tmp/classes JfcReference \
   && cp out/*.json .'
 ```
+
+`carlos-chart-draw.js` also carries Java's integer glyph advances for DejaVu Sans at 8, 10 and
+12px (`JAVA_ADVANCES`), recorded the same way with `FontMetrics.charWidth` under JFreeChart's
+rendering hints for U+0020 to U+00FF; regenerate them alongside the fixtures if the bundled font
+changes.
 
 The program writes each chart's JSON and a PNG of it under `out/` in its working directory; the
 JSON files are copied here, the PNGs are for comparison by eye and are not committed.

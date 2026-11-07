@@ -8,8 +8,8 @@
         "scripts/chart-draw-playwright-checks.js"
       ],
       "source": "scripts/chart-draw-playwright-checks.js",
-      "sourceSha256": "971242c678e1b69daf9567203afed9a54bcb2125d400a305c1866e2fdbce3d70",
-      "minimumAssertions": 1094
+      "sourceSha256": "8b916f7ab0fd3a9567a57c1a0b6007375b9e2835448e25281177e2a089d34901",
+      "minimumAssertions": 1710
     },
     {
       "id": "dependency-tables-playwright-checks",

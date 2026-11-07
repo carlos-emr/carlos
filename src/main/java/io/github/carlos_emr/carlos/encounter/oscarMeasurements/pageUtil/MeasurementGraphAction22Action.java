@@ -186,26 +186,33 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             return values;
         }
         RxPrescriptionData prescriptData = new RxPrescriptionData();
-        for (String din : dins) {
-            if (din != null) {
-                addPrescriptionIntervals(values, prescriptData.getPrescriptionScriptsByPatientRegionalIdentifier(demographicId, din));
+        for (int index = 0; index < dins.length; index++) {
+            if (dins[index] != null) {
+                addPrescriptionIntervals(values, String.valueOf(index),
+                        prescriptData.getPrescriptionScriptsByPatientRegionalIdentifier(demographicId, dins[index]));
             }
         }
         return values;
     }
 
-    private static void addPrescriptionIntervals(List<Map<String, Object>> values, RxPrescriptionData.Prescription[] prescriptions) {
-        if (prescriptions == null) {
+    /**
+     * One medication row per requested DIN, as the former chart's TaskSeries per DIN: the row is named
+     * by the DIN's first prescription, so a DIN whose brand text changed stays on one row and two DINs
+     * sharing a brand name keep two rows.
+     */
+    private static void addPrescriptionIntervals(List<Map<String, Object>> values, String row,
+                                                 RxPrescriptionData.Prescription[] prescriptions) {
+        if (prescriptions == null || prescriptions.length == 0) {
             return;
         }
+        String name = Objects.toString(prescriptions[0].getBrandName(), "Medication");
         for (RxPrescriptionData.Prescription prescription : prescriptions) {
             Date start = prescription.getRxDate() != null ? prescription.getRxDate() : prescription.getWrittenDate();
             if (start == null) {
                 throw new IllegalArgumentException("Prescription has no interval start date");
             }
             Date end = prescription.getEndDate() != null ? prescription.getEndDate() : new Date();
-            values.add(Map.of("name", Objects.toString(prescription.getBrandName(), "Medication"),
-                    "start", start.getTime(), "end", end.getTime()));
+            values.add(Map.of("row", row, "name", name, "start", start.getTime(), "end", end.getTime()));
         }
     }
 
@@ -313,36 +320,56 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         for (EctMeasurementsDataBean measurement : measurements) {
             Map<String, String> extensions = getMeasurementsExt(measurement.getId());
-            String minimum = extensions.get("minimum");
-            String maximum = extensions.get("maximum");
+            Double minimum = storedBound(extensions.get("minimum"));
+            Double maximum = storedBound(extensions.get("maximum"));
             if (minimum != null && maximum != null) {
-                ranges.add(new ReferenceRange(measurement.getDateObservedAsDate().toInstant(),
-                        Double.parseDouble(minimum.trim()), Double.parseDouble(maximum.trim())));
+                ranges.add(new ReferenceRange(measurement.getDateObservedAsDate().toInstant(), minimum, maximum));
             }
         }
         return ranges;
     }
 
+    /**
+     * A stored reference bound, or null when it is absent or not a number. These charts drew no ranges
+     * before (the former lookup never found the bounds), so a malformed bound leaves that range out
+     * rather than failing the whole image.
+     */
+    private static Double storedBound(String value) {
+        if (value == null || !NumberUtils.isParsable(value.trim())) {
+            if (value != null) log.warn("Measurement reference bound is not numeric; the range is not drawn");
+            return null;
+        }
+        return Double.parseDouble(value.trim());
+    }
+
     private MeasurementChart actualLabChartRef(Integer demographicNo, String labType, String identifier,
                                                String testName, String chartTitle) throws ParseException {
         List<Map<String, Serializable>> values = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
-        return actualLabChart(values, null, chartTitle);
+        return actualLabChart(values, null, chartTitle, 10);
     }
 
     private MeasurementChart actualLabChartRefPlusMeds(Integer demographicNo, String labType, String identifier,
                                                        String testName, String chartTitle, String[] drugs) throws ParseException {
-        List<Map<String, Serializable>> values;
+        List<Map<String, Serializable>> values = List.of();
         if ("loinc".equals(labType)) {
-            values = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier);
+            // As before, a failed LOINC lookup leaves the lab panel empty above the medications.
+            try {
+                List<Map<String, Serializable>> loinc = CommonLabTestValues.findValuesByLoinc2(demographicNo.toString(), identifier);
+                if (loinc != null) values = loinc;
+            } catch (RuntimeException lookup) {
+                log.warn("LOINC lab values unavailable for the medication chart ({})", lookup.getClass().getSimpleName());
+            }
         } else {
-            values = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+            List<Map<String, Serializable>> found = CommonLabTestValues.findValuesForTest(labType, demographicNo, testName, identifier);
+            if (found != null) values = found;
         }
-        return actualLabChart(values, testName, chartTitle)
+        return actualLabChart(values, testName, chartTitle, 6)
                 .withMedications(getDrugDataSet(demographicNo, drugs));
     }
 
+    /** {@code labelBand}: the former lab-only chart chose item labels by tens of points, the lab-plus-medication chart by sixes. */
     private static MeasurementChart actualLabChart(List<Map<String, Serializable>> values, String fallbackName,
-                                                   String chartTitle) throws ParseException {
+                                                   String chartTitle, int labelBand) throws ParseException {
         String units = "type Y";
         String name = "Lab Value";
         if (!values.isEmpty()) {
@@ -362,7 +389,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         dataset.addSeries(series);
         return MeasurementChart.lines(chartTitle, "Days", units, dataset)
                 .withDomainMargins(0.9, 0.9).withRangeUpperMargin(0.34).withPlotBackground(WHITE).withGridlines("#c0c0c0")
-                .withShapes().withItemLabels(MeasurementChart.labItemLabels(series.getItemCount()))
+                .withShapes().withItemLabels(MeasurementChart.labItemLabels(series.getItemCount(), labelBand))
                 .withReferenceRanges("Normal Reference Range", ranges);
     }
 
@@ -398,6 +425,8 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         }
         String collectionDate = (String) value.get("collDate");
         if (collectionDate == null && normalized instanceof String observed) {
+            // LOINC values carry the observed timestamp as text, "null" when the column was empty.
+            if ("null".equals(observed)) return null;
             collectionDate = observed;
         }
         return collectionDate == null ? null

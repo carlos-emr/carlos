@@ -91,6 +91,37 @@ public class JfcReference {
         List<TaskSeries> labDrugs = List.of(task("Asaphen 81 mg chewable tablet", "2023-02-01", "2023-11-01"), task("SYNTHETIC MEDICATION 2", "2023-05-01", "2023-05-01"));
         record("actualLab-plusmeds", labChart(title, "g/L", lab, ranges, labDrugs, true), 1000, 600,
                 input(title, "Days", "g/L", true, actualLab, line("Hemoglobin", "y", null, true, true, lab) + ", " + range("Normal Reference Range", null, ranges, true), meds(labDrugs), null));
+        // Cases the first recordings did not cover: a single reading (DateAxis's two-millisecond range),
+        // thousands and scientific tick labels, BP on the lab chart (square and circle markers, labels on
+        // the first series only), a medication chart with nothing selected, and the lab-plus-medication
+        // label rule by sixes.
+        TimeSeriesCollection one = series("WT", pts("2023-05-10", 70));
+        record("default-1pt", defaultChart(title, "WT", one, null, null), 1000, 600,
+                input(title, "Days", "WT", true, jfree, line("WT", "y", null, true, false, one), "[]", null));
+        TimeSeriesCollection thousands = series("VL", pts("2022-01-10", 1200, "2022-06-15", 5400, "2022-11-20", 9800, "2023-04-25", 3200));
+        record("default-thousands", defaultChart(title, "VL", thousands, null, null), 1000, 600,
+                input(title, "Days", "VL", true, jfree, line("VL", "y", null, true, false, thousands), "[]", null));
+        TimeSeriesCollection huge = series("VL", pts("2022-01-10", 120000000, "2022-06-15", 350000000, "2022-11-20", 90000000));
+        record("default-scientific", defaultChart(title, "VL", huge, null, null), 1000, 600,
+                input(title, "Days", "VL", true, jfree, line("VL", "y", null, true, false, huge), "[]", null));
+        TimeSeriesCollection bp = new TimeSeriesCollection();
+        TimeSeries bpDia = new TimeSeries("Diastolic"), bpSys = new TimeSeries("Systolic");
+        String[] bpDays = {"2023-01-10", "2023-03-15", "2023-06-20", "2023-09-01"};
+        double[] bpS = {128, 135, 122, 131}, bpD = {82, 88, 79, 84};
+        for (int i = 0; i < bpDays.length; i++) { bpSys.addOrUpdate(new Day(day(bpDays[i])), bpS[i]); bpDia.addOrUpdate(new Day(day(bpDays[i])), bpD[i]); }
+        bp.addSeries(bpDia); bp.addSeries(bpSys);
+        String labMethod = style("jfree", "#ffffff", "#ffffff", 0.9, 0.9, 0.05, 0.34, false, false, null, itemLabels("{1} \n {2}", "0.00", 8));
+        record("lab-bp", labMethodChart(title, "Blood Pressure", bp), 1000, 600,
+                input(title, "Days", "Blood Pressure", true, labMethod, line("Diastolic", "y", null, true, true, bp, 0) + ", " + line("Systolic", "y", null, true, true, bp, 1), "[]", null));
+        record("chartmeds-empty", chartMeds(title, List.of()), 1000, 600, input(title, "Days", "MEDS", true, jfree, "", "[]", null, true));
+        TimeSeriesCollection labEight = series("Hemoglobin", pts("2023-01-10", 132, "2023-02-15", 128.5, "2023-03-20", 135, "2023-05-01", 140,
+                "2023-06-12", 138, "2023-07-20", 131, "2023-09-02", 136, "2023-10-30", 139));
+        String actualLabSixes = style("jfree", "#ffffff", "#c0c0c0", 0.9, 0.9, 0.05, 0.34, false, false, null, itemLabels("{2}", "0.###", 12));
+        record("actualLab-plusmeds-8pt", labChart(title, "g/L", labEight, ranges, labDrugs, true), 1000, 600,
+                input(title, "Days", "g/L", true, actualLabSixes, line("Hemoglobin", "y", null, true, true, labEight) + ", " + range("Normal Reference Range", null, ranges, true), meds(labDrugs), null, true));
+        TimeSeriesCollection labBig = series("Platelets", pts("2023-01-10", 1320.5, "2023-04-15", 1288, "2023-08-20", 1405.25, "2023-12-01", 1350));
+        record("actualLab-thousands", labChart(title, "x10E9/L", labBig, new OHLCDataItem[0], null, true), 1000, 600,
+                input(title, "Days", "x10E9/L", true, actualLab, line("Platelets", "y", null, true, true, labBig), "[]", null));
         System.out.println("done");
     }
 
@@ -154,7 +185,7 @@ public class JfcReference {
             // actualLabChartRef: labels by tens of points, 0.### values
             generator = new StandardXYItemLabelGenerator("{2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.###"));
             int count = dataset.getSeries(0).getItemCount();
-            switch (count / 10) {
+            switch (count / (drugs == null ? 10 : 6)) {
                 case 0 -> { generator = new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.###")); renderer.setDefaultItemLabelsVisible(true); }
                 case 1 -> renderer.setDefaultItemLabelsVisible(true);
                 case 2 -> { renderer.setDefaultItemLabelFont(new Font("helvetica", Font.PLAIN, 8)); renderer.setDefaultItemLabelsVisible(true); }
@@ -206,6 +237,29 @@ public class JfcReference {
         cplot.add(xyplot);
         chart = new JFreeChart(chartTitle, cplot);
         chart.setBackgroundPaint(Color.white);
+        return chart;
+    }
+
+    /** The former labChart (method=lab): 8pt date-and-value labels on the first series, filled shapes, a white plot. */
+    static JFreeChart labMethodChart(String chartTitle, String units, TimeSeriesCollection dataset) {
+        JFreeChart chart = ChartFactory.createTimeSeriesChart(chartTitle, "Days", units, dataset, true, true, true);
+        XYPlot plot = chart.getXYPlot();
+        plot.getDomainAxis().setAutoRange(true);
+        plot.getDomainAxis().setUpperMargin(plot.getDomainAxis().getUpperMargin() * 6);
+        plot.getDomainAxis().setLowerMargin(plot.getDomainAxis().getLowerMargin() * 6);
+        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 1.7);
+        plot.getDomainAxis().setUpperMargin(0.9);
+        plot.getDomainAxis().setLowerMargin(0.9);
+        plot.getRangeAxis().setUpperMargin(plot.getRangeAxis().getUpperMargin() * 4);
+        plot.getRangeAxis().setAutoRange(true);
+        XYItemRenderer renderer = plot.getRenderer();
+        renderer.setDefaultItemLabelFont(new Font("helvetica", Font.PLAIN, 8));
+        renderer.setSeriesItemLabelGenerator(0, new StandardXYItemLabelGenerator("{1} \n {2}", new SimpleDateFormat("yyyy.MM.dd"), new DecimalFormat("0.00")));
+        renderer.setDefaultItemLabelsVisible(true);
+        plot.setBackgroundPaint(Color.WHITE);
+        plot.setDomainCrosshairPaint(Color.GRAY);
+        if (renderer instanceof XYLineAndShapeRenderer rend) { rend.setDefaultShapesVisible(true); rend.setDefaultShapesFilled(true); }
+        plot.setRenderer(renderer);
         return chart;
     }
 
@@ -402,16 +456,26 @@ public class JfcReference {
         return "{\"format\": " + q(format) + ", \"decimals\": " + q(decimals) + ", \"fontSize\": " + fontSize + "}";
     }
     static String input(String title, String xLabel, String yLabel, boolean dateAxis, String style, String datasets, String medications, String secondAxis) {
+        return input(title, xLabel, yLabel, dateAxis, style, datasets, medications, secondAxis, !"[]".equals(medications));
+    }
+    /** {@code medicationPanel}: the former chart was a combined plot with a medication subplot, even with no prescriptions. */
+    static String input(String title, String xLabel, String yLabel, boolean dateAxis, String style, String datasets, String medications, String secondAxis, boolean medicationPanel) {
         return "{\"title\": " + q(title) + ", \"xLabel\": " + q(xLabel) + ", \"yLabel\": " + q(yLabel) + ", \"dateAxis\": " + dateAxis
                 + ", \"timeZone\": \"America/Toronto\", \"style\": " + style + ", \"datasets\": [" + datasets + "], \"medications\": " + medications
-                + ", \"secondAxis\": " + q(secondAxis) + "}";
+                + (medicationPanel ? ", \"medicationPanel\": true" : "") + ", \"secondAxis\": " + q(secondAxis) + "}";
     }
     static String line(String label, String axis, String paint, boolean lines, boolean shapes, TimeSeriesCollection c) {
         return line(label, axis, paint, lines, shapes, c, false);
     }
+    static String line(String label, String axis, String paint, boolean lines, boolean shapes, TimeSeriesCollection c, int index) {
+        return line(label, axis, paint, lines, shapes, c, false, index);
+    }
     static String line(String label, String axis, String paint, boolean lines, boolean shapes, TimeSeriesCollection c, boolean highLow) {
+        return line(label, axis, paint, lines, shapes, c, highLow, 0);
+    }
+    static String line(String label, String axis, String paint, boolean lines, boolean shapes, TimeSeriesCollection c, boolean highLow, int index) {
         StringBuilder d = new StringBuilder();
-        TimeSeries ts = c.getSeries(0);
+        TimeSeries ts = c.getSeries(index);
         for (int i = 0; i < ts.getItemCount(); i++) d.append(i > 0 ? ", " : "").append("{\"x\": ").append(ts.getTimePeriod(i).getFirstMillisecond()).append(", \"y\": ").append(ts.getValue(i)).append("}");
         return "{\"label\": " + q(label) + ", \"kind\": \"line\", \"yAxisID\": " + q(axis) + ", \"paint\": " + q(paint) + ", \"lines\": " + lines + ", \"shapes\": " + shapes
                 + (highLow ? ", \"highLow\": true" : "") + ", \"data\": [" + d + "]}";

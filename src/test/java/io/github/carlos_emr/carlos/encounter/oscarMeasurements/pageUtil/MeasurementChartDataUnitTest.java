@@ -52,6 +52,47 @@ class MeasurementChartDataUnitTest {
         }
     }
 
+    /**
+     * Each requested DIN was its own TaskSeries named by its first prescription: a renamed brand stays on
+     * its DIN's row, and two DINs sharing a brand keep separate rows.
+     */
+    @Test
+    void shouldKeepOneRowPerDin_namedByItsFirstPrescription() {
+        var first = mock(RxPrescriptionData.Prescription.class);
+        when(first.getRxDate()).thenReturn(new Date(1_700_000_000_000L));
+        when(first.getEndDate()).thenReturn(new Date(1_700_086_400_000L));
+        when(first.getBrandName()).thenReturn("SYNTHETIC BRAND");
+        var renamed = mock(RxPrescriptionData.Prescription.class);
+        when(renamed.getRxDate()).thenReturn(new Date(1_700_172_800_000L));
+        when(renamed.getEndDate()).thenReturn(new Date(1_700_259_200_000L));
+        when(renamed.getBrandName()).thenReturn("SYNTHETIC BRAND RENAMED");
+        var other = mock(RxPrescriptionData.Prescription.class);
+        when(other.getRxDate()).thenReturn(new Date(1_700_000_000_000L));
+        when(other.getEndDate()).thenReturn(new Date(1_700_086_400_000L));
+        when(other.getBrandName()).thenReturn("SYNTHETIC BRAND");
+        try (var _ = mockConstruction(RxPrescriptionData.class, (instance, context) -> {
+            when(instance.getPrescriptionScriptsByPatientRegionalIdentifier(101, "din-a"))
+                    .thenReturn(new RxPrescriptionData.Prescription[]{first, renamed});
+            when(instance.getPrescriptionScriptsByPatientRegionalIdentifier(101, "din-b"))
+                    .thenReturn(new RxPrescriptionData.Prescription[]{other});
+        })) {
+            var intervals = MeasurementGraphAction22Action.getDrugDataSet(101, new String[]{"din-a", "din-b"});
+            assertThat(intervals).extracting(m -> m.get("row")).containsExactly("0", "0", "1");
+            assertThat(intervals).extracting(m -> m.get("name"))
+                    .containsExactly("SYNTHETIC BRAND", "SYNTHETIC BRAND", "SYNTHETIC BRAND");
+        }
+    }
+
+    /** A medication chart stays a combined plot with an empty "Meds" panel when nothing matched. */
+    @Test
+    void shouldKeepTheMedicationPanel_whenNoPrescriptionMatched() {
+        var chart = MeasurementChart.lines("Synthetic", "Days", "MEDS", new MeasurementChart.SeriesCollection())
+                .withMedications(List.of());
+        assertThat(chart.toConfig()).containsEntry("medicationPanel", true);
+        assertThat(MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 61)).toConfig())
+                .doesNotContainKey("medicationPanel");
+    }
+
     /** V8's Intl accepts IANA regions and "+HH:MM" offsets, not Java's "GMT+03:00" or "Z". */
     @Test
     void shouldPassBrowserTimeZone_asIanaRegionOrOffset() {
@@ -120,14 +161,19 @@ class MeasurementChartDataUnitTest {
         assertThat(((Map<String, Object>) none.toConfig().get("style")).get("rangeAxisPaint")).isNull();
     }
 
-    /** The lab charts chose their item labels by tens of points: date and value, value, value in 8pt, none. */
+    /** The lab charts chose their item labels by bands of points (tens, or sixes with medications): date and value, value, value in 8pt, none. */
     @Test
     @SuppressWarnings("unchecked")
-    void shouldChooseLabItemLabels_byTensOfPoints() {
+    void shouldChooseLabItemLabels_byBandsOfPoints() {
         assertThat(MeasurementChart.labItemLabels(5)).containsEntry("format", "{1} \n {2}").containsEntry("decimals", "0.###").containsEntry("fontSize", 12);
         assertThat(MeasurementChart.labItemLabels(15)).containsEntry("format", "{2}").containsEntry("decimals", "0.###").containsEntry("fontSize", 12);
         assertThat(MeasurementChart.labItemLabels(25)).containsEntry("format", "{2}").containsEntry("fontSize", 8);
         assertThat(MeasurementChart.labItemLabels(35)).isEmpty();
+        // The lab-plus-medication chart counted the same bands in sixes.
+        assertThat(MeasurementChart.labItemLabels(5, 6)).containsEntry("format", "{1} \n {2}").containsEntry("fontSize", 12);
+        assertThat(MeasurementChart.labItemLabels(8, 6)).containsEntry("format", "{2}").containsEntry("fontSize", 12);
+        assertThat(MeasurementChart.labItemLabels(14, 6)).containsEntry("format", "{2}").containsEntry("fontSize", 8);
+        assertThat(MeasurementChart.labItemLabels(18, 6)).isEmpty();
         var chart = MeasurementChart.lines("Synthetic", "Days", "kg", collection("Weight", 61))
                 .withItemLabels(MeasurementChart.labItemLabels(35));
         assertThat((Map<String, Object>) chart.toConfig().get("style")).containsEntry("itemLabels", null);

@@ -15,32 +15,48 @@ does not supply it; the existing WAR packaging check also requires the API and i
 * The release branch's direct Dx Research XLSX export also uses the JDK writer. It retains
   its sheet name, eleven string columns, frozen header and 22-character column widths.
   Rows are serialized one at a time, without adding a runtime POI dependency.
-* Measurement endpoints still return PNG/JPEG at their existing dimensions, so image, print and
-  document callers keep working. The draw script reproduces the JFreeChart charts: the "JFree"
-  theme and the plain `new JFreeChart` look of the combined medication charts, the series paint
-  sequence, JFreeChart's auto ranges (margins, the include-zero and sticky-zero rules, the symbol
-  axis), its 1-2-5 number units and standard date units with their formats (`d-MMM`, `MMM-yyyy`,
-  `yyyy`, `HH:mm`), chosen by its two-pass label-size estimate in Java's integer font metrics and
-  anchored as `DateAxis.previousStandardDate` anchors them, 1px lines, 6x6 markers (including
-  diastolic blood pressure's circle), item labels,
-  high-low range bars, flat bars with their 4px gray shadow, and the bottom legend with each
-  renderer's graphic. `MeasurementChart` describes each chart's look as the former action
-  configured it (margins, zero, plot background, gridlines, shapes, item-label rules, green or
-  sequence-coloured reference ranges). `scripts/fixtures/chart/jfreechart` holds recordings made
-  with JFreeChart 1.5.6 from the former code paths, and `scripts/chart-draw-playwright-checks.js`
-  requires the same ranges, ticks, labels, colours, fonts, legend and bar geometry. Pixel checks
-  also require visible dashed gridlines on both axes where the recorded grid colour differs
-  from the background. The adapter explicitly enables chart-area grids and uses Chart.js 4's
-  `border.dash` setting; medication grids remain gray and align with the row centres. Kept as they
+* Measurement endpoints still return PNG/JPEG at their existing dimensions (JPEG at full quality,
+  as `ChartUtils.writeChartAsJPEG(..., 1.0f, ...)` wrote it), so image, print and document callers
+  keep working. The draw script reproduces the JFreeChart charts: the "JFree" theme and the plain
+  `new JFreeChart` look of the combined medication charts, the series paint sequence and
+  `DefaultDrawingSupplier`'s shape sequence (a square, then a circle: blood pressure's second
+  series), JFreeChart's auto ranges (margins of the data's own span, the include-zero, sticky-zero
+  and minimum-size rules, the symbol axis), its 1-2-5 number units with `NumberTickUnitSource`'s
+  label formats (`0.0` to `0.0000`, `#,##0`, and `#.######E0` outside 1e-4 to 5e6) and its standard
+  date units from milliseconds to centuries with their formats (`HH:mm:ss.SSS` to `yyyy`), chosen
+  by its two-pass label-size estimate in Java's own integer glyph advances for the bundled DejaVu
+  Sans and anchored as `DateAxis.previousStandardDate` anchors them. The layout matches
+  JFreeChart's: the 4px axis offset with the axis lines and tick marks drawn in it, tick and axis
+  label insets, label space sized in Java's metrics with edge labels overhanging the plot, the
+  title centred on the image, and the legend's `FlowArrangement` (one centred row, or rows from the
+  left edge once it wraps, items padded 2px with 14px line or shape-width graphics and outlined
+  markers). Every plot rectangle lies within 2px of the data area JFreeChart recorded. 1px lines,
+  6x6 markers, item labels (`DecimalFormat` without grouping, on the first series only), high-low
+  range bars, flat bars with their 4px gray shadow, and a combined chart's equal subplot slots
+  with the measurement plot's own 4px offset complete it. A medication request that matches no
+  prescription keeps the former empty "Meds" panel. `MeasurementChart` describes each chart's
+  look as the former action configured it (margins, zero, plot background, gridlines, shapes,
+  item-label rules by tens of points, or sixes beside medications, green or sequence-coloured
+  reference ranges). `scripts/fixtures/chart/jfreechart` holds recordings made with JFreeChart
+  1.5.6 from the former code paths, including a single reading's two-millisecond axis,
+  scientific and grouped tick labels, blood pressure on the lab chart and an empty medication
+  chart; `scripts/chart-draw-playwright-checks.js` requires the same ranges, ticks, labels,
+  colours, fonts, legend, bar geometry and plot rectangles. Pixel checks also require visible
+  dashed gridlines on both axes wherever a recorded tick falls inside the plot. Kept as they
   were, because this change replaces the library and not the charts: the reference range chart's
   "HighLowChartDemo2" title and "DREFERENCE RANGE" legend entry, the `rxincl` chart's
-  "MED + LAB CHART" title, and the green value axis of `labRef` when ranges exist. Two
-  departures: `labRef` drew that green axis twice (one axis object at two indices) and it is
-  drawn once here, and a date axis with a single instant gets half a day of margin instead of
-  JFreeChart's two milliseconds. Series values, daily replacement semantics, separate
-  blood-pressure series, reference bounds, secondary axes and medication intervals are
-  represented explicitly. The obsolete `rxincl` example overlay with hardcoded 2007–2009 drugs
-  is replaced by the selected patient's medication intervals.
+  "MED + LAB CHART" title, and the green value axis of `labRef` when ranges exist. Deliberate
+  departures, all on routes no CARLOS page links to except the last: `labRef` drew that green axis
+  twice (one axis object at two indices) and it is drawn once here; `inclRef` and `labRef` now
+  draw the reference ranges stored as `minimum`/`maximum` measurement extensions, which the former
+  lookup (by the extension's own id) never found, and a malformed stored bound leaves its range out
+  rather than failing the image; the obsolete `rxincl` example overlay with hardcoded 2007–2009
+  drugs is replaced by the selected patient's medication intervals; and the lab-plus-medication
+  chart plots LOINC observations from their observed timestamps, which the former chart read from
+  a field LOINC values never carried (it showed an empty lab panel). Series values, daily
+  replacement semantics, separate blood-pressure series, reference bounds, secondary axes and
+  medication intervals (one row per DIN, named by its first prescription) are represented
+  explicitly.
 * Chart rendering now needs the already-running local browser service, like eForm PDF rendering.
   Charts and eForm PDFs share the two-browser limit; a chart request queues for a slot for the
   renderer's slot wait (up to sixteen waiting at once) before reporting the renderer busy, and the

@@ -26,6 +26,11 @@ const { getLaunchOptions, buildArtifactPath } = require('./lib/playwright-harnes
 const LIBRARY = path.join(__dirname, '../src/main/webapp/library/chartjs');
 const FIXTURES = path.join(__dirname, 'fixtures/chart/jfreechart');
 const SECOND = 1000;
+// Pixels by which a plot edge may differ from JFreeChart's data area (text metrics round differently).
+const PLOT_TOLERANCE = 2;
+// labRef mapped its green ranges to a second index of the same axis object, so JFreeChart drew that
+// value axis twice side by side; the replacement draws it once, and its plot starts further left.
+const DOCUMENTED_PLOT_DEPARTURES = { labRef: ['left'] };
 
 /** What JFreeChart's legend graphic was for an item: a line, a shape, or both. */
 function legendGraphic(item) {
@@ -51,7 +56,7 @@ async function draw(page, input, width, height) {
         const charts = window.carlosDrawChart(input, width, height);
         const scale = s => s && ({ min: s.min, max: s.max, ticks: s.ticks.map(t => ({ value: t.value, label: String(t.label ?? '') })),
             tickDisplay: s.options.ticks.display !== false, tickFont: s.options.ticks.font, tickColor: s.options.ticks.color,
-            titleFont: s.options.title.font, titleColor: s.options.title.color });
+            titleFont: s.options.title.font, titleColor: s.options.title.color, titleText: s.options.title.display ? s.options.title.text : '' });
         const pixel = (chart, x, y) => {
             const d = chart.ctx.getImageData(Math.round(x), Math.round(y), 1, 1).data;
             return '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
@@ -220,11 +225,27 @@ function checkFixture(fixture, result) {
     expectAxis(`${name} x`, bottom.x, domain, domain.type === 'DateAxis');
     if (combined && charts.length > 1) {
         assert.equal(charts[0].x.tickDisplay, false, `${name}: the upper panel shows no x tick labels`);
+        // Equal slots; the measurement plot keeps its 4px axis offset inside its slot on every side.
         const heights = charts.map(c => c.area.bottom - c.area.top);
-        assert.ok(Math.abs(heights[0] - heights[1]) <= 2, `${name}: subplots share the height equally (${heights})`);
-        assert.ok(Math.abs(charts[0].area.left - charts[1].area.left) <= 1 && Math.abs(charts[0].area.right - charts[1].area.right) <= 1,
+        assert.ok(Math.abs(heights[0] + 8 - heights[1]) <= 2, `${name}: subplots share the height equally (${heights})`);
+        assert.ok(Math.abs(charts[0].area.left - 4 - charts[1].area.left) <= 1 && Math.abs(charts[0].area.right + 4 - charts[1].area.right) <= 1,
             `${name}: panel plot rectangles align`);
     }
+    // Each plot rectangle lies where JFreeChart drew its data area, so the title, axes, labels and
+    // legend around it keep their former positions.
+    let top = 0;
+    fixture.subplots.forEach((subplot, i) => {
+        const area = charts[i].area;
+        const [x, y, w, h] = subplot.dataArea;
+        const actual = [area.left, area.top + top, area.right, area.bottom + top];
+        [x, y, x + w, y + h].forEach((edge, j) => {
+            const side = ['left', 'top', 'right', 'bottom'][j];
+            if ((DOCUMENTED_PLOT_DEPARTURES[name] || []).includes(side)) return;
+            assert.ok(Math.abs(actual[j] - edge) <= PLOT_TOLERANCE,
+                `${name}: plot ${side} edge ${actual[j].toFixed(1)} should be at ${edge} (JFreeChart)`);
+        });
+        top += result.canvases[i].height;
+    });
 
     fixture.subplots.forEach((subplot, i) => {
         const chart = charts[i];
@@ -237,12 +258,17 @@ function checkFixture(fixture, result) {
             if (fixture.input.secondAxis) expectAxis(`${name} y2`, chart.y2, subplot.ranges[1], false);
         }
         assert.equal(chart.plotPixel, subplot.background, `${name}: plot background`);
+        // A gridline JFreeChart drew on the plot edge (the only tick of an empty or single-instant axis)
+        // hides under the outline, so only ticks inside the plot must leave visible grid pixels.
+        const interior = axis => axis.ticks.some(t => t.value > axis.lower + (axis.upper - axis.lower) * 0.01
+            && t.value < axis.upper - (axis.upper - axis.lower) * 0.01);
+        const axisFixtures = { x: combined ? fixture.domain : subplot.domain, y: subplot.ranges[0] };
         for (const [axis, colour] of [['x', subplot.domainGridlines], ['y', subplot.rangeGridlines]]) {
             const grid = chart.gridPixels[axis];
             const rgb = [1, 3, 5].map(offset => parseInt(colour.slice(offset, offset + 2), 16));
             assert.equal(grid.colour, `rgba(${rgb.join(', ')}, 0.5)`, `${name}: ${axis} grid colour`);
             assert.deepEqual(grid.dash, subplot.gridlineStroke.dash, `${name}: ${axis} grid dash pattern`);
-            if (colour !== subplot.background) {
+            if (colour !== subplot.background && interior(axisFixtures[axis])) {
                 assert.ok(grid.painted > 4, `${name}: ${axis} grid has visible pixels (${grid.painted})`);
                 assert.ok(grid.gaps > 4, `${name}: ${axis} grid has visible dash gaps (${grid.gaps})`);
             }
@@ -306,8 +332,10 @@ function checkFixture(fixture, result) {
     assert.deepEqual(legend.map(l => l.label), fixture.legend.map(l => l.label), `${name}: legend labels`);
     assert.deepEqual(legend.map(l => l.graphic), fixture.legend.map(legendGraphic), `${name}: legend graphics`);
     assert.deepEqual(legend.map(l => l.colour), fixture.legend.map(l => l.fill), `${name}: legend colours`);
-    assert.equal(legend[0].fontSize, fontSize(fixture.legendFont), `${name}: legend font size`);
-    assert.equal(legend[0].textColour, fixture.legendPaint, `${name}: legend text colour`);
+    if (fixture.legend.length) {
+        assert.equal(legend[0].fontSize, fontSize(fixture.legendFont), `${name}: legend font size`);
+        assert.equal(legend[0].textColour, fixture.legendPaint, `${name}: legend text colour`);
+    }
     charts.slice(0, -1).forEach(chart => assert.ok(!chart.legend || chart.legend.length === 0, `${name}: only the bottom panel has a legend`));
 }
 
@@ -369,12 +397,26 @@ async function main() {
         assert.notEqual(repeatedBars[1].y, repeatedBars[2].y, 'distinct names with the same shortened label retain separate rows');
         assert.deepEqual(repeated.charts[0].legend.map(item => item.label), [firstName, secondName]);
 
-        // A valid request with no matching prescriptions still returns a readable empty chart.
+        // A valid request with no matching prescriptions keeps the former combined chart: one empty
+        // white medication panel titled as before, "Date/Time" under "Meds", with no bars and no legend
+        // (chartmeds-empty records what JFreeChart drew).
         const empty = await draw(page, { ...thirteen.input, medications: [] }, 1000, 600);
         assert.equal(empty.canvases.length, 1, 'an empty medication request renders a chart');
         assert.equal(empty.charts[0].title.text, thirteen.input.title);
-        assert.ok(empty.charts[0].x && empty.charts[0].y, 'empty charts retain their axes');
-        assert.deepEqual(empty.charts[0].datasets, []);
+        assert.equal(empty.charts[0].x.titleText, 'Date/Time', 'the empty medication panel keeps its date axis label');
+        assert.equal(empty.charts[0].y.titleText, 'Meds', 'the empty medication panel keeps its row axis label');
+        assert.equal(empty.charts[0].plotPixel, '#ffffff', 'the empty medication panel stays white');
+        assert.deepEqual(empty.charts[0].datasets.flatMap(dataset => dataset.bars || []), []);
+        assert.deepEqual(empty.charts[0].legend || [], []);
+
+        // Each DIN was its own TaskSeries named by its first prescription: two DINs sharing a brand
+        // name keep two rows and two legend items.
+        const sharedBrand = await draw(page, { ...thirteen.input, medications: [
+            { row: 'din-1', name: 'SYNTHETIC SHARED BRAND', start: t0, end: t0 + 86_400_000 },
+            { row: 'din-2', name: 'SYNTHETIC SHARED BRAND', start: t0 + 2 * 86_400_000, end: t0 + 3 * 86_400_000 }] }, 1000, 600);
+        const sharedBars = sharedBrand.charts[0].datasets[0].bars;
+        assert.notEqual(sharedBars[0].y, sharedBars[1].y, 'two DINs sharing a brand name keep separate rows');
+        assert.deepEqual(sharedBrand.charts[0].legend.map(item => item.label), ['SYNTHETIC SHARED BRAND', 'SYNTHETIC SHARED BRAND']);
 
         // The fixed 1e-8 range expansion previously rounded away at this magnitude and left an
         // infinite tick loop. A wide range must also choose units beyond the former 5e12 ceiling.

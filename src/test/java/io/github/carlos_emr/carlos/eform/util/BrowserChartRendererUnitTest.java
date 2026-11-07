@@ -82,6 +82,43 @@ class BrowserChartRendererUnitTest {
         assertThat(libraryReads.get()).as("resource reads for the library and draw script").isEqualTo(2);
     }
 
+    /** ChartUtils.writeChartAsJPEG was called with quality 1.0; a PNG capture takes no quality. */
+    @Test
+    @SuppressWarnings("unchecked")
+    void shouldCaptureJpegAtFullQuality_likeTheFormerCharts() throws Exception {
+        for (String format : List.of("jpeg", "png")) {
+            RenderBrowser driver = mock(RenderBrowser.class);
+            when(driver.executeScript(eq("return window.carlosDrawChart(arguments[0], arguments[1], arguments[2]).length > 0;"),
+                    any(), eq(100), eq(100))).thenReturn(true);
+            when(driver.executeCdpCommand(eq("Page.captureScreenshot"), any()))
+                    .thenReturn(java.util.Map.of("data", java.util.Base64.getEncoder().encodeToString(new byte[]{1, 2, 3})));
+            EFormBrowserPdfService.RendererBrowser session = new EFormBrowserPdfService.RendererBrowser(
+                    driver, URI.create("http://127.0.0.1:9515"), "synthetic-session");
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            try (var _ = mockConstruction(EFormBrowserPdfService.class,
+                    (service, ignored) -> when(service.createDriver(any())).thenReturn(session))) {
+                BrowserChartRenderer.write(context, output, chart(), 100, 100, format);
+            }
+            var captured = org.mockito.ArgumentCaptor.forClass(java.util.Map.class);
+            verify(driver).executeCdpCommand(eq("Page.captureScreenshot"), captured.capture());
+            assertThat((java.util.Map<String, Object>) captured.getValue()).containsEntry("format", format);
+            if ("jpeg".equals(format)) {
+                assertThat((java.util.Map<String, Object>) captured.getValue()).containsEntry("quality", 100);
+            } else {
+                assertThat((java.util.Map<String, Object>) captured.getValue()).doesNotContainKey("quality");
+            }
+            assertThat(output.toByteArray()).containsExactly(1, 2, 3);
+        }
+    }
+
+    /** ChartMeds grows 30px per drug past ten; JFreeChart drew any count, so long lists stay drawable. */
+    @Test
+    void shouldAcceptTallMedicationCharts_withinTheHeightCap() {
+        assertThat(BrowserChartRenderer.MAX_HEIGHT).isGreaterThanOrEqualTo(500 * 30);
+        assertThatThrownBy(() -> BrowserChartRenderer.write(context, new ByteArrayOutputStream(), chart(), 100,
+                BrowserChartRenderer.MAX_HEIGHT + 1, "png")).isInstanceOf(IllegalArgumentException.class);
+    }
+
     @Test
     void shouldRejectEmptyChart_andReleaseSession() {
         RenderBrowser driver = mock(RenderBrowser.class);
