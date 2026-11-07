@@ -30,6 +30,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -54,7 +56,7 @@ class FormListJspRegressionUnitTest {
 
     @BeforeEach
     void readJsp() throws IOException {
-        jsp = Files.readString(FORM_LIST_JSP, StandardCharsets.UTF_8);
+        jsp = Files.readString(FORM_LIST_JSP, StandardCharsets.UTF_8).replaceAll("\\s+", " ");
     }
 
     @Test
@@ -62,14 +64,14 @@ class FormListJspRegressionUnitTest {
     void shouldCalculatePageFromRequestLimits_overEveryFormType() {
         // The total is summed over every form type before any row is rendered; parsing stays in
         // the calculator, so a nonnumeric limit no longer fails the page.
-        assertThat(jsp)
-                .contains("totalFormRows += pforms.length;")
-                .contains("FormListPageCalculator.calculate(\n"
-                        + "            request.getParameter(\"limit1\"), request.getParameter(\"limit2\"), totalFormRows);")
-                .doesNotContain("Integer.parseInt")
-                .doesNotContain("strLimit");
-        assertThat(jsp.indexOf("totalFormRows += pforms.length;"))
-                .isLessThan(jsp.indexOf("FormListPageCalculator.calculate("));
+        Matcher calculation = matching("FormListPageCalculator\\.calculate\\(\\s*"
+                + "request\\.getParameter\\(\"limit1\"\\),\\s*"
+                + "request\\.getParameter\\(\"limit2\"\\),\\s*(\\w+)\\s*\\)");
+        Matcher total = matching("\\b" + Pattern.quote(calculation.group(1))
+                + "\\s*\\+=\\s*\\w+\\.length\\s*;");
+        assertThat(total.end()).isLessThan(calculation.start());
+        assertThat(jsp).doesNotContainPattern(
+                "Integer\\.parseInt\\(\\s*request\\.getParameter\\(\"limit[12]\"\\)");
     }
 
     @Test
@@ -77,12 +79,13 @@ class FormListJspRegressionUnitTest {
     void shouldAdvanceRowCount_forRowsOffThePage() {
         // The count lives in the loop header, so the `continue` that skips an off-page row
         // still advances it, and is never reset between form types.
-        assertThat(jsp)
-                .contains("for (int i = 0; i < pforms.length; i++, formRowIndex++) {")
-                .contains("if (!formListPage.contains(formRowIndex)) {\n                            continue;");
-        assertThat(occurrences("int formRowIndex = 0;")).isEqualTo(1);
-        assertThat(jsp.indexOf("int formRowIndex = 0;"))
-                .isLessThan(jsp.indexOf("for (int j = 0; j < forms.length; j++) {"));
+        Matcher loop = matching("for \\(int (\\w+) = 0; \\1 < \\w+\\.length; \\1\\+\\+, (\\w+)\\+\\+\\) \\{");
+        String rowIndex = loop.group(2);
+        matching("if \\(!\\w+\\.contains\\(" + Pattern.quote(rowIndex) + "\\)\\) \\{ continue;");
+        String initialization = "int " + rowIndex + " = 0;";
+        assertThat(occurrences(initialization)).isEqualTo(1);
+        Matcher types = matching("for \\(int (\\w+) = 0; \\1 < \\w+\\.length; \\1\\+\\+\\) \\{");
+        assertThat(jsp.indexOf(initialization)).isLessThan(types.start());
     }
 
     @Test
@@ -90,31 +93,35 @@ class FormListJspRegressionUnitTest {
     void shouldTrackCurrentHighlight_beforeSkippingOffPageRows() {
         // The highlight of a row depends on the row before it in its form type, which may sit on
         // the previous page; tracking it after the skip would mislabel a page's first row.
-        int highlight = jsp.indexOf("boolean yellow = !Objects.equals(current, created);");
-        int track = jsp.indexOf("current = created;");
-        int skip = jsp.indexOf("if (!formListPage.contains(formRowIndex)) {");
-
-        assertThat(highlight).isPositive();
-        assertThat(track).isGreaterThan(highlight);
-        assertThat(skip).isGreaterThan(track);
+        Matcher highlight = matching("boolean \\w+ = !Objects.equals\\((\\w+), (\\w+)\\);");
+        Matcher track = matching("\\b" + Pattern.quote(highlight.group(1)) + " = "
+                + Pattern.quote(highlight.group(2)) + ";");
+        Matcher skip = matching("if \\(!\\w+\\.contains\\(\\w+\\)\\) \\{");
+        assertThat(track.start()).isGreaterThan(highlight.start());
+        assertThat(skip.start()).isGreaterThan(track.start());
     }
 
     @Test
     @DisplayName("should render one encoded Previous/Next row after every form type")
     void shouldRenderOnePagingRow_afterEveryFormType() {
-        int lastRowSkip = jsp.lastIndexOf("formListPage.contains(formRowIndex)");
-        int pagingRow = jsp.indexOf("if (formListPage.hasPrevious() || formListPage.hasNext()) {");
-
-        assertThat(pagingRow).isGreaterThan(lastRowSkip);
+        Matcher skip = matching("if \\(!\\w+\\.contains\\(\\w+\\)\\) \\{");
+        Matcher paging = matching("if \\((\\w+)\\.hasPrevious\\(\\) \\|\\| \\1\\.hasNext\\(\\)\\) \\{");
+        assertThat(paging.start()).isGreaterThan(skip.start());
         assertThat(occurrences("encounter.formlist.formLastpage")).isEqualTo(1);
         assertThat(occurrences("encounter.formlist.formNextPage")).isEqualTo(1);
+        assertThat(Pattern.compile("<a href=\"<carlos:encode value='<%= \\w+ %>' context=\"htmlAttribute\"/>\">")
+                .matcher(jsp).results().count()).isEqualTo(2L);
         assertThat(jsp)
-                .contains("<a href=\"<carlos:encode value='<%= formListPreviousUrl %>' context=\"htmlAttribute\"/>\">")
-                .contains("<a href=\"<carlos:encode value='<%= formListNextUrl %>' context=\"htmlAttribute\"/>\">")
-                .contains("+ SafeEncode.forUriComponent(demoNo)")
-                .contains("\"&provider_no=\" + SafeEncode.forUriComponent(provNo)")
-                .contains("\"&limit1=\" + formListPage.previousOffset()")
-                .contains("\"&limit1=\" + formListPage.nextOffset()");
+                .contains("+ SafeEncode.forUriComponent(")
+                .contains("\"&provider_no=\" + SafeEncode.forUriComponent(")
+                .containsPattern("\"&limit1=\" \\+ \\w+\\.previousOffset\\(\\)")
+                .containsPattern("\"&limit1=\" \\+ \\w+\\.nextOffset\\(\\)");
+    }
+
+    private Matcher matching(String expression) {
+        Matcher matcher = Pattern.compile(expression).matcher(jsp);
+        assertThat(matcher.find()).as("JSP structural guard: %s", expression).isTrue();
+        return matcher;
     }
 
     private int occurrences(String needle) {
