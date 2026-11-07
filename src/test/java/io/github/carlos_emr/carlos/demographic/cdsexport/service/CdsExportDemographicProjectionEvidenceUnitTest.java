@@ -127,6 +127,9 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     void preparedPhones(CdsDemographicNativeDto.Phone home, CdsDemographicNativeDto.Phone work, CdsDemographicNativeDto.Phone cell){
         source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), home, work, cell, source.primaryProvider(), source.details(), source.relations(), source.diagnostics()); oldField("phone", home==null?"":home.number()); oldField("phone2", work==null?"":work.number());
     }
+    void preparedRelations(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto.Person family, io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto.Person referring) {
+        var relations=new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto(family, referring, null, 0, List.of()); source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), source.primaryProvider(), source.details(), relations, source.diagnostics());
+    }
     void preparedPrimaryProvider(String provider) {
         source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), provider, source.details(), source.relations(), source.diagnostics()); oldField("provider_no", provider==null?"":provider);
     }

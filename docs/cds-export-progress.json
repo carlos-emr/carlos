@@ -4,15 +4,17 @@
   "qualifiedProfiles": [],
   "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
   "verifiedBaseline": {
-    "javaChecks": 2854,
+    "javaChecks": 2901,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "0036a795a4e33434c32afce4bd185644b6571fde494b14e1e55e128ce650c9f0",
+    "packagedWarSha256": "63c2a28c63f251e880a7b9f29b86332c08d87b6fb5cdf74aec6cc5e69bcb93c9",
     "ordinaryInstalledSourceChecks": 63,
     "shiftedInstalledSourceChecks": 64,
     "capturedSources": 19,
-    "clinicalPublication": false
+    "clinicalPublication": false,
+    "professionalInstalledChecks": 44,
+    "totalInstalledChecks": 171
   },
   "implemented": [
     "Shared pinned wire-schema and scalar contracts with importer facades",
@@ -20,7 +22,9 @@
     "Encrypted patient source and retained payload capture with verified native baselines",
     "Demographic core, phone, patient-note, retained/current/archive enrolment and primary-physician reconciliation components",
     "Personal contact, pharmacy, allergy, medication, appointment and immunization mapping/reconciliation components",
-    "XML, ZIP/ZIP64, encryption and package validation components"
+    "XML, ZIP/ZIP64, encryption and package validation components",
+    "External family/referring-physician binding and witnessed name reconciliation through the demographic parent receipt",
+    "External family/referring-physician binding and witnessed name reconciliation through the demographic parent receipt"
   ],
   "remaining": [
     "Complete demographic histories, care relationships and remaining native/source field closure",
@@ -73,5 +77,18 @@
     "nullNativeReferencesSupported": true,
     "ordinaryInstalledChecks": 63,
     "shiftedInstalledChecks": 64
+  },
+  "professionalPhysicianReconciliation": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedChecks": 47,
+    "installedOverlayChecks": 44,
+    "careRelationshipsInDemographicParent": true,
+    "originalNamesNeverUsedAsIdentityKeys": true,
+    "sourceAndNativeFieldCoverageExplicit": true,
+    "nativeNameEditsVerified": true,
+    "wholeOwnedContactRowsRestored": true,
+    "missingMovedDeletedAndInactiveRelationshipsRequireReview": true,
+    "otherNativeContactDetailsNeedSupportingProjection": true,
+    "installedChecks": 44
   }
 }

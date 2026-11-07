@@ -24,11 +24,13 @@ asynchronous browser workflow. Both must call the same authorized application
 service and use the same durable jobs, captured generations, mapping revision,
 dispositions and publication checks. Passing component or metadata/control tests do not establish a complete clinical migration.
 
-The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,854 Java checks and 127 installed demographic/enrolment/primary-physician component checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
+The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,901 Java checks and 171 installed demographic/enrolment/primary/professional-physician component checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
 
 Retained enrolment reconciliation now coordinates original source history with witnessed current and archive rows. Exact packaged installed checks passed for both an ordinary import (45 checks) and a shifted training copy (46 checks), including schema-valid XML, a later native termination, and exact restoration of the owned patient and archive changes. The coordinated package check passed; other demographic and archive fields still require coverage.
 
 Primary-physician reconciliation and its coordinated provider uses passed package verification and 127 exact installed checks across ordinary and shifted imports. Public provider lookups carry the authenticated capture identity; primary and enrolment reconciliation reject another generation and handle a SQL NULL reference without guessing a physician. Every use of a provider field is retained when the same physician fills multiple roles. Focused checks cover reassignment, removal, unresolved source details, explicit empty values and all-or-nothing review blockers.
+
+External family/referring-physician reconciliation passed package verification. The importer stores these relationships in the demographic parent receipt; the exporter binds each original relationship by patient, role and contact reference, including when names are identical. Forty-seven focused checks and 44 exact packaged installed checks cover name edits, complete source/field accounting, XML validation and exact restoration. Missing, moved, inactive/deleted or contradictory relationships require review. Additional populated professional-contact attributes still need a supporting native projection before publication.
 
 ## Baseline and integration
 
