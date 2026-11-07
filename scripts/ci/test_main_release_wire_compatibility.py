@@ -11,6 +11,27 @@ spec.loader.exec_module(probe)
 
 
 class BinaryClientComparisonTest(unittest.TestCase):
+    def test_explicit_xml_provider_requires_the_observed_historical_implementation(self):
+        """A requested historical provider cannot be replaced by another valid implementation."""
+        for name, implementation in probe.XML_PROVIDERS.items():
+            probe.require_xml_provider({'xmlProviders': [implementation]}, name)
+            other = next(value for key, value in probe.XML_PROVIDERS.items() if key != name)
+            with self.assertRaises(EvidenceError):
+                probe.require_xml_provider({'xmlProviders': [other]}, name)
+
+    def test_missing_unknown_or_duplicate_xml_provider_cannot_qualify(self):
+        """Malformed provider evidence must fail before any compatibility result can qualify."""
+        for value in (None, [], 'glassfish', ['unknown'], [None],
+                      [probe.XML_PROVIDERS['glassfish']] * 2):
+            with self.subTest(value=value), self.assertRaises(EvidenceError):
+                probe.require_xml_provider({'xmlProviders': value}, 'automatic')
+
+    def test_automatic_provider_discovery_retains_both_known_historical_implementations(self):
+        """Automatic discovery may report both providers; an explicit lane may report only its pin."""
+        probe.require_xml_provider({'xmlProviders': list(probe.XML_PROVIDERS.values())}, 'automatic')
+        with self.assertRaises(EvidenceError):
+            probe.require_xml_provider({'xmlProviders': list(probe.XML_PROVIDERS.values())}, 'glassfish')
+
     def report(self):
         return {'schemaVersion': 1, 'errors': {}, 'cases': {
             name: {'kind': 'boolean', 'value': 'true'} if name == 'opt-in-soap-payload-leaked'

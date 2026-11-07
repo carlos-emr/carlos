@@ -55,7 +55,9 @@
         "scope-and-main-disposition",
         "scope-inventory",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -221,7 +223,11 @@
         "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java",
         "scripts/ci/run-public-api-oracle.py",
         "scripts/ci/WarWireCompatibilityProbe.java",
-        "docs/testing/release-2026.08-main-release-browser-findings.json"
+        "docs/testing/release-2026.08-main-release-browser-findings.json",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlStateUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveDateTimeContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java"
       ],
       "implementation": "Extend the existing installed REST check to nonempty XML allergy/prevention date DTOs and every supported precision, plus restricted-user/error and OAuth surfaces. Preserve production mapper and both JAXB provider tests.",
       "cases": "Accept application/xml, application/json and */*; UNKNOWN/YEAR/MONTH/FULL_DATE, leap days, nulls and epoch values in UTC/Toronto/Tokyo; 400/401/403/404; malformed or foreign patient; exact field names and precision shapes; shared provider initialization must not fall back silently.",
@@ -236,7 +242,9 @@
         "java-date-zones",
         "http-client-compatibility",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -531,7 +539,9 @@
         "ebs-packaged-staging",
         "ebs-local-payload-privacy",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -590,7 +600,9 @@
         "sql-hook",
         "java-legacy-compat",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -657,7 +669,9 @@
         "packaged-full",
         "image-overwrite-contract",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -1155,7 +1169,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 327,
+      "minimumCases": 330,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1301,9 +1315,12 @@
         "test_lifecycle_baselines.LifecycleBaselineTest.test_distinct_historical_migration_and_cli_predecessor_is_required",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_incomplete_package_province_or_published_identity_cannot_qualify",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_added_abstract_methods_enum_constants_and_overloads_require_client_review",
+        "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_automatic_provider_discovery_retains_both_known_historical_implementations",
+        "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_explicit_xml_provider_requires_the_observed_historical_implementation",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_json_numeric_lexemes_preserve_scale_exponents_and_signed_zero",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_malformed_release_xml_fails_while_a_repaired_main_response_is_reported",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_missing_fields_duplicate_json_keys_and_nonfinite_numbers_are_not_silently_accepted",
+        "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_missing_unknown_or_duplicate_xml_provider_cannot_qualify",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_new_named_concrete_method_and_new_types_are_not_competing_overloads",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_new_payload_exposure_is_a_regression_while_its_removal_is_a_fix",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_omitted_cases_and_identical_errors_cannot_qualify_comparison",
@@ -1613,7 +1630,12 @@
         "DemographicBirthdayXmlContractUnitTest": 9,
         "EFormExportZipLimitsUnitTest": 16,
         "ImportZipInputStreamUnitTest": 23,
-        "CdsSnapshotServiceUnitTest": 23
+        "CdsSnapshotServiceUnitTest": 23,
+        "CalendarXmlStateUnitTest": 3,
+        "AppointmentArchiveDateTimeContractUnitTest": 7,
+        "PublishedXmlSchemaContractUnitTest": 28,
+        "JaxbGeneratedSchemaUnitTest": 336,
+        "DemographicBirthDayTimezoneUnitTest": 27
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -4859,6 +4881,114 @@
           "fixture-source-unchanged"
         ]
       }
+    },
+    {
+      "id": "main-glassfish-release-wire-compatibility",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "packaged": false,
+      "requiresArtifact": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-main-release-wire-compatibility.py",
+        "--main-package",
+        "{mainPackage}",
+        "--candidate",
+        "{artifact}",
+        "--tomcat-core",
+        "{tomcatCore}",
+        "--tomcat-jsp-api",
+        "{tomcatJspApi}",
+        "--output",
+        "{run}/compatibility-result.json",
+        "--main-xml-provider",
+        "glassfish",
+        "--candidate-xml-provider",
+        "glassfish"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_MAIN_PACKAGE",
+        "CARLOS_TOMCAT_CORE",
+        "CARLOS_TOMCAT_JSP_API"
+      ],
+      "environmentInputs": {
+        "mainPackage": "CARLOS_MAIN_PACKAGE",
+        "tomcatCore": "CARLOS_TOMCAT_CORE",
+        "tomcatJspApi": "CARLOS_TOMCAT_JSP_API"
+      },
+      "requiresExecutables": [
+        "java",
+        "javac",
+        "dpkg-deb"
+      ],
+      "timeoutSeconds": 900,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "resultContract": {
+        "file": "compatibility-result.json",
+        "assertions": [
+          "both-binary-clients-complete",
+          "no-unreviewed-wire-breaks"
+        ]
+      }
+    },
+    {
+      "id": "main-moxy-release-wire-compatibility",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "packaged": false,
+      "requiresArtifact": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-main-release-wire-compatibility.py",
+        "--main-package",
+        "{mainPackage}",
+        "--candidate",
+        "{artifact}",
+        "--tomcat-core",
+        "{tomcatCore}",
+        "--tomcat-jsp-api",
+        "{tomcatJspApi}",
+        "--output",
+        "{run}/compatibility-result.json",
+        "--main-xml-provider",
+        "moxy",
+        "--candidate-xml-provider",
+        "glassfish"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_MAIN_PACKAGE",
+        "CARLOS_TOMCAT_CORE",
+        "CARLOS_TOMCAT_JSP_API"
+      ],
+      "environmentInputs": {
+        "mainPackage": "CARLOS_MAIN_PACKAGE",
+        "tomcatCore": "CARLOS_TOMCAT_CORE",
+        "tomcatJspApi": "CARLOS_TOMCAT_JSP_API"
+      },
+      "requiresExecutables": [
+        "java",
+        "javac",
+        "dpkg-deb"
+      ],
+      "timeoutSeconds": 900,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "resultContract": {
+        "file": "compatibility-result.json",
+        "assertions": [
+          "both-binary-clients-complete",
+          "no-unreviewed-wire-breaks"
+        ]
+      }
     }
   ],
   "requireJavaDiscovery": true,
@@ -4866,24 +4996,33 @@
   "requireManualBrowserCoverage": true,
   "pathBindings": {
     "src/main/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapter.java": {
-      "reason": "Null/empty omission, duplicate keys, Unicode and insertion order are tested directly.",
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapterUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "main-release-wire-compatibility"
       ],
       "workstreams": [
         "T08"
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapter.java": {
-      "reason": "Direct null/container/key/value and ordering wire contracts.",
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
       "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "main-release-wire-compatibility"
       ],
       "workstreams": [
         "T08"
@@ -4926,24 +5065,31 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransfer.java": {
-      "reason": "Default and populated DTO wire forms are compared to independently captured MOXy XML fixtures.",
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransferXmlUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "main-release-wire-compatibility"
       ],
       "workstreams": [
         "T08"
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransfer.java": {
-      "reason": "Default and populated archive fields are compared to independently captured MOXy XML, with explicit Calendar construction.",
+      "reason": "Direct and nested archive responses preserve beta6 date-time offsets across summer, winter, UTC and fractional-hour zones, retain blank/absent and frozen offset-free input, and leave caller state unchanged. The unchanged binary comparison separately checks XML and both production JSON mappers.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveDateTimeContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java",
+        "scripts/ci/WarWireCompatibilityProbe.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "main-release-wire-compatibility"
       ],
       "workstreams": [
         "T08"
@@ -5295,6 +5441,116 @@
       ],
       "workstreams": [
         "T31"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapter.java": {
+      "reason": "Direct regressions prove that legacy date-only, field-set date-time and lenient normalized output preserve the caller calendar state across repeated writes; existing adapter tests retain production appointment and schedule shapes and strict legacy input handling.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlStateUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapterUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/model/LookupCodeValue.java": {
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentTransfer.java": {
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/CalendarScheduleCodePairTransfer.java": {
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/AppointmentExtTo.java": {
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/SearchConfigTo1.java": {
+      "reason": "A present empty appointment-duration map must retain its beta6 required container without choosing a numeric or literal character protocol. Published-schema validation and strict round-trip checks cover the empty case; absent maps remain absent and populated character-policy acceptance remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": {
+      "reason": "Reviewed main/release changes retain schema-bound birthday XML and physical pronoun/gender length guards. Focused tests cover those bounds, date-only birthday construction and serialization, and formatting after a shared formatter caches another timezone; the required provider and supported-client acceptance remains separate.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicBirthDayTimezoneUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicBirthDayPropertyUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicFieldLengthUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
       ]
     }
   },
