@@ -71,6 +71,7 @@ public final class WarWireCompatibilityProbe {
         return value;
     }
 
+    /** Selects the requested provider inside the binary's loader and records the actual implementation. */
     private static Object xmlContext(ClassLoader loader, Class<?> type) throws Exception {
         Object context;
         if (xmlProvider.equals("automatic")) {
@@ -89,6 +90,7 @@ public final class WarWireCompatibilityProbe {
         return context;
     }
 
+    /** Serializes a native DTO through the selected binary provider under a stable synthetic root. */
     private static String xml(ClassLoader loader, Object value) throws Exception {
         var contextType = loader.loadClass("jakarta.xml.bind.JAXBContext");
         var context = xmlContext(loader, value.getClass());
@@ -307,6 +309,7 @@ public final class WarWireCompatibilityProbe {
         return text.append('"').toString();
     }
 
+    /** Runs the unchanged client corpus in Tomcat's isolated loader and retains every observation. */
     public static void main(String[] args) throws Exception {
         if (args.length == 5) xmlProvider = args[4];
         if (!Set.of("automatic", "glassfish", "moxy").contains(xmlProvider)) {

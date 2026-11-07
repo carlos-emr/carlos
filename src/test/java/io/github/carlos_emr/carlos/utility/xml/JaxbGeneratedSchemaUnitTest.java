@@ -24,6 +24,10 @@ import org.junit.jupiter.api.io.TempDir;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+/**
+ * Compiles the generated binding inventory and distinguishes shared historical failures.
+ * @since 2026-11-07
+ */
 @Tag("unit")
 @Tag("xml")
 class JaxbGeneratedSchemaUnitTest extends CarlosUnitTestBase {
@@ -34,6 +38,7 @@ class JaxbGeneratedSchemaUnitTest extends CarlosUnitTestBase {
     @TempDir
     Path directory;
 
+    /** Uses the complete binding inventory so nested DTO additions cannot silently escape validation. */
     @TestFactory
     Stream<DynamicTest> shouldCompileGeneratedSchema_forEveryDiscoveredContext() throws Exception {
         List<Class<?>> types = JaxbImplementationCompatibilityUnitTest.boundClasses();
@@ -41,6 +46,7 @@ class JaxbGeneratedSchemaUnitTest extends CarlosUnitTestBase {
         return types.stream().map(type -> DynamicTest.dynamicTest(type.getName(), () -> compile(type)));
     }
 
+    /** Compiles actual generated schemas while retaining precisely identified shared baseline failures. */
     private void compile(Class<?> type) throws Exception {
         if (type == io.github.carlos_emr.carlos.webserv.rest.to.model.ConsultationAttachment.class) {
             assertThatThrownBy(() -> org.glassfish.jaxb.runtime.v2.ContextFactory.createContext(

@@ -10,9 +10,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Verifies serialization leaves the caller's lazy calendar fields untouched.
+ * @since 2026-11-07
+ */
 @Tag("unit")
 @Tag("xml")
 class CalendarXmlStateUnitTest extends CarlosUnitTestBase {
+    /** Resolving lazy or lenient fields must affect only the adapter's private calendar copy. */
     @ParameterizedTest
     @CsvSource({"15,false,2026-07-15", "15,true,2026-07-15T13:14:15", "32,true,2026-08-01T13:14:15"})
     void shouldLeaveLazyCalendarUnchanged_whenWritingLegacyXml(int day, boolean time, String expected) {

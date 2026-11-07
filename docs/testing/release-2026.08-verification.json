@@ -1633,7 +1633,7 @@
         "CdsSnapshotServiceUnitTest": 23,
         "CalendarXmlStateUnitTest": 3,
         "AppointmentArchiveDateTimeContractUnitTest": 7,
-        "PublishedXmlSchemaContractUnitTest": 27,
+        "PublishedXmlSchemaContractUnitTest": 28,
         "JaxbGeneratedSchemaUnitTest": 336
       },
       "requireCoverage": true,
@@ -5016,7 +5016,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java"
       ],
       "checks": [
         "java-all",
@@ -5509,6 +5510,23 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/SearchConfigTo1.java": {
+      "reason": "A present empty appointment-duration map must retain its beta6 required container without choosing a numeric or literal character protocol. Published-schema validation and strict round-trip checks cover the empty case; absent maps remain absent and populated character-policy acceptance remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java"
       ],
       "checks": [
         "java-all",

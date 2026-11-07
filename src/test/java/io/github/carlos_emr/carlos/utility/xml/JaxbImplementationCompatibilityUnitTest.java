@@ -155,6 +155,7 @@ class JaxbImplementationCompatibilityUnitTest {
         return text.toString();
     }
 
+    /** Checks native writes and legacy reads while distinguishing known historical context failures. */
     private static void compare(Class<?> type) throws Exception {
         JAXBContext moxy = null;
         try {
@@ -237,6 +238,7 @@ class JaxbImplementationCompatibilityUnitTest {
         return writer.toString();
     }
 
+    /** Discovers annotated roots and their complete nested binding graphs from production sources. */
     static List<Class<?>> boundClasses() throws Exception {
         Set<Class<?>> found = new java.util.TreeSet<>(java.util.Comparator.comparing(Class::getName));
         Path root = Path.of("src/main/java");

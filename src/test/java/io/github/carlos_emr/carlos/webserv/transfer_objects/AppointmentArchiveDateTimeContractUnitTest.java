@@ -20,6 +20,10 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Pins direct and nested archived appointment date-times without mutating shared calendars.
+ * @since 2026-11-07
+ */
 @Tag("unit")
 @Tag("xml")
 class AppointmentArchiveDateTimeContractUnitTest extends CarlosUnitTestBase {
@@ -28,6 +32,7 @@ class AppointmentArchiveDateTimeContractUnitTest extends CarlosUnitTestBase {
         public AppointmentArchiveTransfer archive;
     }
 
+    /** Exercises one shared lazy calendar in direct and nested archives across timezone offsets. */
     @ParameterizedTest
     @CsvSource({"America/Toronto,6,true,2026-07-15T13:14:15-04:00",
             "America/Toronto,0,true,2026-01-15T13:14:15-05:00",
@@ -71,6 +76,7 @@ class AppointmentArchiveDateTimeContractUnitTest extends CarlosUnitTestBase {
         assertThat(calendar.toString()).isEqualTo(original);
     }
 
+    /** Blank, empty and absent optional date elements retain the legacy null interpretation. */
     @Test
     void shouldRetainOptionalDates_whenLegacyInputOmitsOrClearsThem() throws Exception {
         var context = JAXBContext.newInstance(AppointmentArchiveTransfer.class);
@@ -87,6 +93,7 @@ class AppointmentArchiveDateTimeContractUnitTest extends CarlosUnitTestBase {
                 .doesNotContain("appointmentStartDateTime", "appointmentEndDateTime", "createDateTime", "updateDateTime");
     }
 
+    /** Supplies a synthetic root without changing the archive's published property annotations. */
     private static <T> String write(JAXBContext context, Class<T> type, T value) throws Exception {
         var output = new StringWriter();
         context.createMarshaller().marshal(new JAXBElement<>(new QName("value"), type, value), output);

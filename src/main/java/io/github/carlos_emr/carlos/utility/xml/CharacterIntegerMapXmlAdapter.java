@@ -49,14 +49,14 @@ public final class CharacterIntegerMapXmlAdapter
     }
 
     /**
-     * Converts a map to XML entries, preserving MOXy's omission of null and empty maps.
+     * Converts a map to XML entries, preserving the published schema's present-empty container.
      *
      * @param value Map&lt;Character, Integer&gt; to serialize, or null
-     * @return Entries containing the map entries, or null for a null or empty map so the element is omitted
+     * @return Entries containing the map entries, including an empty container, or null for an absent map
      */
     @Override
     public Entries marshal(Map<Character, Integer> value) {
-        if (value == null || value.isEmpty()) return null;
+        if (value == null) return null;
         Entries result = new Entries();
         value.forEach((key, item) -> {
             Entry entry = new Entry();

@@ -231,6 +231,7 @@ def extract_release(war, destination):
 
 
 def main():
+    """Verify binary pins, run both isolated clients, and retain strict provider-bound findings."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--main-package', type=Path, required=True)
     parser.add_argument('--candidate', type=Path, required=True)

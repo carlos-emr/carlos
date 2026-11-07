@@ -57,7 +57,10 @@ uses an appointment DTO and rejects any JAXB validation event. `AppointmentExtTo
 now pins the beta6 Glassfish sequence explicitly. `DrugTransfer` retains the
 alphabetical sequence required by the published Prescription WSDL; its conflict
 with the historical Glassfish sequence remains a client-policy decision. Present
-empty filter maps retain `<params/>`; absent maps remain absent. Anonymous map
+empty filter maps retain `<params/>`, and present empty appointment-duration maps
+retain `<appointmentCodeDurations/>`; absent maps remain absent. Empty containers
+carry no character values and therefore do not require choosing between the
+numeric and literal character protocols. Anonymous map
 carrier types are non-final because XML Schema forbids a `final` attribute on an
 anonymous complex type.
 

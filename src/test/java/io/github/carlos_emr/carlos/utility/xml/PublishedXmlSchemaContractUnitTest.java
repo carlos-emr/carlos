@@ -8,6 +8,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.AppointmentExtResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentExtTo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.BookingProviderTransfer;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.FilterDefinitionTransfer;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.SearchConfigTo1;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentArchiveTransfer;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.AppointmentTransfer;
 import io.github.carlos_emr.carlos.webserv.transfer_objects.CalendarScheduleCodePairTransfer;
@@ -33,12 +34,16 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Native Java objects checked by unchanged schemas emitted by the verified beta6 binary. */
+/**
+ * Native Java objects checked by unchanged schemas emitted by the verified beta6 binary.
+ * @since 2026-11-07
+ */
 @Tag("unit")
 @Tag("xml")
 class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
     private static final String SCHEMAS = "/xml/published-beta6-glassfish/";
 
+    /** Covers cleared date-only and time-bearing calendars across DST and fractional-hour zones. */
     static Stream<Arguments> calendarCases() {
         return Stream.of(AppointmentTransfer.class, AppointmentArchiveTransfer.class,
                 CalendarScheduleCodePairTransfer.class, LookupCodeValue.class).flatMap(type -> Stream.of(
@@ -50,6 +55,7 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
                     Arguments.of(type, "Asia/Kolkata", 6, true)));
     }
 
+    /** Verifies schema validity, the exact offset, strict reading and unchanged caller state. */
     @ParameterizedTest
     @MethodSource("calendarCases")
     void shouldSatisfyPublishedDateTimeSchema_whenCalendarFieldsAreCleared(
@@ -87,6 +93,7 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
         assertThat(calendar.toString()).isEqualTo(original);
     }
 
+    /** Checks the required filter container directly and through its owning provider response. */
     @Test
     void shouldKeepRequiredEmptyMap_whenWritingDirectAndNestedFilters() throws Exception {
         var filter = new FilterDefinitionTransfer();
@@ -114,6 +121,23 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
         assertThat(write(filter)).doesNotContain("<params");
     }
 
+    /** An empty duration map has no character payload, so its container needs no encoding choice. */
+    @Test
+    void shouldKeepRequiredEmptyDurationMap_whenWritingSearchConfiguration() throws Exception {
+        var config = new SearchConfigTo1();
+        config.setAppointmentCodeDurations(Map.of());
+        String xml = write(config);
+        validatePublished(SearchConfigTo1.class, xml);
+        assertThat(xml).contains("<appointmentCodeDurations");
+        var reader = context(SearchConfigTo1.class).createUnmarshaller();
+        reader.setEventHandler(event -> false);
+        assertThat(reader.unmarshal(new StreamSource(new StringReader(xml)), SearchConfigTo1.class)
+                .getValue().getAppointmentCodeDurations()).isEmpty();
+        config.setAppointmentCodeDurations(null);
+        assertThat(write(config)).doesNotContain("<appointmentCodeDurations");
+    }
+
+    /** Pins the historical appointment sequence both as a root and in its REST response. */
     @Test
     void shouldKeepPublishedSequence_whenWritingDirectAndNestedAppointments() throws Exception {
         var appointment = new AppointmentExtTo();
@@ -126,6 +150,7 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
 
     }
 
+    /** Detects accidental edits to the independently captured published schemas. */
     @Test
     void shouldRetainSchemaFixtureIdentity_whenCheckingPublishedContracts() throws Exception {
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
@@ -143,10 +168,12 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** Selects Glassfish explicitly so service-provider discovery cannot change the oracle. */
     private static JAXBContext context(Class<?> type) throws Exception {
         return org.glassfish.jaxb.runtime.v2.ContextFactory.createContext(new Class<?>[]{type}, Map.of());
     }
 
+    /** Supplies only a synthetic root name for a native object lacking XmlRootElement. */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static String write(Object bean) throws Exception {
         var output = new StringWriter();
@@ -154,6 +181,7 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
         return output.toString();
     }
 
+    /** Validates against the unchanged type schema with a synthetic global root declaration. */
     private static void validatePublished(Class<?> type, String xml) throws Exception {
         var factory = XmlUtils.createSecureDocumentBuilderFactory();
         factory.setNamespaceAware(true);
@@ -171,6 +199,7 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /** Populates field-bound DTO values that do not expose setters. */
     private static void field(Object bean, String name, Object value) throws Exception {
         var field = bean.getClass().getDeclaredField(name);
         field.setAccessible(true);
