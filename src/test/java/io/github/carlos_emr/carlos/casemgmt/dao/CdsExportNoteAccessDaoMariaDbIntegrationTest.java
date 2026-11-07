@@ -198,6 +198,19 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
             assertThat(notes.findScope(id, id)).isNull();
         });
     }
+    @Test void shouldPreserveLegacyEmptyAndZeroReporterRoles_onlyForUnscopedChartNotes() {
+        fixture(() -> {
+            for (String program : java.util.List.of("", "0")) {
+                for (String reporter : java.util.List.of("", "0")) {
+                    sql.update("update casemgmt_note set program_no=?,reporter_caisi_role=? where note_id=?", program, reporter, id);
+                    var scope = notes.findScope(id, id); assertThat(scope).isNotNull(); assertThat(scope.reporterRole()).isEqualTo(reporter);
+                    assertThat(notes.canRead(provider, scope, null, true)).isTrue();
+                }
+            }
+            sql.update("update casemgmt_note set program_no=?,reporter_caisi_role='' where note_id=?", Integer.toString(id), id);
+            assertThat(notes.findScope(id, id)).isNull();
+        });
+    }
     private boolean read(CdsExportNoteAccessDto scope) { return notes.canRead(provider, scope, null, false); }
     private void admission(int program) {
         sql.update("insert into admission(am_id,client_id,program_id,provider_no,admission_date,discharge_date,admission_from_transfer,discharge_from_transfer,lastUpdateDate) values(?,?,?,?,'2000-01-01',NULL,0,0,CURRENT_TIMESTAMP)", id, id, program, provider);

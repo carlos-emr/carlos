@@ -83,6 +83,20 @@ class CdsExportCapturedNoteScopeValidatorUnitTest {
         var noted = new CdsExportCapturedTableDto(row().keySet(), 1, HASH, List.of(), List.of(scope));
         assertThat(json.readValue(json.writeValueAsString(noted), CdsExportCapturedTableDto.class).noteAccess()).containsExactly(scope);
     }
+    @Test void shouldBindLegacyUnscopedReporterDefaults_withoutInventingARole() throws Exception {
+        for (String program : List.of("", "0")) for (String reporter : List.of("", "0")) {
+            var scope = new CdsExportNoteAccessDto(91, 27, program, reporter); var data = row(); data.put("program_no", program); data.put("reporter_caisi_role", reporter);
+            var values = new ByteArrayOutputStream(); var index = new ByteArrayOutputStream();
+            new CdsExportNativeCaptureComposer().compose(values, index, Set.of("casemgmt_note"), 100, 1L << 20, () -> {}, writer -> {
+                writer.beginTable("casemgmt_note", data.keySet(), 1); writer.row(key, fields -> { for (var cell : data.entrySet()) fields.text(cell.getKey(), cell.getValue()); }); writer.endTable();
+            });
+            try (var validator = new CdsExportCapturedNoteScopeValidator(27, List.of(scope), field -> OutputStream.nullOutputStream())) {
+                new CdsExportNativeCaptureReader().scan(new ByteArrayInputStream(values.toByteArray()), new ByteArrayInputStream(index.toByteArray()),
+                        Map.of("casemgmt_note", new CdsExportNativeCaptureReader.Table(data.keySet(), 1)), 100, 1L << 20, () -> {}, validator); validator.finish();
+            }
+            assertThatThrownBy(() -> new CdsExportNoteAccessDto(91, 27, "17", reporter)).isInstanceOf(IllegalArgumentException.class);
+        }
+    }
     @Test void shouldRequireOneDeclaredScopePerNativeNote_andItsExactPatient() {
         var empty = new CdsExportCapturedTableDto(row().keySet(), 1, HASH);
         assertThatThrownBy(() -> capture("casemgmt_note", empty)).hasMessage("CDS_EXPORT_CAPTURE_NOTE_ACCESS_INVALID");

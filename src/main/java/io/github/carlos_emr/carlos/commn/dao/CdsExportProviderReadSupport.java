@@ -30,6 +30,7 @@ import java.util.TreeMap;
 
 /** Finite public lookup projection; no provider private values or entities enter export capture. */
 public final class CdsExportProviderReadSupport {
+    private static final Set<String> HISTORY = Set.of("PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors", "AlertsAndSpecialNeeds", "ClinicalNotes");
     private static final List<String> COLUMNS = List.of("first_name", "last_name", "ohip_no", "practitionerNo", "practitionerNoType", "provider_no");
     private CdsExportProviderReadSupport() { }
     public static long count(EntityManager em, int patient, Set<String> categories) {
@@ -69,7 +70,9 @@ public final class CdsExportProviderReadSupport {
         return List.copyOf(result);
     }
     private static String scope(int patient, Set<String> categories) {
-        if (patient < 1 || categories == null || categories.isEmpty() || !Set.of("Demographics", "AllergiesAndAdverseReactions", "Appointments", "MedicationsAndTreatments").containsAll(categories)) invalid();
+        var supported = new java.util.HashSet<>(HISTORY); supported.addAll(Set.of("Demographics", "AllergiesAndAdverseReactions", "Appointments", "MedicationsAndTreatments"));
+        if (patient < 1 || categories == null || categories.isEmpty() || !supported.containsAll(categories)
+                || !java.util.Collections.disjoint(categories, HISTORY) && !categories.containsAll(HISTORY)) invalid();
         var selected = new ArrayList<String>();
         if (categories.contains("Demographics")) selected.add("(exists (select 1 from demographic p where p.demographic_no=:patient"
                 + " and (p.provider_no=d.provider_no or p.roster_enrolled_to=d.provider_no))"
@@ -79,6 +82,8 @@ public final class CdsExportProviderReadSupport {
         if (categories.contains("Appointments")) selected.add("(exists (select 1 from appointment a where a.demographic_no=:patient and a.provider_no=d.provider_no)"
                 + " or exists (select 1 from appointmentArchive a where a.demographic_no=:patient and a.provider_no=d.provider_no))");
         if (categories.contains("MedicationsAndTreatments")) selected.add("exists (select 1 from drugs a where a.demographic_no=:patient and a.provider_no=d.provider_no)");
+        if (categories.containsAll(HISTORY)) selected.add("exists (select 1 from casemgmt_note n where n.demographic_no=:patient"
+                + " and (n.provider_no=d.provider_no or n.signing_provider_no=d.provider_no))");
         // Native collation matches are captured as candidates; the mapper must still prove exact raw reference identity.
         return "(d.provider_no<>'' and (" + String.join(" or ", selected) + "))";
     }

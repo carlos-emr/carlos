@@ -54,6 +54,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
     private CaseManagementNoteExtDAO extensions;
     private CaseManagementIssueDAO patientIssues;
     private IssueDAO catalogue;
+    private io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao providers;
     private TransactionTemplate read;
     private final int id = 490_000_000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9_000_000);
     private final String marker = "OwnedNoteSource" + id;
@@ -71,7 +72,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "none", "hibernate.dialect", "org.hibernate.dialect.MariaDBDialect", "hibernate.show_sql", "false")); return factory;
         });
         context.registerBean(PersistenceAnnotationBeanPostProcessor.class); context.registerBean("transactionManager", JpaTransactionManager.class, () -> new JpaTransactionManager(context.getBean(EntityManagerFactory.class)));
-        context.register(CaseManagementNoteDAOImpl.class, CaseManagementNoteExtDAOImpl.class, CdsExportNoteAccessDao.class, CaseManagementIssueDAOImpl.class, IssueDAOImpl.class); context.refresh(); notes = context.getBean(CaseManagementNoteDAO.class); access = context.getBean(CdsExportNoteAccessDao.class); extensions = context.getBean(CaseManagementNoteExtDAO.class); patientIssues = context.getBean(CaseManagementIssueDAO.class); catalogue = context.getBean(IssueDAO.class);
+        context.register(CaseManagementNoteDAOImpl.class, CaseManagementNoteExtDAOImpl.class, CdsExportNoteAccessDao.class, CaseManagementIssueDAOImpl.class, IssueDAOImpl.class, io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl.class); context.refresh(); notes = context.getBean(CaseManagementNoteDAO.class); access = context.getBean(CdsExportNoteAccessDao.class); extensions = context.getBean(CaseManagementNoteExtDAO.class); patientIssues = context.getBean(CaseManagementIssueDAO.class); catalogue = context.getBean(IssueDAO.class); providers = context.getBean(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class);
         read = new TransactionTemplate(context.getBean(PlatformTransactionManager.class)); read.setReadOnly(true); read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ); read.setTimeout(30);
         var write = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
         write.executeWithoutResult(status -> {
@@ -82,6 +83,10 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             assertThat(sql.queryForObject("select count(*) from issue where issue_id=?", Integer.class, id + 10)).isZero();
             assertThat(sql.queryForObject("select count(*) from casemgmt_issue where demographic_no in (?,?)", Integer.class, id, id + 1)).isZero();
             sql.update("insert into issue(issue_id,code,description,role,sortOrderId,update_date) values(?,?,'Synthetic CDS note link','doctor',0,CURRENT_TIMESTAMP)", id + 10, "OwnedLink" + id);
+            for (String provider : List.of("986641", "986642", "986643")) {
+                assertThat(sql.queryForObject("select count(*) from provider where provider_no=?", Integer.class, provider)).isZero();
+                sql.update("insert into provider(provider_no,first_name,last_name,provider_type,status,ohip_no,lastUpdateDate) values(?,'Synthetic',?,'doctor','0',?,CURRENT_TIMESTAMP)", provider, marker, provider);
+            }
             for (int patient : List.of(id, id + 1)) {
                 sql.update("insert into demographic(demographic_no,first_name,last_name,patient_status,lastUpdateDate) values(?,'Synthetic',?,'IN',CURRENT_TIMESTAMP)", patient, marker);
                 sql.update("insert into casemgmt_note(note_id,demographic_no,note,history,program_no,reporter_caisi_role,update_date) values(?,?,?,'','17','1',CURRENT_TIMESTAMP)", patient, patient, patient == id ? body : "Other owned patient");
@@ -89,6 +94,8 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
                 sql.update("insert into casemgmt_issue(id,demographic_no,issue_id,type,update_date) values(?,?,?, ?,CURRENT_TIMESTAMP)", patient, patient, id + 10, marker);
                 sql.update("insert into casemgmt_issue_notes(id,note_id) values(?,?)", patient, patient);
             }
+            sql.update("update casemgmt_note set provider_no='986641',signing_provider_no='986642' where note_id=? and demographic_no=?", id, id);
+            sql.update("update casemgmt_note set provider_no='986643',signing_provider_no='986643' where note_id=? and demographic_no=?", id + 1, id + 1);
         }); ownsRows = true;
     }
     @AfterEach void cleanup() throws Exception {
@@ -102,6 +109,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
                     sql.update("delete n from casemgmt_note n join demographic d on d.demographic_no=n.demographic_no where n.note_id=? and n.demographic_no=? and d.first_name='Synthetic' and d.last_name=?", patient, patient, marker);
                     sql.update("delete from demographic where demographic_no=? and first_name='Synthetic' and last_name=?", patient, marker);
                 }
+                sql.update("delete from provider where provider_no in ('986641','986642','986643') and first_name='Synthetic' and last_name=?", marker);
             }
         } finally { if (context != null) context.close(); if (source != null) source.close(); }
     }
@@ -142,6 +150,25 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             assertThat(extensions.readCdsExportReceiptColumns()).hasSize(5); assertThat(extensions.findCdsExportRowsAfter(id, (long) id, 32)).isEmpty();
         });
         assertThatThrownBy(() -> read.execute(status -> extensions.readCdsExportValueChunk(id, id + 1, "value", 0, 10))).isInstanceOf(IllegalStateException.class);
+    }
+    @Test void shouldCaptureExactNoteAuthorsAndSigners_withTheirPublicFieldsOnly() {
+        read.executeWithoutResult(status -> {
+            var history = io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteSourceReader.CATEGORIES.stream().map(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory::wireName).collect(java.util.stream.Collectors.toSet());
+            assertThat(providers.countCdsExportPublicProviders(id, history)).isEqualTo(2);
+            var first = providers.findCdsExportPublicProvidersAfter(id, history, null, 1); assertThat(first).hasSize(1); assertThat(first.getFirst().id()).isEqualTo("986641");
+            var after = io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPublicProviderSourceReader.key(first.getFirst().id());
+            var second = providers.findCdsExportPublicProvidersAfter(id, history, after, 1); assertThat(second).hasSize(1); assertThat(second.getFirst().id()).isEqualTo("986642");
+            assertThat(first.getFirst().cells()).containsOnlyKeys("first_name", "last_name", "ohip_no", "practitionerNo", "practitionerNoType", "provider_no");
+            assertThat(providers.findCdsExportPublicProvidersAfter(id, history, io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPublicProviderSourceReader.key("986642"), 32)).isEmpty();
+        });
+    }
+    @Test void shouldExcludeNoteProviderAssociations_fromOtherCategorySelections() {
+        read.executeWithoutResult(status -> {
+            assertThat(providers.countCdsExportPublicProviders(id, Set.of("Demographics"))).isZero();
+            assertThat(providers.countCdsExportPublicProviders(id, Set.of("MedicationsAndTreatments"))).isZero();
+        });
+        assertThatThrownBy(() -> read.execute(status -> providers.countCdsExportPublicProviders(id, Set.of("ClinicalNotes"))))
+                .hasMessage("CDS_EXPORT_PUBLIC_PROVIDER_SOURCE_INVALID");
     }
     @Test void shouldCaptureEveryPatientIssueField_andOnlyItsReferencedCatalogueRows() {
         read.executeWithoutResult(status -> {

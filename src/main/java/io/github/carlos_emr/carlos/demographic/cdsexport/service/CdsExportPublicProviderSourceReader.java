@@ -38,7 +38,12 @@ import org.springframework.stereotype.Service;
 /** Selected-category public reference candidates, read directly in the same patient snapshot. */
 @Service
 public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourceReader {
-    private static final Set<CdsCategory> SUPPORTED = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.APPOINTMENTS, CdsCategory.MEDICATIONS_AND_TREATMENTS);
+    private static final Set<CdsCategory> SUPPORTED = supported();
+    private static Set<CdsCategory> supported() {
+        var categories = java.util.EnumSet.copyOf(CdsExportNoteSourceReader.CATEGORIES);
+        categories.addAll(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.APPOINTMENTS, CdsCategory.MEDICATIONS_AND_TREATMENTS));
+        return Set.copyOf(categories);
+    }
     private final ProviderDao source;
     private final Set<CdsCategory> selected;
     private final Set<String> wireNames;
@@ -46,12 +51,15 @@ public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourc
     public CdsExportPublicProviderSourceReader(ProviderDao source) { this(source, Set.of(CdsCategory.DEMOGRAPHICS)); }
     private CdsExportPublicProviderSourceReader(ProviderDao source, Set<CdsCategory> selected) {
         this.source = java.util.Objects.requireNonNull(source); this.selected = Set.copyOf(selected);
-        if (selected.isEmpty() || !SUPPORTED.containsAll(selected)) throw new IllegalArgumentException("CDS_EXPORT_PUBLIC_PROVIDER_SCOPE_INVALID");
+        if (selected.isEmpty() || !SUPPORTED.containsAll(selected)
+                || !java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES) && !selected.containsAll(CdsExportNoteSourceReader.CATEGORIES))
+            throw new IllegalArgumentException("CDS_EXPORT_PUBLIC_PROVIDER_SCOPE_INVALID");
         wireNames = selected.stream().map(CdsCategory::wireName).collect(Collectors.toUnmodifiableSet());
     }
     @Override public CdsExportNativeSourceReader forRequest(CdsExportCommand command) {
         return new CdsExportPublicProviderSourceReader(source, command.categories().stream().filter(SUPPORTED::contains).collect(Collectors.toUnmodifiableSet()));
     }
+    @Override public Set<String> requiredTables() { return java.util.Collections.disjoint(selected, CdsExportNoteSourceReader.CATEGORIES) ? Set.of() : Set.of("casemgmt_note"); }
     @Override public String table() { return "provider"; }
     @Override public Set<String> columns() { return CdsExportProviderRowDto.COLUMNS; }
     @Override public Set<CdsCategory> categories() { return selected; }
