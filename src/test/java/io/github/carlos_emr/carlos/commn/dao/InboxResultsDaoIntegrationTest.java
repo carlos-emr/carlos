@@ -679,15 +679,16 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
     }
 
     /**
-     * Every Inbox view shows a document row's own description ({@code document.docdesc}). Six of
-     * the query shapes read the document type into that column instead: every mixed labs-and-
-     * documents shape, and the separate shapes for one patient and for a name search. Those views
-     * showed the type where the clinician had saved a description (#5685). A document with no type
-     * was worse: mapping the null type threw, and the catch-all ended the page there, dropping
-     * that row and every row after it.
+     * Every Inbox view shows a document's type in its Discipline column, as clinicians sort by it
+     * (#5685). The row carries the type as its discipline and the saved description
+     * ({@code document.docdesc}) as its description. Before, the column showed the type in six of
+     * the query shapes and the description in the other two, depending only on which view was
+     * open, and the discipline was the routing marker "DOC". A document with no type was worse:
+     * mapping the null type threw, and the catch-all ended the page there, dropping that row and
+     * every row after it.
      */
     @Nested
-    @DisplayName("populateDocumentResultsData description column")
+    @DisplayName("populateDocumentResultsData document type and description")
     @Tag("read")
     class PopulateDocumentResultsDataDescription {
 
@@ -703,22 +704,22 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
          * The same ten shapes as the acknowledged-since bound: the provider's whole list of
          * patient documents and of unmatched ones, one patient, a name search and the unmatched
          * view, each with labs and documents mixed and separate. Together they reach every query
-         * the method builds. Three of them (the separate provider lists, matched and unmatched,
-         * and the separate unmatched view) already read the description; they pin it. Empty
-         * and whitespace-only descriptions must not truncate the list. Nonblank text,
-         * including surrounding spaces and literal markup, must be returned unchanged.
+         * the method builds. Empty and whitespace-only types and descriptions are returned as
+         * none and must not truncate the list. Nonblank text, including surrounding spaces and
+         * literal markup, must be returned unchanged.
          */
         @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
         @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
                 "patient,true", "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
-        @DisplayName("should list each document with its saved description, not its type")
-        void shouldListSavedDescription_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+        @DisplayName("should list each document with its type as discipline and its saved description")
+        void shouldListDocumentTypeAndSavedDescription_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
             int moduleId = "unmatched".equals(shape) || "providerUnmatched".equals(shape) ? -1 : demoId;
             int described = routeDocument(moduleId, "lab", "FAKE CT head report");
             int untyped = routeDocument(moduleId, null, "FAKE referral letter");
             int undescribed = routeDocument(moduleId, "consult", "");
             int whitespaceDescription = routeDocument(moduleId, "consult", " \t ");
             int literalDescription = routeDocument(moduleId, "consult", "  FAKE <report> & follow-up  ");
+            int blankType = routeDocument(moduleId, " \t ", "FAKE discharge note");
             String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
             String lastName = "nameSearch".equals(shape) ? "Patient" : "";
 
@@ -726,17 +727,15 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
                     PROVIDER_NO, demographicNo, "", lastName, "", "N",
                     false, null, null, mixLabsAndDocs, null, null, null, null);
 
-            assertThat(result).extracting(row -> row.segmentID, row -> row.description)
+            assertThat(result).extracting(row -> row.segmentID, row -> row.discipline, row -> row.description)
                     .containsExactlyInAnyOrder(
-                            tuple(String.valueOf(described), "FAKE CT head report"),
-                            tuple(String.valueOf(untyped), "FAKE referral letter"),
-                            tuple(String.valueOf(undescribed), null),
-                            tuple(String.valueOf(whitespaceDescription), null),
-                            tuple(String.valueOf(literalDescription), "  FAKE <report> & follow-up  "));
-            assertThat(result).allSatisfy(row -> {
-                assertThat(row.isDocument()).isTrue();
-                assertThat(row.discipline).isEqualTo("DOC");
-            });
+                            tuple(String.valueOf(described), "lab", "FAKE CT head report"),
+                            tuple(String.valueOf(untyped), null, "FAKE referral letter"),
+                            tuple(String.valueOf(undescribed), "consult", null),
+                            tuple(String.valueOf(whitespaceDescription), "consult", null),
+                            tuple(String.valueOf(literalDescription), "consult", "  FAKE <report> & follow-up  "),
+                            tuple(String.valueOf(blankType), null, "FAKE discharge note"));
+            assertThat(result).allSatisfy(row -> assertThat(row.isDocument()).isTrue());
         }
     }
 

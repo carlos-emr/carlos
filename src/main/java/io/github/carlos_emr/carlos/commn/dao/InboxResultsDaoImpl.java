@@ -161,9 +161,10 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
      *
      * <p>Builds one of eight native queries: labs and documents mixed or not, crossed with the
      * unmatched view ({@code demographicNo} {@code "0"}), one patient, a name or health-number
-     * search, or the provider's whole list. Every query selects the document's saved description
-     * ({@code document.docdesc}), which the Inbox views show for a document row; a blank one is
-     * returned as none. The clinic's Inbox date preference picks the received or observation date
+     * search, or the provider's whole list. Each row carries the document's type as its
+     * discipline, which the Inbox views show in their Discipline column, and its saved
+     * description ({@code document.docdesc}); a blank value of either is returned as none. The
+     * clinic's Inbox date preference picks the received or observation date
      * for filtering, display and order. A failure is logged and the rows built so far are
      * returned.</p>
      */
@@ -244,17 +245,17 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
 
         int docNoLoc = -1;
         int statusLoc = -1;
-        int docTypeLoc = -1;
         int lastNameLoc = -1;
         int firstNameLoc = -1;
         int hinLoc = -1;
         int sexLoc = -1;
         int moduleLoc = -1;
         // Every query shape below selects the document's own description (document.docdesc) at
-        // descriptionLoc. The Inbox Hub list, the legacy Inbox page and the REST inbox all show it
-        // as a document row's description. Six shapes once read document.doctype here (every
-        // mixed labs-and-documents shape, and the separate shapes for one patient or a name
-        // search), so those views showed the type ("others") instead of the saved description.
+        // descriptionLoc. Six shapes once read document.doctype there instead (every mixed
+        // labs-and-documents shape, and the separate shapes for one patient or a name search).
+        // The Inbox views show a document's type in their Discipline column, which the row carries
+        // as its discipline, read from the loaded document below; the lab_type column the shapes
+        // still select is no longer read (#5685).
         int descriptionLoc = -1;
         int updateDateLoc = -1;
         try {
@@ -266,7 +267,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 if ("0".equals(demographicNo)) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 3;
                     lastNameLoc = 4;
                     firstNameLoc = 5;
                     hinLoc = 6;
@@ -310,7 +310,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 } else if (demographicNo != null && !"".equals(demographicNo)) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -349,7 +348,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 } else if (patientSearch) { // N arg
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -397,7 +395,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 } else {
                     docNoLoc = 0;
                     statusLoc = 1;
-                    docTypeLoc = 8;
                     lastNameLoc = 2;
                     firstNameLoc = 3;
                     hinLoc = 4;
@@ -426,7 +423,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 if ("0".equals(demographicNo)) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 5;
                     lastNameLoc = 6;
                     firstNameLoc = 7;
                     hinLoc = 8;
@@ -451,7 +447,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 } else if (demographicNo != null && !"".equals(demographicNo)) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -477,7 +472,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 } else if (patientSearch) {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -506,7 +500,6 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 } else {
                     docNoLoc = 1;
                     statusLoc = 2;
-                    docTypeLoc = 9;
                     lastNameLoc = 3;
                     firstNameLoc = 4;
                     hinLoc = 5;
@@ -669,10 +662,9 @@ public class InboxResultsDaoImpl implements InboxResultsDao {
                 }
 
 
-                lbData.discipline = getStringValue(r[docTypeLoc]);
-                if (lbData.discipline.trim().equals("")) {
-                    lbData.discipline = null;
-                }
+                // A document's discipline is its type: every Inbox view shows it in the Discipline
+                // column (#5685). Null-safe, as document.doctype is nullable.
+                lbData.discipline = StringUtils.defaultIfBlank(document.getDoctype(), null);
 
                 // Null-safe: a NullPointerException here would end the loop in the catch below
                 // and silently drop this row and every row after it from the Inbox page.

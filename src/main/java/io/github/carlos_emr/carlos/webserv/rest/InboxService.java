@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -91,7 +92,8 @@ public class InboxService extends AbstractServiceImpl {
             String segmentID = result.getSegmentID();
 
 
-            String discipline = result.isDocument() ? result.description == null ? "" : result.description : result.getDisciplineDisplayString();
+            // A document's discipline is its type, shown in full (#5685); a lab's is its display string.
+            String discipline = result.isDocument() ? Objects.toString(result.getDiscipline(), "") : result.getDisciplineDisplayString();
             String status = ((result.isReportCancelled()) ? "Cancelled" : result.isFinal() ? "Final" : "Partial");
 
             inboxItem.setId(Integer.parseInt(segmentID));

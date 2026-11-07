@@ -120,9 +120,9 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
      * to, one row per matching routing row, newest document first.
      *
      * <p>No live Inbox view calls this builder: the Inbox Hub, the legacy Inbox page and the REST
-     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's saved
-     * description, or none when it is blank. A failure is logged and the rows built so far are
-     * returned.</p>
+     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's type
+     * as its discipline and its saved description, each none when blank. A failure is logged and
+     * the rows built so far are returned.</p>
      *
      * @param providerNo provider viewing the list; {@code "0"} sets every row's acknowledged status to {@code "U"}
      * @param demographicNo must be null: a patient-scoped call returns an empty list
@@ -238,7 +238,7 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                 // ended the loop in the catch below, dropping this row and every later one.
                 lbData.discipline = StringUtils.defaultIfBlank(d.getDoctype(), null);
 
-                // The description every inbox view shows for a document row (#5685).
+                // The saved description (#5685); the inbox views show the type, carried as discipline.
                 lbData.description = StringUtils.defaultIfBlank(d.getDocdesc(), null);
                 lbData.finalResultsCount = 0;
                 labResults.add(lbData);
@@ -255,9 +255,9 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
      * {@code status}, newest document first.
      *
      * <p>No live Inbox view calls this builder: the Inbox Hub, the legacy Inbox page and the REST
-     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's saved
-     * description, or none when it is blank. A failure is logged and the rows built so far are
-     * returned.</p>
+     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's type
+     * as its discipline and its saved description, each none when blank. A failure is logged and
+     * the rows built so far are returned.</p>
      *
      * @param providerNo provider the documents are routed to
      * @param demographicNo when both it and {@code providerNo} are given, an empty list is returned
@@ -361,7 +361,7 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
 
                 lbData.discipline = StringUtils.trimToNull(d.getDoctype());
 
-                // The description every inbox view shows for a document row (#5685).
+                // The saved description (#5685); the inbox views show the type, carried as discipline.
                 lbData.description = StringUtils.defaultIfBlank(d.getDocdesc(), null);
                 lbData.finalResultsCount = 0;
                 labResults.add(lbData);
@@ -380,9 +380,9 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
      * whose routing status contains {@code status}, newest document first.
      *
      * <p>No live Inbox view calls this builder: the Inbox Hub, the legacy Inbox page and the REST
-     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's saved
-     * description, or none when it is blank. A failure is logged and the rows built so far are
-     * returned.</p>
+     * inbox list documents through {@link InboxResultsDao}. Each row carries the document's type
+     * as its discipline and its saved description, each none when blank. A failure is logged and
+     * the rows built so far are returned.</p>
      *
      * @param providerNo provider the documents are routed to; null or blank matches any provider
      * @param demographicNo must be null: a patient-scoped call returns an empty list
@@ -499,7 +499,7 @@ public class DocumentResultsDaoImpl extends AbstractDaoImpl<Document> implements
                 // ended the loop in the catch below, dropping this row and every later one.
                 lbData.discipline = StringUtils.defaultIfBlank(d.getDoctype(), null);
 
-                // The description every inbox view shows for a document row (#5685).
+                // The saved description (#5685); the inbox views show the type, carried as discipline.
                 lbData.description = StringUtils.defaultIfBlank(d.getDocdesc(), null);
                 lbData.finalResultsCount = 0;
                 labResults.add(lbData);
