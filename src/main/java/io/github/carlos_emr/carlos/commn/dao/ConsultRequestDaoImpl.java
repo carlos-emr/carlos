@@ -74,6 +74,24 @@ public class ConsultRequestDaoImpl extends AbstractDaoImpl<ConsultationRequest> 
         return query.getResultList();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public ConsultationRequest findWithAssociations(Integer id) {
+        var query = entityManager.createQuery("""
+                SELECT cr
+                FROM ConsultationRequest cr
+                LEFT JOIN FETCH cr.professionalSpecialist
+                LEFT JOIN FETCH cr.demographicContact
+                LEFT JOIN FETCH cr.lookupListItem
+                WHERE cr.id = :id
+                """, ConsultationRequest.class);
+        query.setParameter("id", id);
+        List<ConsultationRequest> results = query.getResultList();
+        return results.isEmpty() ? null : results.get(0);
+    }
+
     private static class QueryWithParams {
         String sql;
         List<Object> params = new java.util.ArrayList<>();

@@ -52,6 +52,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -69,9 +71,9 @@ import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Hashtable;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -195,46 +197,107 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
     @Test
     void deniedStoredPatientCannotWriteReviewerMetadataContentOrAuditUsingForgedFunctionId() {
-        CtlDocument link = new CtlDocument(); link.setId(new CtlDocumentPK("demographic", 987, 123));
+        CtlDocument link = new CtlDocument();
+        link.setId(new CtlDocumentPK("demographic", 987, 123));
         when(mockCtlDocumentDao.findByDocumentNoAndModule(123, "demographic")).thenReturn(List.of(link));
         DocumentExtraReviewerDao reviewers = mock(DocumentExtraReviewerDao.class);
         registerMock(DocumentExtraReviewerDao.class, reviewers);
-        action.setMode("123"); action.setFunction("demographic"); action.setFunctionId("123");
-        action.setReviewDoc(true); action.setExtraReviewDoc(true); action.setExtraReviewerId("999998");
+        action.setMode("123");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setReviewDoc(true);
+        action.setExtraReviewDoc(true);
+        action.setExtraReviewerId("999998");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
             assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
-            documents.verifyNoInteractions(); logActionMock.verifyNoInteractions();
+            documents.verifyNoInteractions();
+            logActionMock.verifyNoInteractions();
             org.mockito.Mockito.verifyNoInteractions(reviewers);
             assertThat(request.getAttribute("docerrors")).isNull();
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"add", "123"})
+    void oversizedDescriptionIsRejectedBeforeFileMetadataReviewerNoteOrAuditWrites(String mode) throws Exception {
+        DocumentExtraReviewerDao reviewers = mock(DocumentExtraReviewerDao.class);
+        registerMock(DocumentExtraReviewerDao.class, reviewers);
+        tempUploadFile = File.createTempFile("document-length", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "owned upload");
+        bindDocFileUpload(tempUploadFile, "length.txt", "text/plain");
+        action.setMode(mode);
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("\uD83D\uDE00".repeat(256));
+        action.setDocType("Consultant Report");
+        action.setReviewDoc(true);
+        action.setExtraReviewDoc(true);
+        action.setExtraReviewerId("999998");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
+             MockedStatic<AddEditDocument2Action> writes = mockStatic(AddEditDocument2Action.class, CALLS_REAL_METHODS)) {
+            assertThat(action.execute2()).isEqualTo("add".equals(mode) ? "failAdd" : "failEdit");
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(((Map<?, ?>) request.getAttribute("docerrors")).get("descmissing"))
+                    .isEqualTo("dms.error.descriptionTooLong");
+            assertThat(Files.readString(tempUploadFile.toPath())).isEqualTo("owned upload");
+            documents.verifyNoInteractions();
+            writes.verifyNoInteractions();
+            logActionMock.verifyNoInteractions();
+            org.mockito.Mockito.verifyNoInteractions(reviewers, mockCaseManagementNoteDao, mockCaseManagementNoteLinkDao);
+        }
+    }
+
+    @Test
+    void exactUnicodeDescriptionReachesMetadataEditUnchanged() {
+        String description = "\uD83D\uDE00".repeat(255);
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(description);
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("successEdit");
+            documents.verify(() -> EDocUtil.editDocumentSQL(
+                    argThat(document -> description.equals(document.getDescription())), eq(false)));
+        }
+    }
+
     @Test
     void inaccessibleNewPatientIsDeniedBeforeUploadValidationOrClinicalWrites() {
-        action.setMode("add"); action.setFunction("demographic"); action.setFunctionId("987");
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("987");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
             assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
-            documents.verifyNoInteractions(); logActionMock.verifyNoInteractions();
+            documents.verifyNoInteractions();
+            logActionMock.verifyNoInteractions();
             assertThat(request.getAttribute("docerrors")).isNull();
         }
     }
 
     @Test
     void mixedCaseAndWhitespaceDemographicTargetCannotBypassPatientAuthorization() {
-        action.setMode("add"); action.setFunction(" DeMoGrApHiC "); action.setFunctionId("987");
+        action.setMode("add");
+        action.setFunction(" DeMoGrApHiC ");
+        action.setFunctionId("987");
         assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
         org.mockito.Mockito.verify(mockSecurityInfoManager).isAllowedAccessToPatientRecord(mockLoggedInInfo, 987);
     }
 
     @Test
     void collationLookalikeModuleCannotBypassPatientAuthorization() {
-        action.setMode("add"); action.setFunction("demograph\u0131c"); action.setFunctionId("987");
+        action.setMode("add");
+        action.setFunction("demograph\u0131c");
+        action.setFunctionId("987");
         assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class).hasMessageContaining("module");
     }
 
     @Test
     void accessiblePatientWithoutDocumentWritePrivilegeCannotUpload() {
-        action.setMode("add"); action.setFunction("demographic"); action.setFunctionId("123");
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
         when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo, "_edoc", "w", "123")).thenReturn(false);
         assertThatThrownBy(action::execute2).isInstanceOf(SecurityException.class);
     }
@@ -243,8 +306,12 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     void authorizedStoredMetadataEditRemainsAvailableWhenContentUpdatesAreDisabled() {
         String previous = CarlosProperties.getInstance().getProperty("ALLOW_UPDATE_DOCUMENT_CONTENT");
         CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", "false");
-        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
-        action.setDocDesc("Owned metadata edit"); action.setDocType("Consultant Report"); action.setAppointmentNo("0");
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc("Owned metadata edit");
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
             assertThat(action.execute2()).isEqualTo("successEdit");
             documents.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), eq(false)));
@@ -820,7 +887,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         action.setMode("add");
         action.setFunction("provider");
         action.setFunctionId("123");
-        action.setDocDesc("Consult note");
+        String description = "\uD83D\uDE00".repeat(255);
+        action.setDocDesc(description);
         action.setDocType("Consultant Report");
         action.setDocCreator("999998");
         action.setResponsibleId("999998");
@@ -846,6 +914,8 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             String result = action.execute2();
 
             assertThat(result).isEqualTo(ActionSupport.NONE);
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(
+                    argThat(document -> description.equals(document.getDescription()))));
             assertThat(response.getRedirectedUrl())
                     .contains("/documentManager/ViewDocumentReport?docerrors=docerrors")
                     .contains("&function=provider")
@@ -968,8 +1038,91 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute2();
 
         assertThat(result).isEqualTo("failAdd");
-        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
+    }
+
+    @Test
+    @DisplayName("should return failAdd with descmissing error when description is blank")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailAdd_whenDescriptionMissing() {
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("");
+        action.setDocType("Consultant Report");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failAdd");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsEntry("descmissing", "dms.error.descriptionInvalid");
+    }
+
+    @Test
+    @DisplayName("should return failAdd with typemissing error when document type is blank")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailAdd_whenDocumentTypeMissing() {
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("123");
+        action.setDocDesc("Consult note");
+        action.setDocType("");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failAdd");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsEntry("typemissing", "dms.error.typeMissing");
+    }
+
+    @Test
+    @DisplayName("should return failEdit with descmissing error when description is blank in edit mode")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailEdit_whenDescriptionMissing() {
+        action.setMode("123");
+        action.setFunction("demographic");
+        action.setFunctionId("456");
+        action.setDocDesc("");
+        action.setDocType("Consultant Report");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failEdit");
+        assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).hasSize(1).containsEntry("descmissing", "dms.error.descriptionInvalid");
+    }
+
+    @Test
+    @DisplayName("should return failEdit with typemissing error when document type is blank in edit mode")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailEdit_whenDocumentTypeMissing() {
+        action.setMode("123");
+        action.setFunction("demographic");
+        action.setFunctionId("456");
+        action.setDocDesc("Consult note");
+        action.setDocType("");
+
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failEdit");
+        assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).hasSize(1).containsEntry("typemissing", "dms.error.typeMissing");
+    }
+
+    @Test
+    @DisplayName("should return failEdit with uploaderror when the request arrives without mode, function or functionId")
+    @SuppressWarnings("unchecked")
+    void shouldReturnFailEdit_whenUploadExceedsSizeLimit() {
+        // The action treats a request with no mode, function or functionId as an upload over the size limit.
+        String result = action.execute2();
+
+        assertThat(result).isEqualTo("failEdit");
+        assertThat(request.getAttribute("editDocumentNo")).isEqualTo("");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).hasSize(1).containsEntry("uploaderror", "dms.error.uploadError");
     }
 
     @Test
@@ -998,7 +1151,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
 
             assertThat(result).isEqualTo("failEdit");
             assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
-            Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+            Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
             assertThat(errors).containsEntry("uploaderror", "dms.error.uploadError");
         } finally {
             if (originalAllowUpdate == null) {
@@ -1034,7 +1187,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         String result = action.execute2();
 
         assertThat(result).isEqualTo("failAdd");
-        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
         assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
     }
 
@@ -1058,7 +1211,7 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
             String result = action.execute2();
 
             assertThat(result).isEqualTo("failAdd");
-            Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+            Map<String, String> errors = (Map<String, String>) request.getAttribute("docerrors");
             assertThat(errors).containsEntry("filenameinvalid", "dms.error.invalidFilename");
 
             Files.deleteIfExists(tempUploadFile.toPath());

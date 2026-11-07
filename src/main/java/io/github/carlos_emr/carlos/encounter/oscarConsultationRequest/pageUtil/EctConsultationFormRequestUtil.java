@@ -133,7 +133,7 @@ public class EctConsultationFormRequestUtil {
 
 	public boolean isEReferral = false;
 
-	private final ConsultationRequestDao consultationRequestDao = SpringUtils.getBean(ConsultationRequestDao.class);
+	private final ConsultRequestDao consultationRequestDao = SpringUtils.getBean(ConsultRequestDao.class);
 	private final ConsultationRequestExtDao consultationRequestExtDao = SpringUtils.getBean(ConsultationRequestExtDao.class);
 	private final ConsultationServiceDao consultationServiceDao = (ConsultationServiceDao) SpringUtils.getBean(ConsultationServiceDao.class);
 	private final DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
@@ -240,15 +240,30 @@ public class EctConsultationFormRequestUtil {
         return verdict;
     }
 
+    /**
+     * Populates this form from an existing request, including patient, specialist,
+     * appointment and fax details. Optional contact associations may be absent.
+     *
+     * @param loggedInInfo current authenticated session information
+     * @param id positive decimal request identifier
+     * @return {@code true} when loaded; {@code false} for null, malformed,
+     *         out-of-range or nonpositive identifiers, or a missing request
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public boolean estRequestFromId(LoggedInInfo loggedInInfo, String id) {
 
+        final int requestId;
+        try {
+            requestId = Integer.parseInt(id);
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        if (requestId <= 0) {
+            return false;
+        }
         boolean verdict = true;
-        getSpecailistsName(id);
-
-
-		ConsultationRequest cr = consultationRequestDao.find(Integer.parseInt(id));
+        ConsultationRequest cr = consultationRequestDao.findWithAssociations(requestId);
 		
         Map<String, String> extensions = new HashMap<>();
         if (cr != null) {
@@ -256,11 +271,11 @@ public class EctConsultationFormRequestUtil {
                 if (!extensions.containsKey(ext.getKey())) extensions.put(ext.getKey(), ext.getValue());
             }
 			fdid = cr.getFdid();
-			pwb = ConversionUtils.toBoolString(cr.isPatientWillBook());
-			urgency = cr.getUrgency();
-			providerNo = cr.getProviderNo();
-			referalDate = ConversionUtils.toDateString(cr.getReferralDate());
-			service = "" + cr.getServiceId();
+			pwb = StringUtils.noNull(ConversionUtils.toBoolString(cr.isPatientWillBook()));
+			urgency = StringUtils.noNull(cr.getUrgency());
+			providerNo = StringUtils.noNull(cr.getProviderNo());
+			referalDate = StringUtils.noNull(ConversionUtils.toDateString(cr.getReferralDate()));
+			service = cr.getServiceId() != null ? String.valueOf(cr.getServiceId()) : "";
 
             // attempting to make this code as backwards compatible as possible while enabling
             // the use of a patients health care team directly in the Consultation module.
@@ -296,7 +311,7 @@ public class EctConsultationFormRequestUtil {
                     contactId = Integer.parseInt(demographicContact.getContactId());
                 }
 
-                if (contactType == DemographicContact.TYPE_CONTACT
+                if (contactType != null && contactType == DemographicContact.TYPE_CONTACT
                         && DemographicContact.CATEGORY_PROFESSIONAL.equalsIgnoreCase(contactCategory)) {
                     professionalContact = (ProfessionalContact) contactDao.find(contactId);
                 }
@@ -314,16 +329,17 @@ public class EctConsultationFormRequestUtil {
             // ProfessionalSpecialist joined to the ConsultationRequest will always
             // be available. This model is used in the Fax and PDF printing methods.
             professionalSpecialist = cr.getProfessionalSpecialist();
+            populateSpecialistContactDetails(professionalSpecialist);
 
 
 			Date appointmentTime = cr.getAppointmentTime();
-			reasonForConsultation = cr.getReasonForReferral();
-			clinicalInformation = cr.getClinicalInfo();
-			concurrentProblems = cr.getConcurrentProblems();
-			currentMedications = cr.getCurrentMeds();
-			allergies = cr.getAllergies();
-			sendTo = cr.getSendTo();
-			status = cr.getStatus();
+			reasonForConsultation = StringUtils.noNull(cr.getReasonForReferral());
+			clinicalInformation = StringUtils.noNull(cr.getClinicalInfo());
+			concurrentProblems = StringUtils.noNull(cr.getConcurrentProblems());
+			currentMedications = StringUtils.noNull(cr.getCurrentMeds());
+			allergies = StringUtils.noNull(cr.getAllergies());
+			sendTo = StringUtils.noNull(cr.getSendTo());
+			status = StringUtils.noNull(cr.getStatus());
 			setAppointmentInstructions( cr.getAppointmentInstructions() );
 			setAppointmentInstructionsLabel( cr.getAppointmentInstructionsLabel() );
 			letterheadName = cr.getLetterheadName();
@@ -338,7 +354,7 @@ public class EctConsultationFormRequestUtil {
             letterheadPhone = letterheadPhone == null ? "" : letterheadPhone;
             letterheadFax = letterheadFax == null ? "" : letterheadFax;
 
-            signatureImg = cr.getSignatureImg();
+            signatureImg = StringUtils.noNull(cr.getSignatureImg());
 
             appointmentNotes = cr.getStatusText();
             if (appointmentNotes == null || appointmentNotes.equals("null")) {
@@ -382,16 +398,18 @@ public class EctConsultationFormRequestUtil {
             }
 
 			isEReferral = extensions.get(ConsultationRequestExtKey.EREFERRAL_REF.getKey()) != null;
+        } else {
+            return false;
         }
 
-        getFaxLogs(id);
+        getFaxLogs(requestId);
 
         return verdict;
     }
 
-    private void getFaxLogs(String requestId) {
+    private void getFaxLogs(int requestId) {
 
-        for (ConsultationFaxRow faxJob : faxClientLogDao.findConsultationFaxRows(Integer.parseInt(requestId))) {
+        for (ConsultationFaxRow faxJob : faxClientLogDao.findConsultationFaxRows(requestId)) {
             FaxRecipient faxRecipient = null;
             String specialistFax = "";
 
@@ -445,27 +463,31 @@ public class EctConsultationFormRequestUtil {
         ProfessionalSpecialist ps = dao.find(ConversionUtils.fromIntString(id));
         if (ps != null) {
             retval = ps.getFormattedTitle();
-            specPhone = ps.getPhoneNumber();
-            specFax = ps.getFaxNumber();
-            specAddr = ps.getStreetAddress();
-            specEmail = ps.getEmailAddress();
-            MiscUtils.getLogger().debug("getting Null" + specEmail + "<");
-            if (specPhone == null || specPhone.equals("null")) {
-                specPhone = "";
-            }
-            if (specFax == null || specFax.equals("null")) {
-                specFax = "";
-            }
-            if (specAddr == null || specAddr.equals("null")) {
-                specAddr = "";
-            }
-            if (specEmail == null || specEmail.equalsIgnoreCase("null")) {
-                specEmail = "";
-            }
+            populateSpecialistContactDetails(ps);
         }
 
         return retval;
 
+    }
+
+    /** Uses the specialist attached to the request, including converted health-care-team contacts. */
+    private void populateSpecialistContactDetails(ProfessionalSpecialist ps) {
+        specPhone = ps != null ? ps.getPhoneNumber() : null;
+        specFax = ps != null ? ps.getFaxNumber() : null;
+        specAddr = ps != null ? ps.getStreetAddress() : null;
+        specEmail = ps != null ? ps.getEmailAddress() : null;
+        if (specPhone == null || specPhone.equals("null")) {
+            specPhone = "";
+        }
+        if (specFax == null || specFax.equals("null")) {
+            specFax = "";
+        }
+        if (specAddr == null || specAddr.equals("null")) {
+            specAddr = "";
+        }
+        if (specEmail == null || org.apache.commons.lang3.Strings.CI.equals(specEmail, "null")) {
+            specEmail = "";
+        }
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
@@ -537,6 +559,23 @@ public class EctConsultationFormRequestUtil {
         }
         ConsultationServices cs = consultationServiceDao.find(serviceId);
         return cs != null ? cs.getServiceDesc() : "";
+    }
+
+    /**
+     * Maps the consultation service description to the health-care-team catalogue.
+     * The catalogues have independent identifiers; role "0" means unspecified when
+     * neither the service nor an optional "other" specialty exists.
+     */
+    public String getHealthCareTeamRole() {
+        ContactSpecialtyDao specialtyDao = SpringUtils.getBean(ContactSpecialtyDao.class);
+        int serviceId = ConversionUtils.fromIntString(service);
+        ConsultationServices consultationService = serviceId > 0 ? consultationServiceDao.find(serviceId) : null;
+        ContactSpecialty specialty = consultationService == null ? null
+                : specialtyDao.findBySpecialty(consultationService.getServiceDesc());
+        if (specialty == null) {
+            specialty = specialtyDao.findBySpecialty("other");
+        }
+        return specialty == null ? "0" : specialty.getId().toString();
     }
 
     public String getClinicName() {
@@ -806,7 +845,7 @@ public class EctConsultationFormRequestUtil {
     }
 
     public String getSendTo() {
-        return sendTo;
+        return StringUtils.noNull(sendTo);
     }
 
     public void setSendTo(String sendTo) {
@@ -918,7 +957,7 @@ public class EctConsultationFormRequestUtil {
     }
 
     public String getSignatureImg() {
-        return signatureImg;
+        return StringUtils.noNull(signatureImg);
     }
 
     public void setSignatureImg(String signatureImg) {

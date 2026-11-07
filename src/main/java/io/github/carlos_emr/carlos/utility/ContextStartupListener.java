@@ -28,6 +28,11 @@
 
 package io.github.carlos_emr.carlos.utility;
 
+import java.time.Instant;
+import java.util.concurrent.ScheduledFuture;
+import org.springframework.scheduling.TaskScheduler;
+
+import io.github.carlos_emr.carlos.commn.dao.EmailLogDao;
 import io.github.carlos_emr.carlos.commn.dao.FacilityDao;
 import io.github.carlos_emr.carlos.commn.dao.ProviderSiteDao;
 import io.github.carlos_emr.carlos.commn.dao.SiteDao;
@@ -46,6 +51,7 @@ import io.github.carlos_emr.carlos.commn.jobs.OscarJobUtils;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMFixMissingReportHelper;
 import io.github.carlos_emr.carlos.hospitalReportManager.HrmReportRepairDeferredException;
 import io.github.carlos_emr.carlos.integration.mcedt.mailbox.CidPrefixResourceResolver;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteCodeSweeper;
 
 import io.github.carlos_emr.carlos.daos.security.SecroleDao;
 import io.github.carlos_emr.CarlosProperties;
@@ -60,6 +66,7 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
 
     private ClinicalStartupCoordinator clinicalStartup;
     private CdsImportMaintenanceService maintenance;
+    private ScheduledFuture<?> portalInviteSweep;
 
     @Override
     public void contextInitialized(jakarta.servlet.ServletContextEvent sce) {
@@ -125,6 +132,21 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
         requireClinicalAccessOpen();
         SpringUtils.getBean(io.github.carlos_emr.carlos.fax.core.FaxSchedulerJob.class)
                 .retryDeferredInitialization();
+        requireClinicalAccessOpen();
+        forgetLeftoverPortalInviteCodes();
+    }
+
+    /** Start cleanup independently of invitation traffic; cancel it when this webapp stops. */
+    private synchronized void forgetLeftoverPortalInviteCodes() {
+        if (portalInviteSweep != null && !portalInviteSweep.isCancelled()) return;
+        try {
+            PortalInviteCodeSweeper sweeper = new PortalInviteCodeSweeper(SpringUtils.getBean(EmailLogDao.class));
+            sweeper.run();
+            portalInviteSweep = SpringUtils.getBean(TaskScheduler.class).scheduleWithFixedDelay(
+                    sweeper, Instant.now().plus(PortalInviteCodeSweeper.INTERVAL), PortalInviteCodeSweeper.INTERVAL);
+        } catch (RuntimeException e) {
+            logger.warn("patient portal invitation code sweep could not be scheduled: {}", e.getClass().getSimpleName());
+        }
     }
 
     void initializeDefaultData(PlatformTransactionManager transactionManager) {
@@ -230,6 +252,9 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
 
     @Override
     public void contextDestroyed(jakarta.servlet.ServletContextEvent sce) {
+        if (portalInviteSweep != null) {
+            portalInviteSweep.cancel(false);
+        }
         logger.info("Server processes stopping. context=" + sce.getServletContext().getContextPath());
 
         if (clinicalStartup != null) clinicalStartup.close();

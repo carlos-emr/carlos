@@ -106,6 +106,17 @@ R! /var/backups/carlos-emr/work
 # privileges; the application uid has no path to it at all.
 d /etc/carlos-emr/tls                             0750 root          www-data -
 
+# --- outbound email archive keyring (#3448) ---------------------------------
+# The keys that decrypt the archived copy of every email sent to a patient.
+# Owned by the application account, which creates the keyring on first start
+# and rewrites it when an operator asks for a key rotation; carlos-emr.service
+# grants write access to this one directory under /etc. It sits under
+# /etc/carlos-emr, not beside the documents, so the nightly `files` snapshot
+# carries it with carlos.properties (the backup reads it through
+# CAP_DAC_READ_SEARCH despite 0700) while a copy of the document store alone
+# does not carry the key that decrypts it.
+d /etc/carlos-emr/archive-keyring                 0700 carlos        carlos -
+
 # --- OSCAR 19 clinic import (experimental) ----------------------------------
 # 0700, not 0750: the import state dir holds the carry-secret properties
 # fragment and the break-glass credential notes.

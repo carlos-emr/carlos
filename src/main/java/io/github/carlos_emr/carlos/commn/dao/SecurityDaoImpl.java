@@ -31,6 +31,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.Date;
 import java.util.List;
 import jakarta.persistence.Query;
 
@@ -42,6 +43,17 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
 
     public SecurityDaoImpl() {
         super(Security.class);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Security findForUpdate(Integer id) {
+        Security security = entityManager.find(Security.class, id, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        if (security != null) {
+            entityManager.refresh(security, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        }
+        return security;
     }
 
     @Override
@@ -99,6 +111,17 @@ public class SecurityDaoImpl extends AbstractDaoImpl<Security> implements Securi
     @Override
     public void updateOneIdKey(Security securityRecord) {
         merge(securityRecord);
+    }
+
+    @Override
+    public int updatePinHashIfUnchanged(Integer securityNo, String expectedPin, String newPinHash, Date pinUpdateDate) {
+        Query query = entityManager.createQuery(
+                "update Security x set x.pin = ?1, x.pinUpdateDate = ?2 where x.id = ?3 and x.pin = ?4");
+        query.setParameter(1, newPinHash);
+        query.setParameter(2, pinUpdateDate);
+        query.setParameter(3, securityNo);
+        query.setParameter(4, expectedPin);
+        return query.executeUpdate();
     }
 
     @Override

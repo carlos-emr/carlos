@@ -47,8 +47,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -131,7 +131,7 @@ public class PreventionReport2Action extends ActionSupport {
             request.setAttribute("ReportType", prevention);
         }
 
-        Hashtable h;
+        Hashtable<String, Object> h;
         try {
             h = report.runReport(loggedInInfo, list, asDate);
         } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException review) {

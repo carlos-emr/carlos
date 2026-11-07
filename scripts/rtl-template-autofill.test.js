@@ -26,6 +26,7 @@ function setup({flushCache = true, text = '##letterhead## / ##ageGender## / ##_C
   jquery.ajax = request => requests.push(request);
   const context = vm.createContext({
     console, window: {location: {search: '?fid=1&demographic_no=17'}},
+    stampImagesIn: () => [], bindStampFallbacks: () => {}, // DOM stamp behavior is outside the parser/cache fixture.
     document: {getElementById: id => id === 'edit' ? frame : null},
     jQuery: jquery, cfg_editorname: 'edit', measureTemplateRevision: 0, measureTemplateLookupsPending: 0,
     editControlContents: () => text, seteditControlContents: (_name, value) => {text = value;},

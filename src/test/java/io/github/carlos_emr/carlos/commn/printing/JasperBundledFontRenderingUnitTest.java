@@ -67,8 +67,8 @@ class JasperBundledFontRenderingUnitTest {
                 <?xml version="1.0" encoding="UTF-8"?>
                 <jasperReport name="carlosFontPolicy" pageWidth="400" pageHeight="%d" columnWidth="400" leftMargin="0" \
                 rightMargin="0" topMargin="0" bottomMargin="0" uuid="5046f0a1-0000-4000-8000-000000005046">
-                	<parameter name="value" class="java.lang.String"/>
-                	<title height="%d">
+                    <parameter name="value" class="java.lang.String"/>
+                    <title height="%d">
                 %s	</title>
                 </jasperReport>
                 """.formatted(y + 10, y, fields);

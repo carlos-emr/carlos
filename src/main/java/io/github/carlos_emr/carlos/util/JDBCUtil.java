@@ -336,7 +336,13 @@ public class JDBCUtil {
             justification = "case-insensitive comparison against fixed ASCII import-managed DB column names; "
                     + "XML body cannot choose patient/timestamp")
     private static boolean isImportTargetManagedField(String name) {
-        return IMPORT_TARGET_MANAGED_FIELDS.stream().anyMatch(field -> field.equalsIgnoreCase(name));
+        // A loop, not a lambda: the comparison must stay in this annotated method, not a synthetic one.
+        for (String field : IMPORT_TARGET_MANAGED_FIELDS) {
+            if (field.equalsIgnoreCase(name)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static void applyTrustedImportTarget(FormImportTarget target, ResultSet rs) throws SQLException {

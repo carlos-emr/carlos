@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.documentManager;
 import java.lang.reflect.Field;
 
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -60,6 +61,7 @@ class EDocUtilEditDocumentPageCountUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() throws Exception {
+        registerMock(OutboundEmailArchiveDao.class, mock(OutboundEmailArchiveDao.class));
         // EDocUtil caches its DAO in a static field the first time any caller asks, so an earlier test's
         // DAO may be there already. Put this test's mock in and restore the previous one afterwards.
         cachedDocumentDao = EDocUtil.class.getDeclaredField("documentDao");

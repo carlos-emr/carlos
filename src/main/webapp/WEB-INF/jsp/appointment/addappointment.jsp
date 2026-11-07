@@ -163,7 +163,8 @@ Ontario, Canada
     ProviderPreference providerPreference = (ProviderPreference) session.getAttribute(SessionConstants.LOGGED_IN_PROVIDER_PREFERENCE);
     int everyMin = providerPreference.getEveryMin();
 
-    boolean appointmentTextRetry = Boolean.TRUE.equals(request.getAttribute("appointmentTextRetry"));
+    boolean appointmentTextRetry = Boolean.TRUE.equals(request.getAttribute("appointmentTextRetry"))
+            || request.getAttribute("appointmentValidationErrors") != null;
     boolean bFirstDisp = true; //this is the first time to display the window
     boolean bFromWL = false; //this is from waiting list page
 
@@ -236,6 +237,7 @@ Ontario, Canada
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <script src="${pageContext.request.contextPath}/share/javascript/codePointLengthLimits.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
@@ -1021,6 +1023,12 @@ Ontario, Canada
         </script>
     </head>
     <body onLoad="setfocus(); moveAppt(); locale(); updateTime();">
+        <c:if test="${not empty appointmentValidationErrors}">
+            <div class="alert alert-danger" role="alert">
+                <c:forEach var="error" items="${appointmentValidationErrors}"><p>${carlos:forHtml(error)}</p></c:forEach>
+            </div>
+        </c:if>
+
     <div class="container">
         <% if (timeoutSecs > 0) { %>
         <div id="lock_notification">
@@ -1266,11 +1274,12 @@ Ontario, Canada
                                         }
                                     }
                                 %>
+                                    <% if (request.getAttribute("appointmentValidationErrors") != null) name = StringUtils.defaultString(request.getParameter("keyword")); %>
                                     <input type="hidden" name="demographic_no" id="demographic_no"
                                            value='<%=(bFirstDisp && !bFromWL) ? "" : SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("demographic_no")))%>'>
                                     <fmt:message key="Appointment.formNamePlaceholder" var="formNamePlaceholderMsg"/>
                                     <fmt:message key="appointment.addappointment.btnSearch" var="btnSearchMsg"/>
-                                    <input type="text" name="keyword" id="keyword" class="form-control form-control-sm"
+                                    <input type="text" name="keyword" data-code-point-maxlength="255" id="keyword" maxlength="510" class="form-control form-control-sm"
                                         value="<carlos:encode value='<%= name %>' context="htmlAttribute"/>"
                                         placeholder="${carlos:forHtmlAttribute(formNamePlaceholderMsg)}">
                                     <button type="submit" name="searchBtn" id="searchBtn" class="btn btn-secondary btn-sm"
@@ -1300,10 +1309,10 @@ Ontario, Canada
                                     </c:choose>
                                 </select>
                                 <fmt:message key="Appointment.formReason" var="formReasonMsg"/>
-                                <textarea id="reason" name="reason" aria-labelledby="apptReasonLabel" class="form-control form-control-sm mt-1" rows="2"
+                                <textarea id="reason" name="reason" data-code-point-maxlength="80" aria-labelledby="apptReasonLabel" class="form-control form-control-sm mt-1" rows="2"
                                           style="resize:none;"
                                           placeholder="${carlos:forHtmlAttribute(formReasonMsg)}"
-                                          maxlength="80"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
+                                          maxlength="160"><%=bFirstDisp ? "" : (request.getParameter("reason") == null || "".equals(request.getParameter("reason"))) ? "" : SafeEncode.forHtmlContent(io.github.carlos_emr.carlos.util.StringUtils.noNull(request.getParameter("reason")))%></textarea>
                             </div>
                         </div>
                         <%
@@ -1440,7 +1449,7 @@ Ontario, Canada
                         <div class="mb-2 row">
                             <label class="col-sm-4 col-form-label" for="resources"><fmt:message key="Appointment.formResources"/>:</label>
                             <div class="col-sm-8">
-                                <input type="text" id="resources" name="resources" class="form-control form-control-sm"
+                                <input type="text" id="resources" name="resources" data-code-point-maxlength="255" class="form-control form-control-sm"
                                        value='<%=bFirstDisp?"":"".equals(request.getParameter("resources"))?"": SafeEncode.forHtmlAttribute(StringUtils.defaultString(request.getParameter("resources")))%>'>
                             </div>
                         </div>

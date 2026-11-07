@@ -321,7 +321,7 @@ test('cancelling Exit after an assignment-only edit keeps the chart open', () =>
 test('toolbar Save retains the dirty editor and selected issues on a stale-revision 409', () => {
   const h = harness(); const requests = []; let restored = 0; let timers = 0; let replaced = 0;
   vm.runInContext(block('    function saveNoteAjax(', '    function savePage('), h.context);
-  Object.assign(h.context, { caseNote: 'editor', caisiEnabled: false, deferNoteSaveUntilIssues: () => false,
+  Object.assign(h.context, { lostNoteLock: false, noteLockLostError: 'note lock lost', sessionExpiredError: 'session expired', DOMParser: class {}, chartActionUrl: path => '/carlos'+path, destroyNoteIssueAutocomplete() {}, caseNote: 'editor', caisiEnabled: false, deferNoteSaveUntilIssues: () => false,
     $F: () => 'dirty draft', clearAutoSaveTimer() {}, setTimer() { timers++; }, savingNoteError: 'Save failed',
     beginNoteSwitchSave: () => () => { restored++; }, Form: { serialize: () => 'note=dirty&issue=12' },
     CarlosAjax: { request: (url, options) => requests.push(options) } });
@@ -331,8 +331,8 @@ test('toolbar Save retains the dirty editor and selected issues on a stale-revis
   assert.equal(replaced, 0, 'Editor must survive while Save is pending');
   requests[0].onFailure({ status: 409, responseText: '<h1>Conflict</h1>' });
   requests[0].onComplete();
-  assert.equal(replaced, 0); assert.equal(restored, 1); assert.equal(timers, 1);
-  assert.deepEqual(h.alerts, ['Save failed 409']);
+  assert.equal(replaced, 0); assert.equal(restored, 1); assert.equal(timers, 0);
+  assert.deepEqual(h.alerts, ['note lock lost']);
 });
 
 test('CPP save conflict reopens the filled dialog without replacing the saved row', () => {

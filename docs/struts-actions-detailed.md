@@ -284,7 +284,7 @@ Email management and communication.
 
 | Action Name | Class Name | Description |
 |-------------|------------|-------------|
-| email/emailComposeAction | io.github.carlos_emr.carlos.email.action.EmailCompose2Action | Composes new emails |
+| email/emailComposeAction | io.github.carlos_emr.carlos.email.action.EmailCompose2Action | Prepares the compose staged by an eForm save once, then redirects to `?composeView=<id>`, which renders it again on every request without preparing anything; an unusable window gets `emailComposeExpired.jsp` |
 | email/emailSendAction | io.github.carlos_emr.carlos.email.action.EmailSend2Action | Sends composed emails |
 
 ## Signature Module
@@ -538,6 +538,8 @@ Clinical encounter management and workflow.
 | encounter/displayConReport | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConReport2Action | Displays consultation reports |
 | encounter/displayConsultation | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayConsult2Action | Displays consultations |
 | encounter/displayContacts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayContacts2Action | Displays patient contacts |
+| encounter/displayFamilyDoctor | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayFamilyDoctor2Action | eChart Family Doctor panel (provider eChart preference) |
+| encounter/displayReferringDoctor | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayReferringDoctor2Action | eChart Referring Doctor panel (provider eChart preference) |
 | encounter/displayDecisionSupportAlerts | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDecisionSupportAlerts2Action | Displays decision support alerts |
 | encounter/displayDiagrams | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDiagram2Action | Displays clinical diagrams |
 | encounter/displayDisease | io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayDx2Action | Displays diagnoses |

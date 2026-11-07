@@ -19,6 +19,7 @@ package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.commn.dao.ConsultDocsDao;
 import io.github.carlos_emr.carlos.commn.dao.EFormDocsDao;
+import io.github.carlos_emr.carlos.commn.dao.OutboundEmailArchiveDao;
 import io.github.carlos_emr.carlos.commn.model.ConsultDocs;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -58,15 +59,19 @@ class DocumentAttachmentManagerConsultAccessUnitTest extends CarlosUnitTestBase 
     private EFormDocsDao eFormDocsDao;
 
     @Mock
+    private OutboundEmailArchiveDao outboundEmailArchiveDao;
+
+    @Mock
     private LoggedInInfo loggedInInfo;
 
     private DocumentAttachmentManagerImpl manager;
 
     @BeforeEach
     void setUp() {
-        manager = new DocumentAttachmentManagerImpl();
+        manager = new DocumentAttachmentManagerImpl(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.LabManager.class));
         injectDependency(manager, "securityInfoManager", securityInfoManager);
         injectDependency(manager, "consultDocsDao", consultDocsDao);
+        injectDependency(manager, "outboundEmailArchiveDao", outboundEmailArchiveDao);
         registerMock(ConsultDocsDao.class, consultDocsDao);
         registerMock(EFormDocsDao.class, eFormDocsDao);
     }
@@ -121,6 +126,11 @@ class DocumentAttachmentManagerConsultAccessUnitTest extends CarlosUnitTestBase 
 
         ArgumentCaptor<ConsultDocs> consultDocCaptor = ArgumentCaptor.forClass(ConsultDocs.class);
         verify(securityInfoManager).hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.WRITE, demographicNo);
+        // The submitted eDoc is screened against the outbound email archive, and the current set is
+        // read once (unlocked) so an archive relationship omitted by the UI is preserved; the
+        // transactional differ then re-reads the set under lock.
+        verify(outboundEmailArchiveDao).findExistingDocumentNos(List.of(789));
+        verify(consultDocsDao).findByRequestIdDocType(requestId, DocumentType.DOC.getType());
         verify(consultDocsDao).findByRequestIdDocTypeForUpdate(requestId, DocumentType.DOC.getType());
         verify(consultDocsDao).persist(consultDocCaptor.capture());
         ConsultDocs persisted = consultDocCaptor.getValue();

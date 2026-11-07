@@ -169,14 +169,15 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should refuse to edit another provider's favourite")
-    void shouldReturnForbidden_whenFavoriteBelongsToAnotherProvider() throws Exception {
+    @DisplayName("should refuse to edit another provider's favourite as if it did not exist")
+    void shouldReturnNotFound_whenFavoriteBelongsToAnotherProvider() throws Exception {
         stored.setProviderNo("123456");
         editParameters(String.valueOf(FAVORITE_ID), "2");
 
         assertThat(ajaxEdit()).isEqualTo(ActionSupport.NONE);
 
-        assertThat(response.getStatus()).isEqualTo(403);
+        // Owner-scoped lookup: another provider's favourite is indistinguishable from a missing one.
+        assertThat(response.getStatus()).isEqualTo(404);
         assertThat(stored.getName()).isNull();
         verify(favoriteDao, never()).merge(any());
     }
@@ -227,6 +228,7 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should delete only the caller's own favourite")
     void shouldDeleteOnlyOwnFavorite_whenDeleting() throws Exception {
+        when(favoriteDao.remove(FAVORITE_ID)).thenReturn(true);
         RxDeleteFavorite2Action delete = new RxDeleteFavorite2Action();
         delete.setFavoriteId(String.valueOf(FAVORITE_ID));
         assertThat(delete.execute()).isEqualTo(ActionSupport.SUCCESS);
@@ -238,7 +240,7 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
         RxDeleteFavorite2Action foreign = new RxDeleteFavorite2Action();
         foreign.setFavoriteId(String.valueOf(FAVORITE_ID));
         assertThat(foreign.execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getStatus()).isEqualTo(404);
         verify(favoriteDao).remove(FAVORITE_ID);
     }
     @ParameterizedTest(name = "AJAX={0}")
@@ -344,7 +346,7 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
         RxPrescriptionData.Favorite favorite = mock(RxPrescriptionData.Favorite.class);
         when(favorite.getProviderNo()).thenReturn(PROVIDER_NO);
         try (var _ = mockConstruction(RxPrescriptionData.class, (data, context) -> {
-            when(data.getFavorite(FAVORITE_ID)).thenReturn(favorite);
+            when(data.getFavorite(FAVORITE_ID, PROVIDER_NO)).thenReturn(favorite);
             when(data.newPrescription(anyString(), anyInt(), any(RxPrescriptionData.Favorite.class)))
                     .thenThrow(new IllegalStateException("draft creation failed"));
         })) {
@@ -482,14 +484,14 @@ class RxFavoriteWriteUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should refuse to stage another provider's favourite")
-    void shouldReturnForbidden_whenStagingAnotherProvidersFavorite() throws Exception {
+    @DisplayName("should refuse to stage another provider's favourite as if it did not exist")
+    void shouldReturnNotFound_whenStagingAnotherProvidersFavorite() throws Exception {
         RxSessionBean bean = openRxForWrite(1001);
         stored.setProviderNo("someone-else");
 
         assertThat(useFav2(String.valueOf(FAVORITE_ID))).isEqualTo(ActionSupport.NONE);
 
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getStatus()).isEqualTo(404);
         assertThat(bean.getStashSize()).isZero();
     }
 

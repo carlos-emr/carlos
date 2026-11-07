@@ -102,6 +102,8 @@ class DemographicLabelActionUnitTest extends CarlosUnitTestBase {
         session = mockStatic(LoggedInInfo.class);
         session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
                 .thenReturn(loggedInInfo);
+        session.when(() -> LoggedInInfo.requireLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenCallRealMethod();
         pdf = mockStatic(DemographicLabelPdf.class);
     }
 
@@ -110,6 +112,15 @@ class DemographicLabelActionUnitTest extends CarlosUnitTestBase {
         if (pdf != null) pdf.close();
         if (session != null) session.close();
         if (servlet != null) servlet.close();
+    }
+
+    @ParameterizedTest @EnumSource(Route.class)
+    void shouldRejectMissingSession_beforeLoadingLabel(Route route) {
+        session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(null);
+        ActionSupport action = route.action.get();
+        assertThrows(SecurityException.class, action::execute);
+        verifyNoInteractions(security);
+        assertNoLabelAccess();
     }
 
     @ParameterizedTest @EnumSource(Route.class)

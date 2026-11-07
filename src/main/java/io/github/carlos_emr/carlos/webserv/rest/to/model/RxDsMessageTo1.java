@@ -39,8 +39,6 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-
 
 @XmlRootElement
 public class RxDsMessageTo1 implements Serializable {
@@ -135,7 +133,6 @@ public class RxDsMessageTo1 implements Serializable {
             }
         }
 
-        MiscUtils.getLogger().error("WHATS inn ht" + ht);
         type = (String) ht.get("type");
         author = (String) ht.get("author");
         updated_by = (Integer) ht.get("updated_by");

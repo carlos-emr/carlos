@@ -57,6 +57,10 @@ class DevcontainerSecurityMigrationReapplyRegressionTest {
             "secObjectName|secObjPrivilege|secPrivilege|secRole|secUserRole");
     private static final Pattern PLAIN_INSERT = Pattern.compile(
             "^\\s*INSERT\\s+INTO\\s+`?sec", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
+    // The whole file is re-run, not only its security rows, so a bare CREATE TABLE in the
+    // same migration stops the re-apply with "table already exists".
+    private static final Pattern PLAIN_CREATE_TABLE = Pattern.compile(
+            "^\\s*CREATE\\s+TABLE\\s+(?!IF\\s+NOT\\s+EXISTS)", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
 
     @Test
     @DisplayName("should reapply security migrations after the demo dump and before privilege repair")
@@ -100,7 +104,7 @@ class DevcontainerSecurityMigrationReapplyRegressionTest {
                         throw new java.io.UncheckedIOException(e);
                     }
                 })) {
-            files.filter(p -> p.getFileName().toString().matches("V1\\.0\\.(?!1__|2__)\\d+.*\\.sql"))
+            files.filter(p -> p.getFileName().toString().matches("V1\\.0\\.(?!1__|2__)\\d+__.*\\.sql"))
                     .filter(p -> !p.getFileName().toString().startsWith("V1__"))
                     .forEach(p -> {
                         String sql = read(p);
@@ -112,6 +116,10 @@ class DevcontainerSecurityMigrationReapplyRegressionTest {
                                                     + "plain inserts must be guarded", p.getFileName())
                                             .matches("(?is).*(WHERE\\s+NOT\\s+EXISTS|ON\\s+DUPLICATE\\s+KEY).*");
                                 }
+                                assertThat(PLAIN_CREATE_TABLE.matcher(statement).find())
+                                        .as("%s is re-applied whole, so its tables must be created "
+                                                + "IF NOT EXISTS", p.getFileName())
+                                        .isFalse();
                             }
                         }
                     });

@@ -67,6 +67,12 @@ public class EctEditMeasurementGroup2Action extends ActionSupport {
             return NONE;
         }
         if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
+            if (("add".equals(getForward()) || "delete".equals(getForward()))
+                    && !"POST".equals(request.getMethod())) {
+                response.setHeader("Allow", "POST");
+                response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+                return NONE;
+            }
             if (this.getForward() != null) {
                 if (this.getForward().compareTo("add") == 0) {
                     MiscUtils.getLogger().debug("the add button is pressed");

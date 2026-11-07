@@ -314,7 +314,7 @@ public final class DemographicEditVersion {
         if (notes == null) {
             return null;
         }
-        return notes.replace("<unotes>", "").replace("</unotes>", "");
+        return io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(notes);
     }
 
     private static void update(MessageDigest digest, Object value) {

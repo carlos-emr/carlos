@@ -76,7 +76,7 @@ function signatureControls(signatureImg, newSignature, retryManualSignature = fa
   const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp'), 'utf8');
   const elements = {
     signatureImg: {value: signatureImg}, newSignature: {value: newSignature},
-    signatureProviderNo: {value: '800001'}, signatureImgTag: {naturalWidth: 500, naturalHeight: 100},
+    signatureProviderNo: {value: '800001'}, signatureImgTag: {naturalWidth: 500, naturalHeight: 100, getAttribute: () => '/existing-provider-preview'},
     signatureFrame: {style: {}}, signatureShow: {style: {}},
   };
   const context = vm.createContext({document: {getElementById: id => elements[id]}, counter: 0,

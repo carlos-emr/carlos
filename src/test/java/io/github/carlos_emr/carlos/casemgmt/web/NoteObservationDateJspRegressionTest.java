@@ -82,8 +82,9 @@ class NoteObservationDateJspRegressionTest {
     void shouldShowReasonAndDraft_whenObservationDateWasRejected() throws IOException {
         String jsp = read(CLOSE_WITH_ERROR);
         assertThat(jsp).contains("<c:when test=\"${observationDateRejected}\"><fmt:message key=\"encounter.observationDateUnreadable.msg\"/></c:when>");
-        assertThat(jsp).contains("<c:if test=\"${noteRevisionConflict or observationDateRejected or noteInputRejected}\">");
-        assertThat(jsp).contains("${carlos:forHtml(unsavedNoteText)}");
+        assertThat(jsp).contains("request.getAttribute(\"unsavedNoteText\")");
+        assertThat(jsp).contains("if (unsavedNote == null) unsavedNote = request.getParameter(\"caseNote_note\")");
+        assertThat(jsp).contains("<carlos:encode value=\"<%= unsavedNote %>\"/>");
     }
 
     @ParameterizedTest

@@ -11,13 +11,13 @@ test('loading OHIP simulation initializes its own form without hijacking shell n
   const marker = "registerFormSubmit('serviceform'";
   const markerAt = source.indexOf(marker);
   const openingTag = '<script type="text/javascript">';
-  // extracts trusted repository JSP code for a mocked VM regression, not application-user input.
+  // These offsets only extract a script from the checked-in JSP for this VM test; no HTML is emitted.
   // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
   const start = source.lastIndexOf(openingTag, markerAt);
   const end = source.indexOf('</script>', markerAt);
   assert.ok(markerAt >= 0 && start >= 0 && end > markerAt,
     'The billing simulation initialization script was not found');
-  // extracts trusted repository JSP code for a mocked VM regression, not application-user input.
+  // Slice the same trusted source; the numeric offsets are not browser input.
   // nosemgrep: javascript.lang.security.audit.unknown-value-with-script-tag.unknown-value-with-script-tag
   const script = source.slice(start + openingTag.length, end);
   const registered = [], dates = [], listeners = [];
@@ -68,5 +68,23 @@ test('calculator header navigation keeps patient attributes out of both popup an
     assert.equal(url.searchParams.has('age'), false, 'Patient age must not be serialized into a navigation URL');
     assert.equal(url.searchParams.get('demo'), fixture.popupDemographicNo,
       'The menu must resolve demographics for the originating chart, not a later shared-session patient');
+  }
+});
+
+
+test('encounter copy controls use native non-submitting buttons for keyboard activation', () => {
+  const source = fs.readFileSync(path.join(__dirname,
+    '../src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp'), 'utf8');
+  // Phones share one copy button whose id comes from the phone's kind (patient-phone, patient-cell-phone,
+  // patient-work-phone); unless the provider turned on click-to-dial links, that button is what renders.
+  const phoneIds = [...source.matchAll(/<c:set var="phoneId" value="([^"]+)"\/>/g)].map((match) => match[1]);
+  assert.deepEqual(phoneIds.sort(), ['patient-cell-phone', 'patient-phone', 'patient-work-phone']);
+  const ids = { 'patient-hin': 'patient-hin', 'patient-email': 'patient-email', phone: '\\$\\{carlos:forHtmlAttribute\\(phoneId\\)\\}' };
+  for (const [label, id] of Object.entries(ids)) {
+    const tag = source.match(new RegExp('<button[^>]*id="' + id + '"[^>]*>'));
+    assert.ok(tag, `Missing native copy button: ${label}`);
+    assert.match(tag[0], /type="button"/, 'Copy must never submit the surrounding form');
+    assert.match(tag[0], /onclick="copyToClip\(/, 'Native keyboard activation must invoke the copy handler');
+    assert.doesNotMatch(tag[0], /onkey(?:down|up)=/, 'Use native Enter/Space behavior without duplicate activation');
   }
 });

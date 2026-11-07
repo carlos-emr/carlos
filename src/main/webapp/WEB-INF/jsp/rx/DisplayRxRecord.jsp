@@ -45,6 +45,7 @@
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DrugDao,io.github.carlos_emr.carlos.commn.model.Drug,io.github.carlos_emr.carlos.utility.MiscUtils,io.github.carlos_emr.carlos.utility.SpringUtils,io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao,io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -205,7 +206,7 @@
                 </tr>
                 <tr>
                     <td class="label">Patient:</td>
-                    <td><%= demographicDao.getDemographic("" + drug.getDemographicId()).getDisplayName() %>
+                    <td><carlos:encode value='<%= demographicDao.getDemographic("" + drug.getDemographicId()).getDisplayName() %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -232,22 +233,22 @@
                 </tr>
                 <tr>
                     <td class="label">Rx Date:</td>
-                    <td><%=partialDateDao.getDatePartial(UtilDateUtilities.DateToString(drug.getRxDate()), PartialDate.DRUGS, drug.getId(), PartialDate.DRUGS_STARTDATE) %>
+                    <td><carlos:encode value='<%= partialDateDao.getDatePartial(UtilDateUtilities.DateToString(drug.getRxDate()), PartialDate.DRUGS, drug.getId(), PartialDate.DRUGS_STARTDATE) %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Rx End Date:</td>
-                    <td><%= drug.getEndDate() %>
+                    <td><carlos:encode value='<%= String.valueOf(drug.getEndDate()) %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Written Date:</td>
-                    <td><%=partialDateDao.getDatePartial(UtilDateUtilities.DateToString(drug.getWrittenDate()), PartialDate.DRUGS, drug.getId(), PartialDate.DRUGS_WRITTENDATE) %>
+                    <td><carlos:encode value='<%= partialDateDao.getDatePartial(UtilDateUtilities.DateToString(drug.getWrittenDate()), PartialDate.DRUGS, drug.getId(), PartialDate.DRUGS_WRITTENDATE) %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Create Date:</td>
-                    <td><%= dateTimeFormatter.format(drug.getCreateDate()) %>
+                    <td><carlos:encode value='<%= dateTimeFormatter.format(drug.getCreateDate()) %>' context="html"/>
                     </td>
                 </tr>
                 <tr style="height:15px">
@@ -256,7 +257,7 @@
                 <tr>
                     <td class="label">Preferred Pharmacy:</td>
                     <td>
-                        ${ pharmacy.name }
+                        ${carlos:forHtml(pharmacy.name)}
                     </td>
                 </tr>
                 <tr>
@@ -309,7 +310,7 @@
                 </tr>
                 <tr>
                     <td class="label">Repeats:</td>
-                    <td><%= drug.getRepeat() %>
+                    <td><carlos:encode value='<%= String.valueOf(drug.getRepeat()) %>' context="html"/>
                     </td>
                 </tr>
                 <tr style="height:15px">
@@ -317,12 +318,12 @@
                 </tr>
                 <tr>
                     <td class="label">Refill Duration:</td>
-                    <td><%=drug.getRefillDuration() != null ? drug.getRefillDuration() : "" %>
+                    <td><carlos:encode value='<%= drug.getRefillDuration() != null ? String.valueOf(drug.getRefillDuration()) : "" %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
                     <td class="label">Refill Quantity:</td>
-                    <td><%= drug.getRefillQuantity() != null ? drug.getRefillQuantity() : "" %>
+                    <td><carlos:encode value='<%= drug.getRefillQuantity() != null ? String.valueOf(drug.getRefillQuantity()) : "" %>' context="html"/>
                     </td>
                 </tr>
                 <tr style="height:15px">
@@ -330,7 +331,7 @@
                 </tr>
                 <tr>
                     <td class="label">Dispense Interval:</td>
-                    <td><%= drug.getDispenseInterval() %>
+                    <td><carlos:encode value='<%= drug.getDispenseInterval() %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -388,7 +389,7 @@
                 </tr>
                 <tr>
                     <td class="label">Short Term:</td>
-                    <td><%= drug.getShortTerm() != null ? drug.getShortTerm() : "" %>
+                    <td><carlos:encode value='<%= drug.getShortTerm() != null ? String.valueOf(drug.getShortTerm()) : "" %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -418,7 +419,7 @@
                 </tr>
                 <tr>
                     <td class="label">Last Refill:</td>
-                    <td><%= drug.getLastRefillDate() != null ? dateTimeFormatter.format(drug.getLastRefillDate()) : "" %>
+                    <td><carlos:encode value='<%= drug.getLastRefillDate() != null ? dateTimeFormatter.format(drug.getLastRefillDate()) : "" %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -452,7 +453,7 @@
                 </tr>
                 <tr>
                     <td class="label">Archived Date:</td>
-                    <td><%=drug.getArchivedDate() != null ? dateTimeFormatter.format(drug.getArchivedDate()) : "" %>
+                    <td><carlos:encode value='<%= drug.getArchivedDate() != null ? dateTimeFormatter.format(drug.getArchivedDate()) : "" %>' context="html"/>
                     </td>
                 </tr>
                 <tr>
@@ -498,7 +499,7 @@
                 <tr>
                     <td class="label">Problem Code:</td>
                     <td>
-                        ${ ProblemCode }
+                        ${carlos:forHtml(ProblemCode)}
                     </td>
                 </tr>
                 <tr style="height:15px">

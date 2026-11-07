@@ -78,3 +78,21 @@ test('localized delete messages use the JavaScript encoder before entering liter
   assert.match(jsp, /confirm\("\$\{carlos:forJavaScript\(imageDeleteConfirm\)\}"\)/);
   assert.match(jsp, /alert\("\$\{carlos:forJavaScript\(imageDeleteTokenUnavailable\)\}"\)/);
 });
+
+test('filename output uses the encoder for each HTML and script context', () => {
+  assert.match(jsp, /title="<%=SafeEncode.forHtmlAttribute\(curimage\)%>"/);
+  assert.match(jsp, /showImage\('<%=SafeEncode.forJavaScriptAttribute\(fileURL\)%>'/);
+  assert.match(jsp, /return false;">\s*<%=SafeEncode.forHtmlContent\(curimage\)%>/);
+  assert.match(jsp, /deleteImg\('<%=SafeEncode.forJavaScriptAttribute\(curimage\)%>'/);
+  assert.match(jsp, /import="io.github.carlos_emr.carlos.utility.SafeEncode"/);
+});
+
+test('delete posts the exact filename for punctuation and markup-like names', async () => {
+  for (const filename of ["photo.png", "a b & c.png", "quote'\".png", "<img onerror=alert(1)>.png"]) {
+    const {state, context} = setup();
+    await context.deleteImg(filename);
+    assert.equal(state.posts.length, 1);
+    assert.equal(state.posts[0].children.find(input => input.name === 'filename').value, filename);
+    assert.equal(state.posts[0].children.find(input => input.name === 'CSRF-TOKEN').value, 'test-token');
+  }
+});

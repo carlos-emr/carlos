@@ -70,7 +70,15 @@ public class DemographicAdd2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    public DemographicAdd2Action(SecurityInfoManager securityInfoManager) {
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public DemographicAdd2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
@@ -142,7 +150,9 @@ public class DemographicAdd2Action extends ActionSupport {
         // --- Patient consent module ---
         if (oscarProps.getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
             PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
-            request.setAttribute("consentTypes", patientConsentManager.getConsentTypes());
+            // Active types only, as on the edit form: the save path ignores answers for inactive types, and
+            // an inactive type may carry wording that is not yet approved for use.
+            request.setAttribute("consentTypes", patientConsentManager.getActiveConsentTypes());
         }
 
         String today = new SimpleDateFormat("yyyy-MM-dd").format(new Date());

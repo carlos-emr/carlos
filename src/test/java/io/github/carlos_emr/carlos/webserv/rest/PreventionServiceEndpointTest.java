@@ -66,7 +66,9 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        return new PreventionService(mockPreventionManager, new PreventionDateService(partialDateDao), projections);
+        PreventionService service = new PreventionService(mockPreventionManager, new PreventionDateService(partialDateDao), projections);
+        injectDependency(service, "securityInfoManager", authorizeEndpoint("r", "_prevention"));
+        return service;
     }
 
     @Test
@@ -74,8 +76,8 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
         when(mockPreventionManager.getPreventionsByDemographicNo(any(LoggedInInfo.class), eq(123))).thenReturn(List.of());
         org.mockito.Mockito.doThrow(new jakarta.ws.rs.WebApplicationException(Response.status(409)
                 .type("text/plain").entity("Structured projection requires review").build()))
-                .when(projections).requireRestSupported(123,java.util.Set.of("Immunizations"));
-        Response response=request().path("/preventions/active/precision").query("demographicNo",123).get();
+                .when(projections).requireRestSupported(123, java.util.Set.of("Immunizations"));
+        Response response=request().path("/preventions/active/precision").query("demographicNo", 123).get();
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.readEntity(String.class)).contains("requires review");
     }

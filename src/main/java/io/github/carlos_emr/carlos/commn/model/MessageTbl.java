@@ -43,6 +43,7 @@ import jakarta.persistence.TemporalType;
 @Entity
 @Table(name = "messagetbl")
 public class MessageTbl extends AbstractModel<Integer> {
+    public static final int SUBJECT_MAX_LENGTH = 128;
 
     /**
      * The most bytes the {@code pdfattachment} column holds: it is a {@code MEDIUMBLOB}, 16,777,215 bytes, since
@@ -82,7 +83,7 @@ public class MessageTbl extends AbstractModel<Integer> {
     @Column(name = "themessage")
     private String message;
 
-    @Column(name = "thesubject")
+    @Column(name = "thesubject", length = SUBJECT_MAX_LENGTH)
     private String subject;
 
     @Column(name = "sentby")

@@ -17,49 +17,64 @@
  */
 package io.github.carlos_emr.carlos.email.action;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
+import jakarta.servlet.http.HttpServletResponse;
+
+import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
-import io.github.carlos_emr.carlos.email.core.EmailData;
-import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
+import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService;
-import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
-import io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator;
-import io.github.carlos_emr.carlos.commn.model.EmailConfig;
-import io.github.carlos_emr.carlos.commn.model.EmailLog.TransactionType;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionContext;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
+import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailSendResult;
+import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import org.mockito.ArgumentMatchers;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link EmailSend2Action} redirect safety and over-length field rejection.
+ * Unit tests for {@link EmailSend2Action}: redirect safety, explicit dispatch
+ * allowlisting, the POST-only contract (issue #3111), and sending only the attachments the
+ * window's own compose state holds, for that state's patient (#4425). The action is registered in
+ * {@code MutatorActionGetRejectionContractUnitTest#unconditionalMutators()}.
  *
  * @since 2026-05-20
  */
@@ -67,34 +82,38 @@ import static org.mockito.Mockito.when;
 @Tag("fast")
 @Tag("email")
 @DisplayName("EmailSend2Action")
-class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
+class EmailSend2ActionUnitTest extends EmailWorkflowUnitTestBase {
 
     private MockedStatic<ServletActionContext> servletActionContextMock;
+
+    private SecurityInfoManager securityInfoManager;
     private EmailManager emailManager;
     private EformDataManager eformDataManager;
-    private EmailComposeManager emailComposeManager;
-    private DemographicManager demographicManager;
     private AttachmentOwnershipService ownership;
+
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
 
     @BeforeEach
     void setUp() {
+        securityInfoManager = mock(SecurityInfoManager.class);
         emailManager = mock(EmailManager.class);
         eformDataManager = mock(EformDataManager.class);
-        emailComposeManager = mock(EmailComposeManager.class);
-        demographicManager = mock(DemographicManager.class);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EmailManager.class, emailManager);
+        registerMock(EmailComposeManager.class, mock(EmailComposeManager.class));
+        registerMock(EformDataManager.class, eformDataManager);
         ownership = mock(AttachmentOwnershipService.class);
         registerMock(AttachmentOwnershipService.class, ownership);
-        when(ownership.allBelongToDemographic(any(), any())).thenReturn(true);
-        registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
-        registerMock(EmailManager.class, emailManager);
-        registerMock(EformDataManager.class, eformDataManager);
-        registerMock(EmailComposeManager.class, emailComposeManager);
-        registerMock(DemographicManager.class, demographicManager);
-        when(emailComposeManager.getEmailConsentStatus(any(), any())).thenReturn(new String[]{"", "Unknown"});
+        when(ownership.allBelongToDemographic(anyMap(), any())).thenReturn(true);
         // EmailSend2Action reads request/response from ServletActionContext in field initializers
         // (evaluated at construction), so mock the static to keep `new EmailSend2Action()` from
         // NPEing before each test assigns action.request/response explicitly.
         servletActionContextMock = mockStatic(ServletActionContext.class);
+
+        request = new MockHttpServletRequest();
+        request.setContextPath("/carlos");
+        response = new MockHttpServletResponse();
     }
 
     @AfterEach
@@ -104,341 +123,519 @@ class EmailSend2ActionUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    @Test
-    @DisplayName("should encode fdid when cancel redirects to eForm")
-    void shouldEncodeFdid_whenCancelRedirectsToEForm() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setContextPath("/carlos");
-        request.setParameter("transactionType", "EFORM");
-        request.setParameter("fdid", "123&parentAjaxId=evil#fragment%25 +/");
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
-
-        MockHttpServletResponse response = new MockHttpServletResponse();
+    private EmailSend2Action newAction() {
         EmailSend2Action action = new EmailSend2Action();
         action.request = request;
         action.response = response;
-
-        String result = action.cancel();
-
-        assertThat(result).isEqualTo("EFORM");
-        assertThat(response.getRedirectedUrl()).isEqualTo(
-                "/carlos/eform/efmshowform_data?fdid="
-                        + "123%26parentAjaxId%3Devil%23fragment%2525%20%2B%2F&parentAjaxId=eforms");
-    }
-
-    private EmailSend2Action overLengthAction(MockHttpServletRequest request) {
-        if (request.getParameter("demographicId") == null) {
-            request.setParameter("demographicId", "7");
-        }
-        if (request.getParameter(EmailAttachmentStaging.KEY_PARAMETER) == null) {
-            request.setParameter(EmailAttachmentStaging.KEY_PARAMETER,
-                    EmailAttachmentStaging.stage(request.getSession(), 7, List.of()).key());
-        }
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
-        List<EmailFieldLengthValidator.Violation> violations = EmailFieldLengthValidator.validate(overLengthSubject());
-        when(emailManager.sendEmail(any(), any())).thenThrow(new EmailFieldLengthException(violations));
-        EmailSend2Action action = new EmailSend2Action();
-        action.request = request;
-        action.response = new MockHttpServletResponse();
         return action;
     }
 
-    private static EmailData overLengthSubject() {
-        EmailData data = new EmailData();
-        data.setSubject("s".repeat(EmailFieldLengthValidator.MAX_SUBJECT_CHARS + 1));
-        return data;
+    private void grantEmailWritePrivilege() {
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
+        when(securityInfoManager.hasPrivilege(
+                any(LoggedInInfo.class), eq("_email"), eq("w"), nullable(String.class)))
+            .thenReturn(true);
+    }
+
+    private void prepareValidUnencryptedMessage() {
+        request.setParameter("message", "Appointment reminder");
+        request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
     }
 
     @Test
-    @DisplayName("should show length errors and keep the eForm when a field is too long")
-    void shouldRejectWithoutDeletingEForm_whenFieldTooLong() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "EFORM");
-        request.setParameter("fdid", "42");
-        request.setParameter("deleteEFormAfterEmail", "true");
-        request.setParameter("openEFormAfterEmail", "true");
-        EmailSend2Action action = overLengthAction(request);
-
-        String result = action.sendEFormEmail();
-
-        assertThat(result).isEqualTo("success");
-        // Unset, so the page renders the editable form rather than the sent/failed result panel.
-        assertThat(request.getAttribute("isEmailSuccessful")).isNull();
-        assertThat(request.getAttribute("fdid")).isEqualTo("42");
-        assertThat(request.getAttribute("deleteEFormAfterEmail")).isEqualTo(true);
-        assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(true);
-        assertThat((List<?>) request.getAttribute("emailLengthViolations"))
-                .extracting("messageKey")
-                .containsExactly("email.compose.msg.subjectTooLong");
-        verifyNoInteractions(eformDataManager);
-    }
-
-    @Test
-    @DisplayName("should show length errors for a direct email when a field is too long")
-    void shouldRejectDirectEmail_whenFieldTooLong() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "DIRECT");
-        EmailSend2Action action = overLengthAction(request);
-
-        String result = action.sendDirectEmail();
-
-        assertThat(result).isEqualTo("success");
-        assertThat(request.getAttribute("isEmailSuccessful")).isNull();
-        assertThat(request.getAttribute("emailLengthViolations")).isNotNull();
-        assertThat(request.getAttribute("emailLog")).isNull();
-        assertThat(request.getAttribute("transactionType")).isEqualTo(TransactionType.DIRECT);
-    }
-
-    @Test
-    @DisplayName("should restage this window's PDFs and send them once after correcting an over-length field")
-    void shouldSendRetainedAttachments_whenRejectedEmailIsCorrected() {
-        assertCorrectedRetry(List.of(new EmailAttachment("FAKE.pdf", "/tmp/FAKE.pdf", DocumentType.EFORM, 42, 10L)));
-    }
-
-    @Test
-    @DisplayName("should allow a corrected retry even when the email has no attachments")
-    void shouldAllowCorrectedRetry_whenEmailHasNoAttachments() {
-        assertCorrectedRetry(List.of());
-    }
-
-    private void assertCorrectedRetry(List<EmailAttachment> attachments) {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "EFORM");
-        request.setParameter("fdid", "42");
-        request.setParameter("demographicId", "7");
-        String originalKey = EmailAttachmentStaging.stage(request.getSession(), 7, attachments).key();
-        request.setParameter(EmailAttachmentStaging.KEY_PARAMETER, originalKey);
-        String otherWindow = EmailAttachmentStaging.stage(request.getSession(), 8,
-                List.of(new EmailAttachment("OTHER.pdf", "/tmp/OTHER.pdf", DocumentType.EFORM, 99, 10L))).key();
-        EmailSend2Action action = overLengthAction(request);
-
-        assertThat(action.sendEFormEmail()).isEqualTo("success");
-
-        String retryKey = (String) request.getAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE);
-        assertThat(EmailAttachmentStaging.isKey(retryKey)).isTrue();
-        assertThat(retryKey).isNotEqualTo(originalKey);
-        assertThat(EmailAttachmentStaging.take(request.getSession(), originalKey)).isNull();
-        assertThat((List<?>) request.getAttribute("emailAttachmentList")).hasSize(attachments.size());
-        verifyNoInteractions(eformDataManager);
-
-        EmailLog sent = new EmailLog();
-        sent.setStatus(EmailLog.EmailStatus.SUCCESS);
-        org.mockito.Mockito.doReturn(sent).when(emailManager).sendEmail(any(), any());
-        MockHttpServletRequest retry = new MockHttpServletRequest("POST", "/email/emailSendAction");
-        retry.setSession((org.springframework.mock.web.MockHttpSession) request.getSession());
-        retry.setParameter("transactionType", "EFORM");
-        retry.setParameter("demographicId", "7");
-        retry.setParameter("subjectEmail", "Corrected subject");
-        retry.setParameter(EmailAttachmentStaging.KEY_PARAMETER, retryKey);
-        action.request = retry;
-        assertThat(action.sendEFormEmail()).isEqualTo("success");
-        assertThat(retry.getAttribute("isEmailSuccessful")).isEqualTo(true);
-        ArgumentCaptor<EmailData> emails = ArgumentCaptor.forClass(EmailData.class);
-        verify(emailManager, org.mockito.Mockito.times(2)).sendEmail(any(), emails.capture());
-        assertThat(emails.getAllValues().get(1).getAttachments()).extracting(EmailAttachment::getDocumentId)
-                .containsExactlyElementsOf(attachments.stream().map(EmailAttachment::getDocumentId).toList());
-        assertThat(EmailAttachmentStaging.take(retry.getSession(), retryKey)).isNull();
-        assertThat(EmailAttachmentStaging.take(retry.getSession(), otherWindow).attachments())
-                .extracting(EmailAttachment::getDocumentId).containsExactly(99);
-    }
-
-    @Test
-    @DisplayName("should hand every entered field back to the compose page when a field is too long")
-    @SuppressWarnings("unchecked")
-    void shouldRestoreComposeFields_whenFieldTooLong() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "EFORM");
-        request.setParameter("demographicId", "7");
-        request.setParameter("fdid", "42");
-        request.setParameter("fid", "3");
-        request.setParameter("senderConfigId", "5");
-        request.setParameter("receiverEmailAddress", "a@example.com", "b@example.com");
-        request.setParameter("subjectEmail", "Subject");
-        request.setParameter("bodyEmail", "Body");
-        request.setParameter("encryptedMessage", "Secret");
-        request.setParameter("emailPDFPassword", "pass12345");
-        request.setParameter("emailPDFPasswordClue", "Clue");
-        request.setParameter("internalComment", "Note");
+    @DisplayName("should preserve the compose draft when sender configuration fails without an outbox id")
+    void shouldPreserveComposeDraft_whenSenderConfigurationFailsDuringSend() {
+        grantEmailWritePrivilege();
+        prepareValidUnencryptedMessage();
+        request.setMethod("POST");
+        request.setParameter("method", "sendDirectEmail");
+        request.setParameter("receiverEmailAddress", "patient@example.invalid");
+        request.setParameter("subjectEmail", "Synthetic appointment reminder");
         request.setParameter("patientChartOption", "doNotAddAsNote");
-        request.setParameter("additionalURLParams", "a=b");
-        List<EmailConfig> senders = List.of(new EmailConfig());
-        when(emailComposeManager.getAllSenderAccounts()).thenReturn(senders);
-        when(demographicManager.getDemographicFormattedName(any(), eq(7))).thenReturn("FAKE, Patient");
-        when(emailComposeManager.getEmailConsentStatus(any(), eq(7))).thenReturn(new String[]{"Email", "Explicit Opt-In"});
-        EmailSend2Action action = overLengthAction(request);
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "123");
+        LoggedInInfo.getLoggedInInfoFromSession(request).setLoggedInProvider(
+                new io.github.carlos_emr.carlos.commn.model.Provider("999998"));
+        EmailLog failure = new EmailLog();
+        failure.setStatus(EmailStatus.FAILED);
+        failure.setErrorMessage("Email sender account is not configured or is inactive.");
+        when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class))).thenAnswer(invocation -> sendResult(failure));
 
-        action.sendEFormEmail();
+        prepareSubmission(request);
+        String result = newAction().execute();
 
-        assertThat(request.getAttribute("transactionType")).isEqualTo(TransactionType.EFORM);
-        assertThat(request.getAttribute("demographicId")).isEqualTo("7");
-        assertThat(request.getAttribute("fid")).isEqualTo("3");
-        assertThat(request.getAttribute("senderAccounts")).isSameAs(senders);
-        assertThat(request.getAttribute("senderConfigId")).isEqualTo("5");
-        assertThat((List<Object>) request.getAttribute("receiverEmailList")).containsExactly("a@example.com", "b@example.com");
-        assertThat((List<?>) request.getAttribute("invalidReceiverEmailList")).isEmpty();
-        assertThat(request.getAttribute("receiverName")).isEqualTo("FAKE, Patient");
-        assertThat(request.getAttribute("emailConsentName")).isEqualTo("Email");
-        assertThat(request.getAttribute("emailConsentStatus")).isEqualTo("Explicit Opt-In");
-        assertThat(request.getAttribute("subjectEmail")).isEqualTo("Subject");
-        assertThat(request.getAttribute("bodyEmail")).isEqualTo("Body");
-        assertThat(request.getAttribute("encryptedMessageEmail")).isEqualTo("Secret");
-        assertThat(request.getAttribute("emailPDFPassword")).isEqualTo("pass12345");
-        assertThat(request.getAttribute("emailPDFPasswordClue")).isEqualTo("Clue");
-        assertThat(request.getAttribute("internalComment")).isEqualTo("Note");
-        assertThat(request.getAttribute("emailPatientChartOption")).isEqualTo("doNotAddAsNote");
-        assertThat(request.getAttribute("emailAdditionalParams")).isEqualTo("a=b");
-        assertThat(request.getAttribute("isEmailAutoSend")).isEqualTo(false);
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(failure.getId()).isNull();
+        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(false);
+        assertThat(request.getAttribute("emailLog")).isSameAs(failure);
+        assertThat(request.getAttribute("message")).isEqualTo("Appointment reminder");
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(false);
+        assertThat(request.getAttribute("subjectEmail")).isEqualTo("Synthetic appointment reminder");
+        assertThat(request.getAttribute("demographicId")).isEqualTo("123");
+        org.mockito.ArgumentCaptor<EmailData> sent = org.mockito.ArgumentCaptor.forClass(EmailData.class);
+        verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), sent.capture());
+        assertThat(sent.getValue().getSenderConfigId()).isEqualTo(1);
+        verifyNoInteractions(eformDataManager);
     }
 
     @Test
-    @DisplayName("should refuse an overlong or malformed demographicId with 400 before parsing it")
-    void shouldRejectWithBadRequest_whenDemographicIdOverflows() throws Exception {
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), ArgumentMatchers.<String>isNull())).thenReturn(true);
-        for (String demographicId : new String[]{"9999999999", "2147483648", "12345678901234567890", "7x", "-7"}) {
-            MockHttpServletRequest request = new MockHttpServletRequest();
-            request.setMethod("POST");
-            request.setParameter("transactionType", "DIRECT");
+    @DisplayName("should reject GET cancel without consuming session attachments")
+    void shouldRejectGetCancel_withoutConsumingSessionAttachments() {
+        grantEmailWritePrivilege();
+        request.setMethod("GET");
+        request.setParameter("method", "cancel");
+        request.setParameter("transactionType", "DIRECT");
+        List<?> attachments = List.of("sentinel");
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                .isSameAs(attachments);
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    @Test
+    @DisplayName("should clear session attachments when cancel arrives via POST")
+    void shouldConsumeSubmission_whenCancelArrivesViaPost() {
+        grantEmailWritePrivilege();
+        request.setMethod("POST");
+        request.setParameter("method", "cancel");
+        request.setParameter("transactionType", "DIRECT");
+        String token = submissionStates.store(request.getSession(), "secret", "separate", List.of());
+        request.setParameter(io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NO_CONTENT);
+        assertThat(submissionStates.consume(request)).isNull();
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    @Test
+    @DisplayName("should reject POST cancel when transaction type is missing")
+    void shouldRejectPostCancel_whenTransactionTypeIsMissing() {
+        grantEmailWritePrivilege();
+        request.setMethod("POST");
+        request.setParameter("method", "cancel");
+        List<?> attachments = List.of("sentinel");
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                .isSameAs(attachments);
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    @Test
+    @DisplayName("should reject POST cancel when transaction type is misspelled")
+    void shouldRejectPostCancel_whenTransactionTypeIsMisspelled() {
+        grantEmailWritePrivilege();
+        request.setMethod("POST");
+        request.setParameter("method", "cancel");
+        request.setParameter("transactionType", "EFROM");
+        List<?> attachments = List.of("sentinel");
+        request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(response.getRedirectedUrl()).isNull();
+        assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                .isSameAs(attachments);
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    @Test
+    @DisplayName("should encode fdid when cancel redirects to eForm")
+    void shouldEncodeFdid_whenCancelRedirectsToEForm() {
+        grantEmailWritePrivilege();
+        request.setMethod("POST");
+        request.setParameter("method", "cancel");
+        request.setParameter("transactionType", "EFORM");
+        request.setParameter("fdid", "123&parentAjaxId=evil#fragment%25 +/");
+
+        String result = newAction().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getRedirectedUrl()).isEqualTo(
+                "/carlos/eform/efmshowform_data?fdid="
+                        + "123%26parentAjaxId%3Devil%23fragment%2525%20%2B%2F&parentAjaxId=eforms");
+        verifyNoInteractions(emailManager, eformDataManager);
+    }
+
+    /**
+     * The action-level method and dispatch contract: non-POST requests and unknown
+     * dispatch values must not send patient email, persist an {@code EmailLog},
+     * delete eForm data, or consume session-scoped attachments.
+     */
+    @Nested
+    @DisplayName("HTTP method and dispatch rejection")
+    class RequestRejection {
+
+        @Test
+        @DisplayName("should send 405 without side effects when GET has no method parameter")
+        void shouldSend405WithoutSideEffects_whenGetHasNoMethodParameter() {
+            grantEmailWritePrivilege();
+            request.setMethod("GET");
+            request.setParameter("deleteEFormAfterEmail", "true");
+            request.setParameter("fdid", "42");
+            List<?> attachments = List.of("sentinel");
+            request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
+
+            String result = newAction().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                    .isSameAs(attachments);
+            verifyNoInteractions(emailManager, eformDataManager);
+        }
+
+        @Test
+        @DisplayName("should send 405 without side effects when GET requests sendDirectEmail")
+        void shouldSend405WithoutSideEffects_whenGetRequestsSendDirectEmail() {
+            grantEmailWritePrivilege();
+            request.setMethod("GET");
             request.setParameter("method", "sendDirectEmail");
-            request.setParameter("demographicId", demographicId);
-            LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
-            MockHttpServletResponse response = new MockHttpServletResponse();
-            EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
-                    emailComposeManager, demographicManager, ownership);
-            action.request = request;
-            action.response = response;
+            List<?> attachments = List.of("sentinel");
+            request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
+
+            String result = newAction().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                    .isSameAs(attachments);
+            verifyNoInteractions(emailManager, eformDataManager);
+        }
+
+        @Test
+        @DisplayName("should send 405 without side effects when HEAD carries send intent")
+        void shouldSend405WithoutSideEffects_whenHeadCarriesSendIntent() {
+            grantEmailWritePrivilege();
+            request.setMethod("HEAD");
+            List<?> attachments = List.of("sentinel");
+            request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
+
+            String result = newAction().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getHeader("Allow")).isEqualTo("POST");
+            assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                    .isSameAs(attachments);
+            verifyNoInteractions(emailManager, eformDataManager);
+        }
+
+        @Test
+        @DisplayName("should still block mutation when 405 sendError hits a committed response")
+        void shouldStillBlockMutation_whenSendErrorHitsCommittedResponse() throws Exception {
+            grantEmailWritePrivilege();
+            request.setMethod("GET");
+            // Per the Servlet spec, sendError throws IllegalStateException once the
+            // response is committed (e.g. client abort); the rejection must still hold.
+            HttpServletResponse committedResponse = mock(HttpServletResponse.class);
+            doThrow(new IllegalStateException("Response already committed"))
+                .when(committedResponse).sendError(anyInt(), anyString());
+            EmailSend2Action action = newAction();
+            action.response = committedResponse;
 
             String result = action.execute();
 
-            assertThat(result).as(demographicId).isEqualTo(EmailSend2Action.NONE);
-            assertThat(response.getStatus()).as(demographicId).isEqualTo(400);
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            verifyNoInteractions(emailManager, eformDataManager);
         }
-        verifyNoInteractions(emailManager);
-        verifyNoInteractions(demographicManager);
+
+        @Test
+        @DisplayName("should reject misspelled dispatch without consuming session attachments")
+        void shouldRejectMisspelledDispatch_withoutConsumingSessionAttachments() {
+            grantEmailWritePrivilege();
+            request.setMethod("POST");
+            request.setParameter("method", "cacnel");
+            List<?> attachments = List.of("sentinel");
+            request.getSession().setAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST, attachments);
+
+            String result = newAction().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(request.getSession().getAttribute(EmailSessionKeys.EMAIL_ATTACHMENT_LIST))
+                    .isSameAs(attachments);
+            verifyNoInteractions(emailManager, eformDataManager);
+        }
+
+        @Test
+        @DisplayName("should send eForm email when POST has no method parameter")
+        void shouldSendEFormEmail_whenPostHasNoMethodParameter() {
+            grantEmailWritePrivilege();
+            prepareValidUnencryptedMessage();
+            request.setMethod("POST");
+            EmailLog emailLog = new EmailLog();
+            emailLog.setStatus(EmailStatus.SUCCESS);
+            when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
+
+            request.setParameter("transactionType", "EFORM");
+            prepareSubmission(request);
+            String result = newAction().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+            assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should send eForm email when POST has method sendEFormEmail")
+        void shouldSendEFormEmail_whenPostHasSendEFormEmailMethod() {
+            grantEmailWritePrivilege();
+            prepareValidUnencryptedMessage();
+            request.setMethod("POST");
+            request.setParameter("method", "sendEFormEmail");
+            EmailLog emailLog = new EmailLog();
+            emailLog.setStatus(EmailStatus.SUCCESS);
+            when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
+
+            request.setParameter("transactionType", "EFORM");
+            prepareSubmission(request);
+            String result = newAction().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+            assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        }
+
+        @Test
+        @DisplayName("should send direct email when POST has method sendDirectEmail")
+        void shouldSendDirectEmail_whenPostHasSendDirectEmailMethod() {
+            grantEmailWritePrivilege();
+            prepareValidUnencryptedMessage();
+            request.setMethod("POST");
+            request.setParameter("method", "sendDirectEmail");
+            EmailLog emailLog = new EmailLog();
+            emailLog.setStatus(EmailStatus.SUCCESS);
+            when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenAnswer(invocation -> sendResult(emailLog));
+
+            request.setParameter("transactionType", "DIRECT");
+            prepareSubmission(request);
+            String result = newAction().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+            assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
+        }
     }
 
-    @Test
-    @DisplayName("should refuse GET and HEAD with 405 and Allow: POST before any send or lookup")
-    void shouldRejectWithMethodNotAllowed_whenRequestIsNotPost() throws Exception {
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), ArgumentMatchers.<String>isNull())).thenReturn(true);
-        for (String httpMethod : new String[]{"GET", "HEAD"}) {
-            for (String dispatch : new String[]{"sendDirectEmail", "cancel", null}) {
-                MockHttpServletRequest request = new MockHttpServletRequest();
-                request.setMethod(httpMethod);
-                request.setParameter("transactionType", "DIRECT");
-                request.setParameter("demographicId", "7");
-                if (dispatch != null) {
-                    request.setParameter("method", dispatch);
-                }
-                LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
-                MockHttpServletResponse response = new MockHttpServletResponse();
-                EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
-                        emailComposeManager, demographicManager, ownership);
-                action.request = request;
-                action.response = response;
+    /**
+     * Each compose window's attachments live in its own one-time submission state, bound to the
+     * patient it was prepared for, and the send re-checks every attachment's owner (#4425).
+     */
+    @Nested
+    @DisplayName("attachment binding per window and patient")
+    class AttachmentBinding {
 
-                String result = action.execute();
+        private MockHttpSession session;
 
-                String label = httpMethod + " method=" + dispatch;
-                assertThat(result).as(label).isEqualTo(EmailSend2Action.NONE);
-                assertThat(response.getStatus()).as(label).isEqualTo(405);
-                assertThat(response.getHeader("Allow")).as(label).isEqualTo("POST");
-                assertThat(response.getRedirectedUrl()).as(label).isNull();
+        @BeforeEach
+        void setUpWindows() {
+            grantEmailWritePrivilege();
+            session = (MockHttpSession) request.getSession();
+            when(emailManager.hasActiveEmailConfig(1)).thenReturn(true);
+            EmailLog sent = new EmailLog();
+            sent.setStatus(EmailStatus.SUCCESS);
+            when(emailManager.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                    .thenAnswer(invocation -> sendResult(sent));
+        }
+
+        private EmailAttachment attachment(DocumentType type, int id) {
+            return new EmailAttachment("FAKE-" + type + "-" + id + ".pdf", "/tmp/FAKE-" + id + ".pdf", type, id, 10L);
+        }
+
+        /** Prepares one compose window's state for {@code patient}, as the compose or resend does. */
+        private String window(String patient, List<EmailAttachment> attachments) {
+            return submissionStates.store(session, "FAKE-passphrase", "Deliver separately", attachments,
+                    EmailComposeSubmissionContext.eform(patient, "20001", false, true));
+        }
+
+        private String directWindow(String patient, List<EmailAttachment> attachments) {
+            return submissionStates.store(session, "FAKE-passphrase", "Deliver separately", attachments,
+                    EmailComposeSubmissionContext.direct(patient));
+        }
+
+        /** The send the compose page posts from the window holding {@code token}. */
+        private EmailSend2Action sendFrom(String token, String method, String postedPatient) {
+            request = new MockHttpServletRequest("POST", "/email/emailSendAction");
+            request.setContextPath("/carlos");
+            request.setSession(session);
+            response = new MockHttpServletResponse();
+            prepareValidUnencryptedMessage();
+            request.setParameter("method", method);
+            request.setParameter("transactionType", "sendEFormEmail".equals(method) ? "EFORM" : "DIRECT");
+            request.setParameter("senderConfigId", "1");
+            request.setParameter("receiverEmailAddress", "fake-patient@example.invalid");
+            request.setParameter("subjectEmail", "FAKE subject");
+            request.setParameter("patientChartOption", "doNotAddAsNote");
+            if (postedPatient != null) {
+                request.setParameter("demographicId", postedPatient);
             }
+            if (token != null) {
+                request.setParameter(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+            }
+            return newAction();
         }
-        verifyNoInteractions(emailManager);
-        verifyNoInteractions(eformDataManager);
-        verifyNoInteractions(demographicManager);
+
+        /** Takes the state stored under {@code token}, as the next send from that window would. */
+        private EmailComposeSubmissionState consume(String token) {
+            MockHttpServletRequest probe = new MockHttpServletRequest("POST", "/email/emailSendAction");
+            probe.setSession(session);
+            probe.setParameter(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+            return submissionStates.consume(probe);
+        }
+
+        private EmailData sentEmail() {
+            ArgumentCaptor<EmailData> captor = ArgumentCaptor.forClass(EmailData.class);
+            verify(emailManager).sendEmailWithResult(any(LoggedInInfo.class), captor.capture());
+            return captor.getValue();
+        }
+
+        private void assertRefused(String result, String expectedMessage) {
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+            assertThat(request.getAttribute("isEmailComposeStateError")).isEqualTo(true);
+            assertThat(request.getAttribute("emailErrorMessage")).isEqualTo(expectedMessage);
+            assertThat(request.getAttribute("isEmailSuccessful")).isNull();
+            verify(emailManager, never()).sendEmailWithResult(any(), any());
+            verifyNoInteractions(eformDataManager);
+        }
+
+        @Test
+        @DisplayName("should send X's own eForm from X's window after Y's window composed")
+        void shouldSendOwnWindowsAttachments_whenAnotherPatientsWindowComposedLater() {
+            String windowX = window("10001", List.of(attachment(DocumentType.EFORM, 501)));
+            window("10002", List.of(attachment(DocumentType.EFORM, 502)));
+
+            String result = sendFrom(windowX, "sendEFormEmail", "10001").execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            EmailData sent = sentEmail();
+            assertThat(sent.getDemographicNo()).isEqualTo(10001);
+            assertThat(sent.getAttachments()).extracting(EmailAttachment::getDocumentId).containsExactly(501);
+            verify(ownership).allBelongToDemographic(Map.of(DocumentType.EFORM, List.of(501)), 10001);
+            verify(eformDataManager).removeEFormData(any(), eq("20001"));
+        }
+
+        @Test
+        @DisplayName("should refuse a send without a token, with an unknown token, or with a token already used")
+        void shouldRefuseSend_whenTokenMissingUnknownOrReused() {
+            String windowX = window("10001", List.of(attachment(DocumentType.EFORM, 501)));
+            assertThat(consume(windowX)).isNotNull();
+
+            for (String token : new String[]{null, "not-a-token", "00000000-0000-0000-0000-000000000000", windowX}) {
+                assertRefused(sendFrom(token, "sendEFormEmail", "10001").execute(),
+                        EmailCompose2Action.EMAIL_COMPOSE_STATE_EXPIRED_MESSAGE);
+            }
+            verifyNoInteractions(ownership);
+        }
+
+        @Test
+        @DisplayName("should send a window's attachments only to its own patient when another patient is posted")
+        void shouldSendToBoundPatient_whenPostedDemographicIsAnotherPatient() {
+            String windowX = directWindow("10001", List.of(attachment(DocumentType.EFORM, 501)));
+
+            String result = sendFrom(windowX, "sendDirectEmail", "10002").execute();
+
+            assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+            EmailData sent = sentEmail();
+            assertThat(sent.getDemographicNo()).isEqualTo(10001);
+            assertThat(sent.getAttachments()).extracting(EmailAttachment::getDocumentId).containsExactly(501);
+            verify(ownership).allBelongToDemographic(Map.of(DocumentType.EFORM, List.of(501)), 10001);
+            verify(ownership, never()).allBelongToDemographic(anyMap(), eq(10002));
+        }
+
+        @Test
+        @DisplayName("should refuse, and use up, a window whose attachment record belongs to another patient")
+        void shouldRefuseSend_whenAttachmentBelongsToAnotherPatient() {
+            when(ownership.allBelongToDemographic(anyMap(), eq(10001))).thenReturn(false);
+            String windowX = window("10001",
+                    List.of(attachment(DocumentType.EFORM, 501), attachment(DocumentType.DOC, 601)));
+
+            assertRefused(sendFrom(windowX, "sendEFormEmail", "10001").execute(),
+                    EmailSend2Action.ATTACHMENTS_REFUSED_MESSAGE);
+            assertThat(consume(windowX)).as("a refused window cannot be retried into sending").isNull();
+        }
+
+        @Test
+        @DisplayName("should verify eForms, documents, labs and HRM reports by type, leaving forms rendered for the patient")
+        void shouldVerifyEveryOwnedType_exceptPatientRenderedForms() {
+            String windowX = directWindow("10001", List.of(
+                    attachment(DocumentType.EFORM, 501), attachment(DocumentType.DOC, 601),
+                    attachment(DocumentType.DOC, 602), attachment(DocumentType.LAB, 701),
+                    attachment(DocumentType.HRM, 801), attachment(DocumentType.FORM, 901)));
+
+            sendFrom(windowX, "sendDirectEmail", "10001").execute();
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Map<DocumentType, Collection<Integer>>> checked = ArgumentCaptor.forClass(Map.class);
+            verify(ownership).allBelongToDemographic(checked.capture(), eq(10001));
+            assertThat(checked.getValue())
+                    .containsOnlyKeys(DocumentType.EFORM, DocumentType.DOC, DocumentType.LAB, DocumentType.HRM);
+            assertThat(checked.getValue().get(DocumentType.DOC)).containsExactly(601, 602);
+            assertThat(sentEmail().getAttachments()).hasSize(6);
+        }
+
+        @Test
+        @DisplayName("should refuse a bound attachment that has no document type")
+        void shouldRefuseSend_whenAttachmentHasNoType() {
+            String windowX = window("10001", List.of(attachment(null, 501)));
+
+            assertRefused(sendFrom(windowX, "sendEFormEmail", "10001").execute(),
+                    EmailSend2Action.ATTACHMENTS_REFUSED_MESSAGE);
+        }
+
+        @Test
+        @DisplayName("should send an email without attachments when its window prepared none")
+        void shouldSendWithoutAttachments_whenWindowPreparedNone() {
+            String windowX = directWindow("10001", List.of());
+
+            sendFrom(windowX, "sendDirectEmail", "10001").execute();
+
+            assertThat(sentEmail().getAttachments()).isEmpty();
+            verifyNoInteractions(ownership);
+        }
+
+        @Test
+        @DisplayName("should discard only the cancelling window's attachments")
+        void shouldDiscardOwnAttachments_whenCancelled() {
+            String windowX = directWindow("10001", List.of(attachment(DocumentType.EFORM, 501)));
+            String windowY = directWindow("10002", List.of(attachment(DocumentType.EFORM, 502)));
+
+            sendFrom(windowX, "cancel", "10001").execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NO_CONTENT);
+            assertThat(consume(windowX)).isNull();
+            EmailComposeSubmissionState remaining = consume(windowY);
+            assertThat(remaining).isNotNull();
+            assertThat(remaining.context().demographicId()).isEqualTo("10002");
+            verify(emailManager, never()).sendEmailWithResult(any(), any());
+        }
     }
 
-    @Test
-    @DisplayName("should dispatch the send when the request is a POST")
-    void shouldDispatchSend_whenRequestIsPost() throws Exception {
-        SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
-        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq("w"), ArgumentMatchers.<String>isNull())).thenReturn(true);
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setMethod("POST");
-        request.setParameter("transactionType", "DIRECT");
-        request.setParameter("method", "sendDirectEmail");
-        request.setParameter("demographicId", "7");
-        request.setParameter(EmailAttachmentStaging.KEY_PARAMETER,
-                EmailAttachmentStaging.stage(request.getSession(), 7, List.of()).key());
-        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
-        EmailLog log = new EmailLog();
-        log.setStatus(EmailLog.EmailStatus.SUCCESS);
-        when(emailManager.sendEmail(any(), any())).thenReturn(log);
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        EmailSend2Action action = new EmailSend2Action(securityInfoManager, emailManager, eformDataManager,
-                emailComposeManager, demographicManager, ownership);
-        action.request = request;
-        action.response = response;
-
-        String result = action.execute();
-
-        assertThat(result).isEqualTo(EmailSend2Action.SUCCESS);
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(request.getAttribute("isEmailSuccessful")).isEqualTo(true);
-        verify(emailManager).sendEmail(any(), any());
+    private EmailSendResult sendResult(EmailLog log) {
+        return log.getStatus() == EmailLog.EmailStatus.SUCCESS
+                ? EmailSendResult.accepted(log, true) : EmailSendResult.failed(log, true);
     }
-
-    @Test
-    @DisplayName("should treat an overlong or malformed demographicId as no patient when restoring the form")
-    void shouldParseDemographicIdOrNull_whenValueOverflowsOrIsMalformed() {
-        // The retry form restores the patient from this parse; it must never throw, and a
-        // ten-digit value that satisfies the digit pattern still has to fail the int range check.
-        assertThat(EmailSend2Action.parseDemographicId("7")).isEqualTo(7);
-        assertThat(EmailSend2Action.parseDemographicId("2147483647")).isEqualTo(Integer.MAX_VALUE);
-        assertThat(EmailSend2Action.parseDemographicId("2147483648")).isNull();
-        assertThat(EmailSend2Action.parseDemographicId("9999999999")).isNull();
-        assertThat(EmailSend2Action.parseDemographicId("12345678901234567890")).isNull();
-        assertThat(EmailSend2Action.parseDemographicId("7x")).isNull();
-        assertThat(EmailSend2Action.parseDemographicId("-7")).isNull();
-        assertThat(EmailSend2Action.parseDemographicId("")).isNull();
-        assertThat(EmailSend2Action.parseDemographicId(null)).isNull();
-        // Absent or blank means a direct email with no patient and is accepted by the routes.
-        assertThat(EmailSend2Action.isValidDemographicId(null)).isTrue();
-        assertThat(EmailSend2Action.isValidDemographicId("")).isTrue();
-        assertThat(EmailSend2Action.isValidDemographicId("9999999999")).isFalse();
-    }
-
-    @Test
-    @DisplayName("should drop echoed values the page writes unencoded unless they are well formed")
-    void shouldNormaliseEchoedValues_whenFieldTooLong() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "EFORM\"><script>");
-        request.setParameter("fdid", "42<b>");
-        request.setParameter("senderConfigId", "x");
-        request.setParameter("openEFormAfterEmail", "true\"><script>");
-        request.setParameter("patientChartOption", "bogus");
-        EmailSend2Action action = overLengthAction(request);
-
-        action.sendEFormEmail();
-
-        assertThat(request.getAttribute("transactionType")).isNull();
-        assertThat(request.getAttribute("fdid")).isNull();
-        assertThat(request.getAttribute("senderConfigId")).isNull();
-        assertThat(request.getAttribute("openEFormAfterEmail")).isEqualTo(false);
-        assertThat(request.getAttribute("emailPatientChartOption")).isNull();
-        assertThat(request.getAttribute("receiverName")).isNull();
-        verifyNoInteractions(eformDataManager);
-    }
-
-    @Test
-    @DisplayName("should keep the submitted encryption choices when a field is too long")
-    void shouldKeepEncryptionFlags_whenFieldTooLong() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setParameter("transactionType", "DIRECT");
-        request.setParameter("demographicId", "7");
-        request.setParameter("isEmailEncrypted", "true");
-        request.setParameter("isEmailAttachmentEncrypted", "true");
-        EmailSend2Action action = overLengthAction(request);
-
-        action.sendDirectEmail();
-
-        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
-        assertThat(request.getAttribute("isEmailAttachmentEncrypted")).isEqualTo(true);
-        assertThat(request.getAttribute("emailLengthViolations")).isNotNull();
-    }
-
 }

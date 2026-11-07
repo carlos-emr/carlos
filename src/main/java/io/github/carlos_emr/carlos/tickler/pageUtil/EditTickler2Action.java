@@ -52,6 +52,12 @@ import org.apache.commons.lang3.time.DateUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Date;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
+
 
 /**
  * Edits an existing tickler (status, priority, assignee, service date, a new comment and the
@@ -105,18 +111,25 @@ public class EditTickler2Action extends ActionSupport {
         }
 
         if (!requirePost()) return NONE;
+        int[] completion = {TransactionSynchronization.STATUS_UNKNOWN};
         try {
-            return new org.springframework.transaction.support.TransactionTemplate(
-                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class))
-                    .execute(transaction -> {
-                        String result = editTicklerInTransaction(loggedInInfo);
-                        if (!CLOSE_RESULT.equals(result)) transaction.setRollbackOnly();
-                        return result;
-                    });
+            TransactionTemplate template = new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class));
+            template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            String result = template.execute(transaction -> {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override public void afterCompletion(int status) { completion[0] = status; }
+                });
+                String outcome = editTicklerInTransaction(loggedInInfo);
+                if (!CLOSE_RESULT.equals(outcome)) transaction.setRollbackOnly();
+                return outcome;
+            });
+            if (CLOSE_RESULT.equals(result) && completion[0] != TransactionSynchronization.STATUS_COMMITTED) {
+                throw new IllegalStateException("Tickler edit did not confirm a commit");
+            }
+            return result;
         } catch (RuntimeException e) {
-            logger.error("Failed to commit tickler edit", e);
-            addActionError(getText("tickler.ticklerEdit.arg.error"));
-            return "error";
+            logger.error("Failed to confirm tickler edit: {}", e.getClass().getSimpleName());
+            return refuseEdit(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "tickler.ticklerEdit.msgUnconfirmed");
         }
     }
 
@@ -166,9 +179,15 @@ public class EditTickler2Action extends ActionSupport {
             return "failure";
         }
 
-        Tickler t = ticklerManager.getTickler(loggedInInfo, ticklerNo);
+        Tickler t = ticklerManager.getTicklerForUpdate(loggedInInfo, ticklerNo);
+        if (t == null) {
+            return refuseEdit(HttpServletResponse.SC_NOT_FOUND, "tickler.ticklerEdit.msgMissing");
+        }
+        if (!TicklerEditVersion.of(t).equals(request.getParameter(TicklerEditVersion.PARAMETER))) {
+            return refuseEdit(HttpServletResponse.SC_CONFLICT, "tickler.ticklerEdit.msgStale");
+        }
 
-        if (t == null || t.getCreator() == null || t.getCreator().isBlank()
+        if (t.getCreator() == null || t.getCreator().isBlank()
                 || t.getDemographicNo() == null || t.getDemographicNo() <= 0) {
             addActionError(getText("tickler.ticklerEdit.arg.error"));
             return "failure";
@@ -288,8 +307,7 @@ public class EditTickler2Action extends ActionSupport {
                 }
             } catch (Exception e) {
                 logger.error("Tickler update failed: {}", e.getClass().getSimpleName());
-                addActionError(getText("tickler.ticklerEdit.arg.error"));
-                return "error";
+                return refuseEdit(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "tickler.ticklerEdit.msgUnconfirmed");
             }
         }
 
@@ -299,6 +317,13 @@ public class EditTickler2Action extends ActionSupport {
 
         return CLOSE_RESULT;
 
+    }
+
+    private String refuseEdit(int status, String messageKey) {
+        response.setStatus(status);
+        request.setAttribute("ticklerEditErrorKey", messageKey);
+        request.setAttribute("ticklerReviewAvailable", status != HttpServletResponse.SC_NOT_FOUND);
+        return "conflict";
     }
 
     public String updateTextSuggest() {

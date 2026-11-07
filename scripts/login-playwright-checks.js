@@ -28,7 +28,7 @@
  *   TEST_PASSWORD_HASH='<known hash for TEST_PASSWORD>'
  *
  * Optional environment:
- *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   BASE_URL=https://127.0.0.1:8443/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=carlosdoc
  *   MYSQL_HOST=db MYSQL_USER=root MYSQL_DATABASE=carlos
@@ -45,7 +45,7 @@ const os = require('os');
 const path = require('path');
 const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING } = require('./lib/playwright-harness');
 
-const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrl = validateBaseUrl(process.env.BASE_URL || 'https://127.0.0.1:8443/carlos');
 const appPath = baseUrl.pathname.replace(/\/$/, '') || '';
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = process.env.TEST_USER || 'carlosdoc';

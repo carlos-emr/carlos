@@ -165,12 +165,12 @@ async function replayNativeWorkflow(f,{monitorDeleteFails=false}={}){
  const module={exports:{}},stop=Error('native edit link reached');const calls=[];f.s.schedule=schedule(f,'999998');
  const popupFields={provider_no:'888888',appointment_date:'2026-10-21',start_time:'08:55',end_time:'09:09',demographic_no:'',keyword:'',reason:'',notes:'',resources:'',location:''};
  const optionRows=()=>f.db.prepare("SELECT site.name value FROM site JOIN providersite p ON p.site_id=site.site_id WHERE p.provider_no='888888'").all().map(row=>({...row,disabled:false}));
- const popup={waitForLoadState:async()=>{},close:async()=>{},locator(selector){
+ const popup={keyboard:{press:async()=>{}},evaluate:async()=>true,waitForLoadState:async()=>{},close:async()=>{},locator(selector){
   if(selector==='form#addappt')return{evaluate:async fn=>fn({elements:{namedItem:name=>({value:popupFields[name]})}})};
   if(selector==='form#addappt select[name="location"]')return{count:async()=>1,locator:()=>({evaluateAll:async(fn,arg)=>fn(optionRows(),arg)}),selectOption:async({value})=>{popupFields.location=value;},inputValue:async()=>popupFields.location};
   if(selector.startsWith('table tr'))return{first:()=>({kind:'pick',waitFor:async()=>{}})};
   const field=selector.match(/\[name="(\w+)"\]/)?.[1]||selector.replace(/^#/, '');
-  return{kind:field,fill:async value=>{popupFields[field]=value;},inputValue:async()=>popupFields[field]};
+  return{focus:async()=>{},count:async()=>0,evaluateAll:async fn=>fn([]),evaluate:async fn=>fn({labels:[{}],tabIndex:0}),kind:field,fill:async value=>{popupFields[field]=value;},inputValue:async()=>popupFields[field]};
  }};
  const h={assert:(ok,msg)=>assert(ok,msg),sqlString:value=>`'${String(value).replaceAll("'","''")}'`,newContext:async()=>f.context,wireStrictPage(){},login:async()=>schedule(f,'888888')};
  const boundary={...require('./lib/boundary-values'),columnLength:(_,table,column)=>({reason:80,notes:255}[column]),assertStored(sql,table,column,where,value){assert.equal(sql.value(`SELECT ${column} FROM ${table} WHERE ${where}`),value);calls.push(column);}};

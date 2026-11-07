@@ -48,12 +48,14 @@ test('legacy editor and stash forms are balanced siblings with distinct action/p
   assert.match(forms.get('RxStashForm'), /name="randomId"/);
   assert.match(forms.get('RxStashForm'), /name="draftRevision"/);
   assert.doesNotMatch(forms.get('RxStashForm'), /name="stashId"/);
-  const links = jsp.match(/href="javascript:submitPending[^"]*"/g);
-  assert.equal(links.length, 3);
-  links.forEach(link => {
-    assert.match(link, /\$\{rx.randomId\}/);
-    assert.match(link, /\$\{carlos:forJavaScript\(rx.draftRevision\)\}/);
-    assert.doesNotMatch(link, /loopStatus.index/);
+  // Pending Edit/Delete act on this page, so they are buttons rather than javascript: links.
+  assert.ok(!jsp.includes('href="javascript:submitPending'));
+  const buttons = jsp.match(/<button type="button" class="link-button" onclick="submitPending[^"]*"/g) || [];
+  assert.equal(buttons.length, 3);
+  buttons.forEach(button => {
+    assert.match(button, /\$\{rx.randomId\}/);
+    assert.match(button, /\$\{carlos:forJavaScript\(rx.draftRevision\)\}/);
+    assert.doesNotMatch(button, /loopStatus.index/);
   });
 });
 

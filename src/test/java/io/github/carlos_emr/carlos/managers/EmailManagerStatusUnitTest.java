@@ -32,102 +32,71 @@ class EmailManagerStatusUnitTest {
 
     @Mock private EmailLogDaoImpl emailLogDao;
     @Mock private SecurityInfoManager securityInfoManager;
+    @Mock private io.github.carlos_emr.carlos.commn.dao.OscarLogDao oscarLogDao;
     @InjectMocks private EmailManager emailManager;
     private final LoggedInInfo loggedInInfo = new LoggedInInfo();
 
-    @Test
-    @DisplayName("should return the stored resolution with the latest send time instead of the old snapshot")
-    void shouldReturnStoredResolution_whenSendTimeChanged() {
+    private EmailLog stored(EmailStatus status) {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         EmailLog log = new EmailLog();
         ReflectionTestUtils.setField(log, "id", 7003);
-        log.setStatus(EmailStatus.FAILED);
-        log.setErrorMessage("FAKE delivery failure");
-        Date timestamp = new Date(1760000000000L);
-        log.setTimestamp(timestamp);
-        EmailLog stored = new EmailLog();
-        stored.setStatus(EmailStatus.RESOLVED);
-        Date latestTime = new Date(timestamp.getTime() + 60000);
-        stored.setTimestamp(latestTime);
+        log.setTransactionType(EmailLog.TransactionType.DIRECT);
+        log.setStatus(status); log.setErrorMessage("FAKE delivery failure");
+        log.setTimestamp(new Date(1760000000000L));
         when(emailLogDao.find(Integer.valueOf(7003))).thenReturn(log);
-        when(emailLogDao.findFresh(7003)).thenReturn(stored);
-        when(emailLogDao.updateEmailStatus(7003, EmailStatus.RESOLVED, null, null)).thenReturn(1);
+        return log;
+    }
 
-        EmailLog result = emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null);
-
-        verify(emailLogDao).updateEmailStatus(7003, EmailStatus.RESOLVED, null, null);
-        assertThat(result).isSameAs(stored);
-        assertThat(result.getStatus()).isEqualTo(EmailStatus.RESOLVED);
-        assertThat(result.getErrorMessage()).isNull();
-        assertThat(result.getTimestamp()).isEqualTo(latestTime);
-        assertThat(log.getStatus()).isEqualTo(EmailStatus.FAILED);
+    @Test
+    void shouldPreserveDiagnosticAndSendTime_whenFailedSendIsResolved() {
+        EmailLog log = stored(EmailStatus.FAILED); Date timestamp = log.getTimestamp();
+        when(emailLogDao.transitionEmailStatus(7003, EmailStatus.FAILED, EmailStatus.RESOLVED,
+                "FAKE delivery failure", timestamp)).thenReturn(1);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 7003)).isEqualTo(EmailManager.EmailResolutionResult.RESOLVED);
+        assertThat(log.getStatus()).isEqualTo(EmailStatus.RESOLVED);
+        assertThat(log.getErrorMessage()).isEqualTo("FAKE delivery failure");
         assertThat(log.getTimestamp()).isEqualTo(timestamp);
+        verify(emailLogDao).transitionEmailStatus(7003, EmailStatus.FAILED, EmailStatus.RESOLVED, "FAKE delivery failure", timestamp);
     }
 
     @Test
-    @DisplayName("should leave the log unchanged when the conditional resolution updates no row")
-    void shouldKeepStatus_whenResolutionDoesNotUpdateRow() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
-        EmailLog log = new EmailLog();
-        ReflectionTestUtils.setField(log, "id", 7003);
-        log.setStatus(EmailStatus.SUCCESS);
-        log.setErrorMessage("FAKE original message");
-        when(emailLogDao.find(Integer.valueOf(7003))).thenReturn(log);
-        when(emailLogDao.findFresh(7003)).thenReturn(log);
-
-        assertThat(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null)).isSameAs(log);
-
+    void shouldLeaveSuccessfulDeliveryUnchanged_whenManualResolutionIsRefused() {
+        EmailLog log = stored(EmailStatus.SUCCESS);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 7003)).isEqualTo(EmailManager.EmailResolutionResult.NOT_RESOLVABLE);
         assertThat(log.getStatus()).isEqualTo(EmailStatus.SUCCESS);
-        assertThat(log.getErrorMessage()).isEqualTo("FAKE original message");
+        verify(emailLogDao).find(Integer.valueOf(7003)); verifyNoMoreInteractions(emailLogDao);
+        verifyNoInteractions(oscarLogDao);
     }
 
     @Test
-    @DisplayName("should return the stored state when another resolver wins the conditional update")
-    void shouldReloadStatus_whenAnotherResolverUpdatesFirst() {
-        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
-        EmailLog stale = new EmailLog();
-        ReflectionTestUtils.setField(stale, "id", 7003);
-        stale.setStatus(EmailStatus.FAILED);
-        EmailLog resolved = new EmailLog();
-        resolved.setStatus(EmailStatus.RESOLVED);
-        when(emailLogDao.find(Integer.valueOf(7003))).thenReturn(stale);
-        when(emailLogDao.findFresh(7003)).thenReturn(resolved);
-
-        assertThat(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null)).isSameAs(resolved);
-        assertThat(stale.getStatus()).isEqualTo(EmailStatus.FAILED);
+    void shouldReturnConflict_whenTransportWinsTheAtomicTransition() {
+        EmailLog log = stored(EmailStatus.FAILED);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 7003)).isEqualTo(EmailManager.EmailResolutionResult.CONFLICT);
+        assertThat(log.getStatus()).isEqualTo(EmailStatus.FAILED);
+        assertThat(log.getErrorMessage()).isEqualTo("FAKE delivery failure");
+        verifyNoInteractions(oscarLogDao);
     }
 
     @Test
-    @DisplayName("should return not found without updating when the log does not exist")
     void shouldReturnNotFound_whenLogDoesNotExist() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
-
-        assertThat(emailManager.updateEmailStatus(loggedInInfo, 7004, EmailStatus.RESOLVED, null)).isNull();
-
-        verify(emailLogDao).find(Integer.valueOf(7004));
-        verifyNoMoreInteractions(emailLogDao);
+        assertThat(emailManager.resolveEmailStatus(loggedInInfo, 7004)).isEqualTo(EmailManager.EmailResolutionResult.NOT_FOUND);
+        verify(emailLogDao).find(Integer.valueOf(7004)); verifyNoMoreInteractions(emailLogDao);
     }
 
     @Test
-    @DisplayName("should reject a null status before writing to the database")
-    void shouldRejectNullStatus_beforeUpdatingLog() {
+    void shouldRejectNullTransportStatus_beforeWriting() {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
-
-        EmailLog log = new EmailLog();
-        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, log, null, null))
+        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, new EmailLog(), null, null))
                 .isInstanceOf(NullPointerException.class);
-
         verifyNoInteractions(emailLogDao);
     }
 
     @Test
-    @DisplayName("should deny both status-update entry points before accessing the database when write privilege is missing")
-    void shouldDenyStatusUpdates_whenWritePrivilegeMissing() {
-        EmailLog log = new EmailLog();
-        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, 7003, EmailStatus.RESOLVED, null))
-                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
-        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, log, EmailStatus.RESOLVED, null))
-                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
+    void shouldDenyResolutionAndTransport_beforeDatabaseAccess() {
+        assertThatThrownBy(() -> emailManager.resolveEmailStatus(loggedInInfo, 7003)).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> emailManager.updateEmailStatus(loggedInInfo, new EmailLog(), EmailStatus.FAILED, null))
+                .isInstanceOf(SecurityException.class);
         verifyNoInteractions(emailLogDao);
     }
 }

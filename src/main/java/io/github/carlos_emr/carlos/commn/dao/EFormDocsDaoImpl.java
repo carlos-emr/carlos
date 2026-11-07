@@ -48,12 +48,13 @@ import org.springframework.stereotype.Repository;
 @SuppressWarnings("unchecked")
 public class EFormDocsDaoImpl extends AbstractDaoImpl<EFormDocs> implements EFormDocsDao {
 
-    public EFormDocsDaoImpl() {
-        super(EFormDocs.class);
-    }
+    private final PatientLabRoutingDao patientLabRoutingDao;
 
     @Autowired
-    private PatientLabRoutingDao patientLabRoutingDao;
+    public EFormDocsDaoImpl(PatientLabRoutingDao patientLabRoutingDao) {
+        super(EFormDocs.class);
+        this.patientLabRoutingDao = patientLabRoutingDao;
+    }
 
     @Override
     public void persist(AbstractModel<?> model) {

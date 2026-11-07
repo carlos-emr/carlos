@@ -2420,7 +2420,7 @@ input[id^='acklabel_']{
                         href="<%= SafeEncode.forHtmlAttribute(observationHref) %>"<% if (!isEmbeddedDocumentResult) { %> onclick="popupStart('660','900',this.href); return false;"<% } %>><carlos:encode value='<%= obxName %>' context="html"/>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
-                    <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
+                    <a href="https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&amp;mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&amp;informationRecipient.languageCode.c=en" onclick="popupStart('660','1000',this.href); return false;">
                         info</a>
                     <%} %>
                 </td>
@@ -2475,7 +2475,7 @@ input[id^='acklabel_']{
                 </a>
                     &nbsp;
                     <%if (loincCode != null) { %>
-                    <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
+                    <a href="https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&amp;mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&amp;informationRecipient.languageCode.c=en" onclick="popupStart('660','1000',this.href); return false;">
                         info</a>
                     <%} %></td>
                 <td style="text-align:right">
@@ -2529,7 +2529,7 @@ input[id^='acklabel_']{
                         href="${pageContext.request.contextPath}/lab/CA/ON/ViewLabValues?testName=<%= URLEncoder.encode(obxName, "UTF-8") %>&amp;demo=<%= demographicID != null ? URLEncoder.encode(demographicID, "UTF-8") : "" %>&amp;labType=HL7&amp;identifier=<%= URLEncoder.encode(handler.getOBXIdentifier(j, k), "UTF-8") %>" onclick="popupStart('660','900',this.href); return false;"><carlos:encode value='<%= obxName %>' context="html"/>
                 </a>
                     &nbsp;<%if (loincCode != null) { %>
-                    <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
+                    <a href="https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&amp;mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&amp;informationRecipient.languageCode.c=en" onclick="popupStart('660','1000',this.href); return false;">
                         info</a>
                     <%} %></td>
                 <% if (handler.getOBXResult(j, k).length() > 20) {
@@ -2658,7 +2658,7 @@ input[id^='acklabel_']{
                 </a>
 
                     <% if (loincCode != null) { %>
-                    <a href="javascript:popupStart('660','1000','https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&informationRecipient.languageCode.c=en')">
+                    <a href="https://apps.nlm.nih.gov/medlineplus/services/mpconnect.cfm?mainSearchCriteria.v.cs=2.16.840.1.113883.6.1&amp;mainSearchCriteria.v.c=<%= URLEncoder.encode(loincCode, "UTF-8") %>&amp;informationRecipient.languageCode.c=en" onclick="popupStart('660','1000',this.href); return false;">
                         info</a>
                     <%} %>
 

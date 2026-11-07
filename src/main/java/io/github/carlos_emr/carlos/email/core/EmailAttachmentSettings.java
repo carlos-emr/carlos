@@ -57,13 +57,12 @@ public record EmailAttachmentSettings(
     boolean isEmailAttachmentEncrypted,
     boolean isEmailAutoSend,
     boolean deleteEFormAfterEmail,
-    String emailPDFPassword,
-    String emailPDFPasswordClue,
     String senderEmail,
     String subjectEmail,
     String bodyEmail,
     String encryptedMessageEmail,
-    String emailPatientChartOption
+    String emailPatientChartOption,
+    String footerEmail
 ) implements java.io.Serializable {
 
     /** Detach attachment selections from request-owned arrays before a draft is staged. */
@@ -180,13 +179,12 @@ public record EmailAttachmentSettings(
             !"false".equals(req.getParameter("encryptEmailAttachments")),
             "true".equals(req.getParameter("autoSendEmail")),
             "true".equals(req.getParameter("deleteEFormAfterSendingEmail")),
-            sanitizePassword(req.getParameter("passwordEmail")),
-            sanitizePassword(req.getParameter("passwordClueEmail")),
             validateEmail(req.getParameter("senderEmail")),
             sanitizeSubject(req.getParameter("subjectEmail")),
             req.getParameter("bodyEmail"),
             req.getParameter("encryptedMessageEmail"),
-            validateChartOption(req.getParameter("emailPatientChartOption"))
+            validateChartOption(req.getParameter("emailPatientChartOption")),
+            truncateFooter(req.getParameter("footerEmail"))
         );
     }
 
@@ -234,6 +232,40 @@ public record EmailAttachmentSettings(
         return LINE_BREAK_PATTERN.matcher(subject).replaceAll("");
     }
 
+    /** Uses the compose footer's textarea length rules, preserving complete Unicode characters. */
+    private static String truncateFooter(String footer) {
+        if (footer == null) {
+            return null;
+        }
+        String normalized = footer.replace("\r\n", "\n");
+        if (normalized.length() <= EmailData.FOOTER_MAX_LENGTH) {
+            return footer;
+        }
+        int end = EmailData.FOOTER_MAX_LENGTH;
+        if (Character.isHighSurrogate(normalized.charAt(end - 1))
+                && Character.isLowSurrogate(normalized.charAt(end))) {
+            end--;
+        }
+        return normalized.substring(0, end);
+    }
+
+    /**
+     * Truncates a string to the specified maximum length.
+     *
+     * @param value the raw value from user input
+     * @param maxLength the maximum allowed length
+     * @return the truncated value, or null if input was null
+     */
+    static String truncate(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() > maxLength) {
+            return value.substring(0, maxLength);
+        }
+        return value;
+    }
+
     /**
      * Sanitizes a password or password clue by stripping control characters.
      *
@@ -251,17 +283,4 @@ public record EmailAttachmentSettings(
         return CONTROL_CHARS_PATTERN.matcher(password).replaceAll("");
     }
 
-    /**
-     * Validates that the chart option is one of the known allowed values.
-     * Returns null for unrecognized values to prevent unexpected behavior.
-     *
-     * @param value the raw input, may be null
-     * @return the value if it matches a known option, or null otherwise
-     */
-    private static String sanitizeChartOption(String value) {
-        if (value == null) {
-            return null;
-        }
-        return VALID_CHART_OPTIONS.contains(value) ? value : null;
-    }
 }

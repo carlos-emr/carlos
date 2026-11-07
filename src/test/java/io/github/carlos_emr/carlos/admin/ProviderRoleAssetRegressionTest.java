@@ -71,12 +71,11 @@ class ProviderRoleAssetRegressionTest {
     void shouldEncodeScriptItemValues_inPrimaryRoleScript() throws IOException {
         String jsp = readProviderRoleJsp();
 
-        // Each row becomes a JavaScript string literal in the items array, so every value needs the block encoder.
         assertThat(jsp)
-                .contains("providerNo: \"<carlos:encode value='<%= (String)prop.get(\"provider_no\") %>' context=\"javaScriptBlock\"/>\"")
-                .contains("role_id: \"<carlos:encode value='<%= (String)prop.get(\"role_id\") %>' context=\"javaScriptBlock\"/>\"")
-                .contains("roleName: \"<carlos:encode value='<%= (String)prop.get(\"role_name\") %>' context=\"javaScriptBlock\"/>\"")
-                .doesNotContainPattern("(providerNo|role_id|roleName): \"<%=");
+                .contains("HELD_ROLES_MAPPER.writeValueAsString(")
+                .contains("data-roles=\"<carlos:encode value='<%= heldRolesJson %>' context=\"htmlAttribute\"/>")
+                .contains("JSON.parse(selectedProvider.dataset.roles)")
+                .doesNotContain("data-roles=\"<%= heldRolesJson %>");
     }
 
     @Test
@@ -84,9 +83,12 @@ class ProviderRoleAssetRegressionTest {
     void shouldBuildPrimaryRoleOptions_withDomApis() throws IOException {
         String jsp = readProviderRoleJsp();
 
-        // roleName is decoded back to its stored characters in the script, so it must not be pasted into HTML.
+        // Parsed held-role names must become text, never HTML.
         assertThat(jsp)
-                .contains("$(\"#primaryRoleRole\").append($('<option>').val(items[i].roleName).text(items[i].roleName));")
+                .contains("const option = document.createElement('option');")
+                .contains("option.value = heldRole;")
+                .contains("option.textContent = heldRole;")
+                .contains("roleSelect.appendChild(option);")
                 .doesNotContain("'<option value=\"' + items[i].roleName");
     }
 

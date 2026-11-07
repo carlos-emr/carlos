@@ -757,6 +757,55 @@ class NioFileManagerImplUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    @DisplayName("should create purge-managed owner-only temporary files")
+    void shouldCreateManagedTempFile_underApplicationPurgeRoot() throws Exception {
+        Path managedFile = nioFileManager.createManagedTempFile("smtp-snapshot-", ".tmp");
+        try {
+            assertThat(managedFile.getParent().getFileName())
+                    .hasToString(PathValidationUtils.APPLICATION_TEMP_ROOT_NAME);
+            if (managedFile.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+                assertThat(Files.getPosixFilePermissions(managedFile))
+                        .containsExactlyInAnyOrder(
+                                PosixFilePermission.OWNER_READ,
+                                PosixFilePermission.OWNER_WRITE);
+            }
+        } finally {
+            Files.deleteIfExists(managedFile);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"../escape-", "sub/file-", "sub\\file-", "/absolute-"})
+    void shouldRejectManagedTempFile_whenPrefixContainsPathComponents(String prefix) {
+        assertThatThrownBy(() -> nioFileManager.createManagedTempFile(prefix, ".tmp"))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/../escape", "/file", "\\file"})
+    void shouldRejectManagedTempFile_whenSuffixContainsPathComponents(String suffix) {
+        assertThatThrownBy(() -> nioFileManager.createManagedTempFile("smtp-", suffix))
+                .isInstanceOf(io.github.carlos_emr.carlos.utility.FileValidationException.class);
+    }
+
+    @Test
+    void shouldRefuseManagedTempFile_whenPrivatePermissionsAreUnsupported() {
+        try (var files = mockStatic(Files.class, invocation -> {
+            if (invocation.getMethod().getName().equals("createTempFile")) {
+                throw new UnsupportedOperationException("synthetic non-POSIX filesystem");
+            }
+            return invocation.callRealMethod();
+        })) {
+            assertThatThrownBy(() -> nioFileManager.createManagedTempFile("smtp-", ".tmp"))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Owner-only temporary files require POSIX")
+                    .hasCauseInstanceOf(UnsupportedOperationException.class);
+            files.verify(() -> Files.createTempFile(any(Path.class), anyString(), anyString(),
+                    any(java.nio.file.attribute.FileAttribute[].class)));
+        }
+    }
+
     private static Path createApplicationTempDirectory(String prefix) throws IOException {
         Path applicationParent = Files.createDirectories(
                 Path.of(System.getProperty("java.io.tmpdir"), PathValidationUtils.APPLICATION_TEMP_ROOT_NAME));

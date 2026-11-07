@@ -65,31 +65,49 @@ bc/V1.0.59.4__offer_current_bc_antenatal_record.sql
 common/V1.0.59.5__preserve_full_appointment_names.sql
 common/V1.0.59.6__align_clinical_text_and_status_collations.sql
 common/V1.0.59.7__reconcile_managed_performance_indexes.sql
-common/V1.0.59.8__widen_messagetbl_pdfattachment.sql
-common/V1.0.59.8.1__cds_import_ledger.sql
-common/V1.0.59.9__cds_upload_sessions.sql
-common/V1.0.59.10__cds_laboratory_results.sql
-common/V1.0.59.11__cds_contact_care_capacity.sql
-common/V1.0.59.12__cds_preflight_identity.sql
-common/V1.0.59.13__cds_import_review_history.sql
-common/V1.0.59.14__cds_native_preparation.sql
-common/V1.0.59.15__cds_file_verification_epoch.sql
-common/V1.0.59.16__cds_provider_lookup_indexes.sql
-common/V1.0.59.17__cds_review_source_provenance.sql
-common/V1.0.59.18__cds_medication_projection_safety.sql
-common/V1.0.59.19__cds_held_patient_lookup.sql
-common/V1.0.59.20__cds_identity_authority.sql
-common/V1.0.59.21__cds_note_unknown_observation_and_import_permission.sql
-common/V1.0.59.22__cds_alphanumeric_prevention_creator.sql
-common/V1.0.59.23__cds_report_content_precision.sql
-common/V1.0.59.24__cds_durable_resume_intent.sql
-common/V1.0.59.25__cds_review_kind_capacity.sql
-common/V1.0.59.26__cds_measurements_deleted_capacity.sql
-common/V1.0.59.27__preserve_oscar19_text_capacity.sql
-on/V1.0.59.28__preserve_oscar19_text_capacity.sql
-bc/V1.0.59.29__preserve_oscar19_text_capacity.sql
-common/V1.0.59.30__one_live_consent_per_type.sql
-bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql
-common/V1.0.59.32__preserve_native_archive_capacity.sql
+common/V1.0.60__portal_booking_prompt_security_object.sql
+common/V1.0.61__portal_booking_offer.sql
+common/V1.0.66__add_email_consent_audit.sql
+common/V1.0.67__add_sms_system_of_record.sql
+common/V1.0.68__widen_email_config_for_encrypted_credentials.sql
+common/V1.0.69__prepare_outbound_email_archive_reference_engines.sql
+common/V1.0.70__outbound_email_archive.sql
+common/V1.0.71__add_sms_security_objects.sql
+common/V1.0.72__add_sms_consent.sql
+common/V1.0.73__patient_portal_security_objects.sql
+common/V1.0.74__portal_email_delivery.sql
+common/V1.0.75__patient_portal_invite_delivery.sql
+common/V1.0.76__activate_sms_consent.sql
+common/V1.0.77__one_live_consent_per_type.sql
+common/V1.0.78__add_sms_config.sql
+common/V1.0.79__add_email_log_footer.sql
+common/V1.0.80__email_front_desk_default.sql
+# Published release migrations arrive below the existing develop high-water mark.
+common/V1.0.59.8__widen_messagetbl_pdfattachment.sql forward-merge
+common/V1.0.59.8.1__cds_import_ledger.sql forward-merge
+common/V1.0.59.9__cds_upload_sessions.sql forward-merge
+common/V1.0.59.10__cds_laboratory_results.sql forward-merge
+common/V1.0.59.11__cds_contact_care_capacity.sql forward-merge
+common/V1.0.59.12__cds_preflight_identity.sql forward-merge
+common/V1.0.59.13__cds_import_review_history.sql forward-merge
+common/V1.0.59.14__cds_native_preparation.sql forward-merge
+common/V1.0.59.15__cds_file_verification_epoch.sql forward-merge
+common/V1.0.59.16__cds_provider_lookup_indexes.sql forward-merge
+common/V1.0.59.17__cds_review_source_provenance.sql forward-merge
+common/V1.0.59.18__cds_medication_projection_safety.sql forward-merge
+common/V1.0.59.19__cds_held_patient_lookup.sql forward-merge
+common/V1.0.59.20__cds_identity_authority.sql forward-merge
+common/V1.0.59.21__cds_note_unknown_observation_and_import_permission.sql forward-merge
+common/V1.0.59.22__cds_alphanumeric_prevention_creator.sql forward-merge
+common/V1.0.59.23__cds_report_content_precision.sql forward-merge
+common/V1.0.59.24__cds_durable_resume_intent.sql forward-merge
+common/V1.0.59.25__cds_review_kind_capacity.sql forward-merge
+common/V1.0.59.26__cds_measurements_deleted_capacity.sql forward-merge
+common/V1.0.59.27__preserve_oscar19_text_capacity.sql forward-merge
+on/V1.0.59.28__preserve_oscar19_text_capacity.sql forward-merge
+bc/V1.0.59.29__preserve_oscar19_text_capacity.sql forward-merge
+common/V1.0.59.30__one_live_consent_per_type.sql forward-merge
+bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql forward-merge
+common/V1.0.59.32__preserve_native_archive_capacity.sql forward-merge
 common/V1.0.81__cds_export_ledger.sql
 common/V1.0.82__cds_native_field_baselines.sql

@@ -29,12 +29,12 @@ import io.github.carlos_emr.carlos.commn.model.Prevention;
 
 /**
  * Lightweight data transfer object for immunization/prevention history list views,
- * optimized for JPQL constructor expression projection. Eliminates the EAGER-loaded
- * PreventionExt collection that is fetched on every Prevention entity load.
+ * optimized for JPQL constructor expression projection. Avoids materializing Prevention
+ * entities altogether, so the lazy PreventionExt collection is never touched.
  * Partial/unknown dates are available through {@link #getPreventionDateInfo()}; the
  * legacy Date getter refuses uncertain imported records and preserves native Date payloads.
  *
- * <p>Omits: entire {@code preventionExts} EAGER collection (lot number, route,
+ * <p>Omits: entire {@code preventionExts} collection (lot number, route,
  * dose, site, comments), {@code snomedId}, transient {@code preventionExtendedProperties}.</p>
  *
  * @since 2026-04-11

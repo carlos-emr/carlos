@@ -47,12 +47,13 @@ import org.springframework.stereotype.Repository;
 @Repository
 @SuppressWarnings("unchecked")
 public class ConsultResponseDocDaoImpl extends AbstractDaoImpl<ConsultResponseDoc> implements ConsultResponseDocDao {
-    public ConsultResponseDocDaoImpl() {
-        super(ConsultResponseDoc.class);
-    }
+    private final PatientLabRoutingDao patientLabRoutingDao;
 
     @Autowired
-    private PatientLabRoutingDao patientLabRoutingDao;
+    public ConsultResponseDocDaoImpl(PatientLabRoutingDao patientLabRoutingDao) {
+        super(ConsultResponseDoc.class);
+        this.patientLabRoutingDao = patientLabRoutingDao;
+    }
 
     @Override
     public void persist(AbstractModel<?> model) {

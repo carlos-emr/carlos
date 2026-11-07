@@ -89,6 +89,12 @@ health check passed. The focused Java regression run passed 219 tests. Locked No
 6,983 tests (zero failures, one existing TODO); the final chart-context and JSP
 inline-script checks passed 28 and 13 tests respectively.
 
+The 2026-11-03 focused validation for issue #5166 restored the three email
+browser workflows on `develop`: all three passed against source-built snapshot27
+packages installed on Ubuntu 26.04 through the packaged front door, with no
+fixture residue. See [PR #5598 validation](pr5598-validation.md) for the original
+selector failure, current compose contracts, package inputs and test configuration.
+
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
 500s on the consultation surfaces, and the empty Consultations inbox on the demo
@@ -100,8 +106,19 @@ The two checks added since, `echart-print-playwright-checks.js` and
 `clinical-freetext-playwright-checks.js`, were run on 2026-09-12 against a
 2026.09.0~snapshot22 package built from the #3623 branch (DrugRef and the eForm
 renderer skipped) and installed into an Ubuntu 26.04 container: both **PASS**
-through the packaged front door, with `EXPECT_FRONT_DOOR=true`. The full suite
-has not been re-run on a later snapshot.
+through the packaged front door, with `EXPECT_FRONT_DOOR=true`. On 2026-09-16, PR #2545 validation ran against an installed snapshot22 package
+in an Ubuntu 26.04 VM through nginx/WAF: 76 distinct browser scripts passed
+across the broad run and targeted retests, including the isolated login phase.
+The first eChart print attempt exposed an initialization race in the harness;
+waiting for chart lock initialization to complete fixed it, and two reruns
+passed all 15 PDF cases. The external eForm corpus was unavailable; the stored
+"Signature trick" template and one unbilled-report link were absent from the
+dataset, and the DrugRef database rebuild was deliberately disabled.
+Logs also exposed an outstanding DrugRef dependency defect: XML-RPC serialization
+of `java.sql.Date` throws from `Date.toInstant()`, so inactive-drug dates can be
+silently omitted despite a passing drug-search check. These results are not an
+all-clear for that separate dependency.
+
 `messenger-group-admin-playwright-checks.js` (issue #3964) was added on
 2026-09-26 and run against a 2026.09.0~snapshot24 package built from the
 `release/2026.08` fix branch and installed into an Ubuntu 26.04 container
@@ -541,7 +558,7 @@ made `setParameters()` build `waitingListBean[undefined].*` selectors, so
 every row update fell through to a reposition and the edit was lost. Verified
 on the packaged install: a note holding `& < > 2+2` and a new date persist as
 a new `waitingList` row with the old one marked history
-(`WLMutation2ActionsTest` pins the page's field names against the action's
+(`WLMutation2ActionsUnitTest` pins the page's field names against the action's
 selector contract). The action also refuses `update=Y` without a usable
 `waitingListId` (missing, non-numeric or non-positive) with a 400: the
 legacy null check around the mutation never fired, because the parsed id
@@ -1056,17 +1073,61 @@ it does not approve omitted content to obtain a PDF.
 
 ## 6. Run the suite
 
-> **A runner now exists, and is not yet the documented procedure.**
-> `scripts/run-playwright-suite.js` reads `scripts/playwright-suite.json` and does
-> what the loop at the end of this section does, plus tier selection, a JUnit
-> report, exit code 2 for a check that skipped for a missing fixture rather than
-> failed, and a refusal to run the database-mutating checks against a non-local
-> target. It has unit tests but has **not yet been run against a deployment**, so
-> the loop below is still the authoritative procedure. The first validation run
-> should compare the two and then replace the loop here:
+The nullable-consultation check stages a specialist whose ID differs from the
+request ID, then verifies contact details in the form, extracted PDF text, and
+REST response. It also checks missing-request HTTP 404 and a request with no
+specialist. Run it with health-care-team mode both enabled and disabled when
+validating changes to consultation associations; restart the application after
+changing that property. The script restores the request and removes its owned
+specialist and any unreferenced health-care-team contact it created, including on
+cancellation. A referenced contact is retained and causes cleanup to fail visibly.
+The health-care-team run also covers installations without an `other` specialty
+entry; the form must render with an unspecified role instead of failing.
+
+`email-recovery-playwright-checks.js` creates two synthetic email logs for demo
+patient 1 (`EMAIL_RECOVERY_DEMO_NO` overrides this) and a personal email footer for
+the test user; it refuses to start if that user already has one. It checks the
+in-flight-send recovery guard, stale-delivery warning and resolution, fresh compose
+passphrases, and server-acknowledged cancellation. On Resend it requires the user's
+own footer, cleaned, rather than the footer kept on the log, and a read-only clinic
+footer. It does not send email and removes only its owned logs and footer. With no
+sender or no clinic footer configured, it also requires an explicit warning and a
+disabled Send button. Without a usable sender or recipient the page locks the whole
+form, the footer editor included; the check then verifies the lock, and its editing
+checks run only on an install that has both (its PASS line says which). Both checks
+require a disposable local database and reject non-loopback `MYSQL_HOST` values.
+Email recovery also requires a loopback `BASE_URL`, even when the shared remote-target
+opt-in is set, because its fixtures belong to the local database.
+
+The clinic email footer is mandatory, so the checks that press Send
+(`eform-email-two-windows`, `eform-email-attachment-binding`, `admin-email-config`) save an
+owned FAKE clinic footer when none is saved and remove it afterwards; a saved clinic footer is
+used as it is (`scripts/lib/clinic-email-footer-fixture.js`).
+
+For a 6 GiB validation guest, set `CARLOS_JAVA_XMS="2g"` and
+`CARLOS_JAVA_XMX="2g"` in the VM environment file before starting the browser
+suite, then restart the application. Monitor guest available memory as well as
+host memory; a 4 GiB fixed heap leaves too little room for MariaDB and Chromium
+in that guest. Stop the VM before compiling on the host.
+
+Before staging fixtures, verify that `MYSQL_DATABASE` matches `CARLOS_DB_NAME`
+in `/etc/carlos-emr/carlos-emr.env` and the generated application's `db_name`
+property. A browser session against one database cannot validate fixtures staged
+in another. Install all three matching package versions together; upgrading only
+the main package can remove older DrugRef and renderer packages because their
+dependencies require an exact version match.
+
+> **Use the manifest runner for validation.**
+> `scripts/run-playwright-suite.js` reads `scripts/playwright-suite.json`, selects
+> checks by tier or name, writes a JUnit report and distinguishes an individual
+> check's missing-fixture SKIP (exit 2) from a failure. It also guards the target
+> of database-mutating checks. Packaged deployment runs, including the three email
+> workflows in [PR #5598](pr5598-validation.md), validate this procedure through
+> the nginx/ModSecurity front door. Load the environment contract below first;
+> select the installed province and record the exact checks and any skips:
 >
 > ```bash
-> node scripts/run-playwright-suite.js --tier core --tier front-door --junit /tmp/playwright.xml
+> node scripts/run-playwright-suite.js --tier core --tier front-door --province "$suite_province" --residue-audit --junit /tmp/playwright.xml
 > ```
 >
 > See [playwright-coverage-plan-2026.08.md §0](playwright-coverage-plan-2026.08.md).
@@ -1097,6 +1158,9 @@ Environment contract (one block, exported before every script):
 ```bash
 cd /root/carlos
 export BASE_URL=https://127.0.0.1/carlos
+export EXPECT_FRONT_DOOR=true
+export DOCUMENT_DIR=/var/lib/carlos-emr/CarlosDocument/carlos/document
+export CARLOS_DISPOSABLE_VM=true EXCLUSIVE=1
 # Confirm section 4 enabled the application property and restarted CARLOS.
 export CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true
 export CHROME_PATH=/usr/lib/carlos-emr/chromium/chrome
@@ -1344,33 +1408,20 @@ suite_failed=0
 #                                appointment column. ONE PREREQUISITE the dataset does not provide --
 #                                the field is rendered only when workflow_enhance is true, which the
 #                                package ships false, so set it in /etc/carlos-emr/carlos.properties
-#                                and `carlos-ctl restart` before the loop; the check reports SKIP (exit 2)
-#                                with that instruction when it is off. The legacy loop below treats every
-#                                nonzero exit as FAIL, so enabling the property is required for this loop.
-#                                The separate run-playwright-suite.js runner records SKIP as non-failing;
+#                                and `carlos-ctl restart` before the suite; the check reports SKIP (exit 2)
+#                                with that instruction when it is off. The manifest runner records SKIP as non-failing;
 #                                require PASS for this check to confirm the column was exercised. It seeds one
 #                                appointment for tomorrow and deletes it in a finally.)
-for s in scripts/*-playwright-checks.js scripts/demographic-master-crud-smoke.js; do
-  case "$s" in
-    *eform-corpus-soak*) continue ;;   # needs a corpus dir; see below
-    *login-playwright-checks*) continue ;; # run its deliberate failed-login probes last
-  esac
-  # The record-binding check waits up to RX_FAX_ROUND_TRIP_TIMEOUT_MS twice on a cold server and
-  # must still reach its fixture cleanup; a SIGTERM from the wrapper would skip that.
-  t=300; case "$s" in
-    *rx-fax-record-binding*) t=$((2 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 300)) ;;
-    # Three preview waits, three fax writes and one retry, plus bounded UI/login/cleanup waits.
-    *rx-fax-pharmacy-phone*) t=$((7 * ${RX_FAX_ROUND_TRIP_TIMEOUT_MS:-45000} / 1000 + 900)) ;;
-  esac
-  # Signal the Node runner so its cleanup can keep using the browser.
-  if timeout --foreground "$t" node "$s"; then
-    echo "PASS $s"
-  else
-    rc=$?
-    echo "FAIL ($rc) $s"
-    suite_failed=1
-  fi
-done
+installed_province="$(sed -n 's/^CARLOS_PROVINCE=//p' /etc/carlos-emr/carlos-emr.env | tr -d '\"')"
+case "$installed_province" in
+  bc|BC) suite_province=BC ;;
+  on|ON|other|OTHER) suite_province=ON ;;
+  *) echo "FAIL installed province is unavailable"; exit 1 ;;
+esac
+if ! node scripts/run-playwright-suite.js --tier core --tier front-door \
+    --province "$suite_province" --residue-audit --junit /tmp/playwright.xml; then
+  suite_failed=1
+fi
 service_restarts_after="$(systemctl show carlos-emr -p NRestarts --value)"
 if [ "$service_restarts_after" != "$service_restarts_before" ]; then
   echo "FAIL carlos-emr restarted during suite ($service_restarts_before -> $service_restarts_after)"
@@ -1980,9 +2031,10 @@ id already has a note link older than the run, and the tickler cleanup never
 deletes those inherited links, #4409); the HRM
 parser logs `FileNotFoundException` for lab files the dump references but does
 not ship (cosmetic); the Rich Text Letter page logs a 404 + MIME-refusal
-console error for `displayImage.do?imagefile=stamps.js` on every stock install
-(by design — `EFormAssetDeployer` never auto-deploys `stamps.js` because it
-holds clinic-specific signature stamps; the editor works without it); and
+console error for `displayImage.do?imagefile=stamps.js` only on an install with
+no `stamps.js` in the eForm images directory (`EFormAssetDeployer` seeds a
+comment-only placeholder once and never overwrites a clinic's own, so this
+means the placeholder was removed; the editor works without it); and
 `consultationRequests.providerNo`/`urgency`/`status` are nullable in the
 SCHEMA but always populated in the dump — regressions on the null path have
 been 500s in the past, so exercise it by nulling a row explicitly

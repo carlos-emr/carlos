@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -74,17 +75,18 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
     @Override
     protected Object getServiceBean() {
         ws = new AllergyWs();
-        injectDependency(ws,"projections",projections);
+        injectDependency(ws, "projections", projections);
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_allergy"));
         return ws;
     }
 
     @Test
     void shouldFaultInsteadOfReturningEmptySubset_whenStructuredSourceCannotBeProjected() {
-        when(allergyManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class),eq(123),any(java.util.Date.class))).thenReturn(java.util.List.of());
+        when(allergyManager.getByDemographicIdUpdatedAfterDate(any(LoggedInInfo.class), eq(123), any(java.util.Date.class))).thenReturn(java.util.List.of());
         org.mockito.Mockito.doThrow(new org.apache.cxf.binding.soap.SoapFault("Structured projection requires review",
                 org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT))
-                .when(projections).requireSoapSupported(123,java.util.Set.of("AllergiesAndAdverseReactions"));
-        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(AllergyWs.class).getAllergiesByDemographicIdAfter(java.util.Calendar.getInstance(),123))
+                .when(projections).requireSoapSupported(123, java.util.Set.of("AllergiesAndAdverseReactions"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(()-> createClient(AllergyWs.class).getAllergiesByDemographicIdAfter(java.util.Calendar.getInstance(), 123))
                 .hasMessageContaining("Structured projection requires review");
     }
 
@@ -114,6 +116,16 @@ class AllergyWsEndpointTest extends CarlosSoapTestBase {
         assertThat(result.getStartDate()).isEqualTo(java.sql.Date.valueOf("2020-01-01"));
         assertThat(result.getDescription()).isEqualTo("Synthetic allergy");
         org.mockito.Mockito.verify(projections).requireSoapSupported(123, java.util.Set.of("AllergiesAndAdverseReactions"));
+    }
+
+    @Test
+    void shouldRejectAllergyRead_beforeLookupWhenPermissionDenied() {
+        injectDependency(ws, "securityInfoManager",
+                mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class));
+        AllergyWs proxy = createClient(AllergyWs.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> proxy.getAllergy(42))
+                .hasMessageContaining("missing required sec object (_allergy)");
+        org.mockito.Mockito.verifyNoInteractions(allergyManager);
     }
 
     /** Tests for the getAllergy SOAP operation. */

@@ -35,6 +35,7 @@ import java.nio.file.StandardWatchEventKinds;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -142,7 +143,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         startApplication();
 
         assertThat(secondBoot.getProperty(KEY)).isEqualTo(generated);
-        assertThat(secondBoot.getProperty("db_name")).isEqualTo("startup_test");
+        assertThat(secondBoot.getProperty("db_name")).isEqualTo("startup_test;MODE=MySQL;NON_KEYWORDS=VALUE");
         assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("two-startup-regression");
         assertThat(Files.readString(override)).isEqualTo(savedConfiguration);
         assertThat(userHome.resolve("carlos.properties")).doesNotExist();
@@ -217,7 +218,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         startApplication();
 
         assertThat(CarlosProperties.getInstance().getProperty(KEY)).isEqualTo(key);
-        assertThat(CarlosProperties.getInstance().getProperty("db_name")).isEqualTo("startup_test");
+        assertThat(CarlosProperties.getInstance().getProperty("db_name")).isEqualTo("startup_test;MODE=MySQL;NON_KEYWORDS=VALUE");
         assertThat(Files.readString(homeConfig)).contains(KEY + "=" + key);
         assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("home-configuration");
     }
@@ -234,7 +235,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
             properties.setProperty(KEY, key);
         }
 
-        assertThatThrownBy(this::startApplication)
+        assertThatThrownBy(properties::getOrCreateEncryptionKey)
                 .hasMessageContaining("/carlos.properties")
                 .hasMessageContaining(KEY)
                 .hasMessageContaining("-Dcarlos_override_properties=")
@@ -257,13 +258,13 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         properties.readFromFile(resource);
         String configuredKey = properties.getProperty(KEY);
 
-        startApplication();
+        startApplication("startup-configured-encryption-key");
         String ciphertext = EncryptionUtils.encrypt("classpath-configuration");
 
         CarlosProperties secondBoot = reloadProperties();
         secondBoot.clear();
         secondBoot.readFromFile(resource);
-        startApplication();
+        startApplication("startup-configured-encryption-key");
 
         assertThat(secondBoot.getProperty(KEY)).isEqualTo(configuredKey);
         assertThat(EncryptionUtils.decrypt(ciphertext)).isEqualTo("classpath-configuration");
@@ -280,7 +281,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
         properties.clear();
         properties.readFromFile(resource);
 
-        assertThatThrownBy(this::startApplication)
+        assertThatThrownBy(properties::getOrCreateEncryptionKey)
                 .hasMessageContaining(resource)
                 .hasMessageContaining(KEY)
                 .hasMessageContaining("-Dcarlos_override_properties=");
@@ -442,7 +443,7 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
      * @throws Exception if the fixture file cannot be written
      */
     private Path writeConfiguration(Path path, String key) throws Exception {
-        Files.writeString(path, "db_name=startup_test\nBASE_DOCUMENT_DIR=" + tempDir.resolve("documents") + "\n"
+        Files.writeString(path, "db_driver=org.h2.Driver\ndb_uri=jdbc:h2:mem:\ndb_username=sa\ndb_name=startup_test;MODE=MySQL;NON_KEYWORDS=VALUE\nBASE_DOCUMENT_DIR=" + tempDir.resolve("documents") + "\n"
                 + (key == null ? "" : KEY + "=" + key + "\n"));
         return path;
     }
@@ -452,8 +453,10 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
      *
      * @throws Exception if webapp setup or application startup fails
      */
-    private void startApplication() throws Exception {
-        Path root = Files.createDirectories(tempDir.resolve("webapps/carlos"));
+    private void startApplication() throws Exception { startApplication("carlos"); }
+
+    private void startApplication(String contextName) throws Exception {
+        Path root = Files.createDirectories(tempDir.resolve("webapps").resolve(contextName));
         ServletContext context = mock(ServletContext.class);
         when(context.getResource("/")).thenReturn(root.toUri().toURL());
         new Startup().contextInitialized(new ServletContextEvent(context));
@@ -472,4 +475,41 @@ class StartupKeyPersistenceUnitTest extends CarlosUnitTestBase {
             System.setProperty(name, original);
         }
     }
+    @Test
+    void shouldSkipCreationApproval_whenAConcurrentSnapshotAlreadyPersistedAKey() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("approval-concurrent.properties"), "");
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties first = reloadProperties();
+        CarlosProperties second = createProperties();
+        String expected = first.getOrCreateEncryptionKey();
+        assertThat(second.getOrCreateEncryptionKey(() -> { throw new AssertionError("Existing key must not request creation approval"); })).isEqualTo(expected);
+    }
+
+    @Test
+    void shouldLeaveTheConfigurationUntouched_whenCreationApprovalIsRefused() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("approval-refused.properties"), "");
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties properties = reloadProperties();
+        String original = Files.readString(override);
+        assertThatThrownBy(() -> properties.getOrCreateEncryptionKey(() -> { throw new IllegalStateException("SYNTHETIC_CREATION_REFUSED"); }))
+                .hasMessage("SYNTHETIC_CREATION_REFUSED");
+        assertThat(Files.readString(override)).isEqualTo(original);
+    }
+
+    @Test
+    void shouldPreserveWinningUserHomeProvenance_whenApplyingAnAlreadyParsedDeploymentSnapshot() throws Exception {
+        Path override = writeConfiguration(tempDir.resolve("constructor-override.properties"), "");
+        Path winning = writeConfiguration(userHome.resolve("carlos.properties"), "");
+        System.setProperty(OVERRIDE, override.toString());
+        CarlosProperties properties = reloadProperties();
+        Properties parsed = new Properties();
+        try (var input = Files.newInputStream(winning)) { parsed.load(input); }
+        properties.applyParsedDeploymentProperties(parsed, winning.toString());
+        String key = properties.getOrCreateEncryptionKey();
+        Properties persisted = new Properties();
+        try (var input = Files.newInputStream(winning)) { persisted.load(input); }
+        assertThat(persisted.getProperty(KEY)).isEqualTo(key);
+        assertThat(Files.readString(override)).doesNotContain(KEY + "=" + key);
+    }
+
 }

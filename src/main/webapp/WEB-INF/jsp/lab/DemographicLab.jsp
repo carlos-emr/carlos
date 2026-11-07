@@ -100,7 +100,8 @@
     pageContext.setAttribute("demographicNo", demographicNo);
     pageContext.setAttribute("hasDemographicNo", demographicNo != null);
     pageContext.setAttribute("hasFname", request.getParameter("fname") != null);
-    pageContext.setAttribute("hasLabsAndNoDemographicNo", demographicNo == null && labs.size() > 0);
+    boolean hasLabsAndNoDemographicNo = demographicNo == null && !labs.isEmpty();
+    pageContext.setAttribute("hasLabsAndNoDemographicNo", hasLabsAndNoDemographicNo);
 %>
 
 <fmt:setBundle basename="oscarResources"/>

@@ -78,7 +78,10 @@ class FormButtonHandlersJspRegressionTest {
     // its key attribute are matched separately so neither pattern backtracks super-linearly.
     private static final Pattern MESSAGE_TAG = Pattern.compile("<fmt:message\\b[^<>]*/>");
     private static final Pattern MESSAGE_KEY = Pattern.compile("\\bkey\\s*=\\s*['\"]([\\w.-]+)['\"]");
-    private static final Pattern PREFIXED_SELF_CLOSING_TAG = Pattern.compile("<[A-Za-z][\\w-]*:[\\w-]+[^<>]*/>");
+    // Attributes must follow whitespace, so the tag name and the attribute run never compete
+    // for the same characters.
+    private static final Pattern PREFIXED_SELF_CLOSING_TAG =
+            Pattern.compile("<[A-Za-z][\\w-]*:[\\w-]+(?:\\s[^<>]*)?/>");
     // Group 1: the <script> tag's attributes. Group 2: its inline source.
     private static final Pattern SCRIPT_BLOCK = Pattern.compile(
             "<script\\b([^>]*)>(.*?)</script\\s*>", Pattern.DOTALL | Pattern.CASE_INSENSITIVE);

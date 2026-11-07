@@ -81,10 +81,13 @@ class WaitingListMasterRecordJspRegressionTest {
     @Test
     @DisplayName("should show the Waiting List link from the action's availability decision")
     void shouldGateTheWaitingListLink_onTheActionAttribute() throws IOException {
-        String jsp = read(EDIT_JSP);
+        String jsp = read(DEMOGRAPHIC_JSP_DIR.resolve("patient-nav.jsp"));
+        String model = read(Path.of("src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/PatientNavModel.java"));
 
-        assertThat(jsp).contains("request.getAttribute(\"waitingListLinkVisible\")")
-                .contains("if (waitingListLinkVisible) {")
+        assertThat(read(EDIT_JSP)).contains("patient-nav.jsp");
+        assertThat(jsp).contains("${nav.waitingListShown}");
+        assertThat(model).contains("request.getAttribute(\"waitingListLinkVisible\")")
+                .contains("WaitingListAvailabilityService.class).hasCurrentLists()")
                 .doesNotContain("WaitingList.getInstance()");
     }
 
@@ -106,9 +109,9 @@ class WaitingListMasterRecordJspRegressionTest {
     void shouldEncodeWaitingListValues_inTheEditForm() throws IOException {
         String jsp = read(EDIT_FORM_CLINICAL_JSP);
 
-        assertThat(jsp).contains("<carlos:encode value='<%= wln.getName() %>'/>")
-                .contains("value=\"<carlos:encode value='<%= wlnote %>' context=\"htmlAttribute\"/>\"")
-                .contains("value=\"<carlos:encode value='<%= wlReferralDate %>' context=\"htmlAttribute\"/>\"")
+        assertThat(jsp).contains("<%=SafeEncode.forHtmlContent(wln.getName())%>")
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute(wlnote)%>\"")
+                .contains("value=\"<%=SafeEncode.forHtmlAttribute(wlReferralDate)%>\"")
                 .doesNotContain("<%=wln.getName()%>")
                 .doesNotContain("value=\"<%=wlnote%>\"");
     }

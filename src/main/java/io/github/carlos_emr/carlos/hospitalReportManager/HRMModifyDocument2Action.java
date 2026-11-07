@@ -190,6 +190,9 @@ public class HRMModifyDocument2Action extends ActionSupport {
     }
 
     /** Writes a JSON reply body and ends the action; see {@link #writeResult(boolean, String, Integer)}. */
+    // FindSecBugs XSS_SERVLET: the body is a Jackson-serialised ObjectNode sent as application/json,
+    // built only from writeResult's boolean, count and constant messages; nothing is rendered as HTML.
+    @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Jackson-serialised JSON status body sent as application/json; built from a boolean, an int and constant messages, no request data")
     private String writeBody(ObjectNode body) throws IOException {
 
         response.setContentType("application/json;charset=UTF-8");

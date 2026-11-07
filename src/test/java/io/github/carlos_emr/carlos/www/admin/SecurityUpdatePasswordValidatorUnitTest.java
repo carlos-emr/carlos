@@ -101,4 +101,14 @@ class SecurityUpdatePasswordValidatorUnitTest extends CarlosUnitTestBase {
         when(properties.getProperty("password_min_length")).thenReturn("20");
         assertThat(SecurityUpdatePasswordValidator.validate("*********", "*********", properties)).isNull();
     }
+
+    @Test
+    void shouldRecognizeOnlyTheExactSentinel_whenCheckingForAnUnchangedPassword() {
+        assertThat(SecurityUpdatePasswordValidator.isUnchanged("*********")).isTrue();
+        // A near-miss is a password the admin typed and must be hashed, never treated as "keep".
+        assertThat(SecurityUpdatePasswordValidator.isUnchanged("********")).isFalse();
+        assertThat(SecurityUpdatePasswordValidator.isUnchanged(" *********")).isFalse();
+        assertThat(SecurityUpdatePasswordValidator.isUnchanged("")).isFalse();
+        assertThat(SecurityUpdatePasswordValidator.isUnchanged(null)).isFalse();
+    }
 }

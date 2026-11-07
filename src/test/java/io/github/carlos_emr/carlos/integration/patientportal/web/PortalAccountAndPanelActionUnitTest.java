@@ -1,0 +1,945 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.integration.patientportal.web;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
+import io.github.carlos_emr.carlos.commn.model.PatientPortalInviteDelivery;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountAcknowledgementDto;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalAccountDto;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalException;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalInviteDto;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalService;
+import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalStaffContext;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalInviteDeliveryService;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalRequestNotSentException;
+import io.github.carlos_emr.carlos.integration.patientportal.PortalStaffContextResolver;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.net.ConnectException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
+import org.apache.struts2.ServletActionContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.test.util.ReflectionTestUtils;
+
+/**
+ * The account mutations and the panel read.
+ *
+ * <p>The behaviours worth protecting here are the ones that would mislead staff rather than fail
+ * loudly: unlock gating on its own narrower object, the forced-reset note travelling with the
+ * unlock response, and the panel preserving ambiguous failures as unavailable.
+ */
+@Tag("unit")
+@Tag("patient-portal")
+@DisplayName("Portal account and panel actions")
+class PortalAccountAndPanelActionUnitTest {
+
+    private static final int DEMOGRAPHIC_NO = 123;
+
+    private SecurityInfoManager securityInfoManager;
+    private PatientPortalService patientPortalService;
+    private PortalStaffContextResolver staffContextResolver;
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private MockedStatic<LoggedInInfo> loggedInInfoStatic;
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockedStatic<LogAction> audit;
+
+    @BeforeEach
+    void setUp() {
+        securityInfoManager = mock(SecurityInfoManager.class);
+        patientPortalService = mock(PatientPortalService.class);
+        staffContextResolver = mock(PortalStaffContextResolver.class);
+
+        request = new MockHttpServletRequest();
+        response = new MockHttpServletResponse();
+        request.setMethod("POST");
+        request.setParameter("demographicNo", String.valueOf(DEMOGRAPHIC_NO));
+
+        audit = mockStatic(LogAction.class);
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
+
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+        loggedInInfoStatic = mockStatic(LoggedInInfo.class);
+        loggedInInfoStatic
+                .when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
+                .thenReturn(loggedInInfo);
+
+        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), eq(String.valueOf(DEMOGRAPHIC_NO))))
+                .thenReturn(true);
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(DEMOGRAPHIC_NO))).thenReturn(true);
+        when(staffContextResolver.resolveForPatient(any(), any(), anyInt()))
+                .thenReturn(
+                        new PatientPortalStaffContext(
+                                "999998",
+                                "Dr Example",
+                                Set.of(
+                                        PatientPortalStaffContext.PERMISSION_ACCOUNT_MANAGE,
+                                        PatientPortalStaffContext.PERMISSION_ACCOUNT_UNLOCK,
+                                        PatientPortalStaffContext.PERMISSION_INVITE_MANAGE)));
+    }
+
+    @AfterEach
+    void tearDown() {
+        if (loggedInInfoStatic != null) {
+            loggedInInfoStatic.close();
+        }
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
+        if (audit != null) {
+            audit.close();
+        }
+    }
+
+    private PortalAccount2Action accountAction() {
+        return new PortalAccount2Action(
+                securityInfoManager, patientPortalService, staffContextResolver);
+    }
+
+    private PortalPanel2Action panelAction() {
+        return new PortalPanel2Action(
+                securityInfoManager, patientPortalService, staffContextResolver);
+    }
+
+    private PatientPortalAccountAcknowledgementDto acknowledgement() {
+        return new PatientPortalAccountAcknowledgementDto(5L, "active", true, null);
+    }
+
+    /** Failures the portal answered (or that never left CARLOS): not "the portal cannot be reached". */
+    static Stream<Arguments> answeredOrNotSent() {
+        return Stream.of(
+                Arguments.of("429 throttled", PatientPortalException.ofStatus(429, "/y/{id}", null)),
+                Arguments.of("400 rejected", PatientPortalException.ofStatus(400, "/y/{id}", null)),
+                Arguments.of("404 ambiguous", PatientPortalException.ofStatus(404, "/y/{id}", null)),
+                Arguments.of("499, just below the server errors",
+                        PatientPortalException.ofStatus(499, "/y/{id}", null)),
+                Arguments.of("malformed answer",
+                        PatientPortalException.ofMalformedResponse(200, "/y/{id}", null)),
+                Arguments.of("never sent (CARLOS busy)",
+                        PatientPortalException.ofTransportFailure("/y/{id}", new PortalRequestNotSentException("busy"))));
+    }
+
+    private JsonNode payload() throws IOException {
+        return new ObjectMapper().readTree(response.getContentAsString());
+    }
+
+    @Nested
+    @DisplayName("account mutations")
+    class AccountMutations {
+
+        @Test
+        @DisplayName("should reject GET before touching the portal")
+        void shouldRejectGet_beforeAnySideEffect() throws Exception {
+            request.setMethod("GET");
+            request.setParameter("method", "unlock");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getContentAsString()).contains("method_not_allowed");
+            verifyNoInteractions(patientPortalService);
+        }
+
+        @Test
+        @DisplayName("should reject an unknown action before authorization or portal lookup")
+        void shouldRejectUnknownMethod_beforeDependenciesAreUsed() throws Exception {
+            request.setParameter("method", "typo");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("unsupported portal account action");
+            verifyNoInteractions(securityInfoManager, staffContextResolver, patientPortalService);
+        }
+
+        /**
+         * Unlock forces a password reset on the patient, so it is gated on its own narrower object.
+         * If it gated on _portal.account instead, anyone able to view an account could force a
+         * reset, and splitting the objects would mean nothing.
+         */
+        @Test
+        @DisplayName("should gate unlock on the narrower unlock object")
+        void shouldRefuseInJson_whenTheUnlockObjectIsAbsent() throws Exception {
+            when(securityInfoManager.hasPrivilege(
+                            any(),
+                            eq(PortalStaffContextResolver.OBJECT_ACCOUNT_UNLOCK),
+                            anyString(),
+                            eq(String.valueOf(DEMOGRAPHIC_NO))))
+                    .thenReturn(false);
+            request.setParameter("method", "unlock");
+
+            accountAction().execute();
+
+            // Converted at the boundary: a JSON endpoint must not answer an authorization refusal
+            // with CARLOS's HTML error page. The gate itself still throws.
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsString()).contains("not_permitted");
+            verifyNoInteractions(patientPortalService);
+        }
+
+        @Test
+        @DisplayName("should tell staff the patient must still reset their password")
+        void shouldReturnForcedResetNote_whenAccountIsUnlocked() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenReturn(acknowledgement());
+
+            accountAction().execute();
+
+            audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
+                    eq("PortalAccount2Action.unlock"), eq("PatientPortal"), anyString(),
+                    eq(String.valueOf(DEMOGRAPHIC_NO)), eq("")));
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString())
+                    .contains("forcePasswordReset\":true")
+                    .contains("password reset");
+        }
+
+        @Test
+        @DisplayName("should require a reason before disabling an account")
+        void shouldRefuseDisable_whenNoReasonIsGiven() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verify(patientPortalService, never())
+                    .setAccountAccess(anyInt(), org.mockito.ArgumentMatchers.anyBoolean(),
+                            anyString(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse a reason longer than the portal accepts, and say why")
+        void shouldRefuseDisable_whenTheReasonIsTooLong() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "r".repeat(PortalAccount2Action.MAX_REASON_LENGTH + 1));
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("at most 64 characters");
+            verify(patientPortalService, never())
+                    .setAccountAccess(anyInt(), org.mockito.ArgumentMatchers.anyBoolean(),
+                            anyString(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"moved\naway", "moved\u0000away", "moved\u202Eyawa", "moved\u200Baway",
+                "moved\u2028away", "moved\tSTATUS=ok", "moved\uFEFFaway", "moved\u2066away\u2069",
+                "moved\uDB40\uDC41away"})
+        @DisplayName("should refuse a reason with line breaks, control or formatting characters")
+        void shouldRefuseDisable_whenTheReasonHasHiddenCharacters(String reason) throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", reason);
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            assertThat(response.getContentAsString()).contains("must not contain line breaks");
+            verify(patientPortalService, never())
+                    .setAccountAccess(anyInt(), org.mockito.ArgumentMatchers.anyBoolean(),
+                            anyString(), any());
+        }
+
+        @Test
+        @DisplayName("should accept accented and non-Latin reasons")
+        void shouldDisableAccount_whenTheReasonIsPlainNonLatinText() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "  Déménagé — 患者の依頼  ");
+            when(patientPortalService.setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), anyString(), any()))
+                    .thenReturn(acknowledgement());
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            verify(patientPortalService)
+                    .setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq("Déménagé — 患者の依頼"), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                // Persian "wants", whose letters a zero-width non-joiner keeps apart
+                "\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u062F",
+                // An emoji sequence joined by a zero-width joiner: woman, health worker
+                "moved away \uD83D\uDC69\u200D\u2695\uFE0F",
+                // A soft hyphen marking where a long word may break
+                "re\u00ADlocated"})
+        @DisplayName("should accept the formatting characters the portal keeps for ordinary text")
+        void shouldDisableAccount_whenTheReasonNeedsAJoinerOrSoftHyphen(String reason) throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", reason);
+            when(patientPortalService.setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), anyString(), any()))
+                    .thenReturn(acknowledgement());
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            verify(patientPortalService).setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq(reason), any());
+        }
+
+        @Test
+        @DisplayName("should disable with the supplied reason")
+        void shouldDisableAccount_whenReasonIsGiven() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "left_practice");
+            when(patientPortalService.setAccountAccess(
+                            eq(DEMOGRAPHIC_NO), eq(false), eq("left_practice"), any()))
+                    .thenReturn(acknowledgement());
+
+            accountAction().execute();
+
+            // The audit row says what was done, never the staff member's free-text reason.
+            audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
+                    eq("PortalAccount2Action.access"), eq("PatientPortal"), anyString(),
+                    eq(String.valueOf(DEMOGRAPHIC_NO)), eq("enabled=false")));
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            verify(patientPortalService)
+                    .setAccountAccess(eq(DEMOGRAPHIC_NO), eq(false), eq("left_practice"), any());
+        }
+
+        /** The portal may have applied a change whose answer CARLOS could not read. */
+        @Test
+        @DisplayName("should audit an unconfirmed change when the portal's answer cannot be read")
+        void shouldAuditUnconfirmedChange_whenTheAnswerCannotBeRead() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenThrow(PatientPortalException.ofMalformedResponse(200, "/x/{id}", null));
+
+            accountAction().execute();
+
+            audit.verify(() -> LogAction.addLog(any(LoggedInInfo.class),
+                    eq("PortalAccount2Action.unlock.unconfirmed"), eq("PatientPortal"), eq("0"),
+                    eq(String.valueOf(DEMOGRAPHIC_NO)), eq("outcome=unconfirmed")));
+        }
+
+        @Test
+        @DisplayName("should write no audit row when the portal refuses the change")
+        void shouldNotAudit_whenThePortalRefusesTheChange() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenThrow(PatientPortalException.ofStatus(403, "/x/{id}", null));
+
+            accountAction().execute();
+
+            audit.verifyNoInteractions();
+        }
+
+        @Test
+        @DisplayName("should preserve ambiguous account lookup failures")
+        void shouldPreserveAmbiguity_whenUnlockReturns404() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/x", null));
+
+            accountAction().execute();
+
+            assertThat(response.getContentAsString())
+                    .doesNotContain("does not have a patient portal account")
+                    .contains("not_found_or_unauthenticated")
+                    .contains("connection needs checking");
+        }
+
+        @Test
+        @DisplayName("should say the patient has no portal account when the portal confirms it")
+        void shouldReportNoPortalAccount_whenUnlockFindsNoAccount() throws Exception {
+            request.setParameter("method", "unlock");
+            when(patientPortalService.unlockAccount(eq(DEMOGRAPHIC_NO), any()))
+                    .thenThrow(
+                            PatientPortalException.ofStatus(
+                                    404, "/x", "portal account not found"));
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_NOT_FOUND);
+            assertThat(response.getContentAsString())
+                    .contains("\"reason\":\"no_portal_account\"")
+                    .contains("does not have a patient portal account")
+                    .doesNotContain("connection needs checking");
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {true, false})
+        @DisplayName("should re-enable without demanding a reason")
+        void shouldEnableAccount_withoutARequiredReason(boolean forcePasswordReset) throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "true");
+            when(patientPortalService.setAccountAccess(
+                            eq(DEMOGRAPHIC_NO), eq(true), anyString(), any()))
+                    .thenReturn(new PatientPortalAccountAcknowledgementDto(5L, "active", forcePasswordReset, null));
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            JsonNode payload = payload();
+            assertThat(payload.has("forcePasswordReset")).isTrue();
+            assertThat(payload.get("forcePasswordReset").booleanValue()).isEqualTo(forcePasswordReset);
+        }
+    }
+
+    @Nested
+    @DisplayName("panel read")
+    class PanelRead {
+
+        private PatientPortalInviteDto invite() {
+            return new PatientPortalInviteDto(
+                    7L, "clinic-a", DEMOGRAPHIC_NO, "pending", "999998", "Dr Example", 1,
+                    Instant.now(), "Dr Example", Instant.now(), null, null);
+        }
+
+        private PatientPortalAccountDto account() {
+            return new PatientPortalAccountDto(
+                    5L, "clinic-a", DEMOGRAPHIC_NO, "active", false, false, null, null);
+        }
+
+        @Test
+        @DisplayName("should permit GET, being read-only")
+        void shouldAllowGet_forAReadOnlyPanel() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenReturn(List.of(invite()));
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+
+            panelAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isTrue();
+            assertThat(payload.get("invites").size()).isEqualTo(1);
+            assertThat(payload.get("account").get("accountId").longValue()).isEqualTo(5L);
+        }
+
+        @Test
+        @DisplayName("should refuse a method that is neither GET nor POST")
+        void shouldRejectDelete_asUnsupported() throws Exception {
+            request.setMethod("DELETE");
+
+            panelAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            assertThat(response.getContentAsString()).contains("method_not_allowed");
+        }
+
+        /**
+         * A section the caller may not read is absent, not empty. An empty invite list means "this
+         * patient has no invitations", and showing that to someone who merely lacks the privilege
+         * would be a falsehood the panel would render faithfully.
+         */
+        @Test
+        @DisplayName("should omit a section the provider may not read, rather than showing it empty")
+        void shouldOmitInvites_whenProviderLacksTheInviteObject() throws Exception {
+            request.setMethod("GET");
+            when(securityInfoManager.hasPrivilege(
+                            any(), eq(PortalStaffContextResolver.OBJECT_INVITE), anyString(),
+                            eq(String.valueOf(DEMOGRAPHIC_NO))))
+                    .thenReturn(false);
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+
+            panelAction().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.has("invites")).isFalse();
+            assertThat(payload.has("invitesError")).isFalse();
+            assertThat(payload.get("account").get("accountId").longValue()).isEqualTo(5L);
+            verify(patientPortalService, never()).listInvites(anyInt(), any());
+        }
+
+        @Test
+        @DisplayName("should refuse a provider holding neither portal object")
+        void shouldRefuseInJson_whenProviderMayReadNeitherSection() throws Exception {
+            request.setMethod("GET");
+            // The patient record stays readable, so only the neither-section gate can refuse.
+            when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_INVITE),
+                    anyString(), eq(String.valueOf(DEMOGRAPHIC_NO)))).thenReturn(false);
+            when(securityInfoManager.hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
+                    anyString(), eq(String.valueOf(DEMOGRAPHIC_NO)))).thenReturn(false);
+
+            panelAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            assertThat(response.getContentAsString()).contains("not_permitted");
+            verify(securityInfoManager).hasPrivilege(any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT),
+                    eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO)));
+            verifyNoInteractions(patientPortalService);
+        }
+
+        @Test
+        @DisplayName("should mark an ambiguous account lookup unavailable")
+        void shouldReportUnavailable_whenTheLookupIsNotFound() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/x", null));
+
+            panelAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString())
+                    .contains("accountError")
+                    .contains("\"ok\":false")
+                    .doesNotContain("no_portal_account");
+        }
+
+        @Test
+        @DisplayName("should report a complete panel with no account when the portal confirms it")
+        void shouldReportNoAccount_whenThePortalConfirmsTheAccountIsAbsent() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(
+                            PatientPortalException.ofStatus(
+                                    404, "/x", "portal account not found"));
+
+            panelAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+            assertThat(response.getContentAsString())
+                    .contains("\"ok\":true")
+                    .contains("\"account\":null")
+                    .doesNotContain("accountError");
+        }
+
+        @Test
+        @DisplayName("should report a portal outage as unavailable, not as an absent account")
+        void shouldReportUnavailable_whenTheAccountLookupFailsForAnotherReason() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/x", null));
+
+            panelAction().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("accountError")
+                    .doesNotContain("no_portal_account");
+        }
+
+        @Test
+        @DisplayName("should still return invitations when the account lookup fails")
+        void shouldKeepInvites_whenOnlyTheAccountSectionFails() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenReturn(List.of(invite()));
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/x", null));
+
+            panelAction().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isFalse();
+            assertThat(payload.get("invites").get(0).has("inviteId")).isTrue();
+            assertThat(payload.get("accountError").asText()).isEqualTo("unavailable");
+        }
+    }
+
+    @Nested
+    @DisplayName("panel delivery attempts")
+    class PanelDeliveries {
+
+        private final PortalInviteDeliveryService invites = mock(PortalInviteDeliveryService.class);
+
+        private PatientPortalAccountDto account() {
+            return new PatientPortalAccountDto(
+                    5L, "clinic-a", DEMOGRAPHIC_NO, "active", false, false, null, null);
+        }
+
+        private PortalPanel2Action panelWithDeliveries() {
+            return new PortalPanel2Action(securityInfoManager, patientPortalService, staffContextResolver, invites);
+        }
+
+        @Test
+        @DisplayName("should list the patient's recent delivery attempts from CARLOS")
+        void shouldListDeliveries_fromCarlos() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/x", "portal account not found"));
+            PatientPortalInviteDelivery row = new PatientPortalInviteDelivery("inv-1", DEMOGRAPHIC_NO, "clinic",
+                    "https://portal-api.example", PatientPortalInviteDelivery.Channel.EMAIL, null, "999998");
+            row.setState(PatientPortalInviteDelivery.State.SEND_UNCERTAIN);
+            row.setOutcome(PatientPortalInviteDelivery.Outcome.SEND_UNCONFIRMED);
+            when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
+            when(invites.isRecoverable(row)).thenReturn(true);
+            when(invites.isOnCurrentConnection(row)).thenReturn(true);
+
+            panelWithDeliveries().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isTrue();
+            assertThat(payload.get("deliveries").size()).isEqualTo(1);
+            assertThat(payload.get("deliveries").get(0).get("state").asText()).isEqualTo("send_uncertain");
+            // Codes, not prose: the staff page translates them.
+            assertThat(payload.get("deliveries").get(0).get("outcome").asText()).isEqualTo("send_unconfirmed");
+            assertThat(payload.get("deliveries").get(0).get("revokeFailed").booleanValue()).isFalse();
+            assertThat(payload.get("deliveries").get(0).has("message")).isFalse();
+            assertThat(payload.get("deliveries").get(0).get("decisions").get(0).asText()).isEqualTo("confirmSent");
+        }
+
+        private PatientPortalInviteDelivery stuckActivation() {
+            PatientPortalInviteDelivery row = new PatientPortalInviteDelivery("inv-2", DEMOGRAPHIC_NO, "clinic",
+                    "https://portal-api.example", PatientPortalInviteDelivery.Channel.EMAIL, null, "999998");
+            row.setState(PatientPortalInviteDelivery.State.COMMITTED);
+            row.setPortalInviteId(41L);
+            ReflectionTestUtils.setField(row, "id", 7L);
+            when(invites.recentFor(DEMOGRAPHIC_NO)).thenReturn(List.of(row));
+            when(invites.isRecoverable(row)).thenReturn(true);
+            when(invites.isOnCurrentConnection(row)).thenReturn(true);
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/x", "portal account not found"));
+            return row;
+        }
+
+        private List<String> decisionsShown() throws Exception {
+            List<String> shown = new java.util.ArrayList<>();
+            payload().get("deliveries").get(0).get("decisions").forEach(node -> shown.add(node.asText()));
+            return shown;
+        }
+
+        @Test
+        @DisplayName("should offer 'it did not arrive' for an activated attempt only when this read shows its code dead")
+        void shouldOfferNotArrived_onlyWhenThePortalShowsTheCodeDead() throws Exception {
+            request.setMethod("GET");
+            PatientPortalInviteDelivery row = stuckActivation();
+            PatientPortalInviteDto replaced = new PatientPortalInviteDto(41L, "clinic", DEMOGRAPHIC_NO, "superseded",
+                    "999998", "Dr Example", 1, java.time.Instant.parse("2026-09-22T15:00:00Z"), "Dr Example",
+                    java.time.Instant.parse("2026-09-29T15:00:00Z"), null, null);
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of(replaced));
+            when(invites.isCodeDead(row, List.of(replaced))).thenReturn(true);
+
+            panelWithDeliveries().execute();
+
+            assertThat(decisionsShown()).containsExactly("confirmSent", "confirmNotArrived");
+        }
+
+        @Test
+        @DisplayName("should not offer 'it did not arrive' while the code is live")
+        void shouldNotOfferNotArrived_whileTheCodeIsLive() throws Exception {
+            request.setMethod("GET");
+            PatientPortalInviteDelivery row = stuckActivation();
+            PatientPortalInviteDto live = new PatientPortalInviteDto(41L, "clinic", DEMOGRAPHIC_NO, "pending",
+                    "999998", "Dr Example", 1, java.time.Instant.parse("2026-09-22T15:00:00Z"), "Dr Example",
+                    java.time.Instant.parse("2026-09-29T15:00:00Z"), null, null);
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of(live));
+            when(invites.isCodeDead(row, List.of(live))).thenReturn(false);
+
+            panelWithDeliveries().execute();
+
+            assertThat(decisionsShown()).containsExactly("confirmSent");
+        }
+
+        @Test
+        @DisplayName("should not offer 'it did not arrive' when the portal's invitations cannot be read")
+        void shouldNotOfferNotArrived_whenThePortalCannotBeRead() throws Exception {
+            request.setMethod("GET");
+            stuckActivation();
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/x", null));
+
+            panelWithDeliveries().execute();
+
+            assertThat(decisionsShown()).containsExactly("confirmSent");
+            // A failed read is not an empty list: an empty one could make an old unlisted code look deleted.
+            verify(invites, never()).isCodeDead(any(), any());
+        }
+
+        @Test
+        @DisplayName("should ask about an unlisted code with the empty list the portal returned")
+        void shouldOfferNotArrived_whenTheServiceCountsAnUnlistedCodeDead() throws Exception {
+            request.setMethod("GET");
+            PatientPortalInviteDelivery row = stuckActivation();
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(invites.isCodeDead(row, List.of())).thenReturn(true);
+
+            panelWithDeliveries().execute();
+
+            assertThat(decisionsShown()).containsExactly("confirmSent", "confirmNotArrived");
+        }
+
+        @Test
+        @DisplayName("should report the deliveries section unavailable rather than empty when it cannot be read")
+        void shouldReportDeliveriesUnavailable_whenTheReadFails() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any())).thenReturn(List.of());
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+            when(invites.recentFor(DEMOGRAPHIC_NO)).thenThrow(new IllegalStateException("database unavailable"));
+
+            panelWithDeliveries().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.get("ok").booleanValue()).isFalse();
+            assertThat(payload.has("deliveries")).isFalse();
+            assertThat(payload.get("deliveriesError").asText()).isEqualTo("unavailable");
+        }
+    }
+
+    @Nested
+    @DisplayName("panel honesty")
+    class PanelHonesty {
+
+        private PatientPortalAccountDto account() {
+            return new PatientPortalAccountDto(
+                    5L, "clinic-a", DEMOGRAPHIC_NO, "active", false, false, null, null);
+        }
+
+        /**
+         * {@code ok} is the field a client will branch on, so it has to be the honest one. It was
+         * hardcoded true before either section was attempted, which meant a total portal outage
+         * returned {@code 200 {"ok":true}} with two error markers a caller had to know to look for
+         * — and a receptionist reading an apparently empty panel concludes the patient has no
+         * portal presence and issues an invitation.
+         */
+        @Test
+        @DisplayName("should report not-ok when a section could not be read")
+        void shouldReportNotOk_whenThePortalIsUnreachable() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenThrow(
+                            PatientPortalException.ofTransportFailure(
+                                    "/x/{id}", new IOException("down")));
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(
+                            PatientPortalException.ofTransportFailure(
+                                    "/y/{id}", new IOException("down")));
+
+            panelAction().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("\"ok\":false")
+                    .contains("invitesError")
+                    .contains("accountError")
+                    // The kind is carried so a caller can tell an outage from a permission problem.
+                    .contains("transport_failure");
+        }
+
+        @Test
+        @DisplayName("should say the portal cannot be reached when no answer came back, without its host or the cause")
+        void shouldMarkSectionsPortalUnavailable_whenThePortalCannotBeReached() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofTransportFailure("/x/{id}",
+                            new ConnectException("portal.clinic.example refused")));
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(503, "/y/{id}", "upstream down"));
+
+            panelAction().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.path("invitesErrorReason").asText()).isEqualTo("portal_unavailable");
+            assertThat(payload.path("accountErrorReason").asText()).isEqualTo("portal_unavailable");
+            assertThat(response.getContentAsString())
+                    .doesNotContain("portal.clinic.example")
+                    .doesNotContain("refused")
+                    .doesNotContain("upstream down");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccountAndPanelActionUnitTest#answeredOrNotSent")
+        @DisplayName("should keep the generic message when the portal answered or CARLOS never sent the request")
+        void shouldNotMarkPortalUnavailable_whenThePortalAnsweredOrNothingWasSent(String label,
+                PatientPortalException failure) throws Exception {
+            request.setMethod("GET");
+            doThrow(failure).when(patientPortalService).listInvites(anyInt(), any());
+            doThrow(failure).when(patientPortalService).findAccount(anyInt(), any());
+
+            panelAction().execute();
+
+            JsonNode payload = payload();
+            // Both sections did fail; they are just not called unreachable.
+            assertThat(payload.get("invitesError").asText()).isEqualTo("unavailable");
+            assertThat(payload.get("accountError").asText()).isEqualTo("unavailable");
+            assertThat(payload.has("invitesErrorReason")).isFalse();
+            assertThat(payload.has("accountErrorReason")).isFalse();
+        }
+
+        @Test
+        @DisplayName("should call the first server error, 500, unreachable")
+        void shouldMarkPortalUnavailable_fromStatus500() throws Exception {
+            request.setMethod("GET");
+            doThrow(PatientPortalException.ofStatus(500, "/x/{id}", null)).when(patientPortalService)
+                    .listInvites(anyInt(), any());
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+
+            panelAction().execute();
+
+            assertThat(payload().path("invitesErrorReason").asText()).isEqualTo("portal_unavailable");
+        }
+
+        @Test
+        @DisplayName("should still report ok when every requested section was read")
+        void shouldReportOk_whenBothSectionsLoad() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenReturn(java.util.List.of());
+            when(patientPortalService.findAccount(anyInt(), any())).thenReturn(account());
+
+            panelAction().execute();
+
+            assertThat(response.getContentAsString()).contains("\"ok\":true");
+        }
+
+        @Test
+        @DisplayName("should report incomplete data when account absence is ambiguous")
+        void shouldReportIncomplete_whenTheAccountLookupIsA404() throws Exception {
+            request.setMethod("GET");
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenReturn(java.util.List.of());
+            when(patientPortalService.findAccount(anyInt(), any()))
+                    .thenThrow(PatientPortalException.ofStatus(404, "/y/{id}", null));
+
+            panelAction().execute();
+
+            assertThat(response.getContentAsString())
+                    .contains("\"ok\":false")
+                    .contains("accountError");
+        }
+
+        /**
+         * The mirror of the invite-section case, which was covered while this one was not.
+         */
+        @Test
+        @DisplayName("should omit the account section when the provider may not read it")
+        void shouldOmitAccount_whenProviderLacksTheAccountObject() throws Exception {
+            request.setMethod("GET");
+            when(securityInfoManager.hasPrivilege(
+                            any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT), anyString(),
+                            eq(String.valueOf(DEMOGRAPHIC_NO))))
+                    .thenReturn(false);
+            when(patientPortalService.listInvites(anyInt(), any()))
+                    .thenReturn(java.util.List.of());
+
+            panelAction().execute();
+
+            JsonNode payload = payload();
+            assertThat(payload.has("invites")).isTrue();
+            assertThat(payload.has("account")).isFalse();
+            assertThat(payload.has("accountError")).isFalse();
+            verify(patientPortalService, never()).findAccount(anyInt(), any());
+        }
+
+        @Test
+        @DisplayName("should advertise the methods it accepts when refusing one")
+        void shouldSendAnAllowHeader_whenTheMethodIsUnsupported() throws Exception {
+            request.setMethod("DELETE");
+
+            panelAction().execute();
+
+            assertThat(response.getHeader("Allow")).isEqualTo("GET, POST");
+        }
+    }
+
+    @Nested
+    @DisplayName("account route gating")
+    class AccountRouteGating {
+
+        /**
+         * Only the unlock arm of the gating ternary was covered, so the other arm could have named
+         * any object at all — including one every provider holds.
+         */
+        @Test
+        @DisplayName("should gate the access route on the account object")
+        void shouldRefuse_whenTheAccountObjectIsAbsentOnTheAccessRoute() throws Exception {
+            when(securityInfoManager.hasPrivilege(
+                            any(), eq(PortalStaffContextResolver.OBJECT_ACCOUNT), anyString(),
+                            eq(String.valueOf(DEMOGRAPHIC_NO))))
+                    .thenReturn(false);
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "false");
+            request.setParameter("reason", "patient request");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+            verifyNoInteractions(patientPortalService);
+        }
+
+        @Test
+        @DisplayName("should refuse a method this action does not have")
+        void shouldRefuse_whenTheMethodParameterIsUnknown() throws Exception {
+            request.setParameter("method", "sudo");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verifyNoInteractions(patientPortalService);
+        }
+
+        /**
+         * An absent or malformed flag must not silently choose the destructive branch.
+         */
+        @Test
+        @DisplayName("should refuse an access request that does not state enabled")
+        void shouldRefuse_whenTheEnabledFlagIsMalformed() throws Exception {
+            request.setParameter("method", "access");
+            request.setParameter("enabled", "1");
+            request.setParameter("reason", "patient request");
+
+            accountAction().execute();
+
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+            verify(patientPortalService, never()).setAccountAccess(anyInt(), anyBoolean(),
+                    anyString(), any());
+        }
+    }
+}

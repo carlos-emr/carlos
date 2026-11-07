@@ -31,14 +31,13 @@
 package io.github.carlos_emr.carlos.encounter.pageUtil;
 
 import io.github.carlos_emr.carlos.util.plugin.IsPropertiesOn;
-import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.DocumentDao.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
+import io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -55,6 +54,17 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
     private static Logger logger = MiscUtils.getLogger();
 
     private static final String cmd = "docs";
+
+    private final EchartDisplayPreferenceResolver echartDisplayPreferenceResolver;
+
+    /** Struts-created router: resolves collaborators from the Spring context. */
+    public EctDisplayDocs2Action() {
+        this(SpringUtils.getBean(EchartDisplayPreferenceResolver.class));
+    }
+
+    EctDisplayDocs2Action(EchartDisplayPreferenceResolver echartDisplayPreferenceResolver) {
+        this.echartDisplayPreferenceResolver = echartDisplayPreferenceResolver;
+    }
 
     public boolean getInfo(EctSessionBean bean, HttpServletRequest request, NavBarDisplayDAO Dao) {
 
@@ -100,10 +110,10 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
             Dao.setRightHeadingID(cmd); // no menu so set div id to unique id for this action
 
             ArrayList<EDoc> docList = EDocUtil.listDocs(loggedInInfo, "demographic", bean.demographicNo, null, EDocUtil.PRIVATE, EDocSort.OBSERVATIONDATE, "active");
-            UserProperty grouping = SpringUtils.getBean(UserPropertyDAO.class).getProp(
-                    loggedInInfo.getLoggedInProviderNo(), UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE);
-            boolean fileByType = grouping != null && "true".equals(
-                    org.apache.commons.lang3.StringUtils.trimToEmpty(grouping.getValue()));
+            // "File Documents in Folders by Document Type" (the provider's eChart preferences):
+            // LeftNavBarDisplay.jsp then files each row under its type instead of listing by date.
+            boolean fileByType = echartDisplayPreferenceResolver
+                    .resolve(loggedInInfo.getLoggedInProviderNo()).groupDocumentsByType();
             Dao.setFiledInFolders(fileByType);
             String untypedFolder = fileByType ? getText("encounter.LeftNavBar.docs.otherFolder") : "";
             String serviceDateStr = "";
@@ -174,6 +184,9 @@ public class EctDisplayDocs2Action extends EctDisplayAction {
 
                 if ("true".equals(curDoc.getAbnormal())) {
                     item.setColour("red");
+                }
+                if (fileByType) {
+                    item.setFolder(folderFor(curDoc.getType(), untypedFolder));
                 }
 
                 if (fileByType) {

@@ -125,7 +125,7 @@ class EmailManagerEncryptionUnitTest extends CarlosUnitTestBase {
             assertThat(result.getErrorMessage()).isEqualTo(FAILURE_MESSAGE);
             assertThat(senders.constructed()).as("nothing is sent").isEmpty();
         }
-        verify(emailLogDao).updateEmailStatus(isNull(), eq(EmailStatus.FAILED), eq(FAILURE_MESSAGE), any(Date.class));
+        verify(emailLogDao).transitionEmailStatus(isNull(), eq(EmailStatus.PENDING), eq(EmailStatus.FAILED), eq(FAILURE_MESSAGE), any(Date.class));
         assertThat(data.getAttachments()).as("no half-built attachment is left on the email").isEmpty();
     }
 

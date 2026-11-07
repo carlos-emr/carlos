@@ -5,6 +5,8 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.Hashtable;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -27,7 +29,7 @@ class RHWorkFlowUnitTest extends CarlosUnitTestBase {
         }
     }
     @Test void shouldPreservePatientFilter_whenRetrievingActiveWorkflows() {
-        ArrayList<?> expected = new ArrayList<>();
+        List<Map<String, Object>> expected = new ArrayList<>();
         try (MockedConstruction<WorkFlowState> construction = mockConstruction(WorkFlowState.class,
                 (mock, context) -> when(mock.getActiveWorkFlowList("RH", "770001")).thenReturn(expected))) {
             assertThat(new RHWorkFlow().getActiveWorkFlowList("770001")).isSameAs(expected);
@@ -37,11 +39,17 @@ class RHWorkFlowUnitTest extends CarlosUnitTestBase {
     @Test void shouldReturnRuleEvaluation_whenDecisionSupportSucceeds() throws Exception {
         WorkFlowDS engine = mock(WorkFlowDS.class);
         when(engine.getMessages(any())).thenAnswer(call -> {
-            WorkFlowInfo info = call.getArgument(0); info.setColour("yellow"); return info;
+            WorkFlowInfo info = call.getArgument(0);
+            info.setColour("yellow");
+            return info;
         });
-        Hashtable<String, Object> input = new Hashtable<>(); input.put("current_state", "2"); input.put("ID", "77");
+        Hashtable<String, Object> input = new Hashtable<>();
+        input.put("current_state", "2");
+        input.put("ID", "77");
         WorkFlowInfo result = new RHWorkFlow().executeRules(engine, input);
-        assertThat(result.getID()).isEqualTo("77"); assertThat(result.getCurrentState()).isEqualTo("2");
-        assertThat(result.getColour()).isEqualTo("yellow"); verify(engine).getMessages(any(WorkFlowInfo.class));
+        assertThat(result.getID()).isEqualTo("77");
+        assertThat(result.getCurrentState()).isEqualTo("2");
+        assertThat(result.getColour()).isEqualTo("yellow");
+        verify(engine).getMessages(any(WorkFlowInfo.class));
     }
 }

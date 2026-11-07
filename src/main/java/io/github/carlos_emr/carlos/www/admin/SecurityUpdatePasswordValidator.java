@@ -47,6 +47,22 @@ public final class SecurityUpdatePasswordValidator {
     private SecurityUpdatePasswordValidator() { }
 
     /**
+     * Whether the submitted value is the edit form's unchanged-password sentinel, which keeps the
+     * stored hash. Callers use this instead of comparing the sentinel themselves so the static
+     * analysis suppression below stays on this one comparison.
+     *
+     * @param password submitted value; null is never the sentinel
+     * @return true only for the exact sentinel
+     */
+    // FindSecBugs HARD_CODE_PASSWORD: the asterisks are the form's keep-the-stored-hash sentinel, not a credential.
+    @SuppressFBWarnings(value = "HARD_CODE_PASSWORD",
+            justification = "The asterisk value is the existing edit-form sentinel that retains the stored hash; "
+                    + "it is not an authentication credential or a newly stored password")
+    public static boolean isUnchanged(String password) {
+        return UNCHANGED_PASSWORD.equals(password);
+    }
+
+    /**
      * Validates the raw, untrimmed value and confirmation. The unchanged sentinel
      * bypasses complexity checks so editing flags never requires a new password.
      *

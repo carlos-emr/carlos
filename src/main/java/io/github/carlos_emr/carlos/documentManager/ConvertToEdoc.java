@@ -121,6 +121,9 @@ public final class ConvertToEdoc {
     public static final String UNAVAILABLE_IMAGE_ATTRIBUTE = "data-carlos-image-unavailable";
     private static final String STYLE_ATTRIBUTE = "style";
     private static String realPath;
+    // Private, unlike the class monitor that `static synchronized` used, so no other code can take
+    // it; from() and saveAsTempPDF() still exclude one another on it (see the class Javadoc).
+    private static final Object RENDER_LOCK = new Object();
 
     /**
      * Creates an EDoc from an EForm whose PDF has already been generated at the specified path.
@@ -130,25 +133,27 @@ public final class ConvertToEdoc {
      * @return EDoc the document object referencing the PDF
      * @throws PDFGenerationException if the PDF file at the given path is not readable
      */
-    public static synchronized EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
-        String demographicNo = eForm.getDemographicId() + "";
-        String filename = buildFilename(eForm.getFormName(), demographicNo);
-        String eDocDescription = (eForm.getSubject() == null || eForm.getSubject().trim().isEmpty()) ? eForm.getFormName() : eForm.getSubject();
-        EDoc edoc = null;
+    public static EDoc from(EFormData eForm, Path eFormPDFPath) throws PDFGenerationException {
+        synchronized (RENDER_LOCK) {
+            String demographicNo = eForm.getDemographicId() + "";
+            String filename = buildFilename(eForm.getFormName(), demographicNo);
+            String eDocDescription = (eForm.getSubject() == null || eForm.getSubject().trim().isEmpty()) ? eForm.getFormName() : eForm.getSubject();
+            EDoc edoc = null;
 
-        if (Files.isReadable(eFormPDFPath)) {
-            edoc = buildEDoc(eFormPDFPath.getFileName().toString(),
-                    eDocDescription,
-                    null,
-                    eForm.getProviderNo(),
-                    demographicNo,
-                    DocumentType.eForm,
-                    eFormPDFPath.getParent().toString());
-        } else {
-            throw new PDFGenerationException("Could not read temporary PDF file " + filename);
+            if (Files.isReadable(eFormPDFPath)) {
+                edoc = buildEDoc(eFormPDFPath.getFileName().toString(),
+                        eDocDescription,
+                        null,
+                        eForm.getProviderNo(),
+                        demographicNo,
+                        DocumentType.eForm,
+                        eFormPDFPath.getParent().toString());
+            } else {
+                throw new PDFGenerationException("Could not read temporary PDF file " + filename);
+            }
+
+            return edoc;
         }
-
-        return edoc;
     }
 
     /**
@@ -158,10 +163,12 @@ public final class ConvertToEdoc {
      * @param eform EFormData the electronic form data to convert
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public static synchronized Path saveAsTempPDF(EFormData eform) {
-        String eformString = eform.getFormData();
-        String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
-        return execute(eformString, filename, HtmlPdfRenderSource.HRM);
+    public static Path saveAsTempPDF(EFormData eform) {
+        synchronized (RENDER_LOCK) {
+            String eformString = eform.getFormData();
+            String filename = buildFilename(eform.getFormName(), eform.getDemographicId() + "");
+            return execute(eformString, filename, HtmlPdfRenderSource.HRM);
+        }
     }
 
     /**
@@ -171,11 +178,13 @@ public final class ConvertToEdoc {
      * @param formTransportContainer FormTransportContainer containing form HTML, metadata, and real path
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public static synchronized Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
-        String htmlString = formTransportContainer.getHTML();
-        ConvertToEdoc.realPath = formTransportContainer.getRealPath();
-        String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
-        return execute(htmlString, filename, HtmlPdfRenderSource.FORM);
+    public static Path saveAsTempPDF(FormTransportContainer formTransportContainer) {
+        synchronized (RENDER_LOCK) {
+            String htmlString = formTransportContainer.getHTML();
+            ConvertToEdoc.realPath = formTransportContainer.getRealPath();
+            String filename = buildFilename(formTransportContainer.getFormName(), formTransportContainer.getDemographicNo());
+            return execute(htmlString, filename, HtmlPdfRenderSource.FORM);
+        }
     }
 
     /**
@@ -185,10 +194,12 @@ public final class ConvertToEdoc {
      * @param emailData EmailData containing the encrypted/HTML email message body
      * @return Path the temporary file path to the produced PDF, or null if conversion fails
      */
-    public static synchronized Path saveAsTempPDF(EmailData emailData) {
-        String htmlString = emailData.getEncryptedMessage();
-        String filename = buildFilename("emailbody_", "");
-        return execute(htmlString, filename, HtmlPdfRenderSource.EMAIL);
+    public static Path saveAsTempPDF(EmailData emailData) {
+        synchronized (RENDER_LOCK) {
+            String htmlString = emailData.getEncryptedMessage();
+            String filename = buildFilename("emailbody_", "");
+            return execute(htmlString, filename, HtmlPdfRenderSource.EMAIL);
+        }
     }
 
     /**
@@ -368,7 +379,8 @@ public final class ConvertToEdoc {
      * context, which works on any thread (a fax scheduler has no request); {@code null} if neither
      * resolves. A root found this way becomes {@link #realPath} too.
      */
-    static synchronized String webappRoot() {
+    static String webappRoot() {
+        synchronized (RENDER_LOCK) {
         if (realPath == null || realPath.isBlank()) {
             try {
                 ServletContext context = SpringUtils.getBean(ServletContext.class);
@@ -381,6 +393,8 @@ public final class ConvertToEdoc {
             }
         }
         return realPath == null || realPath.isBlank() ? null : realPath;
+    
+        }
     }
 
     /**
@@ -390,10 +404,13 @@ public final class ConvertToEdoc {
      * @param realPath String the servlet context real path for resolving relative resource paths
      * @return Document the parsed and cleaned Jsoup DOM
      */
-    public static synchronized Document getDocument(final String documentString, String realPath) {
+    public static Document getDocument(final String documentString, String realPath) {
+        synchronized (RENDER_LOCK) {
 		ConvertToEdoc.realPath = realPath;
 		return getDocument(documentString);
-	}
+	
+        }
+    }
 
     /**
      * Clean and parse the HTML document string into a manageable DOM
@@ -403,7 +420,8 @@ public final class ConvertToEdoc {
      * @param documentString raw HTML string
      * @return org.jsoup.nodes.Document JSoup DOM
      */
-    public static synchronized Document getDocument(String documentString) {
+    public static Document getDocument(String documentString) {
+        synchronized (RENDER_LOCK) {
         Document document = parseDocument(documentString);
 
         /*
@@ -417,6 +435,8 @@ public final class ConvertToEdoc {
          * string is NULL, empty, or if an error occurs.
          */
         return document;
+    
+        }
     }
 
     /**
@@ -1049,7 +1069,8 @@ public final class ConvertToEdoc {
      * Clean up any artifacts or poorly formed XHTML
      * and fetch the HTML template resources.
      */
-    static synchronized String tidyDocument(final String documentString) {
+    static String tidyDocument(final String documentString) {
+        synchronized (RENDER_LOCK) {
         Document document = getDocument(documentString);
 
         /*
@@ -1065,11 +1086,16 @@ public final class ConvertToEdoc {
          * which is the input the HTML-to-PDF service takes.
          */
         return documentToString(document);
+    
+        }
     }
 
-    static synchronized String tidyDocument(final String documentString, String realPath) {
+    static String tidyDocument(final String documentString, String realPath) {
+        synchronized (RENDER_LOCK) {
         ConvertToEdoc.realPath = realPath;
         return tidyDocument(documentString);
+    
+        }
     }
 
     /**

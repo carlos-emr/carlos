@@ -620,15 +620,17 @@ public class RxPrescriptionData {
         return favorite;
     }
 
-    public Favorite getFavorite(int favoriteId) {
+    public Favorite getFavorite(int favoriteId, String providerNo) {
         FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);
         io.github.carlos_emr.carlos.commn.model.Favorite result = dao.find(favoriteId);
-        if (result == null) return null;
+        if (result == null || providerNo == null || !providerNo.equals(result.getProviderNo())) return null;
         return toFavorite(result);
     }
 
-    public boolean deleteFavorite(int favoriteId) {
+    public boolean deleteFavorite(int favoriteId, String providerNo) {
         FavoriteDao dao = SpringUtils.getBean(FavoriteDao.class);
+        io.github.carlos_emr.carlos.commn.model.Favorite result = dao.find(favoriteId);
+        if (result == null || providerNo == null || !providerNo.equals(result.getProviderNo())) return false;
         return dao.remove(favoriteId);
     }
 

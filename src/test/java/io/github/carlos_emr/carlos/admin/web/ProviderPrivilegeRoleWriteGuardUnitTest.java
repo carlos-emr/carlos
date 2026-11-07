@@ -212,7 +212,7 @@ class ProviderPrivilegeRoleWriteGuardUnitTest extends CarlosUnitTestBase {
             ProviderRole2Action action = new ProviderRole2Action();
             assertThatThrownBy(action::execute)
                     .isInstanceOf(SecurityException.class)
-                    .hasMessage("missing required sec object (_admin or _admin.userAdmin)");
+                    .hasMessage("missing required sec object (_admin or _admin.userAdmin with write privilege)");
         }
 
         @ParameterizedTest

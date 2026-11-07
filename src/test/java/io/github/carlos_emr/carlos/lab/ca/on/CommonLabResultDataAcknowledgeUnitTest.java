@@ -76,8 +76,8 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @DisplayName("Lab acknowledgement version selection")
 @Tag("unit")
 @Tag("lab")
+@org.junit.jupiter.api.parallel.Isolated
 class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
-
     private ProviderLabRoutingDao originalRoutingDao;
     private boolean routingDaoReplaced;
 

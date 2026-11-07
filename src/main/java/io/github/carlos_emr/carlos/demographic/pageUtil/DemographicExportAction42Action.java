@@ -20,7 +20,7 @@
  * McMaster University
  * Hamilton
  * Ontario, Canada
- 
+
  * <p>
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
@@ -209,55 +209,24 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
     private static final Logger logger = MiscUtils.getLogger();
-    // Resolved on use, not at class load.
-    //
-    // These were `private static final X = SpringUtils.getBean(X.class)`, which runs during static
-    // initialization — so merely REFERENCING this class required a live Spring bean factory. A unit
-    // test touching the coding-system allowlist below (a plain Map.of constant needing no Spring at
-    // all) therefore died with ExceptionInInitializerError, and every subsequent test in the class
-    // with NoClassDefFoundError: "could not initialize class". CLAUDE.md forbids this shim in new
-    // code for the same reason; the beans are singletons, so resolving per call costs a map lookup
-    // and keeps no state that could go stale.
-    private static DemographicArchiveDao demoArchiveDao() {
-        return SpringUtils.getBean(DemographicArchiveDao.class);
-    }
 
-    private static DemographicContactDao contactDao() {
-        return SpringUtils.getBean(DemographicContactDao.class);
-    }
-
-    private static PartialDateDao partialDateDao() {
-        return SpringUtils.getBean(PartialDateDao.class);
-    }
-
-    private static HRMDocumentToDemographicDao hrmDocToDemographicDao() {
-        return SpringUtils.getBean(HRMDocumentToDemographicDao.class);
-    }
-
-    private static HRMDocumentDao hrmDocDao() {
-        return SpringUtils.getBean(HRMDocumentDao.class);
-    }
-
-    private static HRMDocumentCommentDao hrmDocCommentDao() {
-        return SpringUtils.getBean(HRMDocumentCommentDao.class);
-    }
-
-    private static CaseManagementManager cmm() {
-        return SpringUtils.getBean(CaseManagementManager.class);
-    }
-
-    private static Hl7TextInfoDao hl7TxtInfoDao() {
-        return SpringUtils.getBean(Hl7TextInfoDao.class);
-    }
-
-    private static Hl7TextMessageDao hl7TxtMssgDao() {
-        return SpringUtils.getBean(Hl7TextMessageDao.class);
-    }
-
-    private static DemographicExtDao demographicExtDao() {
-        return SpringUtils.getBean(DemographicExtDao.class);
-    }
-
+    // Instance fields, assigned by a constructor -- never `private static final X =
+    // SpringUtils.getBean(X.class)`. That earlier shape ran during static initialization, so
+    // merely REFERENCING this class needed a live Spring bean factory: a unit test touching the
+    // coding-system allowlist below (a plain Map.of constant needing no Spring at all) died with
+    // ExceptionInInitializerError, taking every later test in the class with it. Struts builds
+    // this action through the no-arg constructor, which resolves the same singletons once per
+    // instance; tests pass mocks to the injected constructor and never touch Spring.
+    private final transient DemographicArchiveDao demoArchiveDao;
+    private final transient DemographicContactDao contactDao;
+    private final transient PartialDateDao partialDateDao;
+    private final transient HRMDocumentToDemographicDao hrmDocToDemographicDao;
+    private final transient HRMDocumentDao hrmDocDao;
+    private final transient HRMDocumentCommentDao hrmDocCommentDao;
+    private final transient CaseManagementManager cmm;
+    private final transient Hl7TextInfoDao hl7TxtInfoDao;
+    private final transient Hl7TextMessageDao hl7TxtMssgDao;
+    private final transient DemographicExtDao demographicExtDao;
     // Note prefix that marks CMS4 (2011-06) dump-site imports; shared by export and header lookups.
     private static final String IMPORTED_CMS4_PREFIX = "imported.cms4.2011.06";
     private static final String PATIENTID = "Patient";
@@ -339,7 +308,37 @@ public class DemographicExportAction42Action extends ActionSupport {
             "msp", DiagnosticCodeDao.class
     );
 
-    private final transient SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final transient SecurityInfoManager securityInfoManager;
+
+    @SuppressWarnings("java:S107")
+    public DemographicExportAction42Action(
+            DemographicArchiveDao demoArchiveDao,
+            DemographicContactDao contactDao,
+            PartialDateDao partialDateDao,
+            HRMDocumentToDemographicDao hrmDocToDemographicDao,
+            HRMDocumentDao hrmDocDao,
+            HRMDocumentCommentDao hrmDocCommentDao,
+            CaseManagementManager cmm,
+            Hl7TextInfoDao hl7TxtInfoDao,
+            Hl7TextMessageDao hl7TxtMssgDao,
+            DemographicExtDao demographicExtDao,
+            SecurityInfoManager securityInfoManager) {
+        this.demoArchiveDao = demoArchiveDao;
+        this.contactDao = contactDao;
+        this.partialDateDao = partialDateDao;
+        this.hrmDocToDemographicDao = hrmDocToDemographicDao;
+        this.hrmDocDao = hrmDocDao;
+        this.hrmDocCommentDao = hrmDocCommentDao;
+        this.cmm = cmm;
+        this.hl7TxtInfoDao = hl7TxtInfoDao;
+        this.hl7TxtMssgDao = hl7TxtMssgDao;
+        this.demographicExtDao = demographicExtDao;
+        this.securityInfoManager = securityInfoManager;
+    }
+
+    public DemographicExportAction42Action() {
+        this(SpringUtils.getBean(DemographicArchiveDao.class), SpringUtils.getBean(DemographicContactDao.class), SpringUtils.getBean(PartialDateDao.class), SpringUtils.getBean(HRMDocumentToDemographicDao.class), SpringUtils.getBean(HRMDocumentDao.class), SpringUtils.getBean(HRMDocumentCommentDao.class), SpringUtils.getBean(CaseManagementManager.class), SpringUtils.getBean(Hl7TextInfoDao.class), SpringUtils.getBean(Hl7TextMessageDao.class), SpringUtils.getBean(DemographicExtDao.class), SpringUtils.getBean(SecurityInfoManager.class));
+    }
 
     Integer exportNo = 0;
     ArrayList<String> exportError = null;
@@ -353,13 +352,13 @@ public class DemographicExportAction42Action extends ActionSupport {
     public String execute() throws Exception {
         boolean statusEditable = oscarProperties.isAppointmentStatusEditingEnabled();
 
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographic", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required security object (_demographic)");
         }
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_demographicExport", "r", null)) {
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographicExport", "r", null)) {
             throw new SecurityException("missing required security object (_demographicExport)");
         }
 
@@ -501,7 +500,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                         Demographic demographic = null;
                         try {
-                            demographic = d.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
+                            demographic = d.getDemographic(loggedInInfo, demoNo);
                         } catch (PatientDirectiveException _) {
                             exportError.add("Unable to export patient " + demoNo + " due to Patient Directive");
                             continue;
@@ -511,7 +510,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             continue;
 
                         HashMap<String, String> demoExt = new HashMap<String, String>();
-                        demoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(demoNo)));
+                        demoExt.putAll(demographicExtDao.getAllValuesForDemo(Integer.parseInt(demoNo)));
 
                         OmdCdsDocument omdCdsDoc = LegacyXmlBeans.newInstance(OmdCdsDocument.class, OmdCdsDocument.type);
                         OmdCdsDocument.OmdCds omdCds = omdCdsDoc.addNewOmdCds();
@@ -632,7 +631,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                         }
 
 
-                        List<DemographicArchive> archives = demoArchiveDao().findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
+                        List<DemographicArchive> archives = demoArchiveDao.findRosterStatusHistoryByDemographicNo(Integer.valueOf(demoNo));
                         Collections.reverse(archives);
 
                         List<Enrolment> enList = new ArrayList<Enrolment>();
@@ -928,12 +927,12 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                         addReferringAndFamilyDoctor(loggedInInfo, demographic.getDemographicNo(), demo);
 
-                        List<CaseManagementNote> lcmn = cmm().getNotes(demoNo);
+                        List<CaseManagementNote> lcmn = cmm.getNotes(demoNo);
 
                         //find all "header"; cms4 only
                         List<CaseManagementNote> headers = new ArrayList<CaseManagementNote>();
                         for (CaseManagementNote cmn : lcmn) {
-                            if (cmn.getNote() != null && cmn.getNote().startsWith(IMPORTED_CMS4_PREFIX) && cmm().getLinkByNote(cmn.getId()).isEmpty())
+                            if (cmn.getNote() != null && cmn.getNote().startsWith(IMPORTED_CMS4_PREFIX) && cmm.getLinkByNote(cmn.getId()).isEmpty())
                                 headers.add(cmn);
                         }
 
@@ -969,14 +968,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     break;
                                 } else continue;
                             }
-                            if (!systemIssue && cmm().getLinkByNote(cmn.getId()).isEmpty()) { //this is not an annotation
+                            if (!systemIssue && cmm.getLinkByNote(cmn.getId()).isEmpty()) { //this is not an annotation
                                 encounter = cmn.getNote();
                                 if (encounter.startsWith(IMPORTED_CMS4_PREFIX))
                                     continue; //this is a "header", cms4 only
                             }
 
                             annotation = getNonDumpNote(CaseManagementNoteLink.CASEMGMTNOTE, cmn.getId(), null);
-                            List<CaseManagementNoteExt> cmeList = cmm().getExtByNote(cmn.getId());
+                            List<CaseManagementNoteExt> cmeList = cmm.getExtByNote(cmn.getId());
 
 
                             if (exPersonalHistory) {
@@ -1352,7 +1351,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         cNote.addNewEventDateTime().setFullDateTime(Util.calDateTZD(cmn.getObservation_date()));
                                     }
 
-                                    List<CaseManagementNote> sameUuidNotes = cmm().getNotesByUUID(cmn.getUuid());
+                                    List<CaseManagementNote> sameUuidNotes = cmm.getNotesByUUID(cmn.getUuid());
                                     for (CaseManagementNote cm_note : sameUuidNotes) {
 
                                         //participating providers
@@ -1576,9 +1575,9 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 
                                 if (allergy.getStartDate() != null) {
-                                    dateFormat = partialDateDao().getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_STARTDATE);
+                                    dateFormat = partialDateDao.getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_STARTDATE);
                                     Util.putPartialDate(alr.addNewStartDate(), allergy.getStartDate(), dateFormat);
-                                    aSummary = Util.addSummary(aSummary, "Start Date", partialDateDao().getDatePartial(allergy.getStartDate(), dateFormat));
+                                    aSummary = Util.addSummary(aSummary, "Start Date", partialDateDao.getDatePartial(allergy.getStartDate(), dateFormat));
                                 }
                                 if (allergy.getLifeStage() != null && "NICTA".contains(allergy.getLifeStage()) && allergy.getLifeStage().length() == 1) {
                                     alr.setLifeStage(cdsDt.LifeStage.Enum.forString(allergy.getLifeStage()));
@@ -1586,9 +1585,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 }
 
                                 if (allergies[j].getEntryDate() != null) {
-                                    dateFormat = partialDateDao().getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_ENTRYDATE);
+                                    dateFormat = partialDateDao.getFormat(PartialDate.ALLERGIES, allergies[j].getAllergyId(), PartialDate.ALLERGIES_ENTRYDATE);
                                     Util.putPartialDate(alr.addNewRecordedDate(), allergies[j].getEntryDate(), dateFormat);
-                                    aSummary = Util.addSummary(aSummary, "Recorded Date", partialDateDao().getDatePartial(allergies[j].getEntryDate(), dateFormat));
+                                    aSummary = Util.addSummary(aSummary, "Recorded Date", partialDateDao.getDatePartial(allergies[j].getEntryDate(), dateFormat));
                                 }
 
                                 annotation = getNonDumpNote(CaseManagementNoteLink.ALLERGIES, (long) allergies[j].getAllergyId(), null);
@@ -1711,12 +1710,12 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     immu.addNewDate().setFullDate(Util.calDate(preventionDate));
                                     imSummary = Util.addSummary(imSummary, "Date", preventionDate);
                                 } else { // partial date
-                                    String dateFormat = partialDateDao().getFormat(PartialDate.PREVENTION, Integer.parseInt((String) prevMap.get("id")), PartialDate.PREVENTION_PREVENTIONDATE);
+                                    String dateFormat = partialDateDao.getFormat(PartialDate.PREVENTION, Integer.parseInt((String) prevMap.get("id")), PartialDate.PREVENTION_PREVENTIONDATE);
                                     String sdfFormat = getSimpleDateFormatFromPatientDateFormat(dateFormat);
                                     if (UtilDateUtilities.StringToDate(preventionDate, sdfFormat) != null) {
                                         Date prevDate = UtilDateUtilities.StringToDate(preventionDate, sdfFormat);
                                         Util.putPartialDate(immu.addNewDate(), prevDate, dateFormat);
-                                        imSummary = Util.addSummary(imSummary, "Date", partialDateDao().getDatePartial(prevDate, dateFormat));
+                                        imSummary = Util.addSummary(imSummary, "Date", partialDateDao.getDatePartial(prevDate, dateFormat));
                                     } else {
                                         logger.error("Failed to export immunization date.");
                                     }
@@ -1751,16 +1750,16 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 MedicationsAndTreatments medi = patientRec.addNewMedicationsAndTreatments();
                                 String mSummary = "";
                                 if (arr[p].getWrittenDate() != null) {
-                                    String dateFormat = partialDateDao().getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_WRITTENDATE);
+                                    String dateFormat = partialDateDao.getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_WRITTENDATE);
                                     Util.putPartialDate(medi.addNewPrescriptionWrittenDate(), arr[p].getWrittenDate(), dateFormat);
-                                    mSummary = Util.addSummary("Prescription Written Date", partialDateDao().getDatePartial(arr[p].getWrittenDate(), dateFormat));
+                                    mSummary = Util.addSummary("Prescription Written Date", partialDateDao.getDatePartial(arr[p].getWrittenDate(), dateFormat));
                                 }
                                 if (arr[p].getRxDate() != null) {
                                     //medi.addNewStartDate().setFullDate(Util.calDate(arr[p].getRxDate()));
                                     //mSummary = Util.addSummary(mSummary,"Start Date", UtilDateUtilities.DateToString(arr[p].getRxDate(),"yyyy-MM-dd"));
-                                    String dateFormat = partialDateDao().getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_STARTDATE);
+                                    String dateFormat = partialDateDao.getFormat(PartialDate.DRUGS, arr[p].getDrugId(), PartialDate.DRUGS_STARTDATE);
                                     Util.putPartialDate(medi.addNewStartDate(), arr[p].getRxDate(), dateFormat);
-                                    mSummary = Util.addSummary("Start Date", partialDateDao().getDatePartial(arr[p].getRxDate(), dateFormat));
+                                    mSummary = Util.addSummary("Start Date", partialDateDao.getDatePartial(arr[p].getRxDate(), dateFormat));
                                 }
                                 String regionalId = arr[p].getRegionalIdentifier();
                                 if (StringUtils.filled(regionalId)) {
@@ -2041,7 +2040,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 
 					String lab_no = labMea.getExtVal("lab_no");
 					if (StringUtils.filled(lab_no)) {
-						Hl7TextMessage hl7TextMessage = hl7TxtMssgDao().find(Integer.valueOf(lab_no));
+						Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(Integer.valueOf(lab_no));
 						String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
 						MessageHandler h = Factory.getHandler(hl7TextMessage.getType(), hl7Body);
 						for (int i=0; i<h.getOBRCount(); i++) {
@@ -2235,10 +2234,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                             }
 
                             //HRM reports
-                            List<HRMDocumentToDemographic> hrmDocToDemographics = hrmDocToDemographicDao().findByDemographicNo(demoNo);
+                            List<HRMDocumentToDemographic> hrmDocToDemographics = hrmDocToDemographicDao.findByDemographicNo(demoNo);
                             for (HRMDocumentToDemographic hrmDocToDemographic : hrmDocToDemographics) {
                                 String hrmDocumentId = hrmDocToDemographic.getHrmDocumentId() + "";
-                                List<HRMDocument> hrmDocs = hrmDocDao().findById(Integer.valueOf(hrmDocumentId));
+                                List<HRMDocument> hrmDocs = hrmDocDao.findById(Integer.valueOf(hrmDocumentId));
                                 for (HRMDocument hrmDoc : hrmDocs) {
                                     String reportFile = hrmDoc.getReportFile();
                                     if (StringUtils.empty(reportFile)) continue;
@@ -2407,7 +2406,7 @@ public class DemographicExportAction42Action extends ActionSupport {
 							}*/
 
                                         //Notes
-                                        List<HRMDocumentComment> comments = hrmDocCommentDao().getCommentsForDocument(Integer.parseInt(hrmDocumentId));
+                                        List<HRMDocumentComment> comments = hrmDocCommentDao.getCommentsForDocument(Integer.parseInt(hrmDocumentId));
                                         String notes = null;
                                         for (HRMDocumentComment comment : comments) {
                                             notes = Util.addLine(notes, comment.getComment());
@@ -3189,12 +3188,12 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         List<CaseManagementNoteLink> cmll;
         if (StringUtils.empty(otherId))
-            cmll = cmm().getLinkByTableIdDesc(tableName, tableId);
+            cmll = cmm.getLinkByTableIdDesc(tableName, tableId);
         else
-            cmll = cmm().getLinkByTableIdDesc(tableName, tableId, otherId);
+            cmll = cmm.getLinkByTableIdDesc(tableName, tableId, otherId);
 
         for (CaseManagementNoteLink cml : cmll) {
-            CaseManagementNote n = cmm().getNote(cml.getNoteId().toString());
+            CaseManagementNote n = cmm.getNote(cml.getNoteId().toString());
             if (n.getNote() != null && !n.getNote().startsWith(IMPORTED_CMS4_PREFIX)) {//not from dumpsite
                 note = n.getNote();
                 break;
@@ -3229,7 +3228,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         ContactDao cDao = SpringUtils.getBean(ContactDao.class);
 
 
-        List<DemographicContact> demoContacts = contactDao().findByDemographicNoAndCategory(demoNo, "professional");
+        List<DemographicContact> demoContacts = contactDao.findByDemographicNoAndCategory(demoNo, "professional");
         for (DemographicContact dc : demoContacts) {
             if ("Referring Doctor".equals(dc.getRole())) {
                 if (dc.getType() == DemographicContact.TYPE_PROFESSIONALSPECIALIST) {
@@ -3271,7 +3270,7 @@ public class DemographicExportAction42Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private void addDemographicContacts(LoggedInInfo loggedInInfo, String demoNo, Demographics demo) {
-        List<DemographicContact> demoContacts = contactDao().findByDemographicNoAndCategory(Integer.valueOf(demoNo), "personal");
+        List<DemographicContact> demoContacts = contactDao.findByDemographicNoAndCategory(Integer.valueOf(demoNo), "personal");
         DemographicContact demoContact;
 
         //create a list of contactIds
@@ -3393,7 +3392,7 @@ public class DemographicExportAction42Action extends ActionSupport {
         if (type == DemographicContact.TYPE_DEMOGRAPHIC) {
             Demographic relDemo = new DemographicData().getDemographic(loggedInInfo, contactId);
             HashMap<String, String> relDemoExt = new HashMap<String, String>();
-            relDemoExt.putAll(demographicExtDao().getAllValuesForDemo(Integer.parseInt(contactId)));
+            relDemoExt.putAll(demographicExtDao.getAllValuesForDemo(Integer.parseInt(contactId)));
 
             Util.writeNameSimple(contact.addNewName(), relDemo.getFirstName(), relDemo.getLastName());
             if (StringUtils.empty(relDemo.getFirstName())) {
@@ -3560,10 +3559,10 @@ public class DemographicExportAction42Action extends ActionSupport {
      * @param demoNo the patient's demographic number (export-log messages only)
      */
     void exportHl7LabResults(PatientRecord patientRec, String demoNo) {
-        List<Object[]> infos = hl7TxtInfoDao().findByDemographicId(Integer.valueOf(demoNo));
+        List<Object[]> infos = hl7TxtInfoDao.findByDemographicId(Integer.valueOf(demoNo));
         for (Object[] info : infos) {
             Hl7TextInfo hl7TxtInfo = (Hl7TextInfo) info[0];
-            Hl7TextMessage hl7TextMessage = hl7TxtMssgDao().find(hl7TxtInfo.getLabNumber());
+            Hl7TextMessage hl7TextMessage = hl7TxtMssgDao.find(hl7TxtInfo.getLabNumber());
             if (hl7TextMessage == null) continue;
 
             String hl7Body = new String(Base64.decodeBase64(hl7TextMessage.getBase64EncodedeMessage()));
@@ -3638,14 +3637,14 @@ public class DemographicExportAction42Action extends ActionSupport {
 		labMeaValues.put("blocked", h.isTestResultBlocked(i, j) ? "BLOCKED" : "");
 		labMeaValues.put("documentEncoding", h.getOBXDocumentEncoding(i, j));
 		labMeaValues.put("other_id", i+"-"+j);
-		
+
 		if (h.isOBXEmbeddedDocument(i, j) || StringUtils.filled(result)) {
 			labMeaValues.put("measureData", result);
 			labMeaValues.put("comments", comments);
 		} else {
 			labMeaValues.put("measureData", comments);
 		}
-		
+
 		String range = labMeaValues.get("range");
 		if ( StringUtils.filled(range)) {
 			String rangeLimits[] = range.split("-");

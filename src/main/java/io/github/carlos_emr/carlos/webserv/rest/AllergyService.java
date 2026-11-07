@@ -40,8 +40,10 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 
+import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.webserv.rest.conversion.AllergyConverter;
 import io.github.carlos_emr.carlos.webserv.rest.to.AllergyResponse;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.AllergyTo1;
@@ -68,6 +70,9 @@ public class AllergyService extends AbstractServiceImpl {
         this.legacyProjection = java.util.Objects.requireNonNull(service);
     }
 
+    @Autowired
+    private SecurityInfoManager securityInfoManager;
+
     @GET
     @Path("/active")
     @Produces("application/json")
@@ -84,6 +89,9 @@ public class AllergyService extends AbstractServiceImpl {
 
     private AllergyResponse active(Integer demographicNo, boolean precisionAware) {
         if (demographicNo == null || demographicNo < 1) throw new jakarta.ws.rs.BadRequestException("demographicNo is required");
+        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_allergy", SecurityInfoManager.READ, demographicNo)) {
+            throw new AccessDeniedException("_allergy", SecurityInfoManager.READ, demographicNo);
+        }
         List<Allergy> allergies = allergyManager.getActiveAllergies(getLoggedInInfo(), demographicNo);
         legacyProjection.requireRestSupported(demographicNo, java.util.Set.of("AllergiesAndAdverseReactions"));
         List<AllergyTo1> allergiesT = new AllergyConverter(dates, precisionAware)

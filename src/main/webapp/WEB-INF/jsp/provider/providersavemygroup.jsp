@@ -29,7 +29,11 @@
 
 --%>
 
+<%@ page import="io.github.carlos_emr.carlos.providers.gate.ProviderWriteGuard" %>
 <%
+    if (!ProviderWriteGuard.requireAdminPost(request, response)) {
+        return;
+    }
     if (session.getAttribute("user") == null) {
         response.sendRedirect(request.getContextPath() + "/logout.htm");
         return;

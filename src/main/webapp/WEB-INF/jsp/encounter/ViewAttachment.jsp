@@ -48,6 +48,7 @@
         import="io.github.carlos_emr.carlos.encounter.immunization.data.*,io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ page
         import="io.github.carlos_emr.carlos.encounter.immunization.pageUtil.*, java.util.*, org.w3c.dom.*" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -207,27 +208,27 @@
                     <tr>
                         <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgFrom"/>:
                         </td>
-                        <td style="background-color: #CCCCFF"><%= sentBy%> <fmt:message key="encounter.ViewAttachment.msgAt"/> <%=remoteName%>
+                        <td style="background-color: #CCCCFF"><carlos:encode value='<%= sentBy %>' context="html"/> <fmt:message key="encounter.ViewAttachment.msgAt"/> <carlos:encode value='<%= remoteName %>' context="html"/>
                         </td>
                     </tr>
                     <tr>
                         <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgSubject"/>:
                         </td>
-                        <td style="background-color: #BBBBFF"><%= thesubject%>
+                        <td style="background-color: #BBBBFF"><carlos:encode value='<%= thesubject %>' context="html"/>
                         </td>
                     </tr>
 
                     <tr>
                         <td style="background-color: #DDDDFF"><fmt:message key="encounter.ViewAttachment.msgDate"/>:
                         </td>
-                        <td style="background-color: #B8B8FF"><%= thedate %>&nbsp;&nbsp; <%= theime %>
+                        <td style="background-color: #B8B8FF"><carlos:encode value='<%= thedate %>' context="html"/>&nbsp;&nbsp; <carlos:encode value='<%= theime %>' context="html"/>
                         </td>
                     </tr>
 
                     <tr>
                         <td style="background-color: #EEEEFF"><label for="attachment-message"><fmt:message key="messenger.CreateMessage.msgMessage"/></label></td>
                         <td style="background-color: #EEEEFF"><textarea id="attachment-message" name="Message" wrap="hard"
-                                                        readonly="true" rows="18" cols="60"><%=themessage%></textarea>
+                                                        readonly="true" rows="18" cols="60"><carlos:encode value='<%= themessage %>' context="html"/></textarea>
                         </td>
                     </tr>
 

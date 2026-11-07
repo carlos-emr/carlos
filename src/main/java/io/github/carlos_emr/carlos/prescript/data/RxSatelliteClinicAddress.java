@@ -38,10 +38,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * prescription, in the one wire shape both ends of that exchange agree on.
  *
  * <p>{@code rx/ViewScript2.jsp} lists the prescriber's satellite clinics and, when one is chosen,
- * sends its block to {@code FrmCustomedPDFServlet} as the {@code scAddress} parameter, which the
- * servlet parses back into clinic name, address, telephone and fax for the page header. The block
- * is therefore a wire format, not presentation: the page must compose it exactly as the servlet
- * splits it (bold prescriber name, then {@code <br>}-separated lines), and the servlet must be able
+ * sends its block, for printing or faxing, as the {@code scAddress} parameter, which
+ * {@code PrescriptionPdfComposer} parses back into clinic name, address, telephone and fax for the page
+ * header. The block is therefore a wire format, not presentation: the page must compose it exactly as the
+ * composer splits it (bold prescriber name, then {@code <br>}-separated lines), and the composer must be able
  * to recompute the set of blocks the page could legitimately have sent, because {@code scAddress}
  * is a request parameter and an outbound fax must not carry a clinic header the caller typed.
  * Keeping the composition and the candidate list here, used by both, is what stops the two from

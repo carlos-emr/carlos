@@ -42,7 +42,10 @@
     <%@page import="io.github.carlos_emr.CarlosProperties"%>
     <%@page contentType="text/javascript; charset=UTF-8" pageEncoding="UTF-8"%>
     <%@page import="io.github.carlos_emr.carlos.casemgmt.common.Colour"%>
+    <%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver"%>
+    <%@page import="io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences"%>
     <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+    <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:message var="noteSavingLabel" key="web.record.details.saving"/>
@@ -96,6 +99,17 @@
     var reloadWindows = new Object();
     var updateDivTimer = null;
     var reloadDivUrl;
+    <%-- Family Doctor / Referring Doctor left-column panels this provider's eChart preferences turn
+         on (Family Doctor on and Referring Doctor off by default; EchartDisplayPreference), in display
+         order. Static paths and ids only; navBarLoader() puts them at the top of the left column. --%>
+    <%
+        EchartDisplayPreferences navEchartPrefs = SpringUtils.getBean(EchartDisplayPreferenceResolver.class)
+                .resolve(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo());
+    %>
+    var echartDoctorPanels = [<% if (navEchartPrefs.showFamilyDoctor()) { %>
+        {path: "/encounter/displayFamilyDoctor", id: "fDoc"},<% } %><% if (navEchartPrefs.showReferringDoctor()) { %>
+        {path: "/encounter/displayReferringDoctor", id: "rDoc"},<% } %>
+    ];
     var reloadDiv;
     var activeCCWindows = [];
 
@@ -1014,6 +1028,12 @@
                 ctx + "/encounter/displayEForms?hC=" + Colour.eForms,
             ];
             var leftNavBarTitles = ["preventions", "tickler", "msgs", "docs", "labs", "HRM", "measurements", "consultation", "forms", "eforms"];
+            // Family Doctor / Referring Doctor panels go first in the column, as OSCAR 19 placed its
+            // fDoc/rDoc widgets; which of them this provider sees is decided server-side above.
+            for (var panelIdx = echartDoctorPanels.length - 1; panelIdx >= 0; --panelIdx) {
+                leftNavBar.unshift(ctx + echartDoctorPanels[panelIdx].path + "?hC=" + Colour.contacts);
+                leftNavBarTitles.unshift(echartDoctorPanels[panelIdx].id);
+            }
             var rightNavBar = [
                 ctx + "/encounter/displayDisease?hC=" + Colour.disease,
                 chartActionUrl("/CaseManagementView?hc=") + Colour.familyHistory + "&method=listNotes&providerNo=" + providerNo + "&demographicNo=" + demographicNo + "&issue_code=FamHistory&title=" + famHistoryLabel + "&cmd=FamHistory" + "&appointment_no=" + appointmentNo,
@@ -2225,8 +2245,9 @@ function updateCPPNote() {
         });
     }
 
+    <fmt:message key="email.compose.msg.copyFailed" var="emailCopyFailed"/>
     function viewEmailByLogId(width, height, url) {
-        window.open(url, "_blank", "width=1100,height=1000");
+        openEmailCompose(url, width, height, "${carlos:forJavaScript(emailCopyFailed)}");
     }
 
 //this func fires only if maximize button is clicked
@@ -2944,6 +2965,10 @@ function updateCPPNote() {
     }
 
     function saveNoteAjax(method, chain) {
+        if (lostNoteLock) {
+            alert(noteLockLostError);
+            return false;
+        }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
         if (deferNoteSaveUntilIssues(function () { saveNoteAjax(method, chain); })) return false;
@@ -3023,7 +3048,9 @@ function updateCPPNote() {
 
         var url = chartActionUrl("/CaseManagementEntry");
 
+        // Keep the editor and typed text until the server confirms a new notes pane.
         var restoreControls = beginNoteSwitchSave();
+        var saveConfirmed = false;
 
         CarlosAjax.request(
             url,
@@ -3032,6 +3059,12 @@ function updateCPPNote() {
                 postBody: params,
                 evalScripts: true,
                 onSuccess: function (request) {
+                    var responseDocument = new DOMParser().parseFromString(request.responseText, "text/html");
+                    if (!responseDocument.getElementById("encMainDiv")) {
+                        alert(savingNoteError);
+                        return;
+                    }
+                    saveConfirmed = true;
                     destroyNoteIssueAutocomplete();
                     $("notCPP").update(request.responseText);
                     var qc = $("quickChart");
@@ -3042,17 +3075,30 @@ function updateCPPNote() {
                     }
                 },
                 onFailure: function (request) {
-                    // In particular, a stale-revision 409 must leave the clinician's
-                    // text and selected issues available to copy or recover.
-                    alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
-                    setTimer();
+                    if (request.status == 409) {
+                        lostNoteLock = true;
+                        alert(noteLockLostError);
+                    } else if (request.status == 403) {
+                        alert(sessionExpiredError);
+                    } else {
+                        alert(savingNoteError + " " + request.status);
+                    }
                 },
-                onComplete: function () { restoreControls(); }
+                onComplete: function () {
+                    restoreControls();
+                    if (!saveConfirmed && !lostNoteLock) setTimer();
+                }
             }
         );
         return false;
     }
     function savePage(method, chain) {
+        // Same guard as saveNoteAjax: once the lock is known lost, a native submit would leave the
+        // chart for the refusal page, so warn here and keep the editor and its text.
+        if (lostNoteLock) {
+            alert(noteLockLostError);
+            return false;
+        }
         // Opening/editing a note refreshes its issue fields asynchronously. Save only
         // after both fragments finish, so the form and its issue selection stay intact.
         if (deferNoteSaveUntilIssues(function () { savePage(method, chain); })) return false;

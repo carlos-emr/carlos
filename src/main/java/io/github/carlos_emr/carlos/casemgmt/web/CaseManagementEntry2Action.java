@@ -123,6 +123,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
     private static final String CASE_MANAGEMENT_LIST_REDIRECT_PATH = "/CaseManagementView?method=view";
     private static final int REMOVED_ISSUE_MESSAGE_OVERHEAD = 64;
 
+    private boolean requireNotePost() {
+        if ("POST".equals(request.getMethod())) {
+            return true;
+        }
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return false;
+    }
+
     private static String appendRemovedIssueMessage(String noteText, Locale locale, ResourceBundle props, CharSequence issueNames) {
         String originalNote = StringUtils.defaultString(noteText);
         return new StringBuilder(originalNote.length() + issueNames.length() + REMOVED_ISSUE_MESSAGE_OVERHEAD)
@@ -141,6 +150,18 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         module.addSerializer(java.sql.Date.class, new JsDateSerializer());
         objectMapper.registerModule(module);
     }
+
+    /**
+     * The {@code method} values that change something: a note, an issue, a draft or a note lock. They
+     * accept only POST, matching the existing contract for {@code save}. Opening, reading, printing
+     * and restoring the chart stay GET (the default {@code edit}, {@code restore}, the histories).
+     */
+    static final Set<String> POST_ONLY_METHODS = Set.of(
+            "save", "saveAndExit", "autosave", "cancel", "ajaxsave",
+            "issueNoteSave", "issueNoteSaveJson", "ticklerSaveNote",
+            "isNoteEdited", "updateNoteLock", "releaseNoteLock",
+            "makeIssue", "issueAdd", "submitChangeDiagnosis", "ajaxChangeDiagnosis",
+            "issueChange", "issueDelete");
 
     // Whitelist for the 'from' request parameter — only "casemgmt" is a known valid value
     private static final Set<String> ALLOWED_FROM_VALUES = Set.of("casemgmt");
@@ -314,7 +335,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
     private String dispatchRequest() throws Exception {
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
-        
+        // Save actions accept only POST; other verbs are refused before anything is written.
+        if (POST_ONLY_METHODS.contains(method) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         if ("setUpMainEncounter".equals(method)) {
             return setUpMainEncounter();
         } else if ("isNoteEdited".equals(method)) {
@@ -2072,16 +2099,27 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("change_flag", "false");
 
         String demono = getDemographicNo(request);
+        // Check the selected program editor, not the patient-wide cache another window may own.
+        // noteSave repeats this check after preparing display metadata, so a takeover in between
+        // cannot turn an initially valid request into a write under the replacement lock.
+        String unsavedNoteText = request.getParameter("caseNote_note");
+        if (unsavedNoteText == null) unsavedNoteText = this.getCaseNote_note();
+        CaseManagementEntryFormBean selectedForm = (CaseManagementEntryFormBean) session.getAttribute(
+                ChartProgramContext.formKey(request, demono)); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- read of this session's validated patient/program editor form
+        if (selectedForm != null && selectedForm.getCaseNote() != null
+                && demono.equals(selectedForm.getCaseNote().getDemographic_no())
+                && fullFormNoteLock(demono, selectedForm.getCaseNote()) == null) {
+            return rejectedFullFormSave(unsavedNoteText, "view");
+        }
+
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
-        // Capture the raw draft before noteSave trims text or adds a signature.
-        String unsavedNoteText = request.getParameter("caseNote_note");
-        if (unsavedNoteText == null) unsavedNoteText = this.getCaseNote_note();
         long noteId = noteSave();
         if (noteId < 0) return rejectedFullFormSave(unsavedNoteText, "view");
+
 
         /* prepare the message */
         addActionMessage(getText("note.saved"));
@@ -2128,7 +2166,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         if (response.getStatus() != HttpServletResponse.SC_CONFLICT) return fallbackResult;
         request.setAttribute("noteRevisionConflict", Boolean.TRUE);
         request.setAttribute("unsavedNoteText", unsavedNoteText);
-        return "windowCloseError";
+        return RequestNegotiation.isAjax(request) ? NONE : "windowCloseError";
     }
 
     /** Preserve missing fields, clear explicit blanks, and validate every value before applying any. */

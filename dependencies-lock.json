@@ -25,12 +25,28 @@
     "integrity" : "sha512:iAm4bSbhXkp/LtUbybV76vM+Gd3b8gROeNl8pxFZvHvGxWtXG4GFZSLAUwRppeplWeigtYiPq3XPG918LOD3Ig=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
+    "artifactId" : "hapi-fhir-structures-r4",
+    "version" : "8.4.3",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:N+SS+bK11taEgE1XccHJYNp6fT/3RWM3EiDiHpW1ZPZVdjWR4/JL6NEC5LnkU4aDAS/dWSRa1gGUExkXJB+xPw=="
+  }, {
+    "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "org.hl7.fhir.dstu3",
     "version" : "6.9.10",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
     "integrity" : "sha512:3YPd+OMy+EPMy8mkHlasjGB+4zFO400cq257GV0BSHCUrU3OYRmDePtLLEgXtSTCWlo3Wek/IQvUbOxjiwmMZA=="
+  }, {
+    "groupId" : "ca.uhn.hapi.fhir",
+    "artifactId" : "org.hl7.fhir.r4",
+    "version" : "6.9.10",
+    "scope" : "compile",
+    "type" : "jar",
+    "optional" : false,
+    "integrity" : "sha512:wehsIbFcCI9qOBU/BSkom4AwqVNl7fRAwD3cQBqofX16e0pS5kZWKTGGflhWFlJ6flyG3Nt/UhpVldCCKzju1Q=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "org.hl7.fhir.utilities",

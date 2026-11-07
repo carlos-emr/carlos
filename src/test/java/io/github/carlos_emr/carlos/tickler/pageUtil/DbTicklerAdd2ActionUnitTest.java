@@ -36,6 +36,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -116,6 +118,31 @@ class DbTicklerAdd2ActionUnitTest extends CarlosUnitTestBase {
     void tearDown() {
         loggedInInfoMock.close();
         servletActionContextMock.close();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"x", "😀"})
+    void shouldRefuseBeforeAnyWrite_whenMessageExceedsUtf8StorageCapacity(String character) throws Exception {
+        int width = character.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        request.setParameter("ticklerMessage", character.repeat(65536 / width));
+        request.setParameter("writeToEncounter", "true");
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(request.getAttribute("ticklerMessageTooLong")).isEqualTo(Boolean.TRUE);
+        assertThat(request.getAttribute("rowsAffected")).isNull();
+        org.mockito.Mockito.verifyNoInteractions(ticklerManager, ticklerAttachmentService);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldPreserveTheWholeMessage_whenSupplementaryCharactersExactlyFitUtf8Capacity() throws Exception {
+        String message = "😀".repeat(16383) + "abc";
+        request.setParameter("ticklerMessage", message);
+        assertThat(new DbTicklerAdd2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        ArgumentCaptor<Tickler> saved = ArgumentCaptor.forClass(Tickler.class);
+        verify(ticklerManager).addTickler(eq(loggedInInfo), saved.capture());
+        assertThat(saved.getValue().getMessage()).isEqualTo(message);
+        assertThat(request.getAttribute("rowsAffected")).isEqualTo(Boolean.TRUE);
     }
 
     @Test

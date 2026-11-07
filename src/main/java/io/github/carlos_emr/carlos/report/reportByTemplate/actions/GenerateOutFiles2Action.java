@@ -55,6 +55,8 @@ import java.math.BigDecimal;
 import java.util.regex.Pattern;
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Created on December 21, 2006, 10:47 AM
  *
@@ -64,8 +66,16 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public class GenerateOutFiles2Action extends ActionSupport {
-    private static final Pattern CANONICAL_DECIMAL = Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?");
+    private static final Pattern CANONICAL_DECIMAL = canonicalDecimal();
     private final SecurityInfoManager securityInfoManager;
+
+    // FindSecBugs REDOS: false positive -- no nested or overlapping quantifiers; the 0 and [1-9]
+    // alternatives start with disjoint characters and the fraction needs a literal '.', so matching
+    // is linear. Its one caller also rejects input over 17 characters before matching.
+    @SuppressFBWarnings(value = "REDOS", justification = "false positive: no nested or overlapping quantifiers; disjoint alternatives and a literal-dot fraction make matching linear; input length is capped before matching")
+    private static Pattern canonicalDecimal() {
+        return Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?");
+    }
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();

@@ -45,6 +45,11 @@
     if (request.getAttribute("DateError") != null) {
         error = (String) request.getAttribute("DateError");
     }
+    // The page carries clinical text the user just typed; it must never be cached or replayed.
+    response.setHeader("Cache-Control", "no-store");
+    String unsavedNote = (String) request.getAttribute("unsavedNoteText");
+    if (unsavedNote == null) unsavedNote = request.getParameter("caseNote_note");
+    boolean showUnsavedNote = unsavedNote != null && !unsavedNote.isBlank();
 %>
 <html>
 <head>
@@ -68,11 +73,11 @@
         <c:otherwise><carlos:encode value="<%= error %>"/></c:otherwise>
     </c:choose>
 </h3>
-<c:if test="${noteRevisionConflict or observationDateRejected or noteInputRejected}">
-    <label id="unsaved-note-label" for="unsaved-note-text"><fmt:message key="casemanagementEntry.notenotsavedyet"/></label>
-    <textarea id="unsaved-note-text" rows="16" readonly aria-labelledby="unsaved-note-label"
-              style="display:block;width:95%;margin:1em auto;">
-${carlos:forHtml(unsavedNoteText)}</textarea>
-</c:if>
+<% if (showUnsavedNote) { %>
+<p id="unsavedNoteHint"><fmt:message key="casemgmt.closeWithError.unsavedNoteHint"/></p>
+<label for="unsavedNoteText"><fmt:message key="casemgmt.closeWithError.unsavedNoteLabel"/></label>
+<textarea id="unsavedNoteText" readonly rows="12" style="width:100%;box-sizing:border-box;"
+          aria-describedby="unsavedNoteHint"><carlos:encode value="<%= unsavedNote %>"/></textarea>
+<% } %>
 </body>
 </html>

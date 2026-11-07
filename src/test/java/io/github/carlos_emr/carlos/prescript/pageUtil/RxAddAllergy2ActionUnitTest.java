@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -58,10 +59,20 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link RxAddAllergy2Action}, focused on the "archive old allergy"
- * branch that regressed to an IDOR (issue #2467): the audit log must only record
- * an archive when {@link RxPatientData.Patient#deleteAllergy(int)} actually
- * archived a record owned by the session patient.
+ * Unit tests for {@link RxAddAllergy2Action}, focused on the request guards that
+ * must run before any allergy add/archive side effect fires.
+ *
+ * <p>Invariants pinned here:
+ * <ul>
+ *   <li>the "archive old allergy" branch that regressed to an IDOR (issue #2467):
+ *       an amendment must name an allergy owned by the requested patient, and the
+ *       audit log records an archive only when the conditional amendment actually
+ *       archived it (stale amendments are refused with 409, issue #4410);</li>
+ *   <li>malformed {@code type} values are rejected with HTTP 400 instead of
+ *       escaping as an unhandled {@code NumberFormatException} / 500; and</li>
+ *   <li>a retried save carrying the same {@code saveToken} writes at most once
+ *       (issue #3488).</li>
+ * </ul>
  *
  * @since 2026-07-06
  */
@@ -261,6 +272,83 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a missing type before adding an allergy")
+    void shouldRejectAdd_whenTypeParameterMissing() throws Exception {
+        mockRequest.removeParameter("type");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("Missing or empty type parameter");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a blank type before adding an allergy")
+    void shouldRejectAdd_whenTypeParameterIsBlank() throws Exception {
+        mockRequest.setParameter("type", "   ");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("Missing or empty type parameter");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should reject a non-numeric type before adding an allergy")
+    void shouldRejectAdd_whenTypeParameterIsNonNumeric() throws Exception {
+        mockRequest.setParameter("type", "abc");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+        assertThat(mockResponse.getErrorMessage()).isEqualTo("Invalid type parameter");
+        verify(mockRxPatient, never()).addAllergy(any(), any());
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    @DisplayName("should not burn the saveToken when the type is malformed")
+    void shouldKeepSaveTokenUsable_whenTypeIsMalformed() throws Exception {
+        mockRequest.setParameter("saveToken", "11111111-2222-3333-4444-555555555555");
+        mockRequest.setParameter("type", "abc");
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(mockResponse.getStatus()).isEqualTo(400);
+
+        mockRequest.setParameter("type", "1");
+        assertThat(new RxAddAllergy2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient, times(1)).addAllergy(any(), any());
+    }
+
+    @Test
+    @DisplayName("should add allergy when start date is absent")
+    void shouldAddAllergy_whenStartDateIsAbsent() throws Exception {
+        ArgumentCaptor<Allergy> allergyCaptor = ArgumentCaptor.forClass(Allergy.class);
+        mockRequest.setParameter("type", "0");
+        mockRequest.removeParameter("startDate");
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockRxPatient).addAllergy(any(), allergyCaptor.capture());
+        assertThat(allergyCaptor.getValue().getTypeCode()).isZero();
+        assertThat(allergyCaptor.getValue().getStartDate()).isNull();
+        logActionMock.verify(() -> LogAction.addLog(
+                eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
+                any(String.class), any(String.class), eq("123"), any(String.class)));
+        verify(mockRxPatient, never()).deleteAllergy(anyInt());
+    }
+
+    @Test
     @DisplayName("should add allergy and log ADD when no prior allergy is archived")
     void shouldAddAllergyAndLogAdd_whenNoAllergyToArchive() throws Exception {
         String result = action.execute();
@@ -290,7 +378,7 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(drugData.constructed()).isEmpty();
         }
         assertThat(action.isIdentifiersUnresolved()).isFalse();
-        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        ArgumentCaptor<Allergy> saved = ArgumentCaptor.forClass(Allergy.class);
         verify(mockRxPatient).addAllergy(any(), saved.capture());
         assertThat(saved.getValue().getDrugrefId()).isEqualTo("39007");
         assertThat(saved.getValue().getRegionalIdentifier()).isNullOrEmpty();
@@ -434,7 +522,7 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
             action.execute();
         }
 
-        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        ArgumentCaptor<Allergy> saved = ArgumentCaptor.forClass(Allergy.class);
         verify(mockRxPatient).addAllergy(any(), saved.capture());
         assertThat(saved.getValue().getAtc()).isEqualTo("J01CA04");
         assertThat(saved.getValue().getRegionalIdentifier()).isEqualTo("00012345");
@@ -454,7 +542,7 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
             assertThat(result).isEqualTo(ActionSupport.SUCCESS);
         }
 
-        org.mockito.ArgumentCaptor<Allergy> saved = org.mockito.ArgumentCaptor.forClass(Allergy.class);
+        ArgumentCaptor<Allergy> saved = ArgumentCaptor.forClass(Allergy.class);
         verify(mockRxPatient).addAllergy(any(), saved.capture());
         assertThat(saved.getValue().getAtc()).isNullOrEmpty();
         // The search id is kept as the DrugRef id but is not presented as a DIN.

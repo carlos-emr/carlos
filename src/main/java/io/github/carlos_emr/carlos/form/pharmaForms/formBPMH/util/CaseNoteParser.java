@@ -28,8 +28,6 @@
  */
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.util;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -46,7 +44,6 @@ public class CaseNoteParser {
     private final static String PHONE_KEY = "p";
     private final static String FAX_KEY = "f";
     private final static String WS = "\\W"; // remove whitespace.
-    private final static Pattern DEMO_NOTES_PATTERN = Pattern.compile("<unotes>(.+?)</unotes>");
     private final static String COMMA = ",";
     private final static String COLON = ":";
 
@@ -95,15 +92,11 @@ public class CaseNoteParser {
     public static String getValue(String note, final String key) {
 
         String value = "";
-        Matcher matcher = null;
         String[] keyArray = null;
 
         if (!StringUtils.isBlank(note)) {
 
-            matcher = DEMO_NOTES_PATTERN.matcher(note);
-            if (matcher.find()) {
-                note = matcher.group(1);
-            }
+            note = io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(note);
 
             if (note.contains(COMMA)) {
 

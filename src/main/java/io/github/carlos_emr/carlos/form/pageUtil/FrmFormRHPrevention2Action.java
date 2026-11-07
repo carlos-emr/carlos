@@ -31,10 +31,10 @@
 package io.github.carlos_emr.carlos.form.pageUtil;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
-import java.util.Hashtable;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -144,11 +144,10 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
             throw new IllegalArgumentException("Invalid RH state");
         }
         WorkFlow flow = new WorkFlowFactory().getWorkFlow("RH");
-        ArrayList current = flow.getActiveWorkFlowList(demographicNo);
-        Hashtable selected = null;
+        List<Map<String, Object>> current = flow.getActiveWorkFlowList(demographicNo);
+        Map<String, Object> selected = null;
         if (current != null) {
-            for (Object candidate : current) {
-                Hashtable row = (Hashtable) candidate;
+            for (Map<String, Object> row : current) {
                 if (workflowId == null || workflowId.equals(row.get("ID"))) {
                     selected = row;
                     break;
@@ -171,8 +170,8 @@ public class FrmFormRHPrevention2Action extends ActionSupport {
         if (workId <= 0) throw new IllegalStateException("RH workflow was not created");
         FrmRecord record = new FrmRecordFactory().factory("RhImmuneGlobulin");
         Properties props = new Properties();
-        for (Enumeration names = request.getParameterNames(); names.hasMoreElements();) {
-            String name = (String) names.nextElement();
+        for (Enumeration<String> names = request.getParameterNames(); names.hasMoreElements();) {
+            String name = names.nextElement();
             props.setProperty(name, request.getParameter(name));
         }
         props.setProperty("workflowId", String.valueOf(workId));

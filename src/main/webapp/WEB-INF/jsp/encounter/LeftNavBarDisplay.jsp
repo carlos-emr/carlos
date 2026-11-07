@@ -30,13 +30,23 @@
 --%>
 
 <%--
-    Renders a configured chart navigation module and its patient-specific items.
-    Features include permission-aware headings, expandable item lists, and issue
-    headings that clear the note filter through the chart's guarded reset handler.
-    Request attributes: DAO supplies the module heading, links and items; navbarName
-    identifies the module and cmd selects its write permission. Optional reloadURL
-    and numToDisplay parameters control refresh and the number of visible items.
-    @since 2026-10-14 (issue-heading reset behavior)
+    Left Navbar Display (LeftNavBarDisplay.jsp)
+    Shared renderer for each module panel (issues, allergies, measurements,
+    episode, etc.) in the encounter/e-chart left navigation column.
+
+    Reads a NavBarDisplayDAO from the "DAO" request attribute, populated by
+    the corresponding EctDisplay*2Action#getInfo() implementation, and
+    renders its heading (popup link, click-action link, or static label when
+    no action is configured — see NavBarDisplayDAO#hasInteractiveLeftHeading(),
+    issue #3444) plus its list of items with optional column-wrapping,
+    auto-complete, and popup-menu support.
+
+    Parameters (request attributes):
+    - DAO: NavBarDisplayDAO instance to render (required)
+    - navbarName: module identifier used for element IDs (e.g. "allergies")
+    - reloadURL, numToDisplay: pagination/reload query parameters
+
+    @since 2006 (original), heading interactivity documented 2026-08-13
 --%>
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -206,8 +216,9 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         //left hand module header comes last as it's displayed as a block
     %>
     <div class="nav-menu-title">
-<%      NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
-        if (leftCfg != null) { %>
+<%      if (dao.hasInteractiveLeftHeading()) {
+            NavBarDisplayDAO.PopupConfig leftCfg = dao.getLeftPopup();
+            if (leftCfg != null) { %>
         <h3><a href="javascript:void(0)" onclick="<%=trackHeadingPopup(dao, leftCfg)%>popupPage(<%=leftCfg.width()%>,<%=leftCfg.height()%>,'<carlos:encode value='<%= leftCfg.windowName() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= leftCfg.url() %>' context="javaScriptAttribute"/>'); return false;"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
 <%      } else if ("unresolvedIssues".equals(navbarName) || "resolvedIssues".equals(navbarName)) { %>
@@ -219,6 +230,9 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
 <%      } else { %>
         <h3><a href="javascript:void(0)" onclick="<carlos:encode value='<%= dao.getLeftURL() + "; return false;" %>' context="javaScriptAttribute"/>"><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/>
         </a></h3>
+<%          }
+        } else { %>
+        <h3><carlos:encode value='<%= dao.getLeftHeading() %>' context="html"/></h3>
 <%      } %>
     </div>
 </div>
@@ -278,6 +292,10 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
         StringBuilder jscode = new StringBuilder();
 
         if (dao.isFiledInFolders()) {
+            // One collapsible folder per distinct Item#getFolder() (the Documents panel's
+            // "File Documents in Folders by Document Type" eChart preference). Every row is
+            // rendered, collapsed inside its folder, so the date buckets and the 6-row cut-off
+            // below do not apply; the visible row count is the number of folders.
             numDisplayed = displayFolders(dao, jscode, displayThreshold, reloadURL.toString(), request, out);
         } else if ("docs".equals(navbarName)) {
             // Preserve the action's single newest-first list, including undated documents last.
@@ -440,7 +458,7 @@ autoCompleted['<carlos:encode value='<%= acItem.key() %>' context="javaScriptBlo
             String listId = SafeEncode.forHtmlAttribute(navbarName + "folder" + folderIndex);
             out.println("<li class=\"nav-folder\">");
             out.println("<button type=\"button\" class=\"nav-folder-toggle\" aria-expanded=\"false\" aria-controls=\""
-                    + listId + "\" onclick=\"" + FOLDER_TOGGLE_ONCLICK + "\">"
+                    + listId + "\" onclick=\"" + FOLDER_TOGGLE_ONCLICK + "\"><i class=\"fa-solid fa-folder\" aria-hidden=\"true\"></i> "
                     + SafeEncode.forHtmlContent(name) + " (" + items.size() + ")</button>");
             out.println("<ul id=\"" + listId + "\" class=\"nav-folder-items\" hidden>");
             // Offsets keep the per-row image ids unique across folders; with numToDisplay equal to

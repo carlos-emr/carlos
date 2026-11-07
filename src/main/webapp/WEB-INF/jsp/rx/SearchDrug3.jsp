@@ -272,7 +272,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
         <fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
-        <fmt:message key="SearchDrug.js.discontinueIncomplete"     var="msg_discontinueIncomplete"/>
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
         <fmt:message key="SearchDrug.js.requestRefused"            var="msg_requestRefused"/>
@@ -320,7 +319,6 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 savePrompt: '${carlos:forJavaScript(msg_savePrompt)}',
                 saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
                 saveIncomplete: '${carlos:forJavaScript(msg_saveIncomplete)}',
-                discontinueIncomplete: '${carlos:forJavaScript(msg_discontinueIncomplete)}',
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
                 requestRefused: '${carlos:forJavaScript(msg_requestRefused)}',

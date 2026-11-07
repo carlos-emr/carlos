@@ -133,6 +133,7 @@ async function workflow(s) {
     await ledger.probe(s, { label: 'provider/providercontrol displaymode=vary -> providersavemygroup.jsp',
       path: providerControl,
       params: forMember(d6, { displaymode: 'vary', displaymodevariable: '/WEB-INF/jsp/provider/providersavemygroup.jsp' }),
+      // Retired mode: a 404 for every method, so no refusal status is specific to GET/HEAD.
       snapshot: () => sql.value(member(d6)), requireStatus: false });
   });
 

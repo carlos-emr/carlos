@@ -107,6 +107,8 @@ class NotesServiceNewNoteResponseUnitTest extends CarlosUnitTestBase {
         inject("programMgr", mock(ProgramManager.class));
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), anyString())).thenReturn(true);
+        when(security.hasPrivilege(any(), anyString(), anyString(), org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        when(manager.isClientInProgramDomain(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.anyList())).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(any(), anyInt())).thenReturn(true);
         inject("securityInfoManager", security);
     }

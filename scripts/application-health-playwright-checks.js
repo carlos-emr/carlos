@@ -6,7 +6,7 @@
  *   TEST_USER=... TEST_PASSWORD=... TEST_PIN=... node scripts/application-health-playwright-checks.js
  *
  * Optional environment:
- *   BASE_URL=http://127.0.0.1:8080/carlos
+ *   BASE_URL=https://127.0.0.1:8443/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   TEST_USER=...
  *   TEST_PASSWORD=...
@@ -29,7 +29,8 @@ function requireEnv(name) {
   return value;
 }
 
-const baseUrl = validateCredentialBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+const baseUrl = validateCredentialBaseUrl(process.env.BASE_URL || 'https://127.0.0.1:8443/carlos');
+if (baseUrl.protocol !== 'https:') throw new Error('BASE_URL must use HTTPS because CARLOS session cookies are Secure');
 const chromePath = process.env.CHROME_PATH || '';
 const testUser = requireEnv('TEST_USER');
 const testPassword = requireEnv('TEST_PASSWORD');

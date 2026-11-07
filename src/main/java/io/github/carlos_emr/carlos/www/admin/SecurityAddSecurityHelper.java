@@ -44,6 +44,8 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import org.apache.logging.log4j.Logger;
 
 
 /**
@@ -56,6 +58,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  */
 public class SecurityAddSecurityHelper {
 
+    private static final Logger logger = MiscUtils.getLogger();
     /** Page attribute naming the role given to a login that was created. */
     public static final String ASSIGNED_ROLE_ATTRIBUTE = "assignedRole";
 
@@ -120,14 +123,14 @@ public class SecurityAddSecurityHelper {
         s.setUserName(userName);
         s.setPassword(securityManager.encodePassword(password));
         s.setProviderNo(providerNo);
-        s.setPin(request.getParameter("pin"));
-        s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
+        s.setPin(encodeOptionalPin(request.getParameter("pin")));
+        s.setBExpireset(parseLockSetting(request.getParameter("b_ExpireSet")));
         s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
-        s.setBLocallockset(request.getParameter("b_LocalLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_LocalLockSet")));
-        s.setBRemotelockset(request.getParameter("b_RemoteLockSet") == null ? 0 : Integer.parseInt(request.getParameter("b_RemoteLockSet")));
+        s.setBLocallockset(parseLockSetting(request.getParameter("b_LocalLockSet")));
+        s.setBRemotelockset(parseLockSetting(request.getParameter("b_RemoteLockSet")));
         s.setForcePasswordReset("1".equals(request.getParameter("forcePasswordReset")));
         s.setPasswordUpdateDate(new Date());
-        s.setPinUpdateDate(new Date());
+        s.setPinUpdateDate(s.getPin() == null ? null : new Date());
         if ("1".equals(request.getParameter("enableMfa"))) {
             s.setUsingMfa(Boolean.TRUE);
             s.setBLocallockset(0);
@@ -140,7 +143,6 @@ public class SecurityAddSecurityHelper {
 
     private String process(PageContext pageContext) {
         ServletRequest request = pageContext.getRequest();
-
 
         String userName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
         if (!userName.matches(USER_NAME_PATTERN)) {
@@ -185,5 +187,45 @@ public class SecurityAddSecurityHelper {
         pageContext.setAttribute(ASSIGNED_ROLE_ATTRIBUTE, roleName);
 
         return "admin.securityaddsecurity.msgAdditionSuccess";
+    }
+
+    /**
+     * Hashes a submitted PIN, tolerating its absence.
+     *
+     * <p>The add form omits the PIN controls entirely when legacy PINs are globally disabled, and
+     * disables them when MFA is selected; a disabled input is not submitted. So the parameter
+     * arrives null, or empty if the control rendered but was left blank. Hashing regardless is
+     * wrong in both cases: a null stamps a pinUpdateDate on an account that has no PIN, and an
+     * empty string encodes to a perfectly valid bcrypt hash of "", leaving a PIN-less row looking
+     * PIN-protected. Absent and blank both mean no PIN.</p>
+     *
+     * @param rawPin The submitted PIN value, possibly null.
+     * @return The hashed PIN, or null when no PIN was supplied.
+     */
+    private String encodeOptionalPin(String rawPin) {
+        if (rawPin == null || rawPin.trim().isEmpty()) {
+            return null;
+        }
+        return this.securityManager.encodePin(rawPin);
+    }
+
+    /**
+     * Parses a lock-setting request value.
+     *
+     * <p>Valid form values are expected to be numeric flags, where 0 disables the lock and 1 enables
+     * it. Missing or malformed values default to 0 so direct POSTs cannot fail provider creation with
+     * an unhandled parsing exception.</p>
+     *
+     * @param value The submitted lock-setting value.
+     * @return The parsed numeric flag, or 0 when the value is missing or invalid.
+     */
+    static int parseLockSetting(String value) {
+        try {
+            int parsed = value == null ? 0 : Integer.parseInt(value);
+            return parsed == 1 ? 1 : 0;
+        } catch (NumberFormatException e) {
+            logger.warn("Invalid security lock setting submitted; defaulting to disabled");
+            return 0;
+        }
     }
 }

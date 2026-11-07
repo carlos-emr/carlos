@@ -1,0 +1,1155 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.integration.patientportal;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.Closeable;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.function.BooleanSupplier;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.core5.http.ClassicHttpRequest;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.io.entity.ByteArrayEntity;
+
+/**
+ * Outbound channel to the patient portal's {@code /internal/carlos/**} API.
+ *
+ * <p>This owns the authenticated envelope every portal call shares: the service bearer token and a
+ * short-lived, Ed25519-signed assertion of the caller. A staff call carries the provider assertion
+ * ({@code X-CARLOS-Staff-Assertion}); a call a CARLOS job makes with no person behind it carries the
+ * job's own assertion ({@code X-CARLOS-Job-Assertion}, see {@link PortalJobAssertionSigner}) and
+ * never the staff one, since the portal refuses a request carrying both. Timeouts and redirect
+ * policy belong to {@link PatientPortalHttpClientExchange}; the status-to-outcome mapping belongs to
+ * {@link PatientPortalException}.
+ *
+ * <p><b>Security boundaries this class holds:</b>
+ *
+ * <ul>
+ *   <li>The destination comes from {@link PatientPortalSettings} only. No method accepts a host, so
+ *       no CARLOS request parameter can point portal traffic somewhere else.
+ *   <li>The clinic id is read from configuration, not from the caller, so a caller cannot claim to
+ *       act for another clinic.
+ *   <li>Path identifiers are numeric and rendered as such, so nothing a caller supplies can escape
+ *       into the path and reach an endpoint it was not authorized for.
+ *   <li>Nothing here logs. The service token, invite tokens, and passphrases pass through this
+ *       class, and the surest way not to leak them is to have no statement that could.
+ * </ul>
+ *
+ * <p><b>What this class deliberately does not do:</b> it does not deliver invites, and it does not
+ * decide when a passphrase may be published. Those orderings belong to the CARLOS workflow that
+ * owns the outbound message — see issue #3475.
+ *
+ * @since 2026-08-19
+ */
+public class PatientPortalService implements Closeable {
+
+    static final String AUTHORIZATION_HEADER = "Authorization";
+    static final String STAFF_ASSERTION_HEADER = PortalStaffAssertionSigner.HEADER;
+    static final String JOB_ASSERTION_HEADER = PortalJobAssertionSigner.HEADER;
+
+    private static final String BEARER_PREFIX = "Bearer %s";
+    private static final String INVALID_PATH = "portal endpoint path is not a valid URI";
+    private static final String EMPTY_BODY = "portal returned an empty or non-JSON body";
+    private static final String UNEXPECTED_SUCCESS_STATUS =
+            "portal returned an unexpected success status";
+    // Only established protocol messages may cross the logging/browser boundary.
+    private static final Set<String> SAFE_DETAILS = Set.of(
+            "permission denied", "not found", PatientPortalException.ACCOUNT_NOT_FOUND_DETAIL,
+            "unlock secret not found", "demographic scope mismatch",
+            "portal account already exists", "pending invite already exists", "invite not found",
+            "invite cannot be resent", "accepted invite cannot be revoked",
+            "superseded invite cannot be revoked", "source reference was already published",
+            "source reference was revoked", "source reference belongs to another patient",
+            "unlock secret cannot be published", "contact review not found",
+            "contact review revision conflict", "invalid account access request",
+            "unlock secret is temporarily unavailable", "invite preparation conflicts",
+            "invite preparation unavailable", "invite delivery conflicts",
+            "another invite delivery is being prepared", "invite delivery is not committed",
+            "booking prompt not found", PatientPortalService.CHOICE_NOT_PENDING_DETAIL,
+            PatientPortalService.CHOICE_WITHDRAWN_DETAIL, PatientPortalService.CHOICE_EXPIRED_DETAIL,
+            PatientPortalService.CHOICE_RESULT_CONFLICT_DETAIL,
+            "key_missing", "key_revoked", "key_changed");
+
+    /**
+     * The portal's {@code 409} details for a choice result (carlos-portal README, "Offered times").
+     * The detail text is part of the contract: after "withdrawn" or "expired" CARLOS must undo any
+     * booking it made for that pick, because the portal will never show it as booked.
+     */
+    public static final String CHOICE_NOT_PENDING_DETAIL = "booking choice is not pending";
+    public static final String CHOICE_WITHDRAWN_DETAIL = "booking choice was withdrawn";
+    public static final String CHOICE_EXPIRED_DETAIL = "booking choice expired";
+    public static final String CHOICE_RESULT_CONFLICT_DETAIL = "booking choice already has a different result";
+    private static final String NOT_AN_ARRAY = "portal returned a non-array invite listing";
+
+    private static final String BOOKING_PROMPTS_PATH = "/internal/carlos/patients/%d/booking-prompts";
+    private static final String BOOKING_ELIGIBILITY_PATH = "/internal/carlos/patients/%d/booking-eligibility";
+    private static final String BOOKING_WITHDRAW_PATH = "/internal/carlos/booking-prompts/%d/withdraw";
+    private static final String BOOKING_CHOICES_PATH = "/internal/carlos/booking-prompts/choices?state=pending&limit=%d";
+    private static final String BOOKING_CHOICE_RESULT_PATH = "/internal/carlos/booking-prompts/%d/choice-result";
+    /** The portal lists at most this many pending picks per poll. */
+    public static final int MAX_BOOKING_CHOICES_PER_POLL = 100;
+
+    private static final String INVITES_PATH = "/internal/carlos/patients/%d/invites";
+    private static final String INVITE_PREPARE_PATH =
+            "/internal/carlos/patients/%d/invites/prepare";
+    private static final String INVITE_RESEND_PREPARE_PATH =
+            "/internal/carlos/invites/%d/resend/prepare";
+    private static final String INVITE_DELIVERY_COMMIT_PATH =
+            "/internal/carlos/invites/%d/commit-delivery";
+    private static final String INVITE_REVOKE_PATH = "/internal/carlos/invites/%d/revoke";
+    private static final String UNLOCK_PATH = "/internal/carlos/patients/%d/unlock";
+    private static final String ACCOUNT_PATH = "/internal/carlos/patients/%d/portal-account";
+    private static final String ACCESS_PATH = "/internal/carlos/patients/%d/portal-account/access";
+    private static final String SECRETS_PATH = "/internal/carlos/patients/%d/unlock-secrets";
+    private static final String SECRET_PUBLISH_PATH = "/internal/carlos/unlock-secrets/%d/publish";
+    private static final String SECRET_REVOKE_PATH = "/internal/carlos/unlock-secrets/%d/revoke";
+    private static final String REVIEWS_PATH = "/internal/carlos/contact-reviews?limit=%d&offset=%d";
+    private static final String REVIEW_DECISION_PATH =
+            "/internal/carlos/contact-reviews/%d/decision";
+
+    private static final String CLINIC_KEYS_PATH = "/internal/carlos/mycarlos/clinic-keys";
+    private static final String PUT = "PUT";
+    private static final String GET = "GET";
+    private static final String POST = "POST";
+    private static final int OK = 200;
+    private static final int CREATED = 201;
+    private static final int MAX_DELIVERY_OPERATION_ID_LENGTH = 64;
+    private static final int MAX_DELIVERY_REFERENCE_LENGTH = 128;
+
+    /** The portal caps a contact-review page at 100 records per request. */
+    public static final int MAX_REVIEW_PAGE_SIZE = 100;
+
+    /** Highest contact-review offset accepted by the portal query contract. */
+    public static final int MAX_REVIEW_OFFSET = 100_000;
+
+    /** The only secret type the portal currently mints. */
+    static final String SECRET_TYPE_EMAIL = "email";
+
+    private final PatientPortalSettings settings;
+    private final PatientPortalHttpExchange exchange;
+    private final PortalStaffAssertionSigner assertionSigner;
+    private final BooleanSupplier myCarlosDeliveryEnabled;
+    private final ObjectMapper objectMapper = new ObjectMapper().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+
+    public PatientPortalService(PatientPortalSettings settings) {
+        this(
+                settings,
+                settings == null ? null : new PatientPortalHttpClientExchange(settings),
+                settings == null
+                        ? null
+                        : PortalStaffAssertionSigner.from(settings.staffAssertionPrivateKey()),
+                PortalMyCarlosDeliverySettings::isEnabled);
+    }
+
+    /** Test seam: lets the authenticated envelope be asserted without a socket. */
+    PatientPortalService(PatientPortalSettings settings, PatientPortalHttpExchange exchange) {
+        this(
+                settings,
+                exchange,
+                settings == null
+                        ? null
+                        : PortalStaffAssertionSigner.from(settings.staffAssertionPrivateKey()));
+    }
+
+    /** Test seam: allows deterministic assertion time and identifiers. */
+    PatientPortalService(
+            PatientPortalSettings settings,
+            PatientPortalHttpExchange exchange,
+            PortalStaffAssertionSigner assertionSigner) {
+        this(settings, exchange, assertionSigner, () -> false);
+    }
+
+    /** Test seam: enables only the isolated myCarlos channel, without deployment properties. */
+    PatientPortalService(
+            PatientPortalSettings settings,
+            PatientPortalHttpExchange exchange,
+            PortalStaffAssertionSigner assertionSigner,
+            BooleanSupplier myCarlosDeliveryEnabled) {
+        if (myCarlosDeliveryEnabled == null) {
+            throw new PatientPortalConfigurationException("myCarlos delivery switch is required");
+        }
+        if (settings == null) {
+            throw new PatientPortalConfigurationException("patient portal settings are required");
+        }
+        if (exchange == null) {
+            throw new PatientPortalConfigurationException("patient portal transport is required");
+        }
+        if (assertionSigner == null) {
+            throw new PatientPortalConfigurationException(
+                    "patient portal staff assertion signer is required");
+        }
+        this.settings = settings;
+        this.exchange = exchange;
+        this.assertionSigner = assertionSigner;
+        this.myCarlosDeliveryEnabled = myCarlosDeliveryEnabled;
+    }
+
+    /**
+     * Publishes an explicit complete inventory of clinic document-signing public keys.
+     *
+     * <p>The documented myCarlos switch defaults off. This method has no scheduler or inventory
+     * source: callers must include historical revoked keys, and use the separate key-publish job.
+     * A transport failure may follow a successful publication; repeat the identical full inventory.
+     *
+     * @throws PortalRequestPreparationException when disabled, missing an inventory, or given another job
+     * @throws PatientPortalException when transport fails or the portal refuses or misstates the publication
+     */
+    public PatientPortalClinicKeysPublishResult publishClinicKeys(
+            PatientPortalClinicKeysPublishRequest inventory, PortalJobAssertionSigner job) {
+        if (!myCarlosDeliveryEnabled.getAsBoolean()) {
+            throw new PortalRequestPreparationException("myCarlos delivery is disabled");
+        }
+        if (inventory == null) {
+            throw new PortalRequestPreparationException("clinic public key inventory is required");
+        }
+        Caller caller = keyPublish(job);
+        try {
+            PortalMyCarlosKeyReplacementProofs.validateAll(settings.clinicId(), inventory);
+        } catch (IllegalArgumentException invalid) {
+            throw new PortalRequestPreparationException("clinic public key replacement proof is invalid");
+        }
+        return fetch(PUT, CLINIC_KEYS_PATH, inventory.toJson(objectMapper).toString(), OK, caller,
+                payload -> PatientPortalClinicKeysPublishResult.fromJson(payload, settings.clinicId(), inventory));
+    }
+
+    /** Reads saved attempts using only the administrator read attestation and fixed audit endpoint. */
+    public PortalEmailFooterAuditPage listEmailFooterAttempts(LocalDate date, int limit, String before,
+            PatientPortalStaffContext staff) {
+        if (staff == null || !staff.permissions().equals(Set.of(
+                PatientPortalStaffContext.PERMISSION_EMAIL_AUDIT_READ))) {
+            throw new PortalRequestPreparationException("portal footer history requires a scoped admin read context");
+        }
+        if (date == null || date.getYear() < 1 || date.getYear() > 9999 || limit < 1 || limit > 100
+                || (before != null && !PortalEmailFooterAuditPage.validCursor(before))) {
+            throw new PortalRequestPreparationException("portal footer history query is invalid");
+        }
+        // Only validated fixed-alphabet query values; no caller-selected path or String.format %s.
+        String endpoint = "/internal/carlos/email-footer-attempts";
+        String path = endpoint + "?date=" + date + "&limit=" + limit
+                + (before == null ? "" : "&before=" + before);
+        PatientPortalHttpResponse response;
+        try {
+            response = exchange.send(buildRequest(GET, path, null, staff));
+        } catch (PortalResponseTooLargeException e) {
+            throw unreadableBody(e.statusCode(), endpoint,
+                    new PortalContractException("portal footer history exceeds size limit"));
+        } catch (PortalResponseDecodingException e) {
+            throw unreadableBody(e.statusCode(), endpoint,
+                    new PortalContractException("portal footer history is not valid UTF-8"));
+        } catch (IOException e) {
+            throw PatientPortalException.ofTransportFailure(endpoint, e);
+        }
+        if (!response.isSuccess()) {
+            throw PatientPortalException.ofStatus(response.statusCode(), endpoint, safeDetail(response.body()));
+        }
+        try {
+            if (response.statusCode() != OK) throw new PortalContractException(UNEXPECTED_SUCCESS_STATUS);
+            if (response.body() == null || response.body().getBytes(StandardCharsets.UTF_8).length
+                    > PortalEmailFooterAuditPage.MAX_PAGE_BYTES) {
+                throw new PortalContractException("portal footer history exceeds size limit");
+            }
+            JsonNode payload;
+            try {
+                payload = objectMapper.reader().with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                        .readTree(response.body());
+            } catch (JsonProcessingException e) {
+                // Parser exceptions can contain remote text; retain only a fixed diagnostic.
+                throw new PortalContractException("portal footer history is not valid JSON");
+            }
+            return PortalEmailFooterAuditPage.fromJson(payload, date, limit, before, settings.clinicId());
+        } catch (PortalContractException e) {
+            throw PatientPortalException.ofMalformedResponse(response.statusCode(), endpoint, e);
+        }
+    }
+
+    /** Releases the pooled connections held by the transport, when it owns any. */
+    @Override
+    public void close() throws IOException {
+        if (exchange instanceof Closeable closeable) {
+            closeable.close();
+        }
+    }
+
+    /**
+     * Prepares an inactive first invite for a durable email transaction.
+     *
+     * <p>The operation id is idempotent: retrying it before commit returns the same token. The
+     * token cannot activate an account until {@link #commitInviteDelivery(long, String, String,
+     * PatientPortalStaffContext)} confirms that CARLOS has durably recorded the outbound message.
+     */
+    public PatientPortalPreparedInviteDto prepareInvite(
+            int demographicNo,
+            String email,
+            LocalDate dateOfBirth,
+            String healthCardNumber,
+            String deliveryOperationId,
+            PatientPortalStaffContext staff) {
+        String operationId = deliveryIdentifier(
+                deliveryOperationId,
+                MAX_DELIVERY_OPERATION_ID_LENGTH,
+                "delivery operation id",
+                false);
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("demographic_no", demographicNo);
+        body.put("email", email);
+        body.put("date_of_birth", dateOfBirth == null ? null : dateOfBirth.toString());
+        body.put("health_card_number", healthCardNumber);
+        body.put("delivery_operation_id", operationId);
+        return fetch(
+                POST,
+                INVITE_PREPARE_PATH,
+                body.toString(),
+                CREATED,
+                staff,
+                node -> PatientPortalPreparedInviteDto.fromJson(node, operationId, null),
+                demographicNo);
+    }
+
+    /** Prepares a replacement without invalidating the invite the patient already has. */
+    public PatientPortalPreparedInviteDto prepareInviteResend(
+            long inviteId, String deliveryOperationId, PatientPortalStaffContext staff) {
+        String operationId = deliveryIdentifier(
+                deliveryOperationId,
+                MAX_DELIVERY_OPERATION_ID_LENGTH,
+                "delivery operation id",
+                false);
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("delivery_operation_id", operationId);
+        return fetch(
+                POST,
+                INVITE_RESEND_PREPARE_PATH,
+                body.toString(),
+                CREATED,
+                staff,
+                node -> PatientPortalPreparedInviteDto.fromJson(node, operationId, inviteId),
+                inviteId);
+    }
+
+    /**
+     * Activates a prepared invite after the referenced email job has committed durably.
+     *
+     * <p>The portal atomically changes the prepared invite to pending and supersedes its old invite.
+     * Repeating the exact operation and delivery reference is safe; changing either is rejected.
+     */
+    public PatientPortalInviteDto commitInviteDelivery(
+            long inviteId,
+            String deliveryOperationId,
+            String deliveryReference,
+            PatientPortalStaffContext staff) {
+        String operationId = deliveryIdentifier(
+                deliveryOperationId,
+                MAX_DELIVERY_OPERATION_ID_LENGTH,
+                "delivery operation id",
+                false);
+        String reference = deliveryIdentifier(
+                deliveryReference, MAX_DELIVERY_REFERENCE_LENGTH, "delivery reference", true);
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("delivery_operation_id", operationId);
+        body.put("delivery_reference", reference);
+        return fetch(
+                POST,
+                INVITE_DELIVERY_COMMIT_PATH,
+                body.toString(),
+                OK,
+                staff,
+                node -> confirmedCommittedInvite(node, inviteId, operationId, reference),
+                inviteId);
+    }
+
+    /** Returns only booking eligibility; booking staff do not need general account-read permission. */
+    public boolean isBookingEligible(int demographicNo, PatientPortalStaffContext staff) {
+        return fetch(GET, BOOKING_ELIGIBILITY_PATH, null, OK, staff, payload -> {
+            if (!settings.clinicId().equals(PortalJson.requiredText(payload, "clinic_id"))
+                    || PortalJson.positiveInt(payload, "demographic_no") != demographicNo) {
+                throw new PortalContractException("portal returned a different booking eligibility scope");
+            }
+            return PortalJson.requiredBool(payload, "eligible");
+        }, demographicNo);
+    }
+
+    /** Stable operation IDs make a repeated create return the original prompt without another notice. */
+    public PatientPortalBookingPromptDto.Creation createBookingPrompt(
+            int demographicNo, PatientPortalBookingPromptRequest request,
+            PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("operation_id", request.operationId());
+        body.put("urgency", request.urgency());
+        body.put("appointment_type", request.appointmentType());
+        body.put("suggested_by", request.suggestedBy());
+        if (!request.offeredSlots().isEmpty()) {
+            var slots = body.putArray("offered_slots");
+            request.offeredSlots().forEach(slot -> slots.add(slot.toJson(objectMapper)));
+        }
+        Parsed parsed = send(POST, BOOKING_PROMPTS_PATH, body.toString(), staff, demographicNo);
+        try {
+            validateScope(parsed.payload(), BOOKING_PROMPTS_PATH, new Object[]{demographicNo});
+            PatientPortalBookingPromptDto prompt = PatientPortalBookingPromptDto.fromJson(parsed.payload());
+            boolean created = PortalJson.requiredBool(parsed.payload(), "created");
+            if (parsed.statusCode() != CREATED
+                    || created && !"sent".equals(prompt.state())
+                    || !request.urgency().equals(prompt.urgency())
+                    || !request.appointmentType().equals(prompt.appointmentType())
+                    || !Objects.equals(request.suggestedBy(), prompt.suggestedBy())) {
+                throw new PortalContractException("portal did not confirm the requested booking prompt");
+            }
+            return new PatientPortalBookingPromptDto.Creation(prompt, created);
+        } catch (PortalContractException exception) {
+            throw PatientPortalException.ofMalformedResponse(
+                    parsed.statusCode(), templateOf(BOOKING_PROMPTS_PATH), exception);
+        }
+    }
+
+    /** Latest 100 prompts; an omitted ID cannot authorize a subsequent withdrawal. */
+    public List<PatientPortalBookingPromptDto> listBookingPrompts(
+            int demographicNo, PatientPortalStaffContext staff) {
+        return fetch(GET, BOOKING_PROMPTS_PATH, null, OK, staff, payload -> {
+            if (!payload.isArray()) {
+                throw new PortalContractException("portal returned a non-array booking listing");
+            }
+            List<PatientPortalBookingPromptDto> prompts = new ArrayList<>();
+            for (JsonNode node : payload) {
+                prompts.add(PatientPortalBookingPromptDto.fromJson(node));
+            }
+            return List.copyOf(prompts);
+        }, demographicNo);
+    }
+
+    /**
+     * Patients' picks of offered times waiting for CARLOS, oldest first, signed as the
+     * {@code booking-sync} job claiming {@code portal.booking_prompt.sync}. The portal closes picks
+     * whose time has started before listing; those must not be booked.
+     *
+     * @throws PortalRequestPreparationException if {@code job} is not the booking-sync job's signer
+     */
+    public PatientPortalBookingChoiceDto.Page listPendingBookingChoices(int limit, PortalJobAssertionSigner job) {
+        if (limit < 1 || limit > MAX_BOOKING_CHOICES_PER_POLL) {
+            throw new PortalRequestPreparationException("booking choice page size is out of range");
+        }
+        return fetch(GET, BOOKING_CHOICES_PATH, null, OK, bookingSync(job),
+                PatientPortalBookingChoiceDto.Page::fromJson, limit);
+    }
+
+    /**
+     * Reports whether CARLOS booked a pick, signed as the {@code booking-sync} job. Idempotent per
+     * choice: the same result again is {@code recorded == false}. Replacement times go only with
+     * {@code slot_unavailable}; the portal adds them after the times still on offer, up to 8 in all.
+     *
+     * @throws PatientPortalException with {@link PatientPortalException.Kind#CONFLICT} and one of the
+     *     {@code CHOICE_*_DETAIL} details when the pick is no longer pending
+     * @throws PortalRequestPreparationException if {@code job} is not the booking-sync job's signer
+     */
+    public PatientPortalBookingChoiceDto.Result recordBookingChoiceResult(
+            long promptId, long choiceId, boolean booked, List<PatientPortalOfferedSlot> replacements,
+            PortalJobAssertionSigner job) {
+        Caller caller = bookingSync(job);
+        List<PatientPortalOfferedSlot> extra = replacements == null ? List.of() : replacements;
+        if (booked && !extra.isEmpty() || extra.size() > PatientPortalOfferedSlot.MAX_PER_PROMPT) {
+            throw new PortalRequestPreparationException("replacement times are invalid");
+        }
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("choice_id", choiceId);
+        body.put("result", booked ? "booked" : "slot_unavailable");
+        if (!extra.isEmpty()) {
+            var slots = body.putArray("offered_slots");
+            extra.forEach(slot -> slots.add(slot.toJson(objectMapper)));
+        }
+        return fetch(POST, BOOKING_CHOICE_RESULT_PATH, body.toString(), OK, caller, payload -> {
+            var result = PatientPortalBookingChoiceDto.Result.fromJson(payload);
+            if (result.promptId() != promptId || result.choiceId() != choiceId
+                    || !result.result().equals(booked ? "booked" : "slot_unavailable")) {
+                throw new PortalContractException("portal recorded a different booking choice result");
+            }
+            return result;
+        }, promptId);
+    }
+
+    /** Caller first verifies the selected ID against the patient-scoped list. */
+    public PatientPortalBookingPromptDto withdrawBookingPrompt(
+            int demographicNo, long promptId, PatientPortalStaffContext staff) {
+        return fetch(POST, BOOKING_WITHDRAW_PATH, null, OK, staff, payload -> {
+            PatientPortalBookingPromptDto prompt = PatientPortalBookingPromptDto.fromJson(payload);
+            if (prompt.id() != promptId || prompt.demographicNo() != demographicNo
+                    || !"withdrawn".equals(prompt.state())) {
+                throw new PortalContractException("portal did not confirm the selected prompt withdrawal");
+            }
+            return prompt;
+        }, promptId);
+    }
+
+    /** Lists the patient's latest 100 invites, newest first as the portal orders them. */
+    public List<PatientPortalInviteDto> listInvites(
+            int demographicNo, PatientPortalStaffContext staff) {
+        return fetch(
+                GET,
+                INVITES_PATH,
+                null,
+                OK,
+                staff,
+                PatientPortalService::inviteList,
+                demographicNo);
+    }
+
+    /**
+     * Revokes a pending invite.
+     *
+     * <p>The revoke path carries only the invite id, so unlike the patient-scoped paths the
+     * generic scope check cannot bind the response to a patient. The caller states which
+     * patient the invite belongs to and the response must agree.
+     */
+    public PatientPortalInviteDto revokeInvite(
+            int demographicNo, long inviteId, PatientPortalStaffContext staff) {
+        return fetch(
+                POST, INVITE_REVOKE_PATH, null, OK, staff,
+                node -> {
+                    PatientPortalInviteDto invite = PatientPortalInviteDto.fromJson(node);
+                    if (invite.id() != inviteId || !"revoked".equals(invite.status())) {
+                        throw new PortalContractException("portal did not confirm the selected invitation was revoked");
+                    }
+                    if (invite.demographicNo() != demographicNo) {
+                        throw new PortalContractException("portal response has a different patient scope");
+                    }
+                    return invite;
+                }, inviteId);
+    }
+
+    /**
+     * Clears a patient lockout.
+     *
+     * <p>This also revokes active sessions and MFA challenges and sets {@code forcePasswordReset}.
+     * The patient must complete the reset flow before signing in, so staff-facing copy must not say
+     * the account is simply usable again.
+     *
+     * @param staff the authenticated provider, holding {@code portal.account.unlock}
+     */
+    public PatientPortalAccountAcknowledgementDto unlockAccount(
+            int demographicNo, PatientPortalStaffContext staff) {
+        return fetch(
+                POST, UNLOCK_PATH, null, OK, staff,
+                PatientPortalAccountAcknowledgementDto::fromUnlockJson, demographicNo);
+    }
+
+    /**
+     * Reads a patient's portal account status.
+     *
+     * @param staff the authenticated provider, holding {@code portal.account.manage}
+     */
+    public PatientPortalAccountDto findAccount(int demographicNo, PatientPortalStaffContext staff) {
+        return fetch(
+                GET, ACCOUNT_PATH, null, OK, staff,
+                PatientPortalAccountDto::fromJson, demographicNo);
+    }
+
+    /**
+     * Enables or disables a patient's portal account.
+     *
+     * @param enabled {@code false} to disable the account
+     * @param reason short operator-supplied reason, recorded in the portal audit trail
+     * @param staff the authenticated provider, holding {@code portal.account.manage}
+     */
+    public PatientPortalAccountAcknowledgementDto setAccountAccess(
+            int demographicNo, boolean enabled, String reason, PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("enabled", enabled);
+        body.put("reason", reason);
+        return fetch(
+                POST,
+                ACCESS_PATH,
+                body.toString(),
+                OK,
+                staff,
+                node -> {
+                    PatientPortalAccountAcknowledgementDto account =
+                            PatientPortalAccountAcknowledgementDto.fromAccessJson(node);
+                    String expected = enabled ? "active" : "disabled";
+                    if (!expected.equals(account.status())) {
+                        throw new PortalContractException("portal did not confirm the requested account access state");
+                    }
+                    return account;
+                },
+                demographicNo);
+    }
+
+    /**
+     * Generates a passphrase for an encrypted message, in {@code pending} state.
+     *
+     * <p><b>Step one of three.</b> The patient cannot see this until {@link #publishUnlockSecret}
+     * runs, and it must only run once the send is confirmed; a failed send calls {@link
+     * #revokeUnlockSecret} instead.
+     *
+     * <p>Idempotent on {@code sourceReference}: a repeat call returns the existing record with
+     * {@code created() == false} and the same passphrase, so a retry cannot mint a second one for
+     * the same message. Pass a stable, unique reference per outbound message.
+     *
+     * @param sourceReference identifies the CARLOS message; 1 to 128 characters
+     * @param label optional operator-facing label, at most 128 characters
+     * @param staff the authenticated provider, holding {@code portal.secret.manage}
+     * @throws PatientPortalException with {@link PatientPortalException.Kind#CONFLICT} if the
+     *     source reference belongs to a revoked record
+     */
+    public PatientPortalUnlockSecretDto createUnlockSecret(
+            int demographicNo, String sourceReference, String label,
+            PatientPortalStaffContext staff) {
+        String expectedSourceReference =
+                sourceReference == null ? null : sourceReference.strip();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("source_reference", sourceReference);
+        body.put("secret_type", SECRET_TYPE_EMAIL);
+        if (label != null) {
+            body.put("label", label);
+        }
+        return fetch(
+                POST,
+                SECRETS_PATH,
+                body.toString(),
+                CREATED,
+                staff,
+                node -> confirmedCreatedSecret(
+                        PatientPortalUnlockSecretDto.fromJson(node), expectedSourceReference),
+                demographicNo);
+    }
+
+    /**
+     * Makes a passphrase visible to the patient.
+     *
+     * <p><b>Call this only after the message send is confirmed.</b> Publishing first shows the
+     * patient a passphrase for correspondence that may never arrive, and nothing downstream will
+     * flag it.
+     *
+     * @param staff the authenticated provider, holding {@code portal.secret.manage}
+     */
+    public PatientPortalUnlockSecretStatusDto publishUnlockSecret(
+            long unlockSecretId, PatientPortalStaffContext staff) {
+        return fetch(
+                POST, SECRET_PUBLISH_PATH, null, OK, staff,
+                node -> confirmedSecretStatus(
+                        PatientPortalUnlockSecretStatusDto.fromJson(node),
+                        unlockSecretId,
+                        "available"),
+                unlockSecretId);
+    }
+
+    /**
+     * Retires a passphrase whose message was never sent.
+     *
+     * @param reason short operator-supplied reason, at most 64 characters, or {@code null}
+     * @param staff the authenticated provider, holding {@code portal.secret.manage}
+     */
+    public PatientPortalUnlockSecretStatusDto revokeUnlockSecret(
+            long unlockSecretId, String reason, PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        if (reason != null) {
+            body.put("reason", reason);
+        }
+        return fetch(
+                POST,
+                SECRET_REVOKE_PATH,
+                body.toString(),
+                OK,
+                staff,
+                node -> confirmedSecretStatus(
+                        PatientPortalUnlockSecretStatusDto.fromJson(node),
+                        unlockSecretId,
+                        "revoked"),
+                unlockSecretId);
+    }
+
+    /**
+     * Reads a page of the pending contact-review queue.
+     *
+     * <p>This is a clinic-wide work queue rather than a per-patient view.
+     *
+     * @param limit page size; the portal caps this at {@value #MAX_REVIEW_PAGE_SIZE}
+     * @param offset page offset
+     * @param staff the authenticated provider, holding {@code portal.contact.review}
+     */
+    public PatientPortalContactReviewPageDto listContactReviews(
+            int limit, int offset, PatientPortalStaffContext staff) {
+        int requested = Math.min(Math.max(limit, 1), MAX_REVIEW_PAGE_SIZE);
+        int from = Math.min(Math.max(offset, 0), MAX_REVIEW_OFFSET);
+        return fetch(
+                GET,
+                REVIEWS_PATH,
+                null,
+                OK,
+                staff,
+                node -> confirmedReviewPage(
+                        PatientPortalContactReviewPageDto.fromJson(node), requested, from),
+                requested,
+                from);
+    }
+
+    /**
+     * Records the clinic's decision on a contact change.
+     *
+     * <p><b>Update the eChart before calling this.</b> The portal treats the decision as the point
+     * at which the clinic has taken the change into its record of truth; confirming first and
+     * failing to update afterwards leaves the two permanently disagreeing with nothing to detect it.
+     *
+     * <p>Repeat confirmations of the same revision are idempotent. A {@link
+     * PatientPortalException.Kind#CONFLICT} means the revision is stale — the request changed
+     * underneath the reviewer — so re-read the queue and re-present it rather than retrying.
+     *
+     * @param revision the exact {@code revision} from the review item
+     * @param staff the authenticated provider, holding {@code portal.contact.review}
+     */
+    public PatientPortalContactReviewDecision decideContactReview(
+            long reviewRequestId, boolean approve, String revision,
+            PatientPortalStaffContext staff) {
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("approve", approve);
+        body.put("revision", revision);
+        return fetch(
+                POST,
+                REVIEW_DECISION_PATH,
+                body.toString(),
+                OK,
+                staff,
+                node -> confirmedContactReviewDecision(
+                        contactReviewDecision(node), reviewRequestId, approve),
+                reviewRequestId);
+    }
+
+    /**
+     * Outcome of a contact-review decision.
+     *
+     * @param id review request id
+     * @param status portal review status after the decision
+     * @param decision the recorded decision, or {@code null} if the portal did not report one
+     */
+    public record PatientPortalContactReviewDecision(long id, String status, String decision) {}
+
+    /**
+     * Sends a request and maps the success body, translating a contract violation into the
+     * package's own exception type.
+     *
+     * <p>The mapping is done here rather than at each call site so a malformed field — a missing
+     * identifier, a timestamp with no offset — surfaces as {@link
+     * PatientPortalException.Kind#MALFORMED_RESPONSE} instead of escaping as a raw runtime
+     * exception past every caller that catches {@link PatientPortalException}.
+     */
+    private <T> T fetch(
+            String method,
+            String pathFormat,
+            String jsonBody,
+            int expectedStatus,
+            PatientPortalStaffContext staff,
+            Function<JsonNode, T> factory,
+            Object... args) {
+        return fetch(method, pathFormat, jsonBody, expectedStatus, staffCaller(staff), factory, args);
+    }
+
+    private <T> T fetch(
+            String method,
+            String pathFormat,
+            String jsonBody,
+            int expectedStatus,
+            Caller caller,
+            Function<JsonNode, T> factory,
+            Object... args) {
+        Parsed parsed = send(method, pathFormat, jsonBody, caller, args);
+        if (parsed.statusCode() != expectedStatus) {
+            throw PatientPortalException.ofMalformedResponse(
+                    parsed.statusCode(),
+                    templateOf(pathFormat),
+                    new PortalContractException(UNEXPECTED_SUCCESS_STATUS));
+        }
+        try {
+            validateScope(parsed.payload(), pathFormat, args);
+            return factory.apply(parsed.payload());
+        } catch (PortalContractException exception) {
+            throw PatientPortalException.ofMalformedResponse(
+                    parsed.statusCode(), templateOf(pathFormat), exception);
+        }
+    }
+
+    private void validateScope(JsonNode payload, String pathFormat, Object[] args) {
+        if (payload.isArray()) {
+            for (JsonNode item : payload) {
+                validateScope(item, pathFormat, args);
+            }
+            return;
+        }
+        if (payload.hasNonNull("invite")) {
+            validateScope(payload.get("invite"), pathFormat, args);
+        }
+        if (payload.hasNonNull("items")) {
+            validateScope(payload.get("items"), pathFormat, args);
+        }
+        if (payload.has("clinic_id")
+                && !settings.clinicId().equals(PortalJson.requiredText(payload, "clinic_id"))) {
+            throw new PortalContractException("portal response has a different clinic scope");
+        }
+        if (pathFormat.startsWith("/internal/carlos/patients/") && payload.has("demographic_no")
+                && PortalJson.positiveInt(payload, "demographic_no") != ((Number) args[0]).intValue()) {
+            throw new PortalContractException("portal response has a different patient scope");
+        }
+    }
+
+    private static List<PatientPortalInviteDto> inviteList(JsonNode payload) {
+        if (!payload.isArray()) {
+            throw new PortalContractException(NOT_AN_ARRAY);
+        }
+        List<PatientPortalInviteDto> invites = new ArrayList<>();
+        for (JsonNode node : payload) {
+            invites.add(PatientPortalInviteDto.fromJson(node));
+        }
+        return List.copyOf(invites);
+    }
+
+    private static PatientPortalContactReviewDecision contactReviewDecision(JsonNode payload) {
+        return new PatientPortalContactReviewDecision(
+                PortalJson.positiveLong(payload, "id"),
+                PortalJson.requiredText(payload, "status"),
+                PortalJson.nullableText(payload, "decision"));
+    }
+
+    private static PatientPortalInviteDto confirmedCommittedInvite(
+            JsonNode payload, long inviteId, String operationId, String deliveryReference) {
+        PatientPortalInviteDto invite = PatientPortalInviteDto.fromJson(payload);
+        if (invite.id() != inviteId
+                || !"pending".equals(invite.status())
+                || !operationId.equals(PortalJson.requiredText(payload, "delivery_operation_id"))
+                || !deliveryReference.equals(
+                        PortalJson.requiredText(payload, "delivery_reference"))) {
+            throw new PortalContractException(
+                    "portal did not confirm the invite delivery commit");
+        }
+        return invite;
+    }
+
+    private static String deliveryIdentifier(
+            String value, int maximumLength, String label, boolean allowSlash) {
+        if (value == null
+                || value.isBlank()
+                || value.length() > maximumLength
+                || value.chars()
+                        .anyMatch(
+                                character ->
+                                        !isDeliveryIdentifierCharacter(character, allowSlash))) {
+            throw new PortalRequestPreparationException(label + " is invalid");
+        }
+        return value;
+    }
+
+    private static boolean isDeliveryIdentifierCharacter(int character, boolean allowSlash) {
+        return character >= 'A' && character <= 'Z'
+                || character >= 'a' && character <= 'z'
+                || character >= '0' && character <= '9'
+                || character == '.'
+                || character == '_'
+                || character == ':'
+                || character == '-'
+                || allowSlash && character == '/';
+    }
+
+    private static PatientPortalUnlockSecretDto confirmedCreatedSecret(
+            PatientPortalUnlockSecretDto secret, String sourceReference) {
+        if (!"pending".equals(secret.status())
+                || !Objects.equals(secret.sourceReference(), sourceReference)) {
+            throw new PortalContractException(
+                    "portal did not confirm the requested pending unlock secret");
+        }
+        return secret;
+    }
+
+    private static PatientPortalUnlockSecretStatusDto confirmedSecretStatus(
+            PatientPortalUnlockSecretStatusDto secret, long expectedId, String expectedStatus) {
+        if (secret.id() != expectedId || !expectedStatus.equals(secret.status())) {
+            throw new PortalContractException(
+                    "portal did not confirm the requested unlock-secret state");
+        }
+        return secret;
+    }
+
+    private static PatientPortalContactReviewPageDto confirmedReviewPage(
+            PatientPortalContactReviewPageDto page, int expectedLimit, int expectedOffset) {
+        if (page.limit() != expectedLimit || page.offset() != expectedOffset) {
+            throw new PortalContractException(
+                    "portal review page does not match the requested pagination");
+        }
+        if (page.nextOffset() != null && page.nextOffset() > MAX_REVIEW_OFFSET) {
+            throw new PortalContractException(
+                    "portal review page points beyond the supported pagination range");
+        }
+        return page;
+    }
+
+    private static PatientPortalContactReviewDecision confirmedContactReviewDecision(
+            PatientPortalContactReviewDecision result, long expectedId, boolean approved) {
+        String expectedDecision = approved ? "approved" : "rejected";
+        if (result.id() != expectedId
+                || !"reviewed".equals(result.status())
+                || !expectedDecision.equals(result.decision())) {
+            throw new PortalContractException(
+                    "portal did not confirm the requested contact-review decision");
+        }
+        return result;
+    }
+
+    /** A parsed success body together with the status it arrived with. */
+    private record Parsed(JsonNode payload, int statusCode) {}
+
+    private Parsed send(
+            String method,
+            String pathFormat,
+            String jsonBody,
+            PatientPortalStaffContext staff,
+            Object... args) {
+        return send(method, pathFormat, jsonBody, staffCaller(staff), args);
+    }
+
+    /**
+     * Sends an authenticated request and returns the parsed success body.
+     *
+     * <p>Takes the path <em>format</em> plus its arguments rather than an interpolated path, so the
+     * failure path can name the endpoint without the interpolated {@code demographic_no}. Portal
+     * paths embed that identifier, and CLAUDE.md forbids putting it in a browser-visible exception
+     * message.
+     *
+     * @throws PatientPortalException mapped from the portal's status, or reporting a transport or
+     *     contract failure; never carrying a credential or a patient identifier in its message
+     */
+    // FindSecBugs FORMAT_STRING_MANIPULATION: the format is a parameter, but of a *private*
+    // method reached only through fetch, whose call sites all pass a private static final *_PATH
+    // constant, so it is never caller-chosen. Every one of those formats takes only %d, so no caller-supplied string
+    // can reach a format position at all; PatientPortalServiceUnitTest asserts that reflectively,
+    // and adding a %s fails there rather than shipping. See docs/static-analysis-workflows.md.
+    @SuppressFBWarnings(
+            value = "FORMAT_STRING_MANIPULATION",
+            justification =
+                    "format is a private-method parameter fixed at every call site to a *_PATH"
+                            + " constant; all such formats take only %d, asserted by test")
+    private Parsed send(
+            String method,
+            String pathFormat,
+            String jsonBody,
+            Caller caller,
+            Object... args) {
+        String path = String.format(Locale.ROOT, pathFormat, args);
+        String template = templateOf(pathFormat);
+        PatientPortalHttpResponse response;
+        try {
+            response = exchange.send(buildRequest(method, path, jsonBody, caller));
+        } catch (PortalResponseTooLargeException exception) {
+            throw unreadableBody(exception.statusCode(), template,
+                    new PortalContractException("portal response exceeds size limit", exception));
+        } catch (PortalResponseDecodingException exception) {
+            throw unreadableBody(exception.statusCode(), template,
+                    new PortalContractException("portal response is not valid UTF-8", exception));
+        } catch (IOException exception) {
+            throw PatientPortalException.ofTransportFailure(template, exception);
+        }
+        if (!response.isSuccess()) {
+            throw PatientPortalException.ofStatus(
+                    response.statusCode(), template, safeDetail(response.body()));
+        }
+        return new Parsed(parsed(response, template), response.statusCode());
+    }
+
+    /**
+     * Classifies a response whose body could not be read.
+     *
+     * <p>An error status still says what happened: a proxy's oversized or Latin-1 HTML page for a
+     * {@code 429} is throttling, not a contract change, and it must not be reported as "may or may
+     * not have been applied". Only a success status with an unreadable body leaves the outcome
+     * unknown.
+     */
+    private static PatientPortalException unreadableBody(
+            int statusCode, String template, PortalContractException cause) {
+        if (!PatientPortalHttpResponse.isSuccess(statusCode)) {
+            PatientPortalException failure =
+                    PatientPortalException.ofStatus(statusCode, template, null);
+            // Keep why the body was unreadable: an oversized or non-UTF-8 error page points at
+            // a proxy rather than at the portal.
+            failure.initCause(cause);
+            return failure;
+        }
+        return PatientPortalException.ofMalformedResponse(statusCode, template, cause);
+    }
+
+    /**
+     * Renders a path format as a PHI-free endpoint template, e.g. {@code
+     * /internal/carlos/patients/{id}/invites}.
+     */
+    private static String templateOf(String pathFormat) {
+        int query = pathFormat.indexOf('?');
+        if (query < 0) {
+            return pathFormat.replace("%d", "{id}");
+        }
+        // Only path segments are record identifiers; a paging parameter rendered as {id} reads as
+        // though the limit were a patient number.
+        return pathFormat.substring(0, query).replace("%d", "{id}")
+                + pathFormat.substring(query).replace("%d", "{n}");
+    }
+
+    /**
+     * Parses a success body, rejecting anything that is not a JSON object or array.
+     *
+     * <p>An empty body is the case that matters. {@code readTree("")} returns a missing node rather
+     * than throwing, so without this guard a {@code 204}, or a proxy that stripped the body, would
+     * flow into the DTO factories and produce a record of zeros and nulls — "the account is not
+     * locked", "this patient has no invites", "the review queue is empty". The configuration path in
+     * this package fails closed; the response path must not fail open.
+     */
+    private JsonNode parsed(PatientPortalHttpResponse response, String template) {
+        JsonNode payload;
+        boolean clinicPublication = CLINIC_KEYS_PATH.equals(template);
+        try {
+            // A publication acknowledgment must not choose between duplicate identity fields.
+            payload = clinicPublication
+                    ? objectMapper.reader().with(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                            .readTree(response.body())
+                    : objectMapper.readTree(response.body());
+        } catch (JsonProcessingException exception) {
+            throw PatientPortalException.ofMalformedResponse(response.statusCode(), template,
+                    clinicPublication
+                            ? new PortalContractException("clinic key acknowledgment is not valid JSON")
+                            : exception);
+        }
+        if (payload == null || !payload.isContainerNode()) {
+            throw PatientPortalException.ofMalformedResponse(
+                    response.statusCode(),
+                    template,
+                    new PortalContractException(EMPTY_BODY));
+        }
+        return payload;
+    }
+
+    /** Only fixed contract messages may cross the logging boundary; all other detail is withheld. */
+    private String safeDetail(String body) {
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode node = objectMapper.readTree(body);
+            JsonNode detail = node == null ? null : node.get("detail");
+            if (detail == null || !detail.isTextual()) {
+                return null;
+            }
+            String text = detail.asText();
+            return SAFE_DETAILS.contains(text) ? text : null;
+        } catch (JsonProcessingException exception) {
+            return null;
+        }
+    }
+
+    /**
+     * Builds an authenticated request against a portal endpoint.
+     *
+     * <p>Package-private so the header envelope can be asserted directly, without a socket. The
+     * envelope is the security-relevant part of this class, and it should be provable in a unit
+     * test rather than only in an integration environment.
+     *
+     * @param method HTTP method, e.g. {@code GET} or {@code POST}
+     * @param path portal endpoint path beginning with {@code /internal/carlos/}
+     * @param jsonBody request body, or {@code null} for a request without one
+     * @param staff the authenticated CARLOS provider this call acts for
+     * @return a request carrying the bearer token and signed provider assertion
+     */
+    ClassicHttpRequest buildRequest(
+            String method, String path, String jsonBody, PatientPortalStaffContext staff) {
+        return buildRequest(method, path, jsonBody, staffCaller(staff));
+    }
+
+    private ClassicHttpRequest buildRequest(String method, String path, String jsonBody, Caller caller) {
+        URI uri = resolve(path);
+        HttpUriRequestBase request = new HttpUriRequestBase(method, uri);
+        byte[] body = jsonBody == null ? new byte[0]
+                : jsonBody.getBytes(StandardCharsets.UTF_8);
+        request.setHeader(AUTHORIZATION_HEADER,
+                String.format(Locale.ROOT, BEARER_PREFIX, settings.serviceToken().expose()));
+        // Sign the same raw URI and bytes handed to the transport. Neither the patient target
+        // nor the operation/body can be substituted after CARLOS has authorized the request.
+        caller.sign(request, method, uri, body);
+        if (jsonBody != null) {
+            request.setEntity(new ByteArrayEntity(body, ContentType.APPLICATION_JSON));
+        }
+        return request;
+    }
+
+    /**
+     * Who a request is signed as. Exactly one assertion header is set: the portal refuses a request
+     * carrying both the staff and the job header.
+     */
+    @FunctionalInterface
+    private interface Caller {
+        void sign(HttpUriRequestBase request, String method, URI uri, byte[] body);
+    }
+
+    private Caller staffCaller(PatientPortalStaffContext staff) {
+        return (request, method, uri, body) -> request.setHeader(STAFF_ASSERTION_HEADER,
+                assertionSigner.sign(staff, settings.clinicId(), settings.staffAssertionKeyId(), method, uri, body));
+    }
+
+    /** The booking-sync job, claiming its one permission; any other signer is refused before sending. */
+    private Caller bookingSync(PortalJobAssertionSigner job) {
+        if (job == null || job.job() != PortalJob.BOOKING_SYNC) {
+            throw new PortalRequestPreparationException("portal booking sync must be signed as the booking-sync job");
+        }
+        return (request, method, uri, body) -> request.setHeader(JOB_ASSERTION_HEADER,
+                job.sign(PortalJob.PERMISSION_BOOKING_PROMPT_SYNC, settings.clinicId(), method, uri, body));
+    }
+
+    /** The publisher authenticates with its own Ed25519 job key, never a clinic document key. */
+    private Caller keyPublish(PortalJobAssertionSigner job) {
+        if (job == null || job.job() != PortalJob.KEY_PUBLISH) {
+            throw new PortalRequestPreparationException("clinic keys must be published by the key-publish job");
+        }
+        return (request, method, uri, body) -> request.setHeader(JOB_ASSERTION_HEADER,
+                job.sign(PortalJob.PERMISSION_CLINIC_KEYS_PUBLISH, settings.clinicId(), method, uri, body));
+    }
+
+    /** Local acknowledgement binding uses exactly the endpoint this client will send to. */
+    PortalMyCarlosPublicationState.Target clinicKeysPublicationTarget() {
+        return new PortalMyCarlosPublicationState.Target(settings.clinicId(), resolve(CLINIC_KEYS_PATH));
+    }
+
+    private URI resolve(String path) {
+        try {
+            // The request target on the wire is ASCII. Encode a Unicode deployment path once,
+            // before both hashing and transport, while preserving existing percent escapes.
+            return URI.create(new URI(settings.baseUrl() + path).toASCIIString());
+        } catch (URISyntaxException ignored) {
+            // The interpolated path can contain a demographic number. Do not retain either it or
+            // URISyntaxException, whose message repeats the full input URI, in an exception that
+            // may cross the logging boundary.
+            throw new PatientPortalConfigurationException(INVALID_PATH);
+        }
+    }
+
+}

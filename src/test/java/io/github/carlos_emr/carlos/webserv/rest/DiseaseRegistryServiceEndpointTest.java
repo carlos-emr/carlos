@@ -66,9 +66,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
 class DiseaseRegistryServiceEndpointTest extends CarlosRestTestBase {
     @org.junit.jupiter.api.BeforeEach
     void authorizeFixture() {
-        org.mockito.Mockito.when(mockSecurityInfoManager.hasPrivilege(
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        grantEndpointPrivileges(mockSecurityInfoManager, "r", "_newCasemgmt.DxRegistry");
     }
 
     @Test

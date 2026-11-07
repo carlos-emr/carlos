@@ -61,6 +61,7 @@ directory on Tomcat startup:
 | `consultation_letter.rtl` | Starter template: referring block, Re: line, History/Examination/Impression/Plan headings | ~800 B |
 | `patient_letter.rtl` | Starter template: letter addressed to the patient | ~600 B |
 | `editor_help.html` | Help popup for the editor toolbar | ~5 KB |
+| `stamps.js` | Comment-only placeholder for a clinic's stamp list (see below) | ~1 KB |
 
 The template dropdown is built by `efmformrtl_templates`, which lists every `*.rtl` file it finds
 in the eForm images directory — so a template that is not deployed does not exist as far as a
@@ -85,8 +86,11 @@ is empty for any patient with no referring doctor on file, which is most of them
 carrying it pops a dialog on every new letter. Conditional content belongs on a sidebar button, not
 in a template. `RichTextLetterTemplateRegressionTest` pins the allowed set.
 
-**Not auto-deployed**: `stamps.js` (clinic-specific doctor signature mappings) is intentionally
-excluded. Clinics create this file themselves; see [Signature stamps](#signature-stamps).
+**Seeded, never replaced**: `stamps.js` holds a clinic's own stamp list, so CARLOS ships only a
+comment-only placeholder that documents its `ImgArray` format. The stored letter loads `stamps.js` on
+every open, and before the placeholder shipped each open logged a 404 and a script refused as HTML.
+A clinic that needs the list uploads its own `stamps.js` through the eForm image manager, replacing
+the placeholder; the deployer never overwrites it. See [Signature stamps](#signature-stamps).
 
 Files are only deployed if they **do not already exist** in the target directory. This prevents
 overwriting clinic-customized versions. `editControl2.js` is the exception — it is a *managed*
@@ -104,6 +108,10 @@ rather than configuration.
 | `eform/attachDoc.do` | `EFormAttachDocs2Action` | Handles attachment form submission |
 | `eform/displayImage.do` | `DisplayImage2Action` | Serves `editControl2.js` and other assets from the eForm images directory |
 | `eform/addEForm` | `AddEForm2Action` | Save; also the PDF/print workflows below |
+| `eform/efmformapconfig_lookup` | JSP | Side-panel and template lookups: runs the `apconfig.xml` queries APCache asks for |
+| `searchProfessionalSpecialist` | `ProfessionalSpecialist2Action` | Addressee search over the specialist directory (`_con` read) |
+| `signature_pad/tabletSignature`, `signature_pad/SaveSignatureUpload` | `ViewTabletSignature2Action`, `SaveSignatureUpload2Action` | The signature pad in the letter's footer and its save |
+| `provider/providerSignatureImage` | `ProviderSignatureImage2Action` | Whether the signer has a signature stamp on file (200 with the image, 204 for none) |
 
 ---
 
@@ -338,19 +346,92 @@ The same AP keys are listed on the `stamp` and `_ClosingSalutation` cache mappin
 whose stored `form_html` predates those inputs — a clinic that customized the Rich Text Letter row,
 or one that has not run the migration — still resolves them over APCache.
 
-**Fallbacks.** `Start()` probes the per-provider file once at load. If it is absent, `pickStamp()`
-falls back to `stamps.js` (a clinic-authored `ImgArray` of `"doctor|SignatureFile.png"` pairs in
-the eForm images directory, matched against `current_user` first and then the MRP) and finally to a
-single shared `stamp.png`. Those two were the *only* sources before 2026.09, which is why a
-multi-provider clinic without a `stamps.js` signed every letter with the same image.
+**Fallbacks.** `Start()` asks `provider/providerSignatureImage?providerNo=<signer>` once at load
+whether the signer has a signature on file. That endpoint reads the same eForm images directory and
+answers 204 for none, so a signer without one costs no 404; loading `consult_sig_<provider_no>.png`
+itself to find out answered 404 on every letter opened. Only a 204 counts as "none on file": a
+refusal or a lost request leaves the per-provider stamp to be tried. With none on file,
+`pickStamp()` falls back to `stamps.js` (a clinic-authored `ImgArray` of `"doctor|SignatureFile.png"`
+pairs in the eForm images directory, matched against `current_user` first and then the MRP) and
+finally to a single shared `stamp.png`. Those two were the *only* sources before 2026.09, which is
+why a multi-provider clinic without a `stamps.js` signed every letter with the same image.
 
-**Checks.** `scripts/rtl-signature-stamp.test.js` executes the stamp functions out of the real asset,
+**A stamp that cannot load.** Every stamp `pickStamp()` emits carries a valueless marker, and
+`bindStampFallbacks()` handles the images just inserted (never restored letter content): a stamp
+that does not load is swapped once for the fallback, and if that does not load either it is taken
+out of the letter and a status line above the editor says that no signature stamp could be loaded
+and that the provider can upload one under **Preferences > Signature Stamp**. A clinic with no
+signature on file, no `stamps.js` entry and no `stamp.png` used to get a 200x100 broken-image box
+on every stamped letter. Templates that carry `##stamp##` or `##_ClosingSalutation##` get the same
+handling.
+
+**Checks.** `scripts/rtl-signature-stamp.test.js` executes the stamp functions out of the real asset
+(including the existence check's 204, 200, refused and superseded answers and the fallback binder),
 pins the Flyway V1.0.41 `UPDATE` to the `updates/` script, and pins that the `stamp` and
 `_ClosingSalutation` mappings request only AP keys `apconfig.xml` defines (an undefined key raises
 the "could not be filled in" banner; the legacy `stamp_name` key did, on every Stamp click).
 `scripts/eform-rtl-signature-stamp-playwright-checks.js` drives Stamp and Closing Salutation in a
 browser against a running install and needs a `consult_sig_<provider_no>.png` for the signer in
-the eForm images directory.
+the eForm images directory. `scripts/eform-rtl-side-panel-playwright-checks.js` (below) needs no
+such fixture: it signs as a throwaway provider and uploads, then deletes, that provider's stamp.
+
+---
+
+## Side panel, addressee and signature pad
+
+**Side-panel buttons.** Each button calls `printKey()` with an APCache key: a key `apconfig.xml`
+defines (Allergies is `allergies_des`, Prescriptions `druglist`, the history buttons the CPP keys),
+or a mapping `editControl2.js` registers (`letterhead`, `_ReferringBlock`, `_SocialFamilyHistory`,
+`medical_historyS`, `_ClosingSalutation`, `stamp`) whose values are such keys. The lookup goes to
+`eform/efmformapconfig_lookup`, which runs each query through the eForm SQL safety gate
+(`EFormSqlSafety` → `LegacyJdbcQuery`). That gate used to refuse every query with a backslash in a
+quoted literal, and seventeen shipped keys join their rows with `'\n'`, so those buttons answered
+"The requested value has no content" for a chart that had the data. A backslash is now refused only
+when an odd run of them sits directly before the literal's own closing quote, the one place it can
+move where the literal ends. `BundledApConfigSqlSafetyUnitTest` runs every shipped query through the
+gate. A button whose key has no data for the patient (Referring Block for a patient with no
+referring doctor) still answers with that alert: that is a real blank, not a failure.
+
+A mapping may list another mapping's name among its values (`ageGender` lists `_age` and `gender`),
+and a template lookup sends each placeholder's name. The server cannot tell those browser-derived
+names from misconfigured keys and lists them as unconfigured, so APCache leaves them out of its
+"Some fields could not be filled in automatically" notice (`scripts/apcache-derived-keys.test.js`).
+
+**Templates.** The letter's cache flushes on every lookup, so `parseTemplate()` asks for every
+placeholder the server resolves whenever a lookup is needed; asking only for the uncached ones let
+the second template of a session prompt for its letterhead, date, label and salutation.
+Placeholders a hidden input on the page supplies (the measurement inputs) are read from the page.
+
+**Addressee search.** Typing a specialist's name into the addressee box searches
+`searchProfessionalSpecialist?keyword=` (the specialist directory, `_con` read, the privilege the
+directory's manager already enforced). The box used to call
+`encounter/oscarConsultationRequest/searchProfessionalSpecialist.json`, which has no mapping, and
+the action demanded an administrator object no clinician holds. Choosing an entry puts its name,
+street address and fax (only the lines the directory has) in the hidden `CopyTo` field for **Paste
+Selected**.
+
+**Signature pad.** `signatureControl.jsp` puts the `tabletSignature` pad in the footer's
+`#signatureInput`. A drawing is stored as a `DigitalSignature` row for the letter's patient (a
+foreign key to `demographic`) under `ModuleType=E_FORM`, which is what lets `imageRenderingServlet`
+show it to a user who may read the patient's eForms. The library fills the patient from the caller,
+then the hidden `#demographicNo` every eForm page carries, then the page URL; it used to send none,
+so every save failed with HTTP 500. On a form with no patient it shows an explanation instead of a
+pad whose saves could only fail. A saved drawing is inserted into the letter as
+`<img src=".../imageRenderingServlet?source=signature_stored&digitalSignatureId=<id>&r=...">`; the
+PDF renderer re-points it at `EFormSignatureViewForPdfGenerationServlet`, which streams it only when
+the eForm's stored values reference that id and the signature belongs to the eForm's patient. The
+Letter value is stored escaped twice (`&amp;amp;digitalSignatureId=`), and until the servlet
+accepted that form a signed letter's PDF was refused its signature and blocked as incomplete.
+
+**Checks.** `scripts/eform-rtl-side-panel-playwright-checks.js` drives all of this in a browser
+against a running install, for a patient it creates: every side-panel button with seeded chart
+data, the addressee search and Paste Selected, Stamp and Closing Salutation with no signature on
+file and then with one, every shipped template without a prompt, the signature pad, and the saved
+letter's reopen and PDF (which must carry the drawn signature and the stamp). Unit coverage:
+`scripts/eform-signature-control.test.js`, `scripts/rtl-addressee-search.test.js`,
+`scripts/rtl-template-placeholders.test.js`, `scripts/rtl-editor-assets.test.js`,
+`LegacyJdbcQueryUnitTest`, `EFormUtilIntegrationTest`, `ProfessionalSpecialist2ActionUnitTest` and
+`EFormSignatureViewForPdfGenerationServletUnitTest`.
 
 ---
 
@@ -444,6 +525,13 @@ src/main/webapp/WEB-INF/eform-assets/clinic_letter.rtl
 src/main/webapp/WEB-INF/eform-assets/consultation_letter.rtl
 src/main/webapp/WEB-INF/eform-assets/patient_letter.rtl
 src/main/webapp/WEB-INF/eform-assets/editor_help.html
+src/main/webapp/WEB-INF/eform-assets/stamps.js
+src/main/webapp/WEB-INF/jsp/library/eforms/signatureControl.jsp
+src/main/webapp/library/eforms/APCache.js
+src/main/resources/oscar/eform/apconfig.xml
+src/main/java/io/github/carlos_emr/carlos/contactRegistry/ProfessionalSpecialist2Action.java
+src/main/java/io/github/carlos_emr/carlos/db/LegacyJdbcQuery.java
+src/main/java/io/github/carlos_emr/carlos/eform/util/EFormSignatureViewForPdfGenerationServlet.java
 src/main/webapp/eform/efmformrtl_templates.jsp
 src/main/webapp/eform/attachEform.jsp
 src/main/webapp/eform/displayAttachedFiles.jsp

@@ -40,8 +40,8 @@
             <%
                 ReceivePayment2Action frm = (ReceivePayment2Action) request.getAttribute("receivePaymentActionForm");
             %> <%=java.text.NumberFormat.getCurrencyInstance().format(new Double(frm.getAmountReceived()))%>
-            <fmt:message key="oscar.billing.CA.BC.credit"/> &nbsp; <fmt:message key="oscar.billing.CA.BC.invoice"/> 
-            ${carlos:forHtmlContent(receivePaymentActionForm.billNo)} &nbsp; <fmt:message key="oscar.billing.CA.BC.lineNo"/> 
+            <fmt:message key="oscar.billing.CA.BC.credit"/> &nbsp; <fmt:message key="oscar.billing.CA.BC.invoice"/>
+            ${carlos:forHtmlContent(receivePaymentActionForm.billNo)} &nbsp; <fmt:message key="oscar.billing.CA.BC.lineNo"/>
             ${carlos:forHtmlContent(receivePaymentActionForm.billingmasterNo)}</div>
         <div align="center">
             <button
@@ -63,9 +63,9 @@
                 <p class="msgDisplay" id="receivePaymentError"><carlos:encode value="${err}"/></p>
             </c:forEach>
             <div class="msgDisplay">
-                <p><fmt:message key="oscar.billing.CA.BC.invoice"/> 
+                <p><fmt:message key="oscar.billing.CA.BC.invoice"/>
                     ${carlos:forHtmlContent(receivePaymentActionForm.billNo)}</p>
-                <p><fmt:message key="oscar.billing.CA.BC.lineNo"/> 
+                <p><fmt:message key="oscar.billing.CA.BC.lineNo"/>
                     ${carlos:forHtmlContent(receivePaymentActionForm.billingmasterNo)}</p>
             </div>
             <p><label> <fmt:message key="oscar.billing.CA.BC.amount"/>

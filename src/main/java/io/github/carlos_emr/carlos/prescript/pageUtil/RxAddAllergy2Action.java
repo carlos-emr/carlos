@@ -68,6 +68,9 @@ public final class RxAddAllergy2Action extends ActionSupport {
      * Requests must use {@code POST}; other methods return HTTP 405 with
      * {@code Allow: POST} and {@link #NONE}. Missing, malformed, or
      * mismatched rendered patient context returns HTTP 403 and {@link #NONE}.
+     * A missing, blank, or non-numeric {@code type} returns HTTP 400 and
+     * {@link #NONE} before any allergy is persisted, so malformed requests
+     * cannot surface as a 500.
      * An amendment ({@code allergyToArchive}) of an allergy that is no longer active returns
      * HTTP 409 and {@link #NONE} without writing anything (issue #4410).
      * An {@code atc} parameter that is not an ATC class code returns HTTP 400 and {@link #NONE};
@@ -110,9 +113,26 @@ public final class RxAddAllergy2Action extends ActionSupport {
 
         String name = request.getParameter("name");
         String type = request.getParameter("type");
+        if (type == null || type.isBlank()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Missing or empty type parameter");
+            return NONE;
+        }
+        int typeCode;
+        try {
+            typeCode = Integer.parseInt(type.trim());
+        } catch (NumberFormatException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid type parameter");
+            return NONE;
+        }
         String description = request.getParameter("reactionDescription");
 
         String startDate = request.getParameter("startDate");
+        if (startDate == null) {
+            // startDate is optional; normalise to empty so the partial-date
+            // length/separator checks below stay null-safe and simply fall
+            // through, leaving the allergy start date unset.
+            startDate = "";
+        }
         String ageOfOnset = request.getParameter("ageOfOnset");
         String severityOfReaction = request.getParameter("severityOfReaction");
         String onSetOfReaction = request.getParameter("onSetOfReaction");
@@ -188,19 +208,18 @@ public final class RxAddAllergy2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_CONFLICT);
                 return NONE;
             }
-            return saveAllergy(patient, id, name, type, atc, description, startDate, ageOfOnset,
+            return saveAllergy(patient, id, name, typeCode, atc, description, startDate, ageOfOnset,
                     severityOfReaction, onSetOfReaction, lifeStage, archiveId, nonDrug, saveToken);
         } finally {
             AllergySaveTokens.release(session, saveToken);
         }
     }
 
-    private String saveAllergy(RxPatientData.Patient patient, String id, String name, String type,
-                               String atc, String description, String startDate, String ageOfOnset,
+    private String saveAllergy(RxPatientData.Patient patient, String id, String name, int typeCode, String atc,
+                               String description, String startDate, String ageOfOnset,
                                String severityOfReaction, String onSetOfReaction, String lifeStage,
                                Integer archiveId, String nonDrug, String saveToken) throws IOException {
         Allergy allergy = new Allergy();
-        int typeCode = Integer.parseInt(type);
         // An ATC class allergen is filed under its class code and no DrugRef id (#4576). The old
         // Penicillin and Sulfa shortcuts posted a fixed DrugRef id that names another product in
         // current DrugRef data; that exact identity, sent by a page loaded before the fix or by the
@@ -242,20 +261,11 @@ public final class RxAddAllergy2Action extends ActionSupport {
         }
 
 
-            if (nonDrug != null && "on".equals(nonDrug)) {
-            	allergy.setNonDrug(true);
-
-            } else if (nonDrug != null && "off".equals(nonDrug)) {
-            	allergy.setNonDrug(false);
-            }
-
-
         // DrugRef's getDrug resolves only a brand-product search id (category 13) to a DIN and ATC
         // code. The ids of ingredient (14), generic (11/12) and class (8/10) results are not drug
-        // codes, so asking for them always fails (#4435), and they are not looked up. DrugRef checks
-        // those allergens from their type and name; an ATC class allergen also carries its class
-        // code, set above, which RxDrugData.getAllergyWarnings compares itself (#4576).
-        if (BRAND_TYPE.equals(type)) {
+        // codes, so asking for them always fails (#4435). Those allergens are checked by DrugRef
+        // from their type and name, and need no stored identifier, so they are not looked up.
+        if (typeCode == BRAND_TYPE) {
             if (!id.isEmpty() && !"0".equals(id)) {
                 try {
                     RxDrugData.DrugMonograph f = new RxDrugData().getDrug(id);
@@ -319,7 +329,7 @@ public final class RxAddAllergy2Action extends ActionSupport {
     private int demographicNo;
 
     /** DrugRef search category of a branded product, the only allergen type with a drug-code id. */
-    private static final String BRAND_TYPE = "13";
+    private static final int BRAND_TYPE = 13;
 
     private boolean identifiersUnresolved;
 

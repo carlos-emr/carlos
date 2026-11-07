@@ -98,10 +98,13 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.*" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.IsPropertiesOn" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditVersion" %>
 
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<% pageContext.setAttribute("appointmentLocale", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)); %>
+<fmt:setLocale value="${appointmentLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="Appointment.textTooLong" var="appointmentTextTooLong"/>
 <fmt:message key="Appointment.textInvalidUnicode" var="appointmentTextInvalidUnicode"/>
@@ -127,7 +130,8 @@
     String deepcolor = "#CCCCFF", weakcolor = "#EEEEFF";
     String origDate = null;
 
-    boolean appointmentTextRetry = Boolean.TRUE.equals(request.getAttribute("appointmentTextRetry"));
+    boolean appointmentTextRetry = Boolean.TRUE.equals(request.getAttribute("appointmentTextRetry"))
+            || request.getAttribute("appointmentValidationErrors") != null;
     boolean bFirstDisp = true; //this is the first time to display the window
     if (request.getParameter("bFirstDisp") != null) bFirstDisp = ("true".equals(request.getParameter("bFirstDisp")));
     if (appointmentTextRetry) bFirstDisp = false;
@@ -161,6 +165,11 @@
         }
     }
     String demographic_nox = request.getParameter("demographic_no");
+    String appointmentEditVersion = request.getParameter(AppointmentEditVersion.PARAMETER);
+    if (appointmentEditVersion == null && bFirstDisp && apptFromRequest != null) {
+        appointmentEditVersion = AppointmentEditVersion.of(apptFromRequest,
+                OtherIdManager.getApptOtherId(appointment_no, "appt_mc_number"));
+    }
     if ((demographic_nox == null || demographic_nox.isEmpty()) && apptFromRequest != null) {
         demographic_nox = String.valueOf(apptFromRequest.getDemographicNo());
     }
@@ -224,7 +233,7 @@
         pageContext.setAttribute("appointment", appt);
     }
 
-    String statusCode = request.getParameter("status");
+    String statusCode = StringUtils.defaultString(request.getParameter("status"));
     String importedStatus = null;
     if (bFirstDisp) {
         statusCode = appt.getStatus();
@@ -268,13 +277,14 @@
     boolean bMultipleSameDayGroupAppt = false;
 %>
 
-<html lang="<carlos:encode value='<%= request.getLocale().getLanguage() %>' context="htmlAttribute"/>">
+<html lang="${carlos:forHtmlAttribute(appointmentLocale.language)}">
     <head>
         <script src="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/share/javascript/dobSearchKeyword.js"></script>
         <fmt:message key="demographic.zdemographicfulltitlesearch.msgDobFormat" var="dobFormatMessage"/>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
         <title><fmt:message key="appointment.editappointment.title"/></title>
         <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <script src="${pageContext.request.contextPath}/share/javascript/codePointLengthLimits.js"></script>
         <script src="${pageContext.request.contextPath}/library/jquery/jquery-ui-1.14.2.min.js"></script>
         <script src="${pageContext.request.contextPath}/js/checkDate.js"></script>
         <script src="${pageContext.request.contextPath}/js/appointmentPatientLink.js"></script>
@@ -776,10 +786,14 @@
 
                     focus: function (event, ui) {
                         patientLink.highlight(ui.item);
+                        // Script changes fire no event; the portal booking box (portalBookingPrompt.js)
+                        // listens for this one to see that the patient may have changed.
+                        document.getElementById('keyword').dispatchEvent(new Event('change'));
                         return false;
                     },
                     select: function (event, ui) {
                         patientLink.commit(ui.item);
+                        document.getElementById('keyword').dispatchEvent(new Event('change'));
                         return false;
                     },
                     close: function (event) {
@@ -873,6 +887,19 @@
     </head>
     <body onload="setfocus();updateTime();locale()">
     <div><source:cdsSourceFields demographicNo="${not empty pageScope.appointment ? pageScope.appointment.demographicNo : param.demographic_no}" category="Appointments"/></div>
+        <c:if test="${not empty appointmentValidationErrors}">
+            <div class="alert alert-danger" role="alert">
+                <c:forEach var="error" items="${appointmentValidationErrors}"><p>${carlos:forHtml(error)}</p></c:forEach>
+                <c:if test="${appointmentReviewRequired}">
+                    <c:url var="currentAppointmentUrl" value="/appointment/editappointment">
+                        <c:param name="appointment_no" value="${param.appointment_no}"/>
+                    </c:url>
+                    <fmt:message key="appointment.edit.msgReviewCurrent" var="appointmentReviewLabel"/>
+                    <a id="reviewCurrentAppointment" href="${carlos:forHtmlAttribute(currentAppointmentUrl)}" target="_blank" rel="noopener">${carlos:forHtml(appointmentReviewLabel)}</a>
+                </c:if>
+            </div>
+        </c:if>
+
 
 <div id="editAppointment" >
     <div class="container" >
@@ -883,6 +910,7 @@
               data-appointment-reason="${carlos:forHtmlAttribute(appointmentTextReason)}"
               data-appointment-notes="${carlos:forHtmlAttribute(appointmentTextNotes)}"
               data-appointment-resources="${carlos:forHtmlAttribute(appointmentTextResources)}">
+    <input type="hidden" name="appointmentEditVersion" value="<carlos:encode value='<%=StringUtils.defaultString(appointmentEditVersion)%>' context="htmlAttribute"/>">
     <input type="hidden" name="displaymode" value="">
     <input type="hidden" name="buttoncancel" value="">
     <%-- jsAlertBanner is always rendered unconditionally so showJSAlert() can always find it in the DOM --%>
@@ -991,24 +1019,9 @@
     <%
         }
 
-        //RJ 07/12/2006
-        //If page is loaded first time hit db for patient's family doctor
-        //Else if we are coming back from search this has been done for us
-        //Else how did we get here?
-        if (bFirstDisp) {
-            DemographicData dd = new DemographicData();
-            Demographic demo = dd.getDemographic(loggedInInfo, String.valueOf(appt.getDemographicNo()));
-            doctorNo = demo != null ? (demo.getProviderNo()) : "";
-        } else if (request.getParameter("doctor_no") != null && !request.getParameter("doctor_no").equals("")) {
-            doctorNo = request.getParameter("doctor_no");
-        }
-
-	/* null check because demo.getProvider and/or request.getParameter("doctor_no") can
-     * BOTH return a null value that will cause the entire page to crash
-     */
-	if (doctorNo == null) {
-		doctorNo = "";
-    }
+        // The form posts a display label as doctorNo, while search links use doctor_no.
+        // The loaded patient is authoritative on both initial display and validation rerender.
+        doctorNo = demographicTmp == null ? "" : StringUtils.defaultString(demographicTmp.getProviderNo());
     %>
             <div class="bg-light border rounded p-2">
         <div class="form-wrapper">
@@ -1092,7 +1105,7 @@
                     </td>
                     <td>
                 <label for="keyword" class="visually-hidden"><fmt:message key="Appointment.formName"/></label>
-                <input type="text" name="keyword" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getName()) %>' context="htmlAttribute"/>" id="keyword" class="form-control"
+                <input type="text" name="keyword" data-code-point-maxlength="255" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getName()) %>' context="htmlAttribute"/>" id="keyword" class="form-control"
                                value="<carlos:encode value='<%= appointmentTextRetry ? StringUtils.defaultString(request.getParameter("keyword")) : (bFirstDisp?nameSb.toString():(request.getParameter("name") != null ? request.getParameter("name") : "")) %>' context="htmlAttribute"/>"
                                placeholder="<fmt:message key="Appointment.formName"/>">
                     </td>
@@ -1130,7 +1143,7 @@
                 <tr>
             <td></td><td>
 				<label for="reason" class="visually-hidden"><fmt:message key="Appointment.formReason"/></label>
-				<textarea id="reason" class="form-control" name="reason" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
+				<textarea id="reason" class="form-control" name="reason" data-code-point-maxlength="80" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getReason()) %>' context="htmlAttribute"/>" maxlength="80" rows="2" style="resize:none;"><carlos:encode value='<%= StringUtils.defaultString(bFirstDisp?appt.getReason():request.getParameter("reason")) %>' context="html"/></textarea>
 
                     </td>
                 </tr>
@@ -1366,7 +1379,7 @@
                         <label for="resources"><fmt:message key="Appointment.formResources"/>:</label>
                     </td>
                     <td>
-                <input type="text" id="resources" name="resources" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getResources()) %>' context="htmlAttribute"/>" class="form-control"
+                <input type="text" id="resources" name="resources" data-code-point-maxlength="255" data-appointment-original="<carlos:encode value='<%= apptFromRequest == null ? "" : StringUtils.defaultString(apptFromRequest.getResources()) %>' context="htmlAttribute"/>" class="form-control"
                                value="<carlos:encode value='<%= bFirstDisp?appt.getResources():(request.getParameter("resources") != null ? request.getParameter("resources") : "") %>' context="htmlAttribute"/>">
                     </td>
                 </tr>
@@ -1634,6 +1647,12 @@
 
 </div> <!-- end of edit appointment screen -->
 </form>
+<% if (apptFromRequest != null && apptFromRequest.getDemographicNo() > 0) { %>
+<jsp:include page="/WEB-INF/jsp/demographic/portalBookingPrompt.jsp">
+    <jsp:param name="portalBookingPatient" value="<%= apptFromRequest.getDemographicNo() %>"/>
+    <jsp:param name="portalBookingPatientInput" value="#demographic_no"/>
+</jsp:include>
+<% } %>
     </body>
 
 </html>

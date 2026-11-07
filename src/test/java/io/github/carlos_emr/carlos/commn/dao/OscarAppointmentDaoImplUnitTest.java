@@ -67,6 +67,7 @@ class OscarAppointmentDaoImplUnitTest {
         Appointment result = dao.findForUpdate(42);
 
         assertThat(result).isSameAs(appointment);
+        verify(entityManager).refresh(appointment, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         assertThat(result.getStatus()).isEqualTo("H");
         assertThat(result.getDemographicNo()).isEqualTo(202);
         verify(entityManager).createNativeQuery(FIND_FOR_UPDATE_SQL, Appointment.class);

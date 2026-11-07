@@ -155,12 +155,9 @@ test('free-text patient zero remains subject to Add name validation',()=>{
  for(const zero of ['0','000']){const f=form('ADDAPPT',{keyword:'N'.repeat(256)});f.controls.demographic_no.value=zero;assert.equal(f.validate(),false);assert.equal(f.controls.keyword.value,'N'.repeat(256));}
 });
 
-test('native edit retry tolerates its absent doctor_no and retains a supplied legacy doctor without a null dereference',()=>{
- const jsp=readJsp('editappointment.jsp');assert(!/<input[^>]*name="doctor_no"/.test(jsp));
- const condition=jsp.match(/else if \(([^\n]*request\.getParameter\("doctor_no"\)[^\n]*)\) \{\s*doctorNo = request\.getParameter\("doctor_no"\);/)?.[1];assert(condition);
- const expression=condition.replace(/request\.getParameter\("doctor_no"\)\.equals\(""\)/g,'javaEquals(request.getParameter("doctor_no"), "")');
- for(const value of [null,'','777']){const context={request:{getParameter:()=>value},doctorNo:'',javaEquals(left,right){if(left===null)throw Error('Native Java String.equals dereferenced null');return left===right;}};
-  vm.runInNewContext('if ('+expression+') doctorNo=request.getParameter("doctor_no");',context);assert.equal(context.doctorNo,value||'');}
+test('native edit retry resolves the doctor from the loaded patient',()=>{
+ const jsp=readJsp('editappointment.jsp');
+ assert(jsp.includes('doctorNo = demographicTmp == null ? "" : StringUtils.defaultString(demographicTmp.getProviderNo());'));
 });
 test('native retry duplicate policy excludes only this appointment and retains every real other appointment',()=>{
  const jsp=readJsp('editappointment.jsp');const expr=jsp.match(/long numSameDayGroupAppts = ([\s\S]*?);/)?.[1];assert(expr);

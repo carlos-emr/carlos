@@ -18,13 +18,16 @@
  * patient's email is an eForm of that patient.
  *
  * Fixtures: the workflow's FAKE patient (X), a second FAKE patient (Y) named after the run
- * marker, an owned eForm template and an owned sender account pointing at the sink. Cleanup
+ * marker, an owned eForm template, an owned sender account pointing at the sink and, when none is
+ * saved, a FAKE clinic email footer (scripts/lib/clinic-email-footer-fixture.js). Cleanup
  * removes the owned email logs, attachments, chart notes, eForm instances, template, sender and
  * patient Y, and asserts each is gone. Run on a disposable install only, never beside another check:
  * while it runs the owned sender is offered clinic-wide (as for admin-email-config).
  */
 const net = require('node:net');
 const h = require('./lib/playwright-harness');
+const { ensureClinicEmailFooter } = require('./lib/clinic-email-footer-fixture');
+const { createEmailArchiveCleanup, preflightEmailArchives } = require('./lib/email-archive-fixture');
 const { runWorkflow } = require('./lib/workflow-session');
 const {fillComposeMessage, prepareComposePassword} = require('./lib/email-compose-probe');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
@@ -100,6 +103,9 @@ async function workflow(s) {
   if (!['localhost', '127.0.0.1', '::1', '[::1]'].includes(s.config.baseUrl.hostname.toLowerCase())) {
     throw new h.SkipCheck('The SMTP sink binds the runner\'s loopback, which CARLOS can reach only when BASE_URL is loopback');
   }
+  // Send stays disabled until a clinic email footer is saved (#3981).
+  ensureClinicEmailFooter(s);
+  const removeArchives = createEmailArchiveCleanup(sql);
   const hex = marker.slice(-16);
   const sender = `sender-${hex}@example.com`;
   const lastNameY = `${marker}Y`;
@@ -111,11 +117,13 @@ async function workflow(s) {
   const sink = startSmtpSink();
   let configId;
   let fid;
+  let childCleanupComplete = false;
 
   // Registered first so it runs last, after every child row below has been removed.
   s.cleanup(() => {
     const y = patients.y.demographicNo;
     if (!y) return;
+    h.assert(childCleanupComplete, 'Patient Y retained because email child cleanup did not finish');
     h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${y} AND last_name=${q(lastNameY)}`) === '1',
       'Patient Y fixture ownership changed');
     const support = [['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
@@ -130,6 +138,7 @@ async function workflow(s) {
       if (!demo) continue;
       const logs = sql.rows(`SELECT id FROM emailLog WHERE demographicNo=${demo}`).map(row => row[0]);
       for (const id of logs) h.assert(/^[1-9]\d*$/.test(id), 'Owned email log id is invalid');
+      removeArchives({patient: demo, marker: demo === patients.x.demographicNo ? marker : lastNameY, logIds: logs});
       if (logs.length) {
         sql.execute(`DELETE FROM casemgmt_note_link WHERE table_name=12 AND table_id IN (${logs.join(',')});
           DELETE FROM emailAttachment WHERE logId IN (${logs.join(',')});
@@ -155,6 +164,7 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM eform WHERE form_name=${q(formName)})
       + (SELECT COUNT(*) FROM emailConfig WHERE senderEmail=${q(sender)})`) === '0',
     'The owned eForm template or sender account was not removed');
+    childCleanupComplete = true;
   });
 
   patients.y.demographicNo = sql.value(`INSERT INTO demographic
@@ -200,8 +210,13 @@ async function workflow(s) {
     await composer.locator('#subjectEmail').fill(`${marker} ${label}`);
     await fillComposeMessage(composer, `${marker} body ${label}`);
     await prepareComposePassword(composer, `PW${hex}${label}`, `${marker} clue`);
+    await composer.locator('#consentOverride').check();
+    await composer.locator('#consentOverrideReason').fill(`${marker} synthetic consent confirmation`);
     await composer.locator('#doNotAddAsNoteOption').check();
     await Promise.all([composer.waitForURL(/\/email\/emailSendAction/, { timeout: TIMEOUT }), composer.locator('#btnSend').click()]);
+    const errors = await composer.locator('.alert-danger:visible').allTextContents();
+    h.assert(await composer.locator('#isEmailSuccessful').inputValue() === 'true',
+      `The ${label} send was refused: ${errors.join(' ')}`);
     await composer.locator('#successMessage').waitFor({ timeout: TIMEOUT });
     h.assert((await composer.locator('#successMessage').innerText()).includes(entry.address),
       `The ${label} confirmation does not name its patient's address`);
@@ -264,5 +279,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('eform-email-two-windows', workflow, { openPatient: true });
+if (require.main === module) runWorkflow('eform-email-two-windows', workflow, { openPatient: true, preflightConfig: preflightEmailArchives });
 module.exports = { workflow };

@@ -407,8 +407,14 @@ public class AddPrevention2Action extends ActionSupport {
             }
         }
 
+        // A missing, non-numeric or out-of-range demographic_no is reported as such and never
+        // reaches a lookup; an edit or delete must name a prevention record in that patient's chart.
+        Integer demographicId = parseDemographicNo(demographicNo);
+        if (demographicId == null) {
+            result.add("Invalid or missing demographic_no");
+            return result;
+        }
         try {
-            int demographicId = Integer.parseInt(demographicNo);
             if (demographicId <= 0 || !demographicDao.clientExists(demographicId)) {
                 result.add("Patient not found");
             } else if (id != null) {
@@ -424,6 +430,30 @@ public class AddPrevention2Action extends ActionSupport {
         }
 
         return result;
+    }
+
+    /**
+     * Parses the {@code demographic_no} request parameter into a patient id.
+     *
+     * <p>Returns the id, or {@code null} if the value is missing, is not a number,
+     * or is too big to fit in an {@code int} (for example {@code "99999999999"}).
+     * The caller treats {@code null} as a bad request and shows a validation
+     * message, instead of letting a {@link NumberFormatException} bubble up as a
+     * 500 error. This follows the same check-then-parse approach as
+     * {@code RtlPreventions2Action}.
+     *
+     * @param demographic_no the raw request value, which may be {@code null}
+     * @return the patient id, or {@code null} if the value is missing or not a valid {@code int}
+     */
+    static Integer parseDemographicNo(String demographic_no) {
+        if (demographic_no == null || !demographic_no.matches("\\d+")) {
+            return null;
+        }
+        try {
+            return Integer.parseInt(demographic_no);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private void addHashtoArray(ArrayList<Map<String, String>> list, String s, String key) {

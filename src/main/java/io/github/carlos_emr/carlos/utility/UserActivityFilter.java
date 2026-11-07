@@ -148,6 +148,15 @@ public final class UserActivityFilter implements Filter {
             return;
         }
 
+        // This exact servlet authenticates a derived bearer token, not a staff session.
+        // Leave every method to its own GET-only/authentication checks without creating
+        // a session through the browser LoggedInInfo lookup below.
+        if ("/ws/portal/email-footer".equals(httpRequest.getServletPath())
+                && httpRequest.getPathInfo() == null) {
+            chain.doFilter(request, response);
+            return;
+        }
+
         // getSession(false): judging activity must never create a session for an anonymous request.
         HttpSession session = httpRequest.getSession(false);
         String providerNo = session == null ? null : authenticatedProviderNo(session);

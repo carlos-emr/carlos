@@ -364,7 +364,7 @@
                 	<a id="discont_<%=prescriptIdInt%>" href="javascript:void(0);" onclick="Discontinue(event,this);" <%=styleColor%> >Discon</a>
                 <% }
                 }else{%>
-                  <%=prescriptDrug.getArchivedReason()%>
+                  <carlos:encode value='<%= prescriptDrug.getArchivedReason() %>' context="html"/>
                 <%}%>
             </td>
   <%-- DRUG REASON --%>          
@@ -406,7 +406,7 @@
 
             <td width="10px" align="center">
                 <%if (prescriptDrug.getOutsideProviderName() != null && !prescriptDrug.getOutsideProviderName().equals("")) {%>
-                <span class="external"><%=prescriptDrug.getOutsideProviderName()%></span>
+                <span class="external"><carlos:encode value='<%= prescriptDrug.getOutsideProviderName() %>' context="html"/></span>
                 <%} else {%>
                 local
                 <%}%>
@@ -543,9 +543,9 @@
                 codeDescr = codingSystemManager.getCodeDescription(drugReason.getCodingSystem(), drugReason.getCode());
             }
             if (codeDescr != null) {
-                sb.append(SafeEncode.forHtml(codeDescr));
+                sb.append(title ? SafeEncode.forHtmlAttribute(codeDescr) : SafeEncode.forHtml(codeDescr));
             } else {
-                sb.append(drugReason.getCode());
+                sb.append(title ? SafeEncode.forHtmlAttribute(drugReason.getCode()) : SafeEncode.forHtml(drugReason.getCode()));
             }
             multiLoop = true;
         }

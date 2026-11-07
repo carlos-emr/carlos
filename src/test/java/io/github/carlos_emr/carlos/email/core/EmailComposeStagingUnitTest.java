@@ -47,8 +47,8 @@ class EmailComposeStagingUnitTest {
 
     private static EmailAttachmentSettings settings(String patient, String name) {
         return new EmailAttachmentSettings("20" + patient, patient, null, new String[]{"30" + patient}, null, null,
-                null, true, false, false, false, false, false, null, null, "fake@example.com", "FAKE subject " + name,
-                "FAKE message " + name, null, "FULL");
+                null, true, false, false, false, false, false, "fake@example.com", "FAKE subject " + name,
+                "FAKE message " + name, null, "FULL", null);
     }
 
     @Test

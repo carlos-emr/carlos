@@ -40,6 +40,9 @@ import io.github.carlos_emr.carlos.tickler.dto.TicklerListDTO;
 
 public interface TicklerDao extends AbstractDao<Tickler> {
 
+    /** Locks and refreshes the current tickler; callers must retain the transaction through their write. */
+    Tickler findForUpdate(Integer ticklerNo);
+
     /**
      * Finds a Tickler by its ID.
      */

@@ -35,13 +35,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.util.StringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData;
 import io.github.carlos_emr.carlos.prescript.data.RxProviderData.Provider;
 
 import jakarta.servlet.http.HttpServletRequest;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -339,7 +339,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(PdfFonts.phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate), heading));
+        datecell.setPhrase(PdfFonts.phrase(String.format("%s %s", getResource("msgDate"), "1".equals(reqFrm.pwb) ? getResource("pwb") : reqFrm.referalDate), heading));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
@@ -498,7 +498,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             Integer programNo = Integer.parseInt(reqFrm.letterheadName.substring(5));
             letterheadName = programDao.getProgramName(programNo);
 
-        } else if (!"-1".equals(reqFrm.letterheadName) && !reqFrm.letterheadName.equals(clinic.getClinicName())) {
+        } else if (!"-1".equals(reqFrm.letterheadName) && !StringUtils.noNull(reqFrm.letterheadName).equals(clinic.getClinicName())) {
 
             Provider letterheadNameProvider = null;
 
@@ -686,9 +686,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 reqFrm.patientHealthNum,
                 reqFrm.patientHealthCardVersionCode)));
 
-        if (!reqFrm.pwb.equals("1")) {
+        if (!"1".equals(reqFrm.pwb)) {
             infoTable.addCell(setInfoCell(cell, getResource("msgappDate")));
-            infoTable.addCell(setDataCell(cell, reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.appointmentDate));
+            infoTable.addCell(setDataCell(cell, reqFrm.appointmentDate));
             infoTable.addCell(setInfoCell(cell, getResource("msgTime")));
             infoTable.addCell(setDataCell(cell, formatAppointmentTime(reqFrm.appointmentHour,
                     reqFrm.appointmentMinute, reqFrm.appointmentPm)));
@@ -886,9 +886,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * so an unexpected value is never hidden.</p>
      */
     static String formatAppointmentTime(String appointmentHour, String appointmentMinute, String appointmentPm) {
-        String hour = StringUtils.trimToEmpty(appointmentHour);
-        String minute = StringUtils.trimToEmpty(appointmentMinute);
-        String half = StringUtils.trimToEmpty(appointmentPm);
+        String hour = org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentHour);
+        String minute = org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentMinute);
+        String half = org.apache.commons.lang3.StringUtils.trimToEmpty(appointmentPm);
         if (hour.isEmpty()) {
             return "";
         }
@@ -924,7 +924,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             return false;
         }
         return (signatureImageOverride != null && signatureImageOverride.length > 0)
-                || StringUtils.isNotBlank(signatureImageId);
+                || org.apache.commons.lang3.StringUtils.isNotBlank(signatureImageId);
     }
 
     /**

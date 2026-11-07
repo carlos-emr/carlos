@@ -75,7 +75,7 @@ public class EFormExportZip {
         if (name == null || name.trim().isEmpty()) {
             return PathValidationUtils.validatePathComponent(name, "eform export name");
         }
-        String safeName = normalizeTrailingSpacesAndDots(
+        String safeName = replaceTrailingSpacesAndDots(
                 name.replaceAll("[/\\\\:\\p{Cc}]", "_").replaceAll("^[ .~]+", "_"));
         // Windows device basenames are reserved even with an extension (including COM¹/LPT¹).
         // https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file
@@ -83,16 +83,19 @@ public class EFormExportZip {
             safeName = "_" + safeName;
         }
         return PathValidationUtils.validatePathComponent(
-                normalizeTrailingSpacesAndDots(boundedComponent(safeName, "", 251)), "eform export name");
+                replaceTrailingSpacesAndDots(boundedComponent(safeName, "", 251)), "eform export name");
     }
 
-    /** Replaces a trailing run with one underscore without regex suffix backtracking. */
-    private static String normalizeTrailingSpacesAndDots(String name) {
-        int end = name.length();
-        while (end > 0 && (name.charAt(end - 1) == ' ' || name.charAt(end - 1) == '.')) {
+    /**
+     * Replaces a trailing run of spaces and dots with one underscore, as {@code [ .]+$} would.
+     * A scan from the end avoids that regex's quadratic backtracking on long space runs.
+     */
+    private static String replaceTrailingSpacesAndDots(String value) {
+        int end = value.length();
+        while (end > 0 && (value.charAt(end - 1) == ' ' || value.charAt(end - 1) == '.')) {
             end--;
         }
-        return end == name.length() ? name : name.substring(0, end) + "_";
+        return end == value.length() ? value : value.substring(0, end) + "_";
     }
 
     /** Bounds UTF-8 bytes without splitting a code point, retaining space for a required suffix. */

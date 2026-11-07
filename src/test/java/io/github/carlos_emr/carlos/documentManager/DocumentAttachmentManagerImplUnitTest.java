@@ -27,15 +27,17 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.managers.LabManager;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 
@@ -45,8 +47,8 @@ import static org.mockito.Mockito.never;
 @DisplayName("DocumentAttachmentManagerImpl single eForm fax handling")
 class DocumentAttachmentManagerImplUnitTest extends CarlosUnitTestBase {
 
-    @Spy
-    private DocumentAttachmentManagerImpl manager;
+    private final DocumentAttachmentManagerImpl manager =
+            spy(new DocumentAttachmentManagerImpl(mock(LabManager.class)));
 
     @Test
     @DisplayName("should preserve the original eForm PDF when no attachments are present")

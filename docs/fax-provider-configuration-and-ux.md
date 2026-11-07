@@ -82,7 +82,10 @@ browser check for this page is `scripts/fax-configure-playwright-checks.js`
 Single endpoint (`POST https://www.srfax.com/SRF_SecWebSvc.php`, overridable via `srfax.api.url`
 in carlos.properties — HTTPS on `srfax.com`/`*.srfax.com` only). Credentials on every call:
 - `FaxConfig.faxUser` → `access_id` (the numeric SRFax account number)
-- `FaxConfig.faxPasswd` → `access_pwd` (AES-encrypted at rest via `EncryptionUtils`)
+- `FaxConfig.faxPasswd` → `access_pwd` (AES-encrypted at rest via `EncryptionUtils` with
+  `encryption.util.secret.key`; if that key goes missing, CARLOS refuses to start rather than
+  generate a new one over the stored passwords. See
+  [Credential Encryption Key](email/provider-to-patient-email-operations.md#credential-encryption-key))
 
 Operations used:
 - `Queue_Fax` — outbound send (`sCallerID` = the configured 10-digit fax number,

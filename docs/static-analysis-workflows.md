@@ -90,6 +90,8 @@ this file. Do not exclude the entire test module or turn off these queries.
 | [27431](https://github.com/carlos-emr/carlos/security/code-scanning/27431) | False positive | The sessionless OSCAR regression removes those placeholder credentials from its temporary configuration. |
 | [27421](https://github.com/carlos-emr/carlos/security/code-scanning/27421) | Used in tests | The envelope regression intentionally reproduces the legacy receiver's ECB decryption using generated keys and synthetic messages. |
 | [27422](https://github.com/carlos-emr/carlos/security/code-scanning/27422) | Used in tests | The fake receiver intentionally implements the same legacy ECB protocol; production crypto findings remain in scope. |
+| [27791](https://github.com/carlos-emr/carlos/security/code-scanning/27791) | False positive; GitHub dismissal required | `scripts/lib/o19-native-auth.js` reproduces OSCAR 19's imported signed-decimal SHA-1 representation only to verify compatibility. It does not store a password hash. The native workflow requires the imported account's reset flag, then verifies that reset replaces the value with bcrypt and clears that flag. |
+| [27758](https://github.com/carlos-emr/carlos/security/code-scanning/27758) | Used in tests; GitHub dismissal required | `scripts/o19-native-auth.test.js` generates a public synthetic legacy-format vector for the verifier. It does not persist credentials; the separate native workflow verifies the required bcrypt replacement. |
 
 Re-review an exception when its input source or security boundary changes;
 reopen the corresponding CodeQL alert if its justification no longer holds.

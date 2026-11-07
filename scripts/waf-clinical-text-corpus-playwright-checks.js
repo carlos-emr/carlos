@@ -74,6 +74,7 @@ async function awaitNativeChartSave(chart,operation) {
 const { randomUUID } = require('node:crypto');
 const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, openFormsMenu } = require('./lib/playwright-ui');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
 const { openChart, waitForNavbars } = require('./echart-navbar-modules-playwright-checks');
 const { watchFrontDoor } = require('./lib/front-door-checks');
@@ -320,8 +321,8 @@ function replayRow(s, ctx, spec) {
     watermark() { if (spec.watermark) spec.watermark(); },
     async send(values) {
       const aim = spec.aim ? await spec.aim(captured) : {};
-      const place = spec.where === 'query' ? { query: { ...(aim.query || {}), ...values }, overrides: aim.overrides || {} }
-        : { overrides: { ...(aim.overrides || {}), ...values }, query: aim.query || {} };
+      const place = spec.where === 'query' ? { query: { ...aim.query, ...values }, overrides: aim.overrides || {} }
+        : { overrides: { ...aim.overrides, ...values }, query: aim.query || {} };
       const replay = rep.buildReplay(captured, { origin: s.config.baseUrl.origin, token: await ctx.token(), ...place });
       return rep.sendReplay(s.context, replay);
     },
@@ -893,7 +894,7 @@ function rows(s, ctx) {
           const stored = s.sql.rows(`SELECT x.prevention_id, x.keyval, HEX(x.val) FROM preventionsExt x JOIN preventions p ON p.id=x.prevention_id
             WHERE p.demographic_no=${patient} AND p.id > ${mark} AND x.keyval IN ('comments','reason')`);
           const byPrevention = new Map();
-          for (const [id, key, value] of stored) byPrevention.set(id, { ...(byPrevention.get(id) || {}), [key]: value });
+          for (const [id, key, value] of stored) byPrevention.set(id, { ...byPrevention.get(id), [key]: value });
           seen = [...byPrevention.values()];
           if (seen.some((entry) => entry.comments === hex(values.comments) && entry.reason === hex(values.reason))) return null;
           await wait(200);
@@ -930,7 +931,10 @@ function rows(s, ctx) {
         let viewer;
         try {
           const chart = await s.chart();
-          viewer = await s.popup(chart, chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: docs[0].label }).first(), 'document-viewer');
+          const documentLink = chart.locator('#leftNavBar a, #rightNavBar a').filter({ hasText: docs[0].label }).first();
+          // Filed by type (the provider's eChart preference): open the document's folder first.
+          await revealAuditLink(chart, documentLink, 30000);
+          viewer = await s.popup(chart, documentLink, 'document-viewer');
           const input = viewer.locator(`#docDesc_${docs[0].id}`);
           await input.waitFor({ state: 'visible', timeout: 30000 });
           await input.fill(`${marker}-MD-UI`);

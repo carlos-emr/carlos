@@ -97,6 +97,7 @@ public class CarlosProperties extends Properties {
     // Keep file descriptors and their locks serialized among instances in this class loader.
     // The filesystem locks additionally coordinate separate application processes.
     private static final Object CONFIGURATION_FILE_LOCK = new Object();
+    private final Properties deploymentOverrideProperties = new Properties();
     private static CarlosProperties carlosProperties = new CarlosProperties();
     private static final Set<String> activeMarkers = new HashSet<String>(Arrays.asList(new String[]{"true", "yes", "on"}));
     /**
@@ -242,15 +243,53 @@ public class CarlosProperties extends Properties {
         try {
             readFromFile("/carlos.properties");
 
-            String overrideProperties = System.getProperty("carlos_override_properties");
-            if (overrideProperties != null) {
-                String overrideLocation = LogSafe.sanitize(overrideProperties);
-                MiscUtils.getLogger().info("Applying override properties : {}", overrideLocation);
-                readFromFile(overrideProperties);
-            }
         } catch (IOException e) {
             MiscUtils.getLogger().error("Error", e);
         }
+        String overrideProperties = System.getProperty("carlos_override_properties");
+        if (overrideProperties != null && !overrideProperties.isBlank()) {
+            File file = PathValidationUtils.resolveConfiguredFile(overrideProperties, "carlos override properties");
+            synchronized (CONFIGURATION_FILE_LOCK) {
+                try (FileChannel channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
+                     Reader reader = Channels.newReader(channel, StandardCharsets.ISO_8859_1);
+                     FileLock ignored = channel.lock(0, Long.MAX_VALUE, true)) {
+                    Properties parsed = new Properties();
+                    parsed.load(reader);
+                    deploymentOverrideProperties.putAll(parsed);
+                    putAll(parsed);
+                    loadedPropertiesFile = file;
+                    loadedPropertiesLocation = overrideProperties;
+                } catch (java.nio.file.NoSuchFileException e) {
+                    MiscUtils.getLogger().info("Override properties file not found");
+                } catch (IOException e) {
+                    throw new IllegalStateException("Configured override properties could not be read", e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Applies an already parsed deployment snapshot without reading it a second time.
+     * A supplied external source is the winning user-home file; a null source preserves
+     * the constructor's override provenance. Only startup supplies this server-owned path.
+     */
+    public void applyParsedDeploymentProperties(Properties parsed, String externalSource) {
+        java.util.Objects.requireNonNull(parsed);
+        synchronized (CONFIGURATION_FILE_LOCK) {
+            File selected = externalSource == null ? null : PathValidationUtils.resolveConfiguredFile(externalSource, "carlos deployment properties");
+            putAll(parsed);
+            if (selected != null) {
+                loadedPropertiesFile = selected;
+                loadedPropertiesLocation = externalSource;
+            }
+        }
+    }
+
+    /** Returns a copy of the constructor's parsed override, for startup fallback and application. */
+    public Properties getDeploymentOverrideProperties() {
+        Properties snapshot = new Properties();
+        snapshot.putAll(deploymentOverrideProperties);
+        return snapshot;
     }
 
     /**
@@ -298,6 +337,16 @@ public class CarlosProperties extends Properties {
      * @throws NoSuchAlgorithmException if AES key generation is unavailable
      */
     public String getOrCreateEncryptionKey() throws IOException, NoSuchAlgorithmException {
+        return getOrCreateEncryptionKey(() -> { });
+    }
+
+    /**
+     * Runs the caller's creation approval under the exclusive configuration lock only when
+     * no persisted key exists. A stale startup snapshot adopts a concurrent key without
+     * running creation checks or replacing that key. Approval failure leaves the file intact.
+     */
+    public String getOrCreateEncryptionKey(Runnable approveCreation) throws IOException, NoSuchAlgorithmException {
+        java.util.Objects.requireNonNull(approveCreation);
         synchronized (CONFIGURATION_FILE_LOCK) {
             String keyName = EncryptionUtils.SECRET_KEY_ENV_VAR;
             if (loadedPropertiesFile == null) {
@@ -319,6 +368,7 @@ public class CarlosProperties extends Properties {
                 persisted.load(reader);
                 String key = persisted.getProperty(keyName);
                 if (key == null || key.isBlank()) {
+                    approveCreation.run();
                     key = EncryptionUtils.generateSecretKey();
                     // A trailing continuation may consume the first line terminator.
                     ByteBuffer entry = StandardCharsets.ISO_8859_1.encode("\n\n" + keyName + "=" + key + "\n");

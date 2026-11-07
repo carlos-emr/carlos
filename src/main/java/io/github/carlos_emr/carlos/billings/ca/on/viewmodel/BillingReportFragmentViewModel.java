@@ -25,9 +25,10 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Immutable view model for the four ON billing-report JSPF fragments
+ * Immutable view model for the five ON billing-report JSPF fragments
  * ({@code billingReport_billed.jspf}, {@code billingReport_unsettled.jspf},
- * {@code billingReport_billob.jspf}, {@code billingReport_flu.jspf}).
+ * {@code billingReport_billob.jspf}, {@code billingReport_flu.jspf},
+ * {@code billingReport_unbilled.jspf}).
  *
  * <p>The fragments are included from the parent
  * {@code billingReportControl.jsp}. The view model captures the per-fragment

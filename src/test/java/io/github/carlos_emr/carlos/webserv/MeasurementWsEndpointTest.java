@@ -74,17 +74,18 @@ class MeasurementWsEndpointTest extends CarlosSoapTestBase {
     @Override
     protected Object getServiceBean() {
         ws = new MeasurementWs();
-        injectDependency(ws,"projections",projections);
+        injectDependency(ws, "projections", projections);
+        injectDependency(ws, "securityInfoManager", authorizeEndpoint("r", "_measurement"));
         return ws;
     }
 
     @Test
     void shouldFaultInsteadOfReturningEmptySubset_whenStructuredSourceCannotBeProjected() {
-        when(measurementManager.getMeasurementByDemographicIdAfter(any(LoggedInInfo.class),eq(123),any(java.util.Date.class))).thenReturn(java.util.List.of());
+        when(measurementManager.getMeasurementByDemographicIdAfter(any(LoggedInInfo.class), eq(123), any(java.util.Date.class))).thenReturn(java.util.List.of());
         org.mockito.Mockito.doThrow(new org.apache.cxf.binding.soap.SoapFault("Structured projection requires review",
                 org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT))
-                .when(projections).requireSoapSupported(123,java.util.Set.of("CareElements"));
-        org.assertj.core.api.Assertions.assertThatThrownBy(()->createClient(MeasurementWs.class).getMeasurementsByDemographicIdAfter(java.util.Calendar.getInstance(),123))
+                .when(projections).requireSoapSupported(123, java.util.Set.of("CareElements"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(()-> createClient(MeasurementWs.class).getMeasurementsByDemographicIdAfter(java.util.Calendar.getInstance(), 123))
                 .hasMessageContaining("Structured projection requires review");
     }
 

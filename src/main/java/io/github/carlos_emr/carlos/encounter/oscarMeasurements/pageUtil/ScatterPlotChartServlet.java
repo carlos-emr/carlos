@@ -57,11 +57,11 @@ import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
+
 
 /**
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
@@ -85,11 +85,32 @@ public class ScatterPlotChartServlet extends HttpServlet {
             httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
             return;
         }
-        SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null) {
+            httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        Integer demographicNoInt;
         try {
-            PatientRecordAccess.require(security, LoggedInInfo.getLoggedInInfoFromSession(request),
-                    demographicNo, "_measurement", "r");
-        } catch (SecurityException deniedRecord) {
+            demographicNoInt = Integer.valueOf(demographicNo);
+            if (demographicNoInt <= 0) {
+                httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+                return;
+            }
+        } catch (NumberFormatException e) {
+            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        // Authorization and DAO lookups must name the same patient, including for
+        // inputs such as 00123. Patient-specific overrides take precedence over
+        // general privileges; explicit chart restrictions are checked separately.
+        demographicNo = demographicNoInt.toString();
+        SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_measurement", "r", demographicNo)
+                || !securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demographicNoInt)) {
             httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }

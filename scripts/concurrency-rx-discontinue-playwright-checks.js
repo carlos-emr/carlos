@@ -81,6 +81,7 @@ async function workflow(s) {
     await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note n JOIN casemgmt_note_link l ON l.note_id=n.note_id AND l.table_name=2
       AND l.table_id=${drug} WHERE n.demographic_no=${patient}`, '1', 'Session A\'s discontinue did not file exactly one chart note');
   });
+  const firstArchivedDate = sql.value(`SELECT archived_date FROM drugs WHERE drugid=${drug}`);
   let second;
   await s.step('session B discontinues the same medication from its stale profile', async () => {
     const mark = failureMark(s.recorder);
@@ -94,7 +95,8 @@ async function workflow(s) {
   await s.step('the first discontinue reason stands and the chart holds one discontinue note', async () => {
     const state = sql.value(archived);
     const notes = notesFor();
-    h.assert(state === '1|doseChange' && notes === '1',
+    const archivedDate = sql.value(`SELECT archived_date FROM drugs WHERE drugid=${drug}`);
+    h.assert(state === '1|doseChange' && notes === '1' && archivedDate === firstArchivedDate,
       `After two sessions discontinued the same drug it is archived as '${state.split('|')[1]}' with ${notes} chart note(s) (expected the first reason, one note). `
       + 'RxDeleteRx2Action.Discontinue only checks the drug belongs to the patient, so the stale second discontinue overwrites archived_reason and archived_date '
       + 'and files a second, contradictory discontinue note.');

@@ -50,6 +50,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -114,6 +118,11 @@ public class MsgCreateMessage2Action extends ActionSupport {
      */
     public String execute()
             throws IOException, ServletException {
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null || loggedInInfo.getLoggedInProviderNo() == null) {
             throw new SecurityException("No valid session found");
@@ -141,6 +150,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
             throw new SecurityException("Cannot access another provider's messages");
         }
 
+        String submission = request.getParameter(MessengerSubmissionGuard.PARAMETER);
+        request.setAttribute(MessengerSubmissionGuard.PARAMETER, submission);
         String userName = bean.getUserName();
         // This compose window's own attachments, taken once so a second submit of the same form
         // cannot send them again. Every path below that does not send puts them back.
@@ -203,6 +214,12 @@ public class MsgCreateMessage2Action extends ActionSupport {
                 subject = "none";
             }
 
+            if (subject.codePointCount(0, subject.length()) > MessageTbl.SUBJECT_MAX_LENGTH) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return redisplay(session, staged, "Subject exceeds the maximum length of "
+                        + MessageTbl.SUBJECT_MAX_LENGTH + " characters. Shorten it and send again.", parsedDemoNo);
+            }
+
             //FIXME remove MsgMessageData.getDups4/getProviderStructure/sendMessage2/createSentToString (JDBC-based) and migrate to MessagingManager/MessagingManagerImpl (Hibernate-based)
             MsgMessageData messageData = new MsgMessageData();
             providers = messageData.getDups4(providers);
@@ -218,18 +235,44 @@ public class MsgCreateMessage2Action extends ActionSupport {
             if (sentToWho != null) {
                 sentToWho = sentToWho.trim();
             }
-            messageId = messageData.sendMessage2(message, subject, userName, sentToWho, userNo, providerListing, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
-            sent = messageId != null && !messageId.isEmpty();
-
-            if (messageId == null || messageId.isEmpty()) {
-                MiscUtils.getLogger().error("sendMessage2 returned null or empty messageId");
-                return redisplay(session, staged, "Failed to send message. Please try again.", parsedDemoNo);
+            var attempt = MessengerSubmissionGuard.attempt(session, submission, userNo);
+            if (attempt.claim() == null) {
+                MsgAttachmentStaging.restore(session, attachmentKey, staged);
+                return submissionConflict("messenger.SubmissionConflict.msgUnavailable");
             }
-
-            // Link message and demographic if both IDs are valid (> 0).
-            Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
-            if (parsedMessageId > 0 && parsedDemoNo > 0) {
-                messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageId, parsedDemoNo);
+            final String normalizedSubject = subject;
+            final String recipients = sentToWho;
+            final int patient = parsedDemoNo;
+            final var selectedProviders = providerListing;
+            try (var claim = attempt.claim()) {
+                try {
+                    TransactionTemplate transaction = new TransactionTemplate(
+                            SpringUtils.getBean(PlatformTransactionManager.class));
+                    transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                    transaction.executeWithoutResult(status -> {
+                        claim.storageStarted();
+                        String savedId = messageData.sendMessage2(message, normalizedSubject, userName, recipients,
+                                userNo, selectedProviders, att, pdfAtt, OscarMsgType.GENERAL_TYPE);
+                        int savedMessage = ConversionUtils.fromIntString(savedId);
+                        if (savedMessage <= 0) {
+                            throw new IllegalStateException("Message persistence did not return a valid identifier");
+                        }
+                        if (patient > 0) {
+                            messengerDemographicManager.attachDemographicToMessage(loggedInInfo, savedMessage, patient);
+                        }
+                    });
+                    if (!claim.isCommitted()) {
+                        throw new IllegalStateException("Message transaction did not confirm a commit");
+                    }
+                    sent = true;
+                } catch (RuntimeException e) {
+                    MiscUtils.getLogger().error("Message send transaction failed", e);
+                    if (!claim.canRetry()) {
+                        return submissionConflict("messenger.SubmissionConflict.msgUnconfirmed");
+                    }
+                    response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                    return redisplay(session, staged, "The message was not sent. Your draft is retained; please try again.", parsedDemoNo);
+                }
             }
 
             request.setAttribute("SentMessageProvs", sentToWho);
@@ -263,6 +306,8 @@ public class MsgCreateMessage2Action extends ActionSupport {
         request.setAttribute("ReSubject", subject);
         request.setAttribute("ReText", message);
         request.setAttribute("replyList", tickedRecipients(provider));
+        request.setAttribute("rejectedRecipientIds", provider == null ? java.util.Set.of()
+                : new java.util.HashSet<>(Arrays.asList(provider)));
         request.setAttribute("archiveMessageId", archiveMessageId(request));
         if (demographicNo > 0) {
             request.setAttribute("demographic_no", Integer.toString(demographicNo));
@@ -309,6 +354,15 @@ public class MsgCreateMessage2Action extends ActionSupport {
         }
         return ticked;
     }
+
+    private String submissionConflict(String messageKey) {
+        // sendError uses the shared error page, which intentionally hides servlet error details.
+        // These fixed recovery messages must remain visible in the normal production configuration.
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        request.setAttribute("messageSubmissionErrorKey", messageKey);
+        return "conflict";
+    }
+
 
     private String[] provider = new String[0];
     private String message;

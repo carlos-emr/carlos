@@ -57,11 +57,8 @@ import static org.mockito.Mockito.*;
  *   <li>Consent-based result filtering for provider-specific access</li>
  *   <li>Audit logging verification (LogAction calls)</li>
  *   <li>Null and empty result edge cases</li>
+ *   <li>_allergy read privilege enforcement for read methods</li>
  * </ul>
- *
- * <p><b>Note:</b> AllergyManagerImpl does not perform SecurityInfoManager
- * privilege checks. Security is enforced at the action/controller layer
- * for this manager. Therefore, no security failure tests are included.</p>
  *
  * @since 2026-02-09
  * @see AllergyManagerImpl
@@ -104,10 +101,23 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
         injectDependency(allergyManager, "patientConsentManager", mockPatientConsentManager);
         injectDependency(allergyManager, "securityInfoManager", mockSecurityInfoManager);
 
-        // Default: caller is authorized for _allergy read on the requested demographic. Denial is
-        // exercised explicitly in the authorization test below.
-        lenient().when(mockSecurityInfoManager.hasPrivilege(any(), eq("_allergy"), eq("r"), any()))
-                .thenReturn(true);
+        // Default: caller is authorized for _allergy read. The broad matcher covers both the
+        // role-level checks used by the SOAP-reachable reads (null scope) and the demographic-scoped
+        // check in getActiveAllergies. Denial is exercised explicitly in the authorization tests below.
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(), eq("_allergy"),
+                eq(SecurityInfoManager.READ), any())).thenReturn(true);
+    }
+
+    /**
+     * Revokes the role-level {@code _allergy} read privilege for the test caller.
+     *
+     * <p>Declared after the permissive default in {@link #setUp()}, so Mockito's
+     * last-matching-stubbing rule makes this win for the null-scope checks performed by the
+     * manager's read methods.</p>
+     */
+    private void denyAllergyReadPrivilege() {
+        when(mockSecurityInfoManager.hasPrivilege(eq(mockLoggedInInfo), eq("_allergy"),
+                eq(SecurityInfoManager.READ), isNull())).thenReturn(false);
     }
 
     /**
@@ -195,6 +205,76 @@ public class AllergyManagerUnitTest extends AllergyUnitTestBase {
             // Then
             assertThat(result.getDescription()).isEqualTo("Amoxicillin");
             assertThat(result.getSeverityOfReaction()).isEqualTo("3");
+        }
+    }
+
+    @Nested
+    @DisplayName("security")
+    @Tag("security")
+    class SecurityChecks {
+
+        @Test
+        @DisplayName("should throw and skip DAO when getAllergy is called without _allergy read privilege")
+        void shouldThrow_whenGetAllergyPrivilegeDenied() {
+            denyAllergyReadPrivilege();
+
+            assertThatThrownBy(() -> allergyManager.getAllergy(mockLoggedInInfo, TEST_ALLERGY_ID))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
+
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_allergy",
+                    SecurityInfoManager.READ, null);
+            verifyNoInteractions(mockAllergyDao);
+        }
+
+        @Test
+        @DisplayName("should throw and skip DAO when getUpdatedAfterDate is called without _allergy read privilege")
+        void shouldThrow_whenGetUpdatedAfterDatePrivilegeDenied() {
+            denyAllergyReadPrivilege();
+
+            Date updatedAfter = new Date();
+
+            assertThatThrownBy(() -> allergyManager.getUpdatedAfterDate(mockLoggedInInfo, updatedAfter, 5))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
+
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_allergy",
+                    SecurityInfoManager.READ, null);
+            verifyNoInteractions(mockAllergyDao, mockPatientConsentManager);
+        }
+
+        @Test
+        @DisplayName("should throw and skip consent and DAO when demographic query is called without _allergy read privilege")
+        void shouldThrow_whenDemographicQueryPrivilegeDenied() {
+            denyAllergyReadPrivilege();
+
+            Date updatedAfter = new Date();
+
+            assertThatThrownBy(() -> allergyManager.getByDemographicIdUpdatedAfterDate(
+                    mockLoggedInInfo, TEST_DEMO_NO, updatedAfter))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
+
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_allergy",
+                    SecurityInfoManager.READ, null);
+            verifyNoInteractions(mockAllergyDao, mockPatientConsentManager);
+        }
+
+        @Test
+        @DisplayName("should throw and skip DAO when composite query is called without _allergy read privilege")
+        void shouldThrow_whenCompositeQueryPrivilegeDenied() {
+            denyAllergyReadPrivilege();
+
+            Calendar updatedAfter = Calendar.getInstance();
+
+            assertThatThrownBy(() -> allergyManager.getAllergiesByProgramProviderDemographicDate(
+                    mockLoggedInInfo, 100, TEST_PROVIDER, TEST_DEMO_NO, updatedAfter, 5))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("_allergy");
+
+            verify(mockSecurityInfoManager).hasPrivilege(mockLoggedInInfo, "_allergy",
+                    SecurityInfoManager.READ, null);
+            verifyNoInteractions(mockAllergyDao);
         }
     }
 

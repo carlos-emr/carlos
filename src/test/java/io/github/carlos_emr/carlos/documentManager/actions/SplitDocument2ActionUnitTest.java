@@ -50,6 +50,9 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
     final ProviderInboxRoutingDao inbox = mock(ProviderInboxRoutingDao.class);
     final ProviderLabRoutingDao providers = mock(ProviderLabRoutingDao.class);
     final QueueDocumentLinkDao queues = mock(QueueDocumentLinkDao.class);
+    // The develop-side archive guard (#3484) looks this up when the action is built; an
+    // unstubbed mock reports no document as an archive artifact.
+    final OutboundEmailArchiveDao archives = mock(OutboundEmailArchiveDao.class);
     final SecurityInfoManager security = mock(SecurityInfoManager.class);
     final ProgramManager2 programs = mock(ProgramManager2.class);
     final LoggedInInfo info = mock(LoggedInInfo.class);
@@ -74,6 +77,7 @@ class SplitDocument2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(ProviderInboxRoutingDao.class, inbox);
         registerMock(ProviderLabRoutingDao.class, providers);
         registerMock(QueueDocumentLinkDao.class, queues);
+        registerMock(OutboundEmailArchiveDao.class, archives);
         registerMock(PlatformTransactionManager.class, transactions);
         request.setMethod("POST"); request.setParameter("document", "42"); request.setParameter("page", "1,0");
         servlet = mockStatic(ServletActionContext.class);

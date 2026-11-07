@@ -84,7 +84,7 @@ import io.github.carlos_emr.carlos.managers.TicklerManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.SxmlMisc;
+import io.github.carlos_emr.carlos.demographic.util.DemographicXml;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
 import io.github.carlos_emr.carlos.demographic.data.DemographicRelationship;
 
@@ -494,7 +494,7 @@ public class OscarChartPrinter implements java.io.Closeable {
      */
     private String getReferralDoctor(String field) {
         if (field != null && field.length() > 0) {
-            return SxmlMisc.getXmlContent(field, "rd");
+            return DemographicXml.referralDoctor(field);
         }
         return "";
     }

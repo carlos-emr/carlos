@@ -29,6 +29,7 @@ function compose(messageId, referrer = '', valid = true) {
   const requests = [];
   const alerts = [];
   const context = {
+    window: {carlosMessengerSubmission: {begin: () => true}},
     document: { referrer, forms: [{ submit: () => sent++ }],
       getElementById: () => ({ dataset: { messageId } }) },
     validateFields: () => valid,

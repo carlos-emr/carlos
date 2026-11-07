@@ -1,0 +1,82 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ */
+package io.github.carlos_emr.carlos.email.core;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.util.Date;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+import io.github.carlos_emr.carlos.commn.model.EmailLog;
+
+/**
+ * Unit tests for email-status consent snapshot presentation.
+ *
+ * @since 2026-07-06
+ */
+@Tag("unit")
+@Tag("fast")
+@Tag("email")
+@DisplayName("EmailStatusResult")
+class EmailStatusResultUnitTest {
+    @Test
+    @DisplayName("should format missing name components without throwing or adding separators")
+    void shouldReturnSafeFullNames_whenNameComponentsMissing() {
+        EmailStatusResult result = new EmailStatusResult();
+
+        assertThat(result.getSenderFullName()).isEmpty();
+        assertThat(result.getRecipientFullName()).isEmpty();
+        assertThat(result.getProviderFullName()).isEmpty();
+
+        result.setSenderFullName("CLINIC", null);
+        result.setRecipientFullName(null, "PATIENT");
+        result.setProviderFullName("DOCTOR", null);
+
+        assertThat(result.getSenderFullName()).isEqualTo("Clinic");
+        assertThat(result.getRecipientFullName()).isEqualTo("Patient");
+        assertThat(result.getProviderFullName()).isEqualTo("Doctor");
+    }
+
+    @Test
+    @DisplayName("should defensively copy consent last update date")
+    void shouldDefensivelyCopyConsentLastUpdateDate_whenApplyingSnapshot() {
+        Date sourceDate = new Date(1_000L);
+        EmailLog emailLog = new EmailLog();
+        emailLog.setConsentLastUpdateDate(sourceDate);
+        EmailStatusResult result = new EmailStatusResult();
+
+        result.applyConsentSnapshot(emailLog);
+        sourceDate.setTime(2_000L);
+        Date returnedDate = result.getConsentLastUpdateDate();
+        returnedDate.setTime(3_000L);
+
+        assertThat(result.getConsentLastUpdateDate()).isEqualTo(new Date(1_000L));
+    }
+
+    @Test
+    @DisplayName("should expose the consent message key from the audit snapshot")
+    void shouldExposeConsentMessageKey_whenSnapshotHasStatus() {
+        EmailLog emailLog = new EmailLog();
+        emailLog.setConsentStatus(EmailLog.EmailConsentStatus.OPT_OUT);
+        EmailStatusResult result = new EmailStatusResult();
+
+        result.applyConsentSnapshot(emailLog);
+
+        assertThat(result.getConsentMessageKey()).isEqualTo("email.consent.status.optOut");
+    }
+
+    @Test
+    @DisplayName("should identify legacy results when a consent snapshot is absent")
+    void shouldReturnNotRecordedMessageKey_whenSnapshotIsAbsent() {
+        EmailStatusResult result = new EmailStatusResult();
+
+        assertThat(result.getConsentMessageKey())
+                .isEqualTo("email.consent.status.notRecorded");
+    }
+}

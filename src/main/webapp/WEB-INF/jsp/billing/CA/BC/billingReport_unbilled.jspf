@@ -24,11 +24,11 @@
  */
 -->
 
-<%@page import="java.net.URLEncoder" %>
 <%@page import="java.util.List" %>
 <%@page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 
 <table width="100%" border="2" valign="top">
 	<% 
@@ -76,16 +76,20 @@
 		apptTime =  ConversionUtils.toTimeString(a.getStartTime());
 		reason = a.getReason();
      	apptStatus = a.getStatus();
-        // Encode each query value, then encode the complete URL for the JavaScript attribute.
+        // Encode each query value for the URL, then encode the complete URL once more for the
+        // onClick JavaScript attribute (SafeEncode.forJavaScriptAttribute below). billRegion is
+        // fixed to BC because this fragment only renders on the BC report.
         String billingUrl = request.getContextPath() + "/billing?billRegion=BC&billForm="
-            + URLEncoder.encode(oscarVariables.getProperty("default_view", ""), java.nio.charset.StandardCharsets.UTF_8)
-            + "&hotclick=&appointment_no=" + apptNo
-            + "&demographic_name=" + URLEncoder.encode(java.util.Objects.toString(demoName, ""), java.nio.charset.StandardCharsets.UTF_8)
-            + "&status=" + URLEncoder.encode(java.util.Objects.toString(apptStatus, ""), java.nio.charset.StandardCharsets.UTF_8)
-            + "&demographic_no=" + demoNo
-            + "&user_no=" + URLEncoder.encode(java.util.Objects.toString(userno, ""), java.nio.charset.StandardCharsets.UTF_8)
-            + "&apptProvider_no=" + URLEncoder.encode(providerview, java.nio.charset.StandardCharsets.UTF_8)
-            + "&appointment_date=" + apptDate + "&start_time=" + apptTime + "&bNewForm=1";
+            + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(oscarVariables.getProperty("default_view", ""))
+            + "&hotclick=&appointment_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptNo)
+            + "&demographic_name=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoName)
+            + "&status=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptStatus)
+            + "&demographic_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(demoNo)
+            + "&user_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(userno)
+            + "&apptProvider_no=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(providerview)
+            + "&appointment_date=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptDate)
+            + "&start_time=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(apptTime == null ? "00:00:00" : apptTime)
+            + "&bNewForm=1";
 %>
 	<tr bgcolor="<%=bodd?"#EEEEFF":"white"%>">
 		<TD align="center" width="20%"><b><font size="2"
@@ -93,13 +97,13 @@
 		<TD align="center" width="10%"><b><font size="2"
 			face="Arial, Helvetica, sans-serif"><%=apptTime==null?"00:00:00":apptTime%></font></b></TD>
 		<TD align="center" width="10%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><carlos:encode value="<%= demoName %>"/></font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= demoName %>' context="html"/></font></b></TD>
 		<TD align="center" width="20%"><b><font size="2"
-			face="Arial, Helvetica, sans-serif"><carlos:encode value="<%= reason %>"/> </font></b></TD>
+			face="Arial, Helvetica, sans-serif"><carlos:encode value='<%= reason %>' context="html"/> </font></b></TD>
 		<TD align="center" width="10%"><b> <font size="2"
 			face="Arial, Helvetica, sans-serif"><a href=#
-			onClick='popupPage(700,1000, "<carlos:encode value="<%= billingUrl %>" context="javaScriptAttribute"/>"); return false;'
-			title="<carlos:encode value="<%= reason %>" context="htmlAttribute"/>">Bill |$|</a></font></b></TD>
+			onClick='popupPage(700,1000, "<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(billingUrl) %>"); return false;'
+			title="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(reason) %>">Bill |$|</a></font></b></TD>
 	</tr>
 	<%  rowCount = rowCount + 1;
     }

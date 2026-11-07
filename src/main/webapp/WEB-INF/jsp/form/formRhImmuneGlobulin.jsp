@@ -226,7 +226,7 @@
 
 
     <%
-        Hashtable h = null;
+        Map<String, Object> h = null;
         String newFlowNeeded = (String) request.getAttribute("newWorkFlowNeeded");
     %>
     <div>
@@ -238,7 +238,7 @@
                 WorkFlowFactory flowFactory = new WorkFlowFactory();
                 WorkFlow flow = flowFactory.getWorkFlow(workflowType);
 
-                ArrayList currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
+                List<Map<String, Object>> currentWorkFlows = flow.getActiveWorkFlowList(demographicNo);
 
                 // A WorkFlow queue row (and the RH save's redisplay) names its pregnancy (issue #4992): show and
                 // save that one, or none when it is no longer one of this patient's active workflows, never
@@ -290,9 +290,9 @@
             <label>Change State:</label>
             <select name="state">
                 <%
-                    ArrayList states = new ArrayList(flow.getStates());
+                    List<WFState> states = new ArrayList<WFState>(flow.getStates());
                     for (int i = 0; i < states.size(); i++) {
-                        WFState state = (WFState) states.get(i);
+                        WFState state = states.get(i);
                 %>
                 <option value="<carlos:encode value='<%= state.getKey() %>' context="htmlAttribute"/>"
                         <%= (state.getKey().equals(h.get("current_state")) ? " selected" : "")%>><carlos:encode value='<%= state.getName() %>' context="html"/>
@@ -626,7 +626,7 @@
             //Hack to display injections after a workflow has been closed.
             if (h == null && !props.getProperty("workflowId","").equals("") && !props.getProperty("workflowId","").equals("-1")){
                try{
-                   h = new  Hashtable();
+                   h = new  Hashtable<String, Object>();
                    h.put("ID", props.getProperty("workflowId",""));
                    String ddate = props.getProperty("edd","");
                    ddate = ddate.substring(0,10);

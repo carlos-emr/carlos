@@ -40,11 +40,10 @@ class EctDisplayDocs2ActionUnitTest {
         LoggedInInfo viewer = mock(LoggedInInfo.class);
         when(viewer.getLoggedInProviderNo()).thenReturn("viewer");
         when(security.hasPrivilege(viewer, "_edoc", "r", null)).thenReturn(true);
-        if (storedValue != null) {
-            UserProperty property = new UserProperty();
-            property.setValue(storedValue);
-            when(preferences.getProp("viewer", UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE)).thenReturn(property);
-        }
+        when(preferences.getProviderPropertiesByNames(eq("viewer"), anyList())).thenReturn(
+                storedValue == null ? java.util.Map.of() : java.util.Map.of(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE, storedValue));
+        var resolver = new io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver(
+                preferences, mock(io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao.class));
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.getSession().setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", viewer);
         EctSessionBean bean = new EctSessionBean();
@@ -65,13 +64,14 @@ class EctDisplayDocs2ActionUnitTest {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);
             docs.when(() -> EDocUtil.listDocs(viewer, "demographic", "1", null,
                     EDocUtil.PRIVATE, EDocUtil.EDocSort.OBSERVATIONDATE, "active")).thenReturn(documents);
-            EctDisplayDocs2Action action = spy(new EctDisplayDocs2Action());
+            EctDisplayDocs2Action action = spy(new EctDisplayDocs2Action(resolver));
             doAnswer(call -> call.getArgument(0)).when(action).getText(anyString());
             NavBarDisplayDAO dao = new NavBarDisplayDAO();
 
             assertThat(action.getInfo(bean, request, dao)).isTrue();
 
-            boolean grouped = storedValue != null && "true".equals(storedValue.trim());
+            // Target preference contract defaults grouping on; only an explicit false turns it off.
+            boolean grouped = storedValue == null || !"false".equals(storedValue.trim());
             assertThat(dao.isFiledInFolders()).isEqualTo(grouped);
             assertThat(dao.numItems()).isEqualTo(3);
             assertThat(dao.getItem(0).getTitle()).isEqualTo("Newest");
@@ -80,7 +80,7 @@ class EctDisplayDocs2ActionUnitTest {
             assertThat(dao.getItem(0).getFolder()).isEqualTo(grouped ? "lab" : "");
             assertThat(dao.getItem(1).getFolder()).isEqualTo(grouped ? "consult" : "");
             assertThat(dao.getItem(2).getFolder()).isEqualTo(grouped ? "encounter.LeftNavBar.docs.otherFolder" : "");
-            verify(preferences).getProp("viewer", UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE);
+            verify(preferences).getProviderPropertiesByNames(eq("viewer"), anyList());
         }
     }
 

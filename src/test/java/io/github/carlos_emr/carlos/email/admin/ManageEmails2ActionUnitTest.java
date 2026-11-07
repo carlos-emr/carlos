@@ -17,9 +17,9 @@
  */
 package io.github.carlos_emr.carlos.email.admin;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.struts2.ServletActionContext;
@@ -29,261 +29,583 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.mock.web.MockHttpSession;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailAttachment;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
-import io.github.carlos_emr.carlos.commn.model.EmailLog.ChartDisplayOption;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
 import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
-import io.github.carlos_emr.carlos.email.core.EmailAttachmentStaging;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.FormsManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService.EmailComposeSubmissionState;
+import io.github.carlos_emr.carlos.email.core.EmailWorkflowUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/** Manage Emails dispatches status updates and stages patient-bound resend attachments. */
 @Tag("unit")
-@Tag("security")
+@Tag("fast")
 @Tag("email")
 @DisplayName("ManageEmails2Action")
-class ManageEmails2ActionUnitTest extends CarlosUnitTestBase {
+class ManageEmails2ActionUnitTest extends EmailWorkflowUnitTestBase {
 
+    private MockedStatic<ServletActionContext> servletActionContextMock;
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private DemographicManager demographicManager;
     private EmailComposeManager emailComposeManager;
     private EmailManager emailManager;
-    private SecurityInfoManager securityInfoManager;
     private DocumentAttachmentManager documentAttachmentManager;
-    private MockedStatic<ServletActionContext> servletActionContext;
-    private final MockHttpSession session = new MockHttpSession();
+    private FormsManager formsManager;
+    private SecurityInfoManager securityInfoManager;
+    private PdfPreviewCapabilityService pdfPreviewCapabilityService;
 
     @BeforeEach
     void setUp() {
+        request = new MockHttpServletRequest("POST", "/admin/ManageEmails");
+        response = new MockHttpServletResponse();
+        demographicManager = mock(DemographicManager.class);
         emailComposeManager = mock(EmailComposeManager.class);
         emailManager = mock(EmailManager.class);
         documentAttachmentManager = mock(DocumentAttachmentManager.class);
-        DemographicManager demographicManager = mock(DemographicManager.class);
+        formsManager = mock(FormsManager.class);
         securityInfoManager = mock(SecurityInfoManager.class);
-        registerMock(EmailComposeManager.class, emailComposeManager);
-        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        // Added to ManageEmails2Action's SpringUtils-wired fields by #3193 after this test was
+        // written. The test never ran in CI, so the missing registration went unnoticed.
+        pdfPreviewCapabilityService = mock(PdfPreviewCapabilityService.class);
+
+        var personal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(personal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn("");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, personal);
+        registerMock(io.github.carlos_emr.carlos.email.core.ClinicEmailFooterService.class,
+                io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
         registerMock(DemographicManager.class, demographicManager);
-        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(EmailComposeManager.class, emailComposeManager);
         registerMock(EmailManager.class, emailManager);
-        registerMock(FormsManager.class, mock(FormsManager.class));
-        registerMock(PdfPreviewCapabilityService.class, mock(PdfPreviewCapabilityService.class));
-        when(securityInfoManager.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
-        when(emailComposeManager.getEmailConsentStatus(any(), anyInt())).thenReturn(new String[]{"Consent", "Yes"});
-        when(emailComposeManager.getRecipients(any(), anyInt())).thenReturn(new List<?>[]{List.of(), List.of()});
-        when(emailComposeManager.getAllSenderAccounts()).thenReturn(List.of());
-        when(demographicManager.getDemographicFormattedName(any(), anyInt())).thenReturn("FAKE Patient");
-        servletActionContext = mockStatic(ServletActionContext.class);
+        registerMock(DocumentAttachmentManager.class, documentAttachmentManager);
+        registerMock(FormsManager.class, formsManager);
+        registerMock(SecurityInfoManager.class, securityInfoManager);
+        registerMock(PdfPreviewCapabilityService.class, pdfPreviewCapabilityService);
+
+        servletActionContextMock = mockStatic(ServletActionContext.class);
+        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
+        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
     }
 
     @AfterEach
     void tearDown() {
-        servletActionContext.close();
+        if (servletActionContextMock != null) {
+            servletActionContextMock.close();
+        }
     }
 
-    private static EmailLog loggedEmail(int demographicNo, int fdid) {
-        Demographic demographic = new Demographic();
-        demographic.setDemographicNo(demographicNo);
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"GET", "HEAD"})
+    void shouldRejectCopy_withoutPost(String method) {
+        request.setMethod(method);
+        request.setParameter("method", "resendEmail");
+        request.setParameter("logId", "42");
+        assertThat(new ManageEmails2Action().execute()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(emailComposeManager, demographicManager, documentAttachmentManager,
+                emailManager, formsManager, securityInfoManager);
+    }
+
+    @Test
+    @DisplayName("should show compose error when resending email log without patient context")
+    void shouldShowComposeError_whenResendingEmailLogWithoutPatientContext() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.setParameter("logId", "42");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(new EmailLog());
+
+        ManageEmails2Action action = new ManageEmails2Action();
+        String result = action.resendEmail();
+
+        assertThat(result).isEqualTo("compose");
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        assertThat(request.getAttribute("emailErrorMessage"))
+                .isEqualTo("This email cannot be copied because it is not associated with a patient. Please generate a new email instead.");
+        verify(emailComposeManager).prepareEmailForResend(loggedInInfo, 42);
+        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
+    }
+    @Test
+    @DisplayName("should refuse every dispatch without email read privilege")
+    void shouldRefuseEveryDispatch_withoutEmailReadPrivilege() {
+        // The gap this closes: resendEmail() loaded a patient EmailLog and repopulated the
+        // compose page with its subject, body, encrypted message and PDF passphrase before any
+        // privilege check ran. Asserting all three dispatch branches, because the check now sits
+        // ahead of the branch and a future refactor could easily reinstate a per-branch gate that
+        // misses one.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(false);
+
+        for (String method : new String[]{"resendEmail", "fetchEmails", "setResolved", null}) {
+            if (method != null) {
+                request.setParameter("method", method);
+            } else {
+                request.removeParameter("method");
+            }
+            request.setParameter("logId", "42");
+
+            ManageEmails2Action action = new ManageEmails2Action();
+            assertThatThrownBy(action::execute)
+                    .as("dispatch method=%s must be refused", method)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("resendEmail".equals(method) ? "missing required sec object (_email)"
+                            : "missing required sec object (_email and (_admin or _admin.email))");
+        }
+
+        // Refused before anything reads or renders patient data.
+        verifyNoInteractions(emailComposeManager, demographicManager, emailManager,
+                documentAttachmentManager, formsManager);
+    }
+
+    @Test
+    @DisplayName("should refuse direct dispatch with email access but without administration access")
+    void shouldRefuseEveryDispatch_withoutAdministrationPrivilege() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_admin", SecurityInfoManager.READ, null)).thenReturn(false);
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_admin.email", SecurityInfoManager.READ, null)).thenReturn(false);
+
+        for (String method : new String[]{"fetchEmails", "setResolved"}) {
+            request.setParameter("method", method);
+            request.setParameter("logId", "42");
+
+            ManageEmails2Action action = new ManageEmails2Action();
+            assertThatThrownBy(action::execute)
+                    .as("dispatch method=%s must retain the admin-page authorization boundary", method)
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessage("missing required sec object (_email and (_admin or _admin.email))");
+        }
+
+        verifyNoInteractions(emailComposeManager, demographicManager, emailManager,
+                documentAttachmentManager, formsManager);
+    }
+
+    @Test
+    @DisplayName("should tell results view whether resolution controls are authorized")
+    void shouldHideResolutionControls_withoutEmailWritePrivilege() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(false);
+
+        assertThat(new ManageEmails2Action().fetchEmails()).isEqualTo("emailstatus");
+
+        assertThat(request.getAttribute("canResolveEmails")).isEqualTo(false);
+    }
+
+    @Test
+    @DisplayName("should dispatch POST setResolved and confirm persistence with no-content response")
+    void shouldDispatchSetResolved_whenPostRequestIsValid() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(true);
+        request.setMethod("POST");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+        when(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .thenReturn(EmailManager.EmailResolutionResult.RESOLVED);
+
+        String result = new ManageEmails2Action().execute();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(204);
+        verify(emailManager).resolveEmailStatus(loggedInInfo, 42);
+    }
+
+    @Test
+    @DisplayName("should return not found when resolving a deleted email log")
+    void shouldReturnNotFound_whenResolvedEmailNoLongerExists() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(true);
+        when(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .thenReturn(EmailManager.EmailResolutionResult.NOT_FOUND);
+        request.setMethod("POST");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+
+        assertThat(new ManageEmails2Action().execute()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getContentType()).contains("application/json");
+    }
+
+    @Test
+    @DisplayName("should return conflict when an email changed before resolution")
+    void shouldReturnConflict_whenResolutionLosesConcurrentTransition() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(true);
+        when(emailManager.resolveEmailStatus(loggedInInfo, 42))
+                .thenReturn(EmailManager.EmailResolutionResult.CONFLICT);
+        request.setMethod("POST");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+
+        assertThat(new ManageEmails2Action().execute()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(409);
+    }
+
+    @Test
+    @DisplayName("should forbid resolution without email write privilege")
+    void shouldForbidResolution_withoutEmailWritePrivilege() throws Exception {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null))
+                .thenReturn(false);
+        request.setMethod("POST");
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+
+        assertThat(new ManageEmails2Action().execute()).isNull();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentType()).contains("application/json");
+        assertThat(response.getContentAsString()).contains("permission");
+        verifyNoInteractions(emailManager);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"GET", "HEAD", "post", "Post", "PO\u017fT"})
+    @DisplayName("should require the exact POST method before resolving an email")
+    void shouldRejectSetResolved_whenRequestMethodIsNotPost(String method) {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        grantManageEmailsRead(loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setMethod(method);
+        request.setParameter("method", "setResolved");
+        request.setParameter("logId", "42");
+
+        String result = new ManageEmails2Action().execute();
+
+        assertThat(result).isNull();
+        assertThat(response.getStatus()).isEqualTo(405);
+        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        verifyNoInteractions(emailManager);
+    }
+
+    @Test
+    @DisplayName("should show compose error when the resent email log has a null demographic number")
+    void shouldShowComposeError_whenResentEmailLogHasNullDemographicNumber() {
+        // Distinct from the no-demographic case above: here the log HAS a demographic, but its
+        // number is null. Both must take the same branch, because the code path that follows
+        // unboxes that number.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        request.setParameter("logId", "42");
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null)).thenReturn(true);
         EmailLog emailLog = new EmailLog();
-        emailLog.setDemographic(demographic);
-        emailLog.setChartDisplayOption(ChartDisplayOption.WITHOUT_NOTE);
-        emailLog.setBody("FAKE body");
-        emailLog.setEncryptedMessage("");
+        emailLog.setDemographic(new Demographic());
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(emailLog);
+
+        String result = new ManageEmails2Action().resendEmail();
+
+        assertThat(result).isEqualTo("compose");
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        verify(emailComposeManager).prepareEmailForResend(loggedInInfo, 42);
+        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
+    }
+    @Test
+    @DisplayName("should warn but still compose when resending an email still recorded as pending")
+    void shouldWarnButStillCompose_whenResendingPendingEmail() {
+        // Warn, not block. A PENDING row has no recorded outcome, so the message may already have
+        // reached the patient -- or may have died before sending. The admin decides.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        stubComposeLookups(loggedInInfo);
+        EmailLog pending = pendingEmailLog();
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pending);
+        when(emailManager.isManuallyResolvable(pending)).thenReturn(true);
+
+        String result = new ManageEmails2Action().resendEmail();
+
+        assertThat(result).isEqualTo("compose");
+        assertThat(request.getAttribute("isPendingEmailResend")).isEqualTo(true);
+        // Warning only: this must not take the terminal error path, which closes the window.
+        assertThat(request.getAttribute("isEmailError")).isNull();
+    }
+
+    @Test
+    @DisplayName("should block copying a fresh pending email for resend")
+    void shouldBlockResend_whenPendingEmailMayStillBeSending() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog pending = pendingEmailLog();
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pending);
+        when(emailManager.isManuallyResolvable(pending)).thenReturn(false);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        assertThat(request.getAttribute("isPendingEmailResend")).isNull();
+        verifyNoInteractions(demographicManager, documentAttachmentManager, formsManager);
+    }
+
+    @Test
+    @DisplayName("should send an unresolved portal email to recovery instead of the resend composer")
+    void shouldRedirectToPortalRecovery_whenPortalDeliveryIsUnresolved() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog accepted = new EmailLog();
+        org.springframework.test.util.ReflectionTestUtils.setField(accepted, "id", 42);
+        accepted.setStatus(EmailLog.EmailStatus.SUCCESS);
+        accepted.setPortalDeliveryState(EmailLog.PortalDeliveryState.SENT);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(accepted);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("none");
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/email/portalDelivery?emailLogId=42");
+        verifyNoInteractions(demographicManager, documentAttachmentManager, formsManager);
+    }
+
+    @Test
+    @DisplayName("should send a fresh pending portal email to recovery, which shows its own wait state")
+    void shouldRedirectToPortalRecovery_whenPortalEmailIsStillPending() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog pending = pendingEmailLog();
+        org.springframework.test.util.ReflectionTestUtils.setField(pending, "id", 42);
+        pending.setPortalDeliveryState(EmailLog.PortalDeliveryState.READY);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(pending);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("none");
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/email/portalDelivery?emailLogId=42");
+    }
+
+    @Test
+    @DisplayName("should send a portal invitation to the patient's portal page instead of the resend composer")
+    void shouldRedirectToPortalPage_whenEmailIsAPortalInvitation() {
+        // Both Manage Emails and the chart-note email viewer open this route; neither may show the
+        // invitation, and neither should end on an error page.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42))
+                .thenThrow(new EmailComposeManager.PortalInviteEmailException(123));
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("none");
+
+        assertThat(response.getRedirectedUrl()).isEqualTo("/demographic/portalManage?demographicNo=123");
+        verifyNoInteractions(demographicManager, documentAttachmentManager, emailManager, formsManager);
+    }
+
+    @Test
+    @DisplayName("should not warn when resending an email already recorded as failed")
+    void shouldNotWarn_whenResendingFailedEmail() {
+        // The whole point of PENDING is that it is distinguishable from FAILED. A genuinely failed
+        // send is the normal resend case and must stay friction-free.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog failed = pendingEmailLog();
+        failed.setStatus(EmailLog.EmailStatus.FAILED);
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(failed);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+        assertThat(request.getAttribute("isPendingEmailResend")).isNull();
+    }
+
+    @Test
+    @DisplayName("should keep historical combined footers out of a new resend's personal field")
+    void shouldNotPromoteHistoricalFooter_whenCopyingEmailForResend() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog failed = pendingEmailLog();
+        failed.setStatus(EmailLog.EmailStatus.FAILED);
+        failed.setFooter("Riverside Clinic\nNot monitored for urgent issues.");
+        var currentPersonal = mock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class);
+        when(currentPersonal.ownFooter(org.mockito.ArgumentMatchers.nullable(String.class)))
+                .thenReturn("<i>Current personal</i>");
+        registerMock(io.github.carlos_emr.carlos.email.core.EmailFooterService.class, currentPersonal);
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(failed);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("message")).isEqualTo("body");
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("<i>Current personal</i>");
+        assertThat(request.getAttribute("clinicFooter")).isEqualTo("FAKE Mandatory Clinic");
+        assertThat(failed.getFooter()).isEqualTo("Riverside Clinic\nNot monitored for urgent issues.");
+    }
+
+    @Test
+    @DisplayName("should fill in an empty footer when copying an email logged before footers existed")
+    void shouldPrefillEmptyFooter_whenCopyingLegacyEmailWithoutFooter() {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "42");
+        EmailLog legacy = pendingEmailLog();
+        legacy.setStatus(EmailLog.EmailStatus.FAILED);
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 42)).thenReturn(legacy);
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("footerEmail")).isEqualTo("");
+    }
+
+    @Test
+    @DisplayName("should bind the resend's refreshed attachments to its own compose token and the logged patient")
+    void shouldBindRefreshedAttachments_toLoggedPatient() throws Exception {
+        // Manage Emails resend binds its attachments the way a compose does (#4425): to a one-time
+        // submission token whose trusted context is the logged email's patient, never to a
+        // session-wide list another window could replace.
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "7001");
+        stubComposeLookups(loggedInInfo);
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 7001))
+                .thenReturn(emailLogWithEFormAttachment(501));
+        Path refreshed = Files.writeString(emailTempDir.resolve("FAKE-refreshed.pdf"), "%PDF-1.4 FAKE");
+        when(documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, 501)).thenReturn(refreshed);
+        request.getSession().setAttribute("emailAttachmentList", List.of());
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        assertThat(request.getAttribute("isEmailError")).isNull();
+        assertThat(request.getSession().getAttribute("emailAttachmentList")).as("no session-wide list").isNull();
+        String token = (String) request.getAttribute(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM);
+        assertThat(token).isNotBlank();
+        MockHttpServletRequest send = new MockHttpServletRequest("POST", "/email/emailSendAction");
+        send.setSession(request.getSession());
+        send.setParameter(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM, token);
+        try (EmailComposeSubmissionState state = submissionStates.consume(send)) {
+            assertThat(state.context().demographicId()).isEqualTo("123");
+            assertThat(state.context().transactionType()).isEqualTo(EmailLog.TransactionType.DIRECT);
+            assertThat(state.emailAttachmentList()).singleElement().satisfies(attachment -> {
+                assertThat(attachment.getDocumentType()).isEqualTo(DocumentType.EFORM);
+                assertThat(attachment.getDocumentId()).isEqualTo(501);
+                assertThat(attachment.getEmailLog()).as("detached from the persistent log").isNull();
+            });
+        }
+    }
+
+    @Test
+    @DisplayName("should bind nothing when the resend's attachments cannot be refreshed")
+    void shouldBindNothing_whenRefreshFails() throws Exception {
+        LoggedInInfo loggedInInfo = new LoggedInInfo();
+        LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), loggedInInfo);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.READ, null))
+                .thenReturn(true);
+        request.setParameter("logId", "7002");
+        when(emailComposeManager.prepareEmailForResend(loggedInInfo, 7002))
+                .thenReturn(emailLogWithEFormAttachment(502));
+        when(documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, 502))
+                .thenThrow(new PDFGenerationException("FAKE render failure"));
+
+        assertThat(new ManageEmails2Action().resendEmail()).isEqualTo("compose");
+
+        // The error page only reports and closes; without a token any send from it is refused.
+        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
+        assertThat(request.getAttribute(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM)).isNull();
+        assertThat(request.getAttribute("emailAttachmentList")).isNull();
+        assertThat(submissionStates.clear(request.getSession().getId())).as("no compose state stored").isZero();
+    }
+
+    /** A failed send of patient 123 that carried one eForm attachment. */
+    private EmailLog emailLogWithEFormAttachment(int fdid) {
+        EmailLog emailLog = pendingEmailLog();
+        emailLog.setStatus(EmailLog.EmailStatus.FAILED);
         emailLog.setEmailAttachments(new ArrayList<>(List.of(
-                new EmailAttachment(emailLog, "FAKE-eform.pdf", "/tmp/old.pdf", DocumentType.EFORM, fdid))));
+                new EmailAttachment(emailLog, "FAKE-eform.pdf", "/tmp/FAKE-old.pdf", DocumentType.EFORM, fdid))));
         return emailLog;
     }
 
-    private MockHttpServletRequest resend(int logId) {
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/admin/ManageEmails");
-        request.setSession(session);
-        LoggedInInfo.setLoggedInInfoIntoSession(session, new LoggedInInfo());
-        request.setParameter("method", "resendEmail");
-        request.setParameter("logId", String.valueOf(logId));
-        servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContext.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
-        String result = new ManageEmails2Action().execute();
-        assertThat(result).isEqualTo("compose");
-        return request;
+    /** Stubs the lookups resendEmail() fans out to once it has a usable log. */
+    private void stubComposeLookups(LoggedInInfo loggedInInfo) {
+        when(emailComposeManager.getEmailConsentStatus(loggedInInfo, 123)).thenReturn(new String[]{"consent", "OPT_IN", "email.consent.status.optIn"});
+        when(emailComposeManager.getRecipients(loggedInInfo, 123))
+                .thenReturn(new java.util.List<?>[]{java.util.List.of(), java.util.List.of()});
+        when(emailComposeManager.getAllSenderAccounts()).thenReturn(java.util.List.of());
     }
 
-    @Test
-    @DisplayName("should dispatch the Resolve POST to the status update instead of rendering the manager")
-    void shouldResolveEmail_whenDispatchedFromExecute() {
-        LoggedInInfo loggedInInfo = new LoggedInInfo();
-        EmailLog resolved = new EmailLog();
-        resolved.setStatus(EmailLog.EmailStatus.RESOLVED);
-        when(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null))
-                .thenReturn(resolved);
-        MockHttpServletResponse response = resolve("7003", loggedInInfo);
-
-        verify(emailManager).updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null);
-        verifyNoInteractions(emailComposeManager);
-        assertThat(response.getStatus()).isEqualTo(200);
+    private void grantManageEmailsRead(LoggedInInfo loggedInInfo) {
+        when(securityInfoManager.hasPrivilege(
+                loggedInInfo, "_admin.email", SecurityInfoManager.READ, null)).thenReturn(true);
     }
 
-    @Test
-    @DisplayName("should return a JSON not-found error for a missing email log")
-    void shouldRejectResolve_whenLogDoesNotExist() throws Exception {
-        MockHttpServletResponse response = resolve("7004", new LoggedInInfo());
-
-        assertThat(response.getStatus()).isEqualTo(404);
-        assertThat(response.getContentType()).startsWith("application/json");
-        assertThat(response.getContentAsString()).contains("Email log not found");
-        verifyNoInteractions(emailComposeManager);
-    }
-
-    @Test
-    @DisplayName("should report a conflict when the email cannot transition to resolved")
-    void shouldRejectResolve_whenEmailIsNotFailed() throws Exception {
-        LoggedInInfo loggedInInfo = new LoggedInInfo();
-        EmailLog sent = new EmailLog();
-        sent.setStatus(EmailLog.EmailStatus.SUCCESS);
-        when(emailManager.updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null)).thenReturn(sent);
-
-        MockHttpServletResponse response = resolve("7003", loggedInInfo);
-
-        assertThat(response.getStatus()).isEqualTo(409);
-        assertThat(response.getContentAsString()).contains("Only failed emails can be resolved");
-    }
-
-    @Test
-    @DisplayName("should check write privilege in the action before dispatching any update")
-    void shouldDenyResolve_whenActionWritePrivilegeMissing() {
-        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.WRITE), any())).thenReturn(false);
-
-        LoggedInInfo loggedInInfo = new LoggedInInfo();
-        assertThatThrownBy(() -> resolve("7003", loggedInInfo))
-                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
-        verifyNoInteractions(emailManager);
-    }
-
-    @Test
-    @DisplayName("should deny dispatch before reaching a manager when email read privilege is missing")
-    void shouldDenyDispatch_whenActionReadPrivilegeMissing() {
-        when(securityInfoManager.hasPrivilege(any(), eq("_email"), eq(SecurityInfoManager.READ), any())).thenReturn(false);
-
-        LoggedInInfo loggedInInfo = new LoggedInInfo();
-        assertThatThrownBy(() -> resolve("7003", loggedInInfo))
-                .isInstanceOf(SecurityException.class).hasMessage("missing required sec object (_email)");
-        verifyNoInteractions(emailManager, emailComposeManager);
-    }
-
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {"invalid", "7003 OR 1=1", "2147483648"})
-    @DisplayName("should reject invalid Resolve IDs without updating an email")
-    void shouldRejectResolve_whenLogIdIsInvalid(String logId) throws Exception {
-        MockHttpServletResponse response = resolve(logId, new LoggedInInfo());
-
-        verifyNoInteractions(emailManager);
-        assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getContentAsString()).contains("Invalid email log id");
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
-    @DisplayName("should refuse Resolve outside a CSRF-protected POST")
-    void shouldRejectResolve_whenMethodIsNotPost(String method) {
-        MockHttpServletResponse response = resolve(method, "7003", new LoggedInInfo());
-
-        verifyNoInteractions(emailManager);
-        assertThat(response.getStatus()).isEqualTo(405);
-        assertThat(response.getHeader("Allow")).isEqualTo("POST");
-    }
-
-    @Test
-    @DisplayName("should propagate the manager's privilege refusal instead of reporting success")
-    void shouldRejectResolve_whenManagerDeniesWritePrivilege() {
-        LoggedInInfo loggedInInfo = new LoggedInInfo();
-        doThrow(new SecurityException("missing required sec object (_email)"))
-                .when(emailManager).updateEmailStatus(loggedInInfo, 7003, EmailLog.EmailStatus.RESOLVED, null);
-
-        assertThatThrownBy(() -> resolve("7003", loggedInInfo)).isInstanceOf(SecurityException.class);
-        verifyNoInteractions(emailComposeManager);
-    }
-
-    private MockHttpServletResponse resolve(String logId, LoggedInInfo loggedInInfo) {
-        return resolve("POST", logId, loggedInInfo);
-    }
-
-    private MockHttpServletResponse resolve(String method, String logId, LoggedInInfo loggedInInfo) {
-        MockHttpServletRequest request = new MockHttpServletRequest(method, "/admin/ManageEmails");
-        request.setSession(session);
-        LoggedInInfo.setLoggedInInfoIntoSession(session, loggedInInfo);
-        request.setParameter("method", "setResolved");
-        if (logId != null) {
-            request.setParameter("logId", logId);
-        }
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        servletActionContext.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContext.when(ServletActionContext::getResponse).thenReturn(response);
-
-        assertThat(new ManageEmails2Action().execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
-        return response;
-    }
-
-    @Test
-    @DisplayName("should stage the resend's refreshed attachments under its own key, bound to the logged patient")
-    void shouldStageRefreshedAttachments_boundToLoggedPatient() throws Exception {
-        when(emailComposeManager.prepareEmailForResend(any(), eq(7001))).thenReturn(loggedEmail(10001, 501));
-        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.EFORM), eq(501)))
-                .thenReturn(Path.of("/tmp/FAKE-refreshed.pdf"));
-        session.setAttribute("emailAttachmentList", List.of());
-
-        MockHttpServletRequest request = resend(7001);
-
-        String key = (String) request.getAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE);
-        assertThat(EmailAttachmentStaging.isKey(key)).isTrue();
-        assertThat(session.getAttribute("emailAttachmentList")).as("no session-wide list").isNull();
-        EmailAttachmentStaging.Prepared prepared = EmailAttachmentStaging.take(session, key);
-        assertThat(prepared.demographicNo()).isEqualTo(10001);
-        assertThat(prepared.attachments()).singleElement().satisfies(attachment -> {
-            assertThat(attachment.getDocumentId()).isEqualTo(501);
-            assertThat(attachment.getFilePath()).isEqualTo("/tmp/FAKE-refreshed.pdf");
-            assertThat(attachment.getEmailLog()).as("detached from the persistent log").isNull();
-        });
-    }
-
-    @Test
-    @DisplayName("should stage nothing when the resend's attachments cannot be refreshed")
-    void shouldStageNothing_whenRefreshFails() throws Exception {
-        when(emailComposeManager.prepareEmailForResend(any(), eq(7002))).thenReturn(loggedEmail(10001, 502));
-        when(documentAttachmentManager.renderDocument(any(), eq(DocumentType.EFORM), eq(502)))
-                .thenThrow(new PDFGenerationException("FAKE render failure"));
-
-        MockHttpServletRequest request = resend(7002);
-
-        assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
-        assertThat(request.getAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE)).isNull();
-        assertThat(request.getAttribute("emailAttachmentList")).isNull();
-        assertThat(Collections.list(session.getAttributeNames()))
-                .noneMatch(name -> name.startsWith(EmailAttachmentStaging.class.getName()));
+    private EmailLog pendingEmailLog() {
+        EmailLog emailLog = new EmailLog();
+        emailLog.setStatus(EmailLog.EmailStatus.PENDING);
+        Demographic demographic = new Demographic();
+        demographic.setDemographicNo(123);
+        emailLog.setDemographic(demographic);
+        emailLog.setChartDisplayOption(EmailLog.ChartDisplayOption.WITHOUT_NOTE);
+        emailLog.setEmailAttachments(new java.util.ArrayList<>());
+        // Body and encrypted message are stored as bytes and decoded unconditionally on read.
+        emailLog.setBody("body");
+        emailLog.setEncryptedMessage("");
+        return emailLog;
     }
 }
