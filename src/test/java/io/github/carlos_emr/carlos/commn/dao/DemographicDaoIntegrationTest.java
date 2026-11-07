@@ -125,6 +125,43 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
                 DemographicDao.MAX_SEARCH_RESULT_SIZE + 1)).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void shouldRetainFirstNameFilter_whenLabSearchHasLeadingWhitespace() {
+        demo1.setLastName(uniquePrefix);
+        demo2.setLastName(uniquePrefix);
+        demo2.setFirstName("Jane");
+        demographicDao.save(demo1);
+        demographicDao.save(demo2);
+        hibernateTemplate.flush();
+
+        assertThat(demographicDao.findLabPatientChoices("search_name", "    " + uniquePrefix + ",Jo", "last_name", 0, 10))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactly(demo1.getDemographicNo().toString());
+        assertThat(demographicDao.findLabPatientChoices("search_name", "    " + uniquePrefix + ",  ", "last_name", 0, 10))
+                .extracting(DemographicDao.LabPatientChoice::id)
+                .containsExactly(demo1.getDemographicNo().toString(), demo2.getDemographicNo().toString());
+    }
+
+    @Test
+    void shouldKeepDisjointLabSearchPages_whenSelectedSortValuesTie() {
+        for (Demographic demographic : List.of(demo1, demo2, demo3)) {
+            demographic.setLastName(uniquePrefix);
+            demographic.setFirstName("Same");
+            demographicDao.save(demographic);
+        }
+        hibernateTemplate.flush();
+
+        List<String> expected = java.util.stream.Stream.of(demo1, demo2, demo3)
+                .map(Demographic::getDemographicNo).sorted().map(Object::toString).toList();
+        for (String sort : List.of("last_name", "first_name DESC", "invalid sort")) {
+            for (int offset = 0; offset < expected.size(); offset++) {
+                assertThat(demographicDao.findLabPatientChoices("search_name", uniquePrefix, sort, offset, 1))
+                        .extracting(DemographicDao.LabPatientChoice::id).containsExactly(expected.get(offset));
+            }
+        }
+        assertThat(demographicDao.findLabPatientChoices("search_name", uniquePrefix, "demographic_no DESC", 0, 3))
+                .extracting(DemographicDao.LabPatientChoice::id).containsExactlyElementsOf(expected.reversed());
+    }
+
     /**
      * Creates and persists a {@link Demographic} with the given attributes and no roster status.
      *

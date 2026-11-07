@@ -100,28 +100,6 @@
             providerMap.put(providerData.getId(), "true");
         }
     }
-%>
-<html>
-    <head>
-    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
-        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
-        <title><fmt:message key="report.reportdaysheet.title"/></title>
-        <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->
-
-        <script language="JavaScript">
-            function hideOnSource() {
-                var selfBooked = document.getElementById('onlySelfBooked');
-                document.querySelectorAll('tr.oscar').forEach(function(el) {
-                    el.style.display = selfBooked.checked ? 'none' : '';
-                });
-            }
-        </script>
-
-        <style type="text/css" media="print">
-            .searchBox { display: none; }
-        </style>
-    </head>
-    <%
         boolean bDob = oscarVariables.getProperty("daysheet_dob", "").equalsIgnoreCase("true") ? true : false;
 
         GregorianCalendar now = new GregorianCalendar();
@@ -145,7 +123,43 @@
                 myGroupBean.setProperty(myGroup.getId().getProviderNo(), "true");
             }
         }
-    %>
+
+        boolean bFistL = true; //first line in a table for TH
+        String strTemp = "";
+        String dateTemp = "";
+        boolean newOnly = !"all".equals(request.getParameter("dsmode"));
+        String selectedProvider = provider_no.equals("*") || provider_no.startsWith("_grp_") ? null : provider_no;
+        daySheetRows = appointmentDao.findDaySheet(sdate, edate, sTime, eTime, selectedProvider, newOnly, orderby);
+        // GET/HEAD and sort links are read-only. CSRFGuard validates this route's POST before dispatch.
+        boolean acknowledge = newOnly && "POST".equals(request.getMethod())
+                && "true".equals(request.getParameter("acknowledge"));
+        Set<String> groupProviders = provider_no.startsWith("_grp_") ? myGroupBean.stringPropertyNames() : null;
+        Set<String> permittedProviders = isSiteAccessPrivacy || isTeamAccessPrivacy ? providerMap.keySet() : null;
+        daySheetRows = acknowledge ? daySheetService.acknowledge(daySheetRows,
+                groupProviders, permittedProviders, nonRosteredOnly, curProvider_no)
+                : daySheetService.prepare(daySheetRows,
+                groupProviders, permittedProviders, nonRosteredOnly);
+%>
+<html>
+    <head>
+    <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
+        <%@ include file="/WEB-INF/jsp/includes/global-head.jspf" %>
+        <title><fmt:message key="report.reportdaysheet.title"/></title>
+        <!-- Prototype.js removed — using vanilla JS (Phase 1c migration) -->
+
+        <script language="JavaScript">
+            function hideOnSource() {
+                var selfBooked = document.getElementById('onlySelfBooked');
+                document.querySelectorAll('tr.oscar').forEach(function(el) {
+                    el.style.display = selfBooked.checked ? 'none' : '';
+                });
+            }
+        </script>
+
+        <style type="text/css" media="print">
+            .searchBox { display: none; }
+        </style>
+    </head>
     <body>
     <div class="container">
     <div class="searchBox">
@@ -171,16 +185,26 @@
     </div>
 
     <%
-        boolean bFistL = true; //first line in a table for TH
-        String strTemp = "";
-        String dateTemp = "";
-        boolean newOnly = !"all".equals(request.getParameter("dsmode"));
-        String selectedProvider = provider_no.equals("*") || provider_no.startsWith("_grp_") ? null : provider_no;
-        daySheetRows = appointmentDao.findDaySheet(sdate, edate, sTime, eTime, selectedProvider, newOnly, orderby);
-        daySheetRows = daySheetService.prepare(daySheetRows, newOnly,
-                provider_no.startsWith("_grp_") ? myGroupBean.stringPropertyNames() : null,
-                isSiteAccessPrivacy || isTeamAccessPrivacy ? providerMap.keySet() : null,
-                nonRosteredOnly, curProvider_no);
+        if (newOnly && !acknowledge && !daySheetRows.isEmpty()) {
+    %>
+    <form method="post" action="${ctx}/report/ViewReportdaysheet" class="searchBox">
+        <input type="hidden" name="acknowledge" value="true"/>
+        <input type="hidden" name="dsmode" value="new"/>
+        <input type="hidden" name="provider_no" value="<%=SafeEncode.forHtmlAttribute(provider_no)%>"/>
+        <input type="hidden" name="sdate" value="<%=SafeEncode.forHtmlAttribute(sdate)%>"/>
+        <input type="hidden" name="edate" value="<%=SafeEncode.forHtmlAttribute(edate)%>"/>
+        <input type="hidden" name="orderby" value="<%=SafeEncode.forHtmlAttribute(orderby)%>"/>
+        <input type="hidden" name="rosteredStatus" value="<%=nonRosteredOnly%>"/>
+        <c:if test="${not empty param.sTime}">
+            <input type="hidden" name="sTime" value="${carlos:forHtmlAttribute(param.sTime)}"/>
+        </c:if>
+        <c:if test="${not empty param.eTime}">
+            <input type="hidden" name="eTime" value="${carlos:forHtmlAttribute(param.eTime)}"/>
+        </c:if>
+        <button type="submit" class="btn btn-sm btn-primary"><fmt:message key="report.reportdaysheet.btnAcknowledge"/></button>
+    </form>
+    <%
+        }
         for (AppointmentDaySheetRow appointmentRow : daySheetRows) {
             if (!strTemp.equals(appointmentRow.providerNo()) || !dateTemp.equals(appointmentRow.date())) { //new providers for a new table
                 strTemp = appointmentRow.providerNo();

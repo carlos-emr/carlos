@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /** Applies report visibility before atomically archiving and acknowledging new appointments. */
 @Service
@@ -31,18 +32,28 @@ public class AppointmentDaySheetService {
 
     /**
      * Returns rows in report order. Null provider sets mean unrestricted; empty sets admit no rows.
-     * The new-only view acknowledges precisely the returned appointments, retaining each prior
-     * version in the same transaction. Rows edited or acknowledged since selection are omitted.
+     * This preparation is read-only, including for the new-only view.
      */
-    @Transactional
-    public List<AppointmentDaySheetRow> prepare(List<AppointmentDaySheetRow> rows, boolean newOnly,
-            Set<String> groupProviders, Set<String> permittedProviders, boolean nonRosteredOnly, String updatedBy) {
-        List<AppointmentDaySheetRow> visible = rows.stream()
+    // Roster codes are case-insensitive domain values, not identifiers or authorization decisions.
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Roster codes are case-insensitive domain values, not identifiers or authorization decisions")
+    public List<AppointmentDaySheetRow> prepare(List<AppointmentDaySheetRow> rows,
+            Set<String> groupProviders, Set<String> permittedProviders, boolean nonRosteredOnly) {
+        return rows.stream()
                 .filter(row -> !nonRosteredOnly || !"RO".equalsIgnoreCase(row.rosterStatus()))
                 .filter(row -> groupProviders == null || groupProviders.contains(row.providerNo()))
                 .filter(row -> permittedProviders == null || permittedProviders.contains(row.providerNo()))
                 .toList();
-        if (!newOnly) return visible;
+    }
+
+    /**
+     * Acknowledges visible new appointments. The caller must require a CSRF-protected POST.
+     * Each prior version is archived in the same transaction; rows edited or acknowledged since
+     * selection are omitted.
+     */
+    @Transactional
+    public List<AppointmentDaySheetRow> acknowledge(List<AppointmentDaySheetRow> rows,
+            Set<String> groupProviders, Set<String> permittedProviders, boolean nonRosteredOnly, String updatedBy) {
+        List<AppointmentDaySheetRow> visible = prepare(rows, groupProviders, permittedProviders, nonRosteredOnly);
 
         Set<Integer> acknowledged = new HashSet<>();
         // A stable lock order avoids inverted locks when two users select different report sorts.

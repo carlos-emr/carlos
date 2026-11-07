@@ -115,7 +115,7 @@ class AppointmentDaySheetServiceIntegrationTest extends CarlosTestBase {
         assertThat(rows).filteredOn(row -> row.appointmentNo().equals(ids.get(1)))
                 .extracting(AppointmentDaySheetRow::editVersion).containsExactly("unversioned");
 
-        assertThat(service(archives).prepare(rows, true, null, null, false, provider)).containsExactlyElementsOf(rows);
+        assertThat(service(archives).acknowledge(rows, null, null, false, provider)).containsExactlyElementsOf(rows);
         assertThat(statuses()).containsExactly("T", "T");
         assertThat(archivedStatuses()).containsExactly("t", "t");
         assertThat(appointments.findDaySheet(DAY, DAY, "00:00:00", "24:00:00", provider, true, "start_time")).isEmpty();
@@ -126,7 +126,7 @@ class AppointmentDaySheetServiceIntegrationTest extends CarlosTestBase {
     @Test
     void shouldCommitAcknowledgmentsAndOriginalVersions_whenEveryArchiveSucceeds() {
         List<AppointmentDaySheetRow> rows = List.of(row(ids.get(1)), row(ids.get(0)));
-        assertThat(service(archives).prepare(rows, true, null, null, false, PROVIDER)).containsExactlyElementsOf(rows);
+        assertThat(service(archives).acknowledge(rows, null, null, false, PROVIDER)).containsExactlyElementsOf(rows);
 
         assertThat(statuses()).containsExactly("T", "T");
         assertThat(archivedStatuses()).containsExactly("t", "t");
@@ -150,10 +150,18 @@ class AppointmentDaySheetServiceIntegrationTest extends CarlosTestBase {
             return archived;
         }).when(failing).archiveAppointment(any());
 
-        assertThatThrownBy(() -> service(failing).prepare(List.of(row(ids.get(1)), row(ids.get(0))),
-                true, null, null, false, PROVIDER))
+        assertThatThrownBy(() -> service(failing).acknowledge(List.of(row(ids.get(1)), row(ids.get(0))),
+                null, null, false, PROVIDER))
                 .isInstanceOf(IllegalStateException.class).hasMessage("later archive failed");
 
+        assertThat(statuses()).containsExactly("t", "t");
+        assertThat(archivedStatuses()).isEmpty();
+    }
+
+    @Test
+    void shouldLeaveNewAppointmentsAndArchivesUnchanged_whenPreparingReport() {
+        List<AppointmentDaySheetRow> rows = List.of(row(ids.get(1)), row(ids.get(0)));
+        assertThat(service(archives).prepare(rows, null, null, false)).containsExactlyElementsOf(rows);
         assertThat(statuses()).containsExactly("t", "t");
         assertThat(archivedStatuses()).isEmpty();
     }

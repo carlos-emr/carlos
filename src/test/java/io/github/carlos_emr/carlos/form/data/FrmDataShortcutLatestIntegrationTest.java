@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.form.data;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoImpl;
+import io.github.carlos_emr.carlos.commn.dao.StudyDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.test.base.NativeDaoTestDatabase;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -52,7 +53,8 @@ class FrmDataShortcutLatestIntegrationTest {
         // Closing the final connection destroys this test's database, including on failure.
         keeper = source.getConnection();
         jdbc = new JdbcTemplate(source);
-        jdbc.execute("CREATE TABLE formVTForm (ID INT PRIMARY KEY, demographic_no INT NOT NULL, formEdited TIMESTAMP NULL)");
+        jdbc.execute("CREATE TABLE formVTForm (ID INT PRIMARY KEY, demographic_no INT NOT NULL, formCreated DATE, formEdited TIMESTAMP NULL)");
+        jdbc.execute("CREATE TABLE study (study_no VARCHAR(20) PRIMARY KEY, form_name VARCHAR(30))");
 
         var registration = new EncounterForm();
         registration.setFormName(FORM_NAME);
@@ -64,6 +66,7 @@ class FrmDataShortcutLatestIntegrationTest {
         spring = mockStatic(SpringUtils.class);
         spring.when(() -> SpringUtils.getBean(DataSource.class)).thenReturn(source);
         spring.when(() -> SpringUtils.getBean(EncounterFormDao.class)).thenReturn(forms);
+        spring.when(() -> SpringUtils.getBean(StudyDao.class)).thenReturn(nativeDatabase.dao(StudyDao.class));
         data = new FrmData();
     }
 
@@ -133,6 +136,27 @@ class FrmDataShortcutLatestIntegrationTest {
         assertShortcut("101", "0");
         assertShortcut("202", "999");
         assertShortcut("101", "0");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldChooseStableStudyRegistration_whenFormNamesMatchRegardlessOfInsertionOrder(boolean preferredFirst) throws SQLException {
+        jdbc.execute("DELETE FROM encounterForm");
+        String preferred = "z-preferred";
+        String older = "a-older";
+        String[] order = preferredFirst ? new String[]{preferred, older} : new String[]{older, preferred};
+        for (String path : order) {
+            jdbc.update("INSERT INTO encounterForm (form_name,form_value,form_table,hidden) VALUES (?,?,?,0)",
+                    FORM_NAME, path, path.equals(preferred) ? "formVTForm" : "formOther");
+        }
+        jdbc.update("INSERT INTO study (study_no,form_name) VALUES (?,?)", "study-A", FORM_NAME);
+        insert(20, 101, EDITED);
+        jdbc.update("UPDATE formVTForm SET formCreated=?", java.sql.Date.valueOf("2026-03-04"));
+
+        assertThat(data.getCurrentPatientForm("101", "study-A").getFormId()).isEqualTo("20");
+        assertThat(data.getCurrentPatientForm("202", "study-A")).isNull();
+        assertThat(data.getCurrentPatientForm("101", "missing")).isNull();
+        assertThat(data.getCurrentPatientForm("101", "study-A' OR 1=1 --")).isNull();
     }
 
     private void insert(int id, int patient, String edited) {

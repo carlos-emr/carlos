@@ -122,7 +122,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             parameters.add(day.length() == 2 ? "0" + day : day);
         } else if ("search_name".equals(mode) && keyword.contains(",")) {
             int comma = keyword.indexOf(',');
-            boolean first = comma < keyword.trim().length() - 1;
+            boolean first = !keyword.substring(comma + 1).trim().isEmpty();
             where = "last_name LIKE ?1" + (first ? " AND first_name LIKE ?2" : "");
             parameters.add(keyword.substring(0, comma).trim() + "%");
             if (first) parameters.add((keyword + "%").substring(comma + 1).trim() + "%");
@@ -133,7 +133,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         Query query = entityManager().createNativeQuery("SELECT demographic_no,first_name,last_name,roster_status,patient_status,sex,"
                 + "chart_no,year_of_birth,month_of_birth,date_of_birth,provider_no FROM demographic WHERE " + where
                 + " AND NOT EXISTS (SELECT 1 FROM demographic_merged dm WHERE dm.demographic_no=demographic.demographic_no"
-                + " AND dm.deleted=0) ORDER BY " + order, Object[].class);
+                + " AND dm.deleted=0) ORDER BY " + order + ", demographic_no", Object[].class);
         for (int i = 0; i < parameters.size(); i++) query.setParameter(i + 1, parameters.get(i));
         @SuppressWarnings("unchecked")
         List<Object[]> rows = query.setFirstResult(offset).setMaxResults(limit).getResultList();

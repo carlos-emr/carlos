@@ -42,7 +42,7 @@ class AppointmentDaySheetServiceUnitTest {
         List<AppointmentDaySheetRow> rows = List.of(row(1, "P1", "NR"), row(2, "P2", "NR"),
                 row(3, "P1", "RO"), row(4, "P3", "NR"));
 
-        assertThat(service.prepare(rows, true, Set.of("P1", "P2"), Set.of("P1", "P3"), true, "viewer"))
+        assertThat(service.acknowledge(rows, Set.of("P1", "P2"), Set.of("P1", "P3"), true, "viewer"))
                 .containsExactly(rows.get(0));
 
         assertThat(visible.getStatus()).isEqualTo("T");
@@ -68,7 +68,7 @@ class AppointmentDaySheetServiceUnitTest {
         }).when(archives).archiveAppointment(any());
         List<AppointmentDaySheetRow> rows = List.of(row(2, "P2", null), row(1, "P1", "RO"));
 
-        assertThat(service.prepare(rows, true, null, null, false, "viewer")).containsExactlyElementsOf(rows);
+        assertThat(service.acknowledge(rows, null, null, false, "viewer")).containsExactlyElementsOf(rows);
 
         var order = inOrder(appointments, archives);
         order.verify(appointments).findForUpdate(1);
@@ -80,17 +80,17 @@ class AppointmentDaySheetServiceUnitTest {
     }
 
     @Test
-    void shouldOnlyFilterWithoutWriting_whenAllAppointmentsModeIsSelected() {
+    void shouldOnlyFilterWithoutWriting_whenPreparingReport() {
         List<AppointmentDaySheetRow> rows = List.of(row(1, "P1", "NR"), row(2, "P1", "RO"), row(3, "P2", "NR"));
-        assertThat(service.prepare(rows, false, Set.of("P1"), null, true, "viewer")).containsExactly(rows.get(0));
+        assertThat(service.prepare(rows, Set.of("P1"), null, true)).containsExactly(rows.get(0));
         verifyNoInteractions(appointments, archives);
     }
 
     @Test
     void shouldReturnNothingWithoutWriting_whenSelectedGroupOrPrivacyScopeHasNoProviders() {
         List<AppointmentDaySheetRow> rows = List.of(row(1, "P1", "NR"));
-        assertThat(service.prepare(rows, true, Set.of(), null, false, "viewer")).isEmpty();
-        assertThat(service.prepare(rows, true, null, Set.of(), false, "viewer")).isEmpty();
+        assertThat(service.acknowledge(rows, Set.of(), null, false, "viewer")).isEmpty();
+        assertThat(service.acknowledge(rows, null, Set.of(), false, "viewer")).isEmpty();
         verifyNoInteractions(appointments, archives);
     }
 
@@ -112,7 +112,7 @@ class AppointmentDaySheetServiceUnitTest {
         }
         when(appointments.findForUpdate(1)).thenReturn("deleted".equals(change) ? null : current);
 
-        assertThat(service.prepare(List.of(row(1, "P1", "NR")), true, null, null, false, "viewer")).isEmpty();
+        assertThat(service.acknowledge(List.of(row(1, "P1", "NR")), null, null, false, "viewer")).isEmpty();
 
         verify(appointments).findForUpdate(1);
         verifyNoMoreInteractions(appointments);
@@ -126,7 +126,7 @@ class AppointmentDaySheetServiceUnitTest {
         when(appointments.findForUpdate(1)).thenReturn(current);
         AppointmentDaySheetRow row = row(1, "P1", "NR", "unversioned");
 
-        assertThat(service.prepare(List.of(row), true, null, null, false, "viewer")).containsExactly(row);
+        assertThat(service.acknowledge(List.of(row), null, null, false, "viewer")).containsExactly(row);
         assertThat(current.getStatus()).isEqualTo("T");
         verify(archives).archiveAppointment(current);
     }
@@ -137,7 +137,7 @@ class AppointmentDaySheetServiceUnitTest {
         when(appointments.findForUpdate(1)).thenReturn(current);
         doThrow(new IllegalStateException("archive failed")).when(archives).archiveAppointment(current);
 
-        assertThatThrownBy(() -> service.prepare(List.of(row(1, "P1", "NR")), true, null, null, false, "viewer"))
+        assertThatThrownBy(() -> service.acknowledge(List.of(row(1, "P1", "NR")), null, null, false, "viewer"))
                 .isInstanceOf(IllegalStateException.class).hasMessage("archive failed");
 
         assertThat(current.getStatus()).isEqualTo("t");

@@ -30,11 +30,15 @@ public class StudyDao {
         return new StudyLink((String) row[0], (String) row[1]);
     }
 
+    /**
+     * Selects the greatest registry primary key (form_value) when a study name has multiple
+     * registrations. This makes the legacy last-registration selection independent of query plans.
+     */
     public String findFormTable(String studyNo) {
         @SuppressWarnings("unchecked")
         List<String> rows = entityManager.createNativeQuery("SELECT e.form_table FROM encounterForm e, study s"
-                        + " WHERE e.form_name=s.form_name AND s.study_no=?1", String.class)
-                .setParameter(1, studyNo).getResultList();
-        return rows.isEmpty() ? "" : rows.get(rows.size() - 1);
+                        + " WHERE e.form_name=s.form_name AND s.study_no=?1 ORDER BY e.form_value DESC", String.class)
+                .setParameter(1, studyNo).setMaxResults(1).getResultList();
+        return rows.isEmpty() ? "" : rows.get(0);
     }
 }

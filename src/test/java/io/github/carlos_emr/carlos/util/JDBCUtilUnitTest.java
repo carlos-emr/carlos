@@ -29,6 +29,7 @@ import org.w3c.dom.Document;
 
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
+import io.github.carlos_emr.carlos.form.service.FormXmlImportService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 
@@ -38,9 +39,11 @@ class JDBCUtilUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPropagateInvalidEntry_insteadOfReportingSuccess() {
+        registerMock(FormXmlImportService.class, new FormXmlImportService(mock(EncounterFormDao.class)));
         var input = new ByteArrayInputStream("<Results/>".getBytes(StandardCharsets.UTF_8));
         assertThatThrownBy(() -> JDBCUtil.toDataBase(input, "invalid.xml"))
-                .isInstanceOf(JDBCUtil.XmlImportException.class);
+                .isInstanceOf(JDBCUtil.XmlImportException.class)
+                .hasMessage("Invalid form XML import entry name");
     }
 
     @Test

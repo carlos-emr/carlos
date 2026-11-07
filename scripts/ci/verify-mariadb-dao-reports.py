@@ -43,7 +43,7 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                            "BcBillingNativeMariaDbIntegrationTest": 10,
                            "FormXmlImportServiceIntegrationTest": 7,
                            "EFormApColumnLookupIntegrationTest": 2,
-                           "AppointmentDaySheetServiceIntegrationTest": 3,
+                           "AppointmentDaySheetServiceIntegrationTest": 4,
                            "AntenatalReportDaoIntegrationTest": 5,
                            "EFormGroupDaoIntegrationTest": 9,
                            "BcBillingDaoTransactionIntegrationTest": 4,
