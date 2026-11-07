@@ -4,27 +4,36 @@
   "qualifiedProfiles": [],
   "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
   "verifiedBaseline": {
-    "javaChecks": 2797,
+    "javaChecks": 2983,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "34275eab9bf825a218c06f053843b1ef7ac2e27341f76126e004ab066fec9264",
-    "ordinaryInstalledSourceChecks": 24,
-    "shiftedInstalledSourceChecks": 25,
+    "packagedWarSha256": "3394f2adb2a5d2fb51d37d3f3e8a0b6510322dd9ffd3eef37248ed1a664de696",
+    "ordinaryInstalledSourceChecks": 63,
+    "shiftedInstalledSourceChecks": 64,
     "capturedSources": 19,
-    "clinicalPublication": false
+    "clinicalPublication": false,
+    "professionalInstalledChecks": 44,
+    "totalInstalledChecks": 303,
+    "careAssemblyInstalledChecks": 51,
+    "disclosurePolicyInstalledChecks": 14,
+    "independentSupportingInstalledChecks": 67
   },
   "implemented": [
     "Shared pinned wire-schema and scalar contracts with importer facades",
     "Fenced durable jobs, cohort capture, fresh permissions, CLI entry point and asynchronous browser metadata/control",
     "Encrypted patient source and retained payload capture with verified native baselines",
-    "Demographic core, phone and patient-note reconciliation components",
+    "Demographic core, phone, patient-note, retained/current/archive enrolment and primary-physician reconciliation components",
     "Personal contact, pharmacy, allergy, medication, appointment and immunization mapping/reconciliation components",
-    "XML, ZIP/ZIP64, encryption and package validation components"
+    "XML, ZIP/ZIP64, encryption and package validation components",
+    "External family/referring-physician binding and witnessed name reconciliation through the demographic parent receipt",
+    "Retained preferred-pharmacy reconciliation and coordinated personal/professional/pharmacy demographic assembly with exact field ownership",
+    "Root-controlled registered recipient/audit policy with a coherent pinned manifest, current certificate checks and immutable accepted arrangement identity",
+    "Independent finished ReadMe/event CSV readback against actual validated XML receipts, actual archive paths and sealed physician totals with bounded complete UTF-8/EOF verification"
   ],
   "remaining": [
-    "Complete demographic histories, care relationships and remaining native/source field closure",
-    "Finish native/current/archive enrolment reconciliation; captured original request and per-copy options are verified",
+    "Complete remaining demographic/archive fields and supporting native projections for unrepresented care attributes",
+    "Finish whole-demographic source/native field closure; core, enrolment, primary physician and coordinated care components are packaged and installed verified",
     "Complete source catalogue and all selected clinical domain mappings, attachments and merged-chart ownership",
     "Connect a concrete clinical export engine and independent expected-fact inventory to coverage validation",
     "Complete review, audit, recipient encryption, delivery, download authorization and retention lifecycle",
@@ -48,5 +57,74 @@
     "optionsReadFromFrozenSource": true,
     "originalFilesNeededOnlyDuringCapture": true,
     "otherPatientsCopyBindingsExcluded": true
+  },
+  "retainedEnrolmentReconciliation": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedChecks": 67,
+    "ordinaryInstalledOverlayChecks": 45,
+    "shiftedInstalledOverlayChecks": 46,
+    "sourceHistoriesRetained": true,
+    "nativeArchiveFactsReconciled": true,
+    "nativeTerminationNotShiftedAgain": true,
+    "wholeOwnedDemographicRowsRestored": true,
+    "otherDemographicArchiveColumnsStillDeferred": true,
+    "ordinaryInstalledChecks": 45,
+    "shiftedInstalledChecks": 46
+  },
+  "primaryPhysicianReconciliation": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedCoordinatedChecks": 98,
+    "priorInstalledOverlayChecks": 63,
+    "unresolvedSourcePhysiciansPreserved": true,
+    "noImportOperatorFallback": true,
+    "sharedProviderUsesRetained": true,
+    "captureGenerationMismatchRejected": true,
+    "nullNativeReferencesSupported": true,
+    "ordinaryInstalledChecks": 63,
+    "shiftedInstalledChecks": 64
+  },
+  "professionalPhysicianReconciliation": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedChecks": 47,
+    "installedOverlayChecks": 44,
+    "careRelationshipsInDemographicParent": true,
+    "originalNamesNeverUsedAsIdentityKeys": true,
+    "sourceAndNativeFieldCoverageExplicit": true,
+    "nativeNameEditsVerified": true,
+    "wholeOwnedContactRowsRestored": true,
+    "missingMovedDeletedAndInactiveRelationshipsRequireReview": true,
+    "otherNativeContactDetailsNeedSupportingProjection": true,
+    "installedChecks": 44
+  },
+  "demographicCareAssembly": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedCoordinatedChecks": 104,
+    "installedChecks": 51,
+    "allCareFieldIdentitiesAccounted": true,
+    "professionalNameUsesRetained": true,
+    "sourceOnlyConflictsRequireReview": true,
+    "sourceAddressTypeAndUnchangedStreetLinesPreserved": true,
+    "jurisdictionAndPostalChoiceReconciledTogether": true,
+    "wholeOwnedPharmacyRowsAndTimestampRestored": true,
+    "wholeDemographicQualified": false
+  },
+  "disclosurePolicy": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedPolicyAndEncryptionChecks": 25,
+    "isolatedPhysicalTrustChecks": 14,
+    "rootManifestPinsAllRegistrationBytes": true,
+    "acceptedArrangementCannotRotateSilently": true,
+    "revocationAndExpiryRechecked": true,
+    "strictScalarTypes": true,
+    "readOnlyMetadataStartupPerformsNoPolicyIo": true,
+    "clinicalEngineAndPublicationStillRequired": true,
+    "installedPhysicalTrustChecks": 14
+  },
+  "supportingFilesValidation": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedChecks": 30,
+    "independentActualXmlReceiptReadback": true,
+    "wholeClinicalExportQualified": false,
+    "installedChecks": 67
   }
 }

@@ -33,17 +33,17 @@ public final class CdsExportEnrolmentXmlWriter {
             var events = List.copyOf(supplied); if (events.isEmpty()) return;
             guarded.start("cds", "Enrolment");
             for (var event : events) {
-                guarded.start("cds", "EnrolmentHistory"); guarded.element("cds", "EnrollmentStatus", event.status());
-                guarded.element("cds", "EnrollmentDate", event.start().toString());
-                if (event.end() != null) guarded.element("cds", "EnrollmentTerminationDate", event.end().toString());
-                if (event.terminationReason() != null) guarded.element("cds", "TerminationReason", event.terminationReason());
-                if (event.physician() != null) {
-                    guarded.start("cds", "EnrolledToPhysician");
-                    new CdsExportPublicProviderXmlWriter().write(event.physician(), guarded, false); guarded.end();
-                }
-                guarded.end();
+                guarded.start("cds", "EnrolmentHistory"); writeHistoryContent(event, guarded); guarded.end();
             }
             guarded.end();
         });
+    }
+    /** Content under one existing/generated history wrapper, shared by retained and native assembly. */
+    void writeHistoryContent(CdsExportEnrolmentEventDto event, CdsExportXmlComposer.ContentWriter xml)throws IOException {
+        xml.element("cds", "EnrollmentStatus", event.status());
+        xml.element("cds", "EnrollmentDate", event.start().toString());
+        if (event.end()!=null)xml.element("cds", "EnrollmentTerminationDate", event.end().toString());
+        if (event.terminationReason()!=null)xml.element("cds", "TerminationReason", event.terminationReason());
+        if (event.physician()!=null){xml.start("cds", "EnrolledToPhysician"); new CdsExportPublicProviderXmlWriter().write(event.physician(), xml, false); xml.end(); }
     }
 }

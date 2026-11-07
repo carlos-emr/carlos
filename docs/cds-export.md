@@ -24,7 +24,15 @@ asynchronous browser workflow. Both must call the same authorized application
 service and use the same durable jobs, captured generations, mapping revision,
 dispositions and publication checks. Passing component or metadata/control tests do not establish a complete clinical migration.
 
-The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,797 Java checks and 49 installed source-options and enrolment-reconstruction checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
+The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,983 Java checks and 303 installed demographic/enrolment/primary/professional-physician, coordinated-care, disclosure-policy and independent supporting-file component checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
+
+Retained enrolment reconciliation now coordinates original source history with witnessed current and archive rows. Exact packaged installed checks passed for both an ordinary import (45 checks) and a shifted training copy (46 checks), including schema-valid XML, a later native termination, and exact restoration of the owned patient and archive changes. The coordinated package check passed; other demographic and archive fields still require coverage.
+
+Primary-physician reconciliation and its coordinated provider uses passed package verification and 127 exact installed checks across ordinary and shifted imports. Public provider lookups carry the authenticated capture identity; primary and enrolment reconciliation reject another generation and handle a SQL NULL reference without guessing a physician. Every use of a provider field is retained when the same physician fills multiple roles. Focused checks cover reassignment, removal, unresolved source details, explicit empty values and all-or-nothing review blockers.
+
+External family/referring-physician reconciliation passed package verification. The importer stores these relationships in the demographic parent receipt; the exporter binds each original relationship by patient, role and contact reference, including when names are identical. Forty-seven focused checks and 44 exact packaged installed checks cover name edits, complete source/field accounting, XML validation and exact restoration. Missing, moved, inactive/deleted or contradictory relationships require review. Additional populated professional-contact attributes still need a supporting native projection before publication.
+Preferred-pharmacy reconciliation and the coordinated demographic care assembler are packaged and installed component verified. The assembler combines personal contacts, family/referring physicians and preferred pharmacy with the demographic core, checks exact native/source field identities, and retains each use of shared physician names. Unchanged source address lines, address type, phone extensions and fax components survive import's flattened native projection. Explicit native edits replace only the corresponding source groups; city edits preserve unchanged street lines, and jurisdiction/postal changes are checked together. Conflicting source-only details, ambiguous preferences, shared personal/professional contact aliases and unsupported populated native attributes require review. All 104 focused checks pass. The exact packaged care run passed 51 checks, including real pharmacy name/city edits, receiving-schema XML validation, and full physical-row/timestamp restoration. Other demographic and archive fields remain deferred, so this is not whole-demographic or clinical-export qualification.
+
 
 ## Baseline and integration
 
@@ -1028,3 +1036,30 @@ The ordinary provenance index and retained-values scope read these settings from
 The retained enrolment source mapper applies the verified original shift to every historical date, including accepted logical corrections and source offsets, and verifies the selected event against the sealed preparation. Counts, duplicate paths, conditional dates and conflicting latest events are checked. This preserves history rather than reducing it to the native latest roster. Sixty focused provenance/source checks and sixteen enrolment-source checks pass. Installed genuine ordinary and shifted imports passed 24 and 25 component checks through nineteen captured sources. The combined package passed 2,797 Java checks without failures, errors or skips; the same packaged WAR passed the 24 ordinary and 25 shifted installed component checks. Native archive/current reconciliation, remaining demographic closure and clinical publication are still unfinished.
 
 The complete reviewed import/export test inventory is committed in `scripts/ci/cds-coordinated-test-classes.json`. To reproduce it, provide the three owned disposable test-database property files through `CDS_TEST_PROPERTIES`, `CDS_LEDGER_TEST_PROPERTIES` and `CDS_EXPORT_TEST_PROPERTIES`, then run `python3 scripts/ci/check-cds-transfer.py`. Optional `--offline`, `--settings` and `--maven-local-repository` select the build environment. The script provisions no databases and reads no configuration secrets into console output. All required database fixtures and dependencies must be available; a skipped suite is not full integration evidence.
+
+
+### Registered disclosure policy
+
+The disclosure-policy service is packaged and installed component verified. Twenty-five focused policy/encryption checks and 14 exact packaged container checks verify registered certificates, approved audit scope, current expiry/revocation, strict JSON types, manifest coherence and real root-file ownership/permission checks. It supplies approved arrangement evidence; it does not grant clinical read access, qualify an export profile or publish an artifact. The clinical engine must connect it to acceptance and recheck it before capture, encryption, publication and download.
+
+`cds.export.policyRoot` identifies an administrator-controlled absolute directory. Every directory in its ancestry must pass the protected-file trust checks. Policy files are root owned, private regular files; a service-readable group is allowed only under the existing protected-file contract. Symlinks and group-writable policy files are refused. Construction performs no policy reads, so metadata/control startup remains available without this configuration.
+
+The protocol-one layout is:
+
+| Relative file | Required fields in addition to `protocol: 1` and `enabled: true` |
+| --- | --- |
+| `policy.json` | `senderSha256`; `recipients`, `certificates` and `auditPlans` maps from registered opaque identifiers to exact file SHA-256 hashes |
+| `sender.json` | Stable `namespace`, `physicianGroup`, `groupContactInformation` |
+| `recipients/<id>.json` | Matching `id`, registered `certificateId`, `certificateSha256`, explicit logical-profile identifiers in `profiles` |
+| `certificates/<certificateId>.der` | Exactly one DER-encoded recipient leaf certificate, pinned by both the manifest and recipient registration |
+| `audit/<id>.json` | Matching `id`, approved access `description`, explicit `recipientIds`, `providerNos` and `profiles` |
+
+Certificates must meet the existing authenticated-delivery contract: current validity, a non-CA RSA key of at least 2048 bits and permitted key encipherment. No recipient private key is accepted or retained. Filenames come from validated registration identifiers; callers cannot supply certificate paths or bytes.
+
+Publish complete policy files before atomically replacing the approved manifest. The service verifies every selected document against that manifest and rereads the manifest before returning. Unknown properties, duplicate keys, trailing JSON documents, numeric/boolean values coerced into identifiers, malformed Unicode, unknown profiles and duplicate approvals are refused. An audit plan must explicitly approve the requested provider, recipient and logical profile.
+
+The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, sender registration, recipient registration, exact certificate and audit plan. Any later byte change requires a new accepted request with a new submission key; resume never replaces the original arrangement. Revoked or expired policy is unavailable even when its old digest is known. No production policy or clinical profile is enabled by this integration.
+
+### Independent supporting-file readback
+
+`CdsExportSupportingFilesValidator` reads the completed ReadMe and event CSV against the sealed physician inventory, actual ZIP entry paths and independently validated patient XML receipts. It checks recipient audit text, selected scope, identities, hashes, physician totals and category/report counts, requires complete UTF-8 input and EOF, and propagates cancellation. Exact byte and line limits and a bounded duplicate patient-identifier index prevent silent truncation. Caller-owned streams remain open. Thirty focused validator/composer checks, the 2,983-check coordinated package and 67 checks against the exact packaged implementation using genuine retained importer data pass. This consistency gate does not establish source completeness or authorize publication.

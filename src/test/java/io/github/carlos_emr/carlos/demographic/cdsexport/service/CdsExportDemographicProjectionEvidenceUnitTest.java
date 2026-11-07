@@ -127,6 +127,21 @@ class CdsExportDemographicProjectionEvidenceUnitTest {
     void preparedPhones(CdsDemographicNativeDto.Phone home, CdsDemographicNativeDto.Phone work, CdsDemographicNativeDto.Phone cell){
         source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), home, work, cell, source.primaryProvider(), source.details(), source.relations(), source.diagnostics()); oldField("phone", home==null?"":home.number()); oldField("phone2", work==null?"":work.number());
     }
+    void preparedRelations(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto.Person family, io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto.Person referring) {
+        var relations=new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsDemographicRelationsDto(family, referring, null, 0, List.of()); source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), source.primaryProvider(), source.details(), relations, source.diagnostics());
+    }
+    void preparedPrimaryProvider(String provider) {
+        source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), provider, source.details(), source.relations(), source.diagnostics()); oldField("provider_no", provider==null?"":provider);
+    }
+    void preparedPharmacy(CdsDemographicRelationsDto.Pharmacy pharmacy) {
+        var relations = new CdsDemographicRelationsDto(source.relations().familyPhysician(), source.relations().referringPhysician(), pharmacy, 0, List.of());
+        source = new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), source.primaryProvider(), source.details(), relations, source.diagnostics());
+    }
+    void preparedRoster(CdsDemographicDetailsDto.Enrollment roster, long count) {
+        var d=source.details(); var details=new CdsDemographicDetailsDto(d.spokenLanguage(), d.statusDate(), d.healthCardExpiry(), d.patientNote(), roster, count, d.diagnostics());
+        source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), source.primaryProvider(), details, source.relations(), source.diagnostics());
+        oldField("roster_status", roster==null?"":roster.status()); oldField("roster_date", roster==null?null:roster.date()); oldField("roster_termination_date", roster==null?null:roster.terminationDate()); oldField("roster_termination_reason", roster==null?null:roster.terminationReason()); oldField("roster_enrolled_to", roster==null?null:roster.enrolledProvider());
+    }
     void preparedNote(String note, boolean sourceOnly){
         var details=source.details(); details=new CdsDemographicDetailsDto(details.spokenLanguage(), details.statusDate(), details.healthCardExpiry(), note, details.roster(), details.enrollmentHistoryCount(), sourceOnly?List.of(new CdsClinicalDiagnosticDto("CDS_PATIENT_NOTE_COMPLETE_TEXT_SOURCE_VIEW", "NoteAboutPatient")):List.of());
         source=new CdsDemographicNativeDto(source.sourceId(), source.firstName(), source.lastName(), source.birthDate(), source.healthNumber(), source.issuer(), source.gender(), source.status(), source.scalars(), source.mailing(), source.residential(), source.home(), source.work(), source.cell(), source.primaryProvider(), details, source.relations(), source.diagnostics());
