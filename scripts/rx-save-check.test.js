@@ -77,6 +77,22 @@ function reportRefused(transport) {
     return { alerts, refreshed };
 }
 
+for (const responseText of ['<html>unexpected page</html>', '{"scriptI', '{}', '{"scriptId":0}']) {
+    test(`Save And Print reports an unconfirmed 2xx save without opening a preview: ${responseText}`, () => {
+        const events = [];
+        const context = {
+            jsMsg: refusedMessages,
+            alert(message) { events.push(['alert', message]); },
+            refreshDrugProfile() { events.push(['refresh']); },
+            popForm2() { assert.fail('an unconfirmed save must not print'); },
+        };
+        vm.runInNewContext(refusedSave + slice('function openSavedPrescriptionPreview(', 'function popForm2('), context);
+        context.openSavedPrescriptionPreview({status: 200, responseText,
+            responseURL: 'https://clinic.test/carlos/rx/WriteScript'});
+        assert.deepEqual(events, [['alert', refusedMessages.saveUncertain + ' (HTTP 200)'], ['refresh']]);
+    });
+}
+
 for (const [transport, expected] of [
     [{ status: 500, responseJSON: { error: 'INCOMPLETE_RX_SAVE' } }, 'review the chart before retrying'],
     [{ status: 409, responseJSON: { error: 'STALE_RX_STASH' } }, 'review the current draft'],

@@ -134,7 +134,7 @@
       ],
       "implementation": "Extend the real-DB rollback proof to native MariaDB and the installed application. Preserve existing tests for new, corrected and mixed cards; add driver/commit uncertainty and duplicate request interleavings rather than duplicating mock assertions.",
       "cases": "Failure after script header, first/second drug, partial date, reason and archival; audit only after commit; known rollback restores original IDs/revisions and values; uncertain commit keeps the draft consumed; retry and double-click never duplicate rows, signatures, prints or faxes.",
-      "acceptance": "Committed state is complete exactly once, confirmed rollback leaves zero partial rows, and lost-response UI tells the truth. Finding 334 is fixed in source (#5686) and its expected-failure pins are retired; an installed PASS of rx-save-failure-retry-only-lost and -print-lost is still required.",
+      "acceptance": "Committed state is complete exactly once, confirmed rollback leaves zero partial rows, and lost-response UI tells the truth. Finding 334 (#5686) is verified on Ubuntu 26.04 with complete 2026.09.0~snapshot28 packages: rx-save-failure-retry-only-lost and -print-lost pass without expected-failure pins, alongside all four new/mixed rollback-and-retry variants. Repeat these active regressions for each promotion.",
       "requiredChecks": [
         "evidence-self-tests",
         "coverage-self-tests",

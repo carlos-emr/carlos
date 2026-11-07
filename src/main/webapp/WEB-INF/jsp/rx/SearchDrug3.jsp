@@ -1920,9 +1920,10 @@ function openSavedPrescriptionPreview(transport) {
         saved = null;
     }
     if (!saved || !/^[1-9]\d*$/.test(String(saved.scriptId))) {
-        alert(jsMsg.previewUnavailable);
+        reportRefusedSave(transport);
         return;
     }
+    refreshDrugProfile();
     // Only the window whose save succeeded receives the new card versions. Another window's
     // stale form remains invalid; Edit Rx in this window can submit its acknowledged version.
     if (saved.draftRevisions) {
@@ -3103,8 +3104,6 @@ function updateQty(element){
         {method: 'post',postBody:data,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
-
-                refreshDrugProfile();
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
                     openSavedPrescriptionPreview(transport);
