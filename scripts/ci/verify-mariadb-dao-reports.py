@@ -51,6 +51,7 @@ INBOX_CASES = (
     'shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting',
     'shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed',
 )
+INBOX_CLASS = 'io.github.carlos_emr.carlos.commn.dao.LegacyLabNativeMariaDbIntegrationTest'
 
 
 def verify(reports: Path, output: Path) -> dict:
@@ -84,7 +85,7 @@ def verify(reports: Path, output: Path) -> dict:
             counts[mode]["tests"] += 1
             if case.outcome != "pass":
                 counts[mode]["failures" if case.outcome == "failure" else "skipped"] += 1
-            if family == 'LegacyLabNativeMariaDbIntegrationTest' and case.outcome == 'pass':
+            if case.classname == INBOX_CLASS and not case.container and case.outcome == 'pass':
                 inbox_cases[mode].add(case.name)
             if family in families[mode] and case.outcome == "pass":
                 families[mode][family] += 1

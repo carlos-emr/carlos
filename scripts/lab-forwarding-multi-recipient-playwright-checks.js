@@ -26,11 +26,16 @@ async function workflow(s) {
   const work=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-fwd-multi-'));
   s.cleanup(()=>fixture.cleanup());
   s.cleanup(()=>{
-    for(const id of targets) {
+    const failures=[];
+    for(const id of targets)try {
+      // IDs are intents registered before INSERT. A failed insert can leave no
+      // row; retaining the intent also covers a lost response after commit.
+      if(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(id)}`)==='0')continue;
       h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(id)} AND last_name=${h.sqlString(marker)}`)==='1','Forwarding provider ownership changed');
       sql.execute(`DELETE FROM provider WHERE provider_no=${h.sqlString(id)} AND last_name=${h.sqlString(marker)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(id)}`)==='0','Forwarding provider cleanup failed');
-    }
+    }catch(error){failures.push(error);}
+    if(failures.length)throw new AggregateError(failures,'Forwarding provider cleanup failed: '+failures.map(error=>error.message).join('; '));
   });
   s.cleanup(()=>{
     for(const u of uploads) {

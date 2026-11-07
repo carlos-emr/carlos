@@ -9,6 +9,42 @@ const {masterRecordLink}=require('./lib/master-record-link');
 const {openMasterRecord}=require('./master-record-tabs-playwright-checks');
 const {workflow:createDirectory}=require('./contact-editor-playwright-checks');
 const q=h.sqlString;
+/** Reconcile incomplete inserts, preserving ownership and independent cleanup. */
+function cleanupSharedFixtures(sql,{patient,marker,ownedPatients,control}) {
+  const failures=[];
+  for(const p of [{id:patient,name:marker,primary:true},...ownedPatients])try {
+    if(!p.id) {
+      const ids=sql.rows(`SELECT demographic_no FROM demographic WHERE last_name=${q(p.name)} AND first_name='Shared'`).flat();
+      h.assert(ids.length<=1,'Ambiguous shared-contact patient setup');
+      if(!ids.length)continue;
+      [p.id]=ids;
+    }
+    h.assert(/^[1-9]\d*$/.test(p.id),'Invalid shared-contact patient identity');
+    h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${p.id} AND last_name=${q(p.name)}`)==='1','Shared-contact patient ownership changed');
+    sql.execute(`DELETE FROM DemographicContact WHERE demographicNo=${p.id}`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${p.id}`)==='0','Owned patient associations remain');
+    // The shared harness owns the primary parent and deletes it only after all
+    // child cleanups succeed. Its deliberate retention on any failure remains.
+    if(!p.primary) {
+      sql.execute(`DELETE FROM demographicExt WHERE demographic_no=${p.id}; DELETE FROM demographicArchive WHERE demographic_no=${p.id}; DELETE FROM demographic WHERE demographic_no=${p.id} AND last_name=${q(p.name)}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${p.id}`)==='0','Owned patient cleanup failed');
+    }
+  } catch(error){failures.push(error);}
+  try {
+    if(!control) {
+      const ids=sql.rows(`SELECT id FROM Contact WHERE lastName=${q(marker+' Control')} AND firstName='Unrelated' AND type='Contact'`).flat();
+      h.assert(ids.length<=1,'Ambiguous control-contact setup');[control]=ids;
+    }
+    if(control) {
+      h.assert(/^[1-9]\d*$/.test(control),'Invalid control contact identity');
+      h.assert(sql.value(`SELECT COUNT(*) FROM Contact WHERE id=${control} AND lastName=${q(marker+' Control')}`)==='1','Control contact ownership changed');
+      sql.execute(`DELETE FROM Contact WHERE id=${control} AND lastName=${q(marker+' Control')}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM Contact WHERE id=${control}`)==='0','Control contact cleanup failed');
+    }
+  } catch(error){failures.push(error);}
+  if(failures.length)throw new AggregateError(failures,'Shared-contact cleanup failed: '+failures.map(error=>error.message).join('; '));
+}
+
 async function workflow(s) {
   const {sql,marker,patient,provider}=s;
   const originalPages=new Set(s.context.pages());
@@ -21,21 +57,7 @@ async function workflow(s) {
   h.assert(/^[1-9]\d*$/.test(contact),'Native contact creation did not retain one exact contact');
   const ownedPatients=[];
   let control;
-  s.cleanup(()=>{
-    for(const p of ownedPatients)h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${p.id} AND last_name=${q(p.name)}`)==='1','Shared-contact patient ownership changed');
-    const ids=[patient,...ownedPatients.map(p=>p.id)].join(',');
-    sql.execute(`DELETE FROM DemographicContact WHERE demographicNo IN (${ids})`);
-    h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo IN (${ids})`)==='0','Owned patient associations remain');
-    if(control) {
-      h.assert(sql.value(`SELECT COUNT(*) FROM Contact WHERE id=${control} AND lastName=${q(marker+' Control')}`)==='1','Control contact ownership changed');
-      sql.execute(`DELETE FROM Contact WHERE id=${control} AND lastName=${q(marker+' Control')}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM Contact WHERE id=${control}`)==='0','Control contact cleanup failed');
-    }
-    for(const p of ownedPatients) {
-      sql.execute(`DELETE FROM demographicExt WHERE demographic_no=${p.id}; DELETE FROM demographicArchive WHERE demographic_no=${p.id}; DELETE FROM demographic WHERE demographic_no=${p.id} AND last_name=${q(p.name)}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${p.id}`)==='0','Owned patient cleanup failed');
-    }
-  });
+  s.cleanup(()=>cleanupSharedFixtures(sql,{patient,marker,ownedPatients,control}));
   for(const suffix of ['B','C']) {
     const p={name:`${marker}-${suffix}`};ownedPatients.push(p);
     p.id=sql.value(`INSERT INTO demographic(last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
@@ -157,4 +179,4 @@ async function workflow(s) {
   });
 }
 if(require.main===module)runWorkflow('contact-shared-directory',workflow,{openPatient:true});
-module.exports={workflow};
+module.exports={workflow,cleanupSharedFixtures};

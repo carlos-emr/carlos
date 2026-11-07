@@ -72,6 +72,36 @@ class H2ReportEvidenceTest(unittest.TestCase):
                 GATE.verify(self.reports, self.permission)
             report.write_bytes(contents)
 
+    def test_other_routed_cases_in_a_permission_class_are_preserved(self):
+        plan = self.root / 'docs/testing/release-2026.08-verification.json'
+        original = json.loads(plan.read_text())
+        original['checks'][0]['routedSkips'][GATE.PERMISSION_CLASS] = {
+            'check': 'separate-native-lane', 'cases': [{'name': 'independentNativeCase'}]}
+        plan.write_text(json.dumps(original))
+        self.report(self.reports, GATE.PERMISSION_CLASS,
+                    [(GATE.PERMISSION_CASE, 'skipped'), ('independentNativeCase', 'skipped')])
+        self.assertTrue(GATE.verify(self.reports, self.permission)['ready'])
+        self.assertEqual(json.loads(plan.read_text()), original)
+
+    def test_permission_reports_are_parsed_only_once(self):
+        from unittest.mock import patch
+        import release_verification
+        with patch.object(release_verification, 'read_surefire', wraps=release_verification.read_surefire) as read:
+            self.assertTrue(GATE.verify(self.reports, self.permission)['ready'])
+        paths = [call.args[0] for call in read.call_args_list]
+        self.assertEqual(len(paths), len(set(paths)))
+
+    def test_absent_routed_skips_can_be_initialized_without_waiving_any_other_skip(self):
+        plan = self.root / 'docs/testing/release-2026.08-verification.json'
+        data = json.loads(plan.read_text())
+        del data['checks'][0]['routedSkips']
+        plan.write_text(json.dumps(data))
+        (self.reports / 'TEST-example.Native.xml').unlink()
+        self.assertTrue(GATE.verify(self.reports, self.permission)['ready'])
+        self.report(self.reports, 'example.Other', [('unrouted', 'skipped')])
+        with self.assertRaises(EvidenceError):
+            GATE.verify(self.reports, self.permission)
+
     def test_legacy_cli_requires_every_exact_case_to_pass(self):
         import contextlib
         import io
@@ -89,8 +119,22 @@ class H2ReportEvidenceTest(unittest.TestCase):
             with patch.object(sys, 'argv', ['verify', '--legacy-reports', str(legacy)]), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                 return GATE.main()
         self.assertEqual(run([(name, 'pass') for name in names]), 0)
+        real = legacy.with_name('legacy-real')
+        legacy.rename(real)
+        self.assertEqual(self.invoke_legacy(legacy), 1)
+        legacy.symlink_to(real, target_is_directory=True)
+        self.assertEqual(self.invoke_legacy(legacy), 1)
+        legacy.unlink()
+        real.rename(legacy)
         for missing in names:
             for outcome in ('skipped', 'failure'):
                 self.assertEqual(run([(name, outcome if name == missing else 'pass') for name in names]), 1)
             self.assertEqual(run([(name, 'pass') for name in names if name != missing]), 1)
             self.assertEqual(run([(name if name != missing else 'unrelated', 'pass') for name in names]), 1)
+
+    def invoke_legacy(self, directory):
+        import contextlib
+        import io
+        import sys
+        with patch.object(sys, 'argv', ['verify', '--legacy-reports', str(directory)]), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            return GATE.main()

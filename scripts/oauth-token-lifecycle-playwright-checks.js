@@ -14,21 +14,32 @@ const TIMEOUT=30000;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const fields=text=>Object.fromEntries(new URLSearchParams(text.trim()));
 
+/** Reconcile partial setup and clean each owned client independently. */
+function cleanupClients(sql,clients) {
+  const failures=[];
+  for(const client of clients)try {
+    if(!client.id) {
+      const ids=sql.rows(`SELECT id FROM ServiceClient WHERE clientKey=${q(client.key)} AND name=${q(client.name)}`).flat();
+      h.assert(ids.length<=1,'OAuth setup has ambiguous client ownership');
+      if(!ids.length)continue;
+      [client.id]=ids;
+    }
+    h.assert(/^[1-9]\d*$/.test(client.id),'Invalid owned OAuth client identity');
+    const current=sql.rows(`SELECT clientKey,name FROM ServiceClient WHERE id=${client.id}`);
+    h.assert(!current.length||(current.length===1&&current[0][0]===client.key&&current[0][1]===client.name),'OAuth client ownership changed; retain associated tokens');
+    sql.execute(`DELETE FROM ServiceAccessToken WHERE clientId=${client.id}; DELETE FROM ServiceRequestToken WHERE clientId=${client.id};
+      DELETE FROM ServiceOAuthNonce WHERE consumerKey=${q(client.key)}; DELETE FROM ServiceClient WHERE id=${client.id} AND clientKey=${q(client.key)}`);
+    h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ServiceClient WHERE id=${client.id})+(SELECT COUNT(*) FROM ServiceAccessToken WHERE clientId=${client.id})
+      +(SELECT COUNT(*) FROM ServiceRequestToken WHERE clientId=${client.id})+(SELECT COUNT(*) FROM ServiceOAuthNonce WHERE consumerKey=${q(client.key)})`)==='0','Owned OAuth clients, tokens or nonces remain');
+  } catch(error){failures.push(error);}
+  if(failures.length)throw new AggregateError(failures,'OAuth fixture cleanup failed: '+failures.map(error=>error.message).join('; '));
+}
+
 async function workflow(s) {
   const {sql,marker,patient,provider,config}=s;
   const app=route=>h.appUrl(config.baseUrl,route);
   const clients=[];
-  s.cleanup(()=>{
-    for(const client of clients) {
-      if(!client.id)continue;
-      const current=sql.rows(`SELECT clientKey,name FROM ServiceClient WHERE id=${client.id}`);
-      h.assert(!current.length||(current.length===1&&current[0][0]===client.key&&current[0][1]===client.name),'OAuth client ownership changed; retain associated tokens');
-      sql.execute(`DELETE FROM ServiceAccessToken WHERE clientId=${client.id}; DELETE FROM ServiceRequestToken WHERE clientId=${client.id};
-        DELETE FROM ServiceOAuthNonce WHERE consumerKey=${q(client.key)}; DELETE FROM ServiceClient WHERE id=${client.id} AND clientKey=${q(client.key)}`);
-      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM ServiceClient WHERE id=${client.id})+(SELECT COUNT(*) FROM ServiceAccessToken WHERE clientId=${client.id})
-        +(SELECT COUNT(*) FROM ServiceRequestToken WHERE clientId=${client.id})+(SELECT COUNT(*) FROM ServiceOAuthNonce WHERE consumerKey=${q(client.key)})`)==='0','Owned OAuth clients, tokens or nonces remain');
-    }
-  });
+  s.cleanup(()=>cleanupClients(sql,clients));
   for(const [suffix,lifetime] of [['expiry',8],['delete',3600],['control',3600]]) {
     const c={name:`${marker}-${suffix}`,key:crypto.randomBytes(8).toString('hex'),secret:crypto.randomBytes(8).toString('hex'),lifetime};
     clients.push(c);
@@ -94,16 +105,25 @@ async function workflow(s) {
     await positive(control,controlToken);await positive(deleted,deleteToken);await ordinarySession();
   });
   await s.step('finite access is valid at its persisted epoch-second boundary and refused immediately afterward',async()=>{
-    const token=await authorize(expiry);await positive(expiry,token);
-    const boundary=token.issued+expiry.lifetime;
     const now=()=>Number(sql.value('SELECT FLOOR(UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)))'));
-    const deadline=Date.now()+15000;
-    while(now()<boundary&&Date.now()<deadline)await pause(50);
-    const lower=now();await positive(expiry,token);const upper=now();
-    h.assert(lower===boundary&&upper===boundary,'Boundary request could not be contained within the exact expiry second');
-    while(now()<=boundary&&Date.now()<deadline)await pause(50);
-    h.assert(now()>boundary&&now()<=boundary+3,'Expiry observation missed its bounded post-boundary window');
-    await refused(await read(expiry,token),['invalid_signature','unknown_provider'],'Expired access token');
+    let contained=false;
+    for(let attempt=0;attempt<3&&!contained;attempt++) {
+      const token=await authorize(expiry);await positive(expiry,token);
+      const boundary=token.issued+expiry.lifetime,deadline=Date.now()+15000;
+      while(now()<boundary&&Date.now()<deadline)await pause(50);
+      const lower=now();
+      if(lower===boundary) {
+        // Authentication/data failures always fail. Only a successful request
+        // whose observation straddles the second may retry with a fresh token.
+        await positive(expiry,token);contained=now()===boundary;
+      }
+      h.assert(lower>=boundary,'Timed out before the token expiry boundary');
+      while(now()<=boundary&&Date.now()<deadline)await pause(50);
+      h.assert(now()>boundary&&now()<=boundary+3,'Expiry observation missed its bounded post-boundary window');
+      await refused(await read(expiry,token),['invalid_signature','unknown_provider'],'Expired access token');
+      if(!contained)console.log('  Timing miss: retrying an exact-second observation with a fresh native-authorized token.');
+    }
+    h.assert(contained,'Boundary request missed the exact expiry second in all three bounded attempts');
     await positive(control,controlToken);await ordinarySession();
     h.assert(clinical()===beforeClinical,'OAuth expiry changed clinical records');
   });
@@ -133,4 +153,4 @@ async function workflow(s) {
   });
 }
 if(require.main===module)runWorkflow('oauth-token-lifecycle',workflow,{openMaster:false});
-module.exports={workflow};
+module.exports={workflow,cleanupClients};

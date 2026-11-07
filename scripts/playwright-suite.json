@@ -5324,6 +5324,21 @@
       "fixtures": "Owned FAKE- patient; one template created in the UI plus one seeded template, both marker-tagged; only those rows and the patient's immunizations rows are deleted."
     },
     {
+      "name": "report-by-template-tabs",
+      "script": "scripts/report-by-template-tabs-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "env": [],
+      "notes": "#5725: two template schemas and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
+      "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified."
+    },
+    {
       "name": "report-by-template",
       "script": "scripts/report-by-template-playwright-checks.js",
       "tiers": [
@@ -7727,6 +7742,21 @@
       "env": [],
       "notes": "Focused Palliative Care workflow: exact prose/date/provider, saved identity, forced folded-navbar reopening, second Save with CSRF protection, unchanged first version and latest-version reopening.",
       "fixtures": "Owned workflow patient, Palliative Care rows and marker-named form registrations, including eight aliases forcing the saved entry beyond the first six. All removed; registrations are clinic-wide, so run EXCLUSIVE=1."
+    },
+    {
+      "name": "billing-on-benefit-history",
+      "script": "scripts/billing-on-benefit-history-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "notes": "#5735: native mixed existing/new/unchanged SOB import, read-only and abandoned previews, method/CSRF refusals, append-only historical periods, unchanged historical claim, duplicate upload and code-admin reopening. Mixed malformed files are refused as a whole; the current UI provides file-level feedback only.",
+      "fixtures": "Four unused marker-owned fee codes (one with two previous periods), one historical owned claim and an untouched synthetic control. Exact fee/history/claim cleanup is registered before setup. No real codes or clinic-wide settings are changed."
     },
     {
       "name": "billing-on-gst-css-benefit",

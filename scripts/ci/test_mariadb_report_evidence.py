@@ -42,7 +42,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             if selected == "generated":
                 required["MeasurementDaoIntegrationTest"] += 3000 - sum(required.values())
             for family, count in required.items():
-                suite = "example." + family
+                suite = (MODULE.INBOX_CLASS if family == 'LegacyLabNativeMariaDbIntegrationTest' else "example." + family)
                 suffix = "" if selected == "generated" else "-" + selected
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
@@ -65,6 +65,17 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 result = self.invoke(optimized)
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_another_package_or_nested_class_cannot_supply_required_inbox_cases(self):
+        self.seed()
+        report = self.reports / ('TEST-' + MODULE.INBOX_CLASS + '-flyway.xml')
+        original = report.read_text()
+        for replacement in ('example.LegacyLabNativeMariaDbIntegrationTest', MODULE.INBOX_CLASS + '$Substitute'):
+            with self.subTest(classname=replacement):
+                report.write_text(original.replace('classname="' + MODULE.INBOX_CLASS,
+                                                   'classname="' + replacement))
+                self.assertNotEqual(self.invoke().returncode, 0)
+        report.write_text(original)
+
     def test_empty_reports_fail_with_optimization_and_remove_old_success(self):
         for optimized in (False, True):
             self.output.write_text("old successful run")
@@ -85,7 +96,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             for family in required:
                 with self.subTest(mode=mode, family=family):
                     suffix = "" if mode == "generated" else "-" + mode
-                    path = self.reports / ("TEST-example." + family + suffix + ".xml")
+                    suite = MODULE.INBOX_CLASS if family == "LegacyLabNativeMariaDbIntegrationTest" else "example." + family
+                    path = self.reports / ("TEST-" + suite + suffix + ".xml")
                     original = path.read_bytes()
                     path.unlink()
                     reason = ("Broad MariaDB DAO selection unexpectedly lost coverage"
@@ -222,7 +234,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
     def test_unrelated_passing_cases_cannot_replace_any_inbox_count_case(self):
         self.seed()
         for mode in ('flyway', 'bc-flyway'):
-            path = self.reports / ('TEST-example.LegacyLabNativeMariaDbIntegrationTest-' + mode + '.xml')
+            path = self.reports / ('TEST-' + MODULE.INBOX_CLASS + '-' + mode + '.xml')
             original = path.read_bytes()
             for name in (
                 'shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched',

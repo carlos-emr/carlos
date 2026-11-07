@@ -111,10 +111,13 @@ def smoke(environment, phase, selection=None):
          '--province', environment['CARLOS_SUITE_PROVINCE'], '--junit', str(path)]
     for name in selection or ():
         command += ['--only', name]
-    if selection is None or 'error-sanitization' in selection:
+    uses_fault_adapter = selection is None or 'error-sanitization' in selection
+    if uses_fault_adapter:
         command = ['python3', 'scripts/ci/run-installed-error-sanitization.py', '--', *command]
     run(command,
-        phase, environment=environment, timeout=600, browser=True)
+        # Two restarts (120 + 420 seconds each), compilation (60), counters
+        # (40), the existing 600-second suite and restoration headroom.
+        phase, environment=environment, timeout=1860 if uses_fault_adapter else 600, browser=True)
     profile = environment['CARLOS_SUITE_PROVINCE']
     manifest = gate.read_json(gate.ROOT / 'scripts/playwright-suite.json')['checks']
     selected = list(selection) if selection else [row['name'] for row in manifest if 'smoke' in row.get('tiers', []) and not row.get('manual')

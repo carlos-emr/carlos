@@ -23,7 +23,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5718](https://github.com/carlos-emr/carlos/issues/5718) | Test: broaden decision-support guideline condition and operator coverage | Implementation and installed acceptance pending. |
 | [#5719](https://github.com/carlos-emr/carlos/issues/5719) | Test: cover Ontario RA re-import, settlement replay and subsequent adjustments | Implementation and installed acceptance pending. |
 | [#5724](https://github.com/carlos-emr/carlos/issues/5724) | Test: cover OAuth access-token expiry and deletion of a client with issued tokens | Native consent, exact expiry-second semantics, client deletion and independent token/session controls pass on installed ON and BC with no clinical writes or residue. |
-| [#5725](https://github.com/carlos-emr/carlos/issues/5725) | Test: verify Report-by-Template results and exports remain isolated across tabs | Implementation and installed acceptance pending. |
+| [#5725](https://github.com/carlos-emr/carlos/issues/5725) | Test: verify Report-by-Template results and exports remain isolated across tabs | Installed ON/BC four-tab, shared-login native runs, exact CSV/XLS schemas/values/types, empty results, Back beacons and tab closure pass with clean residue. List parameters used; separate empty-text-parameter defect tracked as #5813. |
 | [#5726](https://github.com/carlos-emr/carlos/issues/5726) | Test: ingest original, corrected and out-of-order HL7 results for one accession | Implementation and installed acceptance pending. |
 | [#5727](https://github.com/carlos-emr/carlos/issues/5727) | Test: cover First Nations field save, edit, clear and community-selection round trips | Implementation and installed acceptance pending. |
 | [#5728](https://github.com/carlos-emr/carlos/issues/5728) | Test: verify exactly-once Messenger delivery to overlapping groups and direct recipients | Implementation and installed acceptance pending. |
@@ -33,12 +33,12 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5732](https://github.com/carlos-emr/carlos/issues/5732) | Test: verify shared contact edits and patient-specific relationship isolation | Installed ON/BC native creation, two-patient linking, shared-detail editing, independent flags, cancelled edits/removal and selective removal pass; unrelated control and cleanup verified. |
 | [#5733](https://github.com/carlos-emr/carlos/issues/5733) | Test: verify complete lab-report content across PDF page breaks | Implementation and installed acceptance pending. |
 | [#5734](https://github.com/carlos-emr/carlos/issues/5734) | Test: preserve multiple same-severity Rx interaction partners when one is removed | Implementation and installed acceptance pending. |
-| [#5735](https://github.com/carlos-emr/carlos/issues/5735) | Test: cover Schedule of Benefits imports that update existing codes and multiple rows | Implementation and installed acceptance pending. |
+| [#5735](https://github.com/carlos-emr/carlos/issues/5735) | Test: cover Schedule of Benefits imports that update existing codes and multiple rows | Installed ON native multi-row preview/apply, malformed-file refusal/retry, abandonment, GET/CSRF refusals, exact appended periods, historical claim preservation, duplicate upload and code-admin reopening pass. Error feedback is file-level; per-line diagnostics are absent. |
 | [#5736](https://github.com/carlos-emr/carlos/issues/5736) | Test: cover BC payment amount boundaries, overpayments and supported refunds | Installed BC refusals, exact-cent partial/overpayment, receipt/list/accounting reconciliation and control-invoice preservation pass. No native refund control exists; negative amounts are refused. |
 | [#5737](https://github.com/carlos-emr/carlos/issues/5737) | Test: verify appointment-slot lock expiry and recovery after an abandoned browser | Implementation and installed acceptance pending. |
 | [#5738](https://github.com/carlos-emr/carlos/issues/5738) | Test: cover abandoned appointment cut/paste and stale clipboard recovery | Implementation and installed acceptance pending. |
 | [#5771](https://github.com/carlos-emr/carlos/issues/5771) | Test: Tomcat shutdown leak smoke check doesn't match MariaDB Connector/J thread names | Matcher and delayed-output CLI controls pass; actual installed ON stop/start log contains zero target leak warnings. Full lifecycle repetitions remain pending. |
-| [#5779](https://github.com/carlos-emr/carlos/issues/5779) | Test: #5548 inbox counts are only partly exercised on physical MariaDB | Seven cases pass on both physical ON and BC Flyway schemas with zero skips at 239cd330e1a; final expanded normal/abnormal assertions and final-head retakes pending. |
+| [#5779](https://github.com/carlos-emr/carlos/issues/5779) | Test: #5548 inbox counts are only partly exercised on physical MariaDB | Seven cases pass on both physical ON and BC Flyway schemas with zero skips at 239cd330e1a. CI at fb0401df0c1 passes both native lanes including expanded normal/abnormal assertions; final-head evidence still required after further edits. |
 | [#5793](https://github.com/carlos-emr/carlos/issues/5793) | Test: Release adds 11 expected-failure pins, including security and audit checks | All release-added pins reconciled to open ownership below; retired 335 distinguished. No release waiver or product fix claimed. |
 | [#5794](https://github.com/carlos-emr/carlos/issues/5794) | Test: Front-door check for sanitized error bodies was removed while ResponseSanitizationFilter was rewritten | Installed ON REQUEST exception, /ws and observed ERROR-dispatch 500 sanitization pass; exact descriptor restoration and fixture removal verified. Both ON and BC focused installed retakes pass; final full qualification remains pending. |
 | [#5795](https://github.com/carlos-emr/carlos/issues/5795) | Test: Missing browser-check prerequisites now SKIP instead of failing, including the CDS import gate | Packaged runner enforces strict release/residue checking and fails on report loss; packaged runs pending. |
@@ -188,8 +188,11 @@ still requires final-head CI and all outstanding register entries.
 
 All seven initial CodeRabbit inline threads were individually answered and
 resolved after their corrections and validation; the separate output-drain
-issue was corrected too. The requested follow-up review was rate-limited by
-CodeRabbit, so no follow-up review completion is claimed.
+issue was corrected too. CodeRabbit's second full review completed on
+2026-11-07 at 22:52 UTC against fb0401df0c1 and raised twelve comments.
+The corrections and their completed validation are recorded below; review
+threads are reconciled after publication. No third external review completion
+or final review clearance is claimed.
 
 Additional independent lifecycle coverage (#5724, #5732, #5736) passes through
 the same installed package front doors. The ON batch passes 2/2 and BC passes
@@ -219,3 +222,49 @@ The original partial/exact-balance check separately passes after the extension.
 All amounts are checked with decimal SQL or integer cents, not floating-point
 comparison. Development failures remain recorded; none was converted to a pin
 or a passing incomplete result.
+
+
+The next review correction batch requires the exact fully qualified inbox class
+and empty container, preserves independent skip routes, parses each report once,
+and applies the same report-directory/identity checks to historical oracles.
+The package fault adapter now has 1,860 seconds for its two bounded restarts,
+compilation, counters, browser suite and restoration. Partial OAuth/contact
+setup is reconciled by exact ownership, and cleanup continues across independent
+fixtures while aggregating failures. A changed owner still prevents deletion.
+Forwarding provider IDs remain registered as intents before INSERT; a missing
+row is harmless during cleanup, and other owned providers are still attempted.
+
+Ubuntu 26.04 / Node 22.22.1 now passes all 7,379 cases with zero failures,
+skips, cancellations or TODOs. The release Node inventory is regenerated from
+that complete execution, including all 518 test files and the leak CLI case.
+The initial Ubuntu attempt lacked jq/Poppler and failed; its report is retained,
+the missing distribution packages were installed, and the complete run was
+repeated. All 349 Python helper cases pass in the Ubuntu environment. The new
+cleanup controls cover a lost INSERT-ID response, changed ownership, independent
+cleanup and an uncreated secondary patient.
+
+The ON review retake passes OAuth, shared contacts and native key generation
+(3/3, no skip/residue); the synthetic primary key is removed afterward.
+The refactored default key workflow reaches its retained finding-163 GET-refusal
+pin after its preceding steps pass; this remains a known failure, not a release
+pass. Both installed provinces pass the four-tab Report by Template workflow.
+The normal Back beacons are observed without interception; only the exact
+unloading ping's ERR_ABORTED may be consumed. An empty result offers no export,
+and does not replace the populated instances' table or downloaded data.
+The separate lone-empty-text-parameter upload defect is tracked in
+[#5813](https://github.com/carlos-emr/carlos/issues/5813), with the failed native
+attempts retained. No repair of that product defect is claimed here.
+
+All thirteen CI workflows pass at fb0401df0c1, including the Rourke font/cache
+matrix. The downloaded actual CI reports also pass the revised H2/permission
+and four-case historical gate: 34,077 H2 cases, zero failures, 139 exactly routed
+skips, five actual passing permission cases and four actual passing historical
+comparisons. The native summary records 3,079 generated-schema, 230 ON Flyway
+and 64 BC Flyway cases, all passing without skips, including all seven inbox
+cases in each Flyway lane. Further commits still require their own green CI.
+
+The final ON forwarding/SOB retake also passes 2/2 with clean residue. The
+forwarding source-wide status limitation remains explicit. Malformed mixed SOB
+files offer no partial changes, and a corrected native retry preserves both
+previous fee periods and an existing claim; same-schedule reupload creates no
+new effective period. Fee cleanup continues independently across code owners.
