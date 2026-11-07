@@ -220,8 +220,10 @@ contract consumed by the existing importer.
 Post-commit archive read and filesystem failures retain the committed form,
 emit an error without clinical values or exception details, and leave no XML copy.
 Loading either a saved or new form allows the demographic manager's synchronous
-health-care-team audit to commit. Regression cases use the real demographic
-manager and audit DAO and verify the committed audit through an independent connection.
+health-care-team audit to commit. Regression cases run the real demographic
+manager's MRP and health-care-team audit path and the real audit DAO (its demographic,
+contact and appointment collaborators are test doubles) and verify the committed audit
+through an independent connection.
 CI's evidence verifier requires nineteen cases in each MariaDB lane, including
 both archive-failure and both demographic-audit invocations by their Surefire identities.
 The existing synthetic Growth/Rourke browser suite covers the

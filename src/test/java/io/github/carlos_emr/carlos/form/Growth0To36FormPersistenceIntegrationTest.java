@@ -277,11 +277,15 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
     @Test
     void shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails() throws Exception {
         var transaction = new TransactionTemplate(transactions);
+        // Record the first save's ID: without it, a saveVersion that threw by itself would also
+        // leave no rows and pass, so the test would not prove the later write caused the rollback.
+        var first = new java.util.concurrent.atomic.AtomicInteger();
         assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
-            service.saveVersion(actor, patient, 0, values);
+            first.set(service.saveVersion(actor, patient, 0, values));
             entityManager.createNativeQuery("INSERT INTO formGrowth0_36 (demographic_no, formEdited) VALUES (NULL, CURRENT_TIMESTAMP)")
                     .executeUpdate();
-        })).isInstanceOf(RuntimeException.class);
+        })).isInstanceOf(RuntimeException.class).isNotInstanceOf(SecurityException.class);
+        assertThat(first.get()).isPositive();
         assertThat(independentCount()).isZero();
     }
 

@@ -79,6 +79,7 @@ class Frm2ActionPostGuardUnitTest extends CarlosWebTestBase {
         try (var factory = mockConstruction(FrmRecordFactory.class, (created, context) -> when(created.factory("Rourke2017")).thenReturn(record))) {
             assertThat(new Frm2Action().execute()).isEqualTo(submit); assertThat(mockResponse.getStatus()).isEqualTo(200);
             verify(record, never()).saveFormRecord(any(), any());
+            verify(record, never()).saveFormRecord(any(Properties.class));
             if (submit.equals("graph")) verify(record).getGraph(any(), eq(123), eq(7));
             else verify(record).getFormRecord(any(), eq(123), eq(7));
         }

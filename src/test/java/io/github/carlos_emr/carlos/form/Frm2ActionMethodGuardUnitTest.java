@@ -111,6 +111,7 @@ class Frm2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
         verify(record, never()).saveFormRecord(any(), any());
+        verify(record, never()).saveFormRecord(any(Properties.class));
     }
 
     @Test
@@ -123,6 +124,7 @@ class Frm2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(405);
         verify(record, never()).saveFormRecord(any(), any());
+        verify(record, never()).saveFormRecord(any(Properties.class));
     }
 
     @Test
