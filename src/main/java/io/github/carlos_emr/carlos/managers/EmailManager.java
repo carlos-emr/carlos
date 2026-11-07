@@ -1284,12 +1284,13 @@ public class EmailManager {
      */
     public EmailLog updateEmailStatus(LoggedInInfo loggedInInfo, EmailLog emailLog, EmailStatus emailStatus, String errorMessage) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)) {
-            throw new RuntimeException("missing required sec object (_email)");
+            throw new SecurityException("missing required sec object (_email)");
         }
 
         if (emailLog == null) {
             throw new IllegalArgumentException("emailLog must not be null");
         }
+        java.util.Objects.requireNonNull(emailStatus, "emailStatus");
         EmailStatus previousStatus = emailLog.getStatus();
         if (!EmailStatus.PENDING.equals(previousStatus)
                 || !(EmailStatus.SUCCESS.equals(emailStatus) || EmailStatus.FAILED.equals(emailStatus)

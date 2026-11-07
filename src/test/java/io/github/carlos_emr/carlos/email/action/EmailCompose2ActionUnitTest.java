@@ -153,7 +153,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         AtomicReference<Path> ownedPdf = new AtomicReference<>();
         when(mocks.emailComposeManager().prepareEFormAttachments(any(), any(), any(), anyInt(), any()))
                 .thenAnswer(invocation -> {
-                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(3);
+                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(4);
                     Path owned = workingDirectory.adoptGeneratedPdf(Files.createTempFile("email-view-test-", ".pdf"));
                     ownedPdf.set(owned);
                     return new ArrayList<>(List.of(new EmailAttachment(
@@ -650,7 +650,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         AtomicReference<Path> ownedDirectory = new AtomicReference<>();
         when(emailComposeManager.prepareEFormAttachments(any(), any(), any(), anyInt(), any()))
                 .thenAnswer(invocation -> {
-                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(3);
+                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(4);
                     Path generatedPdf = Files.createTempFile("email-partial-test-", ".pdf");
                     Path ownedPdf = workingDirectory.adoptGeneratedPdf(generatedPdf);
                     ownedDirectory.set(ownedPdf.getParent());
@@ -967,7 +967,7 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
         AtomicReference<Path> ownedPdf = new AtomicReference<>();
         when(mocks.emailComposeManager().prepareEFormAttachments(any(), any(), any(), anyInt(), any()))
                 .thenAnswer(invocation -> {
-                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(3);
+                    EmailComposeWorkingDirectory workingDirectory = invocation.getArgument(4);
                     Path owned = workingDirectory.adoptGeneratedPdf(Files.createTempFile("email-view-test-", ".pdf"));
                     ownedPdf.set(owned);
                     return new ArrayList<>(List.of(new EmailAttachment(

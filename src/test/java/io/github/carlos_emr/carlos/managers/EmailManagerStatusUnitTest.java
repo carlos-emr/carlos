@@ -11,7 +11,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -33,8 +32,17 @@ class EmailManagerStatusUnitTest {
     @Mock private EmailLogDaoImpl emailLogDao;
     @Mock private SecurityInfoManager securityInfoManager;
     @Mock private io.github.carlos_emr.carlos.commn.dao.OscarLogDao oscarLogDao;
-    @InjectMocks private EmailManager emailManager;
+    private EmailManager emailManager;
     private final LoggedInInfo loggedInInfo = new LoggedInInfo();
+
+    @org.junit.jupiter.api.BeforeEach
+    void wireManager() {
+        emailManager = new EmailManager(org.mockito.Mockito.mock(io.github.carlos_emr.carlos.email.core.EmailConsentResolver.class),
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.email.core.EmailSenderFactory.class), securityInfoManager,
+                org.mockito.Mockito.mock(OutboundEmailArchiveService.class));
+        ReflectionTestUtils.setField(emailManager, "emailLogDao", emailLogDao);
+        ReflectionTestUtils.setField(emailManager, "oscarLogDao", oscarLogDao);
+    }
 
     private EmailLog stored(EmailStatus status) {
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);

@@ -794,6 +794,12 @@ class DocumentAttachmentManagerImplAttachmentResilienceUnitTest extends CarlosUn
     @Test
     @DisplayName("keeps an unreadable HRM attached but detaches a readable report the user removed")
     void shouldKeepUnreadableHrmAndDetachReadableHrm_whenUpdateOmitsBoth() throws Exception {
+        var consultation = mock(io.github.carlos_emr.carlos.managers.ConsultationManager.class);
+        registerMock(io.github.carlos_emr.carlos.managers.ConsultationManager.class, consultation);
+        var available = new java.util.ArrayList<java.util.HashMap<String, ? extends Object>>();
+        var readableRow = new java.util.HashMap<String, Object>(); readableRow.put("id", 13); available.add(readableRow);
+        when(consultation.getAttachedHRMDocuments(any(), anyString(), anyString())).thenReturn(available);
+
         Files.copy(DEMO_HRM_REPORT, documentDir.resolve("readable-hrm.xml"));
         HRMDocument readable = new HRMDocument();
         readable.setReportFile("readable-hrm.xml");

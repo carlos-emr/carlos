@@ -70,21 +70,25 @@ class CdsCategoryProjectionBoundaryUnitTest {
     @Test void shouldAuthorizeAllergy_beforeProtectedRepresentationQuery() {
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         AllergyManager manager = mock(AllergyManager.class);
-        when(manager.getActiveAllergies(null, 42)).thenThrow(new SecurityException("denied"));
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
         AllergyService service = new AllergyService() { @Override protected LoggedInInfo getLoggedInInfo() { return null; } };
         ReflectionTestUtils.setField(service, "allergyManager", manager);
         ReflectionTestUtils.setField(service, "legacyProjection", new CdsLegacyProjectionService(records));
-        assertThrows(SecurityException.class, () -> service.getCurrentAllergiesWithPrecision(42));
-        verifyNoInteractions(records);
+        ReflectionTestUtils.setField(service, "securityInfoManager", security);
+        assertThrows(AccessDeniedException.class, () -> service.getCurrentAllergiesWithPrecision(42));
+        verifyNoInteractions(records, manager);
     }
     @Test void shouldNotHideOmittedImportedFields_withExactAllergyDatesInOldProjection() {
         CdsLegacyProjectionDao records = mock(CdsLegacyProjectionDao.class);
         when(records.hasSourceFields(42, Set.of("AllergiesAndAdverseReactions"))).thenReturn(true);
         AllergyManager manager = mock(AllergyManager.class);
         when(manager.getActiveAllergies(null, 42)).thenReturn(List.of(new Allergy()));
+        SecurityInfoManager security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(null, "_allergy", SecurityInfoManager.READ, Integer.valueOf(42))).thenReturn(true);
         AllergyService service = new AllergyService() { @Override protected LoggedInInfo getLoggedInInfo() { return null; } };
         ReflectionTestUtils.setField(service, "allergyManager", manager);
         ReflectionTestUtils.setField(service, "legacyProjection", new CdsLegacyProjectionService(records));
+        ReflectionTestUtils.setField(service, "securityInfoManager", security);
         var failure = assertThrows(WebApplicationException.class, () -> service.getCurrentAllergiesWithPrecision(42));
         assertEquals(409, failure.getResponse().getStatus());
     }

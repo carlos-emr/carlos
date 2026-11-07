@@ -601,7 +601,8 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
             if (renderFails) {
                 assertThat(logs.events()).anySatisfy(event -> {
                     assertThat(event.getLevel()).isEqualTo(org.apache.logging.log4j.Level.ERROR);
-                    assertThat(event.getThrown()).isInstanceOf(IOException.class).hasMessage(primaryMessage);
+                    assertThat(event.getThrown()).isInstanceOf(io.github.carlos_emr.carlos.utility.PDFGenerationException.class)
+                            .hasMessageContaining("IOException").hasMessageNotContaining(primaryMessage);
                 });
             }
         } finally {

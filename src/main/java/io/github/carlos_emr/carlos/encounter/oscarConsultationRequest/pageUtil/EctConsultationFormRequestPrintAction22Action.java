@@ -21,7 +21,6 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 
-import java.io.FileOutputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -29,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -452,56 +450,13 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 // Listed on the consult form for the user to select again; print refuses it until then.
                 throw unavailableAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, "lab attachment is unavailable or has an unresolved source");
             }
-            appendLabAttachment(alist, streams, lab);
-        }
-    }
-
-    private void appendLabAttachment(ArrayList<Object> alist, ArrayList<InputStream> streams, LabResultData lab)
-            throws PDFGenerationException {
-        File tempLabPDF = null;
-        try {
-            tempLabPDF = PathValidationUtils.createSecureTempFile("lab-", ".pdf");
-
-            // Defense-in-depth: verify temp file is in an allowed temp directory.
-            if (!PathValidationUtils.isInAllowedTempDirectory(tempLabPDF)) {
-                logger.error("Temp file not in allowed temp directory");
-                throw new SecurityException("Temp file created outside allowed temp directory");
-            }
-
-            try (
-                    // tempLabPDF comes from PathValidationUtils.createSecureTempFile and passes the allowed-temp check.
-                    // nosemgrep: carlos.httpservlet-path-traversal
-                    FileOutputStream fileOutputStream = new FileOutputStream(tempLabPDF);
-                    ByteOutputStream byteOutputStream = new ByteOutputStream()
-            ) {
-                request.setAttribute("segmentID", lab.segmentID);
-                LabPDFCreator labPDFCreator = new LabPDFCreator(request, fileOutputStream);
-                labPDFCreator.printPdf();
-                labPDFCreator.addEmbeddedDocuments(tempLabPDF, byteOutputStream);
-                addRenderedByteAttachment(alist, streams, byteOutputStream);
-            }
-        } catch (SecurityException e) {
-            throw e;
-        } catch (IOException | RuntimeException e) {
-            throw unavailableAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, e);
-        } finally {
-            deleteTemporaryLabPDF(tempLabPDF);
-        }
-    }
-
-    private void deleteTemporaryLabPDF(File tempLabPDF) {
-        if (tempLabPDF == null) {
-            return;
-        }
-        try {
-            Files.delete(tempLabPDF.toPath());
-        } catch (NoSuchFileException e) {
-            if (logger.isDebugEnabled()) {
-                logger.debug("Temporary lab PDF was already removed");
-            }
-        } catch (IOException e) {
-            if (logger.isWarnEnabled()) {
-                logger.warn("Could not remove temporary lab PDF ({})", e.getClass().getSimpleName());
+            try {
+                InputStream rendered = renderLabAttachment(lab);
+                streams.add(rendered); alist.add(rendered);
+            } catch (SecurityException denied) {
+                throw denied;
+            } catch (IOException | DocumentException failure) {
+                throw unavailableAttachment(ATTACHMENT_TYPE_LAB, lab.segmentID, failure);
             }
         }
     }

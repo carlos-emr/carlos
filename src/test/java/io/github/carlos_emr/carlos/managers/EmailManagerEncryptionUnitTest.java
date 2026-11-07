@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
+import static org.mockito.Mockito.mock;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -53,7 +55,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -71,7 +72,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @DisplayName("EmailManager encrypted message PDF")
 class EmailManagerEncryptionUnitTest extends CarlosUnitTestBase {
 
-    private static final String FAILURE_MESSAGE = "Encrypted message could not be converted to PDF";
+    private static final String FAILURE_MESSAGE = "Failed to render encrypted message attachment";
 
     @Mock private SecurityInfoManager securityInfoManager;
     @Mock private EmailConfigDaoImpl emailConfigDao;
@@ -79,10 +80,22 @@ class EmailManagerEncryptionUnitTest extends CarlosUnitTestBase {
     @Mock private DemographicManager demographicManager;
     @Mock private ProviderManager2 providerManager;
     @Mock private LoggedInInfo loggedInInfo;
-    @InjectMocks private EmailManager emailManager;
+    private EmailManager emailManager;
 
     @BeforeEach
     void stageOutbox() {
+        var consent = mock(io.github.carlos_emr.carlos.email.core.EmailConsentResolver.class);
+        when(consent.resolve(any(), any())).thenReturn(new io.github.carlos_emr.carlos.email.core.EmailConsentResult(
+                "Email", EmailLog.EmailConsentStatus.OPT_IN, null, null));
+        emailManager = new EmailManager(consent, new io.github.carlos_emr.carlos.email.core.EmailSenderFactory(),
+                securityInfoManager, mock(OutboundEmailArchiveService.class));
+        injectDependency(emailManager, "clinicFooterService", io.github.carlos_emr.carlos.email.core.ConfiguredClinicFooterFixture.service());
+        injectDependency(emailManager, "emailConfigDao", emailConfigDao);
+        injectDependency(emailManager, "emailLogDao", emailLogDao);
+        injectDependency(emailManager, "demographicManager", demographicManager);
+        injectDependency(emailManager, "providerManager", providerManager);
+        injectDependency(emailManager, "oscarLogDao", mock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class));
+
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_email", SecurityInfoManager.WRITE, null)).thenReturn(true);
         when(emailConfigDao.findActiveEmailConfigById(1)).thenReturn(new EmailConfig(null, null, "clinic@example.invalid"));
         Demographic demographic = new Demographic();

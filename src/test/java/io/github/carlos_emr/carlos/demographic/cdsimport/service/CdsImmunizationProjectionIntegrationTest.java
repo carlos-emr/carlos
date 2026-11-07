@@ -43,9 +43,11 @@ import static org.assertj.core.api.Assertions.*;
 /** Each accepted schema type survives a real write and is recognized by the native page configuration. */
 @Tag("integration")
 @Isolated("PreventionDisplayConfig is a legacy static catalogue")
+@org.springframework.test.context.ActiveProfiles("cds-immunization-projection-fixture")
 @org.springframework.test.context.ContextConfiguration(classes = CdsImmunizationProjectionIntegrationTest.CvcConfiguration.class,
         inheritLocations = false)
 class CdsImmunizationProjectionIntegrationTest extends CarlosTestBase {
+    @org.springframework.context.annotation.Profile("cds-immunization-projection-fixture")
     @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
     @org.springframework.context.annotation.ImportResource("classpath:test-context-full.xml")
     static class CvcConfiguration {
