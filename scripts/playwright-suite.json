@@ -18431,6 +18431,7 @@
       "name": "chart-draw",
       "script": "scripts/chart-draw-playwright-checks.js",
       "env": [
+        "CHART_SCREENSHOT_DIR",
         "CHROME_BIN",
         "CHROME_PATH",
         "CARLOS_SMOKE_CHROMIUM",

@@ -86,7 +86,7 @@ public final class MeasurementChart {
 
     /**
      * The scatter servlet's {@code createScatterPlot} (squares only) and {@code createXYLineChart}
-     * (lines with squares, zero on the value axis): numeric axes with 5% margins, the first series
+     * (lines with square/circle markers, zero on the value axis): numeric axes with 5% margins, the first series
      * pure red and the second pure blue.
      */
     static MeasurementChart scatter(String title, String xLabel, String yLabel, List<Series> series, boolean lines) {

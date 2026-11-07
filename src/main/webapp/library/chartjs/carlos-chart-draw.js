@@ -19,7 +19,7 @@
  *  - tick units: NumberAxis's 1-2-5 units and DateAxis's standard units with their formats, chosen by
  *    JFreeChart's two-pass estimate from the label width (horizontal) or height (vertical) in Java's
  *    integer font metrics, and dated ticks anchored the way DateAxis.previousStandardDate anchors them;
- *  - the renderers: 1px lines, 6x6 filled squares, the high-low renderer's range bars with 2px open
+ *  - the renderers: 1px lines, 6x6 filled markers (square/circle for BP), high-low range bars with 2px open
  *    and close ticks, item labels 4px above a point, and XYBarRenderer's flat bars with their gray
  *    shadow offset by 4px (a zero-length prescription stays a one pixel line);
  *  - the legend at the bottom with each renderer's legend graphic, and a combined plot's equal
@@ -259,20 +259,30 @@
         return colour;
     }
 
-    function legendGraphic(dataset) {
+    function legendGraphic(dataset, circle) {
         // The high-low renderer's legend item is a square, for its ranges and for a series it drew.
         if (dataset.kind === 'range' || dataset.highLow) return 'shape8x8';
-        if (dataset.lines !== false && dataset.shapes) return 'lineAndShape';
+        if (dataset.lines !== false && dataset.shapes) return circle ? 'lineAndCircle' : 'lineAndShape';
         if (dataset.lines !== false) return 'line';
         return 'shape6x6';
     }
 
+    function drawMarker(ctx, x, y, circle) {
+        if (circle) {
+            ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI); ctx.fill();
+        } else {
+            ctx.fillRect(x - 3, y - 3, 6, 6);
+        }
+    }
+
     function drawLegendGraphic(ctx, item, x, y) {
         ctx.fillStyle = item.colour; ctx.strokeStyle = item.colour; ctx.lineWidth = 1;
-        if (item.graphic === 'line' || item.graphic === 'lineAndShape') {
+        if (['line', 'lineAndShape', 'lineAndCircle'].includes(item.graphic)) {
             ctx.beginPath(); ctx.moveTo(x, y + 0.5); ctx.lineTo(x + 14, y + 0.5); ctx.stroke();
         }
-        if (item.graphic === 'lineAndShape' || item.graphic === 'shape6x6') ctx.fillRect(x + 4, y - 3, 6, 6);
+        if (['lineAndShape', 'lineAndCircle', 'shape6x6'].includes(item.graphic)) {
+            drawMarker(ctx, x + 7, y, item.graphic === 'lineAndCircle');
+        }
         if (item.graphic === 'shape8x8') ctx.fillRect(x + 3, y - 4, 8, 8);
         if (item.graphic === 'shape6x10') ctx.fillRect(x + 4, y - 5, 6, 10);
     }
@@ -336,7 +346,7 @@
     function gridOptions(colour) {
         const rgba = colour ? colour.replace('#', '') : null;
         const gridColour = rgba ? `rgba(${parseInt(rgba.slice(0, 2), 16)}, ${parseInt(rgba.slice(2, 4), 16)}, ${parseInt(rgba.slice(4, 6), 16)}, 0.5)` : 'rgba(0,0,0,0)';
-        // The bundled Chart.js default misspells drawOnChartArea; declare it explicitly here.
+        // Declare the image contract explicitly, independently of Chart.js defaults.
         return { display: true, drawOnChartArea: true, color: gridColour, lineWidth: 1, drawTicks: true, tickLength: 2, tickColor: 'rgba(128, 128, 128, 0.5)' };
     }
 
@@ -377,8 +387,11 @@
         const [yLower, yUpper] = numberRange(rangeValues('y'), style.rangeMargins, style.rangeIncludesZero);
         const [y2Lower, y2Upper] = numberRange(rangeValues('y2'), [0.05, 0.05], false);
 
+        // ScatterPlotChartServlet's two-series BP renderer assigned a square to systolic
+        // and a circle to diastolic. Other measurement renderers use only the first shape.
+        const circleMarker = index => !dateAxis && index === 1;
         const legendItems = [];
-        datasets.forEach((dataset, index) => legendItems.push({ label: dataset.label, graphic: legendGraphic(dataset), colour: colours[index],
+        datasets.forEach((dataset, index) => legendItems.push({ label: dataset.label, graphic: legendGraphic(dataset, circleMarker(index)), colour: colours[index],
             fontSize: chartLook.legend.size, textColour: chartLook.legend.color }));
         names.forEach((name, index) => legendItems.push({ label: name, graphic: 'shape6x10', colour: drugColours[index],
             fontSize: chartLook.legend.size, textColour: chartLook.legend.color }));
@@ -471,7 +484,7 @@
                         const elements = chart.getDatasetMeta(index).data;
                         if (source.shapes) {
                             ctx.fillStyle = colour;
-                            elements.forEach(element => ctx.fillRect(Math.round(element.x) - 3, Math.round(element.y) - 3, 6, 6));
+                            elements.forEach(element => drawMarker(ctx, Math.round(element.x), Math.round(element.y), circleMarker(index)));
                         }
                         const labels = style.itemLabels;
                         if (!labels || source.kind !== 'line') return;

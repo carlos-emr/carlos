@@ -8,7 +8,7 @@ Each `*.json` file holds:
 
 - `input`: the renderer input in the shape `MeasurementChart.toConfig()` produces for that chart;
 - what JFreeChart chose for it: the axis ranges after its margins and zero rules, the tick unit,
-  every tick position and label, the series paints and strokes, the renderer details (shapes,
+  every tick position and label, the series paints and strokes, the renderer details (shape type and bounds,
   item labels, bar shadows, high-low ticks), the legend items and the theme fonts and colours;
 - `metrics`: Java's line heights and sample string widths for the theme fonts, which JFreeChart's
   tick unit choice depends on.

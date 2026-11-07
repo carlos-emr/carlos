@@ -21,7 +21,8 @@ does not supply it; the existing WAR packaging check also requires the API and i
   sequence, JFreeChart's auto ranges (margins, the include-zero and sticky-zero rules, the symbol
   axis), its 1-2-5 number units and standard date units with their formats (`d-MMM`, `MMM-yyyy`,
   `yyyy`, `HH:mm`), chosen by its two-pass label-size estimate in Java's integer font metrics and
-  anchored as `DateAxis.previousStandardDate` anchors them, 1px lines, 6x6 squares, item labels,
+  anchored as `DateAxis.previousStandardDate` anchors them, 1px lines, 6x6 markers (including
+  diastolic blood pressure's circle), item labels,
   high-low range bars, flat bars with their 4px gray shadow, and the bottom legend with each
   renderer's graphic. `MeasurementChart` describes each chart's look as the former action
   configured it (margins, zero, plot background, gridlines, shapes, item-label rules, green or
@@ -87,12 +88,13 @@ CARLOS_SMOKE_DRIVER_URL=http://127.0.0.1:9515 \
 CARLOS_SMOKE_CHROMIUM=/path/to/chrome \
 mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest
 CARLOS_SMOKE_CHROMIUM=/path/to/chrome npm run test:dependency-tables-playwright
+CHART_SCREENSHOT_DIR=target/chart-fixtures \
 CARLOS_SMOKE_CHROMIUM=/path/to/chrome npm run test:chart-draw-playwright
 ```
 
 The PDF/chart browser smoke suites are opt-in and require the local service URL and browser binary above; the legacy Selenium smoke class name remains for operator command compatibility.
 
-The standalone table and chart-draw Playwright checks require only Chromium; they load static DOM fixtures and the bundled scripts without network navigation or a driver service. The deployed checks `report-by-template`, `export-content-rbt-columns` and `el-jstl-pages` read the `.xlsx` export and the JSTL tables.
+The standalone table and chart-draw Playwright checks require only Chromium; they load static DOM fixtures and the bundled scripts without network navigation or a driver service. Both now run in the Script Regressions workflow. Its `chart-fixtures` artifact preserves each synthetic chart before assertions, including the failing image. The deployed checks `report-by-template`, `export-content-rbt-columns` and `el-jstl-pages` read the `.xlsx` export and the JSTL tables.
 
 The PDF tests assert authored pagination and a real text layer. The chart smoke checks real
 PNG/JPEG rendering with clinical series, reference bounds and medication intervals. Playwright
@@ -116,7 +118,31 @@ These captures supersede the chart grid appearance in the earlier PR screenshot 
 The medication capture uses the two-medication fixture (including a one-day interval) with a
 synthetic patient title; it is a chart fixture, not a capture of a deployed patient page.
 
-The local managed environment blocks `commondatastorage.googleapis.com`, where the release's
-pinned Chromium snapshot is downloaded. Local browser/package validation therefore uses a
-matching Debian Chromium/driver pair through the supported `CHROMIUM_DIST` build input.
-The release pin and download script are unchanged. This fixture is not a release artifact.
+## Shared bundle and marker review
+
+The shared Chart.js 4.5.1 bundle had eight damaged property names, including
+`drawOnChartAre` instead of `drawOnChartArea`. The image adapter's explicit grid setting
+hid this defect, while native charts using the defaults still lost their grids. The bundle
+now matches the published npm and jsDelivr artifact byte for byte; its
+[provenance and SHA-256](../src/main/webapp/library/chartjs/README.md) are recorded alongside it.
+A Node integrity check protects the vendored bytes. Browser pixel checks require both axes
+on native line/bar charts as well as the 13 JFreeChart compatibility fixtures. Disabling
+either axis in copies of the native and adapter checks was verified to fail all four checks.
+
+These native line captures use the same synthetic input with the old and restored bundle:
+
+| Before: missing default grids | After: restored default grids |
+| --- | --- |
+| ![Native chart before](images/pr5518/native-grids-before.png) | ![Native chart after](images/pr5518/native-grids-after.png) |
+
+Visual comparison also found that diastolic blood pressure's circular markers had become
+squares. The adapter now preserves the circle in both the plot and legend. The reference
+generator records shape type as well as bounds; marker pixel checks reject the old square.
+
+| JFreeChart reference | Replacement before correction | Corrected replacement |
+| --- | --- | --- |
+| ![JFreeChart blood pressure](images/pr5518/bp-markers-reference.png) | ![Blood pressure before](images/pr5518/bp-markers-before.png) | ![Blood pressure after](images/pr5518/bp-markers-after.png) |
+
+This review used an Ubuntu 26.04 container, OpenJDK 25, Node 22 and a matching Chrome for
+Testing 149.0.7827.55 / chromedriver pair. Browser inputs and screenshots are synthetic;
+release browser pins are unchanged.

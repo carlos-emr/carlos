@@ -306,7 +306,8 @@ public class JfcReference {
             Rectangle2D sb = item.getShape() == null ? null : item.getShape().getBounds2D();
             json.append(i > 0 ? ", " : "").append("{\"label\": ").append(q(item.getLabel())).append(", \"fill\": ").append(q(paint(item.getFillPaint())))
                     .append(", \"line\": ").append(q(paint(item.getLinePaint()))).append(", \"lineVisible\": ").append(item.isLineVisible())
-                    .append(", \"shapeVisible\": ").append(item.isShapeVisible()).append(", \"shape\": ").append(sb == null ? "null" : rect(sb)).append("}");
+                    .append(", \"shapeVisible\": ").append(item.isShapeVisible()).append(", \"shape\": ").append(sb == null ? "null" : rect(sb))
+                    .append(", \"shapeType\": ").append(q(item.getShape() instanceof java.awt.geom.Ellipse2D ? "ellipse" : "rectangle")).append("}");
         }
         json.append("],\n  \"legendFont\": ").append(q(font(chart.getLegend().getItemFont()))).append(", \"legendPaint\": ").append(q(paint(chart.getLegend().getItemPaint()))).append("\n}\n");
         try (Writer w = new OutputStreamWriter(new FileOutputStream(new File(out, name + ".json")), StandardCharsets.UTF_8)) { w.write(json.toString()); }
@@ -342,7 +343,8 @@ public class JfcReference {
                 s.append(", \"stroke\": ").append(stroke(((AbstractRenderer) r).lookupSeriesStroke(i)));
                 if (r instanceof XYLineAndShapeRenderer ls) {
                     s.append(", \"lines\": ").append(ls.getItemLineVisible(i, 0)).append(", \"shapes\": ").append(ls.getItemShapeVisible(i, 0))
-                            .append(", \"shapesFilled\": ").append(ls.getItemShapeFilled(i, 0)).append(", \"shape\": ").append(rect(ls.lookupSeriesShape(i).getBounds2D()));
+                            .append(", \"shapesFilled\": ").append(ls.getItemShapeFilled(i, 0)).append(", \"shape\": ").append(rect(ls.lookupSeriesShape(i).getBounds2D()))
+                            .append(", \"shapeType\": ").append(q(ls.lookupSeriesShape(i) instanceof java.awt.geom.Ellipse2D ? "ellipse" : "rectangle"));
                 }
                 if (r instanceof XYBarRenderer bar) {
                     s.append(", \"shadow\": ").append(bar.getShadowsVisible()).append(", \"shadowOffset\": [").append(bar.getShadowXOffset()).append(", ").append(bar.getShadowYOffset()).append("]")

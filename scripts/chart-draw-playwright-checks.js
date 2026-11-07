@@ -13,13 +13,15 @@
  * requires the same ranges, ticks, labels, colours, fonts, legend and bar geometry, plus the
  * JFreeChart drawing details a reader notices: the plot background and outline, the bar shadows, a
  * zero-length medication drawn as a line, item labels and reference-range bars.
+ * Set CHART_SCREENSHOT_DIR to retain each synthetic fixture before its assertions, including
+ * the failing image when a visual regression is detected. CI publishes these as an artifact.
  */
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
-const { getLaunchOptions } = require('./lib/playwright-harness');
+const { getLaunchOptions, buildArtifactPath } = require('./lib/playwright-harness');
 
 const LIBRARY = path.join(__dirname, '../src/main/webapp/library/chartjs');
 const FIXTURES = path.join(__dirname, 'fixtures/chart/jfreechart');
@@ -27,6 +29,7 @@ const SECOND = 1000;
 
 /** What JFreeChart's legend graphic was for an item: a line, a shape, or both. */
 function legendGraphic(item) {
+    if (item.lineVisible && item.shapeVisible && item.shapeType === 'ellipse') return 'lineAndCircle';
     if (item.lineVisible && item.shapeVisible) return 'lineAndShape';
     if (item.lineVisible) return 'line';
     return `shape${item.shape[2]}x${item.shape[3]}`;
@@ -88,6 +91,10 @@ async function draw(page, input, width, height) {
                 x: scale(chart.scales.x), y: scale(chart.scales.y), y2: scale(chart.scales.y2),
                 datasets: chart.data.datasets.map((ds, i) => ({ label: ds.label, kind: ds.carlosKind, borderColor: ds.borderColor, backgroundColor: ds.backgroundColor,
                     borderWidth: ds.borderWidth, shapes: ds.carlosShapes === true, showLine: ds.showLine,
+                    markerPixels: ds.carlosShapes ? chart.getDatasetMeta(i).data.slice(1, 2).map(point => ({
+                        centre: pixel(chart, Math.round(point.x), Math.round(point.y)),
+                        corner: pixel(chart, Math.round(point.x) - 3, Math.round(point.y) - 3),
+                    })) : [],
                     bars: chart.config.type === 'bar' ? chart.getDatasetMeta(i).data.map(b => ({ x: b.x, base: b.base, y: b.y, height: b.height })) : undefined })),
                 legend: chart.carlosLegend, itemLabels: chart.carlosItemLabels, ranges: chart.carlosRanges, shadows: chart.carlosShadows,
                 plotPixel: pixel(chart, chart.chartArea.left + 3, chart.chartArea.top + 3),
@@ -107,6 +114,71 @@ async function pixelAt(page, chartIndex, x, y) {
         const d = canvas.getContext('2d').getImageData(Math.round(x), Math.round(y), 1, 1).data;
         return '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
     }, [chartIndex, x, y]);
+}
+
+/** Health Tracker and dashboard charts use Chart.js defaults, without the image adapter. */
+async function checkBundledGrids(page, screenshotDirectory) {
+    await page.setViewportSize({ width: 600, height: 400 });
+    for (const type of ['line', 'bar']) {
+        // Only these two literal chart types and fixed synthetic observations enter the callback.
+        // nosemgrep: javascript.playwright.security.audit.playwright-evaluate-arg-injection.playwright-evaluate-arg-injection
+        const grids = await page.evaluate(type => {
+            Object.values(Chart.instances).forEach(chart => chart.destroy());
+            document.body.replaceChildren();
+            document.body.style.cssText = 'margin:0;background:white';
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;
+            canvas.height = 400;
+            document.body.append(canvas);
+            const chart = new Chart(canvas, {
+                type,
+                data: { labels: ['First', 'Second', 'Third'], datasets: [{ label: 'Synthetic observations',
+                    data: [2, 8, 5], borderColor: '#ff0000', backgroundColor: '#ff0000' }] },
+                options: { responsive: false, animation: false, devicePixelRatio: 1 },
+            });
+            const area = chart.chartArea;
+            const pixels = chart.ctx.getImageData(0, 0, chart.width, chart.height).data;
+            const gridPositions = axis => {
+                const ticks = axis.ticks.map((_, index) => axis.getPixelForTick(index));
+                // Category bar grids run between the ticks; line charts put them on the ticks.
+                return axis.options.grid.offset ? ticks.slice(1).map((value, index) => (ticks[index] + value) / 2) : ticks;
+            };
+            return ['x', 'y'].map(id => {
+                const axis = chart.scales[id];
+                const horizontal = axis.isHorizontal();
+                const other = chart.scales[horizontal ? 'y' : 'x'];
+                const crossings = gridPositions(other);
+                let painted = 0;
+                gridPositions(axis).forEach(position => {
+                    const cross = Math.round(position);
+                    if (cross < (horizontal ? area.left : area.top) + 4
+                            || cross > (horizontal ? area.right : area.bottom) - 4) return;
+                    const first = Math.ceil(horizontal ? area.top : area.left) + 8;
+                    const last = Math.floor(horizontal ? area.bottom : area.right) - 8;
+                    for (let along = first; along <= last; along++) {
+                        if (crossings.some(value => Math.abs(value - along) < 4)) continue;
+                        // Chart.js snaps a one-pixel stroke to a pixel centre, possibly on the
+                        // neighbouring pixel of a fractional category boundary.
+                        for (const delta of [-1, 0, 1]) {
+                            const x = horizontal ? cross + delta : along;
+                            const y = horizontal ? along : cross + delta;
+                            const offset = (y * chart.width + x) * 4;
+                            // Default grid is translucent black. Red series and transparent gaps cannot pass.
+                            if (pixels[offset] === 0 && pixels[offset + 1] === 0 && pixels[offset + 2] === 0
+                                    && pixels[offset + 3] > 0 && pixels[offset + 3] < 100) painted++;
+                        }
+                    }
+                });
+                return { axis: id, painted };
+            });
+        }, type);
+        if (screenshotDirectory) {
+            await page.screenshot({ path: buildArtifactPath(screenshotDirectory, `native-${type}`) });
+        }
+        for (const grid of grids) {
+            assert.ok(grid.painted > 4, `bundled ${type}: ${grid.axis} grid has visible pixels (${grid.painted})`);
+        }
+    }
 }
 
 function expectAxis(name, actual, expected, dateAxis) {
@@ -187,7 +259,14 @@ function checkFixture(fixture, result) {
             }
             assert.equal(actual.borderColor, expected.paint, `${name}: ${expected.key} colour`);
             assert.equal(actual.borderWidth, expected.stroke.width, `${name}: ${expected.key} stroke`);
-            assert.equal(actual.shapes, expected.shapes === true, `${name}: ${expected.key} shapes (6x6 squares drawn by the renderer)`);
+            assert.equal(actual.shapes, expected.shapes === true, `${name}: ${expected.key} shapes`);
+            if (expected.shapes) {
+                assert.equal(actual.markerPixels.length, 1, `${name}: ${expected.key} marker sampled`);
+                const marker = actual.markerPixels[0];
+                assert.equal(marker.centre, expected.paint, `${name}: ${expected.key} marker centre`);
+                assert.equal(marker.corner === expected.paint, expected.shapeType !== 'ellipse',
+                    `${name}: ${expected.key} marker matches JFreeChart's ${expected.shapeType}`);
+            }
             assert.equal(actual.showLine, expected.lines !== false, `${name}: ${expected.key} line`);
         });
         void lines;
@@ -235,6 +314,7 @@ function checkFixture(fixture, result) {
 async function main() {
     let browser;
     try {
+        const screenshotDirectory = process.env.CHART_SCREENSHOT_DIR;
         browser = await chromium.launch(getLaunchOptions(
             process.env.CHROME_BIN || process.env.CHROME_PATH || process.env.CARLOS_SMOKE_CHROMIUM));
         const page = await browser.newPage();
@@ -244,11 +324,16 @@ async function main() {
         for (const file of ['chart.umd.min.js', 'carlos-chart-draw.js']) {
             await page.addScriptTag({ path: path.join(LIBRARY, file) });
         }
+        await checkBundledGrids(page, screenshotDirectory);
         const names = fs.readdirSync(FIXTURES).filter(f => f.endsWith('.json')).sort();
         assert.ok(names.length >= 10, 'the JFreeChart fixtures are present');
         for (const file of names) {
             const fixture = JSON.parse(fs.readFileSync(path.join(FIXTURES, file), 'utf8'));
+            await page.setViewportSize({ width: fixture.width, height: fixture.height });
             const result = await draw(page, fixture.input, fixture.width, fixture.height);
+            if (screenshotDirectory) {
+                await page.screenshot({ path: buildArtifactPath(screenshotDirectory, file.replace(/\.json$/, '')) });
+            }
             checkFixture(fixture, result);
             assert.deepEqual(errors, [], `${fixture.name}: page errors`);
         }
@@ -302,7 +387,7 @@ async function main() {
             assert.equal(new Set(axis.ticks.map(tick => tick.value)).size, axis.ticks.length, 'tick coordinates do not collapse at large magnitudes');
         }
         assert.deepEqual(errors, []);
-        console.log(`PASS: ${names.length} JFreeChart fixtures matched (ranges, ticks, labels, colours, fonts, legend, bars with shadows, item labels, reference ranges)`);
+        console.log(`PASS: ${names.length} JFreeChart fixtures matched (ranges, ticks, labels, colours, fonts, dashed grids on both axes, legend, bars with shadows, item labels, reference ranges)`);
     } finally {
         if (browser) await browser.close();
     }

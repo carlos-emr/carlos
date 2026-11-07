@@ -103,8 +103,22 @@ jobs:
         run: python3 -m unittest discover -s scripts/coverage -p 'test_*.py'
       - name: Validate all configured Struts action classes
         run: bash scripts/validate_struts_actions.sh
-      - name: Install Chromium for the isolated RTL fixture
+      - name: Install Chromium for isolated browser fixtures
         run: npx --no-install playwright install --with-deps chromium
+      - name: Check chart geometry and dashed grids in Chromium
+        env:
+          CHART_SCREENSHOT_DIR: target/chart-fixtures
+        run: npm run test:chart-draw-playwright
+      - name: Preserve synthetic chart screenshots
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: chart-fixtures-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/chart-fixtures/*.png
+          if-no-files-found: error
+          retention-days: 14
+      - name: Check migrated table interactions in Chromium
+        run: npm run test:dependency-tables-playwright
       - name: Check measurement calculation DOM events in Chromium
         run: node scripts/measurement-whtr-browser-check.js
       - name: Check clinical risk refusals and executed production JavaScript in Chromium
