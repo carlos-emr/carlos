@@ -69,12 +69,24 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.seed()
         report = self.reports / ('TEST-' + MODULE.INBOX_CLASS + '-flyway.xml')
         original = report.read_text()
-        for replacement in ('example.LegacyLabNativeMariaDbIntegrationTest', MODULE.INBOX_CLASS + '$Substitute'):
+        for replacement in ('example.LegacyLabNativeMariaDbIntegrationTest', MODULE.INBOX_CLASS + '$Substitute',
+                            'Substitute display container'):
             with self.subTest(classname=replacement):
-                report.write_text(original.replace('classname="' + MODULE.INBOX_CLASS,
-                                                   'classname="' + replacement))
-                self.assertNotEqual(self.invoke().returncode, 0)
-        report.write_text(original)
+                if replacement.startswith('example.'):
+                    # Keep filename, suite and testcase mutually consistent so
+                    # only the required fully qualified identity can refuse it.
+                    other = self.reports / ('TEST-' + replacement + '-flyway.xml')
+                    report.unlink()
+                    other.write_text(original.replace(MODULE.INBOX_CLASS, replacement))
+                else:
+                    other = report
+                    report.write_text(original.replace('classname="' + MODULE.INBOX_CLASS,
+                                                       'classname="' + replacement))
+                try:
+                    self.assert_refused(self.invoke(), 'Required MariaDB flyway inbox case identities missing')
+                finally:
+                    other.unlink()
+                    report.write_text(original)
 
     def test_empty_reports_fail_with_optimization_and_remove_old_success(self):
         for optimized in (False, True):
