@@ -72,10 +72,14 @@ def main(argv=None):
     select.add_argument("--start", type=Path)
     select.add_argument("--module-file", type=Path)
     parser.add_argument("--pattern", default="test_*.py")
+    parser.add_argument("--top-level", type=Path,
+                        help="Package root for discovery (equivalent to unittest discover -t)")
     args = parser.parse_args(argv)
     args.output.unlink(missing_ok=True)
     if args.start:
-        suite = unittest.defaultTestLoader.discover(str(args.start), pattern=args.pattern)
+        suite = unittest.defaultTestLoader.discover(
+            str(args.start), pattern=args.pattern,
+            top_level_dir=str(args.top_level) if args.top_level else None)
     else:
         spec = importlib.util.spec_from_file_location("release_qualification_tests", args.module_file)
         module = importlib.util.module_from_spec(spec)
