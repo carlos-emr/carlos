@@ -206,6 +206,32 @@ awaits a maintainer decision. Its existing response describes the supported
 single-host replacement deployment. This review does not silently resolve that
 security-labelled deployment-policy decision.
 
+The final SonarCloud analysis of head `9208501dcbc1feca37ecd8f8f15cbc7645204700`
+passes its quality gate and reports seven maintainability annotations. Four
+unused exception bindings in the two privacy-safe resolvers become unnamed
+patterns; two unnecessary checked-exception declarations are removed from tests.
+Those six corrections preserve behavior. The seventh recommends replacing
+`Calendar` with `java.time` in `CalendarDateTimeXmlAdapter`. This adapter must
+implement the existing `Calendar` JAXB property contract and retain its caller's
+zone, instant and field state. Replacing that public type would defeat its
+compatibility purpose; the recommendation is recorded without suppressing it or
+claiming it has been cleared in SonarCloud. All 72 focused resolver, diagnostic,
+birthday and ZIP-stream cases pass after these independently reviewed cleanups;
+their head-specific CI run is reconciled separately in the PR.
+
+Final compatibility triage also classifies all 30 remaining XML differences:
+14 character-mapping cases, eight fractional-zero formatting cases, three child
+order moves, two optional edit-version additions, two empty-map omissions and one
+synthetic cleared-calendar offset case. The character observations can reflect
+an old-reader mismatch when main Glassfish reads the frozen MOXy input; they do
+not prove that main natively emitted the same values. No additional unintended
+production regression is demonstrated, but client acceptance remains required.
+Of the 29 changed/removed Java API types, 23 include deliberate retirements or
+contract changes and six retain callable JVM descriptors while changing source
+or reflection metadata. Existing callers are migrated. External callers and
+implementors of the 38 additive API candidates remain unqualified. Neither
+classification waives the failed compatibility gate.
+
 ## Remaining release qualification
 
 Ordinary CI success cannot replace the required main/release XML/API dispositions,

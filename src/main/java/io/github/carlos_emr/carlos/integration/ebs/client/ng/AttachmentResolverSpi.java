@@ -84,7 +84,7 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 		String resourceId;
 		try {
 			resourceId = getResourceId(context);
-		} catch (IllegalArgumentException e) {
+		} catch (IllegalArgumentException _) {
 			logger.error("EBS attachment URI could not be decoded");
 			throw resolutionFailure(context, "EBS attachment URI could not be decoded");
 		}
@@ -101,7 +101,7 @@ public class AttachmentResolverSpi extends ResourceResolverSpi {
 		XMLSignatureInput result;
 		try {
 			result = new XMLSignatureStreamInput(attachment.getDataHandler().getInputStream());
-		} catch (IOException e) {
+		} catch (IOException _) {
 			// Provider I/O messages can contain content IDs, filenames or credentials.
 			logger.error("EBS attachment signature input could not be opened");
 			throw resolutionFailure(context, "EBS attachment signature input could not be opened");

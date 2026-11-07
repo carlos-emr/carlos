@@ -130,7 +130,7 @@ class AttachmentResolverSpiUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @MethodSource("resolvers")
-    void shouldReportMissingAttachment_withoutIncludingContextInDiagnostics(ResourceResolverSpi resolver) throws Exception {
+    void shouldReportMissingAttachment_withoutIncludingContextInDiagnostics(ResourceResolverSpi resolver) {
         cache();
         try (var logs = LogCapture.forLogger(resolver.getClass())) {
             assertThatExceptionOfType(ResourceResolverException.class)
@@ -165,7 +165,7 @@ class AttachmentResolverSpiUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @MethodSource("resolvers")
-    void shouldRefuseMalformedUri_withoutExposingDecoderExceptionText(ResourceResolverSpi resolver) throws Exception {
+    void shouldRefuseMalformedUri_withoutExposingDecoderExceptionText(ResourceResolverSpi resolver) {
         try (var logs = LogCapture.forLogger(resolver.getClass())) {
             assertThatExceptionOfType(ResourceResolverException.class)
                     .isThrownBy(() -> resolver.engineResolveURI(context("cid:urn:FAKE_EBS_PRIVATE%ZZ_URI")))
