@@ -29,7 +29,8 @@
     "External family/referring-physician binding and witnessed name reconciliation through the demographic parent receipt",
     "Retained preferred-pharmacy reconciliation and coordinated personal/professional/pharmacy demographic assembly with exact field ownership",
     "Root-controlled registered recipient/audit policy with a coherent pinned manifest, current certificate checks and immutable accepted arrangement identity",
-    "Independent finished ReadMe/event CSV readback against actual validated XML receipts, actual archive paths and sealed physician totals with bounded complete UTF-8/EOF verification"
+    "Independent finished ReadMe/event CSV readback against actual validated XML receipts, actual archive paths and sealed physician totals with bounded complete UTF-8/EOF verification",
+    "Coordinated demographic occurrence service with registered sender IDs and independent exact native/source field closure; unsupported values and scopes refuse serialization"
   ],
   "remaining": [
     "Complete remaining demographic/archive fields and supporting native projections for unrepresented care attributes",
@@ -126,5 +127,18 @@
     "independentActualXmlReceiptReadback": true,
     "wholeClinicalExportQualified": false,
     "installedChecks": 67
+  },
+  "demographicCoordinatedClosure": {
+    "state": "FOCUSED_AND_ACTUAL_IMPORT_COMPONENT_VERIFIED",
+    "assemblyFocusedChecks": 72,
+    "identityAndClosureFocusedChecks": 23,
+    "occurrenceAdmissionFocusedChecks": 5,
+    "actualImportAssertions": 33,
+    "sourceFieldsDeferredInOwnedFixture": 0,
+    "nativeFieldsDeferredInOwnedFixture": 0,
+    "reviewFieldsInOwnedFixture": 0,
+    "exactIntegratedWarQualificationPending": true,
+    "wholeSourceCatalogueComplete": false,
+    "clinicalPublication": false
   }
 }

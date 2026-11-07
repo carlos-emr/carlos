@@ -1077,7 +1077,7 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 
 ### Independent demographic field closure
 
-`CdsExportDemographicClosureValidator` compares the assembled result with the exact captured row universe and authenticated parent source-field IDs supplied independently by the caller. It rejects deferred or substituted identities, presence mismatches, review blockers and overlapping XML replacement claims. A receipt proves closure only for that supplied authenticated demographic scope; it does not prove that the overall source catalogue is complete, that every serialized clinical fact is correct, or that disclosure is authorized.
+`CdsExportDemographicClosureValidator` compares the assembled result with the exact captured row universe and authenticated parent source-field IDs supplied independently by the caller. It rejects deferred or substituted identities, presence mismatches, review blockers and overlapping XML replacement claims. The combined component proof passed 33 assertions against a genuinely imported owned synthetic chart, including no deferred native/source fields, independent closure, finished sender-ID XML readback and supporting-file consistency. This used isolated new components over the preserved packaged baseline; exact integrated-WAR qualification remains separate. A receipt proves closure only for that supplied authenticated demographic scope; it does not prove that the overall source catalogue is complete, that every serialized clinical fact is correct, or that disclosure is authorized.
 
 
 ### Scoped demographic occurrence service
