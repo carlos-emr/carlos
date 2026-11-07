@@ -1573,7 +1573,12 @@
         "autocomplete type mode requires the selected widget id (bound: false)",
         "autocomplete fill mode requires the selected widget id (bound: true)",
         "autocomplete fill mode requires the selected widget id (bound: false)",
-        "the eChart caller enters Safety in exactly one nonempty autocomplete update"
+        "the eChart caller enters Safety in exactly one nonempty autocomplete update",
+        "schedule selection captures the response before the provider popup closes",
+        "schedule selection rejects an HTTP error even when the provider popup closes",
+        "schedule selection rejects a missing response after the provider popup closes",
+        "schedule selection rejects a missing CSRF token after the provider popup closes",
+        "schedule selection rejects a response from a different request"
       ],
       "caseManifest": "docs/testing/release-2026.08-node-cases.json"
     },
