@@ -110,6 +110,41 @@ in the pull request. Full release acceptance remains subject to the requirements
 below; passing the focused corrections does not waive unreviewed compatibility
 differences or incomplete installed/vendor qualification.
 
+## Validation reconciliation
+
+The final application-code commit is `0570af4f329e4ba0aba5818127a66d6850e2d922`.
+The following metadata-only correction also requires the two new birthday test
+families (12 adapter cases and nine direct/nested contract cases), lists their
+real T08 sources, and binds only the new adapter path to that evidence.
+
+- Broad development JVM execution: 33,600 cases, zero failures/errors, 134 skips
+  matching explicit native/browser/seed routes. This run began before the final
+  six Content-ID cases were added and therefore does not satisfy the final
+  18-case resolver family floor by itself. Its strict reconciliation preserves
+  that missing-family result rather than silently qualifying the earlier run.
+- Clean final-code checkout: all 444 focused XML/EBS cases pass without skips,
+  including all 18 resolver cases, both production JSON mappers and the frozen
+  legacy-reader corpus. Final-head CI's whole-suite execution remains separate
+  evidence from these focused results.
+- Qualified Node execution: 7,368 passing invocations across 517 unchanged-at-run
+  test-file fingerprints; no failure, skip, cancellation or TODO. Exact case
+  identities and multiplicities remain enforced.
+- Python evidence checks: 329 pass. The metadata amendment additionally passes
+  five reviewed-plan and 39 evidence regressions. All 40 workstreams and 83
+  required checks remain present.
+- Physical MariaDB: ON 55 and BC 31 province-appropriate cases pass without skips.
+  The incorrect first BC selection remains recorded, with 35 passes, one failure
+  and one error from selecting the Ontario-only CML table. No schema was added
+  to conceal that selection mistake; final test-schema cleanup is verified.
+- Published migration integrity: all 82 main and all 76 beta5 shared migration
+  files remain present and byte-identical.
+
+One parallel clean-build attempt was killed by the environment's 16 GiB memory
+limit during Javadoc. That attempt remains failed. The repeat runs serially with
+explicit Maven/Javadoc heap limits; packaging, final binary comparison and current
+CI outcomes are linked from [PR #5710](https://github.com/carlos-emr/carlos/pull/5710).
+The comparison's remaining findings are not waived by successful ordinary CI.
+
 ## Review-comment reconciliation
 
 The review inspected inline threads on merged PRs #5690, #5695, #5688, #5560,

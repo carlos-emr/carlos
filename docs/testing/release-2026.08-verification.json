@@ -214,6 +214,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapterUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransferXmlUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java",
@@ -1603,7 +1605,9 @@
         "ConsultationListProjectionIntegrationTest": 17,
         "AddEditDocument2ActionUnitTest": 40,
         "DownloadInInterceptorUnitTest": 10,
-        "AttachmentResolverSpiUnitTest": 18
+        "AttachmentResolverSpiUnitTest": 18,
+        "CalendarDateTimeXmlAdapterUnitTest": 12,
+        "DemographicBirthdayXmlContractUnitTest": 9
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -4961,6 +4965,19 @@
       ],
       "workstreams": [
         "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapter.java": {
+      "reason": "Direct adapter regressions prove published date-time/offset output, unchanged calendar field state, fractional seconds and legacy/absent input; patient contract regressions independently prove direct/nested birthday XML, legacy date-only input, absence and unchanged JSON on both production REST mappings.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
