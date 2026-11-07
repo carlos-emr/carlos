@@ -36,8 +36,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Locks how the chart Forms list ({@code encounter/formlist.jsp}) applies its page window
  * (issue #5684). {@code FormListPageCalculatorUnitTest} covers the window arithmetic; this test
- * pins the page's use of it, which the browser check {@code echart-forms-list-paging} only
- * reaches for a single form type: rows are counted across every form type, a row skipped for
+ * pins the page's use of it alongside the installed browser check
+ * {@code echart-forms-list-paging}: rows are counted across every form type, a row skipped for
  * being off the page still advances the count and the "(current)" highlight, and one
  * Previous/Next row follows the table instead of one per form type.
  *
