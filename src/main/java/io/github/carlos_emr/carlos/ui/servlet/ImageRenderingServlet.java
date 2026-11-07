@@ -163,7 +163,7 @@ public final class ImageRenderingServlet extends HttpServlet {
             // request must honor that same chart-read and patient-record boundary.
             PatientRecordAccess.require(SpringUtils.getBean(SecurityInfoManager.class),
                     LoggedInInfo.getLoggedInInfoFromSession(request), clientId.toString(), "_eChart", "r");
-        } catch (SecurityException denied) {
+        } catch (SecurityException _) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
@@ -191,12 +191,12 @@ public final class ImageRenderingServlet extends HttpServlet {
         if (values == null || values.length == 0) return null;
         Integer selected = null;
         for (String value : values) {
-            if (value == null || !value.matches("[0-9]{1,10}")) return null;
+            if (value == null || !value.matches("\\d{1,10}")) return null;
             try {
                 int patient = Integer.parseInt(value);
                 if (patient <= 0 || selected != null && selected != patient) return null;
                 selected = patient;
-            } catch (NumberFormatException invalidPatient) {
+            } catch (NumberFormatException _) {
                 return null;
             }
         }
@@ -273,7 +273,13 @@ public final class ImageRenderingServlet extends HttpServlet {
                     logger.warn("SECURITY WARNING: Path traversal attempt detected in signature request ID: {}", LogSafe.sanitize(signatureRequestId));
                     throw new IllegalArgumentException("Invalid signature request ID");
                 }
-                
+
+                // Only a capture this session's own page asked for is previewed; any other id shows
+                // the same blank image as a pad nobody has signed yet.
+                if (!DigitalSignatureUtils.isIssued(session, signatureRequestId)) {
+                    throw new FileNotFoundException("Signature request id not issued to this session");
+                }
+
                 String tempFilePath = DigitalSignatureUtils.getTempFilePath(signatureRequestId);
 
                 // Use PathValidationUtils to validate the temp file path

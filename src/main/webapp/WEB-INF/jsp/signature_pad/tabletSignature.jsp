@@ -54,7 +54,9 @@ is hosted in an IFrame and that the IFrame's parent window implements signatureH
 <%
     String requestIdKey = request.getParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
     if (requestIdKey == null) {
-        requestIdKey = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
+        // The page that opens the pad usually passes the id it was issued; a pad opened on its own
+        // (an eForm's signature box) gets one here. Either way the upload accepts only issued ids.
+        requestIdKey = DigitalSignatureUtils.generateSignatureRequestId(session);
     }
     String imageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_preview.name() + "&" + DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY + "=" + SafeEncode.forUriComponent(requestIdKey);
     String storedImageUrl = request.getContextPath() + "/imageRenderingServlet?source=" + ImageRenderingServlet.Source.signature_stored.name() + "&digitalSignatureId=";

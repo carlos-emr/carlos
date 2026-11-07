@@ -147,6 +147,11 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
         if (!loggedInInfo.getCurrentFacility().isEnableDigitalSignatures()) {
             return null;
         }
+        // Only a capture made for a page of this session is saved.
+        if (!DigitalSignatureUtils.isIssued(loggedInInfo.getSession(), signatureRequestId)) {
+            logger.debug("Signature request id was not issued to this session; not saving a signature");
+            return null;
+        }
 
         String filename = DigitalSignatureUtils.getTempFilePath(signatureRequestId);
         if (filename == null || filename.isEmpty()) {

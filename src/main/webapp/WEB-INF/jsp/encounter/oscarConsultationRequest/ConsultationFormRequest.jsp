@@ -2074,17 +2074,24 @@ String signatureImgValue = signatureRetry ? StringUtils.noNull(request.getParame
         : StringUtils.noNull(consultUtil.signatureImg).trim();
 String signatureRequestId = signatureRetry
         ? SignatureReference.parse(true, signatureImgValue, request.getParameter("newSignatureImg")).value() : "";
-if (signatureRequestId.isEmpty() || !signatureRequestId.matches("[a-zA-Z0-9]+")) {
-    signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(loggedInInfo.getLoggedInProviderNo());
+// A retry keeps the pad id it was given only when this session issued it; otherwise the pad gets a new one.
+if (!DigitalSignatureUtils.isIssued(session, signatureRequestId)) {
+    signatureRequestId = DigitalSignatureUtils.generateSignatureRequestId(session);
 }
 ConsultationSignatureService consultationSignatureService = SpringUtils.getBean(ConsultationSignatureService.class);
+boolean signatureCaptureLost = false;
 if (retryManualSignature) {
-    signatureImgValue = consultationSignatureService.wasManualSignatureCaptured(signatureRequestId)
-            ? signatureRequestId : "";
+    boolean captured = consultationSignatureService.wasManualSignatureCaptured(session, signatureRequestId);
+    signatureCaptureLost = !captured && !signatureImgValue.isEmpty() && !SignatureReference.isStoredId(signatureImgValue);
+    signatureImgValue = captured ? signatureRequestId : "";
 }
 String imageUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_preview.name()+"&"+DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY+"="+SafeEncode.forUriComponent(signatureRequestId);
 String storedImgUrl=request.getContextPath()+"/imageRenderingServlet?source="+ImageRenderingServlet.Source.signature_stored.name()+"&digitalSignatureId=";
 %>
+        <fmt:message key="tabletSignature.msgCaptureLost" var="signatureCaptureLostMessage"/>
+        if (<%=signatureCaptureLost%>) {
+            alert('<carlos:encode value="${signatureCaptureLostMessage}" context="javaScriptBlock"/>');
+        }
 
         var POLL_TIME = 1500;
         var counter = 0;

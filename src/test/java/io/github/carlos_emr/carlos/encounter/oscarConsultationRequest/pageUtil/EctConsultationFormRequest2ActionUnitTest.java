@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
@@ -48,6 +49,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao;
@@ -80,9 +82,11 @@ import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -98,6 +102,7 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @DisplayName("EctConsultationFormRequest2Action")
@@ -339,8 +344,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         action.execute();
 
         String warning = new ObjectMapper().readTree(response.getContentAsString()).get("warningMessage").asText();
-        assertThat(warning).contains("The captured signature could not be saved and will not appear on the PDF.");
-        assertThat(warning).contains("- Lab result (source not confirmed)");
+        assertThat(warning)
+                .contains("The captured signature could not be saved and will not appear on the PDF.")
+                .contains("- Lab result (source not confirmed)");
     }
 
     @Test
@@ -706,8 +712,9 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         assertThat(request.getAttribute("demographicId")).isEqualTo("1");
         assertThat(request.getAttribute("errorMessage")).asString().contains("active consultant");
-        assertThat(((java.util.Map<?, ?>) request.getAttribute("consultationSubmittedValues")).get("reasonForConsultation"))
-                .isEqualTo("Entered referral reason");
+        assertThat(request.getAttribute("consultationSubmittedValues"))
+                .asInstanceOf(InstanceOfAssertFactories.MAP)
+                .containsEntry("reasonForConsultation", "Entered referral reason");
         verify(consultationRequestDao, never()).persist(any());
         verifyNoInteractions(consultationManager, digitalSignatureManager);
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), anyInt());
@@ -980,7 +987,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
-        when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(true);
+        // The action passes the logged-in user's own session, which holds the issued pad ids.
+        HttpSession session = new MockHttpSession();
+        when(loggedInInfo.getSession()).thenReturn(session);
+        when(consultationSignatureService.wasManualSignatureCaptured(same(session), eq("sig-request"))).thenReturn(true);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
                 loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
@@ -1005,13 +1015,18 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
-        when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(false);
+        // The action passes the logged-in user's own session, which holds the issued pad ids.
+        HttpSession session = new MockHttpSession();
+        when(loggedInInfo.getSession()).thenReturn(session);
+        when(consultationSignatureService.wasManualSignatureCaptured(same(session), eq("sig-request"))).thenReturn(false);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
                 loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
 
         action.execute();
 
+        // The capture check ran against the logged-in user's own session and found nothing.
+        verify(consultationSignatureService).wasManualSignatureCaptured(same(session), eq("sig-request"));
         assertThat(persisted[0]).isNotNull();
         assertThat(persisted[0].getSignatureImg()).isNull();
         // Benign unsigned save: the redirect must NOT carry the warning flag.
@@ -1081,7 +1096,10 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
 
         when(consultationSignatureService.resolveManualSignatureRequestId("", "sig-request"))
                 .thenReturn("sig-request");
-        when(consultationSignatureService.wasManualSignatureCaptured("sig-request")).thenReturn(true);
+        // The action passes the logged-in user's own session, which holds the issued pad ids.
+        HttpSession session = new MockHttpSession();
+        when(loggedInInfo.getSession()).thenReturn(session);
+        when(consultationSignatureService.wasManualSignatureCaptured(same(session), eq("sig-request"))).thenReturn(true);
         when(digitalSignatureManager.processAndSaveDigitalSignature(
                 loggedInInfo, "sig-request", 1, ModuleType.CONSULTATION))
                 .thenReturn(null);
@@ -1091,6 +1109,47 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(existing.getSignatureImg()).isNull();
         assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
         verify(consultationRequestDao).merge(existing);
+        verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"Submit", "Update", "UpdateSigned"})
+    @DisplayName("warns when an explicitly submitted capture has expired, including replacement of a stored signature")
+    void shouldWarn_whenSubmittedManualCaptureHasExpired(String operation) throws Exception {
+        MockHttpSession session = new MockHttpSession();
+        when(loggedInInfo.getSession()).thenReturn(session);
+        String expiredId = DigitalSignatureUtils.generateSignatureRequestId(session);
+        for (int i = 0; i < 200; i++) DigitalSignatureUtils.generateSignatureRequestId(session);
+        assertThat(DigitalSignatureUtils.isIssued(session, expiredId)).isFalse();
+
+        ConsultationRequest[] persisted = null;
+        ConsultationRequest existing = null;
+        boolean update = operation.startsWith("Update");
+        if (update) {
+            existing = consultationRequest(1, operation.equals("UpdateSigned") ? "123" : null);
+            when(consultationRequestDao.find(9)).thenReturn(existing);
+            action.setRequestId("9");
+        } else {
+            persisted = capturePersistedConsultationRequest();
+        }
+        action.setSubmission(update ? "Update" : "Submit");
+        action.setService("1");
+        action.setSpecialist("7");
+        action.setSignatureImg(expiredId);
+        request.setParameter("newSignature", "true");
+        when(consultationSignatureService.resolveManualSignatureRequestId(expiredId, "sig-request"))
+                .thenReturn(expiredId);
+        // Neither the reader nor the manager may accept the expired capture. The submitted
+        // marker must still cause a visible warning instead of the benign unsigned path.
+        when(consultationSignatureService.wasManualSignatureCaptured(session, expiredId)).thenReturn(false);
+        when(digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, expiredId, 1, ModuleType.CONSULTATION))
+                .thenReturn(null);
+
+        action.execute();
+
+        assertThat(response.getRedirectedUrl()).contains("signatureNotApplied=1");
+        ConsultationRequest saved = update ? existing : persisted[0];
+        assertThat(saved.getSignatureImg()).isEqualTo(operation.equals("UpdateSigned") ? "123" : null);
         verify(consultationSignatureService, never()).saveConsultationStamp(any(), any(), any());
     }
 
@@ -1389,7 +1448,7 @@ class EctConsultationFormRequest2ActionUnitTest extends CarlosUnitTestBase {
         when(consultationManager.getAttachedEForms("9")).thenReturn(List.of());
 
         try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class);
-             MockedConstruction<CommonLabResultData> labConstruction = mockConstruction(CommonLabResultData.class,
+             var _ = mockConstruction(CommonLabResultData.class,
                      (labData, context) -> when(labData.populateLabResultsData(any(), eq("1"), eq("9"), anyBoolean()))
                              .thenReturn(new ArrayList<>(List.of(hl7Lab, mdsLab))))) {
             eDocUtilMock.when(() -> EDocUtil.listDocs(any(), eq("1"), eq("9"), anyBoolean())).thenReturn(new ArrayList<>());
