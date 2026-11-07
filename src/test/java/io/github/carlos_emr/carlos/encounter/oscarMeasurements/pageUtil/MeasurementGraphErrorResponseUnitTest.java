@@ -161,8 +161,8 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentType()).isEqualTo("image/png");
         var datasets = (List<Map<String, Object>>) rendered.get().toConfig().get("datasets");
-        assertThat(datasets).noneMatch(dataset -> "range".equals(dataset.get("kind")));
-        assertThat(datasets).anyMatch(dataset -> "line".equals(dataset.get("kind")));
+        assertThat(datasets).noneMatch(dataset -> "range".equals(dataset.get("kind")))
+                .anyMatch(dataset -> "line".equals(dataset.get("kind")));
     }
 
     @Test

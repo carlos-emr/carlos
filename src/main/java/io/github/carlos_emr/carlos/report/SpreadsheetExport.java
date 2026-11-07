@@ -71,7 +71,7 @@ public final class SpreadsheetExport {
             // close() finishes the archive (central directory) and releases the Deflater; the
             // guard keeps it from closing the caller's stream.
             zip.close();
-        } catch (IOException | RuntimeException | Error failure) {
+        } catch (IOException | RuntimeException | Error failure) { // NOSONAR java:S1181 — discards the partial workbook and rethrows
             // Do not let close() finish the archive: a finished ZIP would look like a complete,
             // shorter workbook. Discard the remaining bytes and only release the Deflater.
             target.abandon();

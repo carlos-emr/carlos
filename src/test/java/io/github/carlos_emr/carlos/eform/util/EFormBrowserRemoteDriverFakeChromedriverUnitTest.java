@@ -169,8 +169,7 @@ class EFormBrowserRemoteDriverFakeChromedriverUnitTest {
         options.setBinary("/opt/synthetic/chrome");
         options.setCapability("goog:loggingPrefs", Map.of("performance", "ALL", "browser", "SEVERE"));
 
-        RenderBrowser driver = new RenderBrowser(URI.create(serverUrl().toString()), options.asMap());
-        try {
+        try (RenderBrowser driver = new RenderBrowser(URI.create(serverUrl().toString()), options.asMap())) {
             Recorded request = only("POST /session");
             assertThat(request.headers().get("Content-type")).containsExactly("application/json; charset=utf-8");
             JsonNode body = request.json();
@@ -184,8 +183,6 @@ class EFormBrowserRemoteDriverFakeChromedriverUnitTest {
             assertThat(chromeOptions.path("binary").asText()).isEqualTo("/opt/synthetic/chrome");
             assertThat(alwaysMatch.path("goog:loggingPrefs").path("performance").asText()).isEqualTo("ALL");
             assertThat(driver.getSessionId()).isEqualTo(SESSION_ID);
-        } finally {
-            driver.quit();
         }
     }
 
@@ -421,8 +418,7 @@ class EFormBrowserRemoteDriverFakeChromedriverUnitTest {
         EFormBrowserPdfService.teardownQuietly(new EFormBrowserPdfService.RendererBrowser(
                 failingDriver, URI.create(serverUrl().toString()), SESSION_ID));
 
-        assertThat(requests).hasSize(4);
-        assertThat(requests).allSatisfy(request -> {
+        assertThat(requests).hasSize(4).allSatisfy(request -> {
             assertThat(request.headers()).doesNotContainKeys("Upgrade", "Http2-settings");
             assertThat(request.headers().getOrDefault("Connection", List.of()))
                     .noneMatch(value -> value.toLowerCase(java.util.Locale.ROOT).contains("upgrade"));

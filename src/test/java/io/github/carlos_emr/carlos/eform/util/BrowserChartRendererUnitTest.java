@@ -114,9 +114,13 @@ class BrowserChartRendererUnitTest {
     /** ChartMeds grows 30px per drug past ten; JFreeChart drew any count, so long lists stay drawable. */
     @Test
     void shouldAcceptTallMedicationCharts_withinTheHeightCap() {
-        assertThat(BrowserChartRenderer.MAX_HEIGHT).isGreaterThanOrEqualTo(500 * 30);
-        assertThatThrownBy(() -> BrowserChartRenderer.write(context, new ByteArrayOutputStream(), chart(), 100,
-                BrowserChartRenderer.MAX_HEIGHT + 1, "png")).isInstanceOf(IllegalArgumentException.class);
+        int fiveHundredMedications = 500 * 30;
+        assertThat(fiveHundredMedications).isLessThanOrEqualTo(BrowserChartRenderer.MAX_HEIGHT);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        MeasurementChart tooTall = chart();
+        int height = BrowserChartRenderer.MAX_HEIGHT + 1;
+        assertThatThrownBy(() -> BrowserChartRenderer.write(context, output, tooTall, 100, height, "png"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

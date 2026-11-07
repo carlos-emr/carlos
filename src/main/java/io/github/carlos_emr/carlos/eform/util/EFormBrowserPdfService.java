@@ -1746,7 +1746,7 @@ public class EFormBrowserPdfService {
                         + "systemctl restart carlos-emr-render-browser clears it.",
                         sessionId, response.statusCode());
             }
-        } catch (InterruptedException deleteInterrupted) {
+        } catch (InterruptedException _) {
             interrupted = true;
             logger.warn("Interrupted while force-deleting browser eForm renderer session {}. "
                     + "A browser holding a rendered page may still be running; "

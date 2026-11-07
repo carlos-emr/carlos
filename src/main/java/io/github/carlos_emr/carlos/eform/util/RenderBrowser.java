@@ -37,6 +37,8 @@ final class RenderBrowser implements AutoCloseable {
     private static final ObjectMapper JSON = new ObjectMapper()
             .enable(DeserializationFeature.USE_LONG_FOR_INTS);
     private static final String VALUE = "value";
+    private static final String MESSAGE = "message";
+    private static final String ERROR = "error";
     private static final String NEW_SESSION_PATH = "/session";
 
     /**
@@ -126,11 +128,11 @@ final class RenderBrowser implements AutoCloseable {
         if (!result.isArray()) throw new IllegalStateException("Invalid browser log response");
         java.util.ArrayList<LogEntry> entries = new java.util.ArrayList<>();
         for (JsonNode entry : result) {
-            if (!entry.path("message").isTextual() || !entry.path("level").isTextual()) {
+            if (!entry.path(MESSAGE).isTextual() || !entry.path("level").isTextual()) {
                 throw new IllegalStateException("Invalid browser log entry");
             }
             entries.add(new LogEntry(logLevel(entry.path("level").asText()),
-                    entry.path("timestamp").asLong(), entry.path("message").asText()));
+                    entry.path("timestamp").asLong(), entry.path(MESSAGE).asText()));
         }
         return List.copyOf(entries);
     }
@@ -220,13 +222,13 @@ final class RenderBrowser implements AutoCloseable {
      */
     static IllegalStateException commandFailure(int status, JsonNode envelope, boolean sessionCreation) {
         JsonNode error = envelope == null ? null : envelope.path(VALUE);
-        String code = error != null && error.path("error").isTextual()
-                && KNOWN_ERROR_CODES.contains(error.path("error").asText())
-                ? error.path("error").asText() : UNRECOGNIZED_ERROR;
+        String code = error != null && error.path(ERROR).isTextual()
+                && KNOWN_ERROR_CODES.contains(error.path(ERROR).asText())
+                ? error.path(ERROR).asText() : UNRECOGNIZED_ERROR;
         StringBuilder message = new StringBuilder("Browser command failed (HTTP ")
                 .append(status).append(", ").append(code).append(')');
-        if (sessionCreation && error != null && error.path("message").isTextual()) {
-            String detail = sessionCreationDetail(error.path("message").asText());
+        if (sessionCreation && error != null && error.path(MESSAGE).isTextual()) {
+            String detail = sessionCreationDetail(error.path(MESSAGE).asText());
             if (!detail.isEmpty()) {
                 message.append(": ").append(detail);
             }

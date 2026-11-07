@@ -120,7 +120,7 @@
 <tbody><c:forEach var="tableRow" items="${list}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceNo)}">${carlos:forHtml(tableRow.billingServiceNo)}</td>
         <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.billingServiceTrayNo))}" data-sort-type="${carlos:tableSortType(tableRow.billingServiceTrayNo)}">${carlos:forHtml(tableRow.billingServiceTrayNo)}</td>
-        <td><a href="#" onClick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</a><br /><a href="#" onClick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</a></td>
+        <td><a href="#" onClick="editAssociation('${carlos:forJavaScriptAttribute(tableRow.billingServiceNo)}','${carlos:forJavaScriptAttribute(tableRow.billingServiceTrayNo)}'); return false;">Edit</a><br /><a href="#" onClick="deleteAssociation('${carlos:forJavaScriptAttribute(tableRow.id)}'); return false;">Delete</a></td> <%-- NOSONAR Web:S6844 - the link markup displaytag rendered for this row action, kept as it looked --%>
     </tr></c:forEach></tbody>
 </table>
 </c:if>

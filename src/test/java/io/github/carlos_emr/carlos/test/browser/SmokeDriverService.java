@@ -171,10 +171,11 @@ public final class SmokeDriverService implements AutoCloseable {
                             && JSON.readTree(response.body()).path("value").path("ready").asBoolean(false)) {
                         return;
                     }
-                } catch (IOException notListeningYet) {
+                } catch (IOException _) {
                     // chromedriver has not bound its port yet; poll again.
                 }
-                Thread.sleep(100);
+                // Polls the child process until it binds its port; there is no event to wait on.
+                Thread.sleep(100); // NOSONAR java:S2925 — readiness poll of an external chromedriver process
             }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
@@ -192,7 +193,7 @@ public final class SmokeDriverService implements AutoCloseable {
         if (shutdownHook != null) {
             try {
                 Runtime.getRuntime().removeShutdownHook(shutdownHook);
-            } catch (IllegalStateException shuttingDown) {
+            } catch (IllegalStateException _) {
                 // The JVM is already exiting and the hook is running or about to.
             }
             shutdownHook = null;
@@ -200,7 +201,7 @@ public final class SmokeDriverService implements AutoCloseable {
         if (log != null) {
             try {
                 Files.deleteIfExists(log);
-            } catch (IOException ignored) {
+            } catch (IOException _) {
                 // best-effort cleanup of a temp log
             }
             log = null;
@@ -224,7 +225,7 @@ public final class SmokeDriverService implements AutoCloseable {
                 target.destroyForcibly();
                 target.waitFor(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
             }
-        } catch (InterruptedException interrupted) {
+        } catch (InterruptedException _) {
             target.destroyForcibly();
             Thread.currentThread().interrupt();
         }
@@ -234,7 +235,7 @@ public final class SmokeDriverService implements AutoCloseable {
         try {
             String text = Files.readString(log, StandardCharsets.UTF_8);
             return text.length() > LOG_TAIL_CHARS ? text.substring(text.length() - LOG_TAIL_CHARS) : text;
-        } catch (IOException | RuntimeException unreadable) {
+        } catch (IOException | RuntimeException _) {
             return "(chromedriver log unavailable)";
         }
     }

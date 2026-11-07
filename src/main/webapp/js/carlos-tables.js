@@ -41,7 +41,7 @@
                 if (text) configured[name] = text;
             }
         }
-        return Object.assign({}, DEFAULT_LABELS, configured);
+        return {...DEFAULT_LABELS, ...configured};
     }
 
     /** MessageFormat-style {n} substitution; the patterns are plain text, never markup. */
@@ -63,15 +63,15 @@
         return {text: (cell.dataset.sortValue ?? cell.textContent).trim(), type: cell.dataset.sortType || 'text'};
     }
 
+    function order(a, b) {
+        if (a === b) return 0;
+        return a < b ? -1 : 1;
+    }
+
     function compareNumbers(left, right) {
-        if (INTEGER.test(left) && INTEGER.test(right)) {
-            const a = BigInt(left);
-            const b = BigInt(right);
-            return a === b ? 0 : (a < b ? -1 : 1);
-        }
-        const a = Number(left);
-        const b = Number(right);
-        return a === b ? 0 : (a < b ? -1 : 1);
+        // Integers compare exactly, beyond Number's 2^53.
+        if (INTEGER.test(left) && INTEGER.test(right)) return order(BigInt(left), BigInt(right));
+        return order(Number(left), Number(right));
     }
 
     function setRowControls(row, hidden) {

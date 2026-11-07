@@ -102,7 +102,7 @@
             <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.description))}" data-sort-type="${carlos:tableSortType(tableRow.description)}">${carlos:forHtml(tableRow.description)}</td>
             <%-- Price is a String property, which displaytag sorted as text. --%>
             <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(tableRow.value))}" data-sort-type="${carlos:tableSortType(tableRow.value)}">${carlos:forHtml(tableRow.value)}</td>
-            <td><a href="ViewBillingEditCode?codeId=${carlos:forUriComponent(tableRow.billingserviceNo)}&amp;code=${carlos:forUriComponent(tableRow.serviceCode)}&amp;desc=${carlos:forUriComponent(tableRow.description)}&amp;value=${carlos:forUriComponent(tableRow.value)}&amp;whereTo=private">Edit</a> <br><a href="#" onclick="deletePrivateCode('${carlos:forJavaScriptAttribute(tableRow.billingserviceNo)}'); return false;">Delete</a></td>
+            <td><a href="ViewBillingEditCode?codeId=${carlos:forUriComponent(tableRow.billingserviceNo)}&amp;code=${carlos:forUriComponent(tableRow.serviceCode)}&amp;desc=${carlos:forUriComponent(tableRow.description)}&amp;value=${carlos:forUriComponent(tableRow.value)}&amp;whereTo=private">Edit</a> <br><a href="#" onclick="deletePrivateCode('${carlos:forJavaScriptAttribute(tableRow.billingserviceNo)}'); return false;">Delete</a></td> <%-- NOSONAR Web:S6844 - the link markup displaytag rendered for this row action, kept as it looked --%>
         </tr></c:forEach></tbody>
 </table>
         </c:if>
