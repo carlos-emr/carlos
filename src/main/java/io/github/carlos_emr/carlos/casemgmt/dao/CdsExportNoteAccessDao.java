@@ -42,10 +42,12 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
     @SuppressWarnings("unchecked")
     public CdsExportNoteAccessDto findScope(int patient, long noteId) {
         if (patient < 1 || noteId < 1) return null;
-        List<Object[]> rows = entityManager().createNativeQuery("SELECT program_no, reporter_caisi_role FROM casemgmt_note WHERE note_id = :note AND demographic_no = :patient", Object[].class)
+        List<Object[]> rows = entityManager().createNativeQuery("SELECT program_no, reporter_caisi_role, locked FROM casemgmt_note WHERE note_id = :note AND demographic_no = :patient", Object[].class)
                 .setParameter("note", noteId).setParameter("patient", patient).setMaxResults(2).getResultList();
         if (rows.size() != 1) return null;
         Object[] row = rows.getFirst();
+        // The ordinary note reader hides locked bodies. Unknown legacy flag spellings cannot grant disclosure.
+        if (row[2] != null && !"0".equals(row[2]) && !Character.valueOf('0').equals(row[2])) return null;
         try { return new CdsExportNoteAccessDto(noteId, patient, (String) row[0], (String) row[1]); }
         catch (IllegalArgumentException invalid) { return null; }
     }

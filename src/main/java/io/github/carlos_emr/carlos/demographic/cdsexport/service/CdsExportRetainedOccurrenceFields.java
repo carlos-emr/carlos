@@ -37,6 +37,8 @@ public final class CdsExportRetainedOccurrenceFields {
             case MEDICATIONS_AND_TREATMENTS -> "CDS_EXPORT_MEDICATION";
             case APPOINTMENTS -> "CDS_EXPORT_APPOINTMENT";
             case IMMUNIZATIONS -> "CDS_EXPORT_IMMUNIZATION";
+            case PERSONAL_HISTORY, FAMILY_HISTORY, PAST_HEALTH, PROBLEM_LIST, RISK_FACTORS,
+                    ALERTS_AND_SPECIAL_NEEDS, CLINICAL_NOTES -> "CDS_EXPORT_HISTORY";
             default -> throw new IllegalArgumentException("CDS_EXPORT_RETAINED_OCCURRENCE_CATEGORY_UNSUPPORTED");
         };
         if (!index.sourceManifestSha256().equals(checked.sourceManifestSha256()) || !index.appliedUnits().contains(nativeAddress)

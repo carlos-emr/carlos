@@ -132,6 +132,15 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
         assertThatThrownBy(() -> notes.findScope(id, id)).isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
         assertThatThrownBy(() -> notes.canRead(provider, scope())).isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
     }
+    @Test void shouldRefuseLockedAndUnknownLockFlags_evenWhenTheProgramGrantAllowsReading() {
+        fixture(() -> {
+            membership(id, id); defaultGrant(); assertThat(notes.findScope(id, id)).isEqualTo(scope());
+            sql.update("update casemgmt_note set locked='0' where note_id=?", id); assertThat(notes.findScope(id, id)).isEqualTo(scope());
+            for (String flag : java.util.List.of("1", "Y", "x", "")) {
+                sql.update("update casemgmt_note set locked=? where note_id=?", flag, id); assertThat(notes.findScope(id, id)).isNull();
+            }
+        });
+    }
     private CdsExportNoteAccessDto scope() { return new CdsExportNoteAccessDto(id, id, Integer.toString(id), Integer.toString(id)); }
     private void fixture(Runnable assertions) {
         transaction.executeWithoutResult(status -> {
