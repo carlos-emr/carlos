@@ -2,9 +2,17 @@
 package io.github.carlos_emr.carlos.form;
 
 import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.DemographicContactDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao;
+import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.managers.AppointmentManager;
+import io.github.carlos_emr.carlos.managers.DemographicManagerImpl;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -47,6 +55,8 @@ import static org.mockito.Mockito.*;
 class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
     @Autowired private Growth0To36FormService service;
     @Autowired private FormGrowth0To36Dao forms;
+    @Autowired private OscarLogDao audit;
+    @Autowired private SecurityInfoManager security;
     @Autowired private PlatformTransactionManager transactions;
     @Autowired @Qualifier("dataSource") private DataSource source;
     @PersistenceContext private EntityManager entityManager;
@@ -107,6 +117,60 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
         }
         assertThat(forms.findForPatient(patient, id).getProviderNo()).isEqualTo(999998);
         assertThat(forms.findForPatient(patient + 1, id)).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean savedVersion) throws Exception {
+        int id = savedVersion ? service.saveVersion(actor, patient, 0, values) : 0;
+        Demographic demographic = new Demographic();
+        demographic.setDemographicNo(patient);
+        demographic.setFirstName("Synthetic");
+        demographic.setLastName("Écho");
+        demographic.setSex("F");
+        demographic.setYearOfBirth("2024");
+        demographic.setMonthOfBirth("02");
+        demographic.setDateOfBirth("29");
+        DemographicDao demographicDao = mock(DemographicDao.class);
+        when(demographicDao.getDemographicById(patient)).thenReturn(demographic);
+        // Exercise the real getDemographic -> getMRP -> getHealthCareTeam -> LogAction path.
+        DemographicManagerImpl manager = new DemographicManagerImpl();
+        ReflectionTestUtils.setField(manager, "demographicDao", demographicDao);
+        ReflectionTestUtils.setField(manager, "demographicContactDao", mock(DemographicContactDao.class));
+        ReflectionTestUtils.setField(manager, "securityInfoManager", security);
+        ReflectionTestUtils.setField(manager, "appointmentManager", mock(AppointmentManager.class));
+        Growth0To36FormService target = AopTestUtils.getUltimateTargetObject(service);
+        Object previousDemographics = ReflectionTestUtils.getField(target, "demographics");
+        Object previousAudit = ReflectionTestUtils.getField(LogAction.class, "oscarLogDao");
+        try (LogCapture logs = LogCapture.forLogger(LogAction.class)) {
+            ReflectionTestUtils.setField(target, "demographics", manager);
+            ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", audit);
+            Properties loaded = service.load(actor, patient, id);
+            assertThat(loaded.getProperty("patientName")).isEqualTo("Synthetic Écho");
+            assertThat(loaded.getProperty("patientSex")).isEqualTo("F");
+            assertThat(loaded.getProperty("dateOfBirth")).isEqualTo("2024/02/29");
+            assertThat(logs.events()).isEmpty();
+            // Prove the audit committed; a successful return alone could hide a swallowed write failure.
+            try (var connection = source.getConnection(); var query = connection.prepareStatement(
+                    "SELECT COUNT(*) FROM log WHERE action = ? AND data = ?")) {
+                query.setString(1, "DemographicManager.getHealthCareTeam");
+                query.setString(2, Integer.toString(patient));
+                try (var rows = query.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isEqualTo(1);
+                }
+            }
+            assertThat(independentCount()).isEqualTo(savedVersion ? 1 : 0);
+        } finally {
+            ReflectionTestUtils.setField(target, "demographics", previousDemographics);
+            ReflectionTestUtils.setField(LogAction.class, "oscarLogDao", previousAudit);
+            try (var connection = source.getConnection(); var delete = connection.prepareStatement(
+                    "DELETE FROM log WHERE action = ? AND data = ?")) {
+                delete.setString(1, "DemographicManager.getHealthCareTeam");
+                delete.setString(2, Integer.toString(patient));
+                delete.executeUpdate();
+            }
+        }
     }
 
     @Test
@@ -212,7 +276,8 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
 
     @Test
     void shouldRollBackAnEarlierInsert_whenARelatedDatabaseWriteFails() throws Exception {
-        assertThatThrownBy(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+        var transaction = new TransactionTemplate(transactions);
+        assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
             service.saveVersion(actor, patient, 0, values);
             entityManager.createNativeQuery("INSERT INTO formGrowth0_36 (demographic_no, formEdited) VALUES (NULL, CURRENT_TIMESTAMP)")
                     .executeUpdate();
@@ -248,7 +313,7 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldReturnOnlyPatientVersions_forEncounterAndGroupedHistory() throws Exception {
+    void shouldReturnOnlyPatientVersions_forEncounterAndGroupedHistory() {
         int first = service.saveVersion(actor, patient, 0, values);
         int last = service.saveVersion(actor, patient, first, values);
         service.saveVersion(actor, patient + 1, 0, values);
@@ -290,7 +355,8 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
         try {
             configuration.setProperty("save_as_xml", "true");
             configuration.setProperty("form_record_path", archive.toString());
-            assertThatThrownBy(() -> new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            var transaction = new TransactionTemplate(transactions);
+            assertThatThrownBy(() -> transaction.executeWithoutResult(status -> {
                 service.saveVersion(actor, patient, 0, values);
                 throw new IllegalStateException("synthetic failure after insert");
             })).isInstanceOf(IllegalStateException.class);

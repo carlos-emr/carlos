@@ -64,7 +64,10 @@ public abstract class FrmRecord {
 
     public abstract int saveFormRecord(Properties props) throws SQLException;
 
-    /** Carries the authenticated actor into migrated persistence services. */
+    /**
+     * Carries the authenticated actor into migrated persistence services. Legacy records
+     * deliberately delegate to their existing save implementation without using the actor.
+     */
     public int saveFormRecord(LoggedInInfo actor, Properties props) throws SQLException {
         return saveFormRecord(props);
     }

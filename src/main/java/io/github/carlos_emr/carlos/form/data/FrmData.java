@@ -126,7 +126,7 @@ public class FrmData {
     public PatientForm[] getPatientForms(String demoNo, String table) throws SQLException {
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
 
-        if ("formGrowth0_36".equals(table)) {
+        if (EctFormData.GROWTH_FORM_TABLE.equals(table)) {
             for (EctFormData.PatientForm version : EctFormData.getPatientForms(demoNo, table)) {
                 forms.add(growthPatientForm(version));
             }
@@ -173,7 +173,7 @@ public class FrmData {
         if (!table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
             throw new IllegalArgumentException("Invalid form table name returned from database");
         }
-        if ("formGrowth0_36".equals(table)) {
+        if (EctFormData.GROWTH_FORM_TABLE.equals(table)) {
             EctFormData.PatientForm[] versions = EctFormData.getPatientForms(demoNo, table);
             return versions.length == 0 ? null : growthPatientForm(versions[0]);
         }
@@ -292,7 +292,7 @@ public class FrmData {
 
         } else if ("".equals(table)) {
             ret[1] = "0";
-        } else if ("formGrowth0_36".equals(table)) {
+        } else if (EctFormData.GROWTH_FORM_TABLE.equals(table)) {
             EctFormData.PatientForm latest = EctFormData.getShortcutLatestPatientForm(demoNo, table);
             if (latest != null) ret[1] = latest.getFormId();
         } else {

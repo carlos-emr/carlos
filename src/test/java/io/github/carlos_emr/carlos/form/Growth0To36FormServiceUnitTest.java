@@ -60,10 +60,11 @@ class Growth0To36FormServiceUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"_form", "_demographic"})
     void shouldRefuseBeforeReadingOrWriting_whenAPrivilegeIsDenied(String object) {
+        Properties values = new Properties();
         when(security.hasPrivilege(eq(actor), eq(object), anyString(), eq("123"))).thenReturn(false);
         assertThatThrownBy(() -> service.load(actor, 123, 44)).isInstanceOf(SecurityException.class)
                 .hasMessage("missing required sec object (" + object + ")");
-        assertThatThrownBy(() -> service.saveVersion(actor, 123, 44, new Properties())).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.saveVersion(actor, 123, 44, values)).isInstanceOf(SecurityException.class);
         verifyNoInteractions(forms, demographics);
     }
 
@@ -85,18 +86,20 @@ class Growth0To36FormServiceUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRefuseBeforeReadingOrWriting_whenPatientAccessIsDenied() {
+        Properties values = new Properties();
         when(security.isAllowedAccessToPatientRecord(actor, 123)).thenReturn(false);
         assertThatThrownBy(() -> service.load(actor, 123, 44)).isInstanceOf(SecurityException.class);
-        assertThatThrownBy(() -> service.saveVersion(actor, 123, 44, new Properties())).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.saveVersion(actor, 123, 44, values)).isInstanceOf(SecurityException.class);
         verifyNoInteractions(forms, demographics);
     }
 
     @Test
     void shouldRejectAbsentActorAndInvalidPatient_beforeAnyPersistence() {
+        Properties values = new Properties();
         assertThatThrownBy(() -> service.load(null, 123, 0)).isInstanceOf(SecurityException.class);
-        assertThatThrownBy(() -> service.saveVersion(null, 123, 0, new Properties())).isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.saveVersion(null, 123, 0, values)).isInstanceOf(SecurityException.class);
         assertThatThrownBy(() -> service.load(actor, 0, 0)).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> service.saveVersion(actor, -1, 0, new Properties())).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.saveVersion(actor, -1, 0, values)).isInstanceOf(IllegalArgumentException.class);
         verifyNoInteractions(forms, demographics);
     }
 }

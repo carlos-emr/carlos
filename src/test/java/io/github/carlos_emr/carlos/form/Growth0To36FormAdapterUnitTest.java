@@ -56,7 +56,8 @@ class Growth0To36FormAdapterUnitTest extends CarlosUnitTestBase {
         Growth0To36FormService service = mock(Growth0To36FormService.class);
         registerMock(Growth0To36FormService.class, service);
         FrmRecord form = new FrmRecordFactory().factory("Growth0_36");
-        assertThatThrownBy(() -> form.saveFormRecord(new Properties())).isInstanceOf(IllegalStateException.class);
+        Properties values = new Properties();
+        assertThatThrownBy(() -> form.saveFormRecord(values)).isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(service);
     }
 

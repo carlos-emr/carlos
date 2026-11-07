@@ -8,7 +8,11 @@ import java.util.Date;
 import java.util.Properties;
 import org.apache.commons.lang3.StringUtils;
 
-/** The existing Properties contract at the legacy form/graph boundary. */
+/**
+ * The existing Properties contract at the legacy form/graph boundary.
+ *
+ * @since 2026-11-06
+ */
 final class Growth0To36FormValues {
     static final String DATE_FORMAT = "yyyy/MM/dd";
 

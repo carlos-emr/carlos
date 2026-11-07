@@ -7,7 +7,11 @@ import jakarta.persistence.TemporalType;
 import java.io.Serializable;
 import java.util.Date;
 
-/** One of the twenty fixed measurement slots in the existing growth table. */
+/**
+ * One of the twenty fixed measurement slots in the existing growth table.
+ *
+ * @since 2026-11-06
+ */
 @Embeddable
 public class Growth0To36Measurement implements Serializable {
     private static final long serialVersionUID = 1L;

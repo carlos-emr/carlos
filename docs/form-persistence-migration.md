@@ -189,7 +189,7 @@ registrations remain another runtime caller.
 ## Growth slice
 
 `FormGrowth0To36` maps all 131 existing columns: ID, patient/provider, dates,
-six header strings, and twenty six-column measurement slots. Bound DAO reads
+six header strings, and twenty measurement slots with six columns each. Bound DAO reads
 include both patient and record ID. Each save creates a generated-ID version;
 the source remains untouched, the actor supplies the provider, and the service
 checks form/patient access and source ownership before writing.
@@ -219,7 +219,11 @@ slots, coherent grouped-history creation dates and the XML filename/content
 contract consumed by the existing importer.
 Post-commit archive read and filesystem failures retain the committed form,
 emit an error without clinical values or exception details, and leave no XML copy.
-CI's evidence verifier requires this suite in each MariaDB lane.
+Loading either a saved or new form allows the demographic manager's synchronous
+health-care-team audit to commit. Regression cases use the real demographic
+manager and audit DAO and verify the committed audit through an independent connection.
+CI's evidence verifier requires nineteen cases in each MariaDB lane, including
+both archive-failure and both demographic-audit invocations by their Surefire identities.
 The existing synthetic Growth/Rourke browser suite covers the
 packaged save/load/graph/print callers.
 
@@ -234,7 +238,7 @@ This implementation combines the two duplicate Growth slices on the current
 | #5697 left `FrmData` Growth reads on generic JDBC and moved shortcut/REST fixtures away from the migrated table. | Retain #5696's typed `FrmData` dispatch and real Growth-DAO shortcut/REST fixtures. |
 | #5697 returned untrimmed text and opened an unclosed query result stream. | Preserve the legacy display trim and fully consume the primary-key lookup result list. |
 | #5696's generated-schema mapping omitted the physical `TIMESTAMP` column definition; its grouped creation-date aggregate could come from another version. | Retain #5697's explicit timestamp definition and selected-version grouped projection, with physical metadata and differing-creation-date tests. |
-| #5697 did not require Growth results in the MariaDB evidence verifier; each PR covered different rollback failures. | Require all seventeen combined persistence cases in generated, ON Flyway and BC Flyway CI, including source rejection, database failure, failure after flush and post-commit archive failures. |
+| #5697 did not require Growth results in the MariaDB evidence verifier; each PR covered different rollback failures. | Require all nineteen combined persistence cases in generated, ON Flyway and BC Flyway CI, including source rejection, database failure, failure after flush, post-commit archive failures and demographic audit writes. |
 
 Both original PRs remain separate proposals. This Growth slice does not close
 #5693 or #2249; the remaining form migrations below are still required.

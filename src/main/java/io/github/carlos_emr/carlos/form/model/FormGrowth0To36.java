@@ -3,7 +3,6 @@ package io.github.carlos_emr.carlos.form.model;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
 import jakarta.persistence.AttributeOverride;
-import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -15,7 +14,11 @@ import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 import java.util.Date;
 
-/** Complete mapping of the unchanged formGrowth0_36 schema, including all twenty slots. */
+/**
+ * Complete mapping of the unchanged formGrowth0_36 schema, including all twenty slots.
+ *
+ * @since 2026-11-06
+ */
 @Entity
 @Table(name = "formGrowth0_36")
 public class FormGrowth0To36 extends AbstractModel<Integer> {
@@ -53,223 +56,183 @@ public class FormGrowth0To36 extends AbstractModel<Integer> {
     private String edc;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_1")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_1", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_1", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_1", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_1", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_1", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_1"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_1", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_1", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_1", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_1", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_1", length = 25))
     private Growth0To36Measurement measurement1;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_2")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_2", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_2", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_2", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_2", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_2", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_2"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_2", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_2", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_2", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_2", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_2", length = 25))
     private Growth0To36Measurement measurement2;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_3")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_3", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_3", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_3", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_3", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_3", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_3"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_3", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_3", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_3", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_3", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_3", length = 25))
     private Growth0To36Measurement measurement3;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_4")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_4", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_4", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_4", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_4", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_4", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_4"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_4", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_4", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_4", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_4", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_4", length = 25))
     private Growth0To36Measurement measurement4;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_5")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_5", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_5", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_5", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_5", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_5", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_5"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_5", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_5", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_5", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_5", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_5", length = 25))
     private Growth0To36Measurement measurement5;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_6")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_6", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_6", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_6", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_6", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_6", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_6"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_6", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_6", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_6", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_6", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_6", length = 25))
     private Growth0To36Measurement measurement6;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_7")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_7", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_7", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_7", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_7", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_7", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_7"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_7", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_7", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_7", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_7", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_7", length = 25))
     private Growth0To36Measurement measurement7;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_8")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_8", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_8", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_8", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_8", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_8", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_8"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_8", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_8", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_8", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_8", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_8", length = 25))
     private Growth0To36Measurement measurement8;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_9")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_9", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_9", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_9", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_9", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_9", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_9"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_9", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_9", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_9", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_9", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_9", length = 25))
     private Growth0To36Measurement measurement9;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_10")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_10", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_10", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_10", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_10", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_10", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_10"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_10", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_10", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_10", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_10", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_10", length = 25))
     private Growth0To36Measurement measurement10;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_11")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_11", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_11", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_11", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_11", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_11", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_11"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_11", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_11", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_11", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_11", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_11", length = 25))
     private Growth0To36Measurement measurement11;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_12")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_12", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_12", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_12", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_12", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_12", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_12"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_12", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_12", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_12", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_12", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_12", length = 25))
     private Growth0To36Measurement measurement12;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_13")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_13", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_13", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_13", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_13", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_13", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_13"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_13", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_13", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_13", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_13", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_13", length = 25))
     private Growth0To36Measurement measurement13;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_14")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_14", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_14", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_14", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_14", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_14", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_14"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_14", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_14", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_14", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_14", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_14", length = 25))
     private Growth0To36Measurement measurement14;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_15")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_15", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_15", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_15", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_15", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_15", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_15"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_15", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_15", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_15", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_15", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_15", length = 25))
     private Growth0To36Measurement measurement15;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_16")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_16", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_16", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_16", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_16", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_16", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_16"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_16", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_16", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_16", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_16", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_16", length = 25))
     private Growth0To36Measurement measurement16;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_17")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_17", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_17", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_17", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_17", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_17", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_17"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_17", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_17", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_17", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_17", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_17", length = 25))
     private Growth0To36Measurement measurement17;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_18")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_18", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_18", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_18", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_18", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_18", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_18"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_18", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_18", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_18", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_18", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_18", length = 25))
     private Growth0To36Measurement measurement18;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_19")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_19", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_19", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_19", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_19", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_19", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_19"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_19", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_19", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_19", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_19", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_19", length = 25))
     private Growth0To36Measurement measurement19;
 
     @Embedded
-    @AttributeOverrides({
-        @AttributeOverride(name = "date", column = @Column(name = "date_20")),
-        @AttributeOverride(name = "age", column = @Column(name = "age_20", length = 5)),
-        @AttributeOverride(name = "weight", column = @Column(name = "weight_20", length = 6)),
-        @AttributeOverride(name = "length", column = @Column(name = "length_20", length = 6)),
-        @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_20", length = 6)),
-        @AttributeOverride(name = "comment", column = @Column(name = "comment_20", length = 25))
-    })
+    @AttributeOverride(name = "date", column = @Column(name = "date_20"))
+    @AttributeOverride(name = "age", column = @Column(name = "age_20", length = 5))
+    @AttributeOverride(name = "weight", column = @Column(name = "weight_20", length = 6))
+    @AttributeOverride(name = "length", column = @Column(name = "length_20", length = 6))
+    @AttributeOverride(name = "headCirc", column = @Column(name = "headCirc_20", length = 6))
+    @AttributeOverride(name = "comment", column = @Column(name = "comment_20", length = 25))
     private Growth0To36Measurement measurement20;
 
     @Override
@@ -306,7 +269,10 @@ public class FormGrowth0To36 extends AbstractModel<Integer> {
     public String getEdc() { return edc; }
     public void setEdc(String value) { edc = value; }
 
-    /** Returns an empty value for a legacy slot whose columns are all SQL NULL. */
+    /**
+     * Returns an empty value for a legacy slot whose columns are all SQL NULL.
+     * @throws IllegalArgumentException if the slot is outside 1–20
+     */
     public Growth0To36Measurement getMeasurement(int slot) {
         Growth0To36Measurement value = switch (slot) {
             case 1 -> measurement1;
@@ -334,6 +300,10 @@ public class FormGrowth0To36 extends AbstractModel<Integer> {
         return value == null ? new Growth0To36Measurement() : value;
     }
 
+    /**
+     * Sets one fixed visit slot, accepting {@code null} for an entirely absent measurement.
+     * @throws IllegalArgumentException if the slot is outside 1–20
+     */
     public void setMeasurement(int slot, Growth0To36Measurement value) {
         switch (slot) {
             case 1 -> measurement1 = value;

@@ -5,10 +5,15 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import java.util.Properties;
 
-/** Compatibility boundary for the form router and existing Rourke/eForm readers. */
+/**
+ * Compatibility boundary for the form router and existing Rourke/eForm readers.
+ *
+ * @since 2026-11-06
+ */
 public class Growth0To36Form extends FrmRecord {
     private final Growth0To36FormService service;
 
+    /** Uses the Spring service proxy so form routing retains authorization and transactions. */
     public Growth0To36Form() {
         this(SpringUtils.getBean(Growth0To36FormService.class));
     }

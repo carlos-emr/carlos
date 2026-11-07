@@ -60,6 +60,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
 public class EctFormData {
 
+    /** Growth form table routed through the patient-bound JPA DAO. */
+    public static final String GROWTH_FORM_TABLE = "formGrowth0_36";
+
     private static final Pattern FORM_TABLE_NAME = Pattern.compile("^\\w+$");
     private static final String LEGACY_FORM_SQL = "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
     private static Logger logger = MiscUtils.getLogger();
@@ -154,7 +157,7 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getGroupedPatientFormsAsArrayList(String demoNo, String formName, String table, String jsp) {
-        if ("formGrowth0_36".equals(StringUtils.trimToNull(table))) {
+        if (GROWTH_FORM_TABLE.equals(StringUtils.trimToNull(table))) {
             return growthForms(demoNo, formName, jsp, true);
         }
         String trustedTable = validateFormTable(table);
@@ -214,7 +217,7 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getPatientFormsAsArrayList(String demoNo, String formName, String table) {
-        if ("formGrowth0_36".equals(StringUtils.trimToNull(table))) {
+        if (GROWTH_FORM_TABLE.equals(StringUtils.trimToNull(table))) {
             return growthForms(demoNo, formName, null, false);
         }
         String trustedTable = validateFormTable(table);
@@ -302,7 +305,7 @@ public class EctFormData {
             PatientForm form = grouped
                     ? new PatientForm(formName, version.id(), version.patient(), version.created(), version.edited(), jsp)
                     : new PatientForm(formName, version.id(), version.patient(), version.created(), version.edited());
-            form.setTable("formGrowth0_36");
+            form.setTable(GROWTH_FORM_TABLE);
             results.add(form);
         }
         return results;

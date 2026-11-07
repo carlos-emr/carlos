@@ -13,17 +13,25 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.w3c.dom.Document;
 
-/** Patient-bound growth records; no caller supplies SQL or a table identifier. */
+/**
+ * Patient-bound growth records; no caller supplies SQL or a table identifier.
+ *
+ * @since 2026-11-06
+ */
 @Repository
 public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
+    private static final String PATIENT_PARAMETER = "patient";
+
+    /** Binds inherited persistence operations to the Growth entity. */
     public FormGrowth0To36Dao() {
         super(FormGrowth0To36.class);
     }
 
+    /** Returns the requested patient-owned version, or {@code null} for a missing or foreign ID. */
     @Transactional(readOnly = true)
     public FormGrowth0To36 findForPatient(int patient, int id) {
         var rows = entityManager.createQuery("SELECT f FROM FormGrowth0To36 f WHERE f.demographicNo = :patient AND f.id = :id",
-                FormGrowth0To36.class).setParameter("patient", patient).setParameter("id", id)
+                FormGrowth0To36.class).setParameter(PATIENT_PARAMETER, patient).setParameter("id", id)
                 .getResultList();
         return rows.isEmpty() ? null : rows.getFirst();
     }
@@ -31,14 +39,16 @@ public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
     /** Metadata consumed by encounter shortcuts, Rourke graphs and eForm growth overlays. */
     public record Version(Integer id, Integer patient, Date created, Date edited) { }
 
+    /** Returns this patient's version metadata in descending ID order. */
     @Transactional(readOnly = true)
     public List<Version> findHistory(int patient) {
         return entityManager.createQuery("SELECT new io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao$Version"
                 + "(f.id, f.demographicNo, f.formCreated, f.formEdited) FROM FormGrowth0To36 f"
                 + " WHERE f.demographicNo = :patient ORDER BY f.id DESC", Version.class)
-                .setParameter("patient", patient).getResultList();
+                .setParameter(PATIENT_PARAMETER, patient).getResultList();
     }
 
+    /** Returns the highest ID and latest edit per calendar day, ordered from oldest day to newest. */
     @Transactional(readOnly = true)
     public List<Version> findGroupedHistory(int patient) {
         // Preserve maximum ID and edit timestamp per day. Take formCreated from that
@@ -49,7 +59,7 @@ public class FormGrowth0To36Dao extends AbstractDaoImpl<FormGrowth0To36> {
                 + " ORDER BY DATE(g.edited)", Object[].class)
                 .addScalar("ID", Integer.class).addScalar("demographic_no", Integer.class)
                 .addScalar("formCreated", java.sql.Date.class).addScalar("edited", java.sql.Timestamp.class)
-                .setParameter("patient", patient).getResultList();
+                .setParameter(PATIENT_PARAMETER, patient).getResultList();
         return rows.stream().map(row -> new Version((Integer) row[0], (Integer) row[1],
                 (Date) row[2], (Date) row[3])).toList();
     }

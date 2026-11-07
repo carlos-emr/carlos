@@ -21,20 +21,36 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/** Patient-bound load and transactional version save for the Growth 0–36 month form. */
+/**
+ * Patient-bound load and transactional version save for the Growth 0–36 month form.
+ *
+ * @since 2026-11-06
+ */
 @Service
 public class Growth0To36FormService {
     private final FormGrowth0To36Dao forms;
     private final DemographicManager demographics;
     private final SecurityInfoManager security;
 
+    /** Creates the service with the patient-bound DAO and demographic/access managers. */
     public Growth0To36FormService(FormGrowth0To36Dao forms, DemographicManager demographics, SecurityInfoManager security) {
         this.forms = forms;
         this.demographics = demographics;
         this.security = security;
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Loads a patient-owned version, or new-form defaults with current demographic prefill.
+     * Demographic lookup may write a health-care-team audit, so this transaction permits writes.
+     *
+     * @param actor the authenticated caller
+     * @param patient the positive demographic number
+     * @param id the saved version ID, or a non-positive value for a new form
+     * @return the legacy form properties with current sex and date of birth
+     * @throws SecurityException if the actor lacks access, or a positive ID is missing or foreign
+     * @throws IllegalArgumentException if the patient number is not positive
+     */
+    @Transactional
     public Properties load(LoggedInInfo actor, int patient, int id) {
         require(actor, patient, "r");
         Properties values;
@@ -60,7 +76,18 @@ public class Growth0To36FormService {
         return values;
     }
 
-    /** Returns only after commit; callers retain their existing audit and navigation behavior. */
+    /**
+     * Appends a version attributed to the authenticated provider without changing the source.
+     * Joins an existing transaction when present; optional XML is published only after commit.
+     *
+     * @param actor the authenticated caller whose provider number is stored
+     * @param patient the positive demographic number
+     * @param sourceId the patient-owned source version, or a non-positive value for a new form
+     * @param values the legacy form properties; submitted patient/provider/ID values are not trusted
+     * @return the generated version ID (subject to rollback of any enclosing transaction)
+     * @throws SecurityException if the actor lacks access, or a positive source ID is missing or foreign
+     * @throws IllegalArgumentException if the patient number is not positive or the provider number is invalid
+     */
     @Transactional(rollbackFor = Exception.class)
     public int saveVersion(LoggedInInfo actor, int patient, int sourceId, Properties values) {
         require(actor, patient, "w");
@@ -98,7 +125,7 @@ public class Growth0To36FormService {
                             .resolve("formGrowth0_36_" + patient + "_" + now + ".xml");
                     // JDBCUtil validates the final path under the configured archive directory.
                     JDBCUtil.saveAsXML(forms.readArchive(patient, id), file.toString());
-                } catch (Exception e) {
+                } catch (Exception _) {
                     MiscUtils.getLogger().error("Unable to archive committed Growth form XML; continuing without XML copy");
                 }
             }
