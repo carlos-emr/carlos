@@ -67,13 +67,13 @@ class AppointmentArchiveDateTimeContractUnitTest extends CarlosUnitTestBase {
                 assertThat(xml).contains("<" + property + ">" + expected + "</" + property + ">");
             }
         }
-        assertThat(calendar.toString()).isEqualTo(original);
+        assertThat(calendar).hasToString(original);
         String direct = write(context, AppointmentArchiveTransfer.class, archive);
         var read = context.createUnmarshaller().unmarshal(new StreamSource(new StringReader(direct)),
                 AppointmentArchiveTransfer.class).getValue();
         assertThat(read.getAppointmentStartDateTime().toInstant())
                 .isEqualTo(java.time.OffsetDateTime.parse(expected).toInstant());
-        assertThat(calendar.toString()).isEqualTo(original);
+        assertThat(calendar).hasToString(original);
     }
 
     /** Blank, empty and absent optional date elements retain the legacy null interpretation. */

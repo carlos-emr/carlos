@@ -309,7 +309,13 @@ public final class WarWireCompatibilityProbe {
         return text.append('"').toString();
     }
 
-    /** Runs the unchanged client corpus in Tomcat's isolated loader and retains every observation. */
+    /**
+     * Runs the unchanged client corpus in Tomcat's isolated loader and retains every observation.
+     *
+     * @param args String[] containing the webapp directory, result file, XML corpus file,
+     *             public-API inventory file, and optional XML-provider selector
+     * @throws Exception if the isolated container lifecycle, input loading, or result writing fails
+     */
     public static void main(String[] args) throws Exception {
         if (args.length == 5) xmlProvider = args[4];
         if (!Set.of("automatic", "glassfish", "moxy").contains(xmlProvider)) {

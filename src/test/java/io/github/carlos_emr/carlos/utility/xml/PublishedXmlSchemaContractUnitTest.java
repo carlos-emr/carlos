@@ -82,7 +82,7 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
                 time ? 14 : 0, time ? 15 : 0, 0, java.time.ZoneId.of(zone))
                 .format(java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ssXXX"));
         assertThat(xml).contains(expected);
-        assertThat(calendar.toString()).isEqualTo(original);
+        assertThat(calendar).hasToString(original);
         var reader = context(type).createUnmarshaller();
         reader.setEventHandler(event -> false);
         Object read = reader.unmarshal(new StreamSource(new StringReader(xml)), type).getValue();
@@ -90,7 +90,7 @@ class PublishedXmlSchemaContractUnitTest extends CarlosUnitTestBase {
             Calendar actual = (Calendar) type.getMethod("get" + setter.getName().substring(3)).invoke(read);
             assertThat(actual.toInstant()).isEqualTo(java.time.OffsetDateTime.parse(expected).toInstant());
         }
-        assertThat(calendar.toString()).isEqualTo(original);
+        assertThat(calendar).hasToString(original);
     }
 
     /** Checks the required filter container directly and through its owning provider response. */

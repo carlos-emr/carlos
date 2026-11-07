@@ -34,8 +34,8 @@ class CalendarXmlStateUnitTest extends CarlosUnitTestBase {
         var adapter = new CalendarXmlAdapter();
 
         assertThat(adapter.marshal(calendar)).isEqualTo(expected);
-        assertThat(calendar.toString()).isEqualTo(original);
+        assertThat(calendar).hasToString(original);
         assertThat(adapter.marshal(calendar)).isEqualTo(expected);
-        assertThat(calendar.toString()).isEqualTo(original);
+        assertThat(calendar).hasToString(original);
     }
 }
