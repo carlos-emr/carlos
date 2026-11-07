@@ -70,7 +70,9 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
             context.getEnvironment().getPropertySources().addFirst(new PropertiesPropertySource("owned-cli-fixture", settings));
             context.registerBean("cdsExportProperties", Properties.class, () -> settings); context.register(CdsExportCliSpringConfiguration.class);
             context.refresh();
-            org.assertj.core.api.Assertions.assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosurePolicyService.class)).isNotNull(); var sql = new JdbcTemplate(context.getBean(DataSource.class));
+            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosurePolicyService.class)).isNotNull();
+            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicOccurrenceService.class)).isNotNull();
+            var sql = new JdbcTemplate(context.getBean(DataSource.class));
             assertThat(sql.queryForObject("SELECT DATABASE()", String.class)).isEqualTo("cds_export_test");
             var sourceRead = new org.springframework.transaction.support.TransactionTemplate(
                     context.getBean(org.springframework.transaction.PlatformTransactionManager.class));
