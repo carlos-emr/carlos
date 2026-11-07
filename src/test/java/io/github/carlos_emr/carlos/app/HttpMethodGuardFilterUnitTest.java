@@ -1316,6 +1316,28 @@ class HttpMethodGuardFilterUnitTest {
             verify(chain, never()).doFilter(any(), any());
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should block an appointment location change that is not posted")
+        void shouldBlock_forAppointmentLocationDispatch(String httpMethod) throws Exception {
+            // #3982: the Locations tab opens without a dispatch; every dispatch is a change.
+            MockHttpServletResponse res = doFilter(httpMethod, "/appointment/apptLocationSetting", "dispatch", "view");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            assertThat(res.getHeader("Allow")).isEqualTo("POST");
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"view", "modify"})
+        @DisplayName("should pass the Statuses tab opened by its menu link or an old bookmark")
+        void shouldPassThrough_forAppointmentStatusViewDispatch(String dispatch) throws Exception {
+            MockHttpServletResponse res = doFilter("GET", "/appointment/apptStatusSetting", "dispatch", dispatch);
+
+            assertThat(res.getStatus()).isEqualTo(200);
+            verify(chain).doFilter(any(), any());
+        }
+
         @Test
         @DisplayName("should pass the Teleplan Activity List's year archive, which writes nothing")
         void shouldPassThrough_forGenerateTeleplanFileYearArchive() throws Exception {
@@ -1352,7 +1374,7 @@ class HttpMethodGuardFilterUnitTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"/admin/ProviderPrivilege", "/admin/ProviderRole", "/messenger/HandleMessages",
-                "/billing/CA/BC/GenerateTeleplanFile"})
+                "/billing/CA/BC/GenerateTeleplanFile", "/appointment/apptLocationSetting"})
         @DisplayName("should pass a bare GET that only opens the page")
         void shouldPassThrough_forBareGet(String route) throws Exception {
             MockHttpServletResponse res = doFilter("GET", route);

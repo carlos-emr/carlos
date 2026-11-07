@@ -44,6 +44,10 @@ public class LookupListItem extends AbstractModel<Integer> {
 
     private String label;
 
+    private String icon;
+
+    private String colour;
+
     private boolean active = true;
 
     private int displayOrder = 0;
@@ -70,6 +74,8 @@ public class LookupListItem extends AbstractModel<Integer> {
         this.lookupListId = source.lookupListId;
         this.value = source.value;
         this.label = source.label;
+        this.icon = source.icon;
+        this.colour = source.colour;
         this.active = source.active;
         this.displayOrder = source.displayOrder;
         this.createdBy = source.createdBy;
@@ -117,6 +123,48 @@ public class LookupListItem extends AbstractModel<Integer> {
 
     public void setLabel(String label) {
         this.label = label;
+    }
+
+    /**
+     * Returns the icon drawn for this item, such as on an appointment location chip.
+     *
+     * @return String a whitelisted Font Awesome class such as {@code fa-house}, or null when unset
+     * @since 2026-11-04
+     */
+    public String getIcon() {
+        return icon;
+    }
+
+    /**
+     * Sets the icon drawn for this item. Writers validate it against a whitelist first, because
+     * pages write it into a {@code class} attribute.
+     *
+     * @param icon String a whitelisted Font Awesome class, or null to clear it
+     * @since 2026-11-04
+     */
+    public void setIcon(String icon) {
+        this.icon = icon;
+    }
+
+    /**
+     * Returns the colour this item is drawn in, such as on an appointment location chip.
+     *
+     * @return String a {@code #rrggbb} colour, or null when unset
+     * @since 2026-11-04
+     */
+    public String getColour() {
+        return colour;
+    }
+
+    /**
+     * Sets the colour this item is drawn in. Writers validate it as {@code #rrggbb} first, because
+     * pages write it into a {@code style} attribute.
+     *
+     * @param colour String a {@code #rrggbb} colour, or null to clear it
+     * @since 2026-11-04
+     */
+    public void setColour(String colour) {
+        this.colour = colour;
     }
 
     public boolean isActive() {

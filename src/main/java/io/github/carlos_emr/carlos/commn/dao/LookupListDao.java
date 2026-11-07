@@ -60,4 +60,19 @@ public interface LookupListDao extends AbstractDao<LookupList> {
      * @return a detached copy of the list, or {@code null} when no list has that name
      */
     public LookupList findByName(String name);
+
+    /**
+     * Loads a lookup list and locks its row for update ({@code SELECT ... FOR UPDATE}) until the
+     * caller's transaction ends, so two changes that check its items before writing (such as
+     * "no other active item has this name") cannot interleave. Must be called inside an active
+     * transaction, and the caller's later item reads must be locking reads or run at READ COMMITTED:
+     * under REPEATABLE READ they can return a snapshot taken before the lock. The list and its items
+     * are refreshed under the lock, so ones this transaction already loaded show the current rows.
+     * Never cached.
+     *
+     * @param id Integer the list id
+     * @return LookupList the locked, managed list, or null when it does not exist
+     * @since 2026-11-04
+     */
+    public LookupList findForUpdate(Integer id);
 }

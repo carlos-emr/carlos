@@ -54,6 +54,21 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
         prepared=new CdsAppointmentNativeDto("2024-03-01", "09:00", "10:00", "Original imported status", originalPurpose, originalNotes, "0é27", true, List.of());
         var values=new TreeMap<String, String>(); CdsExportDemographicRowDto.COLUMNS.forEach(name-> values.put(name, null)); values.putAll(Map.of("demographic_no", "27", "first_name", "Synthetic", "last_name", "Fixture")); demographic=new CdsExportCapturedTextRowDto("demographic", "0000000027", values); lookups=CdsExportAppointmentMapperUnitTest.lookups();
     }
+    @Test void shouldReconcileAPreLocationListReceipt_whenOnlyTheNewNullableColumnIsAdded() throws Exception {
+        old.remove("locationCode"); var result = reconcile(); assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes); assertThat(result.preparedPaths()).contains("AppointmentNotes", "AppointmentPurpose");
+        assertThat(result.mapping().fields().get(new CdsExportNativeFieldKeyDto("appointment", row(current).recordKey(), "locationCode")).outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.ABSENT);
+    }
+    @Test void shouldPreserveCurrentEdits_acrossTheKnownNullableLocationColumnUpgrade() throws Exception {
+        old.remove("locationCode"); current.put("notes", "Edited after the schema upgrade"); var result = reconcile();
+        assertThat(result.mapping().value().notes()).isEqualTo("Edited after the schema upgrade"); assertThat(result.mapping().value().purpose()).isEqualTo(originalPurpose);
+    }
+    @Test void shouldRequireReviewForAPopulatedAddedLocationReference_insteadOfIgnoringIt() {
+        old.remove("locationCode"); current.put("locationCode", "17"); assertThatThrownBy(this::reconcile).hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_CODEC_REQUIRES_REVIEW");
+    }
+    @Test void shouldRefuseAnotherMissingBaselineColumn_insteadOfTreatingItAsTheLocationUpgrade() {
+        old.remove("locationCode"); old.remove("billing"); assertThatThrownBy(this::reconcile).hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_CODEC_REQUIRES_REVIEW");
+    }
     @Test void unchangedImportedStatusPurposeNotesAndOriginalRecordedProviderRemainExact()throws Exception {
         var result=reconcile(); assertThat(result.mapping().nativeRowRepresentable()).isTrue(); assertThat(result.mapping().value().status()).isEqualTo(prepared.status()); assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
         assertThat(result.mapping().value().provider().firstName()).isEqualTo("Original"); assertThat(result.mapping().value().provider().ohipNumber()).isEqualTo("654321"); assertThat(result.preparedPaths()).contains("Provider", "AppointmentStatus", "AppointmentNotes", "AppointmentPurpose");
@@ -166,7 +181,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
         fields=List.of(field("AppointmentTime[1]", "cds", "09:00:00-05:00"), field("Duration[1]", "cds", "60"), field("AppointmentStatus[1]", "cds", prepared.status()), field("AppointmentDate[1]/FullDate[1]", "cds_dt", "2024-02-29"), field("Provider[1]/Name[1]/FirstName[1]", foreignNamespace?"urn:owned:unmapped":"cds_dt", "Original"), field("Provider[1]/Name[1]/LastName[1]", "cds_dt", "Physician"), field("Provider[1]/OHIPPhysicianId[1]", "cds", "654321"), field("AppointmentPurpose[1]", "cds", originalPurpose), field("AppointmentNotes[1]", "cds", originalNotes));
         var metadata=new TreeMap<String, CdsExportCapturedTextRowDto>(); fields.forEach(field-> metadata.put(field.id(), metadata(field))); var sourceRefs=fields.stream().map(field-> new CdsExportRetainedIndexDto.Reference("cds_import_field", field.id(), "e".repeat(64))).toList(); var tables=new TreeMap<String, Map<String, CdsExportCapturedTextRowDto>>(); tables.put("cds_import_unit", Map.of(id, new CdsExportCapturedTextRowDto("cds_import_unit", id, unit))); tables.put("cds_import_preparation", Map.of(id, new CdsExportCapturedTextRowDto("cds_import_preparation", id, preparation))); tables.put("cds_import_run", Map.of(RUN, new CdsExportCapturedTextRowDto("cds_import_run", RUN, Map.of("id", RUN, "options_digest", options, "ruleset_digest", ruleset)))); tables.put("cds_import_field", metadata);
         index=new CdsExportRetainedIndexDto(HASH, 3+fields.size(), 32768, tables, Set.of(ADDRESS, PAGE_ADDRESS), Map.of(ADDRESS, List.of(ref), PAGE_ADDRESS, sourceRefs), fields.stream().collect(java.util.stream.Collectors.toMap(CdsExportRetainedFieldDto::id, field-> ADDRESS)));
-        boolean same=previous.digest().equals(now.digest()); var comparisons=Map.of(ADDRESS, List.of(new CheckedReference(ref, now.digest(), same?Reason.UNCHANGED_ROW:Reason.CHANGED_ROW, CdsNativeRowComparison.compare(previous, now))), PAGE_ADDRESS, sourceRefs.stream().map(value-> new CheckedReference(value, value.digest(), Reason.UNCHANGED_ROW)).toList()); checked=new CdsExportRetainedReceiptVerificationDto(HASH, comparisons, same?Set.of(ADDRESS, PAGE_ADDRESS):Set.of(PAGE_ADDRESS), same?Set.of():Set.of(ADDRESS));
+        boolean same=previous.digest().equals(now.digest()); var comparisons=Map.of(ADDRESS, List.of(new CheckedReference(ref, now.digest(), same?Reason.UNCHANGED_ROW:CdsNativeRowComparison.compare(previous, now).schemaChanged()?Reason.RECEIPT_FIELD_CODEC_UNQUALIFIED:Reason.CHANGED_ROW, CdsNativeRowComparison.compare(previous, now))), PAGE_ADDRESS, sourceRefs.stream().map(value-> new CheckedReference(value, value.digest(), Reason.UNCHANGED_ROW)).toList()); checked=new CdsExportRetainedReceiptVerificationDto(HASH, comparisons, same?Set.of(ADDRESS, PAGE_ADDRESS):Set.of(PAGE_ADDRESS), same?Set.of():Set.of(ADDRESS));
     }
     private static CdsExportRetainedFieldDto field(String relative, String namespace, String value) {
         var type=CdsWireSchema.schemaModel().element("cds", "Appointments"); for (String segment:relative.split("/")){String name=segment.substring(0, segment.indexOf('[')); var child=type.childNames().stream().filter(candidate-> candidate.local().equals(name)).findFirst().orElseThrow(); type=type.child(child.namespace(), child.local()); }

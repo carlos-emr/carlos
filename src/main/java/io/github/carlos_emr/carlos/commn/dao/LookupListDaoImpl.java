@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 
 import io.github.carlos_emr.carlos.commn.model.AbstractModel;
@@ -45,6 +46,8 @@ import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements LookupListDao {
@@ -112,7 +115,8 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
             }
         }
 
-        Query q = entityManager.createQuery("select l from LookupList l where l.name=?1");
+        // Keep stable selection and detached cache copies when names are duplicated.
+        Query q = entityManager.createQuery("select l from LookupList l where l.name=?1 order by l.id");
         q.setParameter(1, name);
 
         LookupList ll = this.getSingleResultOrNull(q);
@@ -151,6 +155,24 @@ public class LookupListDaoImpl extends AbstractDaoImpl<LookupList> implements Lo
             copies.add(LookupList.copyOf(lookupList));
         }
         return Collections.unmodifiableList(copies);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public LookupList findForUpdate(Integer id) {
+        if (id == null) {
+            return null;
+        }
+        LookupList list = entityManager.find(LookupList.class, id, LockModeType.PESSIMISTIC_WRITE);
+        if (list != null) {
+            // find() returns an entity this persistence context already holds as it was read (an
+            // uncached findByName just before, for example); re-read it and its items under the lock.
+            // This transaction's own pending changes are written first, so the refresh keeps them.
+            entityManager.flush();
+            entityManager.refresh(list);
+            list.getItems().forEach(entityManager::refresh);
+        }
+        return list;
     }
 
     @CacheEvict(value = CacheConfig.LOOKUP_LISTS, allEntries = true)

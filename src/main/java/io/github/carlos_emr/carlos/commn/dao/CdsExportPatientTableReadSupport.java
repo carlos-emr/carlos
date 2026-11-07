@@ -69,13 +69,13 @@ public final class CdsExportPatientTableReadSupport {
                 "ver", "year_of_birth")),
         APPOINTMENT_ARCHIVE("appointmentArchive", "id", "demographic_no", List.of(
                 "appointment_date", "appointment_no", "billing", "bookingSource", "createdatetime", "creator", "creatorSecurityId", "demographic_no", "end_time",
-                "id", "imported_status", "lastupdateuser", "location", "name", "notes", "program_id", "provider_no", "reason", "remarks", "resources",
+                "id", "imported_status", "lastupdateuser", "location", "locationCode", "name", "notes", "program_id", "provider_no", "reason", "remarks", "resources",
                 "start_time", "status", "style", "type", "updatedatetime", "urgency")),
         APPOINTMENT_STATUSES("appointment_status", "id", null, List.of(
                 "active", "color", "description", "editable", "icon", "id", "short_letter_colour", "short_letters", "status")),
         APPOINTMENTS("appointment", "appointment_no", "demographic_no", List.of(
                 "appointment_date", "appointment_no", "billing", "bookingSource", "createdatetime", "creator", "creatorSecurityId", "demographic_no",
-                "end_time", "imported_status", "lastupdateuser", "location", "name", "notes", "program_id", "provider_no", "reason", "reasonCode",
+                "end_time", "imported_status", "lastupdateuser", "location", "locationCode", "name", "notes", "program_id", "provider_no", "reason", "reasonCode",
                 "remarks", "resources", "start_time", "status", "style", "type", "updatedatetime", "urgency")),
         DRUGS("drugs", "drugid", "demographic_no", List.of(
                 "ATC", "BN", "GCN_SEQNO", "GN", "archived", "archived_date",

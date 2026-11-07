@@ -37,7 +37,7 @@ class CdsExportAppointmentMapperUnitTest {
     private final CdsExportAppointmentMapper mapper = new CdsExportAppointmentMapper();
     @Test void shouldAccountForEveryNativeField_andUseExactCapturedPublicDefinitions() throws Exception {
         var mapped = mapper.map(27, appointment(baseline()), lookups(), ZONE);
-        assertThat(mapped.nativeRowRepresentable()).isTrue(); assertThat(mapped.fields()).hasSize(41);
+        assertThat(mapped.nativeRowRepresentable()).isTrue(); assertThat(mapped.fields()).hasSize(42);
         assertThat(mapped.value().status()).isEqualTo("Exact booked Ω");
         assertThat(mapped.value().provider().ohipNumber()).isEqualTo("001234");
         assertThat(mapped.value().provider().firstName()).isEqualTo("Zoë😀");
@@ -69,7 +69,7 @@ class CdsExportAppointmentMapperUnitTest {
         }
     }
     @Test void shouldKeepUnmappedExtrasAndOversizeValuesExplicit_withoutAppendingThemToNotes() throws Exception {
-        for (var extra : Map.of("location", "Clinic A", "name", "Different patient display", "remarks", "Additional clinical information", "reason", "x".repeat(251)).entrySet()) {
+        for (var extra : Map.of("locationCode", "17", "location", "Clinic A", "name", "Different patient display", "remarks", "Additional clinical information", "reason", "x".repeat(251)).entrySet()) {
             var fields = baseline(); fields.put(extra.getKey(), extra.getValue());
             var mapped = mapper.map(27, appointment(fields), lookups(), ZONE);
             assertThat(mapped.nativeRowRepresentable()).isFalse(); assertThat(mapped.fields().get(key(extra.getKey())).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);

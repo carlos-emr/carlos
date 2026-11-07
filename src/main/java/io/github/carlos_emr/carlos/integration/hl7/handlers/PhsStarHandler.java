@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.integration.hl7.handlers;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -331,7 +332,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
         appt.setDemographicNo(demographicNo);
         appt.setStartTime(getApptStartDate());
         appt.setEndTime(getApptEndDate());
-        appt.setLocation(getApptLocation());
+        AppointmentLocationResolver.setLocationText(appt, getApptLocation());
         appt.setName(demographic.getFormattedName());
         appt.setProviderNo(provider.getProviderNo());
         appt.setType(getApptType());
@@ -486,7 +487,7 @@ public class PhsStarHandler extends BasePhsStarHandler {
         appt.setAppointmentDate(getApptStartDate());
         appt.setStartTime(getApptStartDate());
         appt.setEndTime(getApptEndDate());
-        appt.setLocation(getApptLocation());
+        AppointmentLocationResolver.setLocationText(appt, getApptLocation());
         appt.setType(getApptType());
         appt.setReason(getApptReason());
         if (p != null) {

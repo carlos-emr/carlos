@@ -49,7 +49,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Cache invalidation and isolation regression tests for {@link AppointmentStatusDao}.
  *
- * <p>Verifies that write paths (persist/merge/remove/saveEntity/modifyStatus/changeStatus)
+ * <p>Verifies that write paths (persist/merge/remove/saveEntity/modifyStyle/changeStatus)
  * correctly evict the {@code appointmentStatuses} cache after commit. A refactor that
  * dropped one of these {@code @CacheEvict} annotations would otherwise ship silently.</p>
  *
@@ -117,19 +117,52 @@ class AppointmentStatusDaoCacheIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    @DisplayName("should evict appointmentStatuses cache when modifyStatus commits")
-    void shouldEvictAppointmentStatusesCache_whenModifyStatusCommits() {
+    @DisplayName("should evict appointmentStatuses cache when modifyStyle commits")
+    void shouldEvictAppointmentStatusesCache_whenModifyStyleCommits() {
         AppointmentStatus seeded = persistSeed("Y", "original");
 
-        transactionTemplate.executeWithoutResult(status -> appointmentStatusDao.findAll());
+        transactionTemplate.executeWithoutResult(status -> appointmentStatusDao.findActive());
         assertThat(cacheEntryCount()).isPositive();
 
         transactionTemplate.executeWithoutResult(status ->
-                appointmentStatusDao.modifyStatus(seeded.getId(), "modified", "#abcdef"));
+                assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), "modified", "#abcdef", "here.gif")).isTrue());
 
         assertThat(cacheEntryCount())
-                .as("modifyStatus must evict the appointmentStatuses cache after commit")
+                .as("modifyStyle must evict the appointmentStatuses cache after commit")
                 .isZero();
+        AppointmentStatus saved = transactionTemplate.execute(status -> appointmentStatusDao.find(seeded.getId()));
+        assertThat(saved.getDescription()).isEqualTo("modified");
+        assertThat(saved.getColor()).isEqualTo("#abcdef");
+        assertThat(saved.getIcon()).isEqualTo("here.gif");
+    }
+
+    @Test
+    @DisplayName("should retain independent status edits when another transaction commits first")
+    void shouldRetainIndependentEdits_whenAnotherTransactionCommitsFirst() {
+        AppointmentStatus seeded = persistSeed("W", "original");
+
+        transactionTemplate.executeWithoutResult(outer -> {
+            assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), "new description", null, null)).isTrue();
+            // REQUIRES_NEW suspends the first persistence context, reproducing two requests that
+            // read the same status before either commits without relying on thread timing.
+            transactionTemplate.executeWithoutResult(inner -> {
+                assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), null, "#abcdef", "here.gif")).isTrue();
+                appointmentStatusDao.changeStatus(seeded.getId(), 0);
+            });
+        });
+
+        AppointmentStatus saved = transactionTemplate.execute(status -> appointmentStatusDao.find(seeded.getId()));
+        assertThat(saved.getDescription()).isEqualTo("new description");
+        assertThat(saved.getColor()).isEqualTo("#abcdef");
+        assertThat(saved.getIcon()).isEqualTo("here.gif");
+        assertThat(saved.getActive()).isZero();
+        assertThat(appointmentStatusDao.findAll()).anySatisfy(status -> {
+            assertThat(status.getId()).isEqualTo(seeded.getId());
+            assertThat(status.getDescription()).isEqualTo("new description");
+            assertThat(status.getColor()).isEqualTo("#abcdef");
+            assertThat(status.getIcon()).isEqualTo("here.gif");
+            assertThat(status.getActive()).isZero();
+        });
     }
 
     @Test

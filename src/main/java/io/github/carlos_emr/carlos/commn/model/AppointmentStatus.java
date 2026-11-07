@@ -38,10 +38,14 @@ import jakarta.persistence.PostUpdate;
 import jakarta.persistence.Table;
 
 import io.github.carlos_emr.carlos.appt.status.service.impl.AppointmentStatusMgrImpl;
+import org.hibernate.annotations.DynamicUpdate;
 
 
 @Entity
 @Table(name = "appointment_status")
+// Inline forms save one field at a time. Updating only dirty columns keeps a concurrent
+// colour/icon/activation change from being overwritten by this request's older snapshot.
+@DynamicUpdate
 public class AppointmentStatus extends AbstractModel<Integer> {
 
     public static final String APPOINTMENT_STATUS_HERE = "H";

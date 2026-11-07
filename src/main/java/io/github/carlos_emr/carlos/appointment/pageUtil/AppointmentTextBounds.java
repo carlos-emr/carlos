@@ -86,7 +86,7 @@ final class AppointmentTextBounds {
         return ActionSupport.INPUT;
     }
 
-    private static boolean canRedisplay(HttpServletRequest request) {
+    static boolean canRedisplay(HttpServletRequest request) {
         String date = request.getParameter("appointment_date");
         if (date == null || !date.matches("\\d{4}-\\d{2}-\\d{2}")) return false;
         try { if (!LocalDate.parse(date).toString().equals(date)) return false; }

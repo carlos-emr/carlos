@@ -93,8 +93,9 @@ migration/
            V1.0.78__add_sms_config.sql  # was V1.0.59 (#3927)
            V1.0.79__add_email_log_footer.sql
            V1.0.80__email_front_desk_default.sql
-           V1.0.81__cds_export_ledger.sql
+           V1.0.81__appointment_location_list.sql  # appointment Location List (#3982)
            V1.0.82__cds_native_field_baselines.sql
+           V1.0.83__cds_export_ledger.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -116,9 +117,9 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The combined high-water mark is `common/V1.0.82`,
-so the next unallocated version for ANY location is `V1.0.83`. The portal booking migrations
-occupy `V1.0.60`–`V1.0.61`; the export ledger and native field baselines occupy `V1.0.81`–`V1.0.82`.
+`V1.0.3` onward is a forward delta. The combined high-water mark is `common/V1.0.83`,
+so the next unallocated version for ANY location is `V1.0.84`. The portal booking migrations
+occupy `V1.0.60`–`V1.0.61`; appointment locations retain develop's `V1.0.81`, native field baselines use `V1.0.82`, and the unpublished export ledger moves to `V1.0.83`.
 Published SQL files retain their numbers and bytes. The merge ledger preserves develop's history,
 then records the lower release arrivals as `forward-merge`; a database already past those lower
 versions requires the documented rebuild/upgrade handling rather than silent out-of-order execution.
@@ -165,8 +166,8 @@ renumbered or not merged. Apply the present migrations in version order;
 do not enable `outOfOrder` to fill gaps. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
-run — `common/V1.0.80` on both provinces. A hypothetical new `bc/V1.0.11` would
-apply fine on a fresh install (version order places it before `common/V1.0.80`) but would silently
+run — `common/V1.0.81` on both provinces. A hypothetical new `bc/V1.0.11` would
+apply fine on a fresh install (version order places it before `common/V1.0.81`) but would silently
 never run on existing BC databases and would fail `flyway validate` there — so never number a new
 migration at or below the global high-water mark, even if that number was only ever used under the
 other province. Check every active branch inventory (release and develop) before allocating a

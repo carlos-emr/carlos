@@ -41,6 +41,8 @@ import io.github.carlos_emr.carlos.lab.service.ProviderLinkingRulesService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.providers.pageUtil.DeleteMyGroupMembers2Action;
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationService;
+import io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -117,7 +119,7 @@ import static org.mockito.Mockito.when;
  *       obtained during construction/{@code execute()}.</li>
  * </ol>
  *
- * <p><b>Adding a new mutator 2Action.</b> The {@link #discoveryCandidatesMustBeRegistered()}
+ * <p><b>Adding a new mutator 2Action.</b> The {@link #shouldRegisterDiscoveryCandidates_forEveryInScopeAction()}
  * test scans {@code src/main/java} for any {@code *2Action.java} in an audited
  * slice, or explicitly registered legacy class, containing a POST method check
  * plus either {@code SC_METHOD_NOT_ALLOWED} or a call to the shared
@@ -318,7 +320,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * Conditional mutators — reject GET only when specific mutation-intent
      * parameters are present. Each of these MUST have a dedicated focused
      * test covering its GET-rejection path; this list only exists so the
-     * {@link #discoveryCandidatesMustBeRegistered()} scan does not flag them.
+     * {@link #shouldRegisterDiscoveryCandidates_forEveryInScopeAction()} scan does not flag them.
      *
      * <p>If you add to this list, also add the corresponding focused test.
      */
@@ -512,6 +514,11 @@ class MutatorActionGetRejectionContractUnitTest {
         // Appointment types: a bare GET (and oper=edit) renders the list/edit form; only
         // oper=save and oper=del are POST-only (see AppointmentType2ActionUnitTest).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        // Appointment Settings (#3982): a bare GET renders the Statuses or Locations tab; every
+        // dispatch that changes a status or a location is POST-only (see the parameterized cases
+        // below, AppointmentStatus2ActionUnitTest and AppointmentLocationSettings2ActionUnitTest).
+        "io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action",
+        "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action",
         // Facility admin: list/edit/add render on a GET (method=add only builds a transient
         // Facility for the form); only method=delete and method=save are POST-only
         // (see FacilityManager2ActionUnitTest).
@@ -652,9 +659,11 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.EchartDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.LabDisplaySettings2Action",
         "io.github.carlos_emr.carlos.admin.web.AdminNewGroup2Action",
-        // appt slice: AppointmentType2Action is the only migrated mutator; the appt package is
-        // not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
+        // appt slice: the appt packages are not in IN_SCOPE_PACKAGE_PREFIXES, so their migrated
+        // mutators register explicitly (conditional mutators).
         "io.github.carlos_emr.carlos.appt.web.AppointmentType2Action",
+        "io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action",
+        "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action",
         "io.github.carlos_emr.carlos.admin.web.ClientManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ClinicNbrManage2Action",
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action",
@@ -736,8 +745,7 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.encounter.oceanEReferal.pageUtil.ERefer2Action",
         // encounter slice: EctSaveEncounter2Action writes the legacy editor's eChart revision (#4673).
         "io.github.carlos_emr.carlos.encounter.pageUtil.EctSaveEncounter2Action",
-        // encounter slice: EctIncomingEncounter2Action copies a note on PEAttach=yes (#4673;
-        // conditional mutator).
+        // The encounter slice also covers the conditional incoming-note copy from issue #4673.
         "io.github.carlos_emr.carlos.encounter.pageUtil.EctIncomingEncounter2Action",
         // security slice: MfaActions2Action's resetMfa is a POST-only privileged mutation; the security
         // package is not in IN_SCOPE_PACKAGE_PREFIXES, so it registers explicitly (conditional mutator).
@@ -866,6 +874,35 @@ class MutatorActionGetRejectionContractUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"reset", "changestatus", "updateDescription", "updateColour", "updateIcon"})
+    @DisplayName("AppointmentStatus2Action should reject GET and HEAD for every status change")
+    void shouldRejectUnsafeMethod_forAppointmentStatusChange(String dispatch) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            assertRejectsUnsafeMethod(
+                    "io.github.carlos_emr.carlos.appt.status.web.AppointmentStatus2Action",
+                    "_admin.schedule", "w", httpMethod,
+                    Map.of("dispatch", dispatch, "id", "13", "active", "0", "apptDesc", "Missed",
+                            "apptColor", "#abcdef", "apptIcon", "noshow.gif"));
+        }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "add, w", "addMany, w", "rename, w", "updateColour, w", "updateIcon, w",
+        "moveUp, w", "moveDown, w", "restore, w", "deactivate, d"
+    })
+    @DisplayName("AppointmentLocationSettings2Action should reject GET and HEAD for every location change")
+    void shouldRejectUnsafeMethod_forAppointmentLocationChange(String dispatch, String privilege) throws Exception {
+        for (String httpMethod : List.of("GET", "HEAD")) {
+            assertRejectsUnsafeMethod(
+                    "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action",
+                    "_admin.schedule", privilege, httpMethod,
+                    Map.of("dispatch", dispatch, "id", "7", "name", "Room 2", "names", "Room 3",
+                            "colour", "#abcdef", "icon", "fa-house"));
+        }
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"reprint", "reprint2"})
     @DisplayName("Prescription reprint audit writes should reject GET and HEAD")
     void shouldRejectUnsafeMethod_forPrescriptionReprintDispatch(String method) throws Exception {
@@ -898,7 +935,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},
         "io.github.carlos_emr.carlos.form.pageUtil.FrmSelect2Action", new String[]{"_form", "w"},
-        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"});
+        "io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action", new String[]{"_billing", "w"},
+        "io.github.carlos_emr.carlos.appt.web.AppointmentLocationSettings2Action", new String[]{"_admin.schedule", "w"});
 
     /**
      * One case per route and write parameter in {@link HttpMethodGuardFilter#MUTATION_INTENT_PARAMS_BY_ROUTE},
@@ -980,7 +1018,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * {@code init()}. Every entry whose name does not start with {@code view} writes or removes something, so
      * each must refuse GET and HEAD. {@link #methodMapWriteDispatches()} reads the entries from the action
      * itself, so a new unguarded write fails here with no manifest edit, and
-     * {@link #methodMapDispatchersMustBeRegistered()} keeps this list complete.
+     * {@link #shouldRegisterMethodMapDispatchers_forEveryMappedAction()} keeps this list complete.
      */
     private static final Set<String> METHOD_MAP_DISPATCHERS = Set.of(
         "io.github.carlos_emr.carlos.provider.web.ProviderProperty2Action");
@@ -994,7 +1032,7 @@ class MutatorActionGetRejectionContractUnitTest {
             try (MockedStatic<SpringUtils> springUtils = mockStatic(SpringUtils.class);
                  MockedStatic<ServletActionContext> servletCtx = mockStatic(ServletActionContext.class)) {
                 springUtils.when(() -> SpringUtils.getBean(any(Class.class)))
-                        .thenAnswer(inv -> Mockito.mock((Class<?>) inv.getArgument(0)));
+                        .thenAnswer(inv -> mock((Class<?>) inv.getArgument(0)));
                 servletCtx.when(ServletActionContext::getRequest).thenReturn(new MockHttpServletRequest());
                 servletCtx.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
                 Object action = actionClass.getDeclaredConstructor().newInstance();
@@ -1022,7 +1060,7 @@ class MutatorActionGetRejectionContractUnitTest {
 
     @Test
     @DisplayName("discovery: every *2Action dispatching through a methodMap must be in METHOD_MAP_DISPATCHERS")
-    void methodMapDispatchersMustBeRegistered() throws IOException {
+    void shouldRegisterMethodMapDispatchers_forEveryMappedAction() throws IOException {
         Path sourceRoot = Paths.get("src", "main", "java");
         assertThat(sourceRoot)
             .as("Expected src/main/java relative to the test working directory")
@@ -1165,6 +1203,14 @@ class MutatorActionGetRejectionContractUnitTest {
             }
             return constructors[0].newInstance(arguments);
         }
+        if (actionClass.equals(AppointmentLocationSettings2Action.class)) {
+            // The shared granting SecurityInfoManager, so the declared privilege tuple is checked on it.
+            return new AppointmentLocationSettings2Action(SpringUtils.getBean(SecurityInfoManager.class),
+                    (AppointmentLocationService) autoMocks.computeIfAbsent(
+                            AppointmentLocationService.class, Mockito::mock),
+                    (org.springframework.transaction.PlatformTransactionManager) autoMocks.computeIfAbsent(
+                            org.springframework.transaction.PlatformTransactionManager.class, Mockito::mock));
+        }
         if (actionClass.equals(DelEForm2Action.class)) {
             return new DelEForm2Action(mock(SecurityInfoManager.class));
         }
@@ -1260,7 +1306,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     @Test
     @DisplayName("discovery: every *2Action with a POST check and a 405 answer must be registered")
-    void discoveryCandidatesMustBeRegistered() throws IOException {
+    void shouldRegisterDiscoveryCandidates_forEveryInScopeAction() throws IOException {
         Path sourceRoot = Paths.get("src", "main", "java");
         // The test must run from the repo root (default for surefire). If the
         // source root is missing, the scan cannot run — fail loudly rather

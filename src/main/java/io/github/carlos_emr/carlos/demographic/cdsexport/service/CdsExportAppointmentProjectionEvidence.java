@@ -47,5 +47,26 @@ final class CdsExportAppointmentProjectionEvidence {
         try {int id=Integer.parseInt(witness.id()); if (!Integer.toString(id).equals(witness.id())||!CdsExportPatientTableSourceReader.key(id).equals(row.recordKey()))invalid(); }catch (NumberFormatException failed){invalid(); }
         for (String name:row.fields().keySet())if (!matches(witness.state(), name, row.fields().get(name)))invalid();
     }
+    /**
+     * A pre-Location-List receipt may lack only the new nullable picker identity. Its
+     * original digest is still checked by the caller. Compare the common physical fields
+     * only when the captured added value is SQL NULL; no stored receipt is rewritten.
+     * A populated added value, another missing column or any metadata change stays review.
+     */
+    static CdsNativeRowComparison compare(CdsNativeRowState original, CdsNativeRowState current) {
+        var expected = new HashSet<>(CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns());
+        var priorNames = original.columns().stream().map(CdsNativeRowDigest.Column::name).toList();
+        var currentNames = current.columns().stream().map(CdsNativeRowDigest.Column::name).toList();
+        var legacy = new HashSet<>(expected); legacy.remove("locationCode");
+        if (original.table().equals("appointment") && current.table().equals("appointment")
+                && Set.copyOf(priorNames).equals(legacy) && Set.copyOf(currentNames).equals(expected)) {
+            int added = currentNames.indexOf("locationCode");
+            if (current.cells().get(added).sqlNull() && CdsExactNumeric.codec(current.columns().get(added).type()) == null) {
+                var columns = new ArrayList<>(current.columns()); var cells = new ArrayList<>(current.cells()); columns.remove(added); cells.remove(added);
+                return CdsNativeRowComparison.compare(original, new CdsNativeRowState(current.table(), current.id(), columns, cells));
+            }
+        }
+        return CdsNativeRowComparison.compare(original, current);
+    }
     private static void invalid()throws IOException{throw new IOException("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID"); }
 }

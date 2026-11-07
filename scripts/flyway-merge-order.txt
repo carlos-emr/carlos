@@ -82,6 +82,7 @@ common/V1.0.77__one_live_consent_per_type.sql
 common/V1.0.78__add_sms_config.sql
 common/V1.0.79__add_email_log_footer.sql
 common/V1.0.80__email_front_desk_default.sql
+common/V1.0.81__appointment_location_list.sql
 # Published release migrations arrive below the existing develop high-water mark.
 common/V1.0.59.8__widen_messagetbl_pdfattachment.sql forward-merge
 common/V1.0.59.8.1__cds_import_ledger.sql forward-merge
@@ -109,5 +110,5 @@ bc/V1.0.59.29__preserve_oscar19_text_capacity.sql forward-merge
 common/V1.0.59.30__one_live_consent_per_type.sql forward-merge
 bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql forward-merge
 common/V1.0.59.32__preserve_native_archive_capacity.sql forward-merge
-common/V1.0.81__cds_export_ledger.sql
 common/V1.0.82__cds_native_field_baselines.sql
+common/V1.0.83__cds_export_ledger.sql

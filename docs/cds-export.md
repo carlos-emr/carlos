@@ -98,13 +98,12 @@ implementation groups; recorded job hashes are never rewritten. This changes the
 runtime compatibility identity: pending import recovery across this upgrade requires
 the exact installed compatibility checks, rather than an assumed compatible resume.
 
-The V1.0.81 migration introduces independent export run and event tables. Both are
+The V1.0.83 migration introduces independent export run and event tables. Both are
 restricted from Query by Example. Only their exact metadata names and the exact
 `SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))` lease-clock expression are exempted
 from clinical maintenance admission; joins/subqueries involving clinical tables remain
 guarded. Export metadata receives the same strict UTF-8 session treatment as import
-metadata, without an importer clinical-write capability. The unreleased migration is
-reserved after develop's V1.0.80 and must ship after the prerequisite forward integration.
+metadata, without an importer clinical-write capability. The unpublished ledger was renumbered above develop's appointment Location List (`V1.0.81`) and the native field baselines (`V1.0.82`); existing published migration bytes remain unchanged.
 
 The original three OntarioMD ZIPs have now been supplied. Their hashes match the
 importer's provenance, and the export-facing original requirements and implementation
@@ -1193,3 +1192,10 @@ The inventory additions passed 38 focused checks, including ten planner tests, s
 
 
 The revision inventory is now package verified: 166 checks across 13 targeted suites, followed by 78 installed assertions using the exact WAR (`14c225f58639e78506e45510337ed5b926999afc3a4850ad82d0a44da56614e3`) and byte-for-byte exploded classes with no component overlays. The genuine note universe and whole-row metadata witnesses matched completely, the memory budget requested review when exceeded, and temporary fixture access edits were restored. These counts remain separate from the preserved 3,931-check full baseline. This qualifies the revision inventory component; current clinical field reconciliation, audit evidence serialization and history occurrence assembly remain unfinished.
+
+The appointment capture includes develop's nullable `locationCode` on current and archive
+rows. A populated location reference remains explicit review until its clinical location
+and supporting carrier are qualified. For an older sealed appointment baseline, only the
+known added SQL-NULL column can be excluded from the common-field comparison; all original
+receipt bytes remain unchanged. Other schema changes or a populated added value still
+require review.

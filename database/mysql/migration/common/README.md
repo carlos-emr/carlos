@@ -218,3 +218,13 @@ a message whose PDFs do not fit instead of storing them cut. Apply before deploy
 - `V1.0.80__email_front_desk_default.sql` grants the front desk default email access while retaining explicit denials.
 
 These versions follow the current develop and release/2026.08 migration ranges.
+
+## Appointment Location List (V1.0.81)
+
+- `V1.0.81__appointment_location_list.sql` (#3982) adds `LookupListItem.icon` and `.colour` (a
+  location chip's whitelisted Font Awesome class and `#rrggbb` colour), `appointment.locationCode`
+  and `appointmentArchive.locationCode` (the chosen Location List item; `location` keeps a snapshot
+  of its label), and seeds the empty `appointmentLocationCode` lookup list. It does **not** narrow
+  `location`: CARLOS keeps it `varchar(255)` (V1.0.8). Every statement is idempotent
+  (`ADD COLUMN IF NOT EXISTS`, `INSERT ... WHERE NOT EXISTS`), so a re-run changes nothing. See
+  `docs/appointment-settings.md`.

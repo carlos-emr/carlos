@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
+import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import java.util.Calendar;
 import java.util.List;
 import java.util.TimeZone;
@@ -60,6 +61,7 @@ public final class AppointmentTransfer {
     private String notes;
     private String reason;
     private String location;
+    private Integer locationCode;
     private String resources;
     private String type;
     private String style;
@@ -151,6 +153,27 @@ public final class AppointmentTransfer {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    /**
+     * Gets the Location List item the appointment was booked with; {@link #getLocation()} holds
+     * that item's label as it was at booking. Read-only for SOAP clients.
+     *
+     * @return Integer the LookupListItem id, or null when no item was chosen
+     * @since 2026-11-04
+     */
+    public Integer getLocationCode() {
+        return locationCode;
+    }
+
+    /**
+     * Sets the Location List item id copied from the appointment.
+     *
+     * @param locationCode Integer the LookupListItem id, or null
+     * @since 2026-11-04
+     */
+    public void setLocationCode(Integer locationCode) {
+        this.locationCode = locationCode;
     }
 
     public String getResources() {
@@ -251,8 +274,11 @@ public final class AppointmentTransfer {
 
     public Appointment copyTo(Appointment appointment) {
 
-        String[] ignored = {"id", "appointmentDate", "startTime", "endTime", "createDateTime", "updateDateTime", "creator", "lastUpdateUser", "creatorSecurityId"};
+        // The location code is read-only over SOAP: a client sends text, and a changed text
+        // clears a Location List code that no longer names it (AppointmentLocationResolver).
+        String[] ignored = {"id", "appointmentDate", "startTime", "endTime", "createDateTime", "updateDateTime", "creator", "lastUpdateUser", "creatorSecurityId", "location", "locationCode"};
         BeanUtils.copyProperties(this, appointment, ignored);
+        AppointmentLocationResolver.setLocationText(appointment, location);
 
         if (appointmentStartDateTime != null) {
             appointment.setAppointmentDate(appointmentStartDateTime.getTime());

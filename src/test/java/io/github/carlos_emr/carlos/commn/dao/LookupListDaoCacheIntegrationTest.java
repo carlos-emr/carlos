@@ -262,10 +262,14 @@ class LookupListDaoCacheIntegrationTest extends CarlosTestBase {
         assertThat(first.getItems()).extracting(LookupListItem::getLabel).containsExactly("First", "Second");
         assertThat(second).isNotSameAs(first).isNotSameAs(cachedValue(key));
         assertThat(second.getItems()).isNotSameAs(first.getItems());
+        assertThat(first.getItems().get(0).getIcon()).isEqualTo("fa fa-map-marker");
+        assertThat(second.getItems().get(0).getColour()).isEqualTo("#123abc");
         assertNoSharedItems(second, (LookupList) cachedValue(key));
 
         first.setDescription("mutated-copy");
         first.getItems().get(0).setLabel("mutated-label");
+        first.getItems().get(0).setIcon("fa fa-home");
+        first.getItems().get(0).setColour("#ffffff");
         first.getItems().remove(1);
         first.getItems().add(buildItem(seeded.getId(), "added", 9));
 
@@ -277,7 +281,11 @@ class LookupListDaoCacheIntegrationTest extends CarlosTestBase {
                 .as("changing one returned item list or item must not change the next read")
                 .extracting(LookupListItem::getLabel)
                 .containsExactly("First", "Second");
+        assertThat(third.getItems().get(0).getIcon()).isEqualTo("fa fa-map-marker");
+        assertThat(third.getItems().get(0).getColour()).isEqualTo("#123abc");
         LookupList snapshot = (LookupList) cachedValue(key);
+        assertThat(snapshot.getItems().get(0).getIcon()).isEqualTo("fa fa-map-marker");
+        assertThat(snapshot.getItems().get(0).getColour()).isEqualTo("#123abc");
         assertThat(snapshot.getDescription()).isEqualTo("seeded for cache invalidation test");
         assertThat(snapshot.getItems()).extracting(LookupListItem::getLabel).containsExactly("First", "Second");
     }
@@ -357,6 +365,8 @@ class LookupListDaoCacheIntegrationTest extends CarlosTestBase {
         LookupList seeded = persistSeed(name);
         transactionTemplate.executeWithoutResult(status -> {
             LookupListItem firstItem = buildItem(seeded.getId(), "First", 1);
+            firstItem.setIcon("fa fa-map-marker");
+            firstItem.setColour("#123abc");
             LookupListItem secondItem = buildItem(seeded.getId(), "Second", 2);
             lookupListItemDao.persist(firstItem);
             lookupListItemDao.persist(secondItem);
