@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
 import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.FileReview;
+import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -83,9 +84,9 @@ public final class BillingImportedFiles {
         Path snapshot = null;
         try {
             if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw unresolved(null);
-            // createTempFile uses restrictive permissions; the snapshot is never published
-            // in HOME_DIR and no billing writer knows its pathname.
-            snapshot = Files.createTempFile("carlos-billing-reviewed-", ".tmp");
+            // Set owner-only permissions explicitly through the shared secure-temp helper.
+            // The snapshot is never published in HOME_DIR or named by a billing writer.
+            snapshot = PathValidationUtils.createSecureTempFile("carlos-billing-reviewed-", ".tmp").toPath();
             try (var input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS);
                  var output = Files.newOutputStream(snapshot)) {
                 input.transferTo(output);

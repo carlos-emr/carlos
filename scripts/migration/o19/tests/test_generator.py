@@ -350,6 +350,7 @@ class TestGenerator(unittest.TestCase):
             self.assertNotIn("generated_at", text)
 
     def test_shipped_manifests_carry_the_format_and_kind(self):
+        """Require the supported envelope format and kind for every shipped manifest."""
         # the loader in carlos-ctl refuses anything else before reading a
         # data key; the envelope is the whole cross-package contract
         import json
