@@ -356,7 +356,8 @@ class TestGenerator(unittest.TestCase):
         for kind, name in self.gen.MANIFEST_FILES.items():
             data = json.loads((self.gen.MANIFEST_DIR / name).read_text(
                 encoding="utf-8"))
-            self.assertEqual(data["format"], self.gen.MANIFEST_FORMAT, name)
+            self.assertEqual(data["format"], self.gen.SCHEMA_MANIFEST_FORMAT
+                             if data["kind"] == "o19map-schema" else self.gen.MANIFEST_FORMAT, name)
             self.assertEqual(data["kind"], kind, name)
 
     def test_shipped_manifests_are_what_the_emitter_writes(self):

@@ -1258,6 +1258,8 @@ public class OhipClaimFileService {
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void readInBillingNo() {
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
+        BillingImportedFiles.requireResolved(diskNameDao.importedFilenameReviews(ohipFilename),
+                ohipFilename, java.nio.file.Path.of(home_dir).resolve(ohipFilename));
         propBillingNo = new Properties();
         // Path-validate the filename before opening — companion writeFile/
         // writeHtml already do this; defense-in-depth so a future caller

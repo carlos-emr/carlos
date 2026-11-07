@@ -38,6 +38,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
 import org.apache.logging.log4j.Logger;
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingImportedFiles;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -86,11 +90,19 @@ public class OscarDownload extends GenericDownload {
                     res.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid download directory.");
                     return;
                 }
+                if ("ohipdownload".equals(homepath)) {
+                    requireBillingFile(rawFilename, downloadDir.toPath().resolve(rawFilename));
+                    if (!filename.equals(rawFilename)) {
+                        requireBillingFile(filename, downloadDir.toPath().resolve(filename));
+                    }
+                }
                 ServletOutputStream stream = res.getOutputStream();
                 transferFile(res, stream, backupfilepath, filename);
             } else {
                 res.sendError(HttpServletResponse.SC_FORBIDDEN, "You have no right to download the file(s).");
             }
+        } catch (BillingFileWriteException e) {
+            sendErrorForCaughtException(res, HttpServletResponse.SC_CONFLICT, e.reason().publicMessage());
         } catch (FileValidationException e) {
             log.warn("OscarDownload rejected invalid filename from {}", req.getRemoteAddr());
             sendErrorForCaughtException(res, HttpServletResponse.SC_BAD_REQUEST, "Invalid filename parameter.");
@@ -103,6 +115,11 @@ public class OscarDownload extends GenericDownload {
                     "An internal error occurred. Please try again or contact your system administrator.");
             }
         }
+    }
+
+    protected void requireBillingFile(String filename, java.nio.file.Path path) {
+        BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
+        BillingImportedFiles.requireResolved(dao.findFileReviews(filename), filename, path);
     }
 
     private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {

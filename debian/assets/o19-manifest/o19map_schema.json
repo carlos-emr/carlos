@@ -1,8 +1,8 @@
 {
- "format": 1,
+ "format": 2,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-6+cccc8801",
+ "SCHEMA_MAP_VERSION": "o19map-7+81c32ac6",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -1199,7 +1199,11 @@
     "status",
     "total",
     "timestamp"
-   ]
+   ],
+   "value_exprs": {
+    "ohipfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_diskname__filenames` f WHERE f.`row_id` = s.`id`)"
+   },
+   "billing_filename": "o19-billing-v1"
   },
   "billing_on_eareport": {
    "class": "copy",
@@ -1268,7 +1272,11 @@
     "status",
     "total",
     "timestamp"
-   ]
+   ],
+   "value_exprs": {
+    "htmlfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_filename__filenames` f WHERE f.`row_id` = s.`id`)"
+   },
+   "billing_filename": "o19-billing-v1"
   },
   "billing_on_header": {
    "class": "copy",
@@ -24770,7 +24778,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-6+e44c15d5",
+   "SCHEMA_MAP_VERSION": "o19map-7+e44c15d5",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
