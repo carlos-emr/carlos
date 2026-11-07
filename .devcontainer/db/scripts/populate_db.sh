@@ -94,12 +94,15 @@ $SQL carlos < /scripts/development.sql
 # so the reload leaves lab_type NULL), and the migration's inference UPDATE is
 # what resolves a demo lab attachment's source from patientLabRouting, exactly as
 # it does for legacy rows on an upgraded database.
+# V1.0.81 is re-applied because the snapshot truncate-reloads LookupList, which drops
+# the empty appointmentLocationCode list it seeds (#3982); its ALTERs are no-ops here.
 echo 'Re-applying reference-data migrations undone by the demo snapshot...'
 for REF_MIGRATION in \
     "${MIG}/common/V1.0.32__add_nrtf_tuning_fork_measurement_type.sql" \
     "${MIG}/common/V1.0.33__aacp_provided_revised_reviewed_validation.sql" \
     "${MIG}/on/V1.0.34__add_oma_uninsured_service_fees.sql" \
-    "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql"; do
+    "${MIG}/common/V1.0.43__consultation_eform_lab_sources.sql" \
+    "${MIG}"/common/V*__appointment_location_list.sql; do
   $SQL carlos < "${REF_MIGRATION}"
 done
 # development.sql also truncate-reloads the security tables (secObjectName,

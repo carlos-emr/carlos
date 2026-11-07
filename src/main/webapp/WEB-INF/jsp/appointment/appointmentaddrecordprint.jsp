@@ -51,6 +51,8 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page
         import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat, io.github.carlos_emr.carlos.commn.OtherIdManager,io.github.carlos_emr.carlos.demographic.data.*,java.text.SimpleDateFormat,io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException" %>
 <%@ page import="io.github.carlos_emr.carlos.event.EventService" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -69,6 +71,14 @@
     OscarAppointmentDao appointmentDao = (OscarAppointmentDao) SpringUtils.getBean(OscarAppointmentDao.class);
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    AppointmentLocationResolver.ResolvedLocation printLocation;
+    try {
+        printLocation = AppointmentLocationResolver.resolvePostedLocation(null, request);
+    } catch (AppointmentLocationUnavailableException ex) {
+        io.github.carlos_emr.carlos.utility.ErrorPageMessage.sendError(request, response,
+                HttpServletResponse.SC_CONFLICT, AppointmentLocationUnavailableException.MESSAGE_KEY);
+        return;
+    }
 %>
 <html>
     <head>
@@ -101,7 +111,7 @@
             a.setName(request.getParameter("keyword"));
             a.setNotes(request.getParameter("notes"));
             a.setReason(request.getParameter("reason"));
-            a.setLocation(request.getParameter("location"));
+            printLocation.applyTo(a);
             a.setResources(request.getParameter("resources"));
             a.setType(request.getParameter("type"));
             a.setStyle(request.getParameter("style"));

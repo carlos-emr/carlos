@@ -125,6 +125,38 @@ class AppointmentConverterUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should keep the Location List code while a REST edit leaves the location text unchanged")
+    void shouldKeepLocationCode_whenRestEditKeepsLocationText() {
+        Appointment existing = new Appointment();
+        existing.setLocation("Virtual");
+        existing.setLocationCode(11);
+        AppointmentTo1 to = new AppointmentTo1();
+        to.setLocation("Virtual");
+        to.setReason("follow-up");
+
+        new AppointmentConverter().applyEditableProperties(to, existing);
+
+        assertThat(existing.getLocationCode()).isEqualTo(11);
+        assertThat(existing.getLocation()).isEqualTo("Virtual");
+        assertThat(existing.getReason()).isEqualTo("follow-up");
+    }
+
+    @Test
+    @DisplayName("should clear the Location List code when a REST edit changes the location text (#3982)")
+    void shouldClearLocationCode_whenRestEditChangesLocationText() {
+        Appointment existing = new Appointment();
+        existing.setLocation("Virtual");
+        existing.setLocationCode(11);
+        AppointmentTo1 to = new AppointmentTo1();
+        to.setLocation("Room from REST");
+
+        new AppointmentConverter().applyEditableProperties(to, existing);
+
+        assertThat(existing.getLocation()).isEqualTo("Room from REST");
+        assertThat(existing.getLocationCode()).isNull();
+    }
+
+    @Test
     @DisplayName("should return null when transfer object is null")
     void shouldReturnNull_whenTransferObjectIsNull() throws Exception {
         assertThat(new AppointmentConverter().getAsDomainObject(null, null)).isNull();
