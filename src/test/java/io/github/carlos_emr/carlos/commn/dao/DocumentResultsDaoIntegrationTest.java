@@ -120,7 +120,8 @@ public class DocumentResultsDaoIntegrationTest extends CarlosTestBase {
 
     /**
      * Each builder returns a described document with its description, an untyped one without
-     * dropping it or the rows after it, and a blank description as none.
+     * dropping it or the rows after it, and empty or whitespace-only descriptions as none.
+     * Nonblank text keeps its surrounding spaces and literal markup for the view to encode.
      */
     @ParameterizedTest(name = "{0}")
     @ValueSource(strings = {"ofAllProviders", "linkToProvider", "providerOrUnassigned"})
@@ -129,15 +130,20 @@ public class DocumentResultsDaoIntegrationTest extends CarlosTestBase {
         int described = routeDocument("lab", "FAKE discharge summary");
         int untyped = routeDocument(null, "FAKE referral letter");
         int undescribed = routeDocument("consult", "");
-        Set<String> owned = Set.of(String.valueOf(described), String.valueOf(untyped), String.valueOf(undescribed));
+        int whitespaceDescription = routeDocument("consult", " \t ");
+        int literalDescription = routeDocument("consult", "  FAKE <report> & follow-up  ");
+        Set<String> owned = Set.of(String.valueOf(described), String.valueOf(untyped), String.valueOf(undescribed),
+                String.valueOf(whitespaceDescription), String.valueOf(literalDescription));
 
         List<LabResultData> result = build(builder);
 
         assertThat(result).filteredOn(row -> owned.contains(row.segmentID))
-                .extracting(row -> row.segmentID, row -> row.description)
+                .extracting(row -> row.segmentID, row -> row.description, row -> row.discipline)
                 .containsExactlyInAnyOrder(
-                        tuple(String.valueOf(described), "FAKE discharge summary"),
-                        tuple(String.valueOf(untyped), "FAKE referral letter"),
-                        tuple(String.valueOf(undescribed), null));
+                        tuple(String.valueOf(described), "FAKE discharge summary", "lab"),
+                        tuple(String.valueOf(untyped), "FAKE referral letter", null),
+                        tuple(String.valueOf(undescribed), null, "consult"),
+                        tuple(String.valueOf(whitespaceDescription), null, "consult"),
+                        tuple(String.valueOf(literalDescription), "  FAKE <report> & follow-up  ", "consult"));
     }
 }

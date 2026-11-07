@@ -704,7 +704,9 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
          * patient documents and of unmatched ones, one patient, a name search and the unmatched
          * view, each with labs and documents mixed and separate. Together they reach every query
          * the method builds. Three of them (the separate provider lists, matched and unmatched,
-         * and the separate unmatched view) already read the description; they pin it.
+         * and the separate unmatched view) already read the description; they pin it. Empty
+         * and whitespace-only descriptions must not truncate the list. Nonblank text,
+         * including surrounding spaces and literal markup, must be returned unchanged.
          */
         @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
         @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
@@ -715,6 +717,8 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
             int described = routeDocument(moduleId, "lab", "FAKE CT head report");
             int untyped = routeDocument(moduleId, null, "FAKE referral letter");
             int undescribed = routeDocument(moduleId, "consult", "");
+            int whitespaceDescription = routeDocument(moduleId, "consult", " \t ");
+            int literalDescription = routeDocument(moduleId, "consult", "  FAKE <report> & follow-up  ");
             String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
             String lastName = "nameSearch".equals(shape) ? "Patient" : "";
 
@@ -726,7 +730,13 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
                     .containsExactlyInAnyOrder(
                             tuple(String.valueOf(described), "FAKE CT head report"),
                             tuple(String.valueOf(untyped), "FAKE referral letter"),
-                            tuple(String.valueOf(undescribed), null));
+                            tuple(String.valueOf(undescribed), null),
+                            tuple(String.valueOf(whitespaceDescription), null),
+                            tuple(String.valueOf(literalDescription), "  FAKE <report> & follow-up  "));
+            assertThat(result).allSatisfy(row -> {
+                assertThat(row.isDocument()).isTrue();
+                assertThat(row.discipline).isEqualTo("DOC");
+            });
         }
     }
 
