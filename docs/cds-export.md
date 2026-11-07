@@ -1167,3 +1167,12 @@ The migration guide’s section 18.2 describes the wire document as a current cl
 
 
 The final revision/provider/legacy-scope diff is now package verified: 150 checks across 11 targeted suites over the separately preserved 3,931-check baseline, followed by 76 installed assertions using the exact WAR and byte-for-byte exploded classes, with no component overlays. Empty and zero reporter defaults were captured without substitution, and all temporary fixture changes were restored. The final WAR SHA-256 is `b933829ab33ac337d4bb29c0e64a9137e734dd73a30f8e91b7a2c6d30a6e7f4f`. These counts remain separate; they are not added together or described as a new full-suite run. Clinical field/revision assembly and publication remain unfinished.
+
+
+### Independently witnessed revision inventory
+
+`CdsExportNoteRevisionInventoryService` owns both the complete frozen row-receipt scan and the streaming metadata scan. Every metadata field must match its exact whole-row witness, and the note identities must exactly equal the captured access universe. Source-generation mismatch, missing/duplicate rows, unavailable witnesses, substituted metadata and final authority changes refuse completion. The inventory has explicit row and byte limits; exceeding them enters the existing resource review state.
+
+Canonical UUID case aliases form one chain. The current native note is the maximum note ID, matching the active chart rather than timestamp order. Every earlier revision ID remains explicit audit evidence. Missing or unsupported UUIDs require review, and unsupported flags quarantine the entire recognized chain. The result is source-bound and protected from status/log rendering; it does not itself approve clinical content or serialize old revisions as current notes.
+
+The inventory additions passed 38 focused checks, including ten planner tests, six service tests, shared capture regressions, real CLI bootstrap and importer fingerprint validation. Seventy-eight installed component assertions over the prior exact package verified the genuine seven-note inventory and actual memory-limit refusal alongside retained/native/source checks. Packaging and exact-artifact qualification follow separately. Current-note field reconciliation, historical evidence serialization and clinical occurrence assembly remain unfinished.

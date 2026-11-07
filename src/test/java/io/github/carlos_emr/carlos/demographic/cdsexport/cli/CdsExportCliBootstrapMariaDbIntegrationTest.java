@@ -76,6 +76,7 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteSourceReader.class)).isNotNull();
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteExtensionSourceReader.class)).isNotNull();
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkSourceReader.class)).isNotNull();
+            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionInventoryService.class)).isNotNull();
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCaseIssueSourceReader.class)).isNotNull();
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportIssueCatalogueSourceReader.class)).isNotNull();
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteScopeProjectionService.class)).isNotNull();

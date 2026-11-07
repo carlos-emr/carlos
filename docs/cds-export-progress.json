@@ -317,5 +317,20 @@
     "originalCompletedImportRulesetRetained": true,
     "nativeNoteIssueRevisionReconciliationComplete": false,
     "clinicalPublication": false
+  },
+  "noteRevisionInventory": {
+    "state": "FOCUSED_AND_INSTALLED_COMPONENT_VERIFIED_PENDING_PACKAGE",
+    "focusedChecks": 38,
+    "plannerChecks": 10,
+    "serviceChecks": 6,
+    "installedComponentAssertions": 78,
+    "componentOverlays": true,
+    "allCapturedNoteIdentitiesAndMetadataWitnessed": true,
+    "currentVersionUsesMaximumNativeId": true,
+    "priorRevisionsRemainExplicit": true,
+    "unsupportedChainsRequireReview": true,
+    "memoryLimitVerifiedInInstalledCli": true,
+    "clinicalFieldReconciliationComplete": false,
+    "clinicalPublication": false
   }
 }

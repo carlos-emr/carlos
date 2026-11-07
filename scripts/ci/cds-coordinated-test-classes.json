@@ -254,5 +254,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCapturedNoteScopeValidatorUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteSourceReaderUnitTest",
   "io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteSourceMariaDbIntegrationTest",
-  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionReaderUnitTest"
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionReaderUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionPlannerUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionInventoryServiceUnitTest"
 ]
