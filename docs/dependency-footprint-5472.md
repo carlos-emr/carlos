@@ -188,3 +188,45 @@ generator records shape type as well as bounds; marker pixel checks reject the o
 This review used an Ubuntu 26.04 container, OpenJDK 25, Node 22 and a matching Chrome for
 Testing 149.0.7827.55 / chromedriver pair. Browser inputs and screenshots are synthetic;
 release browser pins are unchanged.
+
+## Installed-package comparison
+
+Both versions were built as Debian packages and installed with the same preseed into separate
+Ubuntu 26.04 systemd containers: `carlos-emr` from `release/2026.08` (JFreeChart, displaytag) and
+from this branch (Chart.js in the packaged Chromium, JSTL tables). The same synthetic chart data
+(`FAKE-` demo patient 2: weight, height, blood pressure, single readings, three DINs including a
+repeat prescription) was loaded into each, and Playwright captured every chart route and the
+migrated table pages through nginx. Each image below shows `release/2026.08` on the left and this
+branch on the right.
+
+Every chart is the same size with the same plot rectangle, background, outline, axes, tick labels,
+dashed gridlines, title, legend, markers, bars and shadows; 0.4% to 1.7% of pixels differ, almost
+all in glyph antialiasing. The one difference a reader may notice is weight: Java's FreeType hinting
+drew small text (the 8px blood pressure item labels most of all) slightly darker than Chromium
+does. Matching it would mean changing the font configuration of the renderer process, which also
+lays out eForm PDFs, so it is left as it is.
+
+| Chart | |
+| --- | --- |
+| Weight and height (two value axes) | ![Weight and height (two value axes): release/2026.08 and this branch](images/pr5518/installed-default-wt-ht.png) |
+| Blood pressure | ![Blood pressure: release/2026.08 and this branch](images/pr5518/installed-default-bp.png) |
+| Single reading (two-millisecond axis) | ![Single reading (two-millisecond axis): release/2026.08 and this branch](images/pr5518/installed-default-hr-single.png) |
+| Lab chart, blood pressure with item labels | ![Lab chart, blood pressure with item labels: release/2026.08 and this branch](images/pr5518/installed-lab-bp.png) |
+| `labRef` | ![`labRef`: release/2026.08 and this branch](images/pr5518/installed-labref-wt.png) |
+| `inclRef` | ![`inclRef`: release/2026.08 and this branch](images/pr5518/installed-inclref-wt.png) |
+| Medications (ChartMeds), repeat prescription | ![Medications (ChartMeds), repeat prescription: release/2026.08 and this branch](images/pr5518/installed-chartmeds-3.png) |
+| Medications with no match | ![Medications with no match: release/2026.08 and this branch](images/pr5518/installed-chartmeds-empty.png) |
+| HL7 lab result | ![HL7 lab result: release/2026.08 and this branch](images/pr5518/installed-actuallab-alt.png) |
+| HL7 lab result with medications | ![HL7 lab result with medications: release/2026.08 and this branch](images/pr5518/installed-actuallab-alt-meds.png) |
+| Scatter servlet (JPEG) | ![Scatter servlet (JPEG): release/2026.08 and this branch](images/pr5518/installed-scatter-bp.png) |
+
+The table pages keep their layout, banners, stripes and links. The two visible changes are fixes
+described above: Satellite-sites and Referral Doctors headers show their column names, and the
+empty Disease Registry results no longer count a blank placeholder row.
+
+| Page | |
+| --- | --- |
+| Satellite sites | ![Satellite sites: release/2026.08 and this branch](images/pr5518/installed-sites.png) |
+| Referral doctors | ![Referral doctors: release/2026.08 and this branch](images/pr5518/installed-referrals.png) |
+| Disease registry | ![Disease registry: release/2026.08 and this branch](images/pr5518/installed-disease-registry.png) |
+| Drug profile chart | ![Drug profile chart: release/2026.08 and this branch](images/pr5518/installed-drug-profile.png) |
