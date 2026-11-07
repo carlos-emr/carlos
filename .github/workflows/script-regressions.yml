@@ -119,6 +119,8 @@ jobs:
           retention-days: 14
       - name: Check migrated table interactions in Chromium
         run: npm run test:dependency-tables-playwright
+      - name: Check CARLOS navigation cancellation diagnostics in Chromium
+        run: node --test scripts/navigation-cancellation-browser-checks.js
       - name: Check measurement calculation DOM events in Chromium
         run: node scripts/measurement-whtr-browser-check.js
       - name: Check clinical risk refusals and executed production JavaScript in Chromium
@@ -153,5 +155,7 @@ jobs:
         run: node scripts/search-sort-messenger-inbox-browser-check.js
       - name: Check tickler CRUD synchronization in Chromium
         run: node scripts/tickler-crud-browser-check.js
+      - name: Check nested scroll chaining and tickler quick picks in Chromium
+        run: node scripts/ui-scroll-quick-pick-browser-check.js
       - name: Check job type table refresh and save lifecycle in Chromium
         run: node scripts/job-types-datatable-browser-check.js

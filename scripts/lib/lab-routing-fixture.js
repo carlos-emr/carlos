@@ -77,4 +77,27 @@ function createLabRoutingFixture(sql, rows, provider, labs) {
     },
   };
 }
-module.exports = {createLabRoutingFixture};
+/** Restore coordinator-row presence only while a disposable install is held exclusively. */
+function createRoutingLockFixture(sql, rows, labs, {exclusive = false, initialLocks} = {}) {
+  assert.equal(exclusive, true, 'routing lock restoration requires an exclusive disposable fixture');
+  const ids = [...new Set(labs.map(positiveId))];
+  assert(ids.length > 0, 'routing lock fixture needs lab identifiers');
+  const select = `SELECT lab_no FROM providerLabRoutingLock WHERE lab_no IN (${ids.join(',')}) ORDER BY lab_no`;
+  const snapshot = () => rows(select).map(row => {
+    assert.equal(row.length, 1, 'incomplete routing lock snapshot');
+    const id = positiveId(row[0]);
+    assert(ids.includes(id), 'routing lock snapshot includes a foreign source');
+    return id;
+  });
+  // Upload fixtures do not know their generated IDs until after the write. They may pass
+  // an earlier complete snapshot; filter it to this fixture's validated IDs before cleanup.
+  if (initialLocks !== undefined) assert(Array.isArray(initialLocks), 'invalid initial lock snapshot');
+  const before = initialLocks === undefined ? snapshot()
+    : [...new Set(initialLocks.map(positiveId))].filter(id => ids.includes(id)).sort((a, b) => Number(a) - Number(b));
+  const introduced = ids.filter(id => !before.includes(id));
+  return {cleanup() {
+    if (introduced.length) sql(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${introduced.join(',')})`);
+    assert.deepEqual(snapshot(), before, 'routing lock presence was not restored');
+  }};
+}
+module.exports = {createLabRoutingFixture, createRoutingLockFixture};

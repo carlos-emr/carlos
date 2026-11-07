@@ -51,6 +51,12 @@ import org.mockito.MockedStatic;
 import io.github.carlos_emr.carlos.commn.dao.SystemPreferencesDao;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.transaction.CannotCreateTransactionException;
+import org.springframework.transaction.TransactionSystemException;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 
 /**
  * The Inbox counts and patient list built by {@link CategoryData} must not drop patients whose HIN
@@ -65,8 +71,8 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
 
     private final List<String> statements = new ArrayList<>();
     private final List<List<Object>> parameters = new ArrayList<>();
-    private MockedStatic<LegacyJdbcQuery> jdbc;
     private EntityManager entityManager;
+    private Query query;
 
     @BeforeEach
     void captureQueries() {
@@ -75,26 +81,17 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
         entityManager = mock(EntityManager.class);
         registerMock(EntityManagerFactory.class, factory);
         when(factory.createEntityManager()).thenReturn(entityManager);
-        Query query = mock(Query.class);
+        query = mock(Query.class);
         when(entityManager.createNativeQuery(anyString(), eq(Tuple.class))).thenReturn(query);
         when(query.getResultList()).thenReturn(List.of());
 
-        jdbc = mockStatic(LegacyJdbcQuery.class);
-        jdbc.when(() -> LegacyJdbcQuery.trustedSelectSql(anyString())).thenAnswer(invocation -> {
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class, dao);
+        when(entityManager.createNativeQuery(anyString(), eq(Tuple.class))).thenAnswer(invocation -> {
             statements.add(invocation.getArgument(0));
-            return mock(LegacyJdbcQuery.TrustedSql.class);
+            return query;
         });
-        jdbc.when(() -> LegacyJdbcQuery.getPreparedResultSet(any(LegacyJdbcQuery.TrustedSql.class), any(Object[].class)))
-                .thenAnswer(invocation -> {
-                    Object[] arguments = invocation.getArguments();
-                    parameters.add(Arrays.asList(arguments).subList(1, arguments.length));
-                    return mock(ResultSet.class);
-                });
-    }
-
-    @AfterEach
-    void closeStaticMock() {
-        jdbc.close();
     }
 
     private static CategoryData search(String healthNumber) {
@@ -113,10 +110,8 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
     void shouldOmitHinCondition_whenHinFieldIsBlank() throws Exception {
         runPatientSearchQueries(search(""));
 
-        assertThat(statements).hasSize(3).allSatisfy(sql -> assertThat(sql).doesNotContain("d.hin"));
-        ArgumentCaptor<String> hrmSql = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createNativeQuery(hrmSql.capture(), eq(Tuple.class));
-        assertThat(hrmSql.getValue()).doesNotContain("d.hin");
+        assertThat(statements).hasSize(4).allSatisfy(sql -> assertThat(sql).doesNotContain("d.hin"));
+
     }
 
     @Test
@@ -124,10 +119,59 @@ class CategoryDataPatientSearchUnitTest extends CarlosUnitTestBase {
     void shouldMatchHin_whenHinFieldIsFilled() throws Exception {
         runPatientSearchQueries(search("12345"));
 
-        assertThat(statements).hasSize(3).allSatisfy(sql -> assertThat(sql).contains("AND d.hin like ?"));
-        assertThat(parameters).hasSize(3).allSatisfy(bound -> assertThat(bound).contains("%12345%"));
-        ArgumentCaptor<String> hrmSql = ArgumentCaptor.forClass(String.class);
-        verify(entityManager).createNativeQuery(hrmSql.capture(), eq(Tuple.class));
-        assertThat(hrmSql.getValue()).contains("AND d.hin LIKE :patientHealthNumber");
+        assertThat(statements).hasSize(4);
+        assertThat(statements.subList(0, 3)).allSatisfy(sql -> assertThat(sql).contains("AND d.hin like ?"));
+        assertThat(statements.get(3)).contains("AND d.hin LIKE :patientHealthNumber");
+        var values = ArgumentCaptor.forClass(Object.class);
+        verify(query, org.mockito.Mockito.atLeast(3)).setParameter(org.mockito.ArgumentMatchers.anyInt(), values.capture());
+        assertThat(values.getAllValues()).contains("%12345%");
+    }
+    @Test
+    void shouldRetainCheckedSqlFailure_whenManagedCountQueryFails() {
+        when(query.getResultList()).thenThrow(new jakarta.persistence.PersistenceException("synthetic failure"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> search("").getLabCountForPatientSearch())
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasCauseInstanceOf(jakarta.persistence.PersistenceException.class);
+    }
+
+    @Test
+    void shouldRetainCheckedSqlFailure_whenCountTransactionCannotStart() {
+        RecordingTransactionManager transactions = installTransactionalDao();
+        CategoryData data = search("");
+        transactions.failBegin = true;
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(data::getDocumentCountForPatientSearch)
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasCauseInstanceOf(CannotCreateTransactionException.class);
+        org.mockito.Mockito.verifyNoInteractions(query);
+        assertThat(data.getPatients()).isEmpty();
+    }
+
+    @Test
+    void shouldRetainCheckedSqlFailure_whenCountTransactionCannotComplete() {
+        RecordingTransactionManager transactions = installTransactionalDao();
+        transactions.failCommit = true;
+        CategoryData data = search("");
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(data::getDocumentCountForPatientSearch)
+                .isInstanceOf(java.sql.SQLException.class)
+                .hasCauseInstanceOf(TransactionSystemException.class);
+        verify(query).getResultList();
+        assertThat(transactions.begun).isEqualTo(1);
+        assertThat(data.getPatients()).isEmpty();
+    }
+
+    private RecordingTransactionManager installTransactionalDao() {
+        var transactions = new RecordingTransactionManager();
+        var dao = new io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao(mock(SystemPreferencesDao.class));
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", entityManager);
+        var interceptor = new TransactionInterceptor();
+        interceptor.setTransactionManager(transactions);
+        interceptor.setTransactionAttributeSource(new AnnotationTransactionAttributeSource());
+        var proxy = new ProxyFactory(dao);
+        proxy.addAdvice(interceptor);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.class,
+                (io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao) proxy.getProxy());
+        return transactions;
     }
 }
