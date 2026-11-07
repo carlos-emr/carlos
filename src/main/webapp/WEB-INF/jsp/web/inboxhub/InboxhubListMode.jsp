@@ -97,7 +97,7 @@
                     <td>${carlos:forHtml(labResult.label == 'null' ? '' : labResult.label)}</td>
                     <td>${carlos:forHtml(labResult.dateTime)}${labResult.document ? ' / ' : ''}${carlos:forHtml(labResult.document ? labResult.lastUpdateDate : '')}</td>
                     <td>${carlos:forHtml(labResult.requestingClient)}</td>
-                    <td>${carlos:forHtml(labResult.document ? (labResult.description == null ? '' : labResult.description) : labResult.disciplineDisplayString)}</td>
+                    <td>${carlos:forHtml(labResult.document ? labResult.discipline : labResult.disciplineDisplayString)}</td>
                     <td>${carlos:forHtml(labResult.reportStatus)}</td>
                     <td>
                         <c:set var="multiLabCount" value="${labResult.multipleAckCount}" />

@@ -12,6 +12,7 @@ const {openChart,waitForNavbars}=require('./echart-navbar-modules-playwright-che
 const {chartNoteSave,providerUpdate}=require('./lib/mutation-families');
 const {authzReadFixture}=require('./lib/authz-read-fixture');
 const {retireOwnedChartPages}=require('./lib/owned-chart-page-cleanup');
+const {OWNED_DOCUMENT_TYPE}=require('./lib/stored-pdf-documents');
 const q=h.sqlString;
 async function workflow(s) {
   const {sql,patient,provider,marker}=s;
@@ -82,9 +83,10 @@ async function workflow(s) {
     const inbox=await openInbox(who.page,who.context,s.recorder,'followup-inbox');await setMode(inbox,'list');await openSidebar(inbox);
     await inbox.locator('#statusNew').check();await inbox.locator('#specificPatients').check();await inbox.locator('#inputLastName').fill(marker);await search(inbox);
     const row=inbox.locator(`#labdoc_DOC_${primary.id}`);await row.waitFor();
-    await s.step('the forwarded Inbox row displays its exact seeded description and patient identity',async()=>{
+    // Clinicians sort the Inbox by a document's type, so its Discipline cell shows the type, never the description (#5685).
+    await s.step('the forwarded Inbox row displays its exact seeded document type and patient identity',async()=>{
       const cells=row.locator('td');
-      h.assert((await cells.nth(7).innerText()).trim()===primary.label,'Inbox omits the exact seeded document description');
+      h.assert((await cells.nth(7).innerText()).trim()===OWNED_DOCUMENT_TYPE,'Inbox Discipline omits the exact seeded document type');
       h.assert((await cells.nth(1).innerText()).includes(marker+', Workflow'),'Inbox omits the originating synthetic patient identity');
     });
     const viewer=await popup(inbox,row.locator('a[onclick*="reportWindow"]').first(),'review-forwarded-document');

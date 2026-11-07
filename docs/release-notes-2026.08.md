@@ -12,6 +12,19 @@ transactional archiving and server-managed audit fields. This applies to full ap
 urgency update routes. See the [REST appointment contract](api-collections-index.md#rest-appointment-edit-compatibility-and-conflict-detection)
 and [#5663](https://github.com/carlos-emr/carlos/issues/5663).
 
+## Inbox document types
+
+Document rows in the Inbox now always show the document's type (for example `others`)
+in the Discipline column, so they sort and group the same way in every view. The Inbox
+Hub's first, unfiltered list and its documents-only view, and the legacy Inbox page's
+documents view, previously showed the document's saved description there instead.
+Views that mix labs and documents, the patient and name searches, and the REST inbox
+(`/ws/rs/inbox/mine` and `/ws/services/inbox/mine`, whose document items carry the type
+in `discipline`) already showed the type and are unchanged, except that a document saved
+with no type is now listed with an empty value. Previously such a document ended the
+list, hiding every document after it. See
+[#5685](https://github.com/carlos-emr/carlos/issues/5685).
+
 ## Startup configuration compatibility
 
 CARLOS refuses to start when the configuration is loaded only from the classpath
