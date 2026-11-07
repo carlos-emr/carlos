@@ -75,4 +75,28 @@ class CdsExportDemographicAssemblerUnitTest {
                     .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_SCOPE_INVALID");
         }
     }
+    @Test void shouldCloseEmptyCareTeamCarriers_withoutDroppingAnAlertHandoff() throws Exception {
+        var values = new LinkedHashMap<String, String>(); values.put("demographic_no", "27"); values.put("cust1", null); values.put("cust2", ""); values.put("cust4", ""); values.put("cust3", "alert");
+        var custom = new CdsExportCapturedTextRowDto("demographiccust", "0000000027", values);
+        var deferred = new HashSet<CdsExportNativeFieldKeyDto>(); for (String column : List.of("cust1", "cust2", "cust3", "cust4")) deferred.add(new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), column));
+        var prior = new CdsExportDemographicRetainedCoreReconciler.Result(HASH, "parent", Set.of(), Set.of(), Map.of(), deferred, Set.of(), List.of());
+        var result = CdsExportDemographicAssembler.accountCareCarriers(prior, custom, () -> {});
+        assertThat(result.fields()).hasSize(3); assertThat(result.deferredNativeFields()).containsExactly(new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), "cust3"));
+        assertThat(result.demographicComplete()).isFalse();
+    }
+    @Test void shouldBlockAPopulatedCareTeamCarrier_andWithholdEarlierXmlChanges() throws Exception {
+        var values = Map.of("demographic_no", "27", "cust1", "Provider reference", "cust2", "", "cust4", "");
+        var custom = new CdsExportCapturedTextRowDto("demographiccust", "0000000027", values);
+        var deferred = new HashSet<CdsExportNativeFieldKeyDto>(); for (String column : List.of("cust1", "cust2", "cust4")) deferred.add(new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), column));
+        var prior = new CdsExportDemographicRetainedCoreReconciler.Result(HASH, "parent", Set.of(), Set.of(), Map.of(), deferred, Set.of(), List.of(new CdsExportRetainedSectionWriter.Change("ChartNumber[1]", Set.of(), xml -> xml.text("fixture"))));
+        var result = CdsExportDemographicAssembler.accountCareCarriers(prior, custom, () -> {});
+        assertThat(result.coreRepresentable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
+        assertThat(result.fields().get(new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), "cust1")).outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+    }
+    @Test void shouldRefuseAMissingCareCarrierHandoff_insteadOfTreatingItAsAbsent() {
+        var custom = new CdsExportCapturedTextRowDto("demographiccust", "0000000027", Map.of("cust1", "", "cust2", "", "cust4", ""));
+        var prior = new CdsExportDemographicRetainedCoreReconciler.Result(HASH, "parent", Set.of(), Set.of(), Map.of(), Set.of(), Set.of(), List.of());
+        assertThatThrownBy(() -> CdsExportDemographicAssembler.accountCareCarriers(prior, custom, () -> {})).hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_CARE_SCOPE_INVALID");
+    }
+
 }
