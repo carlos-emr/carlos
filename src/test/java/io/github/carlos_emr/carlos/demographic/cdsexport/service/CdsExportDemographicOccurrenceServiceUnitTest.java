@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 @Tag("unit") @Tag("cds-export")
 class CdsExportDemographicOccurrenceServiceUnitTest {
     private static final String HASH = "a".repeat(64);
+    private final String runId = UUID.randomUUID().toString();
     private final CdsExportRetainedValuesService values = mock(CdsExportRetainedValuesService.class);
     private final CdsExportRetainedReceiptVerificationService verification = mock(CdsExportRetainedReceiptVerificationService.class);
     private final CdsExportNativeRowReceiptReader witnesses = mock(CdsExportNativeRowReceiptReader.class);
@@ -47,13 +48,15 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
         return emitter;
     }
     private CdsExportLeaseDto lease() {
+        when(patient.patient()).thenReturn(27);
         var command = new CdsExportCommand("test", "999998", null, CdsLogicalProfile.ONTARIO_MD_5_2, CdsExportCommand.Selection.SELECTED_PATIENTS,
                 List.of(), List.of(27), Set.of(CdsCategory.DEMOGRAPHICS), "receiver", "audit");
-        return new CdsExportLeaseDto(UUID.randomUUID().toString(), 1, HASH, new CdsExportJobDocumentDto(2,
+        return new CdsExportLeaseDto(runId, 1, HASH, new CdsExportJobDocumentDto(2,
                 new CdsExportActorDto("agent", "999998", null, null), command, HASH, "sender", HASH, HASH, new CdsExportStorageBindingDto("primary", "primary", HASH)));
     }
     private CdsExportPatientCaptureDto source(Map<String, CdsExportCapturedTableDto> tables) {
         var capture = mock(CdsExportNativeCaptureDto.class); when(capture.tables()).thenReturn(tables);
+        when(capture.runId()).thenAnswer(call -> runId); when(capture.epoch()).thenReturn(1L); when(capture.patient()).thenReturn(27);
         when(capture.values()).thenReturn(new CdsExportStagedFileDto("1".repeat(64), "SOURCE_VALUES", HASH, 1));
         when(capture.index()).thenReturn(new CdsExportStagedFileDto("2".repeat(64), "SOURCE_INDEX", HASH, 1));
         return new CdsExportPatientCaptureDto(capture, new CdsExportStagedFileDto("3".repeat(64), "SOURCE_MANIFEST", HASH, 1));
@@ -95,6 +98,16 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
                                 mock(CdsExportRunControl.class), xml, receipt -> {});
                     } catch (java.io.IOException refused) { /* The composer must remain poisoned. */ }
                 }, ignored -> {}, 1L << 20, () -> {})).hasMessage("CDS_EXPORT_SECTION_WRITE_FAILED");
+    }
+    @Test void shouldRefuseAnotherPatientCapture_beforeAnySourceRead() throws Exception {
+        var tables = new LinkedHashMap<String, CdsExportCapturedTableDto>();
+        for (String table : List.of("demographic", "demographicExt", "demographiccust", "demographicArchive", "provider", "Contact", "DemographicContact", "pharmacyInfo", "demographicPharmacy"))
+            tables.put(table, new CdsExportCapturedTableDto(Set.of("id"), 0, HASH));
+        var source = source(tables); when(source.capture().patient()).thenReturn(28);
+        assertThatThrownBy(() -> service.append(lease(), patient, HASH, tables.keySet(), source,
+                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
+                mock(CdsExportRunControl.class), emitter(), receipt -> {})).hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
+        verifyNoInteractions(values, verification, witnesses, captures, rows);
     }
 
 }

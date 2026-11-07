@@ -85,6 +85,9 @@ public class CdsExportDemographicOccurrenceService {
         var tables = Set.copyOf(requiredTables);
         if (patientKey == null || !patientKey.matches("[0-9a-f]{64}") || !tables.equals(source.capture().tables().keySet())
                 || !tables.containsAll(TABLES) || !lease.document().command().categories().contains(CdsCategory.DEMOGRAPHICS)) scope();
+        if (!source.capture().runId().equals(lease.runId()) || source.capture().epoch() != lease.epoch()
+                || source.capture().patient() != patient.patient()) scope();
+        new CdsExportPatientIdentityReconciler().identity(lease.document().senderNamespace(), patient.patient());
         for (String table : TABLES) if (source.capture().tables().get(table).rows() > bounds.nativeRows()) limit();
         new CdsExportMergeScopeValidator(rows).requireUnmerged(lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var collected = new LinkedHashMap<String, List<CdsExportCapturedTextRowDto>>();
@@ -107,6 +110,8 @@ public class CdsExportDemographicOccurrenceService {
         });
         if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256()) || collected.get("demographic").size() != 1 || receipts.get("demographic").size() != 1
                 || collected.get("demographiccust").size() > 1 || collected.get("demographiccust").size() != receipts.get("demographiccust").size()) scope();
+        for (String table : TABLES) if (!table.equals("provider")
+                && receipts.get(table).size() != collected.get(table).size()) scope();
         var completed = new CdsExportClinicalOccurrenceService.Result[1];
         xml.source(emitter -> values.withValues(lease, patient, tables, source.manifest(), payloadManifest,
                 bounds.fields(), bounds.bytes(), bounds.indexRows(), bounds.indexBytes(), control, (index, retained, streams) -> {
