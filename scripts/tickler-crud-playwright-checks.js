@@ -400,6 +400,7 @@ async function createTickler(context) {
   return row.id;
 }
 
+/** Saves the owned task's message, priority and date, then observes its list refresh before closing the popup. */
 async function editTicklerFromList(context, listPage, ticklerNo) {
   await findRowInList(listPage, createdMessage, 'A');
   const rowLocator = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
@@ -418,9 +419,8 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
       const frame = document.getElementById('ticklerEditFrame');
       return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
     }, null, { timeout: 30000 });
-    await editPage.waitForTimeout(750).catch(() => {});
-    await editPage.close().catch(() => {});
   });
+  await editPage.close().catch(() => {});
 
   const rows = getTicklerRows();
   assert(rows.length === 1 && rows[0].id === String(ticklerNo), `edited tickler row was not found for ${ticklerNo}`);
@@ -430,6 +430,7 @@ async function editTicklerFromList(context, listPage, ticklerNo) {
   assert(comments.includes(editedMessage), 'edited tickler comment was not saved');
 }
 
+/** Completes the owned task and waits for the broadcast's response body and table draw before closing the popup. */
 async function completeTicklerViaEdit(context, listPage, ticklerNo) {
   await findRowInList(listPage, createdMessage, 'A');
   const row = listPage.locator('#ticklerResults tbody tr').filter({ hasText: createdMessage }).first();
@@ -448,8 +449,10 @@ async function completeTicklerViaEdit(context, listPage, ticklerNo) {
       const frame = document.getElementById('ticklerEditFrame');
       return frame && frame.contentDocument && frame.contentDocument.getElementById('tickler-edit-ok');
     }, null, { timeout: 30000 });
-    await page.close().catch(() => {});
   });
+  // The iframe marker can be visible before its load handler broadcasts the
+  // refresh. Keep the sender alive until the list has received and drawn it.
+  await page.close().catch(() => {});
 
   const rows = getTicklerRows();
   assert(rows.length === 1 && rows[0].status === 'C', `completed tickler status was ${rows[0] && rows[0].status}`);
