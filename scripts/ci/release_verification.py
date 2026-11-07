@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import signal
 import stat
 import subprocess
@@ -24,7 +25,13 @@ import uuid
 from junit_evidence import EvidenceError, read_surefire
 from java_discovery import reconcile, expected_families
 from release_deployment import attest
+from package_lifecycle import validate_inventory as validate_lifecycle_inventory, validate_config as validate_lifecycle_config
 from cds_war_manifest import build_manifest
+from command_evidence import validate_contract, results as command_results, relative_file
+from process_group import ProcessGroupFailure, run_process_group
+import compiled_classes
+from git_environment import separate_checkout_environment
+import node_case_inventory
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_PLAN = ROOT / "docs/testing/release-2026.08-verification.json"
@@ -66,10 +73,19 @@ def write_json(path: Path, value):
 
 def source_identity(root=ROOT):
     def git(*args):
-        return subprocess.check_output(["git", *args], cwd=root, text=True).strip()
+        return subprocess.check_output(["git", *args], cwd=root, text=True,
+                                       env=separate_checkout_environment()).strip()
     # Ignored build output/dependencies do not dirty a checkout. Untracked source does.
     return {"commit": git("rev-parse", "HEAD"), "tree": git("rev-parse", "HEAD^{tree}"),
             "clean": not bool(git("status", "--porcelain", "--untracked-files=normal"))}
+
+
+def production_class_identity(root=ROOT):
+    try:
+        files = compiled_classes.fingerprints(root)
+    except ValueError as failure:
+        raise EvidenceError(str(failure)) from failure
+    return {'schemaVersion': 1, 'sourceTree': source_identity(root)['tree'], 'classes': files}
 
 
 def runtime_versions(command, required=()):
@@ -111,7 +127,60 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
     names = [check.get("id") for check in checks]
     if not names or len(set(names)) != len(names):
         raise EvidenceError("Empty or duplicate check registry")
+    if ('scope-and-main-disposition' in names and plan.get('lifecycleBaselineManifest')
+            != 'docs/testing/release-2026.08-lifecycle-baselines.json'):
+        raise EvidenceError('Scope acceptance requires the reviewed published migration baselines')
+    if ('scope-and-main-disposition' in names and next(
+            (check.get('caseManifest') for check in checks if check['id'] == 'node-all'), None)
+            != 'docs/testing/release-2026.08-node-cases.json'):
+        raise EvidenceError('Release Node acceptance requires its reviewed complete case inventory')
+    if 'scope-and-main-disposition' in names:
+        fixture = next((check for check in checks if check['id'] == 'fixture-ci-browser'), {})
+        required = {name for row in work for name in row.get('requiredChecks', [])}
+        fixture_assertions = {'complete-ci-browser-selection', 'real-locked-browser-and-assertions',
+            'all-node-browser-cases-passed', 'owned-processes-stopped', 'fixture-source-unchanged'}
+        result = fixture.get('resultContract', {})
+        if (fixture.get('kind') != 'command' or fixture.get('profiles') != ['all']
+                or fixture.get('repetitions', 1) != 1 or 'fixture-ci-browser' not in required
+                or fixture.get('command') != ['python3', 'scripts/ci/run-ci-browser-fixtures.py',
+                    '--output', '{run}/fixture-result.json']
+                or fixture.get('runtimeConstraints') != {'python': '3.14', 'node': '22', 'npm': '10.9.9'}
+                or set(fixture.get('requiresEnvironment', [])) != {'CARLOS_FIXTURE_CHROMIUM', 'PLAYWRIGHT_BROWSERS_PATH'}
+                or result.get('file') != 'fixture-result.json'
+                or set(result.get('assertions', [])) != fixture_assertions):
+            raise EvidenceError('Full release acceptance requires complete qualified CI browser fixture evidence')
+    role_checks = {check['id']: check['lifecycleRoles'] for check in checks if 'lifecycleRoles' in check}
+    if role_checks:
+        expected_roles = {'package-clean-reinstall': ['clean'], 'package-main-upgrade': ['main'],
+                          'package-beta5-upgrade': ['historical']}
+        required_checks = {name for workstream in work for name in workstream.get('requiredChecks', [])}
+        if (role_checks != expected_roles or not set(role_checks) <= required_checks
+                or any(set(check.get('profiles', [])) != {'ON', 'BC'}
+                       or check.get('repetitions', 1) != 1
+                       or check.get('deploymentScope') != 'orchestrated-package-lifecycle'
+                       for check in checks if check['id'] in role_checks)):
+            raise EvidenceError('All independent clean/main/historical lifecycle checks must remain required on ON and BC')
     for check in checks:
+        if 'deploymentScope' in check and (check['deploymentScope'] != 'orchestrated-package-lifecycle'
+                or not check.get('packaged') or check.get('kind') != 'command'
+                or 'resultContract' not in check):
+            raise EvidenceError('Orchestrated lifecycle requires packaged command evidence')
+        if 'requiredCases' in check and (check.get('kind') not in ('python', 'node')
+                or not isinstance(check['requiredCases'], list)
+                or any(not isinstance(case, str) or not case for case in check['requiredCases'])
+                or len(check['requiredCases']) != len(set(check['requiredCases']))):
+            raise EvidenceError('Required Python/Node cases must have unique nonempty identities')
+        if type(check.get('requiresArtifact', False)) is not bool:
+            raise EvidenceError('Artifact prerequisite must be boolean')
+        programs = check.get('requiresExecutables', [])
+        if (not isinstance(programs, list)
+                or any(not isinstance(program, str) or not re.fullmatch(r'[A-Za-z0-9_+.-]+', program)
+                       for program in programs) or len(programs) != len(set(programs))):
+            raise EvidenceError('Executable prerequisites must be unique command names')
+        if "resultContract" in check:
+            if check.get("kind") != "command":
+                raise EvidenceError("Only command checks accept result contracts")
+            validate_contract(check["resultContract"])
         if not re.fullmatch(r"[a-z0-9][a-z0-9-]+", check.get("id", "")):
             raise EvidenceError("Invalid check identity")
         if check.get("kind") not in {"junit", "node", "python", "browser", "command", "build", "external"}:
@@ -164,8 +233,21 @@ def load_plan(path=DEFAULT_PLAN, root=ROOT):
             raise EvidenceError("Known-failure ledger omits or duplicates a manifest expectation")
         node_cases = [row["case"] for row in ledger["retiredNodeTodos"]]
         required_node = next(check for check in checks if check["id"] == "node-all").get("requiredCases", [])
-        if len(node_cases) != len(set(node_cases)) or set(node_cases) != set(required_node):
+        if len(node_cases) != len(set(node_cases)) or not set(node_cases) <= set(required_node):
             raise EvidenceError("Retired Node TODOs must remain required active regressions")
+        if plan.get("requireManualBrowserCoverage"):
+            required = {name for row in work for name in row["requiredChecks"]}
+            for entry in manifest:
+                if not entry.get("manual"):
+                    continue
+                provinces = {"ON", "BC"} if "all" in entry["provinces"] else {
+                    province.upper() for province in entry["provinces"]}
+                covered = {profile.upper() for check in checks if check["id"] in required
+                           and entry["name"] in check.get("selection", [])
+                           and check.get("propertyProfile", "") == entry.get("profile", "")
+                           for profile in check["profiles"]}
+                if not provinces <= covered:
+                    raise EvidenceError("Manual browser check lacks required province coverage: " + entry["name"])
     return plan
 
 
@@ -216,9 +298,9 @@ def junit_results(directory: Path, check):
                 and not counts["failed"] and counts["skipped"] == len(routed) and not missing}
 
 
-def node_results(path: Path, root=ROOT, minimum=1, required=()):
+def node_results(path: Path, root=ROOT, minimum=1, required=(), case_manifest=None):
     result = read_json(path)
-    if result.get("schemaVersion") != 2:
+    if result.get("schemaVersion") != 3:
         raise EvidenceError("Node evidence lacks engine execution identities")
     summary = result.get("summary") or {}
     counts = summary.get("counts") or {}
@@ -229,6 +311,11 @@ def node_results(path: Path, root=ROOT, minimum=1, required=()):
     files = result.get("files", [])
     if not expected or len(files) != len(set(files)) or set(files) != expected:
         raise EvidenceError("Node discovery does not match every checked-in test file")
+    sources = result.get('sourceFiles')
+    if (not isinstance(sources, dict) or set(sources) != expected or result.get('sourceChanged') is not False
+            or not re.fullmatch(r'v22\.\d+\.\d+', result.get('runtime', ''))
+            or any(digest(relative_file(root, name)) != value for name, value in sources.items())):
+        raise EvidenceError('Node test source changed or lacks execution-time fingerprints')
     cases = result.get("cases") or []
     if not cases or len(cases) != counts["tests"]:
         raise EvidenceError("Node case inventory disagrees with execution counters")
@@ -247,10 +334,12 @@ def node_results(path: Path, root=ROOT, minimum=1, required=()):
     ready = ready and not any(counts[k] for k in keys[2:]) and all(c.get("outcome") == "PASS" for c in cases)
     if set(required) - {case.get("name") for case in cases if case.get("outcome") == "PASS"}:
         raise EvidenceError("A required Node regression did not execute successfully")
+    if case_manifest:
+        node_case_inventory.validate(read_json(relative_file(root, case_manifest)), cases, root, digest)
     return {**counts, "ready": ready}
 
 
-def python_results(path: Path, minimum=1):
+def python_results(path: Path, minimum=1, required=()):
     result = read_json(path)
     cases = result.get("cases") or []
     tests = result.get("tests")
@@ -261,7 +350,27 @@ def python_results(path: Path, minimum=1):
         raise EvidenceError("Missing or duplicate Python test identity")
     ready = result.get("ready") is True and not result.get("duplicateIdentities") and len(cases) == tests
     ready = ready and tests >= minimum and all(case.get("outcomes") == ["PASS"] for case in cases)
+    if set(required) - {case.get('id') for case in cases if case.get('outcomes') == ['PASS']}:
+        raise EvidenceError('A required Python regression did not execute successfully')
     return {"tests": tests, "ready": ready}
+
+
+def require_locked_chromium(versions, root=ROOT):
+    lock = read_json(root / "package-lock.json")
+    version = lock["packages"]["node_modules/playwright-core"]["version"]
+    directories = [parent / "node_modules/playwright-core" for parent in (root, *root.parents)]
+    installed = next((directory for directory in directories if (directory / "package.json").is_file()), None)
+    if installed is None or read_json(installed / "package.json").get("version") != version:
+        raise EvidenceError("Installed Playwright does not match the committed lock")
+    browsers = read_json(installed / "browsers.json").get("browsers", [])
+    expected_versions = {row["browserVersion"] for row in browsers if row.get("name") == "chromium"}
+    observed = set()
+    for value in versions:
+        match = re.fullmatch(r'(?:chromium )?(\d+\.\d+\.\d+\.\d+)', value)
+        if not match: raise EvidenceError('Missing or unqualified launched Chromium version')
+        observed.add(match[1])
+    if len(expected_versions) != 1 or observed != expected_versions:
+        raise EvidenceError("Missing or unqualified launched Chromium version")
 
 
 def browser_results(path: Path, check, root=ROOT):
@@ -270,6 +379,11 @@ def browser_results(path: Path, check, root=ROOT):
     import defusedxml.ElementTree as ET
     with path.open("rb") as stream:
         document = ET.parse(stream, forbid_dtd=True).getroot()
+    if check.get("requireLockedChromium"):
+        observed_versions = {item.strip() for prop in document.iter("property")
+                             if prop.get("name") == "browserVersion"
+                             for item in prop.get("value", "").split(",") if item.strip()}
+        require_locked_chromium(observed_versions, root)
     cases = list(document.iter("testcase"))
     profile = check["selectedProfile"]
     manifest = read_json(root / "scripts/playwright-suite.json")["checks"]
@@ -305,18 +419,28 @@ def summarize(check, run_dir: Path, exit_code, root=ROOT):
             if coverage.tag != "report" or not coverage.findall("package") or counters.get("INSTRUCTION", 0) < 1:
                 raise EvidenceError("Coverage contains no executed production instructions")
             summary["coverage"] = counters
+        if check.get('requireClassIdentity'):
+            classes = read_json(run_dir / 'classes.json')
+            if classes.get('schemaVersion') != 1 or classes.get('sourceTree') != source_identity(root)['tree'] or not classes.get('classes'):
+                raise EvidenceError('Coverage class identity is missing or belongs to another source tree')
+            for name, fingerprint in classes['classes'].items():
+                if Path(name).is_absolute() or '..' in Path(name).parts or not name.endswith('.class') or not isinstance(fingerprint, str) or not HEX.fullmatch(fingerprint):
+                    raise EvidenceError('Malformed compiled class identity')
+            summary['classIdentitySha256'] = digest(run_dir / 'classes.json')
     elif kind == "node":
-        summary = node_results(run_dir / "node.json", root, check.get("minimumCases", 1), check.get("requiredCases", []))
+        summary = node_results(run_dir / "node.json", root, check.get("minimumCases", 1), check.get("requiredCases", []), check.get('caseManifest'))
     elif kind == "browser":
         summary = browser_results(run_dir / "browser.xml", check, root)
     elif kind == "python":
-        summary = python_results(run_dir / "python.json", check.get("minimumCases", 1))
+        summary = python_results(run_dir / "python.json", check.get("minimumCases", 1), check.get('requiredCases', []))
     elif kind == "build":
         war = run_dir / "carlos.war"
         manifest = build_manifest(war)
         summary = {"artifactSha256": manifest["warSha256"], "entries": manifest["entryCount"], "ready": True}
     elif kind == "command":
         summary = {"ready": True}
+        if check.get("resultContract"):
+            summary, _ = command_results(check["resultContract"], run_dir, read_json, digest)
         if check["id"] == "scope-inventory":
             report = read_json(run_dir / "scope.json")
             if report.get("schemaVersion") != 1 or report.get("head") != source_identity(root)["commit"]:
@@ -355,17 +479,23 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
     if artifact is not None:
         receipt["artifactSha256"] = digest(artifact)
     missing = [name for name in check.get("requiresEnvironment", []) if not os.environ.get(name)]
+    missing_programs = [name for name in check.get('requiresExecutables', []) if shutil.which(name) is None]
     try:
         if not runtime_matches(receipt["runtimes"], check.get("runtimeConstraints", {})):
             receipt["reason"] = "Required runtime version is unavailable"
-        elif check["kind"] == "external" or missing:
+        elif check["kind"] == "external" or missing or missing_programs:
             receipt["reason"] = "External acceptance pending" if check["kind"] == "external" else "Missing named test prerequisites"
-        elif check.get("packaged") and artifact is None:
+        elif (check.get("packaged") or check.get('requiresArtifact')) and artifact is None:
             receipt["reason"] = "Packaged acceptance requires the exact built WAR"
         else:
-            if check.get("packaged"):
+            if check.get('deploymentScope'):
+                config = validate_lifecycle_config(read_json(Path(os.environ['CARLOS_PACKAGE_LIFECYCLE_CONFIG'])))
+                receipt['targetPackageSha256'] = config['packages']['target']['emr']['sha256']
+            if check.get("packaged") and not check.get('deploymentScope'):
                 receipt["deployment"] = attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root)
             substitutions = {"run": str(run_dir.resolve()), "root": str(root.resolve()),
+                             "runId": run_id,
+                             "evidence": str(evidence.resolve()),
                              "profile": profile, "artifact": str(artifact.resolve()) if artifact else ""}
             substitutions.update({name: os.environ.get(variable, "") for name, variable in check.get("environmentInputs", {}).items()})
             argv = [arg.format_map(substitutions) for arg in check["command"]]
@@ -374,34 +504,43 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
                 # even when the caller has not activated that venv in PATH.
                 argv[0] = sys.executable
             receipt["command"] = check["command"]  # Template only: no expanded credentials/paths.
-            environment = dict(os.environ)
+            environment = separate_checkout_environment()
             environment.update({key: value.format_map(substitutions) for key, value in check.get("environment", {}).items()})
+            if check.get('requireClassIdentity'):
+                # A clean Git checkout alone says nothing about ignored class files.
+                # Each lane must compile from this source before it can earn evidence.
+                compiled_classes.reset(root, evidence)
             with (run_dir / "private.log").open("xb") as log:
                 os.chmod(run_dir / "private.log", 0o600)
-                process = subprocess.Popen(argv, cwd=root, env=environment, stdout=log, stderr=log, start_new_session=True)
                 try:
-                    receipt["exitCode"] = process.wait(timeout=check.get("timeoutSeconds", 3600))
-                except (subprocess.TimeoutExpired, KeyboardInterrupt) as failure:
-                    # Give harness finally blocks a chance to restore their own fixtures.
-                    os.killpg(process.pid, signal.SIGTERM)
-                    try:
-                        process.wait(timeout=20)
-                    except subprocess.TimeoutExpired:
-                        os.killpg(process.pid, signal.SIGKILL)
-                        process.wait()
+                    # The Docker controller needs time to stop and retain its
+                    # owned container after the exec client has stopped. Killing
+                    # the controller early would bypass that reconciliation.
+                    grace = 120 if check.get('deploymentScope') else 20
+                    receipt["exitCode"] = run_process_group(argv, cwd=root, env=environment,
+                        stdout=log, stderr=log, timeout=check.get("timeoutSeconds", 3600), grace=grace).returncode
+                except ProcessGroupFailure as failure:
                     receipt["reason"] = "Timeout or interruption; cleanup is not certified"
                     receipt["exitCode"] = -1
-                    if isinstance(failure, KeyboardInterrupt):
+                    receipt['reconciliation'] = {'processGroupStopped': failure.quiescent,
+                        'restorationVerified': False, 'hostRequiresReconciliation': True}
+                    if failure.interrupted:
                         receipt["cancelled"] = True
             if receipt["exitCode"] != 0:
                 receipt["problems"].append({"stage": "execution", "exitCode": receipt["exitCode"],
                                             "cancelled": receipt.get("cancelled", False)})
+            if check.get('requireClassIdentity'):
+                write_json(run_dir / 'classes.json', production_class_identity(root))
             receipt["summary"] = summarize(check, run_dir, receipt["exitCode"], root)
             if source_identity(root) != source or digest(plan_path) != receipt["planSha256"]:
                 raise EvidenceError("Source or plan changed during execution")
             if artifact is not None and digest(artifact) != receipt["artifactSha256"]:
                 raise EvidenceError("Packaged bytes changed during execution")
-            if check.get("packaged") and attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root) != receipt["deployment"]:
+            if check.get('deploymentScope'):
+                receipt['deployment'] = validate_lifecycle_inventory(read_json(run_dir / 'lifecycle.json'),
+                    source, profile, receipt['artifactSha256'], run_dir, read_json, digest, check.get('lifecycleRoles'),
+                    target_package_hash=receipt['targetPackageSha256'])
+            elif check.get("packaged") and attest(artifact, base_url=os.environ.get("BASE_URL", ""), root=root) != receipt["deployment"]:
                 raise EvidenceError("Installed application changed during execution")
             receipt["outcome"] = "PASS" if receipt["summary"]["ready"] else "FAIL"
     except Exception as failure:
@@ -410,16 +549,32 @@ def run_check(plan_path, check_id, evidence: Path, profile, iteration, artifact=
         receipt.setdefault("reason", reason)
         receipt["problems"].append({"stage": "evidence", "reason": reason})
     receipt["completedNs"] = time.time_ns()
-    for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
-                    "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json"):
-        for path in sorted(run_dir.glob(pattern)):
-            if path.is_symlink() or not path.is_file():
-                receipt["outcome"] = "FAIL"
-                receipt["reason"] = "Evidence contains a symlink or non-file"
-                continue
-            receipt["inputs"].append({"path": str(path.relative_to(run_dir)), "sha256": digest(path)})
+    for path in evidence_files(check, run_dir):
+        if path.is_symlink() or not path.is_file():
+            receipt["outcome"] = "FAIL"
+            receipt["reason"] = "Evidence contains a symlink or non-file"
+            continue
+        receipt["inputs"].append({"path": str(path.relative_to(run_dir)), "sha256": digest(path)})
     write_json(run_dir / "receipt.json", receipt)
     return receipt
+
+
+def evidence_files(check, directory):
+    files = {p for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
+                              "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json", "classes.json")
+             for p in directory.glob(pattern)}
+    if check.get("resultContract"):
+        result = directory / check["resultContract"]["file"]
+        if result.exists() or result.is_symlink():
+            files.add(result)
+            try:
+                _, names = command_results(check["resultContract"], directory, read_json, digest)
+                files.update(relative_file(directory, name) for name in names)
+            except EvidenceError:
+                # summarize records malformed/missing inputs as FAIL. Retain the
+                # result itself without losing the failed receipt during collection.
+                pass
+    return sorted(files)
 
 
 def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
@@ -456,11 +611,11 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
         check = dict(checks[key[0]], selectedProfile=key[1])
         if not runtime_matches(receipt.get("runtimes", {}), check.get("runtimeConstraints", {})):
             raise EvidenceError("Evidence used an unqualified runtime")
-        if check.get("packaged") and receipt.get("artifactSha256") != artifact_hash:
+        if (check.get("packaged") or check.get('requiresArtifact')) and receipt.get("artifactSha256") != artifact_hash:
             raise EvidenceError("Installed acceptance belongs to different packaged bytes")
         if check.get("packaged") and receipt.get("outcome") == "PASS" and (
                 receipt.get("deployment", {}).get("warSha256") != artifact_hash
-                or receipt["deployment"].get("scope") != "installed-package-application"
+                or receipt["deployment"].get("scope") != check.get('deploymentScope', 'installed-package-application')
                 or not HEX.fullmatch(receipt["deployment"].get("contentSha256", ""))):
             raise EvidenceError("Packaged acceptance has no installed-byte binding")
         inputs = receipt.get("inputs", [])
@@ -479,9 +634,11 @@ def verify(plan_path, evidence: Path, artifact: Path, root=ROOT):
             continue
         if receipt.get("command") != check.get("command") or check["kind"] == "external":
             raise EvidenceError("Receipt was not produced by its reviewed executable check")
-        actual_inputs = {str(p.relative_to(path.parent)) for pattern in ("reports/TEST-*.xml", "node.json", "python.json", "browser.xml", "carlos.war",
-                                                                    "jacoco.exec", "coverage/jacoco.xml", "javascript-coverage.json", "scope.json")
-                         for p in path.parent.glob(pattern)}
+        if check.get('deploymentScope') and validate_lifecycle_inventory(read_json(path.parent / 'lifecycle.json'),
+                source, key[1], artifact_hash, path.parent, read_json, digest, check.get('lifecycleRoles'),
+                target_package_hash=receipt.get('targetPackageSha256')) != receipt.get('deployment'):
+            raise EvidenceError('Lifecycle installed-byte binding changed')
+        actual_inputs = {str(p.relative_to(path.parent)) for p in evidence_files(check, path.parent)}
         if actual_inputs != set(input_names):
             raise EvidenceError("Evidence file inventory changed")
         summary = summarize(check, path.parent, 0, root)
