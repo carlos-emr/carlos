@@ -15,7 +15,7 @@
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
-const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
+const { withTicklerConfirmations, dismissTicklerDelete } = require('./lib/tickler-confirmation');
 
 const TIMEOUT = 30000;
 const FORM = 'form[name="ticklerform"]';
@@ -174,6 +174,13 @@ async function workflow(s) {
     await lists({ first: true, second: false, third: true, fourth: true });
     await box('third').check();
     await box('fourth').check();
+    const records = () => JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no IN (${ids.join(',')}) ORDER BY tickler_no`));
+    const history = () => JSON.stringify(sql.rows(`SELECT * FROM tickler_update WHERE tickler_no IN (${ids.join(',')}) ORDER BY id`));
+    const recordsBefore = records();
+    const historyBefore = history();
+    await dismissTicklerDelete(list, () => list.locator(BUTTON.delete).click());
+    h.assert(records() === recordsBefore && history() === historyBefore,
+      'Dismissing main-list Delete changed a task or its status history');
     await press('delete');
     h.assert(statuses() === 'ACDD', `Delete left first..fourth as ${statuses()}`);
   });

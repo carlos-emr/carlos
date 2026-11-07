@@ -15,8 +15,8 @@ const PAGES = {
 const LOCALES = ['en', 'es', 'fr', 'pl', 'pt_BR'];
 const jsp = name => fs.readFileSync(path.join(ROOT, 'src/main/webapp/WEB-INF/jsp/tickler', name), 'utf8');
 
-/** The page's own confirmDeleteSelected(), run against a fake form holding the given checkbox states. */
-function confirmFunction(source, boxes, answer) {
+/** Runs the page's confirmation function, or its native click handler, against the supplied checkbox states. */
+function confirmFunction(source, boxes, answer, action) {
   const start = source.indexOf('function confirmDeleteSelected()');
   assert.ok(start >= 0, 'the page must define confirmDeleteSelected()');
   // The function is brace-balanced and has no nested functions, so the first "\n            }" closes it.
@@ -24,13 +24,21 @@ function confirmFunction(source, boxes, answer) {
   assert.ok(end > start, 'confirmDeleteSelected() must end at its closing brace');
   const prompts = [];
   const elements = [{ name: 'submit_form', checked: false }, ...boxes.map(checked => ({ name: 'checkbox', checked }))];
+  const form = { elements, submit_form: { value: 'unchanged' }, submits: 0, submit() { this.submits++; } };
   const context = {
-    document: { ticklerform: { elements } },
+    document: { ticklerform: form, forms: { ticklerform: form } },
     i18nConfirmDelete: 'Delete the selected tasks?',
     confirm: message => { prompts.push(message); return answer; },
   };
-  vm.runInNewContext(`${source.slice(start, end + '\n            }'.length)}\nresult = confirmDeleteSelected();`, context);
-  return { result: context.result, prompts };
+  let invoke = 'result = confirmDeleteSelected();';
+  if (action) {
+    const handlers = source.match(/onclick="[^"]*submit_form\.value='(?:Delete|Complete)'[^"]*"/g) || [];
+    const handler = handlers.find(value => value.includes(`submit_form.value='${action}'`));
+    assert.ok(handler, `${action} must have a native click handler`);
+    invoke = `result = (function () { ${handler.slice('onclick="'.length, -1)} }).call({});`;
+  }
+  vm.runInNewContext(`${source.slice(start, end + '\n            }'.length)}\n${invoke}`, context);
+  return { result: context.result, prompts, form };
 }
 
 for (const [page, key] of Object.entries(PAGES)) {
@@ -50,6 +58,35 @@ for (const [page, key] of Object.entries(PAGES)) {
     const none = confirmFunction(jsp(page), [false, false], false);
     assert.deepEqual(none.prompts, []);
     assert.equal(none.result, true);
+  });
+
+  test(`${page} native Delete handler preserves the action and selection without submitting on Cancel`, () => {
+    const { prompts, form } = confirmFunction(jsp(page), [true, true, false], false, 'Delete');
+    assert.equal(prompts.length, 1, 'multiple selected tasks still need exactly one prompt');
+    assert.equal(form.submits, 0);
+    assert.equal(form.submit_form.value, 'unchanged');
+    assert.deepEqual(form.elements.slice(1).map(e => e.checked), [true, true, false]);
+  });
+
+  test(`${page} native Delete handler submits Delete exactly once after OK`, () => {
+    const { prompts, form } = confirmFunction(jsp(page), [true, true], true, 'Delete');
+    assert.equal(prompts.length, 1);
+    assert.equal(form.submits, 1);
+    assert.equal(form.submit_form.value, 'Delete');
+  });
+
+  test(`${page} native Delete handler submits an empty selection without asking`, () => {
+    const { prompts, form } = confirmFunction(jsp(page), [], false, 'Delete');
+    assert.deepEqual(prompts, []);
+    assert.equal(form.submits, 1);
+    assert.equal(form.submit_form.value, 'Delete');
+  });
+
+  test(`${page} native Complete handler submits once without asking`, () => {
+    const { prompts, form } = confirmFunction(jsp(page), [true], false, 'Complete');
+    assert.deepEqual(prompts, []);
+    assert.equal(form.submits, 1);
+    assert.equal(form.submit_form.value, 'Complete');
   });
 
   test(`${page} wires the guard into Delete only and keeps the selectors the browser checks use`, () => {

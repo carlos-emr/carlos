@@ -32,4 +32,39 @@ async function withTicklerConfirmations(page, expected, body, options = {}) {
   return dialogs;
 }
 
-module.exports = { withTicklerConfirmations };
+/**
+ * Dismisses Delete and verifies cancellation leaves the native form in place without a mutation request.
+ * Storage assertions remain with the caller, which knows the owned task and history rows.
+ *
+ * @param {import('playwright').Page} page the wired task-list page
+ * @param {() => Promise<unknown>} body the Delete click
+ */
+async function dismissTicklerDelete(page, body) {
+  const snapshot = () => page.locator('form[name="ticklerform"]').evaluate(form => ({
+    selected: Array.from(form.elements).filter(e => e.name === 'checkbox' && e.checked).map(e => e.value),
+    action: form.elements.namedItem('submit_form').value,
+  }));
+  const before = await snapshot();
+  h.assert(before.selected.length > 0, 'The cancellation check needs a selected task');
+  const posts = [];
+  const navigations = [];
+  const onRequest = request => {
+    if (request.method() === 'POST' && /\/tickler\/DbTickler(?:Demo)?Main$/.test(h.pathOnly(request.url()))) posts.push(request.url());
+  };
+  const onNavigation = frame => { if (frame === page.mainFrame()) navigations.push(frame.url()); };
+  page.on('request', onRequest);
+  page.on('framenavigated', onNavigation);
+  try {
+    await withTicklerConfirmations(page, 1, body, { accept: false });
+    await page.waitForLoadState('networkidle');
+    h.assert(posts.length === 0 && navigations.length === 0,
+      'Dismissing task Delete submitted a mutation request or navigated the list');
+    h.assert(JSON.stringify(await snapshot()) === JSON.stringify(before),
+      'Dismissing task Delete changed the selection or submit action');
+  } finally {
+    page.off('request', onRequest);
+    page.off('framenavigated', onNavigation);
+  }
+}
+
+module.exports = { withTicklerConfirmations, dismissTicklerDelete };
