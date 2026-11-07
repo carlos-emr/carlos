@@ -840,6 +840,8 @@ checks both `billing_on_diskname.ohipfilename` and
 `billing_on_filename.htmlfilename` using the target's comparisons, including
 case, accents and trailing spaces. NULL remains NULL. Every submission, ID,
 relationship, timestamp and original filename is retained.
+The two columns share one file namespace: a basename used by just one row
+in each table is also ambiguous, even without duplicates within either table.
 
 Every member of a colliding group receives a deterministic name such as
 `o19-claim-2021-42-0.claim` or `o19-html-2021-73-0.html`. These are historical

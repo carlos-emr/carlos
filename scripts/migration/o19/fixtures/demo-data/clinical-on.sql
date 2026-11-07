@@ -55,9 +55,13 @@ INSERT INTO billing_on_diskname
    createdatetime, status, total, timestamp)
 VALUES
   (990101, 'J', 1, 'HJ999998.001', '', '999998', '1', '2020-01-15 12:00:00', 'U', '33.70', '2020-01-15 12:00:00'),
-  (990102, 'J', 1, 'HJ999998.001', '', '999998', '1', '2021-01-15 12:00:00', 'U', '77.20', '2021-01-15 12:00:00');
+  (990102, 'J', 1, 'HJ999998.001', '', '999998', '1', '2021-01-15 12:00:00', 'U', '77.20', '2021-01-15 12:00:00'),
+  (990103, 'J', 2, 'shared-billing-output.dat', '', '999998', '1', '2022-01-15 12:00:00', 'U', '0.00', '2022-01-15 12:00:00');
 INSERT INTO billing_on_filename
   (id, disk_id, htmlfilename, providerohipno, providerno, claimrecord, status, total, timestamp)
 VALUES
   (990201, 990101, 'HJ999998_001.html', '999998', '999998', '1', 'U', '33.70', '2020-01-15 12:00:00'),
-  (990202, 990102, 'HJ999998_001.html', '999998', '999998', '1', 'U', '77.20', '2021-01-15 12:00:00');
+  (990202, 990102, 'HJ999998_001.html', '999998', '999998', '1', 'U', '77.20', '2021-01-15 12:00:00'),
+  (990203, 990103, 'shared-billing-output.dat', '999998', '999998', '1', 'U', '0.00', '2022-01-15 12:00:00');
+-- The last pair has no within-table duplicate: it shares one physical
+-- basename across the OHIP and HTML columns and still requires reconciliation.
