@@ -1480,11 +1480,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return extraValue;
     }
+    /** Returns the recorded birth date in its calendar's zone, independent of cached formatter defaults. */
     @jakarta.persistence.Transient
-
     public String getFormattedDob() {
         Calendar cal = getBirthDay();
-        if (cal != null) return (DateFormatUtils.ISO_DATE_FORMAT.format(cal));
+        if (cal != null) return DateFormatUtils.format(cal, "yyyy-MM-dd", cal.getTimeZone());
         else return ("");
     }
 

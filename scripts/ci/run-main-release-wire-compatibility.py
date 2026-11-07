@@ -30,6 +30,19 @@ EXPECTED_CASES |= {'legacy-input:' + name + ':' + sample + ':xml'
 LIMIT = 1 << 30
 TOMCAT_CORE_SHA256 = 'b71785ff101c0df501064b3e3b8c4a02e4f9cc3047a7fa686c41fc4edc2f0cb4'
 TOMCAT_JSP_API_SHA256 = 'b525b3689de9e55e38baf15a1662a22dc6763cbb868b59078c81ca2fc486c00e'
+XML_PROVIDERS = {'glassfish': 'org.glassfish.jaxb.runtime.v2.runtime.JAXBContextImpl',
+                 'moxy': 'org.eclipse.persistence.jaxb.JAXBContext'}
+
+
+def require_xml_provider(report, requested):
+    """An explicit historical provider must be observed, never silently substituted."""
+    providers = report.get('xmlProviders')
+    if (not isinstance(providers, list) or not providers
+            or any(not isinstance(value, str) or value not in XML_PROVIDERS.values() for value in providers)
+            or len(set(providers)) != len(providers)):
+        raise EvidenceError('Binary client lacks an unambiguous observed XML provider')
+    if requested != 'automatic' and providers != [XML_PROVIDERS[requested]]:
+        raise EvidenceError('Observed XML provider differs from its requested historical contract')
 
 
 def callable_name(member):
@@ -218,12 +231,15 @@ def extract_release(war, destination):
 
 
 def main():
+    """Verify binary pins, run both isolated clients, and retain strict provider-bound findings."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--main-package', type=Path, required=True)
     parser.add_argument('--candidate', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--tomcat-core', type=Path, required=True)
     parser.add_argument('--tomcat-jsp-api', type=Path, required=True)
+    parser.add_argument('--main-xml-provider', choices=('automatic', *XML_PROVIDERS), default='automatic')
+    parser.add_argument('--candidate-xml-provider', choices=('automatic', *XML_PROVIDERS), default='automatic')
     args = parser.parse_args()
     if not args.candidate.is_file() or not args.main_package.is_file():
         raise EvidenceError('Main package and source-bound candidate WAR are both required')
@@ -252,6 +268,7 @@ def main():
         'mainPackageSha256': gate.digest(args.main_package), 'releaseSource': gate.source_identity(),
         'releaseWarSha256': gate.digest(args.candidate), 'tomcatCoreSha256': gate.digest(args.tomcat_core),
         'tomcatJspApiSha256': gate.digest(args.tomcat_jsp_api),
+        'requestedXmlProviders': {'main': args.main_xml_provider, 'release': args.candidate_xml_provider},
         'clientCorpusSha256': gate.digest(CORPUS)})
     with tempfile.TemporaryDirectory(prefix='binary-clients-', dir=directory) as temporary:
         temporary = Path(temporary); classes = temporary / 'probe'; classes.mkdir()
@@ -267,11 +284,16 @@ def main():
                     '-Duser.country=CA', '-cp', os.pathsep.join(map(str,
                         (classes, args.tomcat_core.resolve(), args.tomcat_jsp_api.resolve()))),
                     'WarWireCompatibilityProbe', str(webapp),
-                    str(directory / (side + '-wire.json')), str(CORPUS), str(api_inventory)], stdout=log, stderr=log)
+                    str(directory / (side + '-wire.json')), str(CORPUS), str(api_inventory),
+                    args.main_xml_provider if side == 'main' else args.candidate_xml_provider], stdout=log, stderr=log)
                 if result.returncode and not (directory / (side + '-wire.json')).is_file():
                     raise EvidenceError('Binary client probe did not retain observations')
             shutil.rmtree(webapp)
-    result = compare(gate.read_json(directory / 'main-wire.json'), gate.read_json(directory / 'release-wire.json'))
+    main_report = gate.read_json(directory / 'main-wire.json')
+    release_report = gate.read_json(directory / 'release-wire.json')
+    require_xml_provider(main_report, args.main_xml_provider)
+    require_xml_provider(release_report, args.candidate_xml_provider)
+    result = compare(main_report, release_report)
     details = directory / 'comparison-details.json'; gate.write_json(details, result)
     gate.write_json(args.output, {'schemaVersion': 1, 'assertions': {
         'both-binary-clients-complete': not any(p['reason'] == 'client-rejected-input' for p in result['problems']),

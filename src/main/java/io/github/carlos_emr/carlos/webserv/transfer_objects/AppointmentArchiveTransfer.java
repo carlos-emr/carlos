@@ -89,6 +89,8 @@ public final class AppointmentArchiveTransfer {
     }
 
     @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getAppointmentStartDateTime() {
         return (appointmentStartDateTime);
     }
@@ -98,6 +100,8 @@ public final class AppointmentArchiveTransfer {
     }
 
     @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getAppointmentEndDateTime() {
         return (appointmentEndDateTime);
     }
@@ -195,6 +199,8 @@ public final class AppointmentArchiveTransfer {
     }
 
     @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getCreateDateTime() {
         return (createDateTime);
     }
@@ -204,6 +210,8 @@ public final class AppointmentArchiveTransfer {
     }
 
     @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getUpdateDateTime() {
         return (updateDateTime);
     }

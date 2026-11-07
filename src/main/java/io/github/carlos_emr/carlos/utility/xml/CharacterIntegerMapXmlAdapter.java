@@ -35,28 +35,28 @@ public final class CharacterIntegerMapXmlAdapter
     /** XML container for ordered map entries; an empty container represents a present, empty map. */
     @jakarta.xml.bind.annotation.XmlType(name = "")
     @XmlAccessorType(XmlAccessType.FIELD)
-    public static final class Entries {
+    public static class Entries {
         public List<Entry> entry = new ArrayList<>();
     }
 
     /** One XML entry with a {@link Character} key and a {@link Integer} value. */
     @jakarta.xml.bind.annotation.XmlType(name = "")
     @XmlAccessorType(XmlAccessType.FIELD)
-    public static final class Entry {
+    public static class Entry {
         @XmlJavaTypeAdapter(CharacterXmlAdapter.class)
         public Character key;
         public Integer value;
     }
 
     /**
-     * Converts a map to XML entries, preserving MOXy's omission of null and empty maps.
+     * Converts a map to XML entries, preserving the published schema's present-empty container.
      *
      * @param value Map&lt;Character, Integer&gt; to serialize, or null
-     * @return Entries containing the map entries, or null for a null or empty map so the element is omitted
+     * @return Entries containing the map entries, including an empty container, or null for an absent map
      */
     @Override
     public Entries marshal(Map<Character, Integer> value) {
-        if (value == null || value.isEmpty()) return null;
+        if (value == null) return null;
         Entries result = new Entries();
         value.forEach((key, item) -> {
             Entry entry = new Entry();

@@ -1,0 +1,22 @@
+{
+  "sourceCommit": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "packageSha256": "839c981b7de78460d89eaba0a8c95d992d88f861cc4739bba2b81753373a3af1",
+  "provider": "org.glassfish.jaxb.runtime.v2.ContextFactory",
+  "providerVersion": "4.0.9",
+  "jdkVersion": "25.0.4.1",
+  "description": "Unmodified schemas generated from the hash-verified beta6 Debian application, explicitly selecting its own Glassfish provider. Synthetic native values from issue #5721 validate against the six original schemas. Unit tests add only an isolated global value element when a type lacks a root; schema attributes, cardinality, sequence and types remain intact. Character-policy differences remain separately blocking.",
+  "schemas": {
+    "AppointmentArchiveTransfer.xsd": "49c2089ecb19d6d125e7c345bbddcfd0f1344ff80e4376ce5219f3ec2f80e508",
+    "AppointmentExtResponse.xsd": "324633bababa67bbcb80435c90c22c430d9f039b2dfbd84483d4e3ab4a51cf81",
+    "AppointmentExtTo.xsd": "934388c7fce511460e00a53925643a2027ebfbc99620bdc890c4fa8a254d850f",
+    "AppointmentTransfer.xsd": "d97847243db9864b319264e4255aaa19bfd6b03b92a1378343384ef1c9c96bff",
+    "BookingProviderTransfer.xsd": "e74b596f8a291b33ca447fc31354b336fde632a569fb0f0a26e072aa5b2b738b",
+    "CalendarScheduleCodePairTransfer.xsd": "29d871fa17b9c6a053f8f531f9f75212cdfa84bceb7d6d4dec8a226cf84fcc24",
+    "DrugTransfer.xsd": "b2a54577934ac45ace9416d35602a238d68b262ed50325cae888c8ceb43c125c",
+    "FilterDefinitionTransfer.xsd": "e103ff377057208d7ad9464158f2d200e4efd19d04e63fbaa4a08df82a34fe4d",
+    "LookupCodeValue.xsd": "a3ed59a9d72a9115b57a168c2b181b1e692c1cdee87b6a5d5ed9c50b85047f12",
+    "PrescriptionTransfer.xsd": "f94cf0bb910be733ea4b932e1d96a502697588907417382c47ef2cac2f196f1c",
+    "ScheduleTemplateCodeTransfer.xsd": "b1e07a2f5e65fe565a30f03141a1cb49155dad2b780b3dc6e29967860211b2a0",
+    "SearchConfigTo1.xsd": "023ba37df74426404981e571fb9231e1768469b4fed6e21cb57c8bd91f056ac4"
+  }
+}

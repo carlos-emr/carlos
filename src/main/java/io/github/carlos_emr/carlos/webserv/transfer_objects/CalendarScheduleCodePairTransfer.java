@@ -41,6 +41,8 @@ public final class CalendarScheduleCodePairTransfer {
 
 
     @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     public Calendar getDate() {
         return (date);
     }

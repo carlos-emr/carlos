@@ -30,6 +30,7 @@ public final class WarWireCompatibilityProbe {
     private static final Map<String, Object> ERRORS = new LinkedHashMap<>();
     private static final Set<String> XML_PROVIDERS = new java.util.TreeSet<>();
     private static final Map<Class<?>, Map<String, String>> CONSTANTS = new java.util.HashMap<>();
+    private static String xmlProvider = "automatic";
     @FunctionalInterface private interface Operation { String execute() throws Exception; }
 
     private static void observe(String name, String kind, Operation operation) {
@@ -70,11 +71,29 @@ public final class WarWireCompatibilityProbe {
         return value;
     }
 
+    /** Selects the requested provider inside the binary's loader and records the actual implementation. */
+    private static Object xmlContext(ClassLoader loader, Class<?> type) throws Exception {
+        Object context;
+        if (xmlProvider.equals("automatic")) {
+            context = loader.loadClass("jakarta.xml.bind.JAXBContext").getMethod("newInstance", Class[].class)
+                    .invoke(null, (Object) new Class<?>[]{type});
+        } else {
+            String factory = switch (xmlProvider) {
+                case "glassfish" -> "org.glassfish.jaxb.runtime.v2.ContextFactory";
+                case "moxy" -> "org.eclipse.persistence.jaxb.JAXBContextFactory";
+                default -> throw new IllegalArgumentException("Unknown XML provider selection");
+            };
+            context = loader.loadClass(factory).getMethod("createContext", Class[].class, Map.class)
+                    .invoke(null, new Class<?>[]{type}, Map.of());
+        }
+        XML_PROVIDERS.add(context.getClass().getName());
+        return context;
+    }
+
+    /** Serializes a native DTO through the selected binary provider under a stable synthetic root. */
     private static String xml(ClassLoader loader, Object value) throws Exception {
         var contextType = loader.loadClass("jakarta.xml.bind.JAXBContext");
-        var context = contextType.getMethod("newInstance", Class[].class)
-                .invoke(null, (Object) new Class<?>[]{value.getClass()});
-        XML_PROVIDERS.add(context.getClass().getName());
+        var context = xmlContext(loader, value.getClass());
         var element = loader.loadClass("jakarta.xml.bind.JAXBElement")
                 .getConstructor(QName.class, Class.class, Object.class)
                 .newInstance(new QName("urn:carlos:jaxb-compatibility", "value"), value.getClass(), value);
@@ -89,9 +108,7 @@ public final class WarWireCompatibilityProbe {
     private static String roundTrip(ClassLoader loader, String name, String input) throws Exception {
         var type = loader.loadClass(name);
         var contextType = loader.loadClass("jakarta.xml.bind.JAXBContext");
-        var context = contextType.getMethod("newInstance", Class[].class)
-                .invoke(null, (Object) new Class<?>[]{type});
-        XML_PROVIDERS.add(context.getClass().getName());
+        var context = xmlContext(loader, type);
         var unmarshaller = contextType.getMethod("createUnmarshaller").invoke(context);
         var element = loader.loadClass("jakarta.xml.bind.Unmarshaller")
                 .getMethod("unmarshal", javax.xml.transform.Source.class, Class.class)
@@ -292,7 +309,18 @@ public final class WarWireCompatibilityProbe {
         return text.append('"').toString();
     }
 
+    /**
+     * Runs the unchanged client corpus in Tomcat's isolated loader and retains every observation.
+     *
+     * @param args String[] containing the webapp directory, result file, XML corpus file,
+     *             public-API inventory file, and optional XML-provider selector
+     * @throws Exception if the isolated container lifecycle, input loading, or result writing fails
+     */
     public static void main(String[] args) throws Exception {
+        if (args.length == 5) xmlProvider = args[4];
+        if (!Set.of("automatic", "glassfish", "moxy").contains(xmlProvider)) {
+            throw new IllegalArgumentException("Unknown XML provider selection");
+        }
         Path webapp = Path.of(args[0]);
         // Maven and sorted URL class paths can select a different JAXB service from Tomcat.
         // Use the actual container resource/class-loader implementation, without starting the app.

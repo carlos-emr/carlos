@@ -1,0 +1,16 @@
+<?xml version="1.0" standalone="yes"?>
+<xs:schema version="1.0" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="scheduleTemplateCodeTransfer" final="extension restriction">
+    <xs:sequence>
+      <xs:element name="bookinglimit" type="xs:int"/>
+      <xs:element name="code" type="xs:unsignedShort" minOccurs="0"/>
+      <xs:element name="color" type="xs:string" minOccurs="0"/>
+      <xs:element name="confirm" type="xs:string" minOccurs="0"/>
+      <xs:element name="description" type="xs:string" minOccurs="0"/>
+      <xs:element name="duration" type="xs:string" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+

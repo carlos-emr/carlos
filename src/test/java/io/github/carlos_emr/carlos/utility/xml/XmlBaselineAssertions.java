@@ -31,7 +31,7 @@ public final class XmlBaselineAssertions {
     }
 
     public static <T> void assertBaselineWrite(Class<T> type, T value, String sample) throws Exception {
-        String expected = withPublishedMainBirthday(baseline(type, sample));
+        String expected = withPublishedMainContracts(type, baseline(type, sample));
         var context = JAXBContext.newInstance(type);
         var writer = new StringWriter();
         context.createMarshaller().marshal(new JAXBElement<>(new QName("urn:carlos:jaxb-compatibility", "value"), type, value), writer);
@@ -51,6 +51,44 @@ public final class XmlBaselineAssertions {
     public static String withPublishedMainBirthday(String legacyXml) {
         return legacyXml.replace("<birthDay>1980-07-15</birthDay>",
                 "<birthDay>1980-07-15T00:00:00-04:00</birthDay>");
+    }
+
+    /**
+     * Applies only the corrections independently validated against beta6 schemas in #5721.
+     * The captured MOXy bytes remain unchanged as reader input. Character mappings, fractional
+     * seconds, edit versions and other unresolved compatibility differences are not normalized.
+     */
+    public static String withPublishedMainContracts(Class<?> type, String legacyXml) throws Exception {
+        String expected = withPublishedMainBirthday(legacyXml);
+        java.util.List<String> dateTimes = switch (type.getSimpleName()) {
+            case "AppointmentTransfer", "AppointmentArchiveTransfer" -> java.util.List.of(
+                    "appointmentStartDateTime", "appointmentEndDateTime", "createDateTime", "updateDateTime");
+            case "CalendarScheduleCodePairTransfer", "DayWorkScheduleTransfer" -> java.util.List.of("date");
+            case "LookupCodeValue", "NavbarResponse", "ProgramProviderTo1", "ProgramTo1", "TicklerTo1" -> java.util.List.of("lastUpdateDate");
+            default -> java.util.List.of();
+        };
+        for (String property : dateTimes) {
+                expected = expected.replace("<" + property + ">2026-07-15T13:14:15</" + property + ">",
+                        "<" + property + ">2026-07-15T13:14:15-04:00</" + property + ">");
+        }
+        if (!java.util.Set.of("FilterDefinitionTransfer", "AppointmentExtTo").contains(type.getSimpleName())) return expected;
+        var factory = XmlUtils.createSecureDocumentBuilderFactory();
+        factory.setNamespaceAware(true);
+        var document = factory.newDocumentBuilder().parse(new InputSource(new StringReader(expected)));
+        var root = document.getDocumentElement();
+        if (type == io.github.carlos_emr.carlos.webserv.rest.to.model.FilterDefinitionTransfer.class
+                && root.getElementsByTagName("params").getLength() == 0) {
+            root.appendChild(document.createElement("params"));
+        }
+        if (type == io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentExtTo.class) {
+            var field = root.getElementsByTagName("hPhoneExt").item(0);
+            var status = root.getElementsByTagName("status").item(0);
+            if (field != null && status != null) root.insertBefore(field, status.getNextSibling());
+        }
+        var output = new StringWriter();
+        XmlUtils.createSecureTransformerFactory().newTransformer().transform(
+                new javax.xml.transform.dom.DOMSource(document), new javax.xml.transform.stream.StreamResult(output));
+        return output.toString();
     }
 
     private static String baseline(Class<?> type, String sample) throws Exception {

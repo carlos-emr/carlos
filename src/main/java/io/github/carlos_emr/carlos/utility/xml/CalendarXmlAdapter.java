@@ -68,8 +68,11 @@ public final class CalendarXmlAdapter extends XmlCompatibilityAdapter<String, Ca
         boolean hasTime = value.isSet(Calendar.HOUR_OF_DAY) || value.isSet(Calendar.HOUR)
                 || value.isSet(Calendar.MINUTE) || value.isSet(Calendar.SECOND) || value.isSet(Calendar.MILLISECOND);
         boolean hasZone = value.isSet(Calendar.ZONE_OFFSET) || value.isSet(Calendar.DST_OFFSET);
-        GregorianCalendar calendar = new GregorianCalendar(value.getTimeZone());
-        calendar.setTimeInMillis(value.getTimeInMillis());
+        // Calendar computes and normalizes fields lazily, even in getTimeInMillis().
+        // Resolve an independent copy so writing XML cannot change the caller's state.
+        Calendar copy = (Calendar) value.clone();
+        GregorianCalendar calendar = new GregorianCalendar(copy.getTimeZone());
+        calendar.setTimeInMillis(copy.getTimeInMillis());
         XMLGregorianCalendar result = DATATYPE_FACTORY.newXMLGregorianCalendar(calendar);
         if (!hasZone) {
             result.setTimezone(DatatypeConstants.FIELD_UNDEFINED);

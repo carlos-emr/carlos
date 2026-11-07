@@ -16,7 +16,7 @@ class StringMapXmlAdapterUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldDistinguishAbsentAndPresentEmptyMaps_atXmlBoundary() {
         assertThat(adapter.marshal(null)).isNull();
-        assertThat(adapter.marshal(Map.of())).isNull();
+        assertThat(adapter.marshal(Map.of()).entry).isEmpty();
         assertThat(adapter.unmarshal(null)).isNull();
         assertThat(adapter.unmarshal(new StringMapXmlAdapter.Entries())).isEmpty();
     }

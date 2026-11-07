@@ -1,0 +1,27 @@
+<?xml version="1.0" standalone="yes"?>
+<xs:schema version="1.0" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="appointmentExtTo">
+    <xs:sequence>
+      <xs:element name="appointmentDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="appointmentNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="demoCell" type="xs:string" minOccurs="0"/>
+      <xs:element name="demographicNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="email" type="xs:string" minOccurs="0"/>
+      <xs:element name="firstName" type="xs:string" minOccurs="0"/>
+      <xs:element name="lastName" type="xs:string" minOccurs="0"/>
+      <xs:element name="location" type="xs:string" minOccurs="0"/>
+      <xs:element name="notes" type="xs:string" minOccurs="0"/>
+      <xs:element name="phone" type="xs:string" minOccurs="0"/>
+      <xs:element name="phone2" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="reminderPreference" type="xs:string" minOccurs="0"/>
+      <xs:element name="resources" type="xs:string" minOccurs="0"/>
+      <xs:element name="startTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="status" type="xs:string" minOccurs="0"/>
+      <xs:element name="hPhoneExt" type="xs:string" minOccurs="0"/>
+      <xs:element name="wPhoneExt" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>
+

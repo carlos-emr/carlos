@@ -51,6 +51,7 @@ public class FilterDefinitionTransfer {
 
     @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
             io.github.carlos_emr.carlos.utility.xml.StringMapXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlElement(required = true)
     public Map<String, String> getParams() {
         return params;
     }

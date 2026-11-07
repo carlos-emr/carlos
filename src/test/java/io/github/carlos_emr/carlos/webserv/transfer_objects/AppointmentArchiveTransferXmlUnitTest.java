@@ -17,8 +17,8 @@ class AppointmentArchiveTransferXmlUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"default", "populated"})
     void shouldRetainArchivedAppointmentFields_whenReadingAndWritingLegacyXml(String sample) throws Exception {
         var value = XmlBaselineAssertions.readBaseline(AppointmentArchiveTransfer.class, sample);
-        // The historical oracle captures marshaling of explicitly field-set calendars,
-        // not lexical identity after parsing an offset-free time into Calendar.
+        // Continue reading the unchanged offset-free MOXy input; writing follows
+        // the published beta6 date-time contract, including the calendar's offset.
         var written = new AppointmentArchiveTransfer();
         if ("populated".equals(sample)) {
             for (var setter : AppointmentArchiveTransfer.class.getMethods()) {

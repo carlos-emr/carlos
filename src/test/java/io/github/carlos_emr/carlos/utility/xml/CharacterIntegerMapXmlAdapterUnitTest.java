@@ -16,7 +16,7 @@ class CharacterIntegerMapXmlAdapterUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldPreserveAbsentAndEmptyDistinction_whenConvertingMaps() {
         assertThat(adapter.marshal(null)).isNull();
-        assertThat(adapter.marshal(Map.of())).isNull();
+        assertThat(adapter.marshal(Map.of()).entry).isEmpty();
         assertThat(adapter.unmarshal(null)).isNull();
         assertThat(adapter.unmarshal(new CharacterIntegerMapXmlAdapter.Entries())).isEmpty();
     }
