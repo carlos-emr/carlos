@@ -25,6 +25,7 @@ const leakPatterns = [
   /clearReferencesThreads[^\n]+mysql-cj-abandoned-connection-cleanup/,
   /clearReferencesThreads[^\n]+AbandonedConnectionCleanupThread/,
   /clearReferencesThreads[^\n]+HikariPool-/,
+  /clearReferencesThreads[^\n]+\bMariaDb-timeout\b/,
   /clearReferencesJdbc[^\n]+registered the JDBC driver/,
   /clearReferencesThreads[^\n]+ForkJoinPool-\d+-worker/,
   /clearReferencesThreads[^\n]+ForkJoinPool\.commonPool-delayScheduler/,

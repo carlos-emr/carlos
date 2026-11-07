@@ -111,6 +111,8 @@ def smoke(environment, phase, selection=None):
          '--province', environment['CARLOS_SUITE_PROVINCE'], '--junit', str(path)]
     for name in selection or ():
         command += ['--only', name]
+    if selection is None or 'error-sanitization' in selection:
+        command = ['python3', 'scripts/ci/run-installed-error-sanitization.py', '--', *command]
     run(command,
         phase, environment=environment, timeout=600, browser=True)
     profile = environment['CARLOS_SUITE_PROVINCE']

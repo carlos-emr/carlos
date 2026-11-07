@@ -36,3 +36,16 @@ test('the schedule refusal must come from the route rather than a generic upstre
     assert.throws(()=>assertScheduleDateRefusal(400,body,{}),/did not come from the schedule route/);
   }
 });
+
+test('installed fault oracle rejects unsanitized, intercepted, redirected and assertion-free success', () => {
+  const {assertSanitizedFault} = require('./error-sanitization-playwright-checks');
+  const sanitized = 'Error. Reference ID: 12345678-1234-1234-1234-123456789abc';
+  const headers = {'content-type':'text/html;charset=UTF-8'};
+  assert.doesNotThrow(() => assertSanitizedFault(500, sanitized, headers));
+  for (const [status, body, metadata] of [
+    [200, sanitized, headers], [302, sanitized, headers], [500, 'nginx 500', headers],
+    [500, sanitized + ' FAKE-private-error-5794', headers], [500, sanitized + ' java.lang.Exception', headers],
+    [500, sanitized, {'content-type':'application/json'}],
+    [500, sanitized, {...headers,'content-disposition':'attachment'}],
+  ]) assert.throws(() => assertSanitizedFault(status, body, metadata));
+});

@@ -385,3 +385,24 @@ test('upgrade refreshes only build identity and preserves provisioned credential
   assert(upgrade.indexOf('refresh_suite_build_identity')>upgrade.indexOf('upgrade-canaries.js'));
   assert(upgrade.indexOf('refresh_suite_build_identity')<upgrade.indexOf('cmd_suite --tier smoke'));
 });
+
+test('packaged suites enforce strict outcomes and fail when the required report cannot be retained', t => {
+  const box = sandbox(t);
+  const docker = path.join(box.dir, 'bin/docker');
+  for (const copyStatus of [0, 1]) {
+    fs.writeFileSync(docker, `#!/bin/sh
+printf '%s\\n' "$*" >> '${box.calls}'
+if [ "$1" = cp ]; then exit ${copyStatus}; fi
+case "$*" in *NRestarts*) echo 0;; esac
+exit 0
+`, {mode:0o755});
+    fs.writeFileSync(box.calls, '');
+    const result = run(['suite', '--only', 'demographic-cds-import'], { ...box.env, CARLOS_DISPOSABLE_HOST:'true' });
+    assert.equal(result.status, copyStatus, result.stdout + result.stderr);
+    const suiteCall = fs.readFileSync(box.calls, 'utf8').split('\n').find(line => line.includes('node scripts/run-playwright-suite.js'));
+    assert.ok(suiteCall);
+    assert.match(suiteCall, /--strict-release/);
+    assert.match(suiteCall, /--residue-audit/);
+    if (copyStatus) assert.match(result.stdout + result.stderr, /JUnit report could not be retained/);
+  }
+});

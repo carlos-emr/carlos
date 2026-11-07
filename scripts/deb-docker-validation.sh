@@ -500,6 +500,9 @@ cmd_suite() {
   require_disposable
   mkdir -p "$LOG_DIR"
   [ "$#" -gt 0 ] || set -- --tier smoke
+  # Packaged validation is qualification: missing prerequisites and known-fail
+  # pins must remain failures. Local diagnostics can invoke the runner directly.
+  set -- "$@" --strict-release --residue-audit
   # The run must match the configuration the install is in: an install left in a
   # profile skips the checks that profile cannot run, and a skip passes.
   local active requested='' prev='' arg
@@ -525,9 +528,12 @@ cmd_suite() {
   quoted=$(printf '%q ' "$@")
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   before=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
-  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
+  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true python3 scripts/ci/run-installed-error-sanitization.py -- node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
     2>&1 | tee "$LOG_DIR/suite-$stamp.log" || rc=$?
-  docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || true
+  docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || {
+    echo "FAIL required suite JUnit report could not be retained" >&2
+    rc=1
+  }
   after=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
   # A browser failure can be the first symptom of the JVM being killed and
   # restarted; a run that tested two processes must not finish green.

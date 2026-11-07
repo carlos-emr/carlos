@@ -18393,6 +18393,21 @@
       "env": [],
       "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Verifies typed report field metadata and add/delete commits, provider role and PHCP counts, and authenticated CSV dispatch after JSP relocation."
+    },
+    {
+      "name": "allergy-partial-start-date",
+      "script": "scripts/allergy-partial-start-date-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned synthetic patient and imported year/year-month allergy precision; deletes and verifies owned allergy and partial_date rows.",
+      "notes": "Stored partial precision display and reaction-only amendment (#5796). Typed partial dates are outside the supported entry contract (#5576)."
     }
   ]
 }

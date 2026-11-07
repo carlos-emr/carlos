@@ -2556,6 +2556,18 @@
             {
               "name": "shouldKeepPhysicalColumnNamesAndTrimNulls_whenMappingTransferRows",
               "container": ""
+            },
+            {
+              "name": "shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched",
+              "container": ""
+            },
+            {
+              "name": "shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting",
+              "container": ""
+            },
+            {
+              "name": "shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed",
+              "container": ""
             }
           ]
         }
@@ -2693,7 +2705,7 @@
         "BillingONCHeader1DaoIntegrationTest": 1,
         "LegacyLabUploadDaoIntegrationTest": 6,
         "LabRoutingLookupDaoIntegrationTest": 4,
-        "LegacyLabNativeMariaDbIntegrationTest": 4,
+        "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2
       },
       "requiresEnvironment": [
@@ -2742,7 +2754,7 @@
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
         "LabRoutingLookupDaoIntegrationTest": 4,
-        "LegacyLabNativeMariaDbIntegrationTest": 4,
+        "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2
       },
       "requiresEnvironment": [

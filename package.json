@@ -981,7 +981,8 @@
     "test:echart-forms-list-paging": "node scripts/echart-forms-list-paging-playwright-checks.js",
     "test:dialog-confirmations-document": "DIALOG_CONFIRMATION_TARGET=document node scripts/note-browser-documents-playwright-checks.js",
     "test:dialog-confirmations-tickler": "DIALOG_CONFIRMATION_TARGET=tickler node scripts/tickler-demo-main-status-playwright-checks.js",
-    "test:rx-save-failure-retry": "node scripts/rx-save-failure-retry-playwright-checks.js"
+    "test:rx-save-failure-retry": "node scripts/rx-save-failure-retry-playwright-checks.js",
+    "test:allergy-partial-start-date-playwright": "node scripts/allergy-partial-start-date-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
