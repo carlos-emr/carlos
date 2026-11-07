@@ -218,8 +218,10 @@ reason, including installed restarts/ciphertext, client compatibility, EBS
 vendor/CXF-cache acceptance, CDS large/crash qualification, .deb install/upgrade,
 backup recovery, image overwrite policy, interruption recovery and load/privacy
 budgets. Scope ownership and the six main-only migration dispositions also
-remain blocking. The current 33 installed expected-failure pins are not passing
-workflows; each needs a fresh retake and disposition.
+remain blocking. The installed expected-failure pins the outcome ledger lists
+under `browserExpectedFailures` are not passing workflows; each needs a fresh
+retake and disposition. Its `retiredBrowserExpectations` are pins whose source
+fix has landed; each still needs a fresh installed PASS.
 
 The workflow named **Release Verification Tooling** validates the adapters and
 matrix. The existing Java/native, Node, WAF and Debian workflows exercise their

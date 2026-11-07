@@ -18217,11 +18217,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Eleven marker-owned Annual forms on the owned patient; chart heading, first ten, Next, Previous and patient context. Every form is removed by key.",
-      "expectedFailure": {
-        "finding": 335,
-        "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them"
-      }
+      "fixtures": "Owned patient and marker-owned Annual/CESD/BPMH forms plus an owned BPMH registration. Eleven-row paging, cross-type windows, tied-date highlighting at a page boundary, invalid/stale limits, encoded provider context and nullable-date rendering. Every form and registration is removed by key."
     },
     {
       "script": "scripts/note-browser-documents-playwright-checks.js",
