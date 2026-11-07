@@ -1068,3 +1068,18 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 ### Coordinated demographic assembly and ancillary hand-offs
 
 `CdsExportDemographicAssembler` composes the existing scalar, phone, patient-note, enrolment, primary-physician, contact and pharmacy reconcilers before closing the explicitly reviewed ancillary base-row fields. The final pass requires the captured row witness and exact earlier field ownership. Null and empty ancillary values stay distinct; populated values without a qualified mapping require review and withhold every proposed XML change. Operational identity, local chart-registration and update metadata are captured without being presented as clinical history. The importer creates `date_joined` from its execution time; it is not the patient’s enrolment date. The enclosing pass also accounts for empty care-team carriers and blocks populated carriers until their physician relationships are reconciled. Missing or duplicated field hand-offs, substituted row keys, changed captured bytes and false presence claims are rejected. Remaining retained-source and associated-row hand-offs remain visible and prevent a demographic-complete result. This component does not qualify a clinical profile or enable publication.
+
+
+### Sender patient identity reconciliation
+
+`CdsExportPatientIdentityReconciler` explicitly decides the retained previous vendor-ID field after the demographic assembly. It binds that field through the authenticated demographic parent and imported patient row, checks the effective previous ID, and emits `C` followed by the exact positive native patient number. The result is injective within the registered sender namespace and fits the 20-character wire limit without hash truncation. The namespace stays in accepted server-owned intent; changing it changes identity. A database restore, copy or merge still requires the separate lineage and ownership policy before admission. An earlier review blocker withholds the identity change along with the other proposed XML. This component does not qualify clinical export or enable publication.
+
+
+### Independent demographic field closure
+
+`CdsExportDemographicClosureValidator` compares the assembled result with the exact captured row universe and authenticated parent source-field IDs supplied independently by the caller. It rejects deferred or substituted identities, presence mismatches, review blockers and overlapping XML replacement claims. A receipt proves closure only for that supplied authenticated demographic scope; it does not prove that the overall source catalogue is complete, that every serialized clinical fact is correct, or that disclosure is authorized.
+
+
+### Scoped demographic occurrence service
+
+`CdsExportDemographicOccurrenceService` connects the coordinated demographic mapper, registered sender identity and independent field closure to the same synchronous scoped XML emitter used by the clinical occurrence services. It loads bounded authenticated rows, rejects active merge scope, verifies retained parent receipts, requires every captured demographic field and source ID to be accounted for, and checks final source authority before returning. XML and receipt callbacks stay private until the complete enclosing operation succeeds. Native-only demographics, multiple applied demographic parents, nonempty unrepresented ancillary values and unresolved archive/care facts still require dedicated reconciliation; they cannot produce a partial demographic fallback.
