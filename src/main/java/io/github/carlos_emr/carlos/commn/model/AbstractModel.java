@@ -29,7 +29,7 @@ package io.github.carlos_emr.carlos.commn.model;
 
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 public abstract class AbstractModel<T> implements java.io.Serializable {
@@ -37,21 +37,20 @@ public abstract class AbstractModel<T> implements java.io.Serializable {
 
     public abstract T getId();
 
+    /** Reports only the type and an Integer/Long ID; arbitrary keys and entity fields stay protected. */
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        // String and composite keys may themselves contain credentials or patient data.
+        // Never traverse associations or call arbitrary key toString() implementations.
+        T id = getId();
+        String diagnosticId = id == null ? "null"
+                : id instanceof Integer || id instanceof Long ? id.toString() : "protected";
+        return getClass().getSimpleName() + "[id=" + LogSafe.sanitize(diagnosticId) + "]";
     }
 
     @Override
     public int hashCode() {
         if (getId() == null) {
-            StackTraceElement[] stack = new Throwable().getStackTrace();
-            for (int i = 0; i < stack.length; i++) {
-                if (stack[i].getClassName().equals("io.github.carlos_emr.carlos.commn.model.AbstractModel")
-                        && stack[i].getMethodName().equals("toString")) {
-                    return super.hashCode();
-                }
-            }
             MiscUtils.getLogger().warn(OBJECT_NOT_YET_PERISTED, new Exception());
             return (super.hashCode());
         }
