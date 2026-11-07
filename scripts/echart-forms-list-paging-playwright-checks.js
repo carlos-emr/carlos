@@ -55,7 +55,9 @@ async function workflow(s) {
     const url=new URL(list.url());
     url.search='';url.searchParams.set('demographic_no',patient);
     for(const [key,value] of Object.entries(params))url.searchParams.set(key,value);
-    await list.goto(url.href);await h.assertNotErrorPage(list,'Forms list');
+    const response=await list.goto(url.href);
+    h.assert(response?.status()===200,'Forms list navigation did not return HTTP 200');
+    await h.assertNotErrorPage(list,'Forms list');
   };
   const navigation=()=>list.locator('a[href*="ViewFormlist"][href*="limit1="]');
   const assertContext=async(expectedOffsets,expectedProvider)=>{
@@ -118,7 +120,7 @@ async function workflow(s) {
     }
     // Some provinces also register BPMH under their own name. Use one full
     // window here so those aliases cannot push the owned registration off-page.
-    await navigate({limit2:'2147483647'});
+    await navigate({limit2:'100'});
     const found=(await rows()).filter(row=>row.name===nullableName);
     h.assert(JSON.stringify(found.map(row=>row.id))===JSON.stringify(nullableIds),'Nullable date sorting omitted or reordered rows');
     h.assert(found[0].created===''&&found[1].created===''&&found[3].created==='','NULL creation dates were not blank');
