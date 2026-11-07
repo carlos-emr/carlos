@@ -350,13 +350,15 @@ class TestGenerator(unittest.TestCase):
             self.assertNotIn("generated_at", text)
 
     def test_shipped_manifests_carry_the_format_and_kind(self):
+        """Require the supported envelope format and kind for every shipped manifest."""
         # the loader in carlos-ctl refuses anything else before reading a
         # data key; the envelope is the whole cross-package contract
         import json
         for kind, name in self.gen.MANIFEST_FILES.items():
             data = json.loads((self.gen.MANIFEST_DIR / name).read_text(
                 encoding="utf-8"))
-            self.assertEqual(data["format"], self.gen.MANIFEST_FORMAT, name)
+            self.assertEqual(data["format"], self.gen.SCHEMA_MANIFEST_FORMAT
+                             if data["kind"] == "o19map-schema" else self.gen.MANIFEST_FORMAT, name)
             self.assertEqual(data["kind"], kind, name)
 
     def test_shipped_manifests_are_what_the_emitter_writes(self):
