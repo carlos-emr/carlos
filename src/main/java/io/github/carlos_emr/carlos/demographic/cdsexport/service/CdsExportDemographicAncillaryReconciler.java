@@ -103,7 +103,7 @@ public final class CdsExportDemographicAncillaryReconciler {
         checkpoint.run(); return result;
     }
 
-    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assess(
+    private static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assess(
             CdsExportCapturedTextRowDto current, Runnable checkpoint) throws IOException {
         if (!"demographic".equals(current.table())) scope();
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();

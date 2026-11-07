@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -35,6 +36,23 @@ import java.util.Set;
  * a demographic-complete result. This component does not qualify an export profile.
  */
 public final class CdsExportDemographicAssembler {
+    /** Immutable bounded row carriers; construction supplies no authentication or authority. */
+    public record NativeRows(CdsExportCapturedTextRowDto current, CdsExportNativeRowReceiptDto witness,
+            List<CdsExportCapturedTextRowDto> properties, List<CdsExportNativeRowReceiptDto> propertyWitnesses,
+            CdsExportCapturedTextRowDto custom, CdsExportNativeRowReceiptDto customWitness,
+            List<CdsExportCapturedTextRowDto> archives, List<CdsExportNativeRowReceiptDto> archiveWitnesses,
+            CdsExportPublicProviderLookupsDto lookups,
+            CdsExportRetainedProfessionalContactReconciler.NativeRows contacts,
+            CdsExportRetainedPharmacyReconciler.NativeRows pharmacies) {
+        public NativeRows {
+            Objects.requireNonNull(current); Objects.requireNonNull(witness); Objects.requireNonNull(lookups);
+            Objects.requireNonNull(contacts); Objects.requireNonNull(pharmacies);
+            properties = List.copyOf(properties); propertyWitnesses = List.copyOf(propertyWitnesses);
+            archives = List.copyOf(archives); archiveWitnesses = List.copyOf(archiveWitnesses);
+            if ((custom == null) != (customWitness == null)) throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_NOTE_SCOPE_INVALID");
+        }
+        @Override public String toString() { return "CdsExportDemographicAssembler.NativeRows[protected]"; }
+    }
     /**
      * Composes existing owning reconcilers before the final base-row closure. The caller
      * owns bounded, authenticated row collections and the active retained-value scope.
@@ -43,23 +61,17 @@ public final class CdsExportDemographicAssembler {
      */
     public CdsExportDemographicCareAssembler.Result assemble(int patient, Set<CdsCategory> selected,
             String address, CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked,
-            List<CdsExportRetainedFieldDto> allFields, CdsExportCapturedTextRowDto current,
-            CdsExportNativeRowReceiptDto witness, List<CdsExportCapturedTextRowDto> properties,
-            List<CdsExportNativeRowReceiptDto> propertyWitnesses, CdsExportCapturedTextRowDto custom,
-            CdsExportNativeRowReceiptDto customWitness, List<CdsExportCapturedTextRowDto> archives,
-            List<CdsExportNativeRowReceiptDto> archiveWitnesses, CdsExportPublicProviderLookupsDto lookups,
-            CdsExportRetainedProfessionalContactReconciler.NativeRows contacts,
-            CdsExportRetainedPharmacyReconciler.NativeRows pharmacies, int maximumRows, long maximumBytes,
+            List<CdsExportRetainedFieldDto> allFields, NativeRows rows, int maximumRows, long maximumBytes,
             CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
         values.requireActive(); checkpoint.run();
         var core = new CdsExportDemographicRetainedCoreReconciler().reconcileWithPrimaryPhysician(
-                patient, selected, address, index, checked, allFields, current, witness, properties,
-                propertyWitnesses, custom, customWitness, archives, archiveWitnesses, lookups,
+                patient, selected, address, index, checked, allFields, rows.current(), rows.witness(), rows.properties(),
+                rows.propertyWitnesses(), rows.custom(), rows.customWitness(), rows.archives(), rows.archiveWitnesses(), rows.lookups(),
                 maximumRows, maximumBytes, values, checkpoint);
         var care = new CdsExportDemographicCareAssembler().assemble(core, patient, index, checked, allFields,
-                current, witness, contacts, pharmacies, maximumRows, maximumBytes, values, checkpoint);
+                rows.current(), rows.witness(), rows.contacts(), rows.pharmacies(), maximumRows, maximumBytes, values, checkpoint);
         var completeBaseRow = new CdsExportDemographicAncillaryReconciler().reconcile(
-                care.demographic(), patient, current, witness, checkpoint);
+                care.demographic(), patient, rows.current(), rows.witness(), checkpoint);
         values.requireActive(); checkpoint.run();
         return new CdsExportDemographicCareAssembler.Result(completeBaseRow, care.professionalNameUses());
     }
