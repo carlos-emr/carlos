@@ -1398,11 +1398,13 @@ Ontario, Canada
                                 <% } else if (locationMode) {
                                     // A re-render (patient search) starts on what the form posted, as an option value.
                                     // The hidden location field carries a pasted legacy name, which stays offered.
+                                    // The posted item stays offered even if it was disabled meanwhile (marked inactive),
+                                    // so the choice is kept and the save is refused visibly, not dropped silently.
                                     AppointmentLocationList.Choice postedLocation = AppointmentLocationList.Choice.posted(
                                             bFirstDisp ? null : request.getParameter("locationCode"),
                                             bFirstDisp ? null : request.getParameter("location"));
                                 %>
-                                <appt:locationSelect choices="<%= appointmentLocations.getActiveItems() %>"
+                                <appt:locationSelect choices="<%= appointmentLocations.getChoices(postedLocation.code()) %>"
                                                      selected="<%= postedLocation.value() %>" legacy="<%= postedLocation.legacy() %>"
                                                      selectId="locationCode" labelledBy="apptLocationLabel"
                                                      cssClass="form-select form-select-sm"/>
