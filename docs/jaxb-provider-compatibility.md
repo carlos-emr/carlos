@@ -37,21 +37,29 @@ is the set-state rule. `CalendarXmlAdapter` reads the set-state before copying t
 calendar and `CalendarXmlAdapterUnitTest` pins the strings captured from the
 unmodified release classes under MOXy.
 
-Published main (`e53e6cb5551`, beta6) selected Glassfish and wrote the patient
+The Glassfish contract in published main (`e53e6cb5551`, beta6) wrote the patient
 `birthDay` property as `xs:dateTime`, including midnight and the zone offset.
 This property has a scoped `CalendarDateTimeXmlAdapter` so the global MOXy
 set-state rule cannot turn its declared date-time into a date-only value.
 Nested patient records inherit the same correction. Both date-only and date-time
 inputs remain accepted, and the frozen MOXy corpus remains an unchanged legacy
 reader fixture. The serialization assertions explicitly retain main's birthday
-output. Other Calendar properties keep their existing adapter behavior.
+output. The same scoped adapter now covers the declared date-time properties on
+`AppointmentTransfer`, `AppointmentArchiveTransfer`, `CalendarScheduleCodePairTransfer`
+and `LookupCodeValue` (#5721). These properties must remain schema-valid even for
+cleared calendars. The general legacy adapter resolves an independent clone so
+serialization cannot normalize the caller's lazy state.
 
 Date and Calendar values omit trailing fractional-second zeroes. The Calendar
 reader trims XML boundary whitespace before parsing, preserving
 the native JAXB acceptance of whitespace-surrounded date-times; the regression
-uses an appointment DTO and rejects any JAXB validation event. Two beans with
-lower-case accessor names also need explicit alphabetical
-XML ordering. Empty filter maps remain omitted.
+uses an appointment DTO and rejects any JAXB validation event. `AppointmentExtTo`
+now pins the beta6 Glassfish sequence explicitly. `DrugTransfer` retains the
+alphabetical sequence required by the published Prescription WSDL; its conflict
+with the historical Glassfish sequence remains a client-policy decision. Present
+empty filter maps retain `<params/>`; absent maps remain absent. Anonymous map
+carrier types are non-final because XML Schema forbids a `final` attribute on an
+anonymous complex type.
 
 Empty or XML-whitespace-only optional Calendar elements retain native MOXy's null
 interpretation. This matters for SOAP appointment updates, where null start/end
@@ -88,7 +96,7 @@ arrays, and dates in `America/Toronto`. Container arguments are resolved from th
 concrete field or accessor, including inherited type variables, so populated lists
 and maps contain typed values rather than silently remaining empty. Cycles stop at an already visited class and
 nesting stops after five levels; each discovered class is also exercised as a root.
-The current inventory contains 334 concrete classes. It does not instantiate SOAP
+The current inventory contains 336 concrete classes. It does not instantiate SOAP
 clients, service implementations, abstract types, or non-binding implementation
 helpers.
 
@@ -167,3 +175,45 @@ schema sequences. Declaration order at the WSDL/schema top level is irrelevant.
 Also compare authenticated provider and schedule-code JSON, verify provider XML's
 500-to-200 correction, and inspect loaded classes to establish that only Glassfish
 JAXB is loaded after removal of Metro.
+
+## Follow-up qualification for #5720 and #5721
+
+`PublishedXmlSchemaContractUnitTest` validates native objects against unmodified
+schemas generated from the hash-verified beta6 package with Glassfish explicitly
+selected. The fixtures and their provenance are in
+`src/test/resources/xml/published-beta6-glassfish/`. Date-time tests cover the four
+affected DTOs, summer/winter, UTC, fractional-hour offsets, strict reads and
+unchanged caller state. Map and appointment checks include nested responses.
+
+`JaxbGeneratedSchemaUnitTest` compiles each generated root context without
+stripping schema attributes. Five HRM contexts still fail on the same unresolved
+`ContactPurpose` declaration as beta6, and `ConsultationAttachment` still lacks
+a no-arg constructor. Anonymous types without a root emit no standalone schema;
+their owning contexts are checked, and an empty source list is never submitted
+to JAXP as successful validation. These baseline gaps remain distinct from the
+three map-context regressions.
+
+The binary verifier accepts `--main-xml-provider glassfish|moxy|automatic` and
+`--candidate-xml-provider glassfish|moxy|automatic`, records the requested and
+observed implementations, and rejects a substituted provider. The original
+automatic-discovery lane remains required, alongside separate explicit Glassfish
+and MOXy predecessor lanes. The comparator still preserves lexical values, child
+order, missing elements and API differences; no compatibility allowlist was added.
+Automatic discovery on beta6 can select either provider, so its results must not
+be relabeled as the historical Glassfish observation.
+
+Character input remains an unresolved protocol decision: literal `0` and numeric
+`0` denote different characters. A permissive numeric fallback cannot preserve
+both clients. The current literal contract and all 14 published WSDLs remain in
+force pending an explicit version/endpoint/migration policy. The Prescription
+sequence conflict requires the same decision. Fractional-zero spellings, optional
+edit versions, temporal precision carriers and the provider root also retain
+their separate client-acceptance requirements.
+
+These corrections do not close the release qualification umbrella. Reviewed
+production-path ownership, the complete coverage union, installed ON/BC lifecycle
+and recovery acceptance, vendor staging, supported Java extensions and the
+existing rollout-policy thread remain required under #5720. `releaseReady` must
+remain false while any required item is incomplete. Candidate-bound build, package,
+browser, comparison and CI results belong to the associated PR; historical
+receipts are never promoted to a new source revision.

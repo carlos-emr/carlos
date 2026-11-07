@@ -197,7 +197,7 @@ class JaxbImplementationCompatibilityUnitTest {
             String newXml = xml(glassfish, type, value);
             structure(newXml);
             String frozen = BASELINE_XML.getOrDefault(type.getName(), Map.of()).get(populated ? "populated" : "default");
-            String expectedWrite = frozen == null ? null : XmlBaselineAssertions.withPublishedMainBirthday(frozen);
+            String expectedWrite = frozen == null ? null : XmlBaselineAssertions.withPublishedMainContracts(type, frozen);
             boolean formatterFix = frozen != null && type.getName().endsWith(".BpmhForm2Bean");
             if (formatterFix) {
                 // Run this even when the legacy context fails: the removed formatter must be
@@ -208,7 +208,7 @@ class JaxbImplementationCompatibilityUnitTest {
             }
             if (moxy == null) continue; // No legacy XML existed: exact failure is pinned above.
             String oldXml = frozen == null ? xml(moxy, type, value) : frozen;
-            String expectedXml = XmlBaselineAssertions.withPublishedMainBirthday(oldXml);
+            String expectedXml = XmlBaselineAssertions.withPublishedMainContracts(type, oldXml);
             assertThat(structure(newXml)).as(type + " populated=" + populated)
                     .isEqualTo(formatterFix ? withoutFormatter(expectedXml) : structure(expectedXml));
             Object read = glassfish.createUnmarshaller()
@@ -237,7 +237,7 @@ class JaxbImplementationCompatibilityUnitTest {
         return writer.toString();
     }
 
-    private static List<Class<?>> boundClasses() throws Exception {
+    static List<Class<?>> boundClasses() throws Exception {
         Set<Class<?>> found = new java.util.TreeSet<>(java.util.Comparator.comparing(Class::getName));
         Path root = Path.of("src/main/java");
         try (Stream<Path> paths = Files.walk(root)) {

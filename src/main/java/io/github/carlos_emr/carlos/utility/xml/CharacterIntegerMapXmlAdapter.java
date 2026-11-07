@@ -35,14 +35,14 @@ public final class CharacterIntegerMapXmlAdapter
     /** XML container for ordered map entries; an empty container represents a present, empty map. */
     @jakarta.xml.bind.annotation.XmlType(name = "")
     @XmlAccessorType(XmlAccessType.FIELD)
-    public static final class Entries {
+    public static class Entries {
         public List<Entry> entry = new ArrayList<>();
     }
 
     /** One XML entry with a {@link Character} key and a {@link Integer} value. */
     @jakarta.xml.bind.annotation.XmlType(name = "")
     @XmlAccessorType(XmlAccessType.FIELD)
-    public static final class Entry {
+    public static class Entry {
         @XmlJavaTypeAdapter(CharacterXmlAdapter.class)
         public Character key;
         public Integer value;

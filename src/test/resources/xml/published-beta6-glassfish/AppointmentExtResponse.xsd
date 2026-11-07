@@ -1,0 +1,618 @@
+<?xml version="1.0" standalone="yes"?>
+<xs:schema version="1.0" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="addressTo1" type="addressTo1"/>
+
+  <xs:element name="appointmentExtResponse" type="appointmentExtResponse"/>
+
+  <xs:element name="consultationRequestTo1" type="consultationRequestTo1"/>
+
+  <xs:element name="consultationResponseTo1" type="consultationResponseTo1"/>
+
+  <xs:element name="consultationServiceTo1" type="consultationServiceTo1"/>
+
+  <xs:element name="demographicResponse" type="demographicResponse"/>
+
+  <xs:element name="demographicTo1" type="demographicTo1"/>
+
+  <xs:element name="documentReviewTo1" type="documentReviewTo1"/>
+
+  <xs:element name="documentTo1" type="documentTo1"/>
+
+  <xs:element name="encounterNote" type="noteTo1"/>
+
+  <xs:element name="groupNoteExt" type="noteExtTo1"/>
+
+  <xs:element name="issue" type="issueTo1"/>
+
+  <xs:element name="letterheadTo1" type="letterheadTo1"/>
+
+  <xs:element name="measurement" type="measurementTo1"/>
+
+  <xs:element name="statusValueTo1" type="statusValueTo1"/>
+
+  <xs:complexType name="appointmentExtResponse">
+    <xs:complexContent>
+      <xs:extension base="abstractSearchResponse">
+        <xs:sequence>
+          <xs:element name="content" minOccurs="0">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="appointmentExt" type="appointmentExtTo" minOccurs="0" maxOccurs="unbounded"/>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="abstractSearchResponse">
+    <xs:sequence>
+      <xs:any processContents="lax" namespace="##other" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="limit" type="xs:int"/>
+      <xs:element name="offset" type="xs:int"/>
+      <xs:element name="query" type="xs:string" minOccurs="0"/>
+      <xs:element name="timestamp" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="total" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="appointmentExtTo">
+    <xs:sequence>
+      <xs:element name="appointmentDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="appointmentNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="demoCell" type="xs:string" minOccurs="0"/>
+      <xs:element name="demographicNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="email" type="xs:string" minOccurs="0"/>
+      <xs:element name="firstName" type="xs:string" minOccurs="0"/>
+      <xs:element name="lastName" type="xs:string" minOccurs="0"/>
+      <xs:element name="location" type="xs:string" minOccurs="0"/>
+      <xs:element name="notes" type="xs:string" minOccurs="0"/>
+      <xs:element name="phone" type="xs:string" minOccurs="0"/>
+      <xs:element name="phone2" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="reminderPreference" type="xs:string" minOccurs="0"/>
+      <xs:element name="resources" type="xs:string" minOccurs="0"/>
+      <xs:element name="startTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="status" type="xs:string" minOccurs="0"/>
+      <xs:element name="hPhoneExt" type="xs:string" minOccurs="0"/>
+      <xs:element name="wPhoneExt" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="demographicResponse">
+    <xs:complexContent>
+      <xs:extension base="abstractSearchResponse">
+        <xs:sequence>
+          <xs:element name="content" minOccurs="0">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element name="demographic" type="demographicTo1" minOccurs="0" maxOccurs="unbounded"/>
+              </xs:sequence>
+            </xs:complexType>
+          </xs:element>
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="demographicTo1">
+    <xs:sequence>
+      <xs:element name="activeCount" type="xs:int"/>
+      <xs:element name="address" type="addressTo1" minOccurs="0"/>
+      <xs:element name="admissionProgramId" type="xs:int" minOccurs="0"/>
+      <xs:element name="age" type="ageTo1" minOccurs="0"/>
+      <xs:element name="alert" type="xs:string" minOccurs="0"/>
+      <xs:element name="alias" type="xs:string" minOccurs="0"/>
+      <xs:element name="allergies" type="allergyTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="alternativePhone" type="xs:string" minOccurs="0"/>
+      <xs:element name="anonymous" type="xs:string" minOccurs="0"/>
+      <xs:element name="cellPhone" type="xs:string" minOccurs="0"/>
+      <xs:element name="chartNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="children" type="xs:string" minOccurs="0"/>
+      <xs:element name="citizenship" type="xs:string" minOccurs="0"/>
+      <xs:element name="consultationRequests" type="consultationRequestTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="consultationResponses" type="consultationResponseTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="countryOfOrigin" type="xs:string" minOccurs="0"/>
+      <xs:element name="dateJoined" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="dateOfBirth" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="demoContactPros" type="demographicContactFewTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="demoContacts" type="demographicContactFewTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="demographicNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="displayName" type="xs:string" minOccurs="0"/>
+      <xs:element name="dobDay" type="xs:string" minOccurs="0"/>
+      <xs:element name="dobMonth" type="xs:string" minOccurs="0"/>
+      <xs:element name="dobYear" type="xs:string" minOccurs="0"/>
+      <xs:element name="doctors" type="providerTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="documents" type="documentTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="effDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="email" type="xs:string" minOccurs="0"/>
+      <xs:element name="encounterNotes" type="noteTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="endDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="extras" type="demographicExtTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="familyDoctor" type="xs:string" minOccurs="0"/>
+      <xs:element name="firstName" type="xs:string" minOccurs="0"/>
+      <xs:element name="gender" type="xs:string" minOccurs="0"/>
+      <xs:element name="genderId" type="xs:int" minOccurs="0"/>
+      <xs:element name="hcRenewDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="hcType" type="xs:string" minOccurs="0"/>
+      <xs:element name="hin" type="xs:string" minOccurs="0"/>
+      <xs:element name="hsAlertCount" type="xs:int"/>
+      <xs:element name="lastName" type="xs:string" minOccurs="0"/>
+      <xs:element name="lastUpdateDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="lastUpdateUser" type="xs:string" minOccurs="0"/>
+      <xs:element name="links" type="xs:string" minOccurs="0"/>
+      <xs:element name="measurements" type="measurementTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="medicationSummary" type="xs:string" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="middleNames" type="xs:string" minOccurs="0"/>
+      <xs:element name="midwife" type="xs:string" minOccurs="0"/>
+      <xs:element name="midwives" type="providerTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="newsletter" type="xs:string" minOccurs="0"/>
+      <xs:element name="notes" type="xs:string" minOccurs="0"/>
+      <xs:element name="nurse" type="xs:string" minOccurs="0"/>
+      <xs:element name="nurses" type="providerTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="officialLanguage" type="xs:string" minOccurs="0"/>
+      <xs:element name="onWaitingListSinceDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="patientStatus" type="xs:string" minOccurs="0"/>
+      <xs:element name="patientStatusDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="patientStatusList" type="statusValueTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="pcnIndicator" type="xs:string" minOccurs="0"/>
+      <xs:element name="phone" type="xs:string" minOccurs="0"/>
+      <xs:element name="phoneComment" type="xs:string" minOccurs="0"/>
+      <xs:element name="previousAddress" type="addressTo1" minOccurs="0"/>
+      <xs:element name="pronoun" type="xs:string" minOccurs="0"/>
+      <xs:element name="pronounId" type="xs:int" minOccurs="0"/>
+      <xs:element name="provider" type="providerTo1" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="referralDoctors" type="professionalSpecialistTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="resident" type="xs:string" minOccurs="0"/>
+      <xs:element name="rosterDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="rosterEnrolledTo" type="xs:string" minOccurs="0"/>
+      <xs:element name="rosterStatus" type="xs:string" minOccurs="0"/>
+      <xs:element name="rosterStatusList" type="statusValueTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="rosterTerminationDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="rosterTerminationReason" type="xs:string" minOccurs="0"/>
+      <xs:element name="sex" type="xs:string" minOccurs="0"/>
+      <xs:element name="sexDesc" type="xs:string" minOccurs="0"/>
+      <xs:element name="sin" type="xs:string" minOccurs="0"/>
+      <xs:element name="sourceOfIncome" type="xs:string" minOccurs="0"/>
+      <xs:element name="spokenLanguage" type="xs:string" minOccurs="0"/>
+      <xs:element name="title" type="xs:string" minOccurs="0"/>
+      <xs:element name="ver" type="xs:string" minOccurs="0"/>
+      <xs:element name="waitingListID" type="xs:int" minOccurs="0"/>
+      <xs:element name="waitingListNames" type="waitingListNameTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="waitingListNote" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="addressTo1">
+    <xs:sequence>
+      <xs:element name="address" type="xs:string" minOccurs="0"/>
+      <xs:element name="city" type="xs:string" minOccurs="0"/>
+      <xs:element name="postal" type="xs:string" minOccurs="0"/>
+      <xs:element name="province" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ageTo1">
+    <xs:sequence>
+      <xs:element name="days" type="xs:int"/>
+      <xs:element name="months" type="xs:int"/>
+      <xs:element name="years" type="xs:int"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="allergyTo1">
+    <xs:sequence>
+      <xs:element name="agccs" type="xs:int" minOccurs="0"/>
+      <xs:element name="agcsp" type="xs:int" minOccurs="0"/>
+      <xs:element name="ageOfOnset" type="xs:string" minOccurs="0"/>
+      <xs:element name="archived" type="xs:boolean"/>
+      <xs:element name="demographicNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="description" type="xs:string" minOccurs="0"/>
+      <xs:element name="drugrefId" type="xs:string" minOccurs="0"/>
+      <xs:element name="entryDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="entryDateInfo" type="cdsTemporalNativeDateDto" minOccurs="0"/>
+      <xs:element name="hicSeqno" type="xs:int" minOccurs="0"/>
+      <xs:element name="hiclSeqno" type="xs:int" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="lastUpdateDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="lifeStage" type="xs:string" minOccurs="0"/>
+      <xs:element name="nonDrug" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="onsetOfReaction" type="xs:string" minOccurs="0"/>
+      <xs:element name="position" type="xs:int"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="reaction" type="xs:string" minOccurs="0"/>
+      <xs:element name="reactionType" type="xs:string" minOccurs="0"/>
+      <xs:element name="regionalIdentifier" type="xs:string" minOccurs="0"/>
+      <xs:element name="severityOfReaction" type="xs:string" minOccurs="0"/>
+      <xs:element name="startDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="startDateInfo" type="cdsTemporalNativeDateDto" minOccurs="0"/>
+      <xs:element name="typeCode" type="xs:int" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="cdsTemporalNativeDateDto" final="extension restriction">
+    <xs:sequence/>
+  </xs:complexType>
+
+  <xs:complexType name="consultationRequestTo1">
+    <xs:sequence>
+      <xs:element name="allergies" type="xs:string" minOccurs="0"/>
+      <xs:element name="appointmentDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="appointmentTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="attachments" type="consultationAttachmentTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="clinicalInfo" type="xs:string" minOccurs="0"/>
+      <xs:element name="concurrentProblems" type="xs:string" minOccurs="0"/>
+      <xs:element name="currentMeds" type="xs:string" minOccurs="0"/>
+      <xs:element name="demographicId" type="xs:int" minOccurs="0"/>
+      <xs:element name="extras" type="consultationRequestExtTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="faxList" type="faxConfigTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="followUpDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="letterheadAddress" type="xs:string" minOccurs="0"/>
+      <xs:element name="letterheadFax" type="xs:string" minOccurs="0"/>
+      <xs:element name="letterheadList" type="letterheadTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="letterheadName" type="xs:string" minOccurs="0"/>
+      <xs:element name="letterheadPhone" type="xs:string" minOccurs="0"/>
+      <xs:element name="patientWillBook" type="xs:boolean"/>
+      <xs:element name="professionalSpecialist" type="professionalSpecialistTo1" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="reasonForReferral" type="xs:string" minOccurs="0"/>
+      <xs:element name="referralDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="sendTo" type="xs:string" minOccurs="0"/>
+      <xs:element name="sendToList" type="xs:string" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="serviceId" type="xs:int" minOccurs="0"/>
+      <xs:element name="serviceList" type="consultationServiceTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="signatureImg" type="xs:string" minOccurs="0"/>
+      <xs:element name="siteName" type="xs:string" minOccurs="0"/>
+      <xs:element name="status" type="xs:string" minOccurs="0"/>
+      <xs:element name="statusText" type="xs:string" minOccurs="0"/>
+      <xs:element name="urgency" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="consultationAttachmentTo1">
+    <xs:sequence>
+      <xs:element name="attached" type="xs:boolean"/>
+      <xs:element name="displayName" type="xs:string" minOccurs="0"/>
+      <xs:element name="document" type="documentTo1" minOccurs="0"/>
+      <xs:element name="documentNo" type="xs:int"/>
+      <xs:element name="documentType" type="xs:string" minOccurs="0"/>
+      <xs:element name="documentTypeDisplay" type="xs:string" minOccurs="0"/>
+      <xs:element name="labType" type="xs:string" minOccurs="0"/>
+      <xs:element name="shortName" type="xs:string" minOccurs="0"/>
+      <xs:element name="url" type="xs:string" minOccurs="0"/>
+      <xs:element name="validationError" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="documentTo1">
+    <xs:sequence>
+      <xs:element name="abnormal" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="appointmentNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="cdsContentPrecision" type="xs:string" minOccurs="0"/>
+      <xs:element name="contentDateTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="contentType" type="xs:string" minOccurs="0"/>
+      <xs:element name="creator" type="xs:string" minOccurs="0"/>
+      <xs:element name="demographicNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="description" type="xs:string" minOccurs="0"/>
+      <xs:element name="docClass" type="xs:string" minOccurs="0"/>
+      <xs:element name="fileContents" type="xs:base64Binary" minOccurs="0"/>
+      <xs:element name="fileName" type="xs:string" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="numberOfPages" type="xs:int" minOccurs="0"/>
+      <xs:element name="observationDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="programId" type="xs:int" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="public1" type="xs:int"/>
+      <xs:element name="queue" type="xs:int" minOccurs="0"/>
+      <xs:element name="reportMedia" type="xs:string" minOccurs="0"/>
+      <xs:element name="responsible" type="xs:string" minOccurs="0"/>
+      <xs:element name="restrictToProgram" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="reviews" type="documentReviewTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="sentDateTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="source" type="xs:string" minOccurs="0"/>
+      <xs:element name="sourceFacility" type="xs:string" minOccurs="0"/>
+      <xs:element name="status" type="xs:unsignedShort"/>
+      <xs:element name="subClass" type="xs:string" minOccurs="0"/>
+      <xs:element name="type" type="xs:string" minOccurs="0"/>
+      <xs:element name="updateDateTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="xml" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="documentReviewTo1">
+    <xs:sequence>
+      <xs:element name="dateTimeReviewed" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="documentNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="reviewer" type="providerTo1" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="providerTo1">
+    <xs:sequence>
+      <xs:element name="address" type="addressTo1" minOccurs="0"/>
+      <xs:element name="billingNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="comments" type="xs:string" minOccurs="0"/>
+      <xs:element name="dob" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="email" type="xs:string" minOccurs="0"/>
+      <xs:element name="enabled" type="xs:boolean"/>
+      <xs:element name="firstName" type="xs:string" minOccurs="0"/>
+      <xs:element name="hsoNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="lastName" type="xs:string" minOccurs="0"/>
+      <xs:element name="lastUpdateDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="lastUpdateUser" type="xs:string" minOccurs="0"/>
+      <xs:element name="name" type="xs:string" minOccurs="0"/>
+      <xs:element name="ohipNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="phone" type="xs:string" minOccurs="0"/>
+      <xs:element name="practitionerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="practitionerNoType" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerActivity" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerType" type="xs:string" minOccurs="0"/>
+      <xs:element name="rmaNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="sex" type="sex1" minOccurs="0"/>
+      <xs:element name="signedConfidentiality" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="specialty" type="xs:string" minOccurs="0"/>
+      <xs:element name="team" type="xs:string" minOccurs="0"/>
+      <xs:element name="title" type="xs:string" minOccurs="0"/>
+      <xs:element name="workPhone" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="consultationRequestExtTo1">
+    <xs:sequence>
+      <xs:element name="dateCreated" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="key" type="xs:string" minOccurs="0"/>
+      <xs:element name="requestId" type="xs:int" minOccurs="0"/>
+      <xs:element name="value" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="faxConfigTo1">
+    <xs:sequence>
+      <xs:element name="faxNumber" type="xs:string" minOccurs="0"/>
+      <xs:element name="faxUser" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="letterheadTo1">
+    <xs:sequence>
+      <xs:element name="address" type="xs:string" minOccurs="0"/>
+      <xs:element name="id" type="xs:string" minOccurs="0"/>
+      <xs:element name="name" type="xs:string" minOccurs="0"/>
+      <xs:element name="phone" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="professionalSpecialistTo1">
+    <xs:sequence>
+      <xs:element name="annotation" type="xs:string" minOccurs="0"/>
+      <xs:element name="departmentId" type="xs:int" minOccurs="0"/>
+      <xs:element name="eformId" type="xs:int" minOccurs="0"/>
+      <xs:element name="emailAddress" type="xs:string" minOccurs="0"/>
+      <xs:element name="faxNumber" type="xs:string" minOccurs="0"/>
+      <xs:element name="firstName" type="xs:string" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="institutionId" type="xs:int" minOccurs="0"/>
+      <xs:element name="lastName" type="xs:string" minOccurs="0"/>
+      <xs:element name="name" type="xs:string" minOccurs="0"/>
+      <xs:element name="phoneNumber" type="xs:string" minOccurs="0"/>
+      <xs:element name="professionalLetters" type="xs:string" minOccurs="0"/>
+      <xs:element name="referralNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="specialtyType" type="xs:string" minOccurs="0"/>
+      <xs:element name="streetAddress" type="xs:string" minOccurs="0"/>
+      <xs:element name="webSite" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="consultationServiceTo1">
+    <xs:sequence>
+      <xs:element name="active" type="xs:string" minOccurs="0"/>
+      <xs:element name="serviceDesc" type="xs:string" minOccurs="0"/>
+      <xs:element name="serviceId" type="xs:int" minOccurs="0"/>
+      <xs:element name="specialists" type="professionalSpecialistTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="consultationResponseTo1">
+    <xs:sequence>
+      <xs:element name="allergies" type="xs:string" minOccurs="0"/>
+      <xs:element name="appointmentDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="appointmentNote" type="xs:string" minOccurs="0"/>
+      <xs:element name="appointmentTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="attachments" type="consultationAttachmentTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="clinicalInfo" type="xs:string" minOccurs="0"/>
+      <xs:element name="concurrentProblems" type="xs:string" minOccurs="0"/>
+      <xs:element name="currentMeds" type="xs:string" minOccurs="0"/>
+      <xs:element name="demographic" type="demographicTo1" minOccurs="0"/>
+      <xs:element name="examination" type="xs:string" minOccurs="0"/>
+      <xs:element name="faxList" type="faxConfigTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="followUpDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="impression" type="xs:string" minOccurs="0"/>
+      <xs:element name="letterheadAddress" type="xs:string" minOccurs="0"/>
+      <xs:element name="letterheadFax" type="xs:string" minOccurs="0"/>
+      <xs:element name="letterheadList" type="letterheadTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="letterheadName" type="xs:string" minOccurs="0"/>
+      <xs:element name="letterheadPhone" type="xs:string" minOccurs="0"/>
+      <xs:element name="plan" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="referralDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="referralReason" type="xs:string" minOccurs="0"/>
+      <xs:element name="referringDoctor" type="professionalSpecialistTo1" minOccurs="0"/>
+      <xs:element name="referringDoctorList" type="professionalSpecialistTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="responseDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="sendTo" type="xs:string" minOccurs="0"/>
+      <xs:element name="sendToList" type="xs:string" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="signatureImg" type="xs:string" minOccurs="0"/>
+      <xs:element name="status" type="xs:string" minOccurs="0"/>
+      <xs:element name="urgency" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="demographicContactFewTo1">
+    <xs:sequence>
+      <xs:element name="category" type="xs:string" minOccurs="0"/>
+      <xs:element name="ec" type="xs:string" minOccurs="0"/>
+      <xs:element name="firstName" type="xs:string" minOccurs="0"/>
+      <xs:element name="lastName" type="xs:string" minOccurs="0"/>
+      <xs:element name="phone" type="xs:string" minOccurs="0"/>
+      <xs:element name="role" type="xs:string" minOccurs="0"/>
+      <xs:element name="sdm" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="noteTo1">
+    <xs:sequence>
+      <xs:element name="appointmentNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="archived" type="xs:boolean"/>
+      <xs:element name="assignedIssues" type="caseManagementIssueTo1" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="cpp" type="xs:boolean"/>
+      <xs:element name="document" type="xs:boolean"/>
+      <xs:element name="editable" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="editorNames" type="xs:string" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="eformData" type="xs:boolean"/>
+      <xs:element name="encounterForm" type="xs:boolean"/>
+      <xs:element name="encounterTime" type="xs:string" minOccurs="0"/>
+      <xs:element name="encounterTransportationTime" type="xs:string" minOccurs="0"/>
+      <xs:element name="encounterType" type="xs:string" minOccurs="0"/>
+      <xs:element name="groupNote" type="xs:boolean"/>
+      <xs:element name="hasHistory" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="invoice" type="xs:boolean"/>
+      <xs:element name="isSigned" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="isVerified" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="issueDescriptions" type="xs:string" nillable="true" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="location" type="xs:string" minOccurs="0"/>
+      <xs:element name="locked" type="xs:boolean" minOccurs="0"/>
+      <xs:element name="note" type="xs:string" minOccurs="0"/>
+      <xs:element name="noteExt" type="noteExtTo1" minOccurs="0"/>
+      <xs:element name="noteId" type="xs:int" minOccurs="0"/>
+      <xs:element name="observationDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="position" type="xs:int" minOccurs="0"/>
+      <xs:element name="programName" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerName" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="readOnly" type="xs:boolean"/>
+      <xs:element name="revision" type="xs:string" minOccurs="0"/>
+      <xs:element name="roleName" type="xs:string" minOccurs="0"/>
+      <xs:element name="rxAnnotation" type="xs:boolean"/>
+      <xs:element name="status" type="xs:string" minOccurs="0"/>
+      <xs:element name="summaryCode" type="xs:string" minOccurs="0"/>
+      <xs:element name="ticklerNote" type="xs:boolean"/>
+      <xs:element name="updateDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="uuid" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="caseManagementIssueTo1">
+    <xs:sequence>
+      <xs:element name="acute" type="xs:boolean"/>
+      <xs:element name="certain" type="xs:boolean"/>
+      <xs:element name="demographic_no" type="xs:string" minOccurs="0"/>
+      <xs:element name="id" type="xs:long" minOccurs="0"/>
+      <xs:element ref="issue" minOccurs="0"/>
+      <xs:element name="issue_id" type="xs:long"/>
+      <xs:element name="major" type="xs:boolean"/>
+      <xs:element name="program_id" type="xs:int" minOccurs="0"/>
+      <xs:element name="resolved" type="xs:boolean"/>
+      <xs:element name="type" type="xs:string" minOccurs="0"/>
+      <xs:element name="unchecked" type="xs:boolean"/>
+      <xs:element name="unsaved" type="xs:boolean"/>
+      <xs:element name="update_date" type="xs:dateTime" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="issueTo1">
+    <xs:sequence>
+      <xs:element name="code" type="xs:string" minOccurs="0"/>
+      <xs:element name="description" type="xs:string" minOccurs="0"/>
+      <xs:element name="id" type="xs:long" minOccurs="0"/>
+      <xs:element name="issueChange" type="xs:boolean"/>
+      <xs:element name="priority" type="xs:string" minOccurs="0"/>
+      <xs:element name="role" type="xs:string" minOccurs="0"/>
+      <xs:element name="sortOrderId" type="xs:int" minOccurs="0"/>
+      <xs:element name="type" type="xs:string" minOccurs="0"/>
+      <xs:element name="update_date" type="xs:dateTime" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="noteExtTo1">
+    <xs:sequence>
+      <xs:element name="ageAtOnset" type="xs:string" minOccurs="0"/>
+      <xs:element name="dateValue" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="exposureDetail" type="xs:string" minOccurs="0"/>
+      <xs:element name="hideCpp" type="xs:string" minOccurs="0"/>
+      <xs:element name="id" type="xs:long" minOccurs="0"/>
+      <xs:element name="keyVal" type="xs:string" minOccurs="0"/>
+      <xs:element name="lifeStage" type="xs:string" minOccurs="0"/>
+      <xs:element name="noteId" type="xs:long" minOccurs="0"/>
+      <xs:element name="problemDesc" type="xs:string" minOccurs="0"/>
+      <xs:element name="problemStatus" type="xs:string" minOccurs="0"/>
+      <xs:element name="procedure" type="xs:string" minOccurs="0"/>
+      <xs:element name="procedureDate" type="xs:string" minOccurs="0"/>
+      <xs:element name="relationship" type="xs:string" minOccurs="0"/>
+      <xs:element name="resolutionDate" type="xs:string" minOccurs="0"/>
+      <xs:element name="startDate" type="xs:string" minOccurs="0"/>
+      <xs:element name="treatment" type="xs:string" minOccurs="0"/>
+      <xs:element name="value" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="demographicExtTo1">
+    <xs:sequence>
+      <xs:element name="dateCreated" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="demographicNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="hidden" type="xs:boolean"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="key" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="value" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="measurementTo1">
+    <xs:sequence>
+      <xs:element name="appointmentNo" type="xs:int" minOccurs="0"/>
+      <xs:element name="comments" type="xs:string" minOccurs="0"/>
+      <xs:element name="createDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="dataField" type="xs:string" minOccurs="0"/>
+      <xs:element name="dateObserved" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="demographicId" type="xs:int" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="measuringInstruction" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="type" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="statusValueTo1">
+    <xs:sequence>
+      <xs:element name="value" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="waitingListNameTo1">
+    <xs:sequence>
+      <xs:element name="createDate" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="groupNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="isHistory" type="xs:string" minOccurs="0"/>
+      <xs:element name="name" type="xs:string" minOccurs="0"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="sex1">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="M"/>
+      <xs:enumeration value="F"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>
+
