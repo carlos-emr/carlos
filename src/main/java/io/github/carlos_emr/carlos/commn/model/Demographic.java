@@ -1641,6 +1641,10 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     // and fail when it was absent. Live-caught as EclipseLink MOXy aborting the
     // whole JAXB context ("No JAXB context can be created") on any deployment
     // that exercised it. The instance returned is still a GregorianCalendar.
+    // Published main uses Glassfish and emits midnight with an offset for this xs:dateTime,
+    // even though the date-only calendar below has no explicitly assigned time/zone fields.
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
     @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getBirthDay() {
         GregorianCalendar cal = null;

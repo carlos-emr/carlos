@@ -1,5 +1,21 @@
 # CARLOS 2026.08 release notes
 
+## Patient birthday XML compatibility
+
+Patient birthday XML retains the published `xs:dateTime` form, including midnight
+and the application zone's offset. The provider migration briefly emitted only
+the date for this property, which could break existing schema-validating clients.
+The correction applies to patient records and nested appointment/consultation
+responses. Existing date-only input remains accepted; REST JSON is unchanged.
+
+## HCV and MCEDT transport diagnostics
+
+The existing transport logging switches now record fixed request/response events
+and numeric HTTP status instead of SOAP bodies, headers or attachment contents.
+HCV and MCEDT callers enable these diagnostics when their respective
+`hcv.logging.skip` or `mcedt.logging.skip` setting is absent. Transport diagnostics
+leave message and attachment streams for their normal consumers.
+
 ## REST appointment update compatibility
 
 Existing schedule integrations can continue updating appointments without sending

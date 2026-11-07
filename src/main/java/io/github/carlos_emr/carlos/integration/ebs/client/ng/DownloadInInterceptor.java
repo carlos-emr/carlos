@@ -1,94 +1,50 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.integration.ebs.client.ng;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-
-import org.apache.cxf.attachment.LazyAttachmentCollection;
-import org.apache.cxf.helpers.IOUtils;
-import org.apache.cxf.interceptor.Fault;
-import org.apache.cxf.io.CachedOutputStream;
-import org.apache.cxf.message.Attachment;
 import org.apache.cxf.message.Message;
+import org.apache.cxf.interceptor.Fault;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
- * A CXF interceptor that processes incoming attachments and message properties after a message has been invoked.
- * 
- * <h3>Purpose</h3>
- * 
- * The {@code DownloadInInterceptor} is designed to handle attachments after the main invocation phase 
- * of a message, typically used in scenarios where the client downloads and processes attachments 
- * from a response message.
- * 
- * <h3>Usage</h3>
- * 
- * This interceptor operates in the {@link Phase#POST_INVOKE} phase, meaning it processes the 
- * message after it has been fully invoked. It retrieves and logs all attachments from the message 
- * and prints out all key-value pairs from the message's internal map.
- * 
- * <h3>Implementation notes</h3>
- * 
- * - The attachments are accessed via the {@link LazyAttachmentCollection}, which allows the 
- *   attachments to be loaded lazily (i.e., only when needed).
- * - It prints the attachment ID and content to the standard output.
- * - If an {@link IOException} occurs when reading the attachment data, the exception is swallowed 
- *   and logged as part of the message processing.
+ * Optional, payload-free EBS transport diagnostics.
+ *
+ * <p>The historical class name is retained for existing client configurations. SOAP bodies,
+ * headers, message-map values and attachment identifiers can contain credentials or clinical
+ * data, so this interceptor records only fixed transport events and a validated numeric HTTP
+ * status. It never reads, copies or replaces a message stream, nor enumerates attachments:
+ * even asking a lazy attachment collection for its size can consume transport data.</p>
  */
 public class DownloadInInterceptor extends AbstractPhaseInterceptor<Message> {
+    private static final Logger LOGGER = LogManager.getLogger(DownloadInInterceptor.class);
+    private final boolean outbound;
 
-	/**
-	 * Constructs a new {@code DownloadInInterceptor} and sets it to operate in the POST_INVOKE phase.
-	 */
-	public DownloadInInterceptor() {
-		super(Phase.POST_INVOKE);
-	}
+    /** Creates the response diagnostic without taking ownership of payload or attachment streams. */
+    public DownloadInInterceptor() {
+        this(false);
+    }
 
-	/**
-	 * Handles the incoming message by processing its attachments and logging message properties.
-	 * 
-	 * @param message The incoming {@link Message} to be processed.
-	 * @throws Fault If there is a problem during message processing.
-	 */
-	@Override
-	public void handleMessage(Message message) throws Fault {
-		// ---- Handle attachments safely ----
-        Object attObj = message.get(Message.ATTACHMENTS);
-        if (attObj instanceof Collection) {
-            @SuppressWarnings("unchecked")
-            Collection<Attachment> attachments = (Collection<Attachment>) attObj;
-            for (Attachment a : attachments) {
-                System.out.println("Attachment ID: " + a.getId());
-                try (InputStream attIs = a.getDataHandler().getInputStream()) {
-                    System.out.println(IOUtils.readStringFromStream(attIs));
-                } catch (IOException e) {
-                    // swallow or log
-                }
-            }
+    private DownloadInInterceptor(boolean outbound) {
+        super(outbound ? Phase.PRE_STREAM : Phase.POST_INVOKE);
+        this.outbound = outbound;
+    }
+
+    /** Provides the corresponding request event without installing a CXF payload logger. */
+    static DownloadInInterceptor outbound() {
+        return new DownloadInInterceptor(true);
+    }
+
+    /** Records transport metadata only; payload failures remain owned by the transport consumer. */
+    @Override
+    public void handleMessage(Message message) throws Fault {
+        if (outbound) {
+            LOGGER.info("EBS request prepared");
+        } else {
+            Object configuredStatus = message.get(Message.RESPONSE_CODE);
+            int status = configuredStatus instanceof Integer code && code >= 100 && code <= 599 ? code : -1;
+            LOGGER.info("EBS response processed: httpStatus={}", status);
         }
-
-        // ---- Copy the message input stream so we can read it multiple times ----
-        try {
-            InputStream is = message.getContent(InputStream.class);
-            if (is != null) {
-                CachedOutputStream cos = new CachedOutputStream();
-                is.transferTo(cos);
-                cos.flush();
-
-                // Put the stream back so CXF and later interceptors can still use it
-                message.setContent(InputStream.class, cos.getInputStream());
-
-                // Get message as String (once)
-                String soapText = IOUtils.toString(cos.getInputStream(), StandardCharsets.UTF_8.name());
-                System.out.println("Decrypted SOAP Response Message:\n" + soapText);
-            } else {
-                System.out.println("No InputStream found in the message content.");
-            }
-        } catch (Exception e) {
-            throw new Fault(e);
-        }
-	}
-
+    }
 }

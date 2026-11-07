@@ -24,7 +24,6 @@ import org.apache.cxf.configuration.jsse.TLSClientParameters;
 import org.apache.cxf.endpoint.Client;
 import org.apache.cxf.frontend.ClientProxy;
 import org.apache.cxf.headers.Header;
-import org.apache.cxf.ext.logging.LoggingInInterceptor;
 import org.apache.cxf.jaxws.JaxWsProxyFactoryBean;
 import org.apache.cxf.transport.http.HTTPConduit;
 import org.apache.cxf.transports.http.configuration.HTTPClientPolicy;
@@ -244,11 +243,10 @@ public class EdtClientBuilder {
     }
 
     /**
-     * Installs inbound interceptors: logging, attachment caching, WS-Security, etc.
+     * Installs inbound interceptors: payload-free diagnostics, attachment caching and WS-Security.
      */
     protected void configureInInterceptor(Client client) {
         if (getConfig().isLoggingRequired()) {
-            client.getEndpoint().getInInterceptors().add(new LoggingInInterceptor());
             client.getEndpoint().getInInterceptors().add(new DownloadInInterceptor());
         }
 
@@ -290,11 +288,11 @@ public class EdtClientBuilder {
     }
 
     /**
-     * Installs outbound interceptors: logging and WS-Security signing/encryption.
+     * Installs outbound interceptors: payload-free diagnostics and WS-Security signing/encryption.
      */
     protected void configureOutInterceptor(Client client) {
         if (getConfig().isLoggingRequired()) {
-            client.getEndpoint().getOutInterceptors().add(new org.apache.cxf.ext.logging.LoggingOutInterceptor());
+            client.getEndpoint().getOutInterceptors().add(DownloadInInterceptor.outbound());
         }
         Map<String, Object> outProps = newWSSOutInterceptorConfiguration();
         WSS4JOutInterceptor wssOut = new WSS4JOutInterceptor(outProps);
