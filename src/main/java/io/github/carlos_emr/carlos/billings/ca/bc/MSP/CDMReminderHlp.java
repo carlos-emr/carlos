@@ -35,7 +35,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.tickler.TicklerCreator;
-import io.github.carlos_emr.carlos.util.SqlUtils;
+import io.github.carlos_emr.carlos.util.LegacyReadResult;
 
 public class CDMReminderHlp {
     public CDMReminderHlp() {
@@ -114,12 +114,9 @@ public class CDMReminderHlp {
      * @return ArrayList
      */
     private List<String[]> getCDMPatients(String[] codes) {
-        String inClause = SqlUtils.buildInClausePlaceholders(codes.length);
-        String sql = "SELECT de.demographic_no,de.provider_no,dxresearch_code FROM dxresearch d, demographic de" // ?
-                + " WHERE de.demographic_no=d.demographic_no"
-                + " and d.dxresearch_code in (" + inClause + ")"
-                + " and status = 'A' and patient_status = 'AC' order by de.demographic_no";
-        List<String[]> lst = SqlUtils.getQueryResultsList(sql, (Object[]) codes);
-        return lst == null ? new ArrayList<String[]>() : lst;
+        var rows = LegacyReadResult.orNull(() -> io.github.carlos_emr.carlos.utility.SpringUtils
+                .getBean(io.github.carlos_emr.carlos.commn.dao.DxresearchDAO.class).findActiveCdmPatients(java.util.Arrays.asList(codes)));
+        return rows == null ? new ArrayList<>() : rows.stream().map(row -> new String[]{
+                row.demographicNo(), row.providerNo(), row.diagnosisCode()}).toList();
     }
 }
