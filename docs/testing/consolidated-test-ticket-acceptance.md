@@ -22,7 +22,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5717](https://github.com/carlos-emr/carlos/issues/5717) | Test: validate growth-chart point placement and reference curves independently | Implementation and installed acceptance pending. |
 | [#5718](https://github.com/carlos-emr/carlos/issues/5718) | Test: broaden decision-support guideline condition and operator coverage | Implementation and installed acceptance pending. |
 | [#5719](https://github.com/carlos-emr/carlos/issues/5719) | Test: cover Ontario RA re-import, settlement replay and subsequent adjustments | Implementation and installed acceptance pending. |
-| [#5724](https://github.com/carlos-emr/carlos/issues/5724) | Test: cover OAuth access-token expiry and deletion of a client with issued tokens | Implementation and installed acceptance pending. |
+| [#5724](https://github.com/carlos-emr/carlos/issues/5724) | Test: cover OAuth access-token expiry and deletion of a client with issued tokens | Native consent, exact expiry-second semantics, client deletion and independent token/session controls pass on installed ON and BC with no clinical writes or residue. |
 | [#5725](https://github.com/carlos-emr/carlos/issues/5725) | Test: verify Report-by-Template results and exports remain isolated across tabs | Implementation and installed acceptance pending. |
 | [#5726](https://github.com/carlos-emr/carlos/issues/5726) | Test: ingest original, corrected and out-of-order HL7 results for one accession | Implementation and installed acceptance pending. |
 | [#5727](https://github.com/carlos-emr/carlos/issues/5727) | Test: cover First Nations field save, edit, clear and community-selection round trips | Implementation and installed acceptance pending. |
@@ -30,11 +30,11 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5729](https://github.com/carlos-emr/carlos/issues/5729) | Test: verify Messenger read and archive state is independent for each recipient | Implementation and installed acceptance pending. |
 | [#5730](https://github.com/carlos-emr/carlos/issues/5730) | Test: expand document-upload coverage across supported formats and malformed content | Implementation and installed acceptance pending. |
 | [#5731](https://github.com/carlos-emr/carlos/issues/5731) | Test: preserve scanned and mixed-geometry PDFs through incoming-document edits | Implementation and installed acceptance pending. |
-| [#5732](https://github.com/carlos-emr/carlos/issues/5732) | Test: verify shared contact edits and patient-specific relationship isolation | Implementation and installed acceptance pending. |
+| [#5732](https://github.com/carlos-emr/carlos/issues/5732) | Test: verify shared contact edits and patient-specific relationship isolation | Installed ON/BC native creation, two-patient linking, shared-detail editing, independent flags, cancelled edits/removal and selective removal pass; unrelated control and cleanup verified. |
 | [#5733](https://github.com/carlos-emr/carlos/issues/5733) | Test: verify complete lab-report content across PDF page breaks | Implementation and installed acceptance pending. |
 | [#5734](https://github.com/carlos-emr/carlos/issues/5734) | Test: preserve multiple same-severity Rx interaction partners when one is removed | Implementation and installed acceptance pending. |
 | [#5735](https://github.com/carlos-emr/carlos/issues/5735) | Test: cover Schedule of Benefits imports that update existing codes and multiple rows | Implementation and installed acceptance pending. |
-| [#5736](https://github.com/carlos-emr/carlos/issues/5736) | Test: cover BC payment amount boundaries, overpayments and supported refunds | Implementation and installed acceptance pending. |
+| [#5736](https://github.com/carlos-emr/carlos/issues/5736) | Test: cover BC payment amount boundaries, overpayments and supported refunds | Installed BC refusals, exact-cent partial/overpayment, receipt/list/accounting reconciliation and control-invoice preservation pass. No native refund control exists; negative amounts are refused. |
 | [#5737](https://github.com/carlos-emr/carlos/issues/5737) | Test: verify appointment-slot lock expiry and recovery after an abandoned browser | Implementation and installed acceptance pending. |
 | [#5738](https://github.com/carlos-emr/carlos/issues/5738) | Test: cover abandoned appointment cut/paste and stale clipboard recovery | Implementation and installed acceptance pending. |
 | [#5771](https://github.com/carlos-emr/carlos/issues/5771) | Test: Tomcat shutdown leak smoke check doesn't match MariaDB Connector/J thread names | Matcher and delayed-output CLI controls pass; actual installed ON stop/start log contains zero target leak warnings. Full lifecycle repetitions remain pending. |
@@ -190,3 +190,32 @@ All seven initial CodeRabbit inline threads were individually answered and
 resolved after their corrections and validation; the separate output-drain
 issue was corrected too. The requested follow-up review was rate-limited by
 CodeRabbit, so no follow-up review completion is claimed.
+
+Additional independent lifecycle coverage (#5724, #5732, #5736) passes through
+the same installed package front doors. The ON batch passes 2/2 and BC passes
+3/3, with zero failures/skips and clean residue. OAuth tokens are obtained using
+real consent; the finite token is tested within its exact expiry second and
+again immediately afterward. A separately authorized active client and an
+ordinary browser session remain usable across expiry and native deletion.
+Captured client IDs keep cleanup effective after the application deletes a
+client, including its owned request/access tokens and nonces.
+
+The contact lifecycle creates the directory record natively and keeps patient
+A/B in separate real sessions to avoid the application's reused named windows.
+Both link rows are snapshotted independently; shared edits preserve both,
+patient-specific flag edits preserve B, abandoned directory/relationship/removal
+edits preserve storage, and removing A preserves B and the directory. An
+unrelated contact/patient control remains byte-for-byte unchanged. Native
+self-closing controls are awaited with their actual close and opener reload.
+
+The BC amount lifecycle retains the original positive and method checks, adds
+a tokenless POST refusal, and verifies zero, negative, malformed, over-width and
+sub-cent refusals leave no financial rows. A corrected 10.01 partial payment
+and 20.00 overpayment produce exact 30.01 received and -7.01 credit on a 23.00
+invoice, with paid-private status and the selected payment method. The reopened
+receipt, header-labelled Invoice List columns and accounting CSV agree. The
+refund checkbox is absent on this target, so no refund UI flow is claimed.
+The original partial/exact-balance check separately passes after the extension.
+All amounts are checked with decimal SQL or integer cents, not floating-point
+comparison. Development failures remain recorded; none was converted to a pin
+or a passing incomplete result.
