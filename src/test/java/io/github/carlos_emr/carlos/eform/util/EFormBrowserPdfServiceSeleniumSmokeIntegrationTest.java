@@ -21,12 +21,11 @@
  */
 
 package io.github.carlos_emr.carlos.eform.util;
-import java.net.URI;
-
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,9 +38,12 @@ import java.util.Map;
 
 import com.sun.net.httpserver.HttpServer;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
+import io.github.carlos_emr.carlos.test.browser.SmokeDriverService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -54,14 +56,25 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * count matches the authored {@code pageN} divs and that carries a real text layer (the raster
  * path this replaced produced image-only pages with zero extractable text).
  *
- * <p>Opt-in integration suite: set CARLOS_SMOKE_DRIVER_URL to a running local chromedriver and
- * CARLOS_SMOKE_CHROMIUM to its matching browser. Without those prerequisites the tests skip.
- * The legacy class name is retained for existing operator commands; the transport is the JDK.</p>
+ * <p>Opt-in integration suite. Point it at a chromedriver with either CARLOS_SMOKE_DRIVER_URL (a
+ * running local service) or CARLOS_SMOKE_CHROMEDRIVER (a chromedriver binary the suite starts on a
+ * free loopback port and stops afterwards; see {@link SmokeDriverService}), and set
+ * CARLOS_SMOKE_CHROMIUM to the matching browser. Without a driver the tests skip; the release plan
+ * routes those skips from {@code java-all} to its {@code java-browser-pdf} lane, which matches them
+ * by this class's display name. The legacy class name is retained for existing operator commands;
+ * the transport is the JDK.</p>
  */
 @DisplayName("EFormBrowserPdfService browser smoke test")
 @Tag("integration")
 @Tag("eform")
 class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
+
+    private static final SmokeDriverService DRIVER_SERVICE = new SmokeDriverService();
+
+    @AfterAll
+    static void stopDriverService() {
+        DRIVER_SERVICE.close();
+    }
 
     @Test
     @DisplayName("should render the eForm test-pattern fixture to a PDF with headless Chromium")
@@ -292,8 +305,10 @@ class EFormBrowserPdfServiceSeleniumSmokeIntegrationTest {
     }
 
     private static RenderBrowser startDriverOrSkip(BrowserOptions options) {
-        String service = System.getenv("CARLOS_SMOKE_DRIVER_URL");
-        assumeTrue(service != null, "set CARLOS_SMOKE_DRIVER_URL to a local chromedriver service");
+        // A configured driver that fails to start throws here: only an unconfigured one skips.
+        String service = DRIVER_SERVICE.endpointOrNull();
+        assumeTrue(service != null, "set " + SmokeDriverService.DRIVER_URL_ENV + " to a running local "
+                + "chromedriver or " + SmokeDriverService.DRIVER_BINARY_ENV + " to a chromedriver binary");
         return new RenderBrowser(URI.create(service), options.asMap());
     }
 

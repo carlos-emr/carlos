@@ -89,17 +89,28 @@ with the JDK HTTP client. CDP commands still cross chromedriver's private pipe t
 The service is loopback-only, redirects are refused, inherited outbound proxies are not used
 for that local control channel, and capability prefixes remain part of every request path.
 The existing launch flags, network/completeness gates, native print parameters, concurrency
-limits and cleanup backstop remain active. Browser error responses are not included in errors.
+limits and cleanup backstop remain active. Browser error replies are not copied into errors: a
+failed command reports its HTTP status and W3C error code (only codes from the fixed W3C and
+chromedriver vocabulary; anything else reads `unrecognized`). Session creation, which runs before
+any patient page is loaded, also carries chromedriver's message, URL/path-redacted, on one line and
+truncated, so a version mismatch, missing binary or sandbox crash is diagnosable from the log. Session
+teardown and its force-delete backstop clear a pending thread interrupt for their one bounded DELETE
+and restore it afterwards, so an interrupted render still ends its browser.
 
 ## Reproduction
 
-Run in Ubuntu 26.04 with Java 25, Maven, the packaging Build-Depends and a running matching
+Run in Ubuntu 26.04 with Java 25, Maven, the packaging Build-Depends and a matching
 chromedriver/Chromium pair:
 
 ```sh
 mvn test
 mvn -Pjspc -DskipTests package
 python3 scripts/check-war-container-apis.py target/carlos-*.war
+# Either let the suites start and stop the driver binary on a free loopback port ...
+CARLOS_SMOKE_CHROMEDRIVER=/path/to/chromedriver \
+CARLOS_SMOKE_CHROMIUM=/path/to/chrome \
+mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest
+# ... or point them at a chromedriver that is already running.
 CARLOS_SMOKE_DRIVER_URL=http://127.0.0.1:9515 \
 CARLOS_SMOKE_CHROMIUM=/path/to/chrome \
 mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest
@@ -108,7 +119,12 @@ CHART_SCREENSHOT_DIR=target/chart-fixtures \
 CARLOS_SMOKE_CHROMIUM=/path/to/chrome npm run test:chart-draw-playwright
 ```
 
-The PDF/chart browser smoke suites are opt-in and require the local service URL and browser binary above; the legacy Selenium smoke class name remains for operator command compatibility.
+The PDF/chart browser smoke suites are opt-in: they need the browser binary and either a driver
+binary (`CARLOS_SMOKE_CHROMEDRIVER`) or a running driver (`CARLOS_SMOKE_DRIVER_URL`, which wins when
+both are set). Without a driver they skip; a configured driver that does not start fails. The
+release plan's `java-browser-pdf` lane runs both suites with `CARLOS_SMOKE_CHROMIUM` and
+`CARLOS_SMOKE_CHROMEDRIVER`, and `java-all` routes their skips to that lane. The legacy Selenium smoke
+class name remains for operator command compatibility.
 
 The standalone table and chart-draw Playwright checks require only Chromium; they load static DOM fixtures and the bundled scripts without network navigation or a driver service. Both now run in the Script Regressions workflow. Its `chart-fixtures` artifact preserves each synthetic chart before assertions, including the failing image. The deployed checks `report-by-template`, `export-content-rbt-columns` and `el-jstl-pages` read the `.xlsx` export and the JSTL tables.
 

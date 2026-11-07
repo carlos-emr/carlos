@@ -120,12 +120,12 @@ public class EFormBrowserPdfService {
     static final Duration SCRIPT_TIMEOUT = Duration.ofSeconds(30);
 
     /**
-     * Client-side HTTP read timeout for every WebDriver/CDP command sent to chromedriver
-     * (print-to-PDF, script execution, quit). Aligned to the render budget — and deliberately 3x
-     * the 30s in-band {@link #PAGE_LOAD_TIMEOUT}/{@link #SCRIPT_TIMEOUT} so legitimate slow pages
-     * always hit the in-band timeout first — this replaces Selenium's ~180s default, which let a
-     * wedged Chromium hold one of the {@link #MAX_CONCURRENT_RENDERS} global render slots for
-     * ~6 minutes (blocked command + blocked quit) and starve all rendering.
+     * Client-side HTTP read timeout for every WebDriver/CDP command {@link RenderBrowser} sends to
+     * chromedriver (print-to-PDF, script execution, quit). Aligned to the render budget — and
+     * deliberately 3x the 30s in-band {@link #PAGE_LOAD_TIMEOUT}/{@link #SCRIPT_TIMEOUT} so legitimate
+     * slow pages always hit the in-band timeout first. A longer bound (the former Selenium transport
+     * defaulted to ~180s) lets a wedged Chromium hold one of the {@link #MAX_CONCURRENT_RENDERS}
+     * global render slots for ~6 minutes (blocked command + blocked quit) and starve all rendering.
      */
     static final Duration WEBDRIVER_COMMAND_READ_TIMEOUT = RENDER_TIMEOUT;
     static final Duration WEBDRIVER_CONNECTION_TIMEOUT = Duration.ofSeconds(10);
@@ -1056,8 +1056,8 @@ public class EFormBrowserPdfService {
             driver.get(baseUrl + appPath);
             long navigationFinishedNanos = System.nanoTime();
             // Drain immediately after navigation so the main-document response is captured into our
-            // non-evicting list before any later request flood can push it out of Selenium's
-            // bounded internal buffer, then latch its status as a fallback for the final gate.
+            // non-evicting list before any later request flood can push it out of chromedriver's
+            // bounded log buffer, then latch its status as a fallback for the final gate.
             drainPerformanceLog(driver, performanceEntries);
             Integer latchedMainStatus = scanNetworkEvents(
                     performanceEntries.stream().map(LogEntry::getMessage).toList(), allowedOrigin).mainDocumentStatus();
@@ -1212,14 +1212,14 @@ public class EFormBrowserPdfService {
             // other IllegalArgumentException (a RuntimeException subtype) is caught here and gets
             // the honest generic diagnosis below.
             //
-            // WebDriver exception messages can embed the loopback render URL (which carries the fdid
+            // Render exception messages can embed the loopback render URL (which carries the fdid
             // and render token). Deliberately do NOT chain the raw exception as the cause: a
             // downstream handler that logs the throwable (FaxDocumentManagerImpl) would otherwise
             // re-emit the unredacted URL, defeating the renderer's PHI-safe logging. Instead we log,
             // here and only here, a fully-redacted picture: the type, the URL/path-redacted message,
             // a type+frame-only stack summary for message-less exceptions, and the redacted caused-by
-            // chain so a wrapped Selenium
-            // root cause (WebDriverException around a TimeoutException/ConnectException) is not lost.
+            // chain so a wrapped transport root cause (RenderBrowser's IllegalStateException around
+            // an HttpTimeoutException/ConnectException) is not lost.
             logger.error("Browser eForm renderer failed: fdid={} baseUrl={} type={} error={} at={} causedBy={}",
                     fdid, baseUrl, e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
                     RenderLogRedaction.stackSummary(e), RenderLogRedaction.causeChain(e));
@@ -1393,10 +1393,10 @@ public class EFormBrowserPdfService {
      *       backstop MUST use this value rather than re-reading the property: a property edited
      *       mid-render would otherwise send the force-delete to a different chromedriver and leave a
      *       browser holding a rendered PHI page alive.</li>
-     *   <li>{@code sessionId} is captured here because {@code RemoteWebDriver.quit()} nulls its own
-     *       session id in a {@code finally} EVEN WHEN THE QUIT FAILS. By the time
-     *       {@link #quitQuietly} reports failure, {@code driver.getSessionId()} is already null and
-     *       the backstop would have nothing to address.</li>
+     *   <li>{@code sessionId} is captured here so that, once {@link #quitQuietly} reports failure,
+     *       the backstop addresses the session without consulting the driver whose quit just
+     *       failed. (The Selenium transport this replaced nulled its own session id even when quit
+     *       failed; {@link RenderBrowser} keeps it, but the backstop must not depend on that.)</li>
      * </ul>
      */
     record RendererBrowser(RenderBrowser driver, URI serviceUri, String sessionId) {
@@ -1441,8 +1441,11 @@ public class EFormBrowserPdfService {
         } catch (RuntimeException e) {
             // causeChain is REQUIRED here, not decoration: for a connect failure the informative part
             // ("Connection refused") is always a nested cause, so type+message alone would log a
-            // useless top-level WebDriverException. Still never chained into the thrown exception --
-            // a downstream handler that logs the chain would re-emit an embedded URL unredacted.
+            // useless top-level "transport failed". A driver refusal instead carries its W3C code
+            // and, for session creation, RenderBrowser's redacted driver message (version mismatch,
+            // missing binary, sandbox crash) in the top-level message. Still never chained into the
+            // thrown exception -- a downstream handler that logs the chain would re-emit an
+            // embedded URL unredacted.
             logger.error("eForm render browser session failure detail: type={} error={} at={} causedBy={}",
                     e.getClass().getName(), RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())),
                     RenderLogRedaction.stackSummary(e), RenderLogRedaction.causeChain(e));
@@ -1458,9 +1461,9 @@ public class EFormBrowserPdfService {
 
     /**
      * True when {@code t}'s cause chain shows the chromedriver endpoint was never reached, as opposed
-     * to reached-but-unable-to-start-a-browser. Classified by TYPE only, never by message: WebDriver
-     * exception messages are assembled from {@code getAdditionalInformation()} and are not a stable
-     * discriminator (the Selenium smoke test carries the same hard-won warning).
+     * to reached-but-unable-to-start-a-browser. Classified by TYPE only, never by message: driver
+     * error messages are third-party free text (and {@link RenderBrowser} deliberately keeps most of
+     * them out of its exceptions), so they are not a stable discriminator.
      */
     static boolean isServiceUnreachable(Throwable t) {
         // Bounded rather than guarded on self-reference: `c != c.getCause()` only catches a
@@ -1704,12 +1707,23 @@ public class EFormBrowserPdfService {
      * rendered PHI page in memory must be visible at default log levels. The session id is logged (it
      * is not PHI, and it is what an operator needs against the chromedriver journal); the URI is
      * redacted because it may carry the --url-base capability token.
+     *
+     * <p>The interrupt flag is cleared for this one bounded request and restored afterwards. A quit
+     * that failed because its thread was interrupted leaves the flag set, and
+     * {@code HttpClient.send} on an interrupted thread fails immediately, so without this the
+     * backstop would never reach chromedriver in exactly the case it exists for.</p>
      */
     private static void forceDeleteSessionQuietly(URI serviceUri, String sessionId) {
         if (serviceUri == null || sessionId == null) {
             return;
         }
+        boolean interrupted = Thread.interrupted();
+        // Same transport policy as RenderBrowser: never a system proxy (the URI may carry the
+        // --url-base capability token), never a redirect, plain HTTP/1.1 to chromedriver.
         try (java.net.http.HttpClient client = java.net.http.HttpClient.newBuilder()
+                .proxy(java.net.http.HttpClient.Builder.NO_PROXY)
+                .version(java.net.http.HttpClient.Version.HTTP_1_1)
+                .followRedirects(java.net.http.HttpClient.Redirect.NEVER)
                 .connectTimeout(BACKSTOP_TIMEOUT)
                 .build()) {
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
@@ -1732,15 +1746,21 @@ public class EFormBrowserPdfService {
                         + "systemctl restart carlos-emr-render-browser clears it.",
                         sessionId, response.statusCode());
             }
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            logger.warn("Interrupted while force-deleting browser eForm renderer session {}", sessionId);
+        } catch (InterruptedException deleteInterrupted) {
+            interrupted = true;
+            logger.warn("Interrupted while force-deleting browser eForm renderer session {}. "
+                    + "A browser holding a rendered page may still be running; "
+                    + "systemctl restart carlos-emr-render-browser clears it.", sessionId);
         } catch (RuntimeException | java.io.IOException e) {
             logger.warn("Unable to force-delete browser eForm renderer session {}: type={} error={}. "
                     + "A browser holding a rendered page may still be running; "
                     + "systemctl restart carlos-emr-render-browser clears it.",
                     sessionId, e.getClass().getName(),
                     RenderLogRedaction.redactUrls(String.valueOf(e.getMessage())));
+        } finally {
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

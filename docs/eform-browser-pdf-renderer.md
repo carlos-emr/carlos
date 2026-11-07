@@ -816,12 +816,15 @@ key extraction), the render servlet and token service, the capability cookie and
 authorization, the image/signature/APCache servlets, `LoginFilter` least-privilege, and the
 mutator/GET contract.
 
-Opt-in end-to-end smoke with a running local driver service and matching browser binary. The legacy
+Opt-in end-to-end smoke with a matching chromedriver and browser binary. The legacy
 `SeleniumSmokeIntegrationTest` class name is retained for existing operator commands; its implementation
-uses the JDK transport. Runs without the service URL or browser binary skip cleanly:
+uses the JDK transport. Give it either a chromedriver binary (`CARLOS_SMOKE_CHROMEDRIVER`, started on a
+free loopback port and stopped after the class) or a running service (`CARLOS_SMOKE_DRIVER_URL`, which
+wins when both are set). Runs without a driver or browser skip cleanly; a configured driver that does
+not start fails:
 
 ```bash
-CARLOS_SMOKE_DRIVER_URL=http://127.0.0.1:9515 \
+CARLOS_SMOKE_CHROMEDRIVER=/path/to/chromedriver \
 CARLOS_SMOKE_CHROMIUM=/path/to/chrome \
 mvn test -Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest
 ```

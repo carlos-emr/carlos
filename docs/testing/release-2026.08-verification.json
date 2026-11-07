@@ -1693,15 +1693,24 @@
           "cases": [
             {
               "name": "shouldRenderTestPatternFixture_toPdfWithHeadlessChromium",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
             },
             {
               "name": "shouldNotLoadLocalFileSubresource_referencedByMaliciousEform",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
             },
             {
               "name": "shouldRenderFreeFlowForm_toTextLayerPdfWithNoPageDivs",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChartSmokeIntegrationTest": {
+          "check": "java-browser-pdf",
+          "cases": [
+            {
+              "name": "shouldRenderSeriesRangesAndMedicationIntervals_asPngAndJpeg",
+              "container": ""
             }
           ]
         },
@@ -3578,18 +3587,17 @@
         "all"
       ],
       "repetitions": 1,
-      "minimumCases": 3,
+      "minimumCases": 4,
       "command": [
         "mvn",
         "-B",
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest",
+        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
-        "-Dwebdriver.chrome.driver={chromedriver}",
         "-Djacoco.dataFile={run}/jacoco.exec",
         "-Dtest.coverageDirectory={run}/coverage"
       ],
@@ -3598,9 +3606,6 @@
         "CARLOS_SMOKE_CHROMIUM",
         "CARLOS_SMOKE_CHROMEDRIVER"
       ],
-      "environmentInputs": {
-        "chromedriver": "CARLOS_SMOKE_CHROMEDRIVER"
-      },
       "runtimeConstraints": {
         "java": "25"
       },

@@ -3,6 +3,7 @@ package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.eform.util.BrowserChartRenderer;
+import io.github.carlos_emr.carlos.test.browser.SmokeDriverService;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
@@ -11,6 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import javax.imageio.ImageIO;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.FileSystemResourceLoader;
@@ -19,14 +21,31 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.Mockito.*;
 
+/**
+ * Opt-in chart smoke in the release plan's {@code java-browser-pdf} lane: needs CARLOS_SMOKE_CHROMIUM
+ * plus either CARLOS_SMOKE_DRIVER_URL or CARLOS_SMOKE_CHROMEDRIVER (see {@link SmokeDriverService}).
+ * Without them it skips, and {@code java-all} routes that skip to the lane by class and method name
+ * (this class has no display name, so its routed container is empty).
+ */
 @Tag("integration")
 @Tag("measurement")
 class MeasurementChartSmokeIntegrationTest {
+    private static final SmokeDriverService DRIVER_SERVICE = new SmokeDriverService();
+
+    @AfterAll
+    static void stopDriverService() {
+        DRIVER_SERVICE.close();
+    }
+
     @Test
     void shouldRenderSeriesRangesAndMedicationIntervals_asPngAndJpeg() throws Exception {
-        String endpoint = System.getenv("CARLOS_SMOKE_DRIVER_URL");
         String binary = System.getenv("CARLOS_SMOKE_CHROMIUM");
-        assumeTrue(endpoint != null && binary != null, "local browser service required");
+        assumeTrue(binary != null, "set CARLOS_SMOKE_CHROMIUM to the browser binary");
+        // Checked after the browser so a host without one never starts a driver; a configured
+        // driver that fails to start throws here rather than skipping.
+        String endpoint = DRIVER_SERVICE.endpointOrNull();
+        assumeTrue(endpoint != null, "set " + SmokeDriverService.DRIVER_URL_ENV + " to a running local "
+                + "chromedriver or " + SmokeDriverService.DRIVER_BINARY_ENV + " to a chromedriver binary");
         CarlosProperties properties = mock(CarlosProperties.class);
         when(properties.getProperty("eform_pdf_browser_service_url", "http://127.0.0.1:9515")).thenReturn(endpoint);
         when(properties.getProperty("eform_pdf_browser_chromium_path")).thenReturn(binary);
