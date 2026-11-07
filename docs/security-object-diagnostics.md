@@ -86,6 +86,9 @@ identity, stable set membership, and all composite-key components.
 `BaseObjectProxyIntegrationTest` exercises actual Hibernate proxies and committed
 rows for all four affected entities. RecordUx and HRM tests capture DEBUG output
 while checking that the requested clinical records are still returned.
+`SafeDiagnosticSinksUnitTest` captures billing, indicator and note diagnostics and
+prescription audit calls. It verifies that clinical values still reach returned
+records and note persistence, including tickler links, without entering log payloads.
 
 The blocking Semgrep step tests its positive/negative fixture and scans
 `src/main` for reflective object methods, including qualified/static-import forms

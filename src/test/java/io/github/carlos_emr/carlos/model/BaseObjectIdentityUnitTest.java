@@ -40,6 +40,14 @@ import static org.mockito.Mockito.doReturn;
 @Tag("unit")
 class BaseObjectIdentityUnitTest {
     @Test
+    void shouldKeepReferenceIdentity_withoutAnExplicitPersistentKey() {
+        BaseObject value = new BaseObject();
+        assertThat(value.equals(value)).isTrue();
+        assertThat(value).isNotEqualTo(new BaseObject());
+        assertThat(new HashSet<>(java.util.List.of(value))).contains(value);
+    }
+
+    @Test
     void shouldComparePersistentTypesAndKeys_withoutReadingProxyFields() {
         LazyInitializer initializer = mock(LazyInitializer.class);
         doReturn(Issue.class).when(initializer).getPersistentClass();
@@ -76,6 +84,14 @@ class BaseObjectIdentityUnitTest {
         left.setVal("FAKE-private-value");
         assertThat(left).isEqualTo(right).hasSameHashCodeAs(right);
         right.setFieldName("other-column");
+        assertThat(left).isNotEqualTo(right);
+        right.setFieldName("fake-column");
+        right.setTableId("other-table");
+        assertThat(left).isNotEqualTo(right);
+        right.setTableId(null);
+        assertThat(left).isNotEqualTo(right);
+        right.setTableId("fake-table");
+        right.setFieldName(null);
         assertThat(left).isNotEqualTo(right);
         assertThat(new FieldDefValue()).isNotEqualTo(new FieldDefValue());
     }

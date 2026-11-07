@@ -112,6 +112,14 @@ class SafeDiagnosticUnitTest {
     }
 
     @Test
+    void shouldRetainNumericIdentifiers_withoutTruncatingLongKeys() {
+        AbstractModel<Long> model = new AbstractModel<>() {
+            @Override public Long getId() { return 4294967296L; }
+        };
+        assertThat(model.toString()).endsWith("[id=4294967296]");
+    }
+
+    @Test
     void shouldOmitArbitraryKeys_forStringAndCompositeIdentifiers() {
         AbstractModel<Object> model = new AbstractModel<>() {
             @Override public Object getId() {
