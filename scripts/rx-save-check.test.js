@@ -51,26 +51,114 @@ test('an empty stash is refused before any confirmation or save', () => {
     assert.deepEqual(run('updateSaveAllDrugsCheckContinue();', 0), [['alert', 'add a drug first']]);
 });
 
-const refusedSave = slice('function reportRefusedSave(', '/**');
+// The pre-write error list and isUncertainSaveOutcome come before reportRefusedSave and are part
+// of its contract; setPharmacyId is the next function after them.
+const refusedSave = slice('var RX_SAVE_PRE_WRITE_ERRORS', 'function setPharmacyId(');
+const refusedMessages = {
+    staleDraft: 'review the current draft', saveRefused: 'reopen the session',
+    saveIncomplete: 'review the chart before retrying', saveUncertain: 'it may be saved; check the profile',
+};
+
+function reportRefused(transport) {
+    const alerts = [];
+    const events = [];
+    let refreshed = 0;
+    const context = {
+        jsMsg: refusedMessages,
+        alert(message) { alerts.push(message); events.push('alert'); },
+        refreshDrugProfile() { refreshed++; events.push('refresh'); },
+    };
+    // No reload, retry or DOM mutation of the staged cards is available: a refusal must preserve
+    // local edits, and an uncertain outcome must not resend cards a committed save consumed.
+    vm.runInNewContext(refusedSave, context);
+    context.reportRefusedSave(transport);
+    // The alert blocks the page; reloading the profile after it shows what the server now holds.
+    if (refreshed) assert.deepEqual(events, ['alert', 'refresh']);
+    return { alerts, refreshed };
+}
+
+for (const responseText of ['<html>unexpected page</html>', '{"scriptI', '{}', '{"scriptId":0}']) {
+    test(`Save And Print reports an unconfirmed 2xx save without opening a preview: ${responseText}`, () => {
+        const events = [];
+        const context = {
+            jsMsg: refusedMessages,
+            alert(message) { events.push(['alert', message]); },
+            refreshDrugProfile() { events.push(['refresh']); },
+            popForm2() { assert.fail('an unconfirmed save must not print'); },
+        };
+        vm.runInNewContext(refusedSave + slice('function openSavedPrescriptionPreview(', 'function popForm2('), context);
+        context.openSavedPrescriptionPreview({status: 200, responseText,
+            responseURL: 'https://clinic.test/carlos/rx/WriteScript'});
+        assert.deepEqual(events, [['alert', refusedMessages.saveUncertain + ' (HTTP 200)'], ['refresh']]);
+    });
+}
+
 for (const [transport, expected] of [
     [{ status: 500, responseJSON: { error: 'INCOMPLETE_RX_SAVE' } }, 'review the chart before retrying'],
     [{ status: 409, responseJSON: { error: 'STALE_RX_STASH' } }, 'review the current draft'],
     [{ status: 409, responseJSON: null, responseText: '<html>Conflict</html>' }, 'reopen the session'],
     [{ status: 409, responseJSON: { error: 'OTHER' } }, 'reopen the session'],
-    [{ status: 500, responseJSON: { error: 'STALE_RX_STASH' } }, 'reopen the session (HTTP 500)'],
 ]) {
     test(`refused save explains the fixed stale-draft conflict only: ${JSON.stringify(transport)}`, () => {
-        const alerts = [];
-        const context = {
-            jsMsg: { staleDraft: 'review the current draft', saveRefused: 'reopen the session', saveIncomplete: 'review the chart before retrying' },
-            alert(message) { alerts.push(message); },
-        };
-        // No reload, retry or DOM mutation is available: refusal must preserve local edits.
-        vm.runInNewContext(refusedSave, context);
-        context.reportRefusedSave(transport);
-        assert.deepEqual(alerts, [expected]);
+        assert.deepEqual(reportRefused(transport), { alerts: [expected], refreshed: 0 });
     });
 }
+
+// #5686: only a refusal proves nothing was written. A 4xx is refused before any write, and so is a
+// 5xx that names one of the action's pre-write refusal codes, and a 2xx page that a login or
+// facility-selection redirect answered instead of the save action.
+for (const transport of [
+    { status: 200, responseJSON: null, responseText: '<html>login</html>', responseURL: 'https://clinic.test/carlos/login?timeout=1' },
+    { status: 200, responseJSON: null, responseText: '<html>facility</html>', responseURL: 'https://clinic.test/carlos/select/facility' },
+    { status: 400, responseJSON: null, responseText: '<html>Bad Request</html>' },
+    { status: 403, responseJSON: null, responseText: 'CSRF validation failed' },
+    { status: 405, responseJSON: null, responseText: '' },
+    { status: 413, responseJSON: null, responseText: '<html>Request Entity Too Large</html>' },
+    { status: 400, responseJSON: { error: 'INVALID_RX_DRAFT' } },
+    { status: 500, responseJSON: { error: 'RX_DRAFT_VALIDATION_FAILED' } },
+]) {
+    test(`a definite refusal still says the prescription was not saved: ${JSON.stringify(transport)}`, () => {
+        assert.deepEqual(reportRefused(transport),
+            { alerts: [`reopen the session (HTTP ${transport.status})`], refreshed: 0 });
+    });
+}
+
+// #5686: an outcome that may follow a commit must not claim "NOT saved"; it asks for a check of
+// the medication profile, which it reloads, so a retry does not issue a duplicate prescription.
+for (const [transport, expected] of [
+    [{ status: 0, responseJSON: null, responseText: 'Network error: Failed to execute send' }, ''],
+    [{ status: 0, responseJSON: null, responseText: '' }, ''],
+    [undefined, ''],
+    [{ status: 500, responseJSON: null, responseText: '<html>Internal Server Error</html>' }, ' (HTTP 500)'],
+    [{ status: 500, responseJSON: { error: 'OTHER' } }, ' (HTTP 500)'],
+    // STALE_RX_STASH is only ever a 409: a 500 that carries it is not a refusal the action sends.
+    [{ status: 500, responseJSON: { error: 'STALE_RX_STASH' } }, ' (HTTP 500)'],
+    [{ status: 502, responseJSON: null, responseText: '<html>Bad Gateway</html>' }, ' (HTTP 502)'],
+    [{ status: 503, responseJSON: null, responseText: '' }, ' (HTTP 503)'],
+    [{ status: 504, responseJSON: null, responseText: '<html>Gateway Time-out</html>' }, ' (HTTP 504)'],
+    [{ status: 200, responseJSON: null, responseText: '<html>login</html>' }, ' (HTTP 200)'],
+    [{ status: 200, responseJSON: { scriptId: 'x' }, responseText: '{"scriptId":"x"}' }, ' (HTTP 200)'],
+    [{ status: 200, responseJSON: null, responseText: '{"scriptI',
+        responseURL: 'https://clinic.test/carlos/rx/WriteScript?parameterValue=updateSaveAllDrugs&rand=7' }, ' (HTTP 200)'],
+]) {
+    test(`an unconfirmed save reports an uncertain outcome: ${JSON.stringify(transport)}`, () => {
+        assert.deepEqual(reportRefused(transport),
+            { alerts: [refusedMessages.saveUncertain + expected], refreshed: 1 });
+    });
+}
+
+test('every locale ships the uncertain-save message the page reads', () => {
+    assert.match(jsp, /<fmt:message key="SearchDrug\.js\.saveUncertain"\s+var="msg_saveUncertain"\/>/);
+    assert.match(jsp, /saveUncertain: '\$\{carlos:forJavaScript\(msg_saveUncertain\)\}',/);
+    const english = bundle('en').saveUncertain;
+    assert.ok(english && !/NOT saved/i.test(english), 'the English message must not claim the save failed');
+    for (const locale of ['fr', 'es', 'pl', 'pt_BR']) {
+        const message = bundle(locale).saveUncertain;
+        assert.ok(message, `${locale} has no SearchDrug.js.saveUncertain`);
+        assert.notEqual(message, english, `${locale} SearchDrug.js.saveUncertain is untranslated`);
+        assert.notEqual(message, bundle(locale).saveRefused, `${locale} reuses the refusal text`);
+    }
+});
 
 test('Save Only requests atomic cleanup and never clears the shared stash afterwards', () => {
     const calls = [];

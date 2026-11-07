@@ -87,7 +87,7 @@ for (const responseText of ['{"scriptId":"789"}', '{"scriptId":789}']) {
   test(`successful save binds the print handoff to its returned identity: ${responseText}`, () => {
     const previews = [];
     vm.runInNewContext(`${savedPreviewSource}\nopenSavedPrescriptionPreview({ responseText });`, {
-      responseText, popForm2: (...args) => previews.push(args),
+      responseText, popForm2: (...args) => previews.push(args), refreshDrugProfile() {},
       alert: () => assert.fail('valid saved identity was refused'),
     });
     assert.equal(String(previews[0][0]), '789');
@@ -96,12 +96,14 @@ for (const responseText of ['{"scriptId":"789"}', '{"scriptId":789}']) {
 }
 for (const responseText of ['<html>legacy result</html>', '{}', 'null', '{"scriptId":0}', '{"scriptId":"bad"}']) {
   test(`unidentified saved preview fails closed without retry: ${responseText}`, () => {
-    const alerts = [];
+    const refused = [];
     vm.runInNewContext(`${savedPreviewSource}\nopenSavedPrescriptionPreview({ responseText });`, {
       responseText, popForm2: () => assert.fail('missing saved identity must not select session state'),
-      jsMsg: { previewUnavailable: 'review the saved prescription' }, alert: message => alerts.push(message),
+      reportRefusedSave: transport => refused.push(transport.responseText),
+      refreshDrugProfile: () => assert.fail('an unconfirmed save must use its outcome handler'),
+      alert: () => assert.fail('an unconfirmed save must use its outcome handler'),
     });
-    assert.deepEqual(alerts, ['review the saved prescription']);
+    assert.deepEqual(refused, [responseText]);
   });
 }
 
@@ -117,7 +119,7 @@ test('successful save refreshes only this window’s draft versions before Edit 
         return field;
       } } };
     } },
-    popForm2: (...args) => previews.push(args),
+    popForm2: (...args) => previews.push(args), refreshDrugProfile() {},
     alert: () => assert.fail('valid saved identity was refused'),
   });
   assert.equal(field.value, 'new-version');

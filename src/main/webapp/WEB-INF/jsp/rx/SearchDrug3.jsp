@@ -272,6 +272,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
         <fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
+        <fmt:message key="SearchDrug.js.saveUncertain"             var="msg_saveUncertain"/>
         <fmt:message key="SearchDrug.js.discontinueIncomplete"     var="msg_discontinueIncomplete"/>
         <fmt:message key="SearchDrug.js.staleDraft"                var="msg_staleDraft"/>
         <fmt:message key="SearchDrug.js.removeRefused"             var="msg_removeRefused"/>
@@ -320,6 +321,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
                 savePrompt: '${carlos:forJavaScript(msg_savePrompt)}',
                 saveRefused: '${carlos:forJavaScript(msg_saveRefused)}',
                 saveIncomplete: '${carlos:forJavaScript(msg_saveIncomplete)}',
+                saveUncertain: '${carlos:forJavaScript(msg_saveUncertain)}',
                 discontinueIncomplete: '${carlos:forJavaScript(msg_discontinueIncomplete)}',
                 staleDraft: '${carlos:forJavaScript(msg_staleDraft)}',
                 removeRefused: '${carlos:forJavaScript(msg_removeRefused)}',
@@ -1918,9 +1920,10 @@ function openSavedPrescriptionPreview(transport) {
         saved = null;
     }
     if (!saved || !/^[1-9]\d*$/.test(String(saved.scriptId))) {
-        alert(jsMsg.previewUnavailable);
+        reportRefusedSave(transport);
         return;
     }
+    refreshDrugProfile();
     // Only the window whose save succeeded receives the new card versions. Another window's
     // stale form remains invalid; Edit Rx in this window can submit its acknowledged version.
     if (saved.draftRevisions) {
@@ -3101,8 +3104,6 @@ function updateQty(element){
         {method: 'post',postBody:data,synchronous:true,
           requestHeaders: { 'Accept': 'application/json' },
             onSuccess:function(transport){
-
-                refreshDrugProfile();
                 const hasDrugs = jQuery("[id^='drugName_']").length > 0;
                 if (hasDrugs) {
                     openSavedPrescriptionPreview(transport);
@@ -3158,10 +3159,46 @@ function updateQty(element){
     }
 
     /**
-     * Tells the prescriber a save did not happen. updateSaveAllDrugs answers 409 when the request
-     * does not name the patient of an open Rx window (per-patient Rx state, #3875).
+     * Error codes updateSaveAllDrugs sends with a 5xx status only when it refuses a save before
+     * writing anything. Any other 5xx may follow a commit (#5686).
+     */
+    var RX_SAVE_PRE_WRITE_ERRORS = ['RX_DRAFT_VALIDATION_FAILED'];
+
+    /**
+     * Whether a save the server did not confirm may still have committed (#5686). Only a refusal
+     * proves nothing was written, so only a refusal may be reported as NOT saved:
+     * - a 4xx: the action, a filter (login, CSRFGuard, method guard), the WAF or the proxy refused
+     *   the request before the action wrote anything;
+     * - a 5xx naming one of RX_SAVE_PRE_WRITE_ERRORS;
+     * - a 2xx from another page: a login or facility-selection redirect, followed by the XHR,
+     *   means the request never reached the save action.
+     * Everything else may follow a commit, and a retry can then issue a duplicate prescription:
+     * no response at all (status 0: a lost or aborted reply, a timeout, a network failure), any
+     * other 5xx (the action can fail after its transaction commits, and a proxy can time out while
+     * Tomcat completes the save) and a 2xx from the save action without the saved script id.
      *
-     * @param {Object} transport the CarlosAjax transport of the failed request
+     * @param {Object} transport the CarlosAjax transport of the request, or nothing
+     * @return {boolean} true when the prescriber must check the medication profile before retrying
+     */
+    function isUncertainSaveOutcome(transport) {
+        var status = transport ? Number(transport.status) : 0;
+        if (!(status > 0)) return true;
+        if (status >= 400 && status < 500) return false;
+        if (status >= 500) {
+            var error = transport.responseJSON ? transport.responseJSON.error : null;
+            return RX_SAVE_PRE_WRITE_ERRORS.indexOf(error) === -1;
+        }
+        var landed = String(transport.responseURL || '').split(/[?#]/)[0];
+        return !(status < 300 && landed && !/\/rx\/WriteScript$/.test(landed));
+    }
+
+    /**
+     * Tells the prescriber a save was not confirmed. A definite refusal says the prescription was
+     * NOT saved: updateSaveAllDrugs answers 409 when the request does not name the patient of an
+     * open Rx window (per-patient Rx state, #3875). An outcome that may follow a commit says so
+     * instead and reloads the medication profile to check against (#5686).
+     *
+     * @param {Object} transport the CarlosAjax transport of the failed or unconfirmed request
      */
     function reportRefusedSave(transport) {
         if (transport && transport.responseJSON && transport.responseJSON.error === 'INCOMPLETE_RX_SAVE') {
@@ -3187,6 +3224,13 @@ function updateQty(element){
             }).first();
             alert(RxInputValidation.format(jsMsg.dateNotOnCalendar, badDate.length ? badDate.val() : ''));
             if (badDate.length) badDate.focus();
+        } else if (isUncertainSaveOutcome(transport)) {
+            // The staged cards stay as they are: an unsaved draft must survive, and the server
+            // refuses a replay of cards a committed save consumed. The profile is reloaded after
+            // the alert, which blocks the page, so it shows what the server now holds.
+            var status = transport ? Number(transport.status) : 0;
+            alert(jsMsg.saveUncertain + (status > 0 ? ' (HTTP ' + status + ')' : ''));
+            refreshDrugProfile();
         } else {
             alert(jsMsg.saveRefused + ' (HTTP ' + (transport ? transport.status : '?') + ')');
         }
