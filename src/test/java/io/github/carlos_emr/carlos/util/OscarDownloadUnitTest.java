@@ -2,6 +2,14 @@ package io.github.carlos_emr.carlos.util;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.util.List;
+import io.github.carlos_emr.carlos.billing.CA.ON.dao.BillingFilenameImportDao.FileReview;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingImportedFiles;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
 
 import jakarta.servlet.ServletOutputStream;
@@ -109,6 +117,48 @@ class OscarDownloadUnitTest {
         assertThat(servlet.transferCalled).isTrue();
     }
 
+    /** Replaces the pathname at response opening; only the verified snapshot may be sent. */
+    @Test
+    void shouldServeReviewedBytes_whenBillingFileIsReplacedBeforeStreaming() throws Exception {
+        String filename = "o19-claim-2021-2-0.claim";
+        byte[] reviewedBytes = "reviewed submission".getBytes(StandardCharsets.UTF_8);
+        Path file = tempDir.resolve(filename);
+        Files.write(file, reviewedBytes);
+        Path replacement = Files.writeString(tempDir.resolve("replacement"), "different unreviewed submission");
+        String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(reviewedBytes));
+        FileReview review = new FileReview("shared.001", filename, "reconciled", sha, "billing-admin", true);
+        OscarDownload servlet = new OscarDownload() {
+            @Override
+            protected BillingImportedFiles.ReviewedFile reviewedBillingFile(String name, Path path) {
+                return BillingImportedFiles.openReviewed(List.of(review), name, path);
+            }
+        };
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+        request.addParameter("filename", filename);
+        request.addParameter("homepath", "ohipdownload");
+        request.getSession().setAttribute("ohipdownload", tempDir.toString());
+        request.getSession().setAttribute("user", "999998");
+        MockHttpServletResponse response = new MockHttpServletResponse() {
+            @Override
+            public ServletOutputStream getOutputStream() {
+                try {
+                    Files.move(replacement, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException failure) {
+                    throw new java.io.UncheckedIOException(failure);
+                }
+                return super.getOutputStream();
+            }
+        };
+
+        servlet.service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsByteArray()).isEqualTo(reviewedBytes);
+        assertThat(response.getContentLengthLong()).isEqualTo(reviewedBytes.length);
+        assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+        assertThat(Files.readString(file)).isEqualTo("different unreviewed submission");
+    }
+
     @Test
     void shouldRefuseDownload_whenAlternateSessionKeyPointsToBillingDirectory() throws Exception {
         try (org.mockito.MockedStatic<io.github.carlos_emr.CarlosProperties> properties =
@@ -143,6 +193,12 @@ class OscarDownloadUnitTest {
             billingChecked = true;
             if (rejectBilling) throw BillingFileWriteException.forReason(
                     BillingFileWriteException.Reason.IMPORTED_FILE_UNRESOLVED, null);
+        }
+
+        @Override
+        protected BillingImportedFiles.ReviewedFile reviewedBillingFile(String filename, Path path) {
+            requireBillingFile(filename, path);
+            return null;
         }
 
         @Override

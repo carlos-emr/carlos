@@ -7,10 +7,12 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.io.IOException;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Tag("unit")
@@ -79,5 +81,24 @@ class BillingImportedFilesUnitTest {
         Files.createSymbolicLink(absent, other);
         assertThatThrownBy(() -> BillingImportedFiles.requireResolved(List.of(review), review.importedFilename(), absent))
                 .isInstanceOf(BillingFileWriteException.class);
+    }
+
+    @Test void shouldRejectSnapshot_whenContentDoesNotMatchReview() throws Exception {
+        FileReview review = resolved(digest("reviewed submission"));
+        Path file = Files.writeString(directory.resolve(review.importedFilename()), "unreviewed bytes");
+        assertThatThrownBy(() -> BillingImportedFiles.openReviewed(List.of(review), review.importedFilename(), file))
+                .isInstanceOf(BillingFileWriteException.class);
+    }
+
+    /** Closing the request-owned snapshot must close its stream and preserve the source. */
+    @Test void shouldCloseSnapshot_whenReviewedDownloadFinishes() throws Exception {
+        FileReview review = resolved(digest("reviewed submission"));
+        Path file = Files.writeString(directory.resolve(review.importedFilename()), "reviewed submission");
+        var reviewed = BillingImportedFiles.openReviewed(List.of(review), review.importedFilename(), file);
+        try (reviewed) {
+            assertThat(reviewed.input().readAllBytes()).asString().isEqualTo("reviewed submission");
+        }
+        assertThatThrownBy(() -> reviewed.input().read()).isInstanceOf(IOException.class);
+        assertThat(Files.readString(file)).isEqualTo("reviewed submission");
     }
 }

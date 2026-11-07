@@ -60,7 +60,8 @@ public class OscarDownload extends GenericDownload {
     /**
      * Serves a validated basename from an authenticated user's session-approved directory.
      * Billing paths, including aliases to HOME_DIR, require reconciled import evidence
-     * before the response stream opens.
+     * before the response stream opens. Audited downloads serve a verified private
+     * snapshot so replacement of the billing pathname cannot change response bytes.
      *
      * @throws IOException if response or file IO fails
      */
@@ -102,9 +103,20 @@ public class OscarDownload extends GenericDownload {
                 boolean billingDirectory = billingHome != null && !billingHome.isBlank()
                         && downloadDir.equals(new File(billingHome).getCanonicalFile());
                 if ("ohipdownload".equals(homepath) || billingDirectory) {
-                    requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, downloadDir).toPath());
                     if (!filename.equals(rawFilename)) {
-                        requireBillingFile(filename, PathValidationUtils.validatePath(filename, downloadDir).toPath());
+                        requireBillingFile(rawFilename, PathValidationUtils.validatePath(rawFilename, downloadDir).toPath());
+                    }
+                    try (var reviewed = reviewedBillingFile(filename,
+                            PathValidationUtils.validatePath(filename, downloadDir).toPath())) {
+                        if (reviewed != null) {
+                            String headerFilename = filename.replaceAll("[\\r\\n\\p{Cntrl}]", "");
+                            res.setContentType("application/octet-stream");
+                            res.setHeader("X-Content-Type-Options", "nosniff");
+                            res.setHeader("Content-Disposition", "attachment;filename=\"" + headerFilename + "\"");
+                            res.setContentLengthLong(reviewed.size());
+                            reviewed.input().transferTo(res.getOutputStream()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- verified binary response
+                            return;
+                        }
                     }
                 }
                 ServletOutputStream stream = res.getOutputStream();
@@ -131,6 +143,12 @@ public class OscarDownload extends GenericDownload {
     protected void requireBillingFile(String filename, java.nio.file.Path path) {
         BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
         BillingImportedFiles.requireResolved(dao.findFileReviews(filename), filename, path);
+    }
+
+    /** Opens the verified snapshot used for both validation and delivery of an audited file. */
+    protected BillingImportedFiles.ReviewedFile reviewedBillingFile(String filename, java.nio.file.Path path) {
+        BillingFilenameImportDao dao = SpringUtils.getBean(BillingFilenameImportDao.class);
+        return BillingImportedFiles.openReviewed(dao.findFileReviews(filename), filename, path);
     }
 
     private void sendErrorForCaughtException(HttpServletResponse res, int statusCode, String message) {

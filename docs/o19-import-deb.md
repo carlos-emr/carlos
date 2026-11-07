@@ -866,6 +866,10 @@ CARLOS refuses ambiguous historical downloads and regeneration with fixed
 reconciliation guidance. A missing renamed file is not treated as an empty
 claim selection. Original shared names remain blocked and reserved even
 after a particular renamed submission is reconciled.
+Audited downloads verify a private temporary snapshot and serve those exact
+bytes, so concurrent regeneration cannot replace the content after verification.
+The snapshot is removed when the response stream closes; large files are streamed
+through disk without loading the whole submission into memory.
 
 For each affected submission, a billing administrator must identify its
 actual file from the clinic's retained evidence, place it under the exact
