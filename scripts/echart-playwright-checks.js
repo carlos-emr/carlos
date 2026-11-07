@@ -369,6 +369,12 @@ function isScoredTextAutosaveResponse(response) {
   return note.includes(CLINICAL_TEXT_THE_WAF_SCORES);
 }
 
+/**
+ * Exercise the owned patient's eChart pagination, issue assignment and CPP saves.
+ * Register fixture cleanup before writing and require persisted encounter links.
+ * @param {object} s Authenticated workflow session with its owned patient and SQL boundary.
+ * @returns {Promise<void>} Resolves after the UI and database assertions and lock release.
+ */
 async function workflow(s) {
   const { sql, patient, provider, marker, config } = s;
   const screenshotDir = process.env.ECHART_SCREENSHOT_DIR || config.screenshotDir || '/tmp';

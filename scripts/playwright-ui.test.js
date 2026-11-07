@@ -4,6 +4,7 @@ const test = require('node:test');
 const { EventEmitter } = require('node:events');
 const { clickOpensPopup, clickDownloadsOrOpens, clickOpensPopupOrNavigates, typeAutocomplete } = require('./lib/playwright-ui');
 const { createRecorder, wireStrictPage, assertStrictPage } = require('./lib/playwright-harness');
+const { workflow: echartWorkflow } = require('./echart-playwright-checks');
 
 function eventPage(text = 'Working page') {
   const page = Object.assign(new EventEmitter(), {
@@ -53,6 +54,48 @@ for (const inputMode of [undefined, 'fill']) {
     });
   }
 }
+
+test('the eChart caller enters Safety in exactly one nonempty autocomplete update', async () => {
+  const updates = [];
+  let value = 'old query';
+  let hidden = 'stale id';
+  let picked = false;
+  const input = {
+    click: async () => {},
+    fill: async text => { value = text; hidden = ''; updates.push(text); },
+    type: async text => {
+      for (const letter of text) { value += letter; updates.push(value); }
+    },
+  };
+  const suggestion = {
+    waitFor: async () => { assert.equal(value, 'Safety'); },
+    click: async () => { picked = true; hidden = '41'; },
+  };
+  const menu = { locator: () => ({ first: () => suggestion }) };
+  const selected = new Error('stop after the real caller selects its suggestion');
+  const page = {
+    locator: selector => selector === '#issueAutocomplete' ? input
+      : selector === '#newIssueId' ? { inputValue: async () => hidden } : menu,
+    waitForResponse: () => { throw selected; },
+  };
+  let assignmentSteps = 0;
+  const fixtureValues = ['1', '2', '45', '0'];
+  await assert.rejects(echartWorkflow({
+    sql: { value: () => fixtureValues.shift(), execute: () => {} },
+    patient: '100', provider: '200', marker: 'owned-test-patient', config: {},
+    cleanup: () => {}, context: new EventEmitter(), chart: async () => page,
+    step: async (label, action) => {
+      if (label === 'an issue assigned to the encounter remains pending before the CPP save') {
+        assignmentSteps++;
+        await action();
+      }
+    },
+  }), error => error === selected);
+  assert.equal(assignmentSteps, 1);
+  assert.equal(picked, true, 'the caller must select the rendered suggestion');
+  assert.equal(hidden, '41', 'the widget must replace the stale hidden id');
+  assert.deepEqual(updates.filter(Boolean), ['Safety']);
+});
 
 for (const navigates of [true, false]) {
   test(`a popup URL is read after navigation (navigation succeeds: ${navigates})`, async () => {

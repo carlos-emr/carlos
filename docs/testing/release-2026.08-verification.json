@@ -1572,7 +1572,8 @@
         "autocomplete type mode requires the selected widget id (bound: true)",
         "autocomplete type mode requires the selected widget id (bound: false)",
         "autocomplete fill mode requires the selected widget id (bound: true)",
-        "autocomplete fill mode requires the selected widget id (bound: false)"
+        "autocomplete fill mode requires the selected widget id (bound: false)",
+        "the eChart caller enters Safety in exactly one nonempty autocomplete update"
       ],
       "caseManifest": "docs/testing/release-2026.08-node-cases.json"
     },
