@@ -185,10 +185,19 @@ RUN playwright install --with-deps chromium firefox && \
 # Chrome for Testing build Playwright installed above (same version, same CDN) and `server start`
 # runs it beside Tomcat. The browser path is config/shared/volumes/carlos.properties
 # (eform_pdf_browser_chromium_path); keep its chromium-<revision> in step with PLAYWRIGHT_VERSION.
+# The driver is pinned by version and SHA-256 like the Node archive above; Playwright 1.61.1 installs
+# Chrome for Testing 149.0.7827.55. A Playwright bump fails here until both pins are updated.
+ARG CHROMEDRIVER_VERSION=149.0.7827.55
+ARG CHROMEDRIVER_SHA256=8684a9cb079391352021e93e6ddb2f2afa66feb327526f7c3ed316b5b1028aaf
 RUN set -eu; \
     chrome="$(ls -d /root/.cache/ms-playwright/chromium-*/chrome-linux64/chrome | head -n 1)"; \
     version="$("$chrome" --version | grep -oE '[0-9]+(\.[0-9]+){3}')"; \
+    if [ "$version" != "$CHROMEDRIVER_VERSION" ]; then \
+      echo "ERROR: Playwright installed Chrome for Testing ${version}; set CHROMEDRIVER_VERSION and CHROMEDRIVER_SHA256 for it." >&2; \
+      exit 1; \
+    fi; \
     curl -fsSLo /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/${version}/linux64/chromedriver-linux64.zip"; \
+    echo "${CHROMEDRIVER_SHA256}  /tmp/chromedriver.zip" | sha256sum -c -; \
     python3 -c "import zipfile; zipfile.ZipFile('/tmp/chromedriver.zip').extractall('/tmp/chromedriver')"; \
     install -m 0755 /tmp/chromedriver/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver; \
     rm -rf /tmp/chromedriver /tmp/chromedriver.zip; \
