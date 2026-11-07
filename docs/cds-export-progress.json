@@ -148,15 +148,15 @@
     "exactComponentWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85"
   },
   "latestIntegratedPackage": {
-    "state": "PACKAGE_AND_EXACT_NATIVE_NOTE_CAPTURE_COMPONENT_VERIFIED",
-    "head": "a87ccb74df5aaf1e2d95ea4dc3cdea56e0bdfdf9",
-    "javaChecks": 3911,
+    "state": "PACKAGE_AND_EXACT_ACTIVE_NOTE_POLICY_COMPONENT_VERIFIED",
+    "head": "a8a50106f8c37b1f175a72f44b5a53a3ed1d7513",
+    "javaChecks": 3919,
     "javaSuites": 317,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "fc4c82f1cb831667096c016dda63349fc360ed0379c75b086440a0b6b13496be",
-    "exactInstalledNoteCaptureAssertions": 44,
+    "packagedWarSha256": "ad1045c3a0425b538c0ab6dace866f2330e40952ced7dd3f01a2c5e4d31c5b00",
+    "exactInstalledNoteCaptureAssertions": 55,
     "componentOverlays": false,
     "originalCompletedImportRulesetRetained": true,
     "nativeNoteIssueRevisionReconciliationComplete": false,
@@ -195,7 +195,7 @@
     "clinicalPublication": false
   },
   "capturedNoteScopes": {
-    "state": "ACTIVE_POLICY_AND_EXTENSION_COMPONENT_VERIFIED_PENDING_EXACT_PACKAGE",
+    "state": "ACTIVE_POLICY_AND_EXTENSION_EXACT_PACKAGE_VERIFIED",
     "focusedChecks": 129,
     "legacyManifestShapePreserved": true,
     "exactCapturedIdentityReauthorizedAfterFinalCallbacks": true,
@@ -209,15 +209,45 @@
     "wholeRowReceiptsVerified": true,
     "finalTextAndReceiptCallbackRevocationRefused": true,
     "requiresCompleteHistoryCategoryScope": true,
-    "exactPackagedAssertions": 44,
+    "exactPackagedAssertions": 55,
     "ordinaryUnscopedNotesUseActiveChartDomain": true,
     "authorizationBasis": "active_filterNotes_and_chart_program_domain",
     "noteExtensionReaderRegistered": true,
     "noteExtensionPhysicalColumns": 5,
     "activePolicyFocusedChecks": 183,
     "activePolicyInstalledComponentAssertions": 55,
-    "activePolicyComponentOverlays": true,
+    "activePolicyComponentOverlays": false,
     "enabledFacilityPolicyTestedInMariaDb": true,
-    "priorDormantHelperAuthorizationEvidenceSuperseded": true
+    "priorDormantHelperAuthorizationEvidenceSuperseded": true,
+    "activePolicyExactPackagedAssertions": 55
+  },
+  "previousNativeNotePackage": {
+    "state": "PACKAGE_AND_EXACT_NATIVE_NOTE_CAPTURE_COMPONENT_VERIFIED",
+    "head": "a87ccb74df5aaf1e2d95ea4dc3cdea56e0bdfdf9",
+    "javaChecks": 3911,
+    "javaSuites": 317,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "packagedWarSha256": "fc4c82f1cb831667096c016dda63349fc360ed0379c75b086440a0b6b13496be",
+    "exactInstalledNoteCaptureAssertions": 44,
+    "componentOverlays": false,
+    "originalCompletedImportRulesetRetained": true,
+    "nativeNoteIssueRevisionReconciliationComplete": false,
+    "clinicalPublication": false
+  },
+  "physicalNoteIssueLinks": {
+    "state": "COMPONENT_VERIFIED_PENDING_COORDINATED_PACKAGE",
+    "sourceRegistered": true,
+    "physicalColumns": 2,
+    "compositePaging": true,
+    "duplicatesAndCrossPatientLinksRequireReview": true,
+    "foreignRevisionOwnershipRefused": true,
+    "focusedChecks": 189,
+    "reviewStateFocusedChecks": 34,
+    "installedComponentAssertions": 58,
+    "componentOverlays": true,
+    "issueCataloguePayloadImplemented": false,
+    "clinicalPublication": false
   }
 }

@@ -40,6 +40,7 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
     @SuppressWarnings("unchecked")
     public List<CdsExportNoteAccessDto> readScopes(int patient, int maximum) {
         if (patient < 1 || maximum < 1 || maximum > 8192) throw new IllegalArgumentException("CDS_EXPORT_NOTE_ACCESS_SCOPE_INVALID");
+        if (hasForeignRevision(patient, null)) deny();
         List<Object[]> rows = entityManager().createNativeQuery("SELECT note_id, program_no, reporter_caisi_role, locked FROM casemgmt_note WHERE demographic_no = :patient ORDER BY note_id", Object[].class)
                 .setParameter("patient", patient).setHint("jakarta.persistence.query.timeout", 30_000).setMaxResults(maximum + 1).getResultList();
         if (rows.size() > maximum) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
@@ -56,7 +57,7 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
     /** Returns the live physical access scope, or null for a missing/unsupported note. */
     @SuppressWarnings("unchecked")
     public CdsExportNoteAccessDto findScope(int patient, long noteId) {
-        if (patient < 1 || noteId < 1) return null;
+        if (patient < 1 || noteId < 1 || hasForeignRevision(patient, noteId)) return null;
         List<Object[]> rows = entityManager().createNativeQuery("SELECT program_no, reporter_caisi_role, locked FROM casemgmt_note WHERE note_id = :note AND demographic_no = :patient", Object[].class)
                 .setParameter("note", noteId).setParameter("patient", patient).setMaxResults(2).getResultList();
         if (rows.size() != 1) return null;
@@ -114,6 +115,20 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
             selected = grant;
         }
         return selected != null && (truth(selected[2]) || truth(selected[3]));
+    }
+    /**
+     * The chart groups revisions globally by UUID. A UUID shared with another patient's
+     * row is an unresolved chart-ownership conflict, not a patient-local revision chain.
+     * The existence projection never reads the other patient's body or identifiers.
+     */
+    private boolean hasForeignRevision(int patient, Long note) {
+        String sql = "SELECT 1 FROM casemgmt_note n JOIN casemgmt_note other ON other.uuid = n.uuid "
+                + "WHERE n.demographic_no = :patient AND n.uuid IS NOT NULL AND n.uuid <> '' "
+                + "AND (other.demographic_no IS NULL OR other.demographic_no <> :patient)";
+        if (note != null) sql += " AND n.note_id = :note";
+        var query = entityManager().createNativeQuery(sql).setParameter("patient", patient);
+        if (note != null) query.setParameter("note", note);
+        return !query.setHint("jakarta.persistence.query.timeout", 30_000).setMaxResults(1).getResultList().isEmpty();
     }
     private boolean inPatientDomain(String provider, int patient) {
         List<?> admissions = entityManager().createNativeQuery("SELECT 1 FROM admission WHERE client_id = :patient")

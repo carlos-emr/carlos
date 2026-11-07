@@ -68,6 +68,24 @@ import io.github.carlos_emr.carlos.utility.JpqlQueryHelper;
 @Transactional
 public class CaseManagementNoteDAOImpl extends AbstractJpaDao implements CaseManagementNoteDAO {
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportIssueLinkSchema() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.schema(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_NOTE_ISSUE_LINK);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportIssueLinks(int patient) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.noteIssueLinkCount(entityManager(), patient);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto> findCdsExportIssueLinksAfter(
+            int patient, io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto after, int limit) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.noteIssueLinkPage(entityManager(), patient, after, limit);
+    }
+
+
     private static Logger log = MiscUtils.getLogger();
 
     // The export caller owns authorization and one bounded read-only source snapshot. No managed note is loaded.

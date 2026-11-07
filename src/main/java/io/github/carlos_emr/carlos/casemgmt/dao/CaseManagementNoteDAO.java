@@ -46,6 +46,14 @@ import io.github.carlos_emr.carlos.utility.EncounterUtil;
 
 public interface CaseManagementNoteDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
+    /** Actual physical association schema. The caller owns an authorized read-only snapshot. */
+    io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportIssueLinkSchema();
+    /** Complete association count; cross-patient/dangling or duplicate links refuse the read. */
+    long countCdsExportIssueLinks(int patient);
+    /** Strict composite-key page, at most 32 rows; no note or issue payload is loaded. */
+    List<io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto> findCdsExportIssueLinksAfter(
+            int patient, io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto after, int limit);
+
     /**
      * Retrieves all case management notes.
      */

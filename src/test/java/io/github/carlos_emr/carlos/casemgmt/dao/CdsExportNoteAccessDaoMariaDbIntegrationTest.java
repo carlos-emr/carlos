@@ -185,6 +185,19 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
             }
         });
     }
+    @Test void shouldRefuseARevisionUuidSharedWithAnotherPatient_withoutReadingItsPayload() {
+        fixture(() -> {
+            String uuid = java.util.UUID.randomUUID().toString();
+            sql.update("update casemgmt_note set uuid=? where note_id=?", uuid, id);
+            sql.update("insert into casemgmt_note(note_id,demographic_no,note,history,program_no,reporter_caisi_role,uuid,update_date) values(?,?,'Foreign synthetic note','',?,?,?,CURRENT_TIMESTAMP)", id + 1, id + 1, Integer.toString(id), Integer.toString(id), uuid);
+            assertThat(notes.findScope(id, id)).isNull();
+            assertThatThrownBy(() -> notes.readScopes(id, 10)).hasMessage("CDS_EXPORT_NOTE_AUTHORIZATION_DENIED");
+            sql.update("update casemgmt_note set demographic_no=? where note_id=?", id, id + 1);
+            assertThat(notes.findScope(id, id)).isEqualTo(scope()); assertThat(notes.readScopes(id, 10)).hasSize(2);
+            sql.update("update casemgmt_note set demographic_no=0 where note_id=?", id + 1);
+            assertThat(notes.findScope(id, id)).isNull();
+        });
+    }
     private boolean read(CdsExportNoteAccessDto scope) { return notes.canRead(provider, scope, null, false); }
     private void admission(int program) {
         sql.update("insert into admission(am_id,client_id,program_id,provider_no,admission_date,discharge_date,admission_from_transfer,discharge_from_transfer,lastUpdateDate) values(?,?,?,?,'2000-01-01',NULL,0,0,CURRENT_TIMESTAMP)", id, id, program, provider);

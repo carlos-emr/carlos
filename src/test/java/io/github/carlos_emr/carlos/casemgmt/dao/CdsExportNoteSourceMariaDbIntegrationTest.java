@@ -77,16 +77,24 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
                 assertThat(sql.queryForObject("select count(*) from demographic where demographic_no=?", Integer.class, patient)).isZero();
                 assertThat(sql.queryForObject("select count(*) from casemgmt_note where note_id=?", Integer.class, patient)).isZero();
             }
+            assertThat(sql.queryForObject("select count(*) from issue where issue_id=?", Integer.class, id + 10)).isZero();
+            assertThat(sql.queryForObject("select count(*) from casemgmt_issue where demographic_no in (?,?)", Integer.class, id, id + 1)).isZero();
+            sql.update("insert into issue(issue_id,code,description,role,sortOrderId,update_date) values(?,?,'Synthetic CDS note link','doctor',0,CURRENT_TIMESTAMP)", id + 10, "OwnedLink" + id);
             for (int patient : List.of(id, id + 1)) {
                 sql.update("insert into demographic(demographic_no,first_name,last_name,patient_status,lastUpdateDate) values(?,'Synthetic',?,'IN',CURRENT_TIMESTAMP)", patient, marker);
                 sql.update("insert into casemgmt_note(note_id,demographic_no,note,history,program_no,reporter_caisi_role,update_date) values(?,?,?,'','17','1',CURRENT_TIMESTAMP)", patient, patient, patient == id ? body : "Other owned patient");
                 sql.update("insert into casemgmt_note_ext(id,note_id,key_val,value,date_value) values(?,?,'OwnedLargeNoteExt',?,'2020-02-29')", patient, patient, patient == id ? body : "Other owned extension");
+                sql.update("insert into casemgmt_issue(id,demographic_no,issue_id,type,update_date) values(?,?,?, ?,CURRENT_TIMESTAMP)", patient, patient, id + 10, marker);
+                sql.update("insert into casemgmt_issue_notes(id,note_id) values(?,?)", patient, patient);
             }
         }); ownsRows = true;
     }
     @AfterEach void cleanup() throws Exception {
         try {
             if (ownsRows) {
+                sql.update("delete l from casemgmt_issue_notes l join casemgmt_note n on n.note_id=l.note_id join demographic d on d.demographic_no=n.demographic_no where n.note_id in (?,?) and d.last_name=?", id, id + 1, marker);
+                sql.update("delete from casemgmt_issue where demographic_no in (?,?) and type=?", id, id + 1, marker);
+                sql.update("delete from issue where issue_id=? and code=?", id + 10, "OwnedLink" + id);
                 for (int patient : List.of(id, id + 1)) {
                     sql.update("delete e from casemgmt_note_ext e join casemgmt_note n on n.note_id=e.note_id join demographic d on d.demographic_no=n.demographic_no where e.id=? and e.key_val='OwnedLargeNoteExt' and d.last_name=?", patient, marker);
                     sql.update("delete n from casemgmt_note n join demographic d on d.demographic_no=n.demographic_no where n.note_id=? and n.demographic_no=? and d.first_name='Synthetic' and d.last_name=?", patient, patient, marker);
@@ -132,6 +140,63 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             assertThat(extensions.readCdsExportReceiptColumns()).hasSize(5); assertThat(extensions.findCdsExportRowsAfter(id, (long) id, 32)).isEmpty();
         });
         assertThatThrownBy(() -> read.execute(status -> extensions.readCdsExportValueChunk(id, id + 1, "value", 0, 10))).isInstanceOf(IllegalStateException.class);
+    }
+    @Test void shouldCaptureExactPhysicalIssueLinks_withoutIncludingAnotherPatient() {
+        read.executeWithoutResult(status -> {
+            assertThat(notes.countCdsExportIssueLinks(id)).isEqualTo(1);
+            var page = notes.findCdsExportIssueLinksAfter(id, null, 32); assertThat(page).hasSize(1);
+            assertThat(page.getFirst()).isEqualTo(new io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto(id, id));
+            assertThat(notes.findCdsExportIssueLinksAfter(id, page.getFirst(), 32)).isEmpty();
+            assertThatCode(() -> new CdsExportSourceSchemaValidator().verify(notes.readCdsExportIssueLinkSchema(), Set.of("id", "note_id"))).doesNotThrowAnyException();
+        });
+    }
+    @Test void shouldRefuseDuplicatePhysicalLinks_withoutCollapsingRows() {
+        sql.update("insert into casemgmt_issue_notes(id,note_id) values(?,?)", id, id);
+        assertThatThrownBy(() -> read.execute(status -> notes.countCdsExportIssueLinks(id))).hasMessage("CDS_EXPORT_AMBIGUOUS_SOURCE");
+        assertThatThrownBy(() -> read.execute(status -> notes.findCdsExportIssueLinksAfter(id, null, 32))).hasMessage("CDS_EXPORT_AMBIGUOUS_SOURCE");
+    }
+    @Test void shouldRefuseCrossPatientLinks_fromEitherPatientDirection() {
+        sql.update("update casemgmt_issue_notes set id=? where note_id=?", id, id + 1);
+        for (int patient : List.of(id, id + 1)) {
+            assertThatThrownBy(() -> read.execute(status -> notes.countCdsExportIssueLinks(patient))).hasMessage("CDS_EXPORT_AMBIGUOUS_SOURCE");
+            assertThatThrownBy(() -> read.execute(status -> notes.findCdsExportIssueLinksAfter(patient, null, 32))).hasMessage("CDS_EXPORT_AMBIGUOUS_SOURCE");
+        }
+    }
+    @Test void shouldPageTheCompleteCompositeIdentity_withoutSkippingSharedNotes() {
+        var write = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+        write.executeWithoutResult(status -> {
+            for (int offset = 100; offset < 135; offset++) {
+                assertThat(sql.queryForObject("select count(*) from casemgmt_issue where id=?", Integer.class, id + offset)).isZero();
+                sql.update("insert into casemgmt_issue(id,demographic_no,issue_id,type,update_date) values(?,?,?,?,CURRENT_TIMESTAMP)", id + offset, id, id + 10, marker);
+                sql.update("insert into casemgmt_issue_notes(id,note_id) values(?,?)", id + offset, id);
+            }
+        });
+        read.executeWithoutResult(status -> {
+            assertThat(notes.countCdsExportIssueLinks(id)).isEqualTo(36);
+            var first = notes.findCdsExportIssueLinksAfter(id, null, 32); assertThat(first).hasSize(32);
+            var second = notes.findCdsExportIssueLinksAfter(id, first.getLast(), 32); assertThat(second).hasSize(4);
+            var all = new java.util.ArrayList<>(first); all.addAll(second);
+            assertThat(all.stream().map(io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto::noteId).distinct()).containsExactly((long) id);
+            assertThat(all.stream().map(io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto::patientIssueId)).isSorted().doesNotHaveDuplicates();
+            assertThat(notes.findCdsExportIssueLinksAfter(id, second.getLast(), 32)).isEmpty();
+            assertThatCode(() -> {
+                var reader = new io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkSourceReader(notes);
+                var values = new java.io.ByteArrayOutputStream(); var index = new java.io.ByteArrayOutputStream();
+                new io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCaptureComposer().compose(values, index, Set.of("casemgmt_issue_notes"), 1000, 1L << 20, () -> {}, writer -> {
+                    writer.beginTable(reader.table(), reader.columns(), reader.count(id)); reader.capture(id, writer); writer.endTable();
+                });
+                var verified = new io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCaptureReader().verify(
+                        new java.io.ByteArrayInputStream(values.toByteArray()), new java.io.ByteArrayInputStream(index.toByteArray()),
+                        Map.of("casemgmt_issue_notes", new io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCaptureReader.Table(Set.of("id", "note_id"), 36)), 1000, 1L << 20, () -> {});
+                assertThat(verified.fields()).isEqualTo(72); assertThat(verified.rows()).containsEntry("casemgmt_issue_notes", 36L);
+            }).doesNotThrowAnyException();
+        });
+    }
+    @Test void shouldRequireReadonlyTransactions_forAssociationMetadataAndValues() {
+        assertThatThrownBy(() -> notes.countCdsExportIssueLinks(id)).isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+        assertThatThrownBy(() -> notes.findCdsExportIssueLinksAfter(id, null, 32)).isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+        var write = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
+        assertThatThrownBy(() -> write.execute(status -> notes.countCdsExportIssueLinks(id))).isInstanceOf(IllegalStateException.class);
     }
     @Test void shouldKeepOneRealSnapshot_whenTheNoteScopeChangesOnAnotherConnection() {
         read.executeWithoutResult(status -> {

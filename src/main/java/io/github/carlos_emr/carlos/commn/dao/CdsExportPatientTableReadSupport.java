@@ -45,6 +45,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public final class CdsExportPatientTableReadSupport {
     public enum Plan {
+        CASE_NOTE_ISSUE_LINK("casemgmt_issue_notes", "note_id", null, List.of("id", "note_id")),
         CASE_NOTE_EXT("casemgmt_note_ext", "id", null, List.of("date_value", "id", "key_val", "note_id", "value")),
         CASE_NOTES("casemgmt_note", "note_id", "demographic_no", List.of("appointmentNo", "archived", "billing_code", "demographic_no", "encounter_type", "history", "hourOfEncTransportationTime", "hourOfEncounterTime", "include_issue_innote", "locked", "minuteOfEncTransportationTime", "minuteOfEncounterTime", "note", "note_id", "observation_date", "password", "position", "program_no", "provider_no", "reporter_caisi_role", "reporter_program_team", "signed", "signing_provider_no", "update_date", "uuid")),
         PREVENTIONS_FULL("preventions", "id", null, List.of("creation_date", "creator", "deleted", "demographic_no", "id", "lastUpdateDate", "never", "next_date", "prevention_date", "prevention_type", "programNo", "provider_name", "provider_no", "refused", "restrictToProgram", "snomedId")),
@@ -238,8 +239,45 @@ public final class CdsExportPatientTableReadSupport {
                 + "((d.`restrictToProgram` is not null and d.`restrictToProgram`<>0) or (d.`restrictToProgram` is null and d.`programNo` is not null))").setParameter("patient", patient));
         if (found.size() != 1) invalid(); return number(found.getFirst()[0]) != 0;
     }
+    /**
+     * All associations for patient-owned notes, with independent physical row counting.
+     * No DISTINCT hides duplicates and no foreign patient relation is silently omitted.
+     */
+    public static long noteIssueLinkCount(EntityManager em, int patient) {
+        requireLocalNoteIssueLinks(em, patient);
+        var found = rows(query(em, "select count(*),1 from casemgmt_issue_notes l join casemgmt_note n on n.note_id=l.note_id where n.demographic_no=:patient").setParameter("patient", patient));
+        if (found.size() != 1) invalid(); return number(found.getFirst()[0]);
+    }
+    /** Bounded keyset page for the physical table's two-column identity; there is no primary key. */
+    public static List<io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto> noteIssueLinkPage(
+            EntityManager em, int patient, io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto after, int limit) {
+        if (limit < 1 || limit > 32) invalid(); requireLocalNoteIssueLinks(em, patient);
+        String sql = "select l.note_id,l.id from casemgmt_issue_notes l join casemgmt_note n on n.note_id=l.note_id where n.demographic_no=:patient";
+        if (after != null) sql += " and (l.note_id>:note or (l.note_id=:note and l.id>:issue))";
+        var query = query(em, sql + " order by l.note_id,l.id").setParameter("patient", patient).setMaxResults(limit);
+        if (after != null) query.setParameter("note", after.noteId()).setParameter("issue", after.patientIssueId());
+        var result = new ArrayList<io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto>();
+        for (var row : rows(query)) result.add(new io.github.carlos_emr.carlos.casemgmt.dto.CdsExportNoteIssueLinkDto(number(row[0]), number(row[1])));
+        return List.copyOf(result);
+    }
+    private static void requireLocalNoteIssueLinks(EntityManager em, int patient) {
+        patient(patient);
+        var foreign = rows(query(em, """
+                select 1,1 from casemgmt_issue_notes l
+                left join casemgmt_note n on n.note_id=l.note_id
+                left join casemgmt_issue i on i.id=l.id
+                where (n.demographic_no=:patient or i.demographic_no=:patient)
+                and (n.demographic_no is null or n.demographic_no<>:patient or i.demographic_no is null or i.demographic_no<>:patient)
+                """).setParameter("patient", patient).setMaxResults(1));
+        var duplicates = rows(query(em, """
+                select 1,1 from casemgmt_issue_notes l join casemgmt_note n on n.note_id=l.note_id
+                where n.demographic_no=:patient group by l.note_id,l.id having count(*)>1
+                """).setParameter("patient", patient).setMaxResults(1));
+        if (!foreign.isEmpty() || !duplicates.isEmpty()) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+    }
     public static long count(EntityManager em, Plan plan, int patient) {
-        if (plan.retained() || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid();
+        if (plan.retained() || plan == Plan.CASE_NOTE_ISSUE_LINK || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid();
         return count(em, plan, patient, null);
     }
     public static long retainedCount(EntityManager em, Plan plan, int patient, Set<String> categories) {
@@ -268,7 +306,7 @@ public final class CdsExportPatientTableReadSupport {
         if (found.size() != 1) invalid(); long count = number(found.getFirst()[0]); if (count < 0) invalid(); return count;
     }
     public static List<CdsExportRawRowDto> page(EntityManager em, Plan plan, int patient, Long after, int limit) {
-        if (plan.retained() || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid();
+        if (plan.retained() || plan == Plan.CASE_NOTE_ISSUE_LINK || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid();
         return page(em, plan, patient, after, limit, null).stream()
                 .map(row -> new CdsExportRawRowDto(Long.parseLong(row.id()), row.cells())).toList();
     }
@@ -319,7 +357,7 @@ public final class CdsExportPatientTableReadSupport {
         return List.copyOf(result);
     }
     public static byte[] chunk(EntityManager em, Plan plan, int patient, long rowId, String column, long offset, int length) {
-        if (plan.retained() || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid(); return chunk(em, plan, patient, rowId, column, offset, length, null);
+        if (plan.retained() || plan == Plan.CASE_NOTE_ISSUE_LINK || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid(); return chunk(em, plan, patient, rowId, column, offset, length, null);
     }
     public static byte[] retainedChunk(EntityManager em, Plan plan, int patient, Set<String> categories, String rowId, String column, long offset, int length) {
         requireRetained(plan, categories); retainedKey(plan, rowId); return chunk(em, plan, patient, rowId, column, offset, length, categories);
