@@ -24,6 +24,8 @@
  */
 
 const { validateCredentialBaseUrl: validateBaseUrl } = require('./lib/playwright-harness');
+const legacyHarness = require('./lib/legacy-check');
+const h = require('./lib/playwright-harness');
 const { chromium } = require('playwright');
 const { cleanupTicklerFixture, readNoteLinkFloor } = require('./lib/tickler-fixture-cleanup');
 const { withTicklerConfirmations } = require('./lib/tickler-confirmation');
@@ -32,7 +34,7 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { installCleanupSignalHandlers, NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors,
+const { NO_PLAYWRIGHT_SIGNAL_HANDLING, shouldIgnoreHttpsErrors,
   createRecorder, wireStrictPage, assertStrictPage, buildFailureDetails } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
@@ -501,15 +503,10 @@ async function deleteTicklerFromList(page, message) {
 // Issue #3600: a finally does not run when the process is killed, which would leave
 // the synthetic ticklers (and the cleartext MySQL password file) behind. Both steps
 // are idempotent; the handler is removed once the normal finally has run them.
-const signalHandlers = installCleanupSignalHandlers(() => {
-  try {
-    cleanupRows();
-  } finally {
-    cleanupMysqlDefaultsFile();
-  }
-});
+let browser;
+let context;
 
-(async () => {
+async function main({cancellation}) {
   linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
@@ -521,54 +518,67 @@ const signalHandlers = installCleanupSignalHandlers(() => {
     launchOptions.executablePath = chromePath;
   }
 
-  const browser = await chromium.launch(launchOptions);
-  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  browser = await chromium.launch(launchOptions);
+    await cancellation.throwIfCancelled();
+  h.recordBrowserVersion(browser);
+  context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+    await cancellation.throwIfCancelled();
   context.on('page', page => wireStrictPage(page, 'tickler-crud', strictRecorder, { baseline: [] }));
-  try {
     const schedulePage = await context.newPage();
+    await cancellation.throwIfCancelled();
     wirePage(schedulePage, 'login-schedule');
     await login(schedulePage);
+    await cancellation.throwIfCancelled();
 
     const ticklerNo = await createTickler(context);
+    await cancellation.throwIfCancelled();
 
     const listPage = await context.newPage();
+    await cancellation.throwIfCancelled();
     wirePage(listPage, 'tickler-list');
     await openDemoTicklerList(listPage);
+    await cancellation.throwIfCancelled();
     const activeRow = await findRowInList(listPage, createdMessage, 'A');
+    await cancellation.throwIfCancelled();
     assert(String(activeRow.id) === String(ticklerNo), `list row id ${activeRow.id} did not match created id ${ticklerNo}`);
     const searchFoundCreated = await probeTicklerSearch(listPage, createdMessage);
+    await cancellation.throwIfCancelled();
     assert(searchFoundCreated, 'Tickler list search did not return the created message');
 
     await editTicklerFromList(context, listPage, ticklerNo);
+    await cancellation.throwIfCancelled();
     const editedRow = await findRowInList(listPage, createdMessage, 'A');
+    await cancellation.throwIfCancelled();
     assert(String(editedRow.id) === String(ticklerNo), `edited list row id ${editedRow.id} did not match ${ticklerNo}`);
 
     await completeTicklerViaEdit(context, listPage, ticklerNo);
+    await cancellation.throwIfCancelled();
     await setTicklerListStatus(listPage, 'C');
+    await cancellation.throwIfCancelled();
     await findRowInList(listPage, createdMessage, 'C');
+    await cancellation.throwIfCancelled();
 
     await deleteTicklerFromList(listPage, createdMessage);
+    await cancellation.throwIfCancelled();
     await setTicklerListStatus(listPage, 'D');
+    await cancellation.throwIfCancelled();
     await findRowInList(listPage, createdMessage, 'D');
+    await cancellation.throwIfCancelled();
 
     assert(badResponses.length === 0, `unexpected HTTP errors: ${JSON.stringify(badResponses, null, 2)}`);
     assert(consoleIssues.length === 0, `unexpected console issues: ${JSON.stringify(consoleIssues, null, 2)}`);
     assertStrictPage(strictRecorder);
 
     console.log(`PASS tickler CRUD interface flow for tickler ${ticklerNo}`);
-  } finally {
-    await context.close().catch(() => {});
-    await browser.close().catch(() => {});
-    cleanupRows();
-    cleanupMysqlDefaultsFile();
-    // Last, so a signal arriving during cleanup still reaches the handler.
-    signalHandlers.dispose();
-  }
   assertStrictPage(strictRecorder);
-})().catch((error) => {
-  signalHandlers.dispose();
-  cleanupMysqlDefaultsFile();
-  console.error(`FAIL tickler CRUD interface flow: ${error.stack || error.message}`);
-  console.error(JSON.stringify(buildFailureDetails(strictRecorder), null, 2));
-  process.exit(1);
+}
+
+legacyHarness.runLegacyCheck('tickler-crud', main, {
+  realSignalCheckpoints: true,
+  cleanup: () => legacyHarness.finishLegacyCleanup([
+    () => context && context.close(),
+    () => browser && browser.close(),
+    cleanupRows,
+    cleanupMysqlDefaultsFile,
+  ]),
 });

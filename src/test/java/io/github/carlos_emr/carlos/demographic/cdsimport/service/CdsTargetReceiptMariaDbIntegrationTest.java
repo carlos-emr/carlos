@@ -150,8 +150,8 @@ class CdsTargetReceiptMariaDbIntegrationTest {
         Assumptions.assumeTrue(selector != null && !selector.isBlank(), "Explicit protected synthetic MariaDB tier required");
         Properties properties = new Properties();
         try (var input = Files.newInputStream(Path.of(selector))) { properties.load(input); }
-        String url = properties.getProperty("jdbcUrl", "").replace("jdbc:mariadb:", "jdbc:mysql:");
-        if (!url.matches("jdbc:mysql://[^/]+/(?:carlos_cds_test|cds_full_test)(?:\\?.*)?")) throw new IllegalArgumentException("Disposable CDS database required");
+        String url = properties.getProperty("jdbcUrl", "");
+        if (!url.matches("jdbc:mariadb://[^/]+/(?:carlos_cds_test|cds_full_test)(?:\\?.*)?")) throw new IllegalArgumentException("Disposable CDS database required");
         Connection connection = DriverManager.getConnection(url, properties.getProperty("jdbcUser"), properties.getProperty("jdbcPassword"));
         try (var statement = connection.createStatement(); var result = statement.executeQuery("SELECT DATABASE()")) {
             if (!result.next() || !java.util.Set.of("carlos_cds_test", "cds_full_test").contains(result.getString(1))) {

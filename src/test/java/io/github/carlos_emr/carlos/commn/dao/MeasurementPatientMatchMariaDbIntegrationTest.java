@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @Tag("integration")
 @Tag("dao")
 @Tag("mariadb-native")
-@EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_URL", matches = "jdbc:mysql:.*")
+@EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_URL", matches = "jdbc:mariadb:.*")
 class MeasurementPatientMatchMariaDbIntegrationTest {
     private static final int PREVIOUS = 910001;
     private static final int PATIENT = 910002;
@@ -61,7 +61,7 @@ class MeasurementPatientMatchMariaDbIntegrationTest {
             statement.executeUpdate("CREATE DATABASE " + DATABASE);
         }
         factory = new Configuration().addAnnotatedClass(Measurement.class).addAnnotatedClass(MeasurementsExt.class)
-                .setProperty("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver")
+                .setProperty("hibernate.connection.driver_class", "org.mariadb.jdbc.Driver")
                 .setProperty("hibernate.connection.url", serverUrl + DATABASE)
                 .setProperty("hibernate.connection.username", credentials.getProperty("user"))
                 .setProperty("hibernate.connection.password", credentials.getProperty("password"))

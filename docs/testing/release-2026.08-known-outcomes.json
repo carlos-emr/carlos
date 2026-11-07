@@ -156,18 +156,6 @@
       "finding": 335,
       "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them",
       "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "rx-save-failure-retry-only-lost",
-      "finding": 334,
-      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "rx-save-failure-retry-print-lost",
-      "finding": 334,
-      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
-      "disposition": "required installed retake; blocks release readiness"
     }
   ],
   "retiredNodeTodos": [
@@ -198,6 +186,18 @@
     }
   ],
   "retiredBrowserExpectations": [
+    {
+      "check": "rx-save-failure-retry-only-lost",
+      "finding": 334,
+      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
+      "disposition": "Source fix #5686; manifest pin retired and retained as an active regression. Installed PASS on Ubuntu 26.04 with complete 2026.09.0~snapshot28 packages, nginx HTTPS and shipped Chromium 154.0.8025.0 (2026-11-06, America/Toronto)."
+    },
+    {
+      "check": "rx-save-failure-retry-print-lost",
+      "finding": 334,
+      "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved",
+      "disposition": "Source fix #5686; manifest pin retired and retained as an active regression. Installed PASS on Ubuntu 26.04 with complete 2026.09.0~snapshot28 packages, nginx HTTPS and shipped Chromium 154.0.8025.0 (2026-11-06, America/Toronto)."
+    },
     {
       "check": "login-facility-chooser",
       "finding": 265,

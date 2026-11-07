@@ -14,11 +14,14 @@ import subprocess
 import sys
 
 from junit_evidence import EvidenceError
-from release_verification import DEFAULT_PLAN, ROOT, load_plan, write_json
+from release_verification import DEFAULT_PLAN, ROOT, digest, load_plan, read_json, write_json
+from migration_integrity import compare_shared, sql_objects
+from lifecycle_baselines import required_baselines
+from git_environment import separate_checkout_environment
 
 
 def git(root, *args):
-    return subprocess.check_output(["git", *args], cwd=root)
+    return subprocess.check_output(["git", *args], cwd=root, env=separate_checkout_environment())
 
 
 def comparison(root, base, head):
@@ -83,21 +86,52 @@ def inventory(plan, root=ROOT, head="HEAD"):
         and row["disposition"].get("sha256") == row["sha256"]
         and isinstance(row["disposition"].get("reason"), str)
         and row["disposition"]["reason"].strip())]
+    published = {}
+    manifest = plan.get('lifecycleBaselineManifest')
+    if manifest:
+        if manifest != 'docs/testing/release-2026.08-lifecycle-baselines.json':
+            raise EvidenceError('Unexpected published lifecycle baseline manifest')
+        baselines = required_baselines(read_json(root / manifest))
+        if baselines[0]['sourceCommit'] != main:
+            raise EvidenceError('Published main source and scope baseline disagree')
+        for baseline in baselines:
+            minimum = len(sql_objects(root, baseline['sourceCommit']))
+            if not minimum:
+                raise EvidenceError('Published migration inventory is empty')
+            published[baseline['tag']] = {'sourceCommit': baseline['sourceCommit'],
+                **compare_shared(root, baseline['sourceCommit'], resolved, minimum=minimum)}
+    else:
+        published['currentMain'] = {'sourceCommit': main, **compare_shared(root, main, resolved)}
     return {"schemaVersion": 1, "head": resolved, "changes": rows,
             "unownedProductionPaths": sorted(missing), "mainOnlyMigrations": migrations,
-            "unresolvedMainOnlyMigrations": unresolved, "ready": not missing and not unresolved}
+            "unresolvedMainOnlyMigrations": unresolved, 'publishedMigrationIntegrity': published,
+            "ready": not missing and not unresolved and all(row['ready'] for row in published.values())}
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan", type=Path, default=DEFAULT_PLAN)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--result-output", type=Path,
+                        help="Write required command assertions and hash the underlying inventory")
     parser.add_argument("--inventory-only", action="store_true", help="Generate review inventory without claiming coverage")
     args = parser.parse_args(argv)
     args.output.unlink(missing_ok=True)
     try:
         result = inventory(load_plan(args.plan))
         write_json(args.output, result)
+        if args.result_output:
+            if args.inventory_only:
+                raise EvidenceError('Inventory-only discovery cannot produce qualification assertions')
+            try:
+                name = args.output.resolve().relative_to(args.result_output.parent.resolve()).as_posix()
+            except ValueError as failure:
+                raise EvidenceError('Scope inputs must be retained beside the command result') from failure
+            write_json(args.result_output, {'schemaVersion': 1, 'assertions': {
+                'complete-production-ownership': not result['unownedProductionPaths'],
+                'main-only-migration-dispositions': not result['unresolvedMainOnlyMigrations'],
+                'published-migrations-byte-identical': all(row['ready'] for row in result['publishedMigrationIntegrity'].values())},
+                'inputs': [{'path': name, 'sha256': digest(args.output)}]})
         print(json.dumps({"changedPathsAcrossScopes": len(result["changes"]),
                           "unownedProductionPaths": len(result["unownedProductionPaths"]),
                           "unresolvedMainOnlyMigrations": len(result["unresolvedMainOnlyMigrations"]), "ready": result["ready"]}))

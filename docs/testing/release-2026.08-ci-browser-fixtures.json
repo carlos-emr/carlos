@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "id": "navigation-cancellation-browser-checks",
+      "command": [
+        "node",
+        "--test",
+        "scripts/navigation-cancellation-browser-checks.js"
+      ],
+      "source": "scripts/navigation-cancellation-browser-checks.js",
+      "sourceSha256": "48e9f0dd3497cdfecd8a2f20e9965cbe771fd36ab04c054e8c41dc0de13fd587",
+      "minimumAssertions": 88,
+      "requiredCases": [
+        "goto retains qualified XHR, font and image aborts without a strict failure",
+        "reload retains qualified XHR, font and image aborts without a strict failure",
+        "application XHR abort remains fatal",
+        "application XHR abort remains fatal after same-document navigation",
+        "old-document XHR started during pending navigation qualifies when the browser replaces its document",
+        "old-document XHR started during pending navigation remains fatal when the application aborts it"
+      ]
+    },
+    {
+      "id": "measurement-whtr-browser-check",
+      "command": [
+        "node",
+        "scripts/measurement-whtr-browser-check.js"
+      ],
+      "source": "scripts/measurement-whtr-browser-check.js",
+      "sourceSha256": "0f067131e50837c854ebc651c7e09604aa586cb94b659ab71ff8357511df2c53",
+      "minimumAssertions": 31
+    },
+    {
+      "id": "clinical-risk-browser-check",
+      "command": [
+        "node",
+        "scripts/clinical-risk-browser-check.js"
+      ],
+      "source": "scripts/clinical-risk-browser-check.js",
+      "sourceSha256": "0088332c7eee6edb172d7dde8905f415e00a5e564e4f6f82d95f122bff10eccb",
+      "minimumAssertions": 145
+    },
+    {
+      "id": "rtl-measurement-browser-check",
+      "command": [
+        "node",
+        "scripts/rtl-measurement-browser-check.js"
+      ],
+      "source": "scripts/rtl-measurement-browser-check.js",
+      "sourceSha256": "c4f40caec250981165e96a9b886457455bffae80d1f928ac6316985dae9046b9",
+      "minimumAssertions": 202
+    },
+    {
+      "id": "eform-toolbar-browser-check",
+      "command": [
+        "node",
+        "scripts/eform-toolbar-browser-check.js"
+      ],
+      "source": "scripts/eform-toolbar-browser-check.js",
+      "sourceSha256": "85a7d84d9b9c1f2ef0a7ac447a2c821336161a5065b96cc1592245266f2e5890",
+      "minimumAssertions": 1383
+    },
+    {
+      "id": "dashboard-tickler-picker-browser-check",
+      "command": [
+        "node",
+        "scripts/dashboard-tickler-picker-browser-check.js"
+      ],
+      "source": "scripts/dashboard-tickler-picker-browser-check.js",
+      "sourceSha256": "2c79b7f5e8e812ff075fed8e0dfd78f5cb0d6f0ecf2660f9187a0115fa172396",
+      "minimumAssertions": 242
+    },
+    {
+      "id": "calendar-eform-browser-check",
+      "command": [
+        "node",
+        "scripts/calendar-eform-browser-check.js"
+      ],
+      "source": "scripts/calendar-eform-browser-check.js",
+      "sourceSha256": "2243bd9edbcd9aa03385d786f6aa022313cada5dfcc92833e7a5d40112313e0f",
+      "minimumAssertions": 86
+    },
+    {
+      "id": "prevention-print-popup-browser-check",
+      "command": [
+        "node",
+        "scripts/prevention-print-popup-browser-check.js"
+      ],
+      "source": "scripts/prevention-print-popup-browser-check.js",
+      "sourceSha256": "946ce9b071fd55c02e540a5218b7bc4d9905d60b5e4f0f066cb71a1ebbe68f2e",
+      "minimumAssertions": 12
+    },
+    {
+      "id": "echart-note-lifecycle-browser-check",
+      "command": [
+        "node",
+        "scripts/echart-note-lifecycle-browser-check.js"
+      ],
+      "source": "scripts/echart-note-lifecycle-browser-check.js",
+      "sourceSha256": "410ac1bf03f0e06af4623797ffd807bcb931c9716589cbd7cfdee67083b00471",
+      "minimumAssertions": 20
+    },
+    {
+      "id": "hrm-report-list-browser-check",
+      "command": [
+        "node",
+        "scripts/hrm-report-list-browser-check.js"
+      ],
+      "source": "scripts/hrm-report-list-browser-check.js",
+      "sourceSha256": "2932e0dc637ab5bb655312356e4e6f289476a17ff42bec63244bf9ee3538fb6a",
+      "minimumAssertions": 8
+    },
+    {
+      "id": "messenger-reply-form-browser-check",
+      "command": [
+        "node",
+        "scripts/messenger-reply-form-browser-check.js"
+      ],
+      "source": "scripts/messenger-reply-form-browser-check.js",
+      "sourceSha256": "7c5518d2de132ae380d86efe603ca335df07306a0558e1ff620d5647b132612f",
+      "minimumAssertions": 12
+    },
+    {
+      "id": "search-sort-messenger-inbox-browser-check",
+      "command": [
+        "node",
+        "scripts/search-sort-messenger-inbox-browser-check.js"
+      ],
+      "source": "scripts/search-sort-messenger-inbox-browser-check.js",
+      "sourceSha256": "645250d058a8ea6684cbc94b7f0f3d9ec8278b3743abc1964876587b8bd9a6bb",
+      "minimumAssertions": 76
+    },
+    {
+      "id": "tickler-crud-browser-check",
+      "command": [
+        "node",
+        "scripts/tickler-crud-browser-check.js"
+      ],
+      "source": "scripts/tickler-crud-browser-check.js",
+      "sourceSha256": "d9ce7b57af867d4fabad48cd8bf6f27e928c5def2724d1568406d0441fe3f4c9",
+      "minimumAssertions": 17
+    },
+    {
+      "id": "ui-scroll-quick-pick-browser-check",
+      "command": [
+        "node",
+        "scripts/ui-scroll-quick-pick-browser-check.js"
+      ],
+      "source": "scripts/ui-scroll-quick-pick-browser-check.js",
+      "sourceSha256": "ecc33617b8339f9562af84fac128060c2e6384dd3319842571d3a1b415091dc3",
+      "minimumAssertions": 61
+    },
+    {
+      "id": "job-types-datatable-browser-check",
+      "command": [
+        "node",
+        "scripts/job-types-datatable-browser-check.js"
+      ],
+      "source": "scripts/job-types-datatable-browser-check.js",
+      "sourceSha256": "0bc46bfb85b6521d75ccd670c13c631ff630d7f47f4c20eb29ad30d32e319fb2",
+      "minimumAssertions": 139
+    }
+  ],
+  "workflowSha256": "a2c432cf823bb4dd082b2ee6f1230fed6f1aee639ed527a51e0203dd925aaa6e"
+}

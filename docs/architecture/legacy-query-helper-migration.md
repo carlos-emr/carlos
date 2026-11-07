@@ -128,7 +128,7 @@ can reject that schema before any test runs.
 
 ```sh
 CARLOS_TEST_MARIADB_DAO=true \
-CARLOS_TEST_MARIADB_URL=jdbc:mysql://127.0.0.1:3306/ \
+CARLOS_TEST_MARIADB_URL=jdbc:mariadb://127.0.0.1:3306/ \
 CARLOS_TEST_MARIADB_SCHEMA=flyway \
 CARLOS_TEST_MARIADB_PROVINCE=bc \
 mvn test -Dtest=BillingDiagnosisServiceIntegrationTest
@@ -186,3 +186,36 @@ establish MariaDB-native comparison, metadata or transaction behavior.
 | [PatientSearch.jsp](../../src/main/webapp/WEB-INF/jsp/oscarMDS/PatientSearch.jsp) | `JSP scriptlet` | #5547 |
 | [reportonbilledphcp.jsp](../../src/main/webapp/WEB-INF/jsp/report/reportonbilledphcp.jsp) | `JSP scriptlet` | #5549 |
 | [reportonbilledvisitprovider.jsp](../../src/main/webapp/WEB-INF/jsp/report/reportonbilledvisitprovider.jsp) | `JSP scriptlet` | #5549 |
+
+## Lab, inbox, Messenger and RH workflow follow-up (#5548)
+
+In `MessageUploader` and CML `ABCDParser`, the passed connections served only
+the read adapters; report, patient, result and routing writes already used managed DAOs.
+`LabRoutingLookupDao` now returns patient/provider projections from bound native
+queries. It preserves Ontario OHIP padding, non-Ontario LIKE matching, provider
+identifier allowlisting, optional length ordering/limits and separate CML gender
+and HIN rules. The callers retain distinct merged-head matching, ambiguity/cycle
+refusal, provider forwarding and MRP audit behavior. CML's nested saves no longer
+accept an unused connection. `FileUploadCheck.storeIfNew` still owns the upload's
+READ_COMMITTED / REQUIRES_NEW transaction and checksum lock.
+
+`Hl7TextInfoDao` exposes bounded descending lab-status projections and retains
+MariaDB's `UPDATE LOW_PRIORITY`. `InboxCategoryDao` owns count SQL, including
+HIGH_PRIORITY, distinct accession/document counts, status/date/HIN filters and
+HRM sign-off semantics. Its per-call query state returns immutable count/patient
+projections; `CategoryData` retains UI aggregation and does not create an
+EntityManager. `WorkFlowDao.findLatestRhFormId` binds patient and workflow and
+orders by edit time then ID, without changing state/workflow creation methods.
+
+`DocumentTransferDao` is the metadata exception: the packaged transfer definition
+requires physical table/column names and JDBC string conversions. It returns
+immutable row/column DTOs, trims SQL nulls to empty strings as before, validates
+the curated SELECT shape, binds the demographic, and uses DataSourceUtils to
+join/release the caller's connection. Result/statement resources close before
+return, including mapping failures. Shared request, statement and worker cleanup
+remains for other modules.
+
+The historical TSV above remains an audit snapshot; these migrated executors are
+not outstanding callers. Validation includes the affected upload/count/export
+regressions and physical MariaDB tests, including a real CML service rollback
+after lab/routing writes with independent-connection verification.

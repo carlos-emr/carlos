@@ -13,7 +13,7 @@ class IsolatedJpaTestDatabaseUnitTest {
     @Test
     void shouldRefuseAConfiguredServer_withoutNativeOptIn() {
         assertThatThrownBy(() -> new IsolatedJpaTestDatabase("guard", Map.of(
-                "CARLOS_TEST_MARIADB_URL", "jdbc:mysql://127.0.0.1/")))
+                "CARLOS_TEST_MARIADB_URL", "jdbc:mariadb://127.0.0.1/")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -25,8 +25,8 @@ class IsolatedJpaTestDatabaseUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"jdbc:mysql://127.0.0.1/clinical", "jdbc:mysql://127.0.0.1/?database=clinical",
-            "jdbc:mysql://127.0.0.1/;database=clinical", "jdbc:h2:file:clinical", "jdbc:mysql://user:synthetic@127.0.0.1/"})
+    @ValueSource(strings = {"jdbc:mariadb://127.0.0.1/clinical", "jdbc:mariadb://127.0.0.1/?database=clinical",
+            "jdbc:mariadb://127.0.0.1/;database=clinical", "jdbc:h2:file:clinical", "jdbc:mariadb://user:synthetic@127.0.0.1/"})
     void shouldRefuseDatabaseSelection_beforeAnyNativeConnection(String server) {
         assertThatThrownBy(() -> new IsolatedJpaTestDatabase("guard", Map.of(
                 "CARLOS_TEST_MARIADB_DAO", "true", "CARLOS_TEST_MARIADB_URL", server)))
