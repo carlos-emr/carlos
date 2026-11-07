@@ -49,3 +49,11 @@ test('installed fault oracle rejects unsanitized, intercepted, redirected and as
     [500, sanitized, {...headers,'content-disposition':'attachment'}],
   ]) assert.throws(() => assertSanitizedFault(status, body, metadata));
 });
+
+test('sendError qualification requires an observed ERROR dispatch as well as a sanitized body', () => {
+  const {assertSanitizedFault} = require('./error-sanitization-playwright-checks');
+  const body = 'Reference ID: 12345678-1234-1234-1234-123456789abc';
+  const headers = {'content-type':'text/html'};
+  assert.throws(() => assertSanitizedFault(500, body, headers, true), /real ERROR dispatcher/);
+  assert.doesNotThrow(() => assertSanitizedFault(500, body, {...headers,'x-carlos-test-error-dispatch':'observed'}, true));
+});

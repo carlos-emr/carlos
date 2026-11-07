@@ -202,7 +202,7 @@ RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     if [ "$APT_FORCE_HTTPS" = true ]; then sed -i 's#http://#https://#g' /etc/apt/sources.list.d/*.sources; fi; \
     if [ -n "$BUILD_PROXY" ]; then printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$BUILD_PROXY" "$BUILD_PROXY" > /etc/apt/apt.conf.d/99carlos-validation-proxy; fi; \
     printf 'Acquire::https::CaInfo "/run/secrets/validation_ca";\n' > /etc/apt/apt.conf.d/98carlos-validation-ca; \
-    apt-get update; \
+    apt-get -o APT::Update::Error-Mode=any update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
       nodejs npm poppler-utils fonts-liberation gnupg libxml2-utils \
@@ -291,7 +291,7 @@ cmd_up() {
         printf 'Acquire::http::Proxy \"%s\";\nAcquire::https::Proxy \"%s\";\n' '$BUILD_PROXY' '$BUILD_PROXY' > /etc/apt/apt.conf.d/99carlos-validation-proxy
       fi
       printf 'Acquire::https::CaInfo \"/run/carlos-validation-ca.pem\";\\n' > /etc/apt/apt.conf.d/98carlos-validation-ca
-      apt-get update
+      apt-get -o APT::Update::Error-Mode=any update
       apt-get install -y --no-remove /debs/$emr /debs/$drugref /debs/$ctl" >"$LOG_DIR/install.log" 2>&1; then
     die "apt-get install failed; see $LOG_DIR/install.log"
   fi

@@ -59,7 +59,7 @@ its normal suite environment, run:
 CARLOS_DISPOSABLE_HOST=true python3 scripts/ci/run-installed-error-sanitization.py
 ```
 
-The adapter adds temporary exact fault mappings to the installed `web.xml`, tests
+The adapter adds temporary exact fault mappings and a numeric 500 error-page mapping to the installed `web.xml`, tests
 through the normal HTTPS front door, restores its original bytes, removes the
 owned class and restarts the service. It refuses existing fixture directories or
 linked descriptors. Concurrent descriptor changes fail and are retained for
@@ -85,3 +85,11 @@ independently of the original negative GET pin. A real ON/BC MariaDB run passes
 7 cases per province; the exact permission regression passes unprivileged.
 CodeRabbit received the full-review request but declined it due to its account
 rate limit; no successful CodeRabbit review is claimed.
+
+Round 3 (deployment-path review, still awaiting final execution): distinguish
+REQUEST exception handling from actual Tomcat ERROR dispatch. A test-only
+`sendError` path now renders a tainted error page through the installed ERROR
+mapping, with an independent dispatch witness and missing-mapping negative
+control. The HTML servlet uses a JSP-suffixed exact mapping to pass the real
+Struts exclusion contract. APT index failures are fatal in both image/setup
+steps. Final installed retakes, green final-head CI and CodeRabbit remain open.

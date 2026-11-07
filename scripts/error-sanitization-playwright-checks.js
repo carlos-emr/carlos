@@ -91,7 +91,8 @@ function assertScheduleDateRefusal(status,body,headers) {
     'Invalid schedule-count dates: the 400 did not come from the schedule route');
 }
 
-function assertSanitizedFault(status, body, headers) {
+function assertSanitizedFault(status, body, headers, errorDispatch = false) {
+  if (errorDispatch) assert(headers['x-carlos-test-error-dispatch'] === 'observed', 'Fault fixture did not execute the real ERROR dispatcher');
   assert(status === 500, `Fault fixture: expected HTTP 500, got ${status}`);
   assert(REFERENCE_ID_PATTERN.test(body), 'Fault fixture: missing sanitized Reference ID');
   assert(!headers['content-disposition'], 'Fault fixture started a download');
@@ -156,10 +157,10 @@ if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',a
 
     // Exercise a JSON 5xx under /ws and an exception dispatched through ERROR,
     // using the installed descriptor and packaged nginx rather than a mock filter.
-    for (const suffix of [`/ws/rs/__test-error-${faultToken}`, `/__test-error-${faultToken}?mode=throw`]) {
+    for (const suffix of [`/ws/rs/__test-error-${faultToken}`, `/__test-error-${faultToken}.jsp?mode=throw`, `/__test-error-${faultToken}.jsp?mode=error`]) {
       const fault = await page.request.get(`${config.baseUrl.href}${suffix}`, { failOnStatusCode: false, maxRedirects: 0 });
       try {
-        assertSanitizedFault(fault.status(), await fault.text(), fault.headers());
+        assertSanitizedFault(fault.status(), await fault.text(), fault.headers(), suffix.endsWith('mode=error'));
       } finally { await fault.dispose(); }
       cancellation?.throwIfCancelled();
     }

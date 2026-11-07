@@ -17,7 +17,10 @@ class InstalledErrorFixtureTest(unittest.TestCase):
         self.webapp = self.root / 'app'
         (self.webapp / 'WEB-INF/classes').mkdir(parents=True)
         self.descriptor = self.webapp / 'WEB-INF/web.xml'
-        self.original = b'<web-app>\r\n<!-- preserve bytes -->\r\n</web-app>'
+        self.original = (b'<web-app>\r\n<!-- preserve bytes -->\r\n'
+            b'<filter-mapping><filter-name>ResponseSanitizationFilter</filter-name>'
+            b'<url-pattern>/*</url-pattern><dispatcher>REQUEST</dispatcher>'
+            b'<dispatcher>ERROR</dispatcher></filter-mapping></web-app>')
         self.descriptor.write_bytes(self.original)
         self.compiled = self.root / 'ErrorSanitizationFaultServlet.class'
         self.compiled.write_bytes(b'fixture-class')
@@ -27,7 +30,8 @@ class InstalledErrorFixtureTest(unittest.TestCase):
             with self.assertRaises(failure):
                 with GATE.fault_routes(self.webapp, 'a' * 32, self.compiled):
                     installed = self.descriptor.read_bytes()
-                    self.assertIn(b'/ws/rs/__test-error-', installed)
+                    self.assertIn(('/ws/rs/__test-error-' + 'a' * 32 + '</url-pattern>').encode(), installed)
+                    self.assertIn(('/__test-error-' + 'a' * 32 + '.jsp</url-pattern>').encode(), installed)
                     self.assertIn(b'/__test-error-', installed)
                     self.assertIn(b'preserve bytes', installed)
                     raise failure()
@@ -57,3 +61,10 @@ class InstalledErrorFixtureTest(unittest.TestCase):
             with GATE.fault_routes(self.webapp, 'a' * 32, self.compiled):
                 self.descriptor.write_bytes(changed)
         self.assertEqual(self.descriptor.read_bytes(), changed)
+
+    def test_missing_error_dispatch_mapping_is_not_accepted_as_qualification(self):
+        missing = self.original.replace(b'<dispatcher>ERROR</dispatcher>', b'')
+        self.descriptor.write_bytes(missing)
+        with self.assertRaisesRegex(ValueError, 'REQUEST/ERROR'), GATE.fault_routes(self.webapp, 'a' * 32, self.compiled):
+            self.fail('missing ERROR mapping must refuse qualification')
+        self.assertEqual(self.descriptor.read_bytes(), missing)

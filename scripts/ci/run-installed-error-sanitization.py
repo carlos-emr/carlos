@@ -13,6 +13,9 @@ import json
 import os
 from pathlib import Path
 import secrets
+import re
+
+import defusedxml.ElementTree as ET
 import shutil
 import signal
 import stat
@@ -51,14 +54,25 @@ def fault_routes(webapp, token, compiled):
     if (webapp.resolve() != webapp or descriptor.parent.resolve() != descriptor.parent
             or classes.parent.resolve() != classes.parent):
         raise ValueError('Fault fixture refuses linked application parents')
+    if not re.fullmatch(r'[a-f0-9]{32}', token):
+        raise ValueError('Invalid fault fixture token')
     metadata = descriptor.stat()
     before = descriptor.read_bytes()
     if before.count(b'</web-app>') != 1 or b'carlostest5794' in before:
         raise ValueError('Ambiguous installed deployment descriptor')
+    document = ET.fromstring(before, forbid_dtd=True)
+    mappings = [row for row in document.findall('{*}filter-mapping')
+                if row.findtext('{*}filter-name') == 'ResponseSanitizationFilter']
+    dispatchers = {item.text for row in mappings for item in row.findall('{*}dispatcher')}
+    if not {'REQUEST', 'ERROR'} <= dispatchers:
+        raise ValueError('Installed sanitizer lacks required REQUEST/ERROR mappings')
+    if any(row.findtext('{*}error-code') == '500' for row in document.findall('{*}error-page')):
+        raise ValueError('Existing numeric 500 error mapping must be explicitly reconciled')
     addition = f'''<servlet><servlet-name>carlostest5794</servlet-name>
 <servlet-class>carlostest5794.ErrorSanitizationFaultServlet</servlet-class></servlet>
-<servlet-mapping><servlet-name>carlostest5794</servlet-name><url-pattern>/__test-error-{token}</url-pattern></servlet-mapping>
+<servlet-mapping><servlet-name>carlostest5794</servlet-name><url-pattern>/__test-error-{token}.jsp</url-pattern></servlet-mapping>
 <servlet-mapping><servlet-name>carlostest5794</servlet-name><url-pattern>/ws/rs/__test-error-{token}</url-pattern></servlet-mapping>
+<error-page><error-code>500</error-code><location>/__test-error-{token}.jsp</location></error-page>
 '''.encode()
     installed = before.replace(b'</web-app>', addition + b'</web-app>')
     classes.mkdir(mode=0o755)
