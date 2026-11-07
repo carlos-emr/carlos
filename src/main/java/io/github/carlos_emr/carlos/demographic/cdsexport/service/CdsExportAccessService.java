@@ -58,13 +58,16 @@ public class CdsExportAccessService {
     private final ProviderDao providers;
     private final SecurityDao accounts;
     private final ProviderFacilityDao memberships;
+    private final io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao notes;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
     public CdsExportAccessService(SecurityInfoManager security, CdsExportConfigurationService configuration,
-            ProviderDao providers, SecurityDao accounts, ProviderFacilityDao memberships) {
+            ProviderDao providers, SecurityDao accounts, ProviderFacilityDao memberships,
+            io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao notes) {
         this.security = Objects.requireNonNull(security); this.configuration = Objects.requireNonNull(configuration);
         this.providers = Objects.requireNonNull(providers); this.accounts = Objects.requireNonNull(accounts);
         this.memberships = Objects.requireNonNull(memberships);
+        this.notes = Objects.requireNonNull(notes);
     }
     public CdsExportActorDto webActor(LoggedInInfo supplied, CdsExportCommand command) {
         Security account = sessionAccount(supplied);
@@ -101,6 +104,25 @@ public class CdsExportAccessService {
         requireSelectedPatient(command, patient);
         if (!command.categories().contains(CdsCategory.DEMOGRAPHICS)) deny();
         return context(actor, command, patient, CdsCategory.DEMOGRAPHICS, false, "_rx");
+    }
+    /**
+     * Rechecks the exact note's live program and reporter-role dependencies for both identities,
+     * after the ordinary category/patient gates and before any note payload is read or emitted.
+     * A caller-supplied captured scope is compared with the current physical row, never trusted.
+     */
+    public void requireNoteRead(CdsExportActorDto actor, CdsExportCommand command, CdsCategory category,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto expected) {
+        if (expected == null || category == null || !java.util.Set.of(CdsCategory.PERSONAL_HISTORY,
+                CdsCategory.FAMILY_HISTORY, CdsCategory.PAST_HEALTH, CdsCategory.PROBLEM_LIST,
+                CdsCategory.RISK_FACTORS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS, CdsCategory.CLINICAL_NOTES).contains(category)
+                || command == null || !command.categories().contains(category)) deny();
+        requireSelectedPatient(command, expected.patient());
+        CurrentIdentity current = identity(actor, command);
+        requireReads(current.effective(), command, expected.patient(), category, false);
+        if (current.operator() != null) requireReads(current.operator(), command, expected.patient(), category, false);
+        if (!expected.equals(notes.findScope(expected.patient(), expected.noteId()))
+                || !notes.canRead(current.effective().getLoggedInProviderNo(), expected)
+                || current.operator() != null && !notes.canRead(current.operator().getLoggedInProviderNo(), expected)) deny();
     }
     private static void requireSelectedPatient(CdsExportCommand command, int patient) {
         if (patient < 1 || command == null || command.selection() == CdsExportCommand.Selection.SELECTED_PATIENTS

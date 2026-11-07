@@ -87,6 +87,8 @@ class CdsExportFreshAuthorizationIntegrationTest {
                 when(accounts.find(anyInt())).thenAnswer(call -> shared.find(Security.class, (Integer) call.getArgument(0))); return accounts;
             });
             context.registerBean(ProviderFacilityDao.class, () -> mock(ProviderFacilityDao.class));
+            context.registerBean(io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class,
+                    () -> mock(io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class));
             context.register(CdsFreshAuthorizationReadAspect.class, CdsExportAccessService.class); context.refresh();
             var factory = context.getBean(EntityManagerFactory.class); int accountId;
             try (var setup = factory.createEntityManager()) {

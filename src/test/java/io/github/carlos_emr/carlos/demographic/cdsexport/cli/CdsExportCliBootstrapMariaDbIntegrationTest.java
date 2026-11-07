@@ -72,6 +72,7 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
             context.refresh();
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosurePolicyService.class)).isNotNull();
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicOccurrenceService.class)).isNotNull();
+            assertThat(context.getBean(io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class)).isNotNull();
             var sql = new JdbcTemplate(context.getBean(DataSource.class));
             assertThat(sql.queryForObject("SELECT DATABASE()", String.class)).isEqualTo("cds_export_test");
             var sourceRead = new org.springframework.transaction.support.TransactionTemplate(

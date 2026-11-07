@@ -248,5 +248,6 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicAssemblerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPatientIdentityReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportDemographicClosureValidatorUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicOccurrenceServiceUnitTest"
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicOccurrenceServiceUnitTest",
+  "io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDaoMariaDbIntegrationTest"
 ]

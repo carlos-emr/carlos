@@ -1088,3 +1088,8 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 ### Historical note preparation evidence
 
 The retained preparation reader now decodes the importer’s sealed history/clinical-note preparation for the seven supported history categories. The original payload seal, category-specific issue code and source date dependency must match. Unknown and partial temporal values remain explicit; native timestamp or author reconciliation is not inferred. Twenty-five preparation-reader checks cover existing categories and the new history decoder. Native case-management note capture, issue/revision reconciliation and fresh program-specific access still require separate implementation and installed qualification.
+
+
+### Per-note program authorization
+
+History and clinical-note payloads require the shared worker's `authorizeNote` boundary in addition to the selected category and patient privileges. `CdsExportAccessService` compares the captured note ID, patient, program and reporter role with the live physical row in its fresh authorization transaction. It then checks program membership and the reporter role's note-access grant for both the initiating and effective providers. The owning case-management DAO projects access metadata only; it does not load note text, history or password columns. Default role grants, explicit program-role grants, all-role grants and program-zero admission intervals follow the existing case-management reader's semantics. Missing, malformed or changed dependencies refuse the operation. This supplies the access boundary for the pending history capture/assembly work; it does not by itself implement history output or qualify an export profile.

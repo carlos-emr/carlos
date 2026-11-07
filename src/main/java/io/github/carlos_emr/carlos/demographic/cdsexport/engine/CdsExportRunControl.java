@@ -34,6 +34,11 @@ public interface CdsExportRunControl {
     /** The preferred pharmacy is a demographic wire field backed by the separate native Rx read privilege. */
     default void authorizePharmacy(int patient) { throw new SecurityException("CDS_EXPORT_PHARMACY_AUTHORIZATION_REQUIRED"); }
 
+    /** Fresh program/reporter-role checks for the exact note, outside the source transaction. */
+    default void authorizeNote(CdsCategory category, io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto scope) {
+        throw new SecurityException("CDS_EXPORT_NOTE_AUTHORIZATION_REQUIRED");
+    }
+
     /** Actual sensitive laboratory occurrences must explicitly require their additional domain privilege. */
     void authorizeCategory(int patient, CdsCategory category, boolean sensitiveLaboratory);
 }
