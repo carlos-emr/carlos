@@ -76,8 +76,7 @@ async function main() {
         const visible = () => page.locator('#codes tbody tr:visible td:first-child').allTextContents();
         // The table's own banner: the summary and page links directly above it, or directly below
         // it for data-banner-placement="bottom".
-        const banner = selector => page.evaluate(id => {
-            const table = document.querySelector(id);
+        const banner = selector => page.locator(selector).evaluate(table => {
             const above = Boolean(table.previousElementSibling && table.previousElementSibling.matches('span.pagelinks'));
             const summary = above ? table.previousElementSibling.previousElementSibling : table.nextElementSibling;
             const links = summary && summary.nextElementSibling;
@@ -86,7 +85,7 @@ async function main() {
                 summary: summary && summary.matches('span.pagebanner') ? summary.textContent : null,
                 links: links && links.matches('span.pagelinks') ? links.textContent : null,
             };
-        }, selector);
+        });
         const linkStyle = () => page.locator('#codes th a').first().evaluate(link => ({
             tag: link.tagName, href: link.getAttribute('href'), arrow: getComputedStyle(link, '::after').content,
             headerClass: link.closest('th').className,

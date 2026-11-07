@@ -66,7 +66,9 @@ does not supply it; the existing WAR packaging check also requires the API and i
   renderer's slot wait (up to sixteen waiting at once) before reporting the renderer busy, and the
   bundled Chart.js and draw script (`library/chartjs/carlos-chart-draw.js`) are read from the WAR
   once. The measurement graph action answers HTTP 503 with no image when the renderer is
-  unavailable, like the scatter servlet. A medication-only chart (ChartMeds) is the single
+  unavailable, like the scatter servlet. With no readings to plot, the scatter servlet answers
+  204 No Content where release/2026.08 sent an empty 200; neither carried an image, and no CARLOS
+  page links the servlet. A medication-only chart (ChartMeds) is the single
   medication panel of the former combined plot, with long product names shortened on its axis
   as before and a prescription that starts and ends the same day drawn as a one pixel line with
   its shadow, as JFreeChart drew it. The devcontainer installs and starts the matching
@@ -74,7 +76,11 @@ does not supply it; the existing WAR packaging check also requires the API and i
 * Former displaytag tables use encoded JSTL rows (`${carlos:forHtml(...)}`), with the shared
   assets included once per rendered page (`CarlosTableAssetsJspRegressionTest`). Pages whose
   backing attribute was a lone placeholder bean under displaytag (the Disease Registry results)
-  now seed an empty list, since `<c:forEach>` iterates collections only. An empty list renders
+  now seed an empty list, since `<c:forEach>` iterates collections only; the empty results table
+  therefore reads "No data available in table" instead of the placeholder's blank row counted as
+  "1 of 1 entries". The Satellite-sites and Referral Doctors tables show their column names: under
+  displaytag those headers were `title="<fmt:message .../>"` attributes, which JSP never evaluates,
+  so release/2026.08 printed the raw tag and the header row came out blank. An empty list renders
   only its message, not a header row (`JstlTableEmptyStateJspRegressionTest`), as displaytag did. Sorting and paging run locally, with typed
   numeric/date keys and case/accent-insensitive text collation, numbered pages and keyboard
   controls. Without JavaScript all rows remain readable; sort controls are added only when the enhancement script runs. Sorting no longer navigates or repeats
