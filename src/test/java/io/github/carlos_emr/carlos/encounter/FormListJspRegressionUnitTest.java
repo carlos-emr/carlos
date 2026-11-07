@@ -93,7 +93,7 @@ class FormListJspRegressionUnitTest {
     void shouldTrackCurrentHighlight_beforeSkippingOffPageRows() {
         // The highlight of a row depends on the row before it in its form type, which may sit on
         // the previous page; tracking it after the skip would mislabel a page's first row.
-        Matcher highlight = matching("boolean \\w+ = !Objects.equals\\((\\w+), (\\w+)\\);");
+        Matcher highlight = matching("boolean \\w+ = !Objects\\.equals\\((\\w+), (\\w+)\\);");
         Matcher track = matching("\\b" + Pattern.quote(highlight.group(1)) + " = "
                 + Pattern.quote(highlight.group(2)) + ";");
         Matcher skip = matching("if \\(!\\w+\\.contains\\(\\w+\\)\\) \\{");
