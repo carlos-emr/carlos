@@ -132,7 +132,7 @@
     "state": "FOCUSED_AND_ACTUAL_IMPORT_COMPONENT_VERIFIED",
     "assemblyFocusedChecks": 72,
     "identityAndClosureFocusedChecks": 23,
-    "occurrenceAdmissionFocusedChecks": 5,
+    "occurrenceAdmissionFocusedChecks": 6,
     "actualImportAssertions": 33,
     "sourceFieldsDeferredInOwnedFixture": 0,
     "nativeFieldsDeferredInOwnedFixture": 0,
