@@ -1073,3 +1073,8 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 ### Sender patient identity reconciliation
 
 `CdsExportPatientIdentityReconciler` explicitly decides the retained previous vendor-ID field after the demographic assembly. It binds that field through the authenticated demographic parent and imported patient row, checks the effective previous ID, and emits `C` followed by the exact positive native patient number. The result is injective within the registered sender namespace and fits the 20-character wire limit without hash truncation. The namespace stays in accepted server-owned intent; changing it changes identity. A database restore, copy or merge still requires the separate lineage and ownership policy before admission. An earlier review blocker withholds the identity change along with the other proposed XML. This component does not qualify clinical export or enable publication.
+
+
+### Independent demographic field closure
+
+`CdsExportDemographicClosureValidator` compares the assembled result with the exact captured row universe and authenticated parent source-field IDs supplied independently by the caller. It rejects deferred or substituted identities, presence mismatches, review blockers and overlapping XML replacement claims. A receipt proves closure only for that supplied authenticated demographic scope; it does not prove that the overall source catalogue is complete, that every serialized clinical fact is correct, or that disclosure is authorized.
