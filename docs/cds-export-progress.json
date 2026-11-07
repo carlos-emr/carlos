@@ -148,17 +148,17 @@
     "exactComponentWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85"
   },
   "latestIntegratedPackage": {
-    "state": "PACKAGE_AND_EXACT_INSTALLED_HISTORY_SOURCE_COMPONENT_VERIFIED",
-    "head": "d1153c6ec70b5801e2e47b8e66c66d5cb5221791",
-    "javaChecks": 3889,
-    "javaSuites": 314,
+    "state": "PACKAGE_AND_EXACT_NATIVE_NOTE_CAPTURE_COMPONENT_VERIFIED",
+    "head": "a87ccb74df5aaf1e2d95ea4dc3cdea56e0bdfdf9",
+    "javaChecks": 3911,
+    "javaSuites": 317,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "5141089a70940ca27cbff9c013bb93ae12344947eb7a63008dd175ac8840cd3f",
-    "genuineHistoryImportAssertions": 6,
-    "exactInstalledHistorySourceAssertions": 32,
+    "packagedWarSha256": "fc4c82f1cb831667096c016dda63349fc360ed0379c75b086440a0b6b13496be",
+    "exactInstalledNoteCaptureAssertions": 44,
     "componentOverlays": false,
+    "originalCompletedImportRulesetRetained": true,
     "nativeNoteIssueRevisionReconciliationComplete": false,
     "clinicalPublication": false
   },
@@ -180,21 +180,22 @@
     "nativeFixtureScopeEditsRestored": true
   },
   "previousIntegratedPackage": {
-    "state": "PACKAGE_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
-    "head": "7af49f0ccf18a7dbd9630c671219f4f0bec0b7e6",
-    "fullSuiteHead": "a607a783c11b4388691413f3a860a4b02f25fab3",
-    "javaChecks": 3850,
-    "javaSuites": 312,
-    "finalDiffFocusedChecks": 94,
-    "exactInstalledDemographicAssertions": 37,
+    "state": "PACKAGE_AND_EXACT_INSTALLED_HISTORY_SOURCE_COMPONENT_VERIFIED",
+    "head": "d1153c6ec70b5801e2e47b8e66c66d5cb5221791",
+    "javaChecks": 3889,
+    "javaSuites": 314,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85",
+    "packagedWarSha256": "5141089a70940ca27cbff9c013bb93ae12344947eb7a63008dd175ac8840cd3f",
+    "genuineHistoryImportAssertions": 6,
+    "exactInstalledHistorySourceAssertions": 32,
+    "componentOverlays": false,
+    "nativeNoteIssueRevisionReconciliationComplete": false,
     "clinicalPublication": false
   },
   "capturedNoteScopes": {
-    "state": "FOCUSED_AND_ACTUAL_IMPORT_CAPTURE_COMPONENT_VERIFIED",
+    "state": "PACKAGE_AND_EXACT_NATIVE_CAPTURE_COMPONENT_VERIFIED",
     "focusedChecks": 129,
     "legacyManifestShapePreserved": true,
     "exactCapturedIdentityReauthorizedAfterFinalCallbacks": true,
@@ -203,11 +204,12 @@
     "clinicalPublication": false,
     "nativeReaderFocusedChecks": 167,
     "genuineImportCaptureAssertions": 44,
-    "componentOverlays": true,
+    "componentOverlays": false,
     "notePhysicalColumns": 25,
     "wholeRowReceiptsVerified": true,
     "finalTextAndReceiptCallbackRevocationRefused": true,
     "requiresCompleteHistoryCategoryScope": true,
-    "emptyOrMalformedNativeProgramsRefused": true
+    "emptyOrMalformedNativeProgramsRefused": true,
+    "exactPackagedAssertions": 44
   }
 }
