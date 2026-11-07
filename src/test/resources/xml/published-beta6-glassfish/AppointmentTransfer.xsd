@@ -1,0 +1,37 @@
+<?xml version="1.0" standalone="yes"?>
+<xs:schema version="1.0" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="appointmentTransfer" final="extension restriction">
+    <xs:sequence>
+      <xs:element name="appointmentEndDateTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="appointmentStartDateTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="billing" type="xs:string" minOccurs="0"/>
+      <xs:element name="bookingSource" type="bookingSource" minOccurs="0"/>
+      <xs:element name="createDateTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="creator" type="xs:string" minOccurs="0"/>
+      <xs:element name="demographicNo" type="xs:int"/>
+      <xs:element name="id" type="xs:int" minOccurs="0"/>
+      <xs:element name="lastUpdateUser" type="xs:string" minOccurs="0"/>
+      <xs:element name="location" type="xs:string" minOccurs="0"/>
+      <xs:element name="name" type="xs:string" minOccurs="0"/>
+      <xs:element name="notes" type="xs:string" minOccurs="0"/>
+      <xs:element name="programId" type="xs:int"/>
+      <xs:element name="providerNo" type="xs:string" minOccurs="0"/>
+      <xs:element name="reason" type="xs:string" minOccurs="0"/>
+      <xs:element name="remarks" type="xs:string" minOccurs="0"/>
+      <xs:element name="resources" type="xs:string" minOccurs="0"/>
+      <xs:element name="status" type="xs:string" minOccurs="0"/>
+      <xs:element name="style" type="xs:string" minOccurs="0"/>
+      <xs:element name="type" type="xs:string" minOccurs="0"/>
+      <xs:element name="updateDateTime" type="xs:dateTime" minOccurs="0"/>
+      <xs:element name="urgency" type="xs:string" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="bookingSource">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="OSCAR"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>
+
