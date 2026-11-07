@@ -61,6 +61,17 @@ public class InboxService extends AbstractServiceImpl {
     @Autowired
     private InboxManager inboxManager;
 
+    /**
+     * Lists the logged-in provider's new (unacknowledged) inbox items: the first page of 20 labs
+     * and documents, mixed, as the Inbox's "all" view selects them.
+     *
+     * <p>Each item's {@code discipline} is a document's type, in full, or a lab's discipline
+     * display string; it is empty for a document saved without a type (#5685). The response's
+     * {@code total} counts every new item routed to the provider, not just this page.</p>
+     *
+     * @param limit echoed in the response; it does not cap the page, which is always the first 20
+     * @return the page of items with the provider's total count of new items
+     */
     @GET
     @Path("/mine")
     @Produces("application/json")

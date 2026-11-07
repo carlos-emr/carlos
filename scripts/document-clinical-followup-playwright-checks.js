@@ -14,6 +14,12 @@ const {authzReadFixture}=require('./lib/authz-read-fixture');
 const {retireOwnedChartPages}=require('./lib/owned-chart-page-cleanup');
 const {OWNED_DOCUMENT_TYPE}=require('./lib/stored-pdf-documents');
 const q=h.sqlString;
+/**
+ * A document routed by Forward to a distinct owned clinician appears in that clinician's Inbox
+ * with its type under Discipline and its patient; the clinician reviews it with a comment,
+ * acknowledges it, and completes its linked follow-up task only after recording a chart note.
+ * Every owned row, file, provider and cached picker entry is removed or restored afterwards.
+ */
 async function workflow(s) {
   const {sql,patient,provider,marker}=s;
   const fixture=authzReadFixture({sql,marker,provider,testUser:s.config.testUser});
