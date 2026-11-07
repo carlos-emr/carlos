@@ -70,6 +70,11 @@ their fields. The four entities that opt into this contract have final forwardin
 these methods and initializes the target before the base implementation runs.
 Real attached and detached proxy tests verify symmetry, stable collection membership,
 protected diagnostics and zero additional SELECTs.
+Sonar rule `java:S8947` normally rejects final JPA entity methods. These twelve
+Object-method overrides carry a method-level exception: they intentionally bypass
+Hibernate interception and inspect only the proxy type/key. Persistent-property
+accessors remain overridable. The real-proxy tests reproduce the failure without
+`final` and verify the supported Hibernate contract with it.
 CaseManagementNote and CaseManagementIssue retain their existing identifier-based
 overrides; FieldDefValue explicitly uses its `(tableId, fieldName)` composite key
 through the existing JpaId value type, excluding mutable lookup values.

@@ -200,18 +200,21 @@ public class CaseManagementCPP extends BaseObject {
     // BaseObject subclasses' existing equality contracts unchanged.
     /** Compares persistent type and key without initializing a Hibernate proxy. */
     @Override
+    @SuppressWarnings("java:S8947") // Hibernate Object-method exception; see BaseObjectProxyIntegrationTest.
     public final boolean equals(Object other) {
         return super.equals(other);
     }
 
     /** Keeps hashing stable across persistence without initializing a Hibernate proxy. */
     @Override
+    @SuppressWarnings("java:S8947") // Hibernate Object-method exception; see BaseObjectProxyIntegrationTest.
     public final int hashCode() {
         return super.hashCode();
     }
 
     /** Returns a protected type marker without loading patient fields. */
     @Override
+    @SuppressWarnings("java:S8947") // Hibernate Object-method exception; see BaseObjectProxyIntegrationTest.
     public final String toString() {
         return super.toString();
     }
