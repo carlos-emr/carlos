@@ -242,5 +242,6 @@
   "io.github.carlos_emr.carlos.report.data.QueryByExampleSqlValidatorUnitTest",
   "io.github.carlos_emr.carlos.report.gate.ViewCds4ReportResults2ActionUnitTest",
   "io.github.carlos_emr.carlos.utility.ContextStartupListenerUnitTest",
-  "io.github.carlos_emr.carlos.webserv.CdsDocumentWsUnitTest"
+  "io.github.carlos_emr.carlos.webserv.CdsDocumentWsUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportSupportingFilesValidatorUnitTest"
 ]
