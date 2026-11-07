@@ -35,7 +35,7 @@
                 element.signatureInput = "#signatureInput";
                 element.signatureValue = "#signatureValue"
                 // Use this eForm's patient, including on saved-form reloads; never session-global state.
-                element.demographicNo = options.demographicNo || jQuery('input[name="demographicNo"]').first().val();
+                element.demographicNo = options.demographicNo || jQuery('#demographicNo').val();
                 element.imgAttributes = "";
 
                 var placeholder = jQuery(element.signatureInput);

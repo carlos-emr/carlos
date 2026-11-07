@@ -35,7 +35,7 @@ const control = fs.readFileSync(path.join(web, 'WEB-INF/jsp/library/eforms/signa
       } else if (url.pathname === '/control') {
         await route.fulfill({ contentType: 'text/html', body: `<!doctype html>
           <script src="/library/jquery/jquery-3.7.1.min.js"></script><script src="/control.js"></script>
-          <input name="demographicNo" value="42"><input id="signatureValue"><div id="signatureDisplay"></div>
+          <input type="hidden" id="demographicNo" value="42"><input id="signatureValue"><div id="signatureDisplay"></div>
           <div id="signatureInput"></div><div id="letter"></div>
           <script>
             if (${url.searchParams.get('mode') === 'rtl'}) {
