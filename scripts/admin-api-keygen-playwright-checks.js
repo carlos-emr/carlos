@@ -38,8 +38,10 @@ const isClientManage = method => response => {
 async function workflow(s) {
   const creationOnly = process.env.API_KEYGEN_CREATION_ONLY === 'true';
   const {sql, marker, provider} = s;
-  if (creationOnly && sql.value("SELECT COUNT(*) FROM oscarKeys WHERE name='oscar' AND pubKey IS NOT NULL") !== '1') {
-    throw new h.SkipCheck('Key creation requires the installed CARLOS key in oscarKeys');
+  if (creationOnly) {
+    const installedKeys = sql.value("SELECT COUNT(*) FROM oscarKeys WHERE name='oscar' AND pubKey IS NOT NULL");
+    if (installedKeys === '0') throw new h.SkipCheck('Key creation requires the installed CARLOS key in oscarKeys');
+    h.assert(installedKeys === '1', 'Unexpected installed CARLOS key count');
   }
   const contextPath = new URL(s.config.baseUrl).pathname.replace(/\/+$/, '');
   const clientName = `${marker}-client O'Neil "A&B"`;

@@ -32,7 +32,7 @@ class InstalledErrorFixtureTest(unittest.TestCase):
                     installed = self.descriptor.read_bytes()
                     self.assertIn(('/ws/rs/__test-error-' + 'a' * 32 + '</url-pattern>').encode(), installed)
                     self.assertIn(('/__test-error-' + 'a' * 32 + '.jsp</url-pattern>').encode(), installed)
-                    self.assertIn(b'/__test-error-', installed)
+                    self.assertIn(('<error-code>500</error-code><location>/__test-error-' + 'a' * 32 + '.jsp</location>').encode(), installed)
                     self.assertIn(b'preserve bytes', installed)
                     raise failure()
             self.assertEqual(self.descriptor.read_bytes(), self.original)
@@ -68,3 +68,20 @@ class InstalledErrorFixtureTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'REQUEST/ERROR'), GATE.fault_routes(self.webapp, 'a' * 32, self.compiled):
             self.fail('missing ERROR mapping must refuse qualification')
         self.assertEqual(self.descriptor.read_bytes(), missing)
+
+    def test_existing_numeric_500_mapping_is_refused_without_mutation(self):
+        existing = self.original.replace(b'</web-app>',
+            b'<error-page><error-code>500</error-code><location>/e.jsp</location></error-page></web-app>')
+        self.descriptor.write_bytes(existing)
+        with self.assertRaisesRegex(ValueError, 'numeric 500'), GATE.fault_routes(self.webapp, 'a' * 32, self.compiled):
+            self.fail('existing 500 mapping must be reconciled')
+        self.assertEqual(self.descriptor.read_bytes(), existing)
+        self.assertFalse((self.webapp / 'WEB-INF/classes/carlostest5794').exists())
+
+    def test_invalid_tokens_are_refused_without_mutation(self):
+        for token in ('A' * 32, 'a' * 31, 'a' * 33, 'g' * 32, ''):
+            with self.subTest(token=token):
+                with self.assertRaisesRegex(ValueError, 'Invalid fault fixture token'), GATE.fault_routes(self.webapp, token, self.compiled):
+                    self.fail('invalid token must be refused')
+                self.assertEqual(self.descriptor.read_bytes(), self.original)
+                self.assertFalse((self.webapp / 'WEB-INF/classes/carlostest5794').exists())

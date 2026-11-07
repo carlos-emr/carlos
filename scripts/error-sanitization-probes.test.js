@@ -42,12 +42,14 @@ test('installed fault oracle rejects unsanitized, intercepted, redirected and as
   const sanitized = 'Error. Reference ID: 12345678-1234-1234-1234-123456789abc';
   const headers = {'content-type':'text/html;charset=UTF-8'};
   assert.doesNotThrow(() => assertSanitizedFault(500, sanitized, headers));
-  for (const [status, body, metadata] of [
-    [200, sanitized, headers], [302, sanitized, headers], [500, 'nginx 500', headers],
-    [500, sanitized + ' FAKE-private-error-5794', headers], [500, sanitized + ' java.lang.Exception', headers],
-    [500, sanitized, {'content-type':'application/json'}],
-    [500, sanitized, {...headers,'content-disposition':'attachment'}],
-  ]) assert.throws(() => assertSanitizedFault(status, body, metadata));
+  for (const [status, body, metadata, reason] of [
+    [200, sanitized, headers, /expected HTTP 500/], [302, sanitized, headers, /expected HTTP 500/],
+    [500, 'nginx 500', headers, /missing sanitized Reference ID/],
+    [500, sanitized + ' FAKE-private-error-5794', headers, /leaked its original body/],
+    [500, sanitized + ' java.lang.Exception', headers, /leaked a stack trace/],
+    [500, sanitized, {'content-type':'application/json'}, /not replaced by the HTML sanitizer/],
+    [500, sanitized, {...headers,'content-disposition':'attachment'}, /started a download/],
+  ]) assert.throws(() => assertSanitizedFault(status, body, metadata), reason);
 });
 
 test('sendError qualification requires an observed ERROR dispatch as well as a sanitized body', () => {

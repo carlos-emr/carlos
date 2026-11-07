@@ -983,7 +983,8 @@
     "test:dialog-confirmations-tickler": "DIALOG_CONFIRMATION_TARGET=tickler node scripts/tickler-demo-main-status-playwright-checks.js",
     "test:rx-save-failure-retry": "node scripts/rx-save-failure-retry-playwright-checks.js",
     "test:allergy-partial-start-date-playwright": "node scripts/allergy-partial-start-date-playwright-checks.js",
-    "test:admin-keygen-creation-playwright": "API_KEYGEN_CREATION_ONLY=true node scripts/admin-api-keygen-playwright-checks.js"
+    "test:admin-keygen-creation-playwright": "API_KEYGEN_CREATION_ONLY=true node scripts/admin-api-keygen-playwright-checks.js",
+    "test:lab-forwarding-multi-recipient-playwright": "node scripts/lab-forwarding-multi-recipient-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

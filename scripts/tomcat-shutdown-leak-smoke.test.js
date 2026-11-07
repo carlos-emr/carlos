@@ -52,8 +52,12 @@ test('CLI fails on a retained MariaDB scheduler after successful startup and HTT
 console.log('Server startup in [1] milliseconds');
 setInterval(() => {}, 1000);
 process.once('SIGINT', () => {
-  const warning = process.env.SYNTHETIC_LEAK === 'true'
+  const warning = process.env.SYNTHETIC_LEAK
     ? 'WARNING clearReferencesThreads The web application [carlos] failed to stop [MariaDb-timeout]\\n' : '';
+  if (process.env.SYNTHETIC_LEAK === 'late') {
+    require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => process.stderr.write(' + JSON.stringify(warning) + '), 350)'], {stdio:['ignore','inherit','inherit']}).unref();
+    process.exit(0);
+  }
   process.stderr.write(warning, () => process.exit(0));
 });
 `, {mode:0o755});
@@ -61,8 +65,8 @@ process.once('SIGINT', () => {
     BASE_URL:`http://127.0.0.1:${server.address().port}/carlos`, STARTUP_TIMEOUT_MS:'3000', SHUTDOWN_TIMEOUT_MS:'3000'}, timeout:10000};
   const clean = await execFile(process.execPath, [path.join(__dirname, 'tomcat-shutdown-leak-smoke.js')], options);
   assert.match(clean.stdout, /shutdown leak smoke passed/);
-  await assert.rejects(execFile(process.execPath, [path.join(__dirname, 'tomcat-shutdown-leak-smoke.js')],
-    {...options,env:{...options.env,SYNTHETIC_LEAK:'true'}}), failure => {
+  for (const synthetic of ['true', 'late']) await assert.rejects(execFile(process.execPath, [path.join(__dirname, 'tomcat-shutdown-leak-smoke.js')],
+    {...options,env:{...options.env,SYNTHETIC_LEAK:synthetic}}), failure => {
     assert.equal(failure.code, 1);
     assert.match(failure.stderr, /target-webapp warning/);
     return true;

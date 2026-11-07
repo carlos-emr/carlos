@@ -5623,6 +5623,23 @@
       "fixtures": "Logs in as a throwaway provider with its own OHIP number and an owned forward target; uploads an owned synthetic CML lab; owned rules, routing rows, labs and archived upload files removed."
     },
     {
+      "name": "lab-forwarding-multi-recipient",
+      "script": "scripts/lab-forwarding-multi-recipient-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "notes": "Native multi-recipient forwarding, source-wide New/Filed status, cancellation, selective removal and three independent CML uploads. No per-recipient status control exists on this target.",
+      "fixtures": "Owned source login, two recipients and a control provider; three unique CML uploads. Exact owned rules, type rows, routing, lab rows and upload archives are removed and verified."
+    },
+    {
       "name": "messenger-demographic-link",
       "script": "scripts/messenger-demographic-link-playwright-checks.js",
       "tiers": [

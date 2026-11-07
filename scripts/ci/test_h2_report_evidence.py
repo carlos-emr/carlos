@@ -71,3 +71,26 @@ class H2ReportEvidenceTest(unittest.TestCase):
             with self.assertRaises(EvidenceError):
                 GATE.verify(self.reports, self.permission)
             report.write_bytes(contents)
+
+    def test_legacy_cli_requires_every_exact_case_to_pass(self):
+        import contextlib
+        import io
+        import sys
+        family = 'io.github.carlos_emr.carlos.login.LegacyDependencyCompatibilityUnitTest'
+        names = ['first', 'second', 'third', 'fourth']
+        plan = self.root / 'docs/testing/release-2026.08-verification.json'
+        data = json.loads(plan.read_text())
+        data['checks'][0]['routedSkips'][family] = {'check': 'legacy', 'cases': [{'name': name} for name in names]}
+        plan.write_text(json.dumps(data))
+        legacy = self.root / 'legacy'
+        legacy.mkdir()
+        def run(cases):
+            self.report(legacy, family, cases)
+            with patch.object(sys, 'argv', ['verify', '--legacy-reports', str(legacy)]), contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                return GATE.main()
+        self.assertEqual(run([(name, 'pass') for name in names]), 0)
+        for missing in names:
+            for outcome in ('skipped', 'failure'):
+                self.assertEqual(run([(name, outcome if name == missing else 'pass') for name in names]), 1)
+            self.assertEqual(run([(name, 'pass') for name in names if name != missing]), 1)
+            self.assertEqual(run([(name if name != missing else 'unrelated', 'pass') for name in names]), 1)

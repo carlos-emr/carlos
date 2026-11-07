@@ -61,12 +61,19 @@ async function workflow(s) {
   }
   /** Submit the reaction form; resolves, once the allergy list has reloaded, with the startDate the dialogue posted. */
   async function submit() {
-    const [save] = await Promise.all([
-      page.waitForRequest(r => r.method() === 'POST' && new URL(r.url()).pathname.endsWith('/rx/addAllergy2')),
-      page.waitForEvent('load'),
+    let responseSeen = false;
+    const [saved] = await Promise.all([
+      page.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/rx/addAllergy2'))
+        .then(response => { responseSeen = true; return response; }),
+      // Ignore old-document loads and require a new main-frame commit
+      // after this exact save response has been observed.
+      page.waitForEvent('framenavigated', {predicate: frame => responseSeen && frame === page.mainFrame()
+        && new URL(frame.url()).pathname.endsWith('/rx/showAllergy')}),
       form.locator('input[type="submit"]').click(),
     ]);
-    return new URLSearchParams(save.postData() || '').get('startDate');
+    assert(saved.status() >= 200 && saved.status() < 400, 'Allergy amendment POST was refused');
+    await page.waitForLoadState('load');
+    return new URLSearchParams(saved.request().postData() || '').get('startDate');
   }
 
   await s.step('stored year-only and year-and-month start dates are listed as typed', async () => {

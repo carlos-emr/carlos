@@ -401,6 +401,7 @@ exit 0
     assert.equal(result.status, copyStatus, result.stdout + result.stderr);
     const suiteCall = fs.readFileSync(box.calls, 'utf8').split('\n').find(line => line.includes('node scripts/run-playwright-suite.js'));
     assert.ok(suiteCall);
+    assert.match(suiteCall, /CARLOS_DISPOSABLE_HOST=true python3 scripts\/ci\/run-installed-error-sanitization\.py -- node scripts\/run-playwright-suite\.js/);
     assert.match(suiteCall, /--strict-release/);
     assert.match(suiteCall, /--residue-audit/);
     if (copyStatus) assert.match(result.stdout + result.stderr, /JUnit report could not be retained/);

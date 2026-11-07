@@ -8,7 +8,16 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
-/** Disposable installed-test fixture; never included in the application WAR. */
+/**
+ * Disposable installed-test fixture; never included in the application WAR.
+ *
+ * <p>An ERROR dispatch sets the independent dispatcher witness header and emits
+ * tainted HTML with status 500. A request with {@code mode=error} calls
+ * {@code sendError(500)}; {@code mode=throw} throws a {@link ServletException}.
+ * Other requests emit a private JSON 500 body for replacement by the filter.</p>
+ *
+ * @since 2026-11-07
+ */
 public final class ErrorSanitizationFaultServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)

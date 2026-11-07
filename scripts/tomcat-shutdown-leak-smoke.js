@@ -62,10 +62,10 @@ function waitForStartup(child, output) {
         clearInterval(interval);
         resolve();
       }
-      if (child.exitCode !== null) {
+      if (output.launchError || child.exitCode !== null) {
         clearTimeout(timeout);
         clearInterval(interval);
-        reject(new Error(`Tomcat exited before startup with code ${child.exitCode}`));
+        reject(output.launchError || new Error(`Tomcat exited before startup with code ${child.exitCode}`));
       }
     }, 250);
   });
@@ -79,23 +79,27 @@ async function checkHealth() {
   }
 }
 
-function stopTomcat(child, output) {
+function stopTomcat(child, closed) {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       child.kill('SIGKILL');
       reject(new Error('Timed out waiting for Tomcat shutdown'));
     }, shutdownTimeoutMs);
-    child.once('exit', () => {
+    closed.then(() => {
       clearTimeout(timeout);
       resolve();
     });
-    child.kill('SIGINT');
+    if (child.exitCode === null && child.signalCode === null) child.kill('SIGINT');
   });
 }
 
 async function main() {
   const output = { text: '' };
   const child = spawn(catalina, ['run'], { env: process.env, stdio: ['ignore', 'pipe', 'pipe'] });
+  // Observe close at spawn time, including an exit before health/finally. It
+  // fires only after stdout/stderr drain, unlike exit.
+  const closed = new Promise(resolve => child.once('close', resolve));
+  child.once('error', error => { output.launchError = error; });
   child.stdout.on('data', (chunk) => { output.text += chunk.toString(); process.stdout.write(chunk); });
   child.stderr.on('data', (chunk) => { output.text += chunk.toString(); process.stderr.write(chunk); });
 
@@ -104,9 +108,7 @@ async function main() {
     await wait(1000);
     await checkHealth();
   } finally {
-    if (child.exitCode === null) {
-      await stopTomcat(child, output);
-    }
+    await stopTomcat(child, closed);
   }
 
   const leaks = shutdownLeakFindings(output.text, baseUrl);

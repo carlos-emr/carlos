@@ -15,7 +15,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5177](https://github.com/carlos-emr/carlos/issues/5177) | Consolidated validation-harness findings and packaged retakes | Outstanding original source acceptance and complete ON/BC repetitions remain pending. |
 | [#5700](https://github.com/carlos-emr/carlos/issues/5700) | Test: Release 2026.08 full verification coverage plan (Java, Node, Playwright) | Existing merged tooling retained. Scope ownership, compatibility decisions, installed execution and vendor prerequisites remain open. |
 | [#5707](https://github.com/carlos-emr/carlos/issues/5707) | Test: cover successful key-pair creation through the administration UI | Native creation/download/signature/reopen/duplicate lifecycle passes on the installed ON package with a temporary synthetic primary prerequisite, whose removal restores its original absence; strict missing-prerequisite failure retained. BC/final qualification pending. |
-| [#5708](https://github.com/carlos-emr/carlos/issues/5708) | Test: cover multi-recipient lab-forwarding rule updates and selective removal | Implementation and installed acceptance pending. |
+| [#5708](https://github.com/carlos-emr/carlos/issues/5708) | Test: cover multi-recipient lab-forwarding rule updates and selective removal | Installed ON two-recipient/reopen/repeat-save, three-upload routing, cancellation, selective removal and admin isolation pass. Status is source-wide; per-recipient status is unavailable. Original method/CSRF coverage retained. |
 | [#5709](https://github.com/carlos-emr/carlos/issues/5709) | Test: broaden lookup-list CRUD coverage and verify consumer/list isolation | Implementation and installed acceptance pending. |
 | [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implementation and installed acceptance pending. |
 | [#5716](https://github.com/carlos-emr/carlos/issues/5716) | Test: verify measurement graph dates, values and plotted positions | Implementation and installed acceptance pending. |
@@ -39,7 +39,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5738](https://github.com/carlos-emr/carlos/issues/5738) | Test: cover abandoned appointment cut/paste and stale clipboard recovery | Implementation and installed acceptance pending. |
 | [#5771](https://github.com/carlos-emr/carlos/issues/5771) | Test: Tomcat shutdown leak smoke check doesn't match MariaDB Connector/J thread names | Matcher and independent warning controls implemented; actual installed shutdown retake pending. |
 | [#5779](https://github.com/carlos-emr/carlos/issues/5779) | Test: #5548 inbox counts are only partly exercised on physical MariaDB | Seven cases pass on both physical ON and BC Flyway schemas with zero skips at 239cd330e1a; final expanded normal/abnormal assertions and final-head retakes pending. |
-| [#5793](https://github.com/carlos-emr/carlos/issues/5793) | Test: Release adds 11 expected-failure pins, including security and audit checks | Implementation and installed acceptance pending. |
+| [#5793](https://github.com/carlos-emr/carlos/issues/5793) | Test: Release adds 11 expected-failure pins, including security and audit checks | All release-added pins reconciled to open ownership below; retired 335 distinguished. No release waiver or product fix claimed. |
 | [#5794](https://github.com/carlos-emr/carlos/issues/5794) | Test: Front-door check for sanitized error bodies was removed while ResponseSanitizationFilter was rewritten | Installed ON REQUEST exception, /ws and observed ERROR-dispatch 500 sanitization pass; exact descriptor restoration and fixture removal verified. BC/final qualification pending. |
 | [#5795](https://github.com/carlos-emr/carlos/issues/5795) | Test: Missing browser-check prerequisites now SKIP instead of failing, including the CDS import gate | Packaged runner enforces strict release/residue checking and fails on report loss; packaged runs pending. |
 | [#5796](https://github.com/carlos-emr/carlos/issues/5796) | Test: Stored partial-precision allergy start dates are no longer covered (allergy-partial-start-date removed) | Installed ON year/year-month display and both reaction-only amendments pass with clean residue audit. BC/final qualification pending. |
@@ -68,7 +68,7 @@ CXF servlet to exercise the installed filter mappings; separate application/CXF
 coverage remains necessary. No fixture is packaged. Direct execution without the
 fixture is an explicit prerequisite skip and cannot pass strict qualification.
 
-Three review rounds are required: scope and coverage; correctness, failures and
+Three local review rounds are required: scope and coverage; correctness, failures and
 cleanup; then final source, installed evidence, CI and review-thread reconciliation.
 Round 1 (scope/failure review): found and corrected missing NOT NULL fixture
 fields, native family-floor/routing drift, the fault adapter prerequisite in
@@ -114,3 +114,60 @@ unprivileged on Ubuntu 26.04 without skips. The gate rejects missing, substitute
 skipped and failed required methods, and sanitized artifacts now preserve the
 separate permission and legacy reports. CodeRabbit accepted a full-review
 request after its rate-limit window; review completion remains pending.
+
+## Expected-failure ownership (#5793)
+
+The current target has 26 pins. The issue's earlier count of 27 includes finding
+335, whose fix and pin removal are already on this branch. The following are
+tracking links, with no release waiver. Every remaining known failure is fatal
+under `--strict-release`; later assertions behind a pinned failure remain
+unreached. Tracker state was checked on 7 November 2026.
+
+| Release-added finding | Check | Open defect ownership / disposition |
+| --- | --- | --- |
+| 329 | `appointment-email-option` | [#4788, explicit 329 task](https://github.com/carlos-emr/carlos/issues/4788#issuecomment-6713494284); related implementation #4472 does not repair the existing checkbox by itself. |
+| 330 | `admin-messages` | [#4788, explicit 330 task](https://github.com/carlos-emr/carlos/issues/4788#issuecomment-6713494284), with retention/retirement #5383. |
+| 331 | `admin-issue-editor` | [#4788, explicit 331 task](https://github.com/carlos-emr/carlos/issues/4788#issuecomment-6713494284), with retention #5383 and method/CSRF #3059. |
+| 332 | `chart-informed-consent` | [#4788, explicit 332 task](https://github.com/carlos-emr/carlos/issues/4788#issuecomment-6713494284). |
+| 335 | `echart-forms-list-paging` | Fixed by #5691/#5684; no current expected-failure pin. Installed qualification is still part of the full release plan. |
+| 337 | `dialog-confirmations-tickler` | [#5683](https://github.com/carlos-emr/carlos/issues/5683). |
+| 342 | `authz-read-admin-objects` | [#4223](https://github.com/carlos-emr/carlos/issues/4223). |
+| 343 | `authz-read-print-export` | [#4223](https://github.com/carlos-emr/carlos/issues/4223); closed #5406 is historical evidence, not a live fix tracker. |
+| 344 | `audit-log-locked-patient` | [#4172](https://github.com/carlos-emr/carlos/issues/4172). |
+| 347 | `login-mfa-no-pin` | [#4788, explicit 347 task](https://github.com/carlos-emr/carlos/issues/4788#issuecomment-6713494284). |
+| 348 | `document-clinical-followup` | [#5685](https://github.com/carlos-emr/carlos/issues/5685). |
+
+The older security/authorization pins retain these fix owners: API-key GET
+creation (163) → #3059; chart note and billing authorization (198, 200), document
+download authorization (202) → #4223; missing chart-read audit (141) → #4172.
+The stored MCEDT credential (189) and output-encoding findings (118, 122, 123,
+148) remain open findings in the browser-defect umbrella #4788 and its source
+acceptance, rather than being silently treated as accepted release behavior.
+
+Round 3 retake and external review: CodeRabbit's completed review found seven
+inline items and one output-drain race outside the diff. Corrections distinguish
+missing keys from malformed counts, correlate allergy reload with the save
+response, cover all legacy/refusal branches, assert adapter wiring, require
+specific negative-control failure reasons and document fixture behavior. The
+shutdown subprocess now drains stdout/stderr through `close`; a descendant
+writing a leak after parent exit independently proves the failure remains seen.
+The fixture's creation date is verified from its first Git commit.
+
+The additional #5708 check passes on the installed ON package: exactly two
+recipients, repeat-save without duplicates, source-wide New → Filed, three fresh
+CML uploads, unchanged earlier routes, cancelled removal, selective archival and
+Administration source isolation. The existing single-recipient and negative
+checks remain registered. Failed development attempts and their exact recovery
+are retained privately; the final run and the allergy retake have clean residue
+audits. The application offers a source-wide status, so a per-recipient status
+update cannot be claimed. Four legacy compatibility cases also pass without
+skips on Ubuntu 26.04 with the pinned historical libraries.
+
+The installed `--include-warn` log audit still fails on nine signatures: missing
+property defaults, Drools build/evaluation warnings, Hibernate mapping/dialect
+warnings and the deliberately malformed satellite input's controlled-400 log.
+They are not waived or hidden. Only exact disposable #5794 routes and the exact
+fixture stack are explained, with independent controls proving ordinary routes,
+malformed tokens and production servlet exceptions still fail the log audit.
+Full release readiness remains blocked by these warnings and the other
+uncompleted acceptance rows above.
