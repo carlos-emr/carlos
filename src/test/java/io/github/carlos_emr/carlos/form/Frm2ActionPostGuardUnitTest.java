@@ -75,8 +75,8 @@ class Frm2ActionPostGuardUnitTest extends CarlosWebTestBase {
         when(formRecord.getGraph(any(), eq(123), eq(7))).thenReturn(new Properties());
         when(formRecord.getFormRecord(any(), eq(123), eq(7))).thenReturn(new Properties());
         when(formRecord.findActionValue(submit)).thenReturn(submit);
-        when(formRecord.createActionURL(eq(submit), eq(submit), eq("123"), eq("7"))).thenReturn(submit + "?formId=7");
-        try (var factory = mockConstruction(FrmRecordFactory.class, (created, context) -> when(created.factory("Rourke2017")).thenReturn(formRecord))) {
+        when(formRecord.createActionURL(submit, submit, "123", "7")).thenReturn(submit + "?formId=7");
+        try (var _ = mockConstruction(FrmRecordFactory.class, (created, context) -> when(created.factory("Rourke2017")).thenReturn(formRecord))) {
             assertThat(new Frm2Action().execute()).isEqualTo(submit); assertThat(mockResponse.getStatus()).isEqualTo(200);
             verify(formRecord, never()).saveFormRecord(any(), any());
             verify(formRecord, never()).saveFormRecord(any(Properties.class));
@@ -95,9 +95,9 @@ class Frm2ActionPostGuardUnitTest extends CarlosWebTestBase {
         when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
         FrmRecord formRecord = mock(FrmRecord.class); when(formRecord.saveFormRecord(any(), any())).thenReturn(99);
         when(formRecord.findActionValue(submit)).thenReturn("save");
-        when(formRecord.createActionURL(eq("save"), eq("save"), eq("123"), eq("99"))).thenReturn("save?demographic_no=123&formId=99");
-        try (var log = mockStatic(LogAction.class);
-             var factory = mockConstruction(FrmRecordFactory.class, (created, context) -> when(created.factory("Rourke2017")).thenReturn(formRecord))) {
+        when(formRecord.createActionURL("save", "save", "123", "99")).thenReturn("save?demographic_no=123&formId=99");
+        try (var _ = mockStatic(LogAction.class);
+             var _ = mockConstruction(FrmRecordFactory.class, (created, context) -> when(created.factory("Rourke2017")).thenReturn(formRecord))) {
             assertThat(new Frm2Action().execute()).isNull();
             ArgumentCaptor<Properties> saved = ArgumentCaptor.forClass(Properties.class); verify(formRecord).saveFormRecord(eq(mockLoggedInInfo), saved.capture());
             assertThat(saved.getValue().getProperty("weight")).isEqualTo("5.5");
