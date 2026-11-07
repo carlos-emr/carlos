@@ -47,6 +47,10 @@ public final class CdsExportDemographicAssembler {
         public NativeRows {
             Objects.requireNonNull(current); Objects.requireNonNull(witness); Objects.requireNonNull(lookups);
             Objects.requireNonNull(contacts); Objects.requireNonNull(pharmacies);
+            if (properties.size() > 8192 || archives.size() > 8192
+                    || properties.size() != propertyWitnesses.size() || archives.size() != archiveWitnesses.size()) {
+                throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_ROW_SCOPE_INVALID");
+            }
             properties = List.copyOf(properties); propertyWitnesses = List.copyOf(propertyWitnesses);
             archives = List.copyOf(archives); archiveWitnesses = List.copyOf(archiveWitnesses);
             if ((custom == null) != (customWitness == null)) throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_NOTE_SCOPE_INVALID");
@@ -63,6 +67,11 @@ public final class CdsExportDemographicAssembler {
             String address, CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked,
             List<CdsExportRetainedFieldDto> allFields, NativeRows rows, int maximumRows, long maximumBytes,
             CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
+        Objects.requireNonNull(rows); Objects.requireNonNull(values); Objects.requireNonNull(checkpoint);
+        if (maximumRows < 1 || maximumRows > 8192 || maximumBytes < 1 || maximumBytes > (64L << 20)
+                || selected == null || !selected.contains(CdsCategory.DEMOGRAPHICS)) {
+            throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_SCOPE_INVALID");
+        }
         values.requireActive(); checkpoint.run();
         var core = new CdsExportDemographicRetainedCoreReconciler().reconcileWithPrimaryPhysician(
                 patient, selected, address, index, checked, allFields, rows.current(), rows.witness(), rows.properties(),
