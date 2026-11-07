@@ -433,7 +433,9 @@ async function expectOpenerRefresh(opener, popup, rowLocator, options = {}) {
  * replaced its <select id="specialist"> with a hidden #specialist plus a
  * #specialistInput autocomplete, so the check silently fell through to its
  * programmatic fallback and stopped testing the widget at all (alpha-11
- * observation 5). Typing and picking is the test; the hidden id is the proof.
+ * observation 5). Entering text and picking is the test; the hidden id is the proof.
+ * `inputMode: 'fill'` enters a complete query in one input update when the caller
+ * is testing selection rather than intermediate keystroke/search cancellation.
  */
 async function typeAutocomplete(page, inputSelector, text, options = {}) {
   const timeout = options.timeout || DEFAULT_TIMEOUT;
@@ -441,7 +443,11 @@ async function typeAutocomplete(page, inputSelector, text, options = {}) {
   const input = typeof inputSelector === 'string' ? page.locator(inputSelector) : inputSelector;
   await input.click({ timeout });
   await input.fill('');
-  await input.type(text, { delay: options.delay || 60 });
+  if (options.inputMode === 'fill') {
+    await input.fill(text);
+  } else {
+    await input.type(text, { delay: options.delay || 60 });
+  }
   const suggestions = page.locator(menu).locator('li');
   await suggestions.first().waitFor({ state: 'visible', timeout });
   const option = options.option
