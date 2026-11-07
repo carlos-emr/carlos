@@ -36,6 +36,8 @@ const searchSource = section('async function searchTicklerList(', 'async functio
 const refreshSource = section('async function waitForTicklerDraw(', 'async function setTicklerListStatus(');
 const statusSource = section('async function waitForTicklerStatus(', 'function getCommentRows(');
 const createSource = section('async function createTickler(', 'async function editTicklerFromList(');
+const editSource = section('async function editTicklerFromList(', 'async function completeTicklerViaEdit(');
+const completeSource = section('async function completeTicklerViaEdit(', 'async function deleteTicklerFromList(');
 
 for (const commitDelay of [0, 1250]) {
   test(`tickler creation waits for persistence ${commitDelay}ms after iframe acknowledgement`, async () => {
@@ -159,7 +161,7 @@ test('an already settled search does not send another list request', async () =>
 
 function refreshFixture(status = 200, bodyFailure = null) {
   const events = [];
-  let deliver;
+  let deliver, refuse;
   let finished = false;
   const response = {
     request: () => ({method: () => 'GET'}),
@@ -177,7 +179,7 @@ function refreshFixture(status = 200, bodyFailure = null) {
       assert.equal(predicate({...response, request: () => ({method: () => 'POST'})}), false);
       assert.equal(predicate({...response, url: () => 'https://fixture.invalid/carlos/Other'}), false);
       events.push('listener');
-      return new Promise(resolve => { deliver = resolve; });
+      return new Promise((resolve, reject) => { deliver = resolve; refuse = reject; });
     },
     locator() {
       return {async waitFor() { assert(finished, 'List readiness must follow the complete response body'); }};
@@ -204,7 +206,54 @@ function refreshFixture(status = 200, bodyFailure = null) {
   return {
     events, page, refresh: sandbox.refresh,
     async save() { events.push('save'); deliver(response); },
+    failRefresh(message) { refuse(new Error(message)); },
   };
+}
+
+for (const action of ['edit', 'complete']) {
+  test(`the ${action} popup stays alive when its broadcast follows the iframe acknowledgement`, async () => {
+    const fixture = refreshFixture();
+    let acknowledged = false, closed = false;
+    const field = {
+      async waitFor() {}, async fill() {}, async selectOption() {},
+      async click() {
+        // The sentinel can be read before the iframe load handler gets its turn.
+        setImmediate(() => { if (!closed) fixture.save(); });
+      },
+    };
+    const popup = {
+      locator: () => field,
+      async waitForLoadState() {},
+      async waitForURL(predicate) {
+        assert(predicate(new URL('https://fixture.invalid/carlos/tickler/ViewTicklerEdit?tickler_no=42')));
+      },
+      async waitForFunction() { acknowledged = true; },
+      // A delay may expire while the broadcast is still queued; elapsed time is
+      // not evidence that the list received it.
+      async waitForTimeout() {},
+      async close() {
+        assert(acknowledged);
+        closed = true;
+        if (!fixture.events.includes('drawn')) fixture.failRefresh('popup closed before its broadcast refreshed the list');
+        fixture.events.push('closed');
+      },
+    };
+    const listLocator = fixture.page.locator;
+    fixture.page.locator = selector => {
+      if (selector !== '#ticklerResults tbody tr') return listLocator(selector);
+      const row = { filter: () => row, first: () => row, locator: () => ({async click() {}}) };
+      return row;
+    };
+    const sandbox = {
+      assert, URL, wirePage() {}, async findRowInList() {},
+      getTicklerRows: () => [{id: '42', status: 'C', priority: 'Low', serviceDate: '2026-02-19'}],
+      getCommentRows: () => ['edited task'], createdMessage: 'owned task', editedMessage: 'edited task',
+    };
+    vm.runInNewContext(refreshSource + editSource + completeSource
+      + '\nthis.edit = editTicklerFromList; this.complete = completeTicklerViaEdit;', sandbox);
+    await sandbox[action]({waitForEvent: async () => popup}, fixture.page, 42);
+    assert.deepEqual(fixture.events, ['listener', 'save', 'body', 'drawn', 'closed']);
+  });
 }
 
 test('tickler edit observes its own broadcast refresh before saving and waits through its draw', async () => {
