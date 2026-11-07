@@ -21,6 +21,24 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.ON.dao;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao;
+import io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException;
+import io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService;
+import io.github.carlos_emr.carlos.util.OscarDownload;
+import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
+import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
+import java.io.File;
+import java.util.HexFormat;
+import java.security.MessageDigest;
+import org.junit.jupiter.api.io.TempDir;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import io.github.carlos_emr.carlos.billing.CA.ON.model.BillingONDiskName;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
@@ -35,6 +53,8 @@ import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Integration tests for {@link BillingONDiskNameDao}.
@@ -59,10 +79,78 @@ public class BillingONDiskNameDaoIntegrationTest extends CarlosTestBase {
     private BillingONFilenameDao filenameDao;
 
     @Autowired
-    private io.github.carlos_emr.carlos.billing.CA.dao.BillActivityDao activityDao;
+    private BillActivityDao activityDao;
 
-    @jakarta.persistence.PersistenceContext
-    private jakarta.persistence.EntityManager entityManager;
+    @PersistenceContext
+    private EntityManager entityManager;
+
+    @TempDir
+    Path billingDirectory;
+
+    @Test
+    void shouldGateDownloadAndRegeneration_whenImportedFileNeedsReconciliation() throws Exception {
+        String original = "HJ999998.001";
+        String allocated = "o19-claim-2021-990102-0.claim";
+        String claim = "HEH" + " ".repeat(20) + "00000042" + "HCP" + " ".repeat(45) + "\n";
+        Files.writeString(billingDirectory.resolve(original), claim);
+        entityManager.createNativeQuery("INSERT INTO billing_filename_import "
+                + "(source_table, source_id, original_filename, imported_filename, group_size, reason, file_status) "
+                + "VALUES ('billing_on_diskname', 990102, ?1, ?2, 2, 'collision', 'ambiguous')")
+                .setParameter(1, original).setParameter(2, allocated).executeUpdate();
+        var properties = CarlosProperties.getInstance();
+        Object previousHome = properties.get("HOME_DIR");
+        properties.setProperty("HOME_DIR", billingDirectory.toString() + File.separator);
+        try {
+            // The DAO harness excludes prototype services. Keep the real
+            // audit DAO and IO code, mocking unrelated claim-extraction inputs.
+            var sites = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.SiteDao.class);
+            org.mockito.Mockito.when(sites.getAllSites()).thenReturn(java.util.List.of());
+            var writer = new OhipClaimFileService(
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class),
+                    org.mockito.Mockito.mock(BillingONCHeader1Dao.class),
+                    org.mockito.Mockito.mock(BillingONHeaderDao.class), filenameDao, sites,
+                    org.mockito.Mockito.mock(BillingONItemDao.class),
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.BillingServiceDao.class), dao,
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService.class));
+            writer.setOhipFilename(allocated);
+            assertThat(download(allocated).getStatus()).isEqualTo(409);
+            assertThatThrownBy(writer::readInBillingNo).isInstanceOf(
+                    BillingFileWriteException.class);
+            assertThat(Files.exists(billingDirectory.resolve(allocated))).isFalse();
+
+            // This synthetic fixture supplies known provenance; production
+            // reconciliation must establish that ownership before this step.
+            Files.copy(billingDirectory.resolve(original), billingDirectory.resolve(allocated));
+            String sha = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(claim.getBytes(StandardCharsets.UTF_8)));
+            entityManager.createNativeQuery("UPDATE billing_filename_import SET file_status='reconciled', "
+                    + "file_sha256=?1, reconciled_by='fixture-reviewer', reconciled_at=CURRENT_TIMESTAMP "
+                    + "WHERE source_table='billing_on_diskname' AND source_id=990102")
+                    .setParameter(1, sha).executeUpdate();
+            var response = download(allocated);
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(response.getContentAsByteArray()).isEqualTo(claim.getBytes(StandardCharsets.UTF_8));
+            assertThatCode(writer::readInBillingNo).doesNotThrowAnyException();
+            writer.writeFile(claim + "changed output\n");
+            assertThat(download(allocated).getStatus()).isEqualTo(409);
+            assertThat(download(original).getStatus()).isEqualTo(409);
+            assertThat(Files.readString(billingDirectory.resolve(original))).isEqualTo(claim);
+        } finally {
+            if (previousHome == null) properties.remove("HOME_DIR");
+            else properties.put("HOME_DIR", previousHome);
+        }
+    }
+
+    private MockHttpServletResponse download(String filename) throws Exception {
+        var request = new MockHttpServletRequest("GET", "/servlet/OscarDownload");
+        request.addParameter("filename", filename);
+        request.addParameter("homepath", "ohipdownload");
+        request.getSession().setAttribute("ohipdownload", billingDirectory.toString());
+        request.getSession().setAttribute("user", "999998");
+        var response = new MockHttpServletResponse();
+        new OscarDownload().service(request, response);
+        return response;
+    }
 
     @Test
     void shouldReserveAllHistoricalNames_whenOnlyAuditRetainsOriginal() {
