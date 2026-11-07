@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
 import com.google.common.base.Ascii;
+import io.github.carlos_emr.carlos.demographic.cds.jdbc.CdsBinaryReads;
 import com.google.common.base.CharMatcher;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionState.Lease;
 import java.lang.reflect.InvocationHandler;
@@ -67,7 +68,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     private static final Set<String> SCHEMA_METADATA = Set.of("tables", "columns", "statistics", "schemata",
             "key_column_usage", "referential_constraints", "table_constraints", "engines", "collations",
             "character_sets", "collation_character_set_applicability", "system_variables", "session_variables");
-    private static final Set<String> LEDGER = Set.of("cds_import_run", "cds_import_patient", "cds_import_unit",
+    private static final Set<String> LEDGER = Set.of("cds_export_run", "cds_export_event", "cds_import_run", "cds_import_patient", "cds_import_unit",
             "cds_import_lineage", "cds_import_checkpoint", "cds_import_field", "cds_import_event",
             "cds_import_diagnostic", "cds_import_admission", "cds_import_dependency", "cds_import_file",
             "cds_import_file_reference", "cds_import_upload", "cds_import_review", "cds_import_preparation", "cds_import_identity");
@@ -87,6 +88,15 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         this.raw = raw; this.state = state; this.importUnit = importUnit;
     }
 
+    /**
+     * Forces the shipped driver's binary result protocol; ordinary FLOAT text loses bits.
+     * There is no client-prepared fallback and no vendor connection escapes to the caller.
+     */
+    public static PreparedStatement prepareBinaryRead(Connection connection, String sql) throws SQLException {
+        if (!classify(sql).readOnly()) throw refused("Binary result capture requires a reviewed read statement");
+        return CdsBinaryReads.prepare(connection, sql);
+    }
+
     public static Connection wrap(Connection raw, CdsJdbcAdmissionState state) {
         return wrap(raw, state, CdsImportUnitContext::isActiveForMaintenance);
     }
@@ -99,8 +109,8 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     /** Explicit capability supplier is used by real-database race tests, never by request binding. */
     public static Connection wrap(Connection raw, CdsJdbcAdmissionState state, BooleanSupplier importUnit) {
         CdsJdbcAdmissionGuard guard = new CdsJdbcAdmissionGuard(raw, state, importUnit);
-        guard.proxy = (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
-                new Class<?>[]{Connection.class}, guard);
+        guard.proxy = (Connection) Proxy.newProxyInstance(CdsJdbcAdmissionGuard.class.getClassLoader(),
+                new Class<?>[]{Connection.class, CdsBinaryReads.Capability.class}, guard);
         return guard.proxy;
     }
 
@@ -156,6 +166,14 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
 
     @Override public Object invoke(Object target, Method method, Object[] args) throws Throwable {
         String name = method.getName();
+        if (name.equals("prepareCdsBinaryRead") && method.getDeclaringClass() == CdsBinaryReads.Capability.class) {
+            String sql = (String) args[0];
+            if (!classify(sql).readOnly()) throw refused("Binary result capture requires a reviewed read statement");
+            try {
+                if (importUnit.getAsBoolean()) ensureStrictSession(true);
+                return statement(CdsBinaryReads.prepareDriver(raw, sql), sql);
+            } catch (Throwable failure) { abortImplicit(failure); throw failure; }
+        }
         if (name.equals("unwrap")) {
             Class<?> requested=(Class<?>) args[0];
             return state==null && !requested.isInstance(proxy) ? raw.unwrap(requested) : safeUnwrap(proxy, requested);
@@ -463,13 +481,16 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     private record SqlShape(boolean clinical, boolean readOnly, boolean importMutation) { }
     private SqlShape shape(String sql) throws SQLException {
         // A pre-maintenance metadata guard must not reinterpret or restrict ordinary legacy SQL.
-        if (state==null && !Ascii.toLowerCase(sql).contains("cds_import_")) return new SqlShape(false, false, false);
+        if (state==null && !Ascii.toLowerCase(sql).contains("cds_import_")
+                && !Ascii.toLowerCase(sql).contains("cds_export_")) return new SqlShape(false, false, false);
         return classify(sql);
     }
     private static boolean importTable(net.sf.jsqlparser.schema.Table table) {
         if (table==null) return false;
         String name=Ascii.toLowerCase(table.getName().replace("`", "").replace("\"", ""));
-        return name.startsWith("cds_import_");
+        // Export control metadata shares the strict UTF-8 storage contract, without acquiring
+        // importer clinical-write ownership. No clinical/export source join is exempted.
+        return name.startsWith("cds_import_") || Set.of("cds_export_run", "cds_export_event").contains(name);
     }
     private static SqlShape classify(String sql) throws SQLException {
         String normalized = stripTerminalSemicolons(sql);
@@ -480,14 +501,22 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         // parse() accepts a leading statement and can ignore a trailing COMMIT. Count the
         // complete stream before even administrative/metadata exemptions are considered.
         final net.sf.jsqlparser.statement.Statement parsed;
+        // JSQLParser 5.3's convenience overload shuts its executor down only on success.
+        // Own this worker explicitly so refused malformed SQL cannot leak a process thread.
+        java.util.concurrent.ExecutorService parserExecutor = java.util.concurrent.Executors.newSingleThreadExecutor(task -> {
+            Thread worker = new Thread(task, "cds-admission-sql-parser"); worker.setDaemon(true); return worker;
+        });
         try {
-            var statements=CCJSqlParserUtil.parseStatements(parserSql).getStatements();
+            var statements=CCJSqlParserUtil.parseStatements(parserSql, parserExecutor, null).getStatements();
             if (statements.size()!=1) throw refused("Only one SQL statement may use a CDS admission lease");
             parsed=statements.getFirst();
         } catch (JSQLParserException | RuntimeException unsupported) {
             throw refused("SQL cannot be admitted safely by the CDS maintenance guard");
-        }
+        } finally { parserExecutor.shutdownNow(); }
         String upper = Ascii.toUpperCase(normalized);
+        // Export lease/control observations use only the database clock during maintenance.
+        // This exact no-table expression cannot hide a clinical subquery or routine call.
+        if (upper.matches("SELECT\\s+UNIX_TIMESTAMP\\(CURRENT_TIMESTAMP\\(6\\)\\)")) return new SqlShape(false, true, false);
         if (upper.matches("SELECT\\s+(?:1|VERSION\\(\\)|DATABASE\\(\\)|CURRENT_USER\\(\\)|CONNECTION_ID\\(\\)|@@[A-Z0-9_.,@ ]+)")) return new SqlShape(false, true, false);
         // Consume the prefix once; a failed multiline suffix must not backtrack through every space.
         if (upper.matches("(?:DESCRIBE|DESC)\\s++.*")) return new SqlShape(false, true, false);

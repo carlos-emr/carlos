@@ -36,7 +36,7 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.prescript.dto.DrugListItemDTO;
 
-public interface DrugDao extends AbstractDao<Drug> {
+public interface DrugDao extends AbstractDao<Drug>, CdsExportPatientTableReadDao {
 
     public boolean addNewDrug(Drug d);
 

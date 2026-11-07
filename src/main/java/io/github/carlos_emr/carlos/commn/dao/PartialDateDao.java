@@ -34,7 +34,16 @@ import java.util.Date;
 
 import io.github.carlos_emr.carlos.commn.model.PartialDate;
 
-public interface PartialDateDao extends AbstractDao<PartialDate> {
+public interface PartialDateDao extends AbstractDao<PartialDate>, CdsExportPatientTableReadDao, CdsExportPreventionDataReadDao {
+    @Override java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns();
+
+    /** Snapshot reads scoped to the selected allergy and/or medication parent domains. */
+    long countCdsExportScopedRows(int patient, java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories);
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportScopedRowsAfter(
+            int patient, java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories, Long afterId, int limit);
+    byte[] readCdsExportScopedChunk(int patient, java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories,
+            long rowId, String column, long offset, int length);
+
     PartialDate getPartialDate(Integer tableName, Integer tableId, Integer fieldName);
 
     String getDatePartial(Date fieldDate, Integer tableName, Integer tableId, Integer fieldName);

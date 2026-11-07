@@ -21,8 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.support;
 
-import java.io.FilterReader;
 import java.io.IOException;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsXmlReaders;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PushbackInputStream;
@@ -92,7 +92,7 @@ public final class CdsXmlText {
         source.unread(header, skip, header.length - skip);
         Reader decoded = new InputStreamReader(source, actual.newDecoder()
                 .onMalformedInput(CodingErrorAction.REPORT).onUnmappableCharacter(CodingErrorAction.REPORT));
-        return new MarkupReader(decoded, maxMarkupCharacters);
+        return CdsXmlReaders.markupReader(decoded, maxMarkupCharacters, CdsPaths::failure);
     }
 
     /** Constant-space transport signature detection, fed by the source-copy loop without another file pass. */
@@ -138,55 +138,4 @@ public final class CdsXmlText {
         private static boolean xmlSpace(int value) {return value==' ' || value=='\t' || value=='\n' || value=='\r'; }
     }
 
-    private static final class MarkupReader extends FilterReader {
-        private final int maximum;
-        private int state;
-        private int markupCharacters;
-        private char quote;
-        private char previous;
-        private char beforePrevious;
-        private final StringBuilder prefix = new StringBuilder(9);
-
-        MarkupReader(Reader input, int maximum) { super(input); this.maximum = maximum; }
-
-        @Override public int read(char[] buffer, int offset, int count) throws IOException {
-            int n = super.read(buffer, offset, count);
-            for (int i = 0; i < n; i++) inspect(buffer[offset + i]);
-            return n;
-        }
-
-        @Override public int read() throws IOException {
-            int value = super.read();
-            if (value >= 0) inspect((char) value);
-            return value;
-        }
-
-        private void inspect(char value) throws IOException {
-            if (state == 0) {
-                if (value == '<') { state = 1; markupCharacters = 1; quote = 0; prefix.setLength(0); prefix.append(value); }
-            } else if (state == 2) {
-                if (beforePrevious == ']' && previous == ']' && value == '>') state = 0;
-            } else {
-                if (++markupCharacters > maximum) throw CdsPaths.failure("CDS_XML_MARKUP_LIMIT");
-                if (state == 3) {
-                    if (beforePrevious == '-' && previous == '-' && value == '>') state = 0;
-                } else if (state == 4) {
-                    if (previous == '?' && value == '>') state = 0;
-                } else {
-                    if (prefix.length() < 9) {
-                        prefix.append(value);
-                        if (prefix.toString().equals("<![CDATA[")) state = 2;
-                        else if (prefix.toString().equals("<!--")) state = 3;
-                        else if (prefix.toString().equals("<?")) state = 4;
-                    }
-                    if (state == 1) {
-                        if (quote != 0) { if (value == quote) quote = 0; }
-                        else if (value == '\'' || value == '"') quote = value;
-                        else if (value == '>') state = 0;
-                    }
-                }
-            }
-            beforePrevious = previous; previous = value;
-        }
-    }
 }

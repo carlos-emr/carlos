@@ -90,7 +90,7 @@ final class CdsResumeHandoffTestFixture {
         ledger.release(id, oldEpoch);
         check("NOT_STARTED".equals(ledger.patientStatus(id, "patient").state()), "old unsealed patient is explicitly not started");
         check(ledger.pendingResumeEvent(id) > 0, "stopped report retains audited clinical Resume authority");
-        check(ledger.pending("", 200).stream().anyMatch(value -> id.equals(value.id())), "stopped delivered source is rediscovered from durable intent");
+        check(pendingContains(id), "stopped delivered source is rediscovered from durable intent");
 
         long preparationEpoch;
         try (var coordinator = environment.coordinators().acquire(); var owner = environment.maintenance().acquire()) {
@@ -130,7 +130,7 @@ final class CdsResumeHandoffTestFixture {
                 "phase commit consumes only its accepted Resume intent");
         check(Boolean.FALSE.equals(ledger.summary(id).get("discoveryComplete"))
                 && "NOT_STARTED".equals(ledger.patientStatus(id, "patient").state()), "crash precedes source discovery and preflight restoration");
-        check(ledger.pending("", 200).stream().anyMatch(value -> id.equals(value.id())), "PLANNING remains discoverable after the intent bit is consumed");
+        check(pendingContains(id), "PLANNING remains discoverable after the intent bit is consumed");
         verify(jobs, never()).snapshot(anyString(), anyLong(), any(), any(CdsImportExecutionControl.class)); verifyNoInteractions(planner, nativeRecords);
 
         AtomicInteger plans = new AtomicInteger();

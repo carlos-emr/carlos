@@ -1,0 +1,51 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
+import io.github.carlos_emr.carlos.demographic.cds.contract.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+/** Exact appointment scalar witnesses. No display-normalized comparison or current-setting recipe. */
+final class CdsExportAppointmentProjectionEvidence {
+    private CdsExportAppointmentProjectionEvidence(){}
+    static boolean matches(CdsNativeRowState state, String name, String value)throws IOException {
+        int found=-1; for (int i=0; i<state.columns().size(); i++)if (state.columns().get(i).name().equals(name))found=i;
+        if (found<0)invalid(); var column=state.columns().get(found); var cell=state.cells().get(found);
+        if (CdsExactNumeric.codec(column.type())!=null||cell.exactNumeric()!=null)invalid();
+        if (value==null)return cell.sqlNull(); byte[] bytes=value.getBytes(StandardCharsets.UTF_8);
+        return !cell.sqlNull()&&cell.bytes()==bytes.length&&cell.sha256().equals(HexFormat.of().formatHex(CdsImportKeys.digest().digest(bytes)));
+    }
+    static void verifyCurrent(CdsExportCapturedTextRowDto row, CdsExportNativeRowReceiptDto witness)throws IOException {
+        if (row==null||witness==null||witness.state()==null||witness.partial()||!row.table().equals("appointment")||!witness.table().equals("appointment")
+                ||!row.exactNumbers().isEmpty()||!row.fields().keySet().equals(Set.copyOf(CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns()))
+                ||!row.fields().keySet().equals(Set.copyOf(witness.state().columns().stream().map(CdsNativeRowDigest.Column::name).toList()))
+                ||!row.recordKey().equals(witness.recordKey())||!Objects.equals(row.fields().get("appointment_no"), witness.id()))invalid();
+        try {int id=Integer.parseInt(witness.id()); if (!Integer.toString(id).equals(witness.id())||!CdsExportPatientTableSourceReader.key(id).equals(row.recordKey()))invalid(); }catch (NumberFormatException failed){invalid(); }
+        for (String name:row.fields().keySet())if (!matches(witness.state(), name, row.fields().get(name)))invalid();
+    }
+    private static void invalid()throws IOException{throw new IOException("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID"); }
+}

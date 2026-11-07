@@ -37,7 +37,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PharmacyInfo;
 
-public interface PharmacyInfoDao extends AbstractDao<PharmacyInfo> {
+public interface PharmacyInfoDao extends AbstractDao<PharmacyInfo>, CdsExportPatientTableReadDao {
 
 
     public void addPharmacy(String name, String address, String city, String province, String postalCode, String phone1, String phone2, String fax, String email, String serviceLocationIdentifier, String notes);

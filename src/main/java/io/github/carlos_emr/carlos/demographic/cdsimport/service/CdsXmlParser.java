@@ -21,6 +21,11 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaModel;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaTypeCursor;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsScalarParser;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsScalarParser.Mode;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsXmlReaders;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -56,8 +61,6 @@ import java.util.Set;
 import java.util.HashSet;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
-import javax.xml.XMLConstants;
-import javax.xml.parsers.SAXParserFactory;
 import javax.xml.validation.ValidatorHandler;
 import org.xml.sax.Attributes;
 import org.xml.sax.InputSource;
@@ -83,8 +86,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsXmlParser {
-    private static final String NUMERIC_LEXICAL_INVALID = "CDS_XML_NUMERIC_LEXICAL_INVALID";
-    private static final String POSITIVE_INTEGER = "positiveInteger";
     private static final String NAME_SEPARATOR = "\u0000";
     /** Ordinary (non-xmlns) attributes admitted on one element by CDS parsing and snapshot discovery. */
     static final int MAX_ELEMENT_ATTRIBUTES = 128;
@@ -183,40 +184,8 @@ public class CdsXmlParser {
     }
 
     static XMLReader xmlReader(CdsInputLimitsDto limits) throws javax.xml.parsers.ParserConfigurationException, SAXException {
-        // Use the maintained JDK implementation with explicit external-resource controls.
-        // Audit: throw-only resolver returns no InputSource and performs no I/O; DTD/entity controls remain fail-closed.
-        SAXParserFactory factory = SAXParserFactory.newDefaultInstance();
-        factory.setNamespaceAware(true);
-        factory.setXIncludeAware(false);
-        factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-        factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        XMLReader reader = factory.newSAXParser().getXMLReader();
-        // Let CDS classify the first policy violation before the JDK's finite backstop.
-        reader.setProperty("jdk.xml.maxXMLNameLimit", String.valueOf(Math.min(Integer.MAX_VALUE,
-                1L + Math.max(limits.maxXmlNameCharacters(), limits.maxNamespaceUriCharacters()))));
-        reader.setProperty("jdk.xml.maxElementDepth", String.valueOf(Math.min(Integer.MAX_VALUE, 1L + limits.maxXmlDepth())));
-        // The JDK counts xmlns declarations as attributes (default ceiling 200); CDS
-        // separately bounds ordinary attributes and document-wide namespace aliases.
-        reader.setProperty("jdk.xml.elementAttributeLimit", String.valueOf(Math.min(Integer.MAX_VALUE,
-                1L + MAX_ELEMENT_ATTRIBUTES + limits.maxNamespaceAliases())));
-        // The JDK also counts every predefined reference (&amp;, &lt;, ...) in the document
-        // entity against these entity-size ceilings (default 100,000), so ordinary escaped
-        // clinical text would be refused part way through a large source. DOCTYPE is refused
-        // above, leaving only the five one-character predefined entities: no expansion is
-        // possible and maxSourceBytes already bounds the count. No finite int ceiling fits
-        // every permitted source size, so 0 (no limit) is the only lossless setting here.
-        reader.setProperty("jdk.xml.maxGeneralEntitySizeLimit", "0");
-        reader.setProperty("jdk.xml.totalEntitySizeLimit", "0");
-        reader.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-        reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-        reader.setEntityResolver((publicId, systemId) -> { throw new SAXException("CDS_EXTERNAL_ENTITY_BLOCKED"); }); // nosemgrep: java.lang.security.audit.xml-custom-entityresolver.xml-custom-entityresolver
-        return reader;
+        return CdsXmlReaders.reader(limits.maxXmlNameCharacters(), limits.maxNamespaceUriCharacters(),
+                limits.maxXmlDepth(), MAX_ELEMENT_ATTRIBUTES, limits.maxNamespaceAliases());
     }
 
     private static final class Pipeline extends DefaultHandler {
@@ -604,9 +573,7 @@ public class CdsXmlParser {
 
     }
 
-    private enum Mode { COMPLEX, BOUNDED, TEXT, LENGTH_TEXT, BINARY, INTEGER, DECIMAL }
-
-    private static final class Frame {
+    private static final class Frame extends CdsScalarParser {
         private final String namespace;
         private final String local;
         private final String relative;
@@ -618,154 +585,22 @@ public class CdsXmlParser {
         private CdsSchemaModel.Type type;
         private JsonNode correction;
         private String completedDigest;
-        private final StringBuilder schemaDefault=new StringBuilder(4);
+        private final StringBuilder schemaDefault = new StringBuilder(4);
         private Mode mode = Mode.COMPLEX;
-        private String whitespace = "preserve";
         private long valueStart;
-        private long validatedCharacters;
-        private boolean started;
-        private boolean pendingSpace;
-        private int base64Count;
-        private final int[] quartet = new int[4];
-        private boolean padded;
-        private long binaryCount;
-        private byte[] binaryBuffer;
-        private int binaryBuffered;
-        private boolean numberSign;
-        private boolean numberNegative;
-        private boolean numberDigits;
-        private boolean numberNonzero;
-        private boolean numberDot;
-        private boolean numberTrailingWhitespace;
 
-        Frame(String namespace, String local, String relative) { this.namespace = namespace; this.local = local; this.relative = relative; }
-
-        void configure(CdsSchemaModel.Type info) {
-            type = info; whitespace = whitespace(info);
-            identity = CdsSchemaTypeCursor.identity(info);
-            if (info == null || !info.simple()) { mode = Mode.COMPLEX; return; }
-            mode = Mode.BOUNDED;
-            if (info.atomic() && !info.lengthFacet() && !info.otherFacet()) {
-                if (info.plainString()) mode = Mode.TEXT;
-                if (info.builtIn().equals("base64Binary")) { mode = Mode.BINARY; binaryBuffer = new byte[8192]; }
-                if (info.builtIn().equals("decimal")) mode = Mode.DECIMAL;
-            }
-            if (info.atomic() && info.plainString() && info.lengthFacet() && !info.otherFacet()) {
-                // Feed a BMP witness of the exact normalized Unicode-character length.
-                // Pattern/enumeration restrictions always receive their actual bounded value.
-                mode = Mode.LENGTH_TEXT;
-            }
-            if (XMLConstants.W3C_XML_SCHEMA_NS_URI.equals(info.getTypeNamespace())
-                    && Set.of("integer", "nonNegativeInteger", POSITIVE_INTEGER).contains(info.getTypeName())) {
-                mode = Mode.INTEGER;
-            }
+        Frame(String namespace, String local, String relative) {
+            super(CdsPaths::failure);
+            this.namespace = namespace; this.local = local; this.relative = relative;
         }
 
-        static String whitespace(CdsSchemaModel.Type info) {
-            return info == null || !info.simple() ? "preserve" : info.whitespace();
+        @Override public void configure(CdsSchemaModel.Type info) {
+            super.configure(info);
+            type = info; mode = mode(); identity = identity();
         }
 
-        void beginValue(ValueOutput output) { valueStart = output.count; output.fieldDigest = CdsPaths.sha256(); }
-
-        void validate(char[] chars, int offset, int length, ValidatorHandler validator, int maximum)
-                throws SAXException, IOException {
-            if (mode == Mode.TEXT) return;
-            if (mode == Mode.INTEGER || mode == Mode.DECIMAL) {
-                for (int i = 0; i < length; i++) number(chars[offset + i]);
-                return;
-            }
-            if (mode == Mode.COMPLEX) { validator.characters(chars, offset, length); return; }
-            char[] normalized = new char[length + 1];
-            int count = 0;
-            for (int i = 0; i < length; i++) {
-                char c = chars[offset + i];
-                boolean space = xmlSpace(c);
-                if (whitespace.equals("collapse") && space) { pendingSpace = started; continue; }
-                if (pendingSpace) { normalized[count++] = ' '; validatedCharacters++; pendingSpace = false; }
-                if (whitespace.equals("replace") && space) c = ' ';
-                normalized[count++] = c;
-                if (!Character.isLowSurrogate(c)) validatedCharacters++;
-                started = true;
-                if (validatedCharacters > maximum) throw CdsPaths.failure("CDS_XML_SCALAR_RESOURCE_LIMIT");
-            }
-            if (count > 0 && mode != Mode.LENGTH_TEXT) validator.characters(normalized, 0, count);
-        }
-
-        void number(char c) throws IOException {
-            if (xmlSpace(c)) { if (numberDigits || numberSign || numberDot) numberTrailingWhitespace = true; return; }
-            if (numberTrailingWhitespace) throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
-            if ((c == '+' || c == '-') && !numberSign && !numberDigits && !numberDot) {
-                numberSign = true; numberNegative = c == '-'; return;
-            }
-            if (c >= '0' && c <= '9') { numberDigits = true; numberNonzero |= c != '0'; return; }
-            if (mode == Mode.DECIMAL && c == '.' && !numberDot) { numberDot = true; return; }
-            throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
-        }
-
-        void base64(char[] chars, int offset, int length, OutputStream target, long maximum) throws IOException {
-            for (int i = 0; i < length; i++) {
-                char c = chars[offset + i];
-                if (xmlSpace(c)) continue;
-                if (padded) throw CdsPaths.failure("CDS_BASE64_TRAILING_DATA");
-                int value = c == '=' ? -2 : decode(c);
-                if (value == -1) throw CdsPaths.failure("CDS_BASE64_LEXICAL_INVALID");
-                quartet[base64Count++] = value;
-                if (base64Count == 4) {
-                    int a = quartet[0], b = quartet[1], third = quartet[2], fourth = quartet[3];
-                    if (a < 0 || b < 0 || (third == -2 && fourth != -2)) throw CdsPaths.failure("CDS_BASE64_PADDING_INVALID");
-                    binaryByte((a << 2) | (b >> 4), target); binaryCount++;
-                    if (third == -2) {
-                        if ((b & 15) != 0) throw CdsPaths.failure("CDS_BASE64_PAD_BITS_INVALID");
-                        padded = true;
-                    } else {
-                        binaryByte((b << 4) | (third >> 2), target); binaryCount++;
-                        if (fourth == -2) {
-                            if ((third & 3) != 0) throw CdsPaths.failure("CDS_BASE64_PAD_BITS_INVALID");
-                            padded = true;
-                        } else { binaryByte((third << 6) | fourth, target); binaryCount++; }
-                    }
-                    if (binaryCount > maximum) throw CdsPaths.failure("CDS_BINARY_BYTE_LIMIT");
-                    base64Count = 0;
-                }
-            }
-            if (binaryBuffered > 0) { target.write(binaryBuffer, 0, binaryBuffered); binaryBuffered = 0; }
-        }
-
-        private void binaryByte(int value, OutputStream target) throws IOException {
-            binaryBuffer[binaryBuffered++] = (byte) value;
-            if (binaryBuffered == binaryBuffer.length) {
-                target.write(binaryBuffer, 0, binaryBuffered); binaryBuffered = 0;
-            }
-        }
-
-        void finishScalar(ValidatorHandler validator) throws SAXException, IOException {
-            if (mode == Mode.BINARY && base64Count != 0) throw CdsPaths.failure("CDS_BASE64_TRUNCATED");
-            if (mode == Mode.LENGTH_TEXT) {
-                char[] lengthWitness = new char[Math.toIntExact(validatedCharacters)];
-                java.util.Arrays.fill(lengthWitness, 'x');
-                if (lengthWitness.length > 0) validator.characters(lengthWitness, 0, lengthWitness.length);
-            }
-            if (mode == Mode.INTEGER || mode == Mode.DECIMAL) {
-                if (!numberDigits) throw CdsPaths.failure(NUMERIC_LEXICAL_INVALID);
-                if (mode == Mode.INTEGER && type != null) {
-                    if (type.getTypeName().equals(POSITIVE_INTEGER) && (numberNegative || !numberNonzero)) {
-                        throw CdsPaths.failure("CDS_XML_NUMERIC_RANGE_INVALID");
-                    }
-                    if (type.getTypeName().equals("nonNegativeInteger") && numberNegative && numberNonzero) {
-                        throw CdsPaths.failure("CDS_XML_NUMERIC_RANGE_INVALID");
-                    }
-                }
-                char[] value = (mode == Mode.INTEGER && type.getTypeName().equals(POSITIVE_INTEGER) ? "1" : "0").toCharArray();
-                validator.characters(value, 0, value.length);
-            }
-        }
-
-        private static boolean xmlSpace(char c) { return c == ' ' || c == '\t' || c == '\n' || c == '\r'; }
-        private static int decode(char c) {
-            if (c >= 'A' && c <= 'Z') return c - 'A';
-            if (c >= 'a' && c <= 'z') return c - 'a' + 26;
-            if (c >= '0' && c <= '9') return c - '0' + 52;
-            return c == '+' ? 62 : c == '/' ? 63 : -1;
+        void beginValue(ValueOutput output) {
+            valueStart = output.count; output.fieldDigest = CdsPaths.sha256();
         }
     }
 

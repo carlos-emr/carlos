@@ -1,0 +1,160 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.web;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import io.github.carlos_emr.carlos.commn.model.Security;
+import io.github.carlos_emr.carlos.demographic.cdsexport.assembler.CdsExportViewModelAssembler;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportState;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.time.Instant;
+import java.util.Set;
+import java.util.UUID;
+import org.apache.struts2.ActionContext;
+import org.apache.struts2.ActionSupport;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
+
+class CdsExportWebActionsUnitTest {
+    private MockHttpServletRequest request;
+    private MockHttpServletResponse response;
+    private CdsExportService exports;
+    private CdsExportAccessService access;
+    private CdsExportWebService web;
+    private SecurityInfoManager security;
+    private LoggedInInfo viewer;
+    @BeforeEach void prepare() {
+        request = new MockHttpServletRequest(); response = new MockHttpServletResponse(); request.setMethod("GET");
+        request.addParameter("apiVersion", "1"); viewer = mock(LoggedInInfo.class);
+        var account = new Security(); account.setSecurityNo(7);
+        when(viewer.getLoggedInSecurity()).thenReturn(account); when(viewer.getLoggedInProviderNo()).thenReturn("999998");
+        request.getSession().setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", viewer);
+        exports = mock(CdsExportService.class); access = mock(CdsExportAccessService.class); web = new CdsExportWebService(access);
+        security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), anyString(), anyString(), nullable(String.class))).thenReturn(true);
+        ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
+    }
+    @AfterEach void clear() { ActionContext.clear(); }
+    @ParameterizedTest @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    void shouldRejectNonPostSubmissionAndControl_beforeAnyService(String method) throws Exception {
+        request.setMethod(method); var parser = mock(CdsExportWebCommandParser.class);
+        assertThat(new SubmitCdsExport2Action(web, parser, exports, security).execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405);
+        response = new MockHttpServletResponse(); ActionContext.getContext().withServletResponse(response);
+        assertThat(new CdsExportControl2Action(web, exports, security).execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(405); verifyNoInteractions(exports, access, parser, security);
+    }
+    @Test void shouldReturnDurableAcceptance_withoutClaimingCompletion() throws Exception {
+        request.setMethod("POST"); var job = job(); var action = submission();
+        when(exports.submit(any(), any())).thenReturn(job);
+        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(202);
+        assertThat(response.getHeader(CdsExportWebService.API_HEADER)).isEqualTo("1");
+        assertThat(response.getContentAsString()).contains("\"waiting\":true", "\"complete\":false", "\"totalPatients\":null", job.id());
+        verify(access).operatorSession(viewer);
+    }
+    @Test void shouldRefuseDuplicatedParameters_andNeverAcceptASmallerSelection() throws Exception {
+        request.setMethod("POST"); request.addParameter("patientNos", "27", "28"); var action = submission();
+        action.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(exports);
+    }
+    @Test void shouldRefuseUnknownParameters_beforeSubmitting() throws Exception {
+        request.setMethod("POST"); request.addParameter("patientLimit", "1"); var action = submission();
+        action.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(exports);
+    }
+    @Test void shouldRequireExplicitApiVersion_beforeSubmitting() throws Exception {
+        request.setMethod("POST"); request.removeParameter("apiVersion"); submission().execute();
+        assertThat(response.getStatus()).isEqualTo(409); verifyNoInteractions(exports);
+    }
+    @Test void shouldRefuseRevokedScope_withoutExposingIntentOrExceptionDetails() throws Exception {
+        request.setMethod("POST"); when(exports.submit(any(), any())).thenThrow(new SecurityException("Patient 27 at /private/clinical-store"));
+        submission().execute(); assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString()).contains("CDS_EXPORT_ACCESS_DENIED").doesNotContain("Patient 27", "clinical-store");
+    }
+    @Test void shouldRequireARevision_beforeAnyDurableControl() throws Exception {
+        request.setMethod("POST"); var action = new CdsExportControl2Action(web, exports, security);
+        action.setRunId(job().id()); action.setOperation("cancel"); action.execute();
+        assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(exports);
+    }
+    @Test void shouldPassTheObservedRevision_andReportAConflictWithoutSuccess() throws Exception {
+        request.setMethod("POST"); var action = new CdsExportControl2Action(web, exports, security); var job = job();
+        action.setRunId(job.id()); action.setOperation("cancel"); action.setExpectedRevision(3);
+        when(exports.cancel(viewer, job.id(), 3)).thenThrow(new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportStaleControlException());
+        action.execute(); verify(exports).cancel(viewer, job.id(), 3);
+        assertThat(response.getStatus()).isEqualTo(409); assertThat(response.getContentAsString()).contains("CDS_EXPORT_STATUS_CHANGED", "\"ok\":false");
+    }
+    @Test void shouldRecoverSubmissionByKey_withoutRecreatingTheIntent() throws Exception {
+        var action = new CdsExportStatus2Action(web, exports, security); action.setSubmissionKey("saved-key");
+        when(exports.submission(viewer, "saved-key")).thenReturn(job()); action.execute();
+        verify(exports).submission(viewer, "saved-key"); assertThat(response.getStatus()).isEqualTo(200);
+    }
+    @Test void shouldKeepObservationParametersUnambiguous() throws Exception {
+        var action = new CdsExportStatus2Action(web, exports, security); action.setSubmissionKey("saved-key"); action.setRunId(job().id());
+        action.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(exports);
+    }
+    @Test void shouldRenderExactlyOneAssembledPageModel_withoutClinicalReads() throws Exception {
+        var assembler = mock(CdsExportViewModelAssembler.class);
+        var model = new io.github.carlos_emr.carlos.demographic.cdsexport.viewmodel.CdsExportViewModel(false, false, "web-7", "999998", "", java.util.List.of(), java.util.List.of());
+        when(assembler.assemble(viewer)).thenReturn(model);
+        assertThat(new ViewCdsExport2Action(web, assembler, security).execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("model")).isSameAs(model); assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        verifyNoInteractions(exports);
+    }
+    @ParameterizedTest @ValueSource(strings = {"27,27", "27,", ",27", "027", "27.0", "-1", "2147483648"})
+    void shouldRefuseInvalidSelectedPatientLists_withoutCoercingOrDroppingRows(String selected) {
+        assertThatThrownBy(() -> new CdsExportWebCommandParser().parse("submission", "999998", "", "omd-5.2", "SELECTED_PATIENTS",
+                "", selected, "Demographics", "recipient", "audit")).isInstanceOf(IllegalArgumentException.class);
+    }
+    @Test void shouldRetainEverySelectedCategory_andRefuseDuplicates() {
+        var parser = new CdsExportWebCommandParser();
+        var command = parser.parse("submission", "999998", "", "omd-5.2", "SELECTED_PATIENTS", "", "28,27", "Demographics,ClinicalNotes", "recipient", "audit");
+        assertThat(command.patientNos()).containsExactly(27, 28); assertThat(command.categories()).hasSize(2);
+        assertThatThrownBy(() -> parser.parse("submission", "999998", "", "omd-5.2", "SELECTED_PATIENTS", "", "27", "Demographics,Demographics", "recipient", "audit"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+    private SubmitCdsExport2Action submission() {
+        var action = new SubmitCdsExport2Action(web, new CdsExportWebCommandParser(), exports, security);
+        action.setSubmissionKey("submission"); action.setProviderNo("999998"); action.setProfile("omd-5.2");
+        action.setSelection("SELECTED_PATIENTS"); action.setPatientNos("27"); action.setCategories("Demographics");
+        action.setRecipientId("recipient"); action.setAuditPlanId("audit"); return action;
+    }
+    private CdsExportJobDto job() {
+        return new CdsExportJobDto(UUID.randomUUID().toString(), CdsExportState.ACCEPTED, 0, null, 0, 0, false, false,
+                0, null, Instant.parse("2026-11-01T00:00:00Z"), Instant.parse("2026-11-01T00:00:00Z"), false);
+    }
+}

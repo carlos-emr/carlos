@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+package io.github.carlos_emr.carlos.demographic.cds.contract;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -33,16 +33,16 @@ import org.xml.sax.helpers.NamespaceSupport;
  * Bounded cursor over metadata from the pinned schemas. The JDK validator remains
  * responsible for structural, value and derivation constraints, including invalid input.
  */
-final class CdsSchemaTypeCursor {
+public final class CdsSchemaTypeCursor {
     private final CdsSchemaModel model;
     private final NamespaceSupport namespaces = new NamespaceSupport();
     private final Map<String, String> pendingPrefixes = new HashMap<>();
     private final Deque<Frame> stack = new ArrayDeque<>();
 
-    CdsSchemaTypeCursor(CdsSchemaModel model) { this.model = model; }
-    void prefix(String prefix, String uri) { pendingPrefixes.put(prefix, uri); }
+    public CdsSchemaTypeCursor(CdsSchemaModel model) { this.model = model; }
+    public void prefix(String prefix, String uri) { pendingPrefixes.put(prefix, uri); }
 
-    void start(String namespace, String local, Attributes attributes) {
+    public void start(String namespace, String local, Attributes attributes) {
         namespaces.pushContext();
         pendingPrefixes.forEach(namespaces::declarePrefix);
         pendingPrefixes.clear();
@@ -68,13 +68,13 @@ final class CdsSchemaTypeCursor {
         stack.push(new Frame(type));
     }
 
-    CdsSchemaModel.Type elementType() { return stack.peek().type(); }
-    CdsSchemaModel.Type attributeType(String namespace, String local) {
+    public CdsSchemaModel.Type elementType() { return stack.peek().type(); }
+    public CdsSchemaModel.Type attributeType(String namespace, String local) {
         CdsSchemaModel.Type type = stack.peek().type();
         CdsSchemaModel.Type attribute = type == null ? null : type.attribute(namespace, local);
         return attribute == null ? model.attribute(namespace, local) : attribute;
     }
-    void end() { stack.pop(); namespaces.popContext(); }
-    static boolean identity(CdsSchemaModel.Type type) { return type != null && type.identity(); }
+    public void end() { stack.pop(); namespaces.popContext(); }
+    public static boolean identity(CdsSchemaModel.Type type) { return type != null && type.identity(); }
     private record Frame(CdsSchemaModel.Type type) { }
 }

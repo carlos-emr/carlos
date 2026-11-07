@@ -37,7 +37,11 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicCust;
 
-public interface DemographicCustDao extends AbstractDao<DemographicCust> {
+public interface DemographicCustDao extends AbstractDao<DemographicCust>, CdsExportPatientTableReadDao {
+
+    /** Demographics-only payload projection; cust3 alerts are not selected or returned. */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportDemographicRowsAfter(int patient, Long afterId, int limit);
+
 
     public List<DemographicCust> findMultipleMidwife(Collection<Integer> demographicNos, String oldMidwife);
 

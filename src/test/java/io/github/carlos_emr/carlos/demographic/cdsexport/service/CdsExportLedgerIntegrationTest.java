@@ -1,0 +1,448 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportEventDao;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportRunDao;
+import io.github.carlos_emr.carlos.commn.model.AbstractModel;
+import io.github.carlos_emr.carlos.commn.model.CdsExportRun;
+import io.github.carlos_emr.carlos.commn.model.CdsExportEvent;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
+import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportActorDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDocumentDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportState;
+import jakarta.persistence.EntityManagerFactory;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.UUID;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.Executors;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes;
+import org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/** Real commits, row locks and audit rollback; optional explicit properties run the same cases on fresh MariaDB DDL. */
+@Tag("integration")
+@Tag("cds-export")
+class CdsExportLedgerIntegrationTest {
+    private static final String COMPATIBLE = "a".repeat(64);
+    @Configuration @EnableTransactionManagement(proxyTargetClass = true) static class Config { }
+    static class Audit extends CdsExportEventDao {
+        private boolean fail;
+        public void failNext() { fail = true; }
+        @Override public void persist(AbstractModel<?> model) {
+            if (fail) { fail = false; throw new IllegalStateException("SYNTHETIC_AUDIT_FAILED"); }
+            super.persist(model);
+        }
+    }
+    static class CommitFault implements PlatformTransactionManager {
+        private final PlatformTransactionManager delegate;
+        boolean loseAcknowledgement;
+        CommitFault(PlatformTransactionManager delegate) { this.delegate = delegate; }
+        @Override public TransactionStatus getTransaction(TransactionDefinition definition) { return delegate.getTransaction(definition); }
+        @Override public void commit(TransactionStatus status) {
+            boolean own = status.isNewTransaction(); delegate.commit(status);
+            if (own && loseAcknowledgement) {
+                loseAcknowledgement = false;
+                throw new org.springframework.transaction.TransactionSystemException("SYNTHETIC_LOST_ACKNOWLEDGEMENT");
+            }
+        }
+        @Override public void rollback(TransactionStatus status) { delegate.rollback(status); }
+    }
+    private AnnotationConfigApplicationContext context;
+    private CdsExportLedgerService ledger;
+    private Audit audit;
+    private CommitFault commits;
+    private JdbcTemplate sql;
+    private String operator;
+
+    @BeforeEach void initializeOwnedDatabase() throws Exception {
+        Properties properties = new Properties();
+        String selected = System.getProperty("cds.export.test.properties");
+        boolean nativeDatabase = selected != null && !selected.isBlank();
+        if (nativeDatabase) {
+            try (InputStream input = Files.newInputStream(Path.of(selected))) { properties.load(input); }
+            if (!properties.getProperty("jdbcUrl", "").matches("jdbc:mysql://[^/]+/cds_export_test(?:\\?.*)?")
+                    || !"true".equals(properties.getProperty("ownedDisposableDatabase"))) {
+                throw new IllegalArgumentException("A fresh disposable cds_export_test database is required");
+            }
+        }
+        String url = nativeDatabase ? properties.getProperty("jdbcUrl")
+                : "jdbc:h2:mem:cds_export_" + UUID.randomUUID() + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1";
+        DataSource source = new DriverManagerDataSource(url, nativeDatabase ? properties.getProperty("jdbcUser") : "sa",
+                nativeDatabase ? properties.getProperty("jdbcPassword") : "");
+        sql = new JdbcTemplate(source);
+        if (nativeDatabase) {
+            assertThat(sql.queryForObject("SELECT VERSION()", String.class)).contains("MariaDB");
+            assertThat(sql.queryForObject("SELECT COUNT(*) FROM secObjectName WHERE objectName='_cds_export'", Long.class)).isEqualTo(1);
+            assertThat(sql.queryForObject("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='cds_export_run' AND ENGINE='InnoDB'", Long.class)).isEqualTo(1);
+        }
+        operator = "fixture-" + UUID.randomUUID();
+        context = new AnnotationConfigApplicationContext(); context.register(Config.class);
+        context.registerBean("dataSource", DataSource.class, () -> source);
+        context.registerBean("entityManagerFactory", LocalContainerEntityManagerFactoryBean.class, () -> {
+            var factory = new LocalContainerEntityManagerFactoryBean(); factory.setPersistenceUnitName("entityManagerFactory");
+            factory.setDataSource(source); factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+            factory.setManagedTypes(PersistenceManagedTypes.of(CdsExportRun.class.getName(), CdsExportEvent.class.getName()));
+            factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", nativeDatabase ? "validate" : "create-drop",
+                    "hibernate.dialect", nativeDatabase ? "org.hibernate.dialect.MariaDBDialect" : "org.hibernate.dialect.H2Dialect",
+                    "hibernate.jdbc.time_zone", "UTC", "hibernate.show_sql", "false")); return factory;
+        });
+        context.registerBean("transactionManager", PlatformTransactionManager.class,
+                () -> new CommitFault(new JpaTransactionManager(context.getBean(EntityManagerFactory.class))));
+        context.registerBean(PersistenceAnnotationBeanPostProcessor.class);
+        context.register(CdsExportRunDao.class, CdsExportLedgerService.class);
+        context.registerBean(CdsExportEventDao.class, Audit::new);
+        context.refresh(); ledger = context.getBean(CdsExportLedgerService.class);
+        audit = (Audit) context.getBean(CdsExportEventDao.class); commits = (CommitFault) context.getBean(PlatformTransactionManager.class);
+    }
+    @AfterEach void closeOwnedResources() {
+        try {
+            if (context != null && context.isActive() && sql != null && operator != null) {
+                sql.update("delete from cds_export_event where run_id in (select id from cds_export_run where operator=?)", operatorKey());
+                sql.update("delete from cds_export_run where operator=?", operatorKey());
+            }
+        } finally { if (context != null) context.close(); }
+    }
+
+    @Test void shouldRecoverTheSameRunAndUnknownTotals_forAnIdenticalSubmission() {
+        var document = document("recipient"); var first = ledger.accept(document); var second = ledger.accept(document);
+        assertThat(second.id()).isEqualTo(first.id());
+        assertThat(second.totalPatients()).isNull(); assertThat(second.artifactAvailable()).isFalse();
+        assertThat(second.state()).isEqualTo(CdsExportState.ACCEPTED);
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=?", Long.class, first.id())).isEqualTo(1);
+    }
+    @Test void shouldRefuseChangedIntent_insteadOfReusingAnotherSubmission() {
+        ledger.accept(document("recipient"));
+        assertThatThrownBy(() -> ledger.accept(document("another"))).hasMessage("CDS_EXPORT_SUBMISSION_CONFLICT");
+        assertThat(sql.queryForObject("select count(*) from cds_export_run where operator=?", Long.class, operatorKey())).isEqualTo(1);
+    }
+    @Test void shouldRetainVersionTwoStorageBindings_andRefuseInconsistentProtocolDocuments() {
+        var original = document("recipient");
+        var binding = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStorageBindingDto("primary", "active", "e".repeat(64));
+        var current = new CdsExportJobDocumentDto(2, original.actor(), original.command(), original.compatibilityDigest(),
+                original.senderNamespace(), original.recipientFingerprint(), original.auditPlanDigest(), binding);
+        var accepted = ledger.accept(current);
+        assertThat(ledger.document(accepted.id())).isEqualTo(current);
+        assertThat(ledger.claim(accepted.id(), COMPATIBLE).document().storage()).isEqualTo(binding);
+        assertThatThrownBy(() -> ledger.accept(new CdsExportJobDocumentDto(1, original.actor(), original.command(), original.compatibilityDigest(),
+                original.senderNamespace(), original.recipientFingerprint(), original.auditPlanDigest(), binding)))
+                .hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        assertThatThrownBy(() -> ledger.accept(new CdsExportJobDocumentDto(2, original.actor(), original.command(), original.compatibilityDigest(),
+                original.senderNamespace(), original.recipientFingerprint(), original.auditPlanDigest())))
+                .hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        assertThat(sql.queryForObject("select count(*) from cds_export_run where operator=?", Long.class, operatorKey())).isEqualTo(1);
+    }
+    @Test void shouldRejectAStaleBrowserControl_withoutChangingTheNewerAttempt() {
+        var job = ledger.accept(document("recipient"));
+        ledger.cancel(job.id(), operatorKey(), job.revision());
+        var cancelled = ledger.status(job.id());
+        ledger.resume(job.id(), operatorKey(), COMPATIBLE, cancelled.revision());
+        var resumed = ledger.status(job.id());
+        assertThatThrownBy(() -> ledger.cancel(job.id(), operatorKey(), job.revision()))
+                .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportStaleControlException.class);
+        assertThatThrownBy(() -> ledger.resume(job.id(), operatorKey(), COMPATIBLE, cancelled.revision()))
+                .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportStaleControlException.class);
+        assertThat(ledger.status(job.id())).isEqualTo(resumed);
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=?", Long.class, job.id())).isEqualTo(4);
+    }
+    @Test void shouldRefreshAnOpenViewEntity_beforeCheckingTheLockedControlRevision() throws Exception {
+        var job = ledger.accept(document("recipient"));
+        var factory = context.getBean(EntityManagerFactory.class); var view = factory.createEntityManager();
+        org.springframework.transaction.support.TransactionSynchronizationManager.bindResource(factory,
+                new org.springframework.orm.jpa.EntityManagerHolder(view));
+        try (var external = Executors.newSingleThreadExecutor()) {
+            var cached = view.find(CdsExportRun.class, job.id());
+            assertThat(cached.getRevision()).isEqualTo(job.revision());
+            external.submit(() -> ledger.cancel(job.id(), operatorKey())).get(5, java.util.concurrent.TimeUnit.SECONDS);
+            assertThat(cached.getRevision()).isEqualTo(job.revision());
+            assertThatThrownBy(() -> ledger.resume(job.id(), operatorKey(), COMPATIBLE, job.revision()))
+                    .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportStaleControlException.class);
+            assertThat(sql.queryForObject("select state from cds_export_run where id=?", String.class, job.id())).isEqualTo("CANCELLED");
+        } finally {
+            org.springframework.transaction.support.TransactionSynchronizationManager.unbindResource(factory); view.close();
+        }
+    }
+    @Test void shouldFenceExpiredWorkers_whenASecondNodeClaimsTheJob() {
+        var job = ledger.accept(document("recipient")); var first = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(ledger.claim(job.id(), COMPATIBLE)).isNull();
+        sql.update("update cds_export_run set lease_until=? where id=?", Timestamp.from(Instant.parse("2000-01-01T00:00:00Z")), job.id());
+        var second = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(second.epoch()).isEqualTo(first.epoch() + 1); assertThat(second.token()).isNotEqualTo(first.token());
+        assertThatThrownBy(() -> ledger.checkpoint(first)).hasMessage("CDS_EXPORT_OWNER_FENCED");
+        assertThatThrownBy(() -> ledger.stop(first, CdsExportState.FAILED, "CDS_EXPORT_FAILURE")).hasMessage("CDS_EXPORT_OWNER_FENCED");
+        ledger.checkpoint(second);
+    }
+    @Test void shouldPersistCancellation_andRequireExplicitResumeBeforeAnotherAttempt() {
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.cancel(job.id(), operatorKey());
+        assertThatThrownBy(() -> ledger.checkpoint(lease)).hasMessage("CDS_EXPORT_CANCELLED");
+        ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_FAILURE");
+        assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.CANCELLED);
+        assertThat(ledger.pending(100)).doesNotContain(job.id());
+        ledger.resume(job.id(), operatorKey(), COMPATIBLE);
+        var resumed = ledger.claim(job.id(), COMPATIBLE); assertThat(resumed.epoch()).isEqualTo(2);
+        assertThat(ledger.status(job.id()).cancelRequested()).isFalse();
+    }
+    @Test void shouldRollbackTheRun_whenStrictAuditInsertionFails() {
+        audit.failNext();
+        assertThatThrownBy(() -> ledger.accept(document("recipient"))).hasMessage("SYNTHETIC_AUDIT_FAILED");
+        assertThat(sql.queryForObject("select count(*) from cds_export_run where operator=?", Long.class, operatorKey())).isZero();
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE); audit.failNext();
+        assertThatThrownBy(() -> ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_FAILURE")).hasMessage("SYNTHETIC_AUDIT_FAILED");
+        assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.DISCOVERING);
+    }
+    @Test void shouldRecoverDurableAcceptance_afterARealCommitLosesItsAcknowledgement() {
+        commits.loseAcknowledgement = true;
+        assertThatThrownBy(() -> ledger.accept(document("recipient"))).hasMessage("SYNTHETIC_LOST_ACKNOWLEDGEMENT");
+        var recovered = ledger.submission(operatorKey(), "fixture");
+        assertThat(ledger.accept(document("recipient")).id()).isEqualTo(recovered.id());
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=?", Long.class, recovered.id())).isEqualTo(1);
+    }
+    @Test void shouldRefuseUnvalidatedReadyTransitions_andIncompatibleRuntimeRecovery() {
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE);
+        assertThatThrownBy(() -> ledger.phase(lease, CdsExportState.READY)).hasMessage("CDS_EXPORT_PHASE_INVALID");
+        assertThatThrownBy(() -> ledger.phase(lease, CdsExportState.CAPTURING)).hasMessage("CDS_EXPORT_SELECTION_NOT_SEALED");
+        assertThatThrownBy(() -> ledger.phase(lease, CdsExportState.SERIALIZING)).hasMessage("CDS_EXPORT_PHASE_INVALID");
+        ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_FAILURE");
+        assertThatThrownBy(() -> ledger.resume(job.id(), operatorKey(), "b".repeat(64))).hasMessage("CDS_EXPORT_RUNTIME_CHANGED");
+    }
+    @Test void shouldAdmitOneOwner_underConcurrentPhysicalTransactions() throws Exception {
+        var job = ledger.accept(document("recipient")); var barrier = new CyclicBarrier(2);
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            var first = workers.submit(() -> { barrier.await(); return ledger.claim(job.id(), COMPATIBLE); });
+            var second = workers.submit(() -> { barrier.await(); return ledger.claim(job.id(), COMPATIBLE); });
+            assertThat(java.util.stream.Stream.of(first.get(), second.get()).filter(java.util.Objects::nonNull).count()).isEqualTo(1);
+        }
+    }
+    @Test void shouldRejectCorruptedJobBindings_withoutStartingAnAttempt() {
+        var job = ledger.accept(document("recipient"));
+        sql.update("update cds_export_run set request_digest=? where id=?", "b".repeat(64), job.id());
+        assertThatThrownBy(() -> ledger.claim(job.id(), COMPATIBLE)).hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        assertThat(ledger.status(job.id()).workerOwned()).isFalse();
+    }
+    @Test void shouldPreserveAVerifiedUnixMachineAccount_acrossAcceptanceObservationAndControl() {
+        operator = "cds-fixture$"; var job = ledger.accept(document("recipient"));
+        assertThat(ledger.submission(operatorKey(), "fixture").id()).isEqualTo(job.id());
+        assertThat(ledger.history(operatorKey(), "", 10)).extracting(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDto::id).contains(job.id());
+        ledger.cancel(job.id(), operatorKey()); assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.CANCELLED);
+    }
+    @Test void shouldPreserveTheRecordedFailure_whenCancellationArrivesAfterTheAttemptStopped() {
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_FAILURE");
+        assertThatThrownBy(() -> ledger.cancel(job.id(), operatorKey())).hasMessage("CDS_EXPORT_CANCEL_INVALID");
+        assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.FAILED);
+        assertThat(ledger.status(job.id()).safeCode()).isEqualTo("CDS_EXPORT_FAILURE");
+    }
+    @Test void shouldKeepIdenticallyNamedUnixAndWebOperators_inDistinctSubmissionNamespaces() {
+        operator = "web-7"; var unixDocument = document("recipient"); var unix = ledger.accept(unixDocument);
+        var webDocument = new CdsExportJobDocumentDto(1, new CdsExportActorDto("web-7", "999998", 7, null),
+                unixDocument.command(), COMPATIBLE, unixDocument.senderNamespace(), unixDocument.recipientFingerprint(), unixDocument.auditPlanDigest());
+        var web = ledger.accept(webDocument);
+        try {
+            assertThat(web.id()).isNotEqualTo(unix.id());
+            assertThat(ledger.submission("web:7", "fixture").id()).isEqualTo(web.id());
+            assertThat(ledger.submission("unix:web-7", "fixture").id()).isEqualTo(unix.id());
+            assertThat(ledger.history("unix:web-7", "", 10)).extracting(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDto::id)
+                    .containsExactly(unix.id());
+        } finally {
+            sql.update("delete from cds_export_event where run_id=?", web.id()); sql.update("delete from cds_export_run where id=?", web.id());
+        }
+    }
+    @Test void shouldReleaseAnInterruptedAttempt_withoutCancellingIntentOrRetainingStaleProgress() {
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE);
+        sql.update("update cds_export_run set expected_patients=2,processed_patients=1,cohort_digest=?,selected_at=CURRENT_TIMESTAMP where id=?",
+                "a".repeat(64), job.id());
+        ledger.release(lease); var waiting = ledger.status(job.id());
+        assertThat(waiting.state()).isEqualTo(CdsExportState.ACCEPTED); assertThat(waiting.cancelRequested()).isFalse();
+        assertThat(waiting.totalPatients()).isNull(); assertThat(waiting.processedPatients()).isZero();
+        assertThatThrownBy(() -> ledger.checkpoint(lease)).hasMessage("CDS_EXPORT_OWNER_FENCED");
+        assertThat(ledger.claim(job.id(), COMPATIBLE).epoch()).isEqualTo(lease.epoch() + 1);
+    }
+    @Test void shouldHonorDurableCancellation_whenAnInterruptedWorkerRelinquishesOwnership() {
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.cancel(job.id(), operatorKey()); ledger.release(lease);
+        assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.CANCELLED);
+    }
+    @Test void shouldRejectAMismatchedAcceptedActorScope_beforeRecordingAnyJob() {
+        var valid = document("recipient");
+        var changed = new CdsExportJobDocumentDto(1, new CdsExportActorDto(operator, "100", null, null), valid.command(),
+                valid.compatibilityDigest(), valid.senderNamespace(), valid.recipientFingerprint(), valid.auditPlanDigest());
+        assertThatThrownBy(() -> ledger.accept(changed)).hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        assertThat(ledger.history(operatorKey(), "", 10)).isEmpty();
+    }
+    @Test void shouldRequireADurableCancelRequest_beforeAnEngineCanMarkIntentCancelled() {
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE);
+        assertThatThrownBy(() -> ledger.stop(lease, CdsExportState.CANCELLED, "CDS_EXPORT_CANCELLED"))
+                .hasMessage("CDS_EXPORT_DURABLE_CANCEL_REQUIRED");
+        assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.DISCOVERING);
+    }
+    @Test void shouldRetainMetadataOwnershipAndCancellation_whenClinicalIntentCannotBeDeserialized() {
+        var job = ledger.accept(document("recipient"));
+        sql.update("update cds_export_run set request_document=? where id=?", "not-valid-intent", job.id());
+        var owner = ledger.owner(job.id()); assertThat(owner.operatorKey()).isEqualTo(operatorKey());
+        assertThat(owner.providerNo()).isEqualTo("999998"); assertThat(owner.facilityHint()).isNull();
+        assertThatThrownBy(() -> ledger.document(job.id())).hasMessage("CDS_EXPORT_JOB_DOCUMENT_INVALID");
+        ledger.cancel(job.id(), operatorKey()); assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.CANCELLED);
+    }
+    @Test void shouldRejectAmbientTransactions_beforePerformingMetadataWork() {
+        var transaction = new TransactionTemplate(commits);
+        assertThatThrownBy(() -> transaction.execute(status -> ledger.accept(document("recipient"))))
+                .hasMessage("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
+    }
+    @Test void shouldObserveDurableCancellation_fromInsideAStableSourceReadSnapshot() throws Exception {
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE);
+        var sourceRead = new TransactionTemplate(commits);
+        sourceRead.setReadOnly(true); sourceRead.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        try (var external = Executors.newSingleThreadExecutor()) {
+            sourceRead.execute(status -> {
+                assertThat(sql.queryForObject("select cancel_requested from cds_export_run where id=?", Boolean.class, job.id())).isFalse();
+                ledger.captureCheckpoint(lease);
+                try { external.submit(() -> ledger.cancel(job.id(), operatorKey())).get(5, java.util.concurrent.TimeUnit.SECONDS); }
+                catch (Exception failed) { throw new IllegalStateException(failed); }
+                assertThat(sql.queryForObject("select cancel_requested from cds_export_run where id=?", Boolean.class, job.id())).isFalse();
+                assertThatThrownBy(() -> ledger.captureCheckpoint(lease)).hasMessage("CDS_EXPORT_CANCELLED");
+                return null;
+            });
+        }
+        assertThat(ledger.status(job.id()).cancelRequested()).isTrue();
+    }
+    @Test void shouldRestrictTheCaptureProbe_toAnExplicitReadOnlyTransaction() {
+        var job = ledger.accept(document("recipient")); var lease = ledger.claim(job.id(), COMPATIBLE);
+        assertThatThrownBy(() -> ledger.captureCheckpoint(lease)).hasMessage("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
+        var ordinaryWrite = new TransactionTemplate(commits);
+        assertThatThrownBy(() -> ordinaryWrite.execute(status -> { ledger.captureCheckpoint(lease); return null; }))
+                .hasMessage("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
+    }
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path cohortRoot;
+    @Test void shouldDurablySealTheExactVerifiedCohort_andRecoverItsPointerWithoutClinicalPublication() throws Exception {
+        var lease = boundLease(); var fixture = preparedCohort(lease);
+        assertThatThrownBy(() -> ledger.cohort(lease)).hasMessage("CDS_EXPORT_SELECTION_NOT_SEALED");
+        ledger.sealSelection(lease, fixture.sealed()); var status = ledger.status(lease.runId());
+        assertThat(status.state()).isEqualTo(CdsExportState.CAPTURING); assertThat(status.totalPatients()).isEqualTo(1L);
+        assertThat(status.processedPatients()).isZero(); assertThat(status.artifactAvailable()).isFalse(); assertThat(status.complete()).isFalse();
+        assertThat(ledger.cohort(lease)).isEqualTo(fixture.sealed().member());
+        try (var cursor = fixture.service().open(lease, cohortControl(lease))) {
+            assertThat(cursor.next().patient()).isEqualTo(27); assertThat(cursor.next()).isNull(); assertThat(cursor.complete()).isTrue();
+        }
+        ledger.sealSelection(lease, fixture.sealed());
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=? and event_type='SELECTION_SEALED'", Long.class, lease.runId())).isEqualTo(1);
+    }
+    @Test void shouldRecoverTheSameCohort_afterACommittedSealLosesItsAcknowledgement() throws Exception {
+        var lease = boundLease(); var fixture = preparedCohort(lease); commits.loseAcknowledgement = true;
+        assertThatThrownBy(() -> ledger.sealSelection(lease, fixture.sealed())).hasMessage("SYNTHETIC_LOST_ACKNOWLEDGEMENT");
+        assertThat(ledger.status(lease.runId()).state()).isEqualTo(CdsExportState.CAPTURING);
+        ledger.sealSelection(lease, fixture.sealed());
+        assertThat(ledger.cohort(lease)).isEqualTo(fixture.sealed().member());
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=? and event_type='SELECTION_SEALED'", Long.class, lease.runId())).isEqualTo(1);
+    }
+    @Test void shouldRollbackASeal_whenItsAuditFails_andRefuseReplacingAnAlreadySealedSelection() throws Exception {
+        var lease = boundLease(); var fixture = preparedCohort(lease); audit.failNext();
+        assertThatThrownBy(() -> ledger.sealSelection(lease, fixture.sealed())).hasMessage("SYNTHETIC_AUDIT_FAILED");
+        assertThat(ledger.status(lease.runId()).state()).isEqualTo(CdsExportState.DISCOVERING);
+        assertThat(ledger.status(lease.runId()).totalPatients()).isNull();
+        ledger.sealSelection(lease, fixture.sealed());
+        var replacement = preparedCohort(lease);
+        assertThatThrownBy(() -> ledger.sealSelection(lease, replacement.sealed())).hasMessage("CDS_EXPORT_SELECTION_ALREADY_SEALED");
+        assertThat(ledger.cohort(lease)).isEqualTo(fixture.sealed().member());
+    }
+    @Test void shouldFenceASealedCohort_afterTakeoverAndResetItsDurableEvidence() throws Exception {
+        var first = boundLease(); var fixture = preparedCohort(first); ledger.sealSelection(first, fixture.sealed());
+        sql.update("update cds_export_run set lease_until=? where id=?", Timestamp.from(Instant.parse("2000-01-01T00:00:00Z")), first.runId());
+        var successor = ledger.claim(first.runId(), COMPATIBLE);
+        assertThatThrownBy(() -> ledger.sealSelection(first, fixture.sealed())).hasMessage("CDS_EXPORT_OWNER_FENCED");
+        assertThatThrownBy(() -> ledger.sealSelection(successor, fixture.sealed())).hasMessage("CDS_EXPORT_COHORT_SCOPE_MISMATCH");
+        assertThatThrownBy(() -> ledger.cohort(successor)).hasMessage("CDS_EXPORT_SELECTION_NOT_SEALED");
+        assertThat(ledger.status(first.runId()).totalPatients()).isNull();
+    }
+    private record CohortFixture(CdsExportCohortService service, CdsExportCohortService.Sealed sealed) { }
+    private io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto boundLease() {
+        var original = document("recipient");
+        var document = new CdsExportJobDocumentDto(2, original.actor(), original.command(), original.compatibilityDigest(),
+                original.senderNamespace(), original.recipientFingerprint(), original.auditPlanDigest(),
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStorageBindingDto("primary", "primary", "f".repeat(64)));
+        var job = ledger.accept(document); return ledger.claim(job.id(), COMPATIBLE);
+    }
+    private CdsExportRunControlForCohort cohortControl(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto lease) {
+        return new CdsExportRunControlForCohort(ledger, lease);
+    }
+    private static final class CdsExportRunControlForCohort implements io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl {
+        private final CdsExportLedgerService ledger; private final io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto lease;
+        CdsExportRunControlForCohort(CdsExportLedgerService ledger, io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto lease) {
+            this.ledger = ledger; this.lease = lease;
+        }
+        @Override public void checkpoint() { ledger.checkpoint(lease); }
+        @Override public void captureCheckpoint() { throw new AssertionError("Cohort I/O must remain outside source transactions"); }
+        @Override public void authorizePatient(int patient) { }
+        @Override public void authorizeCategory(int patient, CdsCategory category, boolean sensitive) { }
+    }
+    private CohortFixture preparedCohort(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto lease) throws Exception {
+        java.nio.file.Files.setPosixFilePermissions(cohortRoot, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
+        var store = new CdsExportStagingService(cohortRoot, lease.runId(), lease.epoch(), new javax.crypto.spec.SecretKeySpec(new byte[32], "AES"), 1L << 20, 0, () -> {});
+        var factory = new CdsExportStagingFactory(new Properties(), ledger) {
+            @Override public CdsExportStagingService openExisting(String run, long epoch,
+                    io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStorageBindingDto binding, Runnable checkpoint) {
+                assertThat(run).isEqualTo(lease.runId()); assertThat(epoch).isEqualTo(lease.epoch()); return store;
+            }
+        };
+        var service = new CdsExportCohortService(factory, ledger);
+        var inventory = store.stage("PATIENT_SELECTION", output -> output.write("{\"demographicNo\":27,\"physicianNo\":\"999998\"}\n".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        var now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+        var selection = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportSelectionDto(now, now, 1, inventory);
+        return new CohortFixture(service, service.prepare(lease, selection, cohortControl(lease)));
+    }
+    private String operatorKey() { return "unix:" + operator; }
+    private CdsExportJobDocumentDto document(String recipient) {
+        var command = new CdsExportCommand("fixture", "999998", null, CdsLogicalProfile.ONTARIO_MD_5_2,
+                CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), List.of(27),
+                EnumSet.allOf(CdsCategory.class), recipient, "retained-source");
+        return new CdsExportJobDocumentDto(1, new CdsExportActorDto(operator, "999998", null, null), command,
+                COMPATIBLE, "fixture-sender", "c".repeat(64), "d".repeat(64));
+    }
+}

@@ -91,3 +91,5 @@ bc/V1.0.59.29__preserve_oscar19_text_capacity.sql
 common/V1.0.59.30__one_live_consent_per_type.sql
 bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql
 common/V1.0.59.32__preserve_native_archive_capacity.sql
+common/V1.0.81__cds_export_ledger.sql
+common/V1.0.82__cds_native_field_baselines.sql

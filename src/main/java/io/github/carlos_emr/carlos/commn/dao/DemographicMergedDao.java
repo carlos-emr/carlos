@@ -35,7 +35,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 
-public interface DemographicMergedDao extends AbstractDao<DemographicMerged> {
+public interface DemographicMergedDao extends AbstractDao<DemographicMerged>, CdsExportPatientTableReadDao {
 
     public List<DemographicMerged> findCurrentByMergedTo(int demographicNo);
 

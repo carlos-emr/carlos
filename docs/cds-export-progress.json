@@ -1,0 +1,40 @@
+{
+  "status": "DRAFT_INCOMPLETE",
+  "clinicalExportQualified": false,
+  "qualifiedProfiles": [],
+  "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
+  "verifiedBaseline": {
+    "javaChecks": 2747,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "packagedWarSha256": "85fec8a489862069a16a44b77d0dade801d87d8419f25049a66d5bddacf3cec7",
+    "actualRichImportReconciliationChecks": 27,
+    "clinicalPublication": false
+  },
+  "implemented": [
+    "Shared pinned wire-schema and scalar contracts with importer facades",
+    "Fenced durable jobs, cohort capture, fresh permissions, CLI entry point and asynchronous browser metadata/control",
+    "Encrypted patient source and retained payload capture with verified native baselines",
+    "Demographic core, phone and patient-note reconciliation components",
+    "Personal contact, pharmacy, allergy, medication, appointment and immunization mapping/reconciliation components",
+    "XML, ZIP/ZIP64, encryption and package validation components"
+  ],
+  "remaining": [
+    "Complete demographic histories, care relationships and remaining native/source field closure",
+    "Verify course-copy preparation options using authenticated original import commands and copy plans",
+    "Complete source catalogue and all selected clinical domain mappings, attachments and merged-chart ownership",
+    "Connect a concrete clinical export engine and independent expected-fact inventory to coverage validation",
+    "Complete review, audit, recipient encryption, delivery, download authorization and retention lifecycle",
+    "Run end-to-end clinical exports through both CLI and asynchronous browser jobs",
+    "Integrate the modern importer prerequisite into develop and resolve forward-merge conflicts while retaining target version metadata"
+  ],
+  "integration": {
+    "coreBase": "b96e367945befe66eb333fe19aa1630aa9d10647",
+    "cliBase": "c330ae97683757da4aeff18f70db665c561de1cf",
+    "coreIntendedTarget": "develop",
+    "modernImporterAbsentFromDevelopAtInspection": true,
+    "readyToMerge": false
+  },
+  "evidenceLimits": "Component, transport, byte-level, metadata/control and synthetic-fixture checks do not establish a complete clinical migration or OntarioMD certification."
+}

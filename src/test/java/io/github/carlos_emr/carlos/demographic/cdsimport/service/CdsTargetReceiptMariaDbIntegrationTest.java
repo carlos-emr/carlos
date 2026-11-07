@@ -75,6 +75,39 @@ class CdsTargetReceiptMariaDbIntegrationTest {
         }
     }
 
+    @Test void shouldCaptureColumnWitnessesAlongsideTheOriginalReceipt_andIdentifyTheChangedField() throws Exception {
+        try (Connection connection = connection(); var statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            statement.execute("CREATE TEMPORARY TABLE demographic (demographic_no INT PRIMARY KEY, content MEDIUMTEXT CHARACTER SET utf8mb4, absent VARCHAR(10), bytes MEDIUMBLOB)");
+            try {
+                try (var insert = connection.prepareStatement("INSERT INTO demographic VALUES (1,?,NULL,X'0001FF')")) {
+                    insert.setString(1, "Private synthetic content café 😀"); insert.executeUpdate();
+                }
+                var entityManager = org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class);
+                var session = org.mockito.Mockito.mock(org.hibernate.Session.class);
+                org.mockito.Mockito.when(entityManager.unwrap(org.hibernate.Session.class)).thenReturn(session);
+                org.mockito.Mockito.when(session.doReturningWork(org.mockito.ArgumentMatchers.any()))
+                        .thenAnswer(call -> ((org.hibernate.jdbc.ReturningWork<?>) call.getArgument(0)).execute(connection));
+                var service = new CdsTargetReceiptService(); org.springframework.test.util.ReflectionTestUtils.setField(service, "entityManager", entityManager);
+                var original = service.capture(java.util.Map.of("demographic", "1"));
+                var baseline = io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.decode(
+                        original.nativeBaseline(), original.targetReferences(), original.targetDigest()).rows().getFirst();
+                assertThat(baseline.digest()).isEqualTo(CdsTargetReceiptService.rowDigest(connection, "demographic", "1"));
+                assertThat(original.nativeBaseline()).doesNotContain("Private synthetic content", "café");
+                assertThat(service.verify(original)).isTrue();
+                statement.executeUpdate("UPDATE demographic SET absent='' WHERE demographic_no=1");
+                var changed = service.capture(java.util.Map.of("demographic", "1"));
+                var current = io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.decode(
+                        changed.nativeBaseline(), changed.targetReferences(), changed.targetDigest()).rows().getFirst();
+                assertThat(io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowComparison.compare(baseline, current).changedColumns()).containsExactly("absent");
+                assertThat(service.verify(original)).isFalse(); assertThat(service.verify(changed)).isTrue();
+                assertThat(service.verify(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto(
+                        changed.targetReferences(), changed.targetDigest(), false, "{}"))).isFalse();
+            } finally { connection.rollback(); }
+            assertThat(CdsTargetReceiptService.rowDigest(connection, "demographic", "1")).isNull();
+        }
+    }
+
     @Test void shouldHashNativeNumbersDatesUnicodeAndBinary_withoutDriverCharacterCoercion() throws Exception {
         try (Connection connection = connection(); var statement = connection.createStatement()) {
             statement.execute("CREATE TEMPORARY TABLE demographic (demographic_no INT PRIMARY KEY, n INT, amount DECIMAL(10,3), event_time DATETIME(6), content MEDIUMTEXT CHARACTER SET utf8mb4, bytes MEDIUMBLOB, absent VARCHAR(10))");
@@ -83,6 +116,7 @@ class CdsTargetReceiptMariaDbIntegrationTest {
             }
             String original = CdsTargetReceiptService.rowDigest(connection, "demographic", "1");
             assertThat(original).matches("[0-9a-f]{64}");
+            assertThat(original).isEqualTo(legacyTemporaryDemographicDigest(connection));
             assertThat(CdsTargetReceiptService.rowDigest(connection, "demographic", "1")).isEqualTo(original);
             statement.executeUpdate("UPDATE demographic SET absent='' WHERE demographic_no=1");
             String empty = CdsTargetReceiptService.rowDigest(connection, "demographic", "1");
@@ -143,6 +177,56 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                 assertThat(CdsTargetReceiptService.rowDigest(connection, "admission", id)).isNotEqualTo(original);
             } finally { connection.rollback(); }
         }
+    }
+
+    @Test void shouldRejectAnExactFloatChangeHiddenByTheOriginalSqlReceipt() throws Exception {
+        try (Connection connection = connection(); var statement = connection.createStatement()) {
+            statement.execute("CREATE TEMPORARY TABLE demographic (demographic_no INT PRIMARY KEY, dose FLOAT NULL, other DOUBLE NULL)");
+            statement.executeUpdate("INSERT INTO demographic VALUES (1,0.1,0.1)");
+            var entityManager = org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class);
+            var session = org.mockito.Mockito.mock(org.hibernate.Session.class);
+            org.mockito.Mockito.when(entityManager.unwrap(org.hibernate.Session.class)).thenReturn(session);
+            org.mockito.Mockito.when(session.doReturningWork(org.mockito.ArgumentMatchers.any()))
+                    .thenAnswer(call -> ((org.hibernate.jdbc.ReturningWork<?>) call.getArgument(0)).execute(connection));
+            var service = new CdsTargetReceiptService(); org.springframework.test.util.ReflectionTestUtils.setField(service, "entityManager", entityManager);
+            var original = service.capture(java.util.Map.of("demographic", "1"));
+            assertThat(service.verify(original)).isTrue();
+            try (var update = io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard.prepareBinaryRead(connection,
+                    "SELECT dose FROM demographic WHERE demographic_no=?")) {
+                update.setInt(1, 1); try (var rows = update.executeQuery()) { assertThat(rows.next()).isTrue(); assertThat(rows.getFloat(1)).isEqualTo(0.1f); }
+            }
+            statement.executeUpdate("UPDATE demographic SET dose=0.10000000894069672 WHERE demographic_no=1");
+            var changed = service.capture(java.util.Map.of("demographic", "1"));
+            assertThat(changed.targetReferences()).isEqualTo(original.targetReferences());
+            assertThat(changed.targetDigest()).isEqualTo(original.targetDigest());
+            assertThat(service.verify(original)).isFalse(); assertThat(service.verify(changed)).isTrue();
+            var baseline = io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.decode(original.nativeBaseline(), original.targetReferences(), original.targetDigest()).rows().getFirst();
+            var current = io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.decode(changed.nativeBaseline(), changed.targetReferences(), changed.targetDigest()).rows().getFirst();
+            assertThat(io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowComparison.compare(baseline, current).changedColumns()).containsExactly("dose");
+        }
+    }
+
+    /** Frozen pre-extraction protocol algorithm; temporary fixture only, with no shared row-codec dependency. */
+    private static String legacyTemporaryDemographicDigest(Connection connection) throws Exception {
+        var hash = java.security.MessageDigest.getInstance("SHA-256");
+        java.util.function.Consumer<String> add = value -> {
+            byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            hash.update(Integer.toString(bytes.length).getBytes(java.nio.charset.StandardCharsets.US_ASCII)); hash.update((byte) ':'); hash.update(bytes);
+        };
+        add.accept("carlos-native-row-v2");
+        try (var definition = connection.prepareStatement("select * from demographic where 1=0"); var empty = definition.executeQuery()) {
+            var metadata = empty.getMetaData();
+            for (int i = 1; i <= metadata.getColumnCount(); i++) {
+                String column = metadata.getColumnName(i);
+                add.accept(column); add.accept(metadata.getColumnTypeName(i)); add.accept(Integer.toString(metadata.getPrecision(i))); add.accept(Integer.toString(metadata.getScale(i)));
+                try (var projection = connection.prepareStatement("select `" + column + "` is null,octet_length(cast(`" + column + "` as binary)),sha2(cast(`" + column + "` as binary),256) from demographic where demographic_no=1");
+                        var row = projection.executeQuery()) {
+                    assertThat(row.next()).isTrue(); boolean absent = row.getBoolean(1); hash.update(absent ? (byte) 0 : (byte) 1);
+                    if (!absent) { add.accept(Long.toString(row.getLong(2))); add.accept(row.getString(3).toLowerCase(java.util.Locale.ROOT)); }
+                }
+            }
+        }
+        return java.util.HexFormat.of().formatHex(hash.digest());
     }
 
     private static Connection connection() throws Exception {

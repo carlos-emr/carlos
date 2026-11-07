@@ -28,7 +28,30 @@ import org.springframework.stereotype.Repository;
 
 /** Data access for one protected CDS import table; orchestration belongs in services. */
 @Repository
-public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit> {
+public class CdsImportUnitDao extends AbstractDaoImpl<CdsImportUnit> implements CdsExportRetainedTableReadDao {
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportRetainedSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_UNITS);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRetainedRows(int patient, java.util.Set<String> categories) {
+        return CdsExportPatientTableReadSupport.retainedCount(entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_UNITS, patient, categories);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawKeyRowDto> findCdsExportRetainedRowsAfter(
+            int patient, java.util.Set<String> categories, String afterId, int limit) {
+        return CdsExportPatientTableReadSupport.retainedPage(entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_UNITS, patient, categories, afterId, limit);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportRetainedChunk(int patient, java.util.Set<String> categories, String rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.retainedChunk(entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_UNITS, patient, categories, rowId, column, offset, length);
+    }
+
     public CdsImportUnitDao() { super(CdsImportUnit.class); }
     public CdsImportUnit lock(String id) { return entityManager.find(CdsImportUnit.class, id, LockModeType.PESSIMISTIC_WRITE); }
     public CdsImportUnit get(String id) { return entityManager.find(CdsImportUnit.class, id); }

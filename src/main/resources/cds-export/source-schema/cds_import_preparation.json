@@ -1,0 +1,81 @@
+{
+  "table": "cds_import_preparation",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "digest",
+      "type": "char(64)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "id",
+      "type": "char(64)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "options_digest",
+      "type": "char(64)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "payload",
+      "type": "mediumtext",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "payload_type",
+      "type": "varchar(250)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "ruleset_digest",
+      "type": "char(64)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "run_id",
+      "type": "char(36)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "source_digest",
+      "type": "char(64)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "unit_key",
+      "type": "char(64)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

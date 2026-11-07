@@ -339,6 +339,21 @@ public class CdsFieldParser {
         };
     }
 
+    /**
+     * Proves the complete current effective value, including an audited correction, without
+     * materializing it. A caller handling a bounded text-capacity refusal still needs this
+     * EOF/hash proof before treating an oversized value as an unrelated field.
+     */
+    public void verifyLogicalValue(CdsRecordDto record, CdsFieldDto field) throws IOException {
+        byte[] buffer = new byte[65536];
+        try (InputStream input = logicalValue(record, field)) {
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                checkControl(); if (count == 0) throw failure("CDS_SPOOL_READ_STALLED");
+            }
+        } finally { java.util.Arrays.fill(buffer, (byte) 0); }
+    }
+
     /** Complete byte verification for execution planning/reconciliation without materializing values. */
     public void verifyRecord(CdsRecordDto record) throws IOException {
         try {

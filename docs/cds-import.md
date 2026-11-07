@@ -4,6 +4,10 @@ This is the entry point for the CDS import system targeting `release/2026.08`. B
 
 These documents explain the implementation and operating contracts. Release acceptance additionally requires the executed evidence for the final candidate, recorded on the release pull request.
 
+The separate [export implementation contract](cds-export.md) records the sibling
+exporter's foundations and remaining gates. It does not change import completion
+or imply that a new exporter is available.
+
 ## Start by role
 
 | Reader | Read first | Then use |
@@ -44,6 +48,16 @@ Transfer, durable acceptance, clinical completion, report delivery, cleanup and 
 Use the durable run ID and all four protected report kinds. Reconcile source patients, destination copies, clinical occurrences, helper units, committed units, verified prior work and unfinished work. Preserve unknown totals until discovery and sealing prove them. The operator guide and ledger contract define these terms and the supported controls.
 
 Source values that require review remain attributable and visible. Original XML, precision, restrictions and provenance are not replaced by a convenient native default. Acknowledging a message does not resolve a blocking clinical interpretation.
+
+The coordinated [export implementation](cds-export.md) defines three typed allergy residual
+fields where the pinned schema has no equivalent standard field: `CARLOS.Allergy.Archived.v1`
+(`boolean`), `CARLOS.Allergy.AgeOfOnset.v1` (`string`, exact native text), and
+`CARLOS.Allergy.OnsetOfReaction.v1` (`string`: Unknown, Immediate, Gradual, Slow). The importer
+recognizes only these exact versioned names/types, honors effective corrections, and blocks
+invalid or duplicate known values. Unmarked records keep their established behavior; other
+residual fields remain protected source data. Old prepared payload bytes and digests are
+preserved; optional decoder defaults are added only after verification. Export clinical
+qualification remains separate from these shared transfer rules.
 
 ## Deployment companions
 

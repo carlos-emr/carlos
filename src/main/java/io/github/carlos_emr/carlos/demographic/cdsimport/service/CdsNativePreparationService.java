@@ -130,11 +130,17 @@ public class CdsNativePreparationService {
                         prepared.getOptionsDigest(), prepared.getRulesetDigest(), prepared.getPayload()))) {
             throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
         }
+        if (type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto.class) {
+            var value = JSON.reader().with(com.fasterxml.jackson.core.JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                    .readTree(prepared.getPayload());
+            // Shared import/export defaults preserve the original payload bytes and seal.
+            try { return JSON.treeToValue(io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparedAllergyDefaults.apply(value), type); }
+            catch (IllegalArgumentException invalid) { throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED"); }
+        }
         return JSON.readValue(prepared.getPayload(), type);
     }
 
     private static String payloadDigest(String type, String source, String options, String ruleset, String payload) {
-        String bytes=java.util.HexFormat.of().formatHex(CdsImportKeys.digest().digest(payload.getBytes(StandardCharsets.UTF_8)));
-        return CdsImportKeys.hash(type, source, options, ruleset, bytes);
+        return io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparationSeal.digest(type, source, options, ruleset, payload);
     }
 }

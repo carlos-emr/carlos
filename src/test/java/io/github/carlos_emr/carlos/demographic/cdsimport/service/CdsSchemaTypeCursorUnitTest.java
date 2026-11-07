@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaModel;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaTypeCursor;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;

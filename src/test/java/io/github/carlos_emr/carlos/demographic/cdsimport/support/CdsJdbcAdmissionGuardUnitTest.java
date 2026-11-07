@@ -36,6 +36,37 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsJdbcAdmissionGuardUnitTest {
+    @Test void shouldKeepServerBinaryStatementsGuarded_withoutExposingTheDriverConnection() throws Exception {
+        Connection raw = mock(Connection.class); var driver = mock(com.mysql.cj.jdbc.JdbcConnection.class);
+        var binary = mock(com.mysql.cj.jdbc.ServerPreparedStatement.class);
+        when(raw.unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).thenReturn(driver);
+        String sql = "SELECT takemin FROM drugs WHERE drugid=?"; when(driver.serverPrepareStatement(sql)).thenReturn(binary);
+        var guarded = CdsJdbcAdmissionGuard.wrap(raw, mock(CdsJdbcAdmissionState.class), () -> false);
+        try (var statement = CdsJdbcAdmissionGuard.prepareBinaryRead(guarded, sql)) {
+            assertThat(statement.getConnection()).isSameAs(guarded); statement.setLong(1, 27); statement.setQueryTimeout(5);
+            assertThatThrownBy(() -> statement.unwrap(com.mysql.cj.jdbc.ServerPreparedStatement.class)).isInstanceOf(SQLException.class);
+            assertThatThrownBy(() -> statement.getConnection().unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).isInstanceOf(SQLException.class);
+        }
+        verify(binary).setLong(1, 27); verify(binary).setQueryTimeout(5); verify(binary).close();
+        assertThatThrownBy(() -> CdsJdbcAdmissionGuard.prepareBinaryRead(guarded, "UPDATE drugs SET takemin=1 WHERE drugid=27")).isInstanceOf(SQLException.class);
+    }
+
+    @Test void shouldApplyThePhysicalMaintenanceGateBeforeExecutingAServerBinaryRead() throws Exception {
+        Connection raw = mock(Connection.class); var driver = mock(com.mysql.cj.jdbc.JdbcConnection.class);
+        var binary = mock(com.mysql.cj.jdbc.ServerPreparedStatement.class);
+        var check = mock(java.sql.PreparedStatement.class); var rows = mock(java.sql.ResultSet.class);
+        var state = mock(CdsJdbcAdmissionState.class); when(state.lockName()).thenReturn("cds-binary-fixture");
+        when(raw.unwrap(com.mysql.cj.jdbc.JdbcConnection.class)).thenReturn(driver);
+        String sql = "SELECT takemin FROM drugs WHERE drugid=?"; when(driver.serverPrepareStatement(sql)).thenReturn(binary);
+        when(raw.prepareStatement("SELECT IS_USED_LOCK(?)")).thenReturn(check); when(check.executeQuery()).thenReturn(rows);
+        when(rows.next()).thenReturn(true); when(rows.getLong(1)).thenReturn(55L); when(rows.wasNull()).thenReturn(false);
+        try (var statement = CdsJdbcAdmissionGuard.prepareBinaryRead(CdsJdbcAdmissionGuard.wrap(raw, state, () -> false), sql)) {
+            statement.setLong(1, 27);
+            assertThatThrownBy(statement::executeQuery).isInstanceOf(SQLException.class).hasMessageContaining("CDS maintenance");
+        }
+        verify(binary, never()).executeQuery(); verify(check).setString(1, "cds-binary-fixture");
+    }
+
     @ParameterizedTest
     @ValueSource(strings={"SELECT VERſION()","SELECT weeK('2026-10-29') FROM cds_import_run"})
     void shouldRefuseUnicodeLookalikeFunctions_afterTheSqlParserAcceptsTheirOriginalSpelling(String sql) throws Exception {
@@ -56,6 +87,18 @@ class CdsJdbcAdmissionGuardUnitTest {
         assertThat(((net.sf.jsqlparser.statement.select.Select)parsed.getFirst()).getPlainSelect().getFromItem().toString())
                 .contains("cds_import_checKpoint");
         assertThat(CdsJdbcAdmissionGuard.clinical(sql)).isTrue();
+    }
+
+    @Test
+    void shouldRetireItsParserWorker_afterBothSuccessfulAndRefusedStatements() throws Exception {
+        assertThat(CdsJdbcAdmissionGuard.clinical("select * from demographic")).isTrue();
+        assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical("select ( from demographic"))
+                .isInstanceOf(SQLException.class);
+        long deadline = System.nanoTime() + java.time.Duration.ofSeconds(3).toNanos();
+        while (Thread.getAllStackTraces().keySet().stream().anyMatch(thread -> thread.isAlive()
+                && thread.getName().equals("cds-admission-sql-parser")) && System.nanoTime() < deadline) Thread.sleep(10);
+        assertThat(Thread.getAllStackTraces().keySet()).noneMatch(thread -> thread.isAlive()
+                && thread.getName().equals("cds-admission-sql-parser"));
     }
 
     @Test
@@ -190,6 +233,27 @@ class CdsJdbcAdmissionGuardUnitTest {
         assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_import_run r join demographic d on d.demographic_no=r.expected_patients")).isTrue();
         assertThat(CdsJdbcAdmissionGuard.clinical("update security set password=(select last_name from demographic limit 1)")).isTrue();
         assertThat(CdsJdbcAdmissionGuard.clinical("insert into cds_import_unreviewed_table values (?)")).isTrue();
+    }
+
+    @Test
+    void shouldAllowExactExportControlMetadata_withoutExemptingClinicalSourceQueries() throws Exception {
+        for (String table : new String[]{"cds_export_run", "cds_export_event"}) {
+            assertThat(CdsJdbcAdmissionGuard.clinical("select * from " + table + " where id=?")).isFalse();
+            assertThat(CdsJdbcAdmissionGuard.clinical("update " + table + " set id=? where id=?")).isFalse();
+            assertThat(CdsJdbcAdmissionGuard.clinical("select r.id from " + table
+                    + " r join demographic d on d.demographic_no=r.id")).isTrue();
+        }
+        assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_export_run_extra")).isTrue();
+        assertThat(CdsJdbcAdmissionGuard.clinical("select * from cds_export_unreviewed")).isTrue();
+    }
+
+    @Test
+    void shouldAllowOnlyTheExactDatabaseLeaseClock_withoutAdmittingSubqueriesOrMultipleStatements() throws Exception {
+        assertThat(CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))")).isFalse();
+        assertThat(CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)) FROM demographic")).isTrue();
+        assertThat(CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)) UNION SELECT demographic_no FROM demographic")).isTrue();
+        assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical("SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6)); COMMIT"))
+                .isInstanceOf(SQLException.class);
     }
 
     @Test

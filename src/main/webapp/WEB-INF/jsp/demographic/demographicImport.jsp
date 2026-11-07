@@ -53,6 +53,7 @@
       data-chunk-bytes="${carlos:forHtmlAttribute(model.chunkBytes)}">
     <h1 class="h3"><fmt:message key="title" bundle="${cds}"/></h1>
     <p><fmt:message key="intro" bundle="${cds}"/></p>
+    <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExport">CDS Export</a></p>
     <c:if test="${not model.enabled}">
         <div class="alert alert-warning" role="status"><fmt:message key="disabled" bundle="${cds}"/></div>
     </c:if>

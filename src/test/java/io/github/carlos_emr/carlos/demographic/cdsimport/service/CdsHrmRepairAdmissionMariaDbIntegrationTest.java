@@ -150,7 +150,10 @@ class CdsHrmRepairAdmissionMariaDbIntegrationTest {
         Properties policy = new Properties();
         policy.setProperty("cds.import.enabled", "true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         policy.setProperty("cds.import.maintenanceMode", "true");
-        policy.setProperty("cds.import.drainTimeoutSeconds", "3");
+        // Use the production default while the test schedules its competing workers.
+        // The 200ms blocked-owner assertion and 5s post-release bound below verify
+        // ordering independently; a 3s drain budget can expire during a loaded JVM pause.
+        policy.setProperty("cds.import.drainTimeoutSeconds", "30");
         var configuration = new CdsImportConfigurationService(policy);
         maintenance = new CdsImportMaintenanceService(importing, configuration);
         safety = new CdsImportTargetSafetyService(configuration);

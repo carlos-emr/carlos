@@ -141,9 +141,11 @@ public class CdsClinicalNormalizationService {
         if ((description == null || description.isBlank()) && (code == null || code.isBlank())) {
             throw new CdsClinicalException("CDS_ALLERGY_AGENT_REQUIRES_REVIEW", "OffendingAgentDescription");
         }
+        var nativeState = new CdsAllergyResidualReader(fields).read(record);
         return new CdsAllergyDto(description, property, code, text(record, "Code/CodeType", 3),
                 reactionType, text(record, "Reaction", 120), severity, text(record, "LifeStage", 1),
-                text(record, "Notes", 32768), date(record, "StartDate", command), date(record, "RecordedDate", command));
+                text(record, "Notes", 32768), date(record, "StartDate", command), date(record, "RecordedDate", command),
+                nativeState.archived(), nativeState.ageOfOnset(), nativeState.onsetOfReaction());
     }
 
     public CdsImmunizationDto immunization(CdsRecordDto record) throws IOException {

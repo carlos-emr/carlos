@@ -24,4 +24,18 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 /** AR is an adverse reaction, not evidence of an intolerance subtype. */
 public record CdsAllergyDto(String description, String property, String code,
         String codeSystem, String reactionType, String reaction, String severity,
-        String lifeStage, String notes, CdsTemporalDto start, CdsTemporalDto recorded) { }
+        String lifeStage, String notes, CdsTemporalDto start, CdsTemporalDto recorded,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_DEFAULT) boolean archived,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String ageOfOnset,
+        @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL) String onsetOfReaction) {
+    /** Legacy prepared values and source records without a marker keep their existing behavior. */
+    public CdsAllergyDto(String description, String property, String code, String codeSystem, String reactionType,
+            String reaction, String severity, String lifeStage, String notes, CdsTemporalDto start, CdsTemporalDto recorded) {
+        this(description, property, code, codeSystem, reactionType, reaction, severity, lifeStage, notes, start, recorded, false, null, null);
+    }
+    /** The archive-only prepared value retains its exact twelve-field/omitted-default shape. */
+    public CdsAllergyDto(String description, String property, String code, String codeSystem, String reactionType,
+            String reaction, String severity, String lifeStage, String notes, CdsTemporalDto start, CdsTemporalDto recorded, boolean archived) {
+        this(description, property, code, codeSystem, reactionType, reaction, severity, lifeStage, notes, start, recorded, archived, null, null);
+    }
+}

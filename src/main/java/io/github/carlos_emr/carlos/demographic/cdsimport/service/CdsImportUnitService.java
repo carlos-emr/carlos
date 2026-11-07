@@ -94,7 +94,7 @@ public class CdsImportUnitService {
                     CdsImportReceiptDto result;
                     if (checkpoint!=null) {
                         verifyIdentity(run, unit, checkpoint);
-                        result=new CdsImportReceiptDto(checkpoint.getTargetReferences(), checkpoint.getTargetDigest(), true);
+                        result=new CdsImportReceiptDto(checkpoint.getTargetReferences(), checkpoint.getTargetDigest(), true, checkpoint.getNativeBaseline());
                         if (!verifier.verify(result)) throw new CdsImportException("TARGET_RECONCILIATION_REQUIRED");
                         // Reused native rows still need this attempt's hold until every expected unit reconciles.
                         if (patient.getTargetDemographicNo()==null) throw new CdsImportException("CHECKPOINT_TARGET_MISSING");
@@ -111,10 +111,10 @@ public class CdsImportUnitService {
                         checkpoint=new CdsImportCheckpoint(); checkpoint.setId(unitKey); checkpoint.setLineageKey(unit.getLineageKey());
                         checkpoint.setSourceDigest(unit.getSourceDigest()); checkpoint.setOptionsDigest(run.getOptionsDigest());
                         checkpoint.setRulesetDigest(run.getRulesetDigest()); checkpoint.setTargetReferences(result.targetReferences());
-                        checkpoint.setTargetDigest(result.targetDigest()); checkpoint.setFirstRunId(runId); checkpoint.setCommittedAt(Instant.now());
+                        checkpoint.setTargetDigest(result.targetDigest()); checkpoint.setNativeBaseline(result.nativeBaseline()); checkpoint.setFirstRunId(runId); checkpoint.setCommittedAt(Instant.now());
                         checkpoints.persist(checkpoint); unit.setState("COMMITTED");
                     }
-                    validate(result); unit.setTargetReferences(result.targetReferences()); unit.setTargetDigest(result.targetDigest());
+                    validate(result); unit.setTargetReferences(result.targetReferences()); unit.setTargetDigest(result.targetDigest()); unit.setNativeBaseline(result.nativeBaseline());
                     unit.setCommittedAt(Instant.now()); ledger.event(run, unitKey, result.alreadyComplete()?"UNIT_ALREADY_COMPLETE":"UNIT_COMMITTED");
                     ledger.touch(run); units.flushAndClear(); callbackFinished.set(true);
                     return result;
@@ -140,7 +140,7 @@ public class CdsImportUnitService {
             throw new CdsImportException("SOURCE_REVISION_REVIEW_REQUIRED");
         }
         if (("COMMITTED".equals(unit.getState()) || "ALREADY_COMPLETE".equals(unit.getState()))
-                && (!Objects.equals(unit.getTargetDigest(), checkpoint.getTargetDigest()) || !Objects.equals(unit.getTargetReferences(), checkpoint.getTargetReferences()))) {
+                && (!Objects.equals(unit.getTargetDigest(), checkpoint.getTargetDigest()) || !Objects.equals(unit.getTargetReferences(), checkpoint.getTargetReferences()) || !Objects.equals(unit.getNativeBaseline(), checkpoint.getNativeBaseline()))) {
             throw new CdsImportException("CHECKPOINT_RECONCILIATION_REQUIRED");
         }
     }
@@ -148,5 +148,9 @@ public class CdsImportUnitService {
     private void validate(CdsImportReceiptDto receipt) {
         CdsImportKeys.required(receipt.targetReferences(), "target references", 65536);
         CdsImportKeys.digestValue(receipt.targetDigest(), "target digest");
+        if (receipt.nativeBaseline() != null) try {
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.decode(
+                    receipt.nativeBaseline(), receipt.targetReferences(), receipt.targetDigest());
+        } catch (java.io.IOException | IllegalArgumentException invalid) { throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW", false, invalid); }
     }
 }

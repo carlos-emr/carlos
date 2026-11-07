@@ -118,6 +118,28 @@ class CdsNativePreparationServiceUnitTest {
         }
     }
 
+    @Test void shouldKeepLegacyAllergyPayloadBytes_whenStrictlyDecodingTheOptionalArchiveExtension() throws Exception {
+        for (boolean archived : new boolean[]{false, true}) for (boolean extensions : new boolean[]{false, true}) {
+            var dao = mock(CdsImportPreparationDao.class); Map<String, CdsImportPreparation> rows = new HashMap<>();
+            when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
+            doAnswer(call -> { CdsImportPreparation row = call.getArgument(0); rows.put(row.getId(), row); return null; }).when(dao).persist(any());
+            var source = new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto("Synthetic archive agent", null, null, null, null,
+                    null, null, null, null, CdsTemporalDto.unknown(), CdsTemporalDto.unknown(), archived,
+                    extensions ? "0012" : null, extensions ? "2" : null);
+            service(dao).store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
+            var row = rows.values().iterator().next(); String payload = row.getPayload(), digest = row.getDigest();
+            assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload).has("archived")).isEqualTo(archived);
+            assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload).has("ageOfOnset")).isEqualTo(extensions);
+            assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload).has("onsetOfReaction")).isEqualTo(extensions);
+            try (var ownership = mockStatic(CdsImportUnitService.class)) {
+                var decoded = service(dao).load("run", 1, "a".repeat(64), "b".repeat(64), command(),
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto.class);
+                assertThat(decoded).isEqualTo(source); assertThat(decoded.archived()).isEqualTo(archived);
+            }
+            assertThat(row.getPayload()).isEqualTo(payload); assertThat(row.getDigest()).isEqualTo(digest);
+        }
+    }
+
     private static CdsNativePreparationService service(CdsImportPreparationDao dao) {
         return service(dao, mock(CdsImportLedgerService.class));
     }

@@ -85,6 +85,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
         for (Class<?> model :
                 new Class<?>[] {
                     Drug.class,
+                    Allergy.class,
                     Contact.class,
                     DemographicContact.class,
                     Measurement.class,
@@ -108,6 +109,32 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     @AfterAll
     static void closeFactory() {
         if (factory != null) factory.close();
+    }
+
+    @Test
+    void shouldKeepTheTransferredAllergyArchiveState_inActualNativeStorage() throws Exception {
+        for (boolean archived : new boolean[]{true, false}) {
+            Map<String, String> source = new LinkedHashMap<>(); source.put("OffendingAgentDescription", "Synthetic archive agent");
+            source.put("ResidualInfo/DataElement/Name", io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract.ALLERGY_ARCHIVED);
+            source.put("ResidualInfo/DataElement/DataType", "boolean"); source.put("ResidualInfo/DataElement/Content", Boolean.toString(archived));
+            source.put("ResidualInfo/DataElement[2]/Name", io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET);
+            source.put("ResidualInfo/DataElement[2]/DataType", "string"); source.put("ResidualInfo/DataElement[2]/Content", "0012");
+            source.put("ResidualInfo/DataElement[3]/Name", io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION);
+            source.put("ResidualInfo/DataElement[3]/DataType", "string"); source.put("ResidualInfo/DataElement[3]/Content", "Immediate");
+            var dto = normalization.allergy(CdsClinicalFixture.record(directory, "AllergiesAndAdverseReactions", source));
+            var row = new CdsAllergyPersister(mock(AllergyDao.class), mock(PartialDateDao.class), normalization).candidate(974233, dto);
+            try (Session session = factory.openSession()) {
+                var transaction = session.beginTransaction();
+                try {
+                    session.persist(row); session.flush(); Integer id = row.getId(); session.clear();
+                    assertThat(session.find(Allergy.class, id).getArchived()).isEqualTo(archived);
+                    assertThat(session.find(Allergy.class, id).getAgeOfOnset()).isEqualTo("0012");
+                    assertThat(session.find(Allergy.class, id).getOnsetOfReaction()).isEqualTo("1");
+                    assertThat(session.createSelectionQuery("select count(a) from Allergy a where a.id=:id and a.archived=false", Long.class)
+                            .setParameter("id", id).getSingleResult()).isEqualTo(archived ? 0L : 1L);
+                } finally { transaction.rollback(); }
+            }
+        }
     }
 
     @Test

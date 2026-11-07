@@ -1361,7 +1361,7 @@ public class CdsImportLedgerService {
                             || !Objects.equals(checkpoint.getTargetDigest(), unit.getTargetDigest())
                             || !Objects.equals(checkpoint.getTargetReferences(), unit.getTargetReferences())) throw new CdsImportException("CHECKPOINT_RECONCILIATION_REQUIRED", false, null, unit.getUnitKey());
                     try {
-                        if (!verifier.verify(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto(unit.getTargetReferences(), unit.getTargetDigest(), true))) throw new CdsImportException("TARGET_RECONCILIATION_REQUIRED");
+                        if (!verifier.verify(new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto(unit.getTargetReferences(), unit.getTargetDigest(), true, unit.getNativeBaseline()))) throw new CdsImportException("TARGET_RECONCILIATION_REQUIRED");
                     } catch (CdsImportException failure) { throw new CdsImportException(failure.getCode(), failure.isOutcomeUnknown(), failure, unit.getUnitKey()); }
                     catch (Exception failure) { throw new CdsImportException("TARGET_VERIFICATION_FAILED", false, failure, unit.getUnitKey()); }
                     keys.add(unit.getUnitKey());

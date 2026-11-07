@@ -22,6 +22,10 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,7 +35,6 @@ import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -70,6 +73,7 @@ public class CdsTargetReceiptService {
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
 
     public record Reference(String table, String id, String digest) { }
+    private record Captured(List<Reference> references, List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState> states) { }
 
     /** Actual native and evidence tables, including association tables with composite keys. */
     public static java.util.Set<String> targetTables() {
@@ -87,9 +91,9 @@ public class CdsTargetReceiptService {
     public CdsImportReceiptDto capture(Map<String, String> targets, String run, String unit) {
         if (targets.isEmpty() || targets.size() > MAXIMUM_REFERENCES) throw new CdsImportException("TARGET_REFERENCE_COUNT_INVALID");
         entityManager.flush();
-        List<Reference> references = entityManager.unwrap(Session.class).doReturningWork(connection -> {
+        Captured captured = entityManager.unwrap(Session.class).doReturningWork(connection -> {
             List<Reference> found = new ArrayList<>();
-            ReceiptReader reader = new ReceiptReader(connection);
+            ReceiptReader reader = new ReceiptReader(connection, true);
             for (var entry : targets.entrySet()) {
                 String table = entry.getKey();
                 // Several source fields may reference the same physical table in one bounded unit.
@@ -105,13 +109,16 @@ public class CdsTargetReceiptService {
             }
             // Publication ownership and unit references are part of completeness, not best-effort cleanup metadata.
             if (run != null && unit != null) fileDependencies(connection, found, run, unit, reader);
-            return found;
+            return new Captured(List.copyOf(found), List.copyOf(reader.states.values()));
         });
         try {
-            String encoded = JSON.writeValueAsString(Map.of("protocol", 2, "refs", references));
+            String encoded = JSON.writeValueAsString(Map.of("protocol", 2, "refs", captured.references()));
             if (encoded.length() > 65536) throw new CdsImportException("TARGET_RECEIPT_TOO_LARGE");
-            return new CdsImportReceiptDto(encoded, digest(encoded));
-        } catch (java.io.IOException failure) { throw new CdsImportException("TARGET_RECEIPT_ENCODING_FAILED"); }
+            String targetDigest = digest(encoded);
+            String baseline = io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.encode(encoded, targetDigest, captured.states());
+            return new CdsImportReceiptDto(encoded, targetDigest, false, baseline);
+        } catch (IllegalArgumentException failure) { throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW", false, failure); }
+        catch (java.io.IOException failure) { throw new CdsImportException("TARGET_RECEIPT_ENCODING_FAILED"); }
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
@@ -119,15 +126,25 @@ public class CdsTargetReceiptService {
         if (receipt == null || receipt.targetReferences() == null || receipt.targetReferences().length() > 65536
                 || !digest(receipt.targetReferences()).equals(receipt.targetDigest())) return false;
         try {
+            var baseline = receipt.nativeBaseline() == null ? null : io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.decode(
+                    receipt.nativeBaseline(), receipt.targetReferences(), receipt.targetDigest());
             JsonNode document = JSON.readTree(receipt.targetReferences());
             JsonNode references = document.path("refs");
             if (document.path("protocol").asInt() != 2 || !references.isArray()
                     || references.isEmpty() || references.size() > MAXIMUM_REFERENCES) return false;
             return entityManager.unwrap(Session.class).doReturningWork(connection -> {
-                ReceiptReader reader = new ReceiptReader(connection);
+                ReceiptReader reader = new ReceiptReader(connection, baseline != null && baseline.protocol() == 2);
                 for (JsonNode reference : references) {
                     String actual = reader.digest(reference.path("table").asText(), reference.path("id").asText());
                     if (actual == null || !actual.equals(reference.path("digest").asText())) return false;
+                }
+                if (baseline != null && baseline.protocol() == 2) for (var previous : baseline.rows()) {
+                    var current = reader.states.get(previous.table() + "/" + previous.id());
+                    if (current == null || !current.columns().equals(previous.columns())) return false;
+                    for (int i = 0; i < previous.cells().size(); i++) {
+                        var exact = previous.cells().get(i).exactNumeric();
+                        if (exact != null && !exact.equals(current.cells().get(i).exactNumeric())) return false;
+                    }
                 }
                 return true;
             });
@@ -206,13 +223,14 @@ public class CdsTargetReceiptService {
         return new ReceiptReader(connection).digest(table, id);
     }
 
-    private record Column(String name, String type, int precision, int scale) { }
-
     /** One bounded schema cache per capture/verification, discarded with its physical connection callback. */
     private static final class ReceiptReader {
         private final Connection connection;
         private final Map<String, List<Column>> columns = new HashMap<>();
-        private ReceiptReader(Connection connection) { this.connection = connection; }
+        private final boolean collect;
+        private final Map<String, io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState> states = new java.util.LinkedHashMap<>();
+        private ReceiptReader(Connection connection) { this(connection, false); }
+        private ReceiptReader(Connection connection, boolean collect) { this.connection = connection; this.collect = collect; }
 
         // Only native receipt-catalogue names reach this identifier-only metadata query.
         @SuppressWarnings("java:S2077")
@@ -257,9 +275,12 @@ public class CdsTargetReceiptService {
                 sql.append(name).append(" IS NULL,OCTET_LENGTH(CAST(").append(name)
                         .append(" AS BINARY)),SHA2(CAST(").append(name).append(" AS BINARY),256)");
             }
+            var floating = collect ? selected.stream().filter(column -> CdsExactNumeric.codec(column.type()) != null).toList() : List.<Column>of();
+            for (var column : floating) sql.append(",`").append(column.name().replace("`", "``")).append('`');
             sql.append(" FROM `").append(table).append("` WHERE ").append(where);
             if (sql.length() > 65536) throw new CdsImportException("TARGET_DIGEST_QUERY_CAPACITY");
-            try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            try (PreparedStatement statement = floating.isEmpty() ? connection.prepareStatement(sql.toString())
+                    : CdsJdbcAdmissionGuard.prepareBinaryRead(connection, sql.toString())) {
                 statement.setString(1, composite ? pair[0] : id);
                 if (composite) statement.setString(2, pair[1]);
                 statement.setMaxRows(2); statement.setQueryTimeout(30);
@@ -267,23 +288,36 @@ public class CdsTargetReceiptService {
                 // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
                 try (ResultSet row = statement.executeQuery()) {
                     if (!row.next()) return null;
-                    MessageDigest hash = CdsImportKeys.digest();
-                    CdsImportKeys.add(hash, "carlos-native-row-v2");
+                    var hash = CdsNativeRowDigest.hasher(selected);
+                    var cells = collect ? new ArrayList<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell>() : null;
                     int index = 1;
                     for (Column column : selected) {
-                        CdsImportKeys.add(hash, column.name()); CdsImportKeys.add(hash, column.type());
-                        CdsImportKeys.add(hash, Integer.toString(column.precision())); CdsImportKeys.add(hash, Integer.toString(column.scale()));
-                        if (row.getBoolean(index)) hash.update((byte) 0);
+                        if (row.getBoolean(index)) {
+                            hash.append(true, 0, null);
+                            if (collect) cells.add(new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell(true, 0, null));
+                        }
                         else {
-                            hash.update((byte) 1);
                             long length = row.getLong(index + 1); String value = row.getString(index + 2);
                             if (length < 0 || value == null || !value.matches("[0-9a-fA-F]{64}")) throw new CdsImportException("TARGET_ROW_HASH_UNAVAILABLE");
-                            CdsImportKeys.add(hash, Long.toString(length)); CdsImportKeys.add(hash, value.toLowerCase(java.util.Locale.ROOT));
+                            hash.append(false, length, value);
+                            if (collect) {
+                                int position = floating.indexOf(column);
+                                var exact = position < 0 ? null : CdsExactNumeric.readBinary(row, selected.size() * 3 + position + 1, CdsExactNumeric.codec(column.type()));
+                                if (position >= 0 && exact == null) throw new CdsImportException("NATIVE_BASELINE_NUMERIC_NULL_MISMATCH");
+                                cells.add(new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell(false, length, value, exact == null ? null : exact.witness()));
+                            }
                         }
                         index += 3;
                     }
                     if (row.next()) throw new CdsImportException("TARGET_REFERENCE_AMBIGUOUS");
-                    return HexFormat.of().formatHex(hash.digest());
+                    String result = hash.finish();
+                    if (collect) {
+                        var state = new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(table, id, selected, cells);
+                        if (!result.equals(state.digest())) throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW");
+                        var previous = states.putIfAbsent(table + "/" + id, state);
+                        if (previous != null && !previous.equals(state)) throw new CdsImportException("TARGET_ROW_CHANGED_DURING_RECEIPT");
+                    }
+                    return result;
                 }
             }
         }

@@ -19,7 +19,7 @@
  * CARLOS EMR Project
  * https://github.com/carlos-emr/carlos
  */
-package io.github.carlos_emr.carlos.demographic.cdsimport.service;
+package io.github.carlos_emr.carlos.demographic.cds.contract;
 
 import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
@@ -38,7 +38,7 @@ import org.w3c.dom.Node;
  * This is deliberately not an XSD validator: the JDK validates structure, derivation and
  * values. Unsupported schema constructs fail closed; metadata never grows with input size.
  */
-final class CdsSchemaModel {
+public final class CdsSchemaModel {
     private static final String XSD = XMLConstants.W3C_XML_SCHEMA_NS_URI;
     private final Map<Name, Type> types;
     private final Map<Name, Type> elements;
@@ -52,7 +52,7 @@ final class CdsSchemaModel {
         attributes = Map.copyOf(builder.attributes);
     }
 
-    static CdsSchemaModel read(byte[] main, byte[] datatypes) {
+    public static CdsSchemaModel read(byte[] main, byte[] datatypes) {
         try {
             Builder builder = new Builder();
             builder.register(main);
@@ -64,12 +64,25 @@ final class CdsSchemaModel {
         }
     }
 
-    Type type(String namespace, String local) { return types.get(new Name(namespace, local)); }
-    Type element(String namespace, String local) { return elements.get(new Name(namespace, local)); }
-    Type attribute(String namespace, String local) { return attributes.get(new Name(namespace, local)); }
+    public Type type(String namespace, String local) { return types.get(new Name(namespace, local)); }
+    public Type element(String namespace, String local) { return elements.get(new Name(namespace, local)); }
+    public Type attribute(String namespace, String local) { return attributes.get(new Name(namespace, local)); }
 
+    public enum ParticleKind { ELEMENT, SEQUENCE, ALL, CHOICE }
+    /** Fixed grammar metadata only; instance values and validator implementation objects never enter it. */
+    public record Particle(ParticleKind kind, String namespace, String local, long minimum, long maximum, List<Particle> children) {
+        public Particle {
+            java.util.Objects.requireNonNull(kind); children = List.copyOf(children);
+            if (namespace == null || local == null || minimum < 0 || maximum < minimum
+                    || kind == ParticleKind.ELEMENT && (local.isEmpty() || !children.isEmpty())
+                    || kind != ParticleKind.ELEMENT && (!namespace.isEmpty() || !local.isEmpty())) throw new IllegalArgumentException("CDS_SCHEMA_PARTICLE_INVALID");
+        }
+    }
+    public record ExpandedName(String namespace, String local) {
+        public ExpandedName { if (namespace == null || local == null || local.isEmpty()) throw new IllegalArgumentException("CDS_SCHEMA_NAME_INVALID"); }
+    }
     /** Only classification and descriptor data; no validator implementation objects escape. */
-    static final class Type {
+    public static final class Type {
         private final Name name;
         private final boolean simple;
         private boolean atomic;
@@ -80,23 +93,28 @@ final class CdsSchemaModel {
         private boolean identity;
         private Map<Name, Type> children = Map.of();
         private Map<Name, Type> attributes = Map.of();
+        private Particle content;
 
         private Type(Name name, boolean simple) {
             this.name = name;
             this.simple = simple;
         }
-        String getTypeName() { return name.local(); }
-        String getTypeNamespace() { return name.namespace(); }
-        boolean simple() { return simple; }
-        boolean atomic() { return atomic; }
-        String builtIn() { return builtIn; }
-        String whitespace() { return whitespace; }
-        boolean lengthFacet() { return lengthFacet; }
-        boolean otherFacet() { return otherFacet; }
-        boolean identity() { return identity; }
-        Type child(String namespace, String local) { return children.get(new Name(namespace, local)); }
-        Type attribute(String namespace, String local) { return attributes.get(new Name(namespace, local)); }
-        boolean plainString() { return Set.of("string", "normalizedString", "token").contains(builtIn); }
+        public String getTypeName() { return name.local(); }
+        public String getTypeNamespace() { return name.namespace(); }
+        public boolean simple() { return simple; }
+        public boolean atomic() { return atomic; }
+        public String builtIn() { return builtIn; }
+        public String whitespace() { return whitespace; }
+        public boolean lengthFacet() { return lengthFacet; }
+        public boolean otherFacet() { return otherFacet; }
+        public boolean identity() { return identity; }
+        public Type child(String namespace, String local) { return children.get(new Name(namespace, local)); }
+        public Type attribute(String namespace, String local) { return attributes.get(new Name(namespace, local)); }
+        public Particle content() { return content; }
+        public List<ExpandedName> childNames() {
+            return children.keySet().stream().map(name -> new ExpandedName(name.namespace(), name.local())).toList();
+        }
+        public boolean plainString() { return Set.of("string", "normalizedString", "token").contains(builtIn); }
     }
 
     private record Name(String namespace, String local) {
@@ -252,6 +270,28 @@ final class CdsSchemaModel {
             collect(declaration, elements, attributes);
             type.children = Map.copyOf(elements);
             type.attributes = Map.copyOf(attributes);
+            var groups = children(declaration).stream().filter(child -> Set.of("sequence", "all", "choice").contains(child.getLocalName())).toList();
+            if (groups.size() > 1) throw unsupported();
+            type.content = groups.isEmpty() ? new Particle(ParticleKind.ALL, "", "", 1, 1, List.of()) : particle(groups.getFirst());
+        }
+        private Particle particle(Element element) {
+            String local = element.getLocalName(); var kind = switch (local) {
+                case "sequence" -> ParticleKind.SEQUENCE; case "all" -> ParticleKind.ALL;
+                case "choice" -> ParticleKind.CHOICE; case "element" -> ParticleKind.ELEMENT; default -> throw unsupported();
+            };
+            long minimum = occurs(element, "minOccurs"), maximum = occurs(element, "maxOccurs");
+            if (kind == ParticleKind.ELEMENT) {
+                Name name = declarationName(element); return new Particle(kind, name.namespace(), name.local(), minimum, maximum, List.of());
+            }
+            var members = new ArrayList<Particle>();
+            for (Element child : children(element)) if (!child.getLocalName().equals("annotation")) members.add(particle(child));
+            return new Particle(kind, "", "", minimum, maximum, members);
+        }
+        private static long occurs(Element element, String attribute) {
+            String value = element.getAttribute(attribute); if (value.isEmpty()) return 1;
+            if (attribute.equals("maxOccurs") && value.equals("unbounded")) return Long.MAX_VALUE;
+            if (!value.matches("0|[1-9][0-9]{0,18}")) throw unsupported();
+            try { return Long.parseLong(value); } catch (NumberFormatException invalid) { throw unsupported(); }
         }
 
         private void collect(Element parent, Map<Name, Type> elements, Map<Name, Type> attributes) {

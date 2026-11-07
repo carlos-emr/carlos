@@ -5255,7 +5255,7 @@
       "category": "AllergiesAndAdverseReactions",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:Content",
-      "reviewGroup": "source-only-AllergiesAndAdverseReactions",
+      "reviewGroup": "allergy-native-fields",
       "variants": [
         {
           "choiceArms": [],
@@ -5335,7 +5335,7 @@
       "category": "AllergiesAndAdverseReactions",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:DataType",
-      "reviewGroup": "source-only-AllergiesAndAdverseReactions",
+      "reviewGroup": "allergy-native-fields",
       "variants": [
         {
           "choiceArms": [],
@@ -5415,7 +5415,7 @@
       "category": "AllergiesAndAdverseReactions",
       "kind": "element",
       "path": "/cds:OmdCds/cds:PatientRecord/cds:AllergiesAndAdverseReactions/cds:ResidualInfo/dt:DataElement/dt:Name",
-      "reviewGroup": "source-only-AllergiesAndAdverseReactions",
+      "reviewGroup": "allergy-native-fields",
       "variants": [
         {
           "choiceArms": [],
@@ -38025,7 +38025,18 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Literal AL/AR and independent DR/ND/UK retained; NO severity maps native No Reaction; no fabricated drugref/class. Year/month precision metadata mandatory, unknown dates null; timestamps into DATE lose clock only in native projection with exact source retained. Native DATE projection must round-trip its exact civil day through the actual legacy calendar; a cutover gap is preflight review rather than normalization into another day.",
         "normativeBasis": [
@@ -38056,13 +38067,78 @@
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
+      "allergy-native-fields": {
+        "destination": "Allergy.archived, ageOfOnset and onsetOfReaction only for the exact versioned CARLOS allergy residual markers. Other residual names remain protected structured source data; no generic Notes fallback.",
+        "disposition": "native-and-source",
+        "errorPolicy": "Known marker conflicts, invalid types/values or duplicates block preflight/native projection; I/O/hash failures propagate. Unrecognized residual names keep their previous source-only path. Missing known fields do not change the established importer behavior.",
+        "implementation": [
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyResidualReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsFieldParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparationSeal.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java"
+        ],
+        "normalization": "Exact versioned names/types: CARLOS.Allergy.Archived.v1 boolean true/false/1/0; CARLOS.Allergy.AgeOfOnset.v1 string retains up to four native characters without inferring a unit; CARLOS.Allergy.OnsetOfReaction.v1 string Unknown/Immediate/Gradual/Slow maps only to native 0/1/2/3. Absence preserves existing native defaults. Duplicate, malformed or unknown known-field values block. Effective corrections are honored. Oversized unrelated names are verified to full effective-value EOF/hash before ignoring their semantics; their original data remains preserved.",
+        "normativeBasis": [
+          "EMR Data Migration Implementation Guide v1.1 section 9 (AllergiesAndAdverseReactions)",
+          "EMR Data Migration Requirements v1.1 DP02.01",
+          "Pinned XML Schema declaration/facets in generated row",
+          "EMR Data Migration Implementation Guide v1.1 section18.1: archive state, native age text and reaction onset have no equivalent standard allergy fields and use individually typed vendor residual values."
+        ],
+        "original": "Immutable accepted XML bytes are retained. Each original XML character value/attribute (XML line-end/entity processing already applied) or decoded binary is separately addressed by indexed XPath, namespace, ordinal and type in cds_import_field; large values use hash-bound spool offsets. Logical whitespace/corrections are separate. Source category view and original-value download remain protected.",
+        "reader": [
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
+          "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
+          "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java"
+        ],
+        "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
+        "tests": [
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsXmlParserUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/webserv/rest/DemographicServiceUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyArchiveStateUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java#shouldKeepTheTransferredAllergyArchiveState_inActualNativeStorage",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationServiceUnitTest.java#shouldKeepLegacyAllergyPayloadBytes_whenStrictlyDecodingTheOptionalArchiveExtension"
+        ],
+        "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
+      },
       "appointment-calendar": {
         "destination": "Appointment exact single-day calendar slot with imported source status and native purpose/notes/provider where safely representable; otherwise category-only typed occurrence.",
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Year/month date, absent/long/cross-midnight duration, unsupported clock precision, missing zone/DST ambiguity or provider mismatch does not invent calendar timing. Offset normalized only with explicit zone; source status stays separate from native booked status; long purpose gets visible source reference. Native calendar days must round-trip the actual SQL DATE/legacy calendar; an unrepresentable day remains a typed source-only appointment with an explicit warning. Native creation/update audit clocks remain local server metadata; the REST editVersion token is not CDS source data.",
         "normativeBasis": [
@@ -38096,7 +38172,18 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareNormalizationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCarePersister.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCareImportService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Exact full date required by wire type. Fixed unit/LOINC codes checked, yes/no become full native Yes/No; no unit guessing. Nonquantified numeric text becomes dedicated typed-text measurement and blocking clinical review. Oversized goals use visible full-source reference, no prefix. Source has no author; import actor audit stays separate. Calendar-only native DATETIME anchors use a strict civil day and the first valid same-day clock, retaining full-date precision; unrepresentable days stop preflight. Adjusted anchors are explicitly reported.",
         "normativeBasis": [
@@ -38130,7 +38217,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsProviderResolver.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsProviderResolver.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Multiple participants never collapse to one invented author; all names/OHIP remain source. Import actor audit separate. No source reviewer/signature becomes local signed state.",
         "normativeBasis": [
@@ -38164,7 +38262,29 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java",
           "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNoteExt.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeRowDigest.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeRowState.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeBaselineCodec.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportUnitService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsImportReceiptDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportUnit.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportCheckpoint.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsRulesetFingerprint.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsExactNumeric.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/jdbc/CdsBinaryReads.java"
         ],
         "normalization": "A full date uses a clinic-zone day storage anchor, not an asserted source clock. Year/month and missing dates keep observation_date null with explicit precision/source fields. Exact timestamps floor to native whole seconds; source fraction/offset remain intact. Native range or timezone ambiguity remains source-only with warning. Native update_date is operational revision time; create_date formula is not source time. Exact timestamps require the reverse native Calendar/DATETIME instant round trip, including offset DST folds.",
         "normativeBasis": [
@@ -38188,7 +38308,9 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeBaselineCodecUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptMariaDbIntegrationTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -38197,7 +38319,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Formatted and structured alternatives retain original representation. Structured lines combine without clipping; known province aliases normalize. Conflicting repeated candidates or oversize fields become explicitly source-only rather than choosing arbitrarily. PostalCode and ZipCode remain distinct source branches.",
         "normativeBasis": [
@@ -38229,7 +38362,18 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactNormalizationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactImportService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsContactImportService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Each repeated contact is a bounded native child. First+middle join; independent purposes map precisely, conflicting purposes get visible source reference; competing phones stay source-only. Contact consent remains nullable unknown.",
         "normativeBasis": [
@@ -38261,7 +38405,18 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicDetailsService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Pinned spoken-language table maps recognized ASCII code spellings after ASCII-only case folding; Unicode lookalikes and unrecognized codes remain source-only with warning. Status/expiry are exact calendar dates. Complete note is used within native byte capacity; otherwise a visible complete-source reference replaces native projection, never a clipped excerpt. Every projected native DATE must retain its exact civil day through the actual legacy Calendar; unrepresentable dates require preflight review before any clinical write.",
         "normativeBasis": [
@@ -38292,7 +38447,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema logical whitespace and finite native capacities; official ENG/FRE normalized to native language; absent values stay unknown. Oversize projections retain source with explicit warning.",
         "normativeBasis": [
@@ -38322,7 +38488,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Literal first/last external names are not local-provider guesses; contact consent remains unknown, importing actor is creator/audit only.",
         "normativeBasis": [
@@ -38354,7 +38531,20 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreflightIdentityService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreflightIdentityService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsHealthCardAuthority.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsHealthCardAuthority.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Exact legal first/last components; birth date must be exact; known Canadian issuer aliases normalize, HIN removes literal spaces; issuer+HIN+DOB identity is conservative. Synthetic shifts require explicit authorized copy options; source remains unchanged. Local IDs are allocated, never copied from vendor IDs.",
         "normativeBasis": [
@@ -38375,7 +38565,9 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCategoryProjectionBoundaryUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicStorageMariaDbIntegrationTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsIdentityMariaDbIntegrationTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsIdentityMariaDbIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsHealthCardAuthorityUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsIdentityAuthorityUnitTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -38385,7 +38577,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Implementation Guide v1.1 section3.1: only LegalName/OtherName with explicit GIV contributes, in source occurrence order including duplicates. Actual xs:token whitespace facet applies. Complete parts join with one explicitly logged space. FAMC and other-purpose aliases do not contribute; PartQualifier remains separately retained source metadata. Entire result including separators must fit100code points; empty/incomplete/overflow becomes wholly source-only with CDS_MIDDLE_NAMES_SOURCE_ONLY, never a clipped or partial name. Successful multi-part join emits CDS_MIDDLE_NAMES_JOINED_IN_SOURCE_ORDER. The prepared DTO independently bounds100 before a native write.",
         "normativeBasis": [
@@ -38414,7 +38617,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Both address and phone choice representations projected when complete and within native capacity; foreign/unknown subdivisions are warned; overlength values stay source-only; no arbitrary catalogue merge or asserted contact consent.",
         "normativeBasis": [
@@ -38444,7 +38658,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Source R/W/C selects the native slot; complete areaCode/exchange/number or phoneNumber alternative is combined only when valid; ambiguous repeated/overflowing slots remain source-only with warnings. Attribute and extension remain independent source fields.",
         "normativeBasis": [
@@ -38475,7 +38700,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsProviderResolver.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsProviderResolver.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "OHIP/CPSO issued identifiers have priority; exact-name fallback only when explicitly enabled. No importing-provider substitution; unmatched external facts remain source with diagnostic.",
         "normativeBasis": [
@@ -38507,7 +38743,18 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicDetailsService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "All history occurrences are scanned boundedly; latest unambiguous transition may populate snapshot. Ties/unknown state/provider/capacity do not invent roster facts. Full structured history receives explicit source-only diagnostic even when a current snapshot is selected. Native roster DATE values require strict civil-day round trips; a legacy-calendar cutover gap cannot be normalized into another enrollment day.",
         "normativeBasis": [
@@ -38539,7 +38786,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "The two mutually exclusive enum/plain-text branches retain their meaning; no unknown value is converted to active.",
         "normativeBasis": [
@@ -38569,7 +38827,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
@@ -38601,7 +38870,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
@@ -38631,7 +38911,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
@@ -38663,7 +38954,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
@@ -38695,7 +38997,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
@@ -38725,7 +39038,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Complete narrative within configured byte budget. Oversize body uses explicit complete-source reference, no clipped excerpt; source reviewer/signature never imported as local sign-off.",
         "normativeBasis": [
@@ -38761,7 +39085,29 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java",
           "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNoteExt.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeRowDigest.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeRowState.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeBaselineCodec.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportUnitService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsImportReceiptDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportUnit.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/CdsImportCheckpoint.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportLedgerService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsRulesetFingerprint.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsExactNumeric.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/jdbc/CdsBinaryReads.java"
         ],
         "normalization": "Full dates use a clinic-zone day storage anchor with precision/original/field metadata. Year/month and absent dates keep observation_date null. Section fields are StartDate (FamilyHistory/RiskFactors), OnsetDate (ProblemList), DateActive (AlertsAndSpecialNeeds), and OnsetOrEventDate (PastHealth), with ProcedureDate used only when onset is absent. End/resolution dates are independent source fields. Original source bytes remain unchanged; the native issue-code reader sorts unknown dates last without dropping notes. Precision extension rows are included in native receipts.",
         "normativeBasis": [
@@ -38785,7 +39131,9 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsCoreProjectionUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryVisibilityMariaDbIntegrationTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryProjectionIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeBaselineCodecUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptMariaDbIntegrationTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -38797,7 +39145,34 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationPersister.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/CVCMappingDao.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/CVCMappingDaoImpl.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/CVCImmunizationDao.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/CVCImmunizationDaoImpl.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/CVCMapping.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/CVCImmunization.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionDao.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionDaoImpl.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/Prevention.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/PreventionExt.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsExportPreventionDataReadDao.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionExtDao.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/PreventionExtDaoImpl.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/PartialDateDao.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/dao/PartialDateDaoImpl.java",
+          "src/main/java/io/github/carlos_emr/carlos/commn/model/PartialDate.java"
         ],
         "normalization": "RefusedFlag required, both enum/Boolean choices precise. Optional unknown date stays null; year/month anchors require partial_date and precision-aware readers. No importing-provider attribution as administering clinician. Calendar-only dates use strict native civil anchors without asserting a source clock/instant; year/month precision remains separate. Exact timestamps must retain their reverse native instant, including DST folds, or require preflight review. DATETIME(0) floors seconds with full-source subsecond diagnostics; no blanket year-1000 minimum is imposed. ImmunizationType selects a configured PREVENTION_ITEMS injection key through healthCanadaType, matching native CVC preference and generic overrides; absent/unmapped types use OtherA. The source name remains cdsName, not a native prevention key.",
         "normativeBasis": [
@@ -38823,7 +39198,8 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTemporalUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java#shouldPreserveEarlyCivilDatesAndRecordedPrecision_throughNativeImmunizationWriter",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationProjectionIntegrationTest.java"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationProjectionIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCvcCatalogueMariaDbIntegrationTest.java#existingNativeCvcFindersKeepTheirHistoricalContractsBesideTheRawReaders"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -38832,7 +39208,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsLaboratoryImportService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Enum/plain abnormal flag branches retain literal and derived inbox summary separately; result status not falsely final. Sensitive Y is independent access control. Dates retain precision and source clock; import never acknowledges/reviews a result on behalf of source reviewer.",
         "normativeBasis": [
@@ -38863,7 +39250,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Independent source values remain independent; no route/frequency substring inference.",
         "normativeBasis": [
@@ -38896,7 +39294,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Source author remains independent of importing clinician; unresolved provider is empty, not import actor.",
         "normativeBasis": [
@@ -38929,7 +39338,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Fractions/ranges/text remain exact; no leading-number truncation or zero-dose invention.",
         "normativeBasis": [
@@ -38966,7 +39386,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Source product identity is literal; no inferred local code.",
         "normativeBasis": [
@@ -38999,7 +39430,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Y/y/N/n and Boolean choice branches are interpreted by their actual vocabulary; optional absence remains unknown. NonAuthoritativeIndicator has its own direct indicator type.",
         "normativeBasis": [
@@ -39032,7 +39474,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "CT035 states remain distinct; Active+Past conflict blocks; missing dates do not imply historical; only known historical archived. PRN long/short remain distinct.",
         "normativeBasis": [
@@ -39068,7 +39521,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Separate source pharmacy instructions, not provider Notes; no executable local prescription is created.",
         "normativeBasis": [
@@ -39105,7 +39569,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Complete provider notes remain separate from printed prescription/pharmacy instructions.",
         "normativeBasis": [
@@ -39138,7 +39613,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Literal source references do not become a local executable script identifier.",
         "normativeBasis": [
@@ -39171,7 +39657,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Each component has a 32768-codepoint preparation budget; oversized component uses visible full-source reference and reconciliation flag, not a prefix.",
         "normativeBasis": [
@@ -39204,7 +39701,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Numeric day/integer boundaries checked; no treatment end date inferred from dispense duration; int overflow requires review.",
         "normativeBasis": [
@@ -39242,7 +39750,18 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsMedicationPersister.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Year/month storage anchors require atomic partial_date tags; unknown null, original offset/clock retained in source; explicit synthetic shift logged. Native DATE values require an unchanged civil-day round trip; unrepresentable calendar days stop complete preflight rather than become malformed native prescriptions.",
         "normativeBasis": [
@@ -39285,7 +39804,18 @@
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportImportService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportImportService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "AuthorFreeText and AuthorName alternatives are exclusive. Complete external name may join within bounded preparation; too long for native source stays category-only with warning. Actor is creator/audit, never source author/reviewer.",
         "normativeBasis": [
@@ -39317,7 +39847,18 @@
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportImportService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Content TextContent/decoded Media and relative external FilePath handled boundedly; both allowed Content+FilePath representations retained. Known media/header mismatch becomes opaque with warning; invalid/unsupported text encoding remains intact opaque. No arbitrary filesystem access or whole-document decode. Verified publication inodes use mode 0640 for the document-store shared group; unverified partials and ownership journals remain private. Content hashes and source representations remain unchanged.",
         "normativeBasis": [
@@ -39349,7 +39890,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportImportService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Only exact source clock populates timestamp, whole-second projection explicitly warns; full date remains date, partial/unknown never replaced by insert callback/import time. Received DATE clock stays source with warning. Optional native DATE/timestamp projections must preserve their actual civil day/instant, including reverse offset-fold checks. Unrepresentable timing remains complete source data with explicit source-only warnings; native seconds are floored before fractional SQL rounding.",
         "normativeBasis": [
@@ -39381,7 +39933,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39411,7 +39974,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39441,7 +40015,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39469,7 +40054,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39497,7 +40093,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39527,7 +40134,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39555,7 +40173,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39583,7 +40212,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39613,7 +40253,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39641,7 +40292,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39671,7 +40333,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39701,7 +40374,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39729,7 +40413,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39757,7 +40452,18 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsScalarParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
         ],
         "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
         "normativeBasis": [
@@ -39783,7 +40489,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "01bd785ab65954700af40c48317267113872694475a6c9fa84d1643a3adb5ded"
+    "sha256": "78039a1458a7b26103a46e6b2567430d298788d56edc3cc4228252873016f1ba"
   },
   "root": "cds:OmdCds",
   "schemas": [

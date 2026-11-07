@@ -90,6 +90,7 @@
 	<!-- setup JPA -->
 	<import resource="classpath:spring_jpa.xml" />
 	<import resource="classpath:spring_cds_import.xml" />
+	<import resource="classpath:spring_cds_export.xml" />
 
 	<!-- setup managers -->
 	<import resource="classpath:spring_managers.xml" />

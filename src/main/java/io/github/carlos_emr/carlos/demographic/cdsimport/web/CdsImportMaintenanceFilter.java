@@ -47,12 +47,14 @@ public final class CdsImportMaintenanceFilter implements Filter {
             "/logout", "/logout.do", "/logoutPage", "/loginfailed", "/forcepasswordreset",
             "/forcepasswordresetSubmit", "/location", "/select_facility", "/csrfguard",
             "/mfa/loginMfa", "/securityRecord/mfa", "/form/importUpload", "/form/cdsUpload", "/form/cdsImportSubmit", "/form/cdsImportStatus", "/form/cdsImportDiagnostic",
-            "/form/cdsImportControl", "/form/cdsImportReport", "/form/importLogDownload", SESSION_HEARTBEAT);
+            "/form/cdsImportControl", "/form/cdsImportReport", "/form/importLogDownload",
+            "/form/cdsExport", "/form/cdsExportStatus", "/form/cdsExportControl", SESSION_HEARTBEAT);
     private static final String[] STATIC = {"/css/", "/js/", "/images/", "/fonts/", "/library/", "/loginResource/"};
     // Exact dependencies of the native login's global-head.jspf. Other shared
     // resources remain subject to maintenance admission.
     private static final Set<String> LOGIN_ASSETS = Set.of("/share/css/global.css", "/share/css/searchBox.css",
-            "/share/css/transitions.css", "/share/javascript/Oscar.js", "/share/javascript/carlos-ajax.js");
+            "/share/css/transitions.css", "/share/javascript/Oscar.js", "/share/javascript/carlos-ajax.js",
+            "/share/javascript/csrfTokenFetch.js");
     private enum UnavailableReason { STARTUP_PENDING, IMPORT_MAINTENANCE }
     private final Supplier<CdsImportMaintenanceService> maintenance;
 
@@ -112,6 +114,7 @@ public final class CdsImportMaintenanceFilter implements Filter {
         if (LOGIN_ASSETS.contains(path)) return true;
         if (path.startsWith("/WEB-INF/jsp/login/") || path.startsWith("/WEB-INF/jsp/mfa/")) return true;
         if (path.equals("/WEB-INF/jsp/demographic/demographicImport.jsp")) return true;
+        if (path.equals("/WEB-INF/jsp/demographic/demographicCdsExport.jsp")) return true;
         for (String prefix : STATIC) if (path.startsWith(prefix)) return true;
         return false;
     }

@@ -244,9 +244,17 @@ class CdsXmlTransportControlUnitTest {
                                     if (consumed.addAndGet(count) < cut) return;
                                     if (mode.equals("cancel")) LockSupport.parkNanos(2_000_000L);
                                     else if (triggered.compareAndSet(false, true)) {
-                                        if (mode.equals("deadline"))
-                                            LockSupport.parkNanos(800_000_000L);
-                                        else Thread.currentThread().interrupt();
+                                        if (mode.equals("deadline")) {
+                                            // parkNanos may return early (including an outstanding unpark
+                                            // permit from an earlier async operation). Actually expire the
+                                            // 500ms budget while the ignored XML suffix is being read.
+                                            long until = System.nanoTime() + 800_000_000L;
+                                            long remaining;
+                                            while ((remaining = until - System.nanoTime()) > 0
+                                                    && !Thread.currentThread().isInterrupted()) {
+                                                LockSupport.parkNanos(remaining);
+                                            }
+                                        } else Thread.currentThread().interrupt();
                                     }
                                 }
                             };

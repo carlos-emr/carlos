@@ -72,6 +72,7 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
         }
         effective.putAll(configuration.properties());
         effective.setProperty("cds.import.worker.enabled", "false");
+        effective.setProperty("cds.export.worker.enabled", "false");
         // Native calendar/date helpers must use the same configured zone as
         // the instance. This dedicated one-shot JVM has no unrelated workers;
         // capability probes never create it or alter process timezone state.

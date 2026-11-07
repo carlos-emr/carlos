@@ -96,7 +96,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
   ctx.registerBean("persistenceAnnotationBeanPostProcessor",org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor.class);
   ctx.register(CdsImportIdentityDao.class,CdsImportRunDao.class,CdsImportPatientDao.class,CdsImportUnitDao.class,CdsImportDependencyDao.class,CdsImportLineageDao.class,CdsImportCheckpointDao.class,CdsImportDiagnosticDao.class,CdsImportAdmissionDao.class,CdsImportFieldDao.class,CdsImportFileDao.class,CdsImportFileReferenceDao.class);
   ctx.registerBean(CdsImportEventDao.class,Audit::new);
-  ctx.register(CdsImportLedgerService.class,CdsImportUnitService.class,CdsImportFieldPersister.class,CdsImportFileService.class,CdsImportReportService.class);
+  ctx.register(CdsImportLedgerService.class,CdsImportUnitService.class,CdsImportFieldPersister.class,CdsImportFileService.class,CdsImportReportService.class,CdsTargetReceiptService.class);
   ctx.refresh();
   try {
    sql=new JdbcTemplate(ctx.getBean(DataSource.class));ledger=ctx.getBean(CdsImportLedgerService.class);units=ctx.getBean(CdsImportUnitService.class);files=ctx.getBean(CdsImportFileService.class);reports=ctx.getBean(CdsImportReportService.class);audit=ctx.getBean(Audit.class);commitFault=(CommitFaultManager)ctx.getBean(PlatformTransactionManager.class);fieldValues=ctx.getBean(CdsImportFieldPersister.class);
@@ -194,7 +194,39 @@ class CdsImportLedgerMariaDbIntegrationTest {
    verifyStoppedReportsRediscoveredWithoutClinicalResume();
    verifyDeadOwnerResume(jdbc);
    CdsResumeHandoffTestFixture.unsealed(jdbc);
+   verifyNativeBaselineCommitAndReplay(ctx.getBean(CdsTargetReceiptService.class));
   } finally {ctx.close();}
+ }
+ static void verifyNativeBaselineCommitAndReplay(CdsTargetReceiptService receipts) throws Exception {
+  Job job=job("baseline-"+UUID.randomUUID(),false);long before=countNative();
+  expect("NATIVE_BASELINE_REQUIRES_REVIEW",()->units.execute(job.id,job.epoch,job.first,()->{
+   var actual=writeBaseline(job,"invalid-baseline",receipts);
+   return new CdsImportReceiptDto(actual.targetReferences(),actual.targetDigest(),false,"{}");
+  },receipts::verify));
+  check(countNative()==before && sql.queryForObject("select count(*) from cds_import_checkpoint where id=?",Long.class,job.first)==0,"invalid baseline rolls native writes back before checkpoint");
+  expect("UNIT_WRITE_FAILED",()->units.execute(job.id,job.epoch,job.first,()->{
+   var actual=writeBaseline(job,"baseline-audit-rollback",receipts);audit.failNext();return actual;
+  },receipts::verify));
+  check(countNative()==before && sql.queryForObject("select native_baseline from cds_import_unit where run_id=? and unit_key=?",String.class,job.id,job.first)==null,"audit rollback retains neither native row nor field witnesses");
+  var first=units.execute(job.id,job.epoch,job.first,()->writeBaseline(job,"baseline-commit",receipts),receipts::verify);
+  check(first.nativeBaseline()!=null,"new native work has original-transaction field witnesses");
+  check(first.nativeBaseline().equals(sql.queryForObject("select native_baseline from cds_import_checkpoint where id=?",String.class,job.first)),"checkpoint stores exact original field witness document");
+  check(first.nativeBaseline().equals(sql.queryForObject("select native_baseline from cds_import_unit where run_id=? and unit_key=?",String.class,job.id,job.first)),"unit and checkpoint commit the same field witness document");
+  var repeated=units.execute(job.id,job.epoch,job.first,()->{throw new AssertionError("Baseline replay wrote native values");},receipts::verify);
+  check(repeated.alreadyComplete() && first.nativeBaseline().equals(repeated.nativeBaseline()) && first.targetReferences().equals(repeated.targetReferences()),"same-run replay preserves exact witness and legacy receipt bytes");
+  var legacy=units.execute(job.id,job.epoch,job.second,()->write(job,"legacy-null-baseline"),CdsImportLedgerMariaDbIntegrationTest::verify);
+  check(legacy.nativeBaseline()==null && sql.queryForObject("select native_baseline from cds_import_checkpoint where id=?",String.class,job.second)==null,"a missing historical witness is not backfilled from current rows");
+  ledger.finalizePatient(job.id,job.epoch,job.patient,receipt->receipt.nativeBaseline()==null?verify(receipt):receipts.verify(receipt));ledger.finish(job.id,job.epoch);
+  Job alias=repeat(job);
+  var copied=units.execute(alias.id,alias.epoch,alias.first,()->{throw new AssertionError("Cross-run baseline replay wrote native values");},receipts::verify);
+  check(copied.alreadyComplete() && first.nativeBaseline().equals(copied.nativeBaseline()),"cross-run alias copies original witness evidence without regeneration");
+  units.execute(alias.id,alias.epoch,alias.second,()->{throw new AssertionError("Cross-run legacy replay wrote native values");},CdsImportLedgerMariaDbIntegrationTest::verify);
+  ledger.finalizePatient(alias.id,alias.epoch,alias.patient,receipt->receipt.nativeBaseline()==null?verify(receipt):receipts.verify(receipt));ledger.finish(alias.id,alias.epoch);
+  check(countNative()==before+2,"witness replay never duplicates clinical rows");
+ }
+ static CdsImportReceiptDto writeBaseline(Job job,String suffix,CdsTargetReceiptService receipts) {
+  var legacy=write(job,suffix);String id=legacy.targetReferences().replaceAll("[^0-9]","");
+  return receipts.capture(Map.of("drugs",id));
  }
  static void verifyUnitFieldBudgetRollsBackBeforeCheckpoint(Job job) throws Exception {
   Path root=Files.createTempDirectory("cds-unit-budget-proof-");
@@ -265,7 +297,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    ledger.cancel(id);ledger.control(id,actor,"RESUME_REQUESTED",()->ledger.requestResumeParticipating(id));
    check(ledger.status(id).cancelRequested() && ledger.status(id).ownerEpoch()==originalEpoch && "RUNNING".equals(ledger.status(id).state()),"active Resume does not clear cancellation/state/epoch before both physical proofs");
    check(Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")) && ledger.pendingResumeEvent(id)>0,"accepted active resume is visible and durable");
-   check(ledger.pending("",200).stream().anyMatch(value->id.equals(value.id())),"new dispatcher rediscovers active resume without the old in-memory queue");
+   check(pendingContains(id),"new dispatcher rediscovers active resume without the old in-memory queue");
    engine.execute(id);check(ledger.status(id).ownerEpoch()==originalEpoch,"live coordinator prevents takeover");org.mockito.Mockito.verifyNoInteractions(jobs,nativeRecords);
    liveCoordinator.close();engine.execute(id);check(ledger.status(id).ownerEpoch()==originalEpoch && ledger.ownsAdmission(id,originalEpoch),"lost coordinator with a live maintenance owner cannot fence/release its unit owner");
    ledger.cancel(id);check(ledger.pendingResumeEvent(id)==0 && !Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),"later Cancel retires the queued Resume");
@@ -290,7 +322,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
     CdsImportLedgerMariaDbIntegrationTest.reports.select(id,oldEpoch,ledger.status(id).reportGeneration(),C,"/opaque/stopped-report-"+UUID.randomUUID(),A);
     ledger.operational(id,oldEpoch,null,"COMPLETE",null);
    }
-   check(ledger.pending("",200).stream().anyMatch(value->id.equals(value.id())),"stopped delivered report cannot hide accepted resume intent");
+   check(pendingContains(id),"stopped delivered report cannot hide accepted resume intent");
    try(var successor=coordinators.acquire();var window=maintenance.acquire()) {
     safety.verify(window);ledger.claimPreparation(id,successor,window,true);
     check(ledger.pendingResumeEvent(id)>0 && Boolean.TRUE.equals(ledger.summary(id).get("resumeRequested")),"preparation commit cannot consume recovery routing before its phase starts");
@@ -495,7 +527,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
    String run=ledger.accept(new CdsImportJobCommand(UUID.randomUUID().toString(), "fixture", "999998", "fixture", "omd-5.2", A, B, C, "/opaque/stopped-report")).id();
    sql.update("update cds_import_run set state=?,report_state='PENDING' where id=?", stopped, run);
    check(ledger.hasPendingReport(run), "pending report intent is durable for "+stopped);
-   check(ledger.pending("", 200).stream().anyMatch(value -> run.equals(value.id())), "restart dispatcher discovers pending report for "+stopped);
+   check(pendingContains(run), "restart dispatcher discovers pending report for "+stopped);
    var reportWriter=org.mockito.Mockito.mock(CdsImportResultService.class);
    var clinicalUnits=org.mockito.Mockito.mock(CdsImportUnitService.class);
    var nativeRecords=org.mockito.Mockito.mock(CdsImportNativeService.class);
@@ -526,8 +558,19 @@ class CdsImportLedgerMariaDbIntegrationTest {
    check(!ledger.isSealed(run), "report restart never fabricates an execution seal for "+stopped);
    sql.update("update cds_import_run set report_state='FAILED' where id=?", run);
    check(!ledger.hasPendingReport(run), "non-pending report marker is observed without aggregate import scans for "+stopped);
-   check(ledger.pending("", 200).stream().noneMatch(value -> run.equals(value.id())), "non-pending stopped report is not redispatched for "+stopped);
+   check(!pendingContains(run), "non-pending stopped report is not redispatched for "+stopped);
   }
+ }
+ /** Traverse the real bounded restart queue; old owned fixture runs may legitimately fill its first page. */
+ static boolean pendingContains(String run) {
+  String after="";
+  for(int page=0;page<5000;page++) {
+   var found=ledger.pending(after,200);
+   if(found.stream().anyMatch(value->run.equals(value.id())))return true;
+   if(found.size()<200)return false;
+   String next=found.getLast().id();check(next.compareTo(after)>0,"restart discovery cursor advances");after=next;
+  }
+  throw new AssertionError("Owned restart queue exceeded the bounded fixture inventory");
  }
  static void verifyMaintenanceReleaseOutcome(Job complete) {
   ledger.maintenanceReleaseDeferred(complete.id,complete.epoch,"GLOBAL_HOLDS_REMAIN");
