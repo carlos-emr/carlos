@@ -116,17 +116,28 @@ public class CdsExportAccessService {
                 CdsCategory.FAMILY_HISTORY, CdsCategory.PAST_HEALTH, CdsCategory.PROBLEM_LIST,
                 CdsCategory.RISK_FACTORS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS, CdsCategory.CLINICAL_NOTES).contains(category)
                 || command == null || !command.categories().contains(category)) deny();
-        requireSelectedPatient(command, expected.patient());
-        CurrentIdentity current = identity(actor, command);
-        requireReads(current.effective(), command, expected.patient(), category, false);
-        if (current.operator() != null) requireReads(current.operator(), command, expected.patient(), category, false);
-        for (var context : current.operator() == null ? java.util.List.of(current.effective()) : java.util.List.of(current.effective(), current.operator())) {
-            if (!security.hasPrivilegeReadOnly(context, "_eChart", "r", null)
-                    || !security.hasPrivilegeReadOnly(context, "_eChart", "r", Integer.toString(expected.patient()))) deny();
-        }
+        CurrentIdentity current = chartIdentity(actor, command, expected.patient(), category);
         if (!expected.equals(notes.findScope(expected.patient(), expected.noteId()))
                 || !notes.canRead(current.effective().getLoggedInProviderNo(), expected, command.facilityId(), configuration.filterNotesOnFacility())
                 || current.operator() != null && !notes.canRead(current.operator().getLoggedInProviderNo(), expected, command.facilityId(), configuration.filterNotesOnFacility())) deny();
+    }
+    /** Complete issue/catalogue reads use the live chart gate even for a patient with no native notes. */
+    public void requireCaseManagementRead(CdsExportActorDto actor, CdsExportCommand command, int patient) {
+        if (command == null || !command.categories().containsAll(CdsExportNoteSourceReader.CATEGORIES)) deny();
+        CurrentIdentity current = chartIdentity(actor, command, patient, CdsCategory.CLINICAL_NOTES);
+        if (!notes.canReadChart(current.effective().getLoggedInProviderNo(), patient)
+                || current.operator() != null && !notes.canReadChart(current.operator().getLoggedInProviderNo(), patient)) deny();
+    }
+    private CurrentIdentity chartIdentity(CdsExportActorDto actor, CdsExportCommand command, int patient, CdsCategory category) {
+        requireSelectedPatient(command, patient);
+        CurrentIdentity current = identity(actor, command);
+        requireReads(current.effective(), command, patient, category, false);
+        if (current.operator() != null) requireReads(current.operator(), command, patient, category, false);
+        for (var context : current.operator() == null ? java.util.List.of(current.effective()) : java.util.List.of(current.effective(), current.operator())) {
+            if (!security.hasPrivilegeReadOnly(context, "_eChart", "r", null)
+                    || !security.hasPrivilegeReadOnly(context, "_eChart", "r", Integer.toString(patient))) deny();
+        }
+        return current;
     }
     private static void requireSelectedPatient(CdsExportCommand command, int patient) {
         if (patient < 1 || command == null || command.selection() == CdsExportCommand.Selection.SELECTED_PATIENTS

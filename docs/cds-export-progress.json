@@ -247,7 +247,22 @@
     "reviewStateFocusedChecks": 34,
     "installedComponentAssertions": 58,
     "componentOverlays": true,
-    "issueCataloguePayloadImplemented": false,
+    "issueCataloguePayloadImplemented": true,
+    "clinicalPublication": false
+  },
+  "patientIssueSources": {
+    "state": "COMPONENT_VERIFIED_PENDING_COORDINATED_PACKAGE",
+    "patientIssuePhysicalColumns": 10,
+    "cataloguePhysicalColumns": 8,
+    "wholeRowReceiptReadersRegistered": true,
+    "unlinkedAndResolvedIssuesRetained": true,
+    "chartDomainGateIndependentOfNoteExistence": true,
+    "sharedCliAndBrowserRunControl": true,
+    "focusedChecks": 205,
+    "installedComponentAssertions": 71,
+    "componentOverlays": true,
+    "finalCatalogueCallbackChartRevocationRefused": true,
+    "clinicalFieldReconciliationComplete": false,
     "clinicalPublication": false
   }
 }

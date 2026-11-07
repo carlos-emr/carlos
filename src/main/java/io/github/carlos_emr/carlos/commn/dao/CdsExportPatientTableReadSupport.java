@@ -45,6 +45,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public final class CdsExportPatientTableReadSupport {
     public enum Plan {
+        CASE_ISSUES("casemgmt_issue", "id", "demographic_no", List.of("acute", "certain", "demographic_no", "id", "issue_id", "major", "program_id", "resolved", "type", "update_date")),
+        ISSUE_CATALOGUE("issue", "issue_id", null, List.of("code", "description", "issue_id", "priority", "role", "sortOrderId", "type", "update_date")),
         CASE_NOTE_ISSUE_LINK("casemgmt_issue_notes", "note_id", null, List.of("id", "note_id")),
         CASE_NOTE_EXT("casemgmt_note_ext", "id", null, List.of("date_value", "id", "key_val", "note_id", "value")),
         CASE_NOTES("casemgmt_note", "note_id", "demographic_no", List.of("appointmentNo", "archived", "billing_code", "demographic_no", "encounter_type", "history", "hourOfEncTransportationTime", "hourOfEncounterTime", "include_issue_innote", "locked", "minuteOfEncTransportationTime", "minuteOfEncounterTime", "note", "note_id", "observation_date", "password", "position", "program_no", "provider_no", "reporter_caisi_role", "reporter_program_team", "signed", "signing_provider_no", "update_date", "uuid")),
@@ -151,6 +153,7 @@ public final class CdsExportPatientTableReadSupport {
             };
         }
         private String patientPredicate() {
+            if (this == ISSUE_CATALOGUE) return "exists (select 1 from `casemgmt_issue` i where i.`issue_id`=d.`issue_id` and i.`demographic_no`=:patient)";
             if (this == CASE_NOTE_EXT) return "exists (select 1 from `casemgmt_note` n where n.`note_id`=d.`note_id` and n.`demographic_no`=:patient)";
             // No activity/deletion filtering: historical associations remain captured and require an explicit disposition.
             // Exact text reference matching avoids MySQL's permissive string-to-number coercion.

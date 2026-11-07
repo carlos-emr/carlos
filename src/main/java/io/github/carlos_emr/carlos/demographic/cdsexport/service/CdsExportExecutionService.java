@@ -142,6 +142,9 @@ public class CdsExportExecutionService {
         @Override public void authorizePharmacy(int patient) {
             outsideCapture(); access.requirePharmacyRead(lease.document().actor(), lease.document().command(), patient);
         }
+        @Override public void authorizeCaseManagement(int patient) {
+            outsideCapture(); access.requireCaseManagementRead(lease.document().actor(), lease.document().command(), patient);
+        }
         @Override public void authorizeNote(CdsCategory category, io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto scope) {
             outsideCapture(); access.requireNoteRead(lease.document().actor(), lease.document().command(), category, scope);
         }

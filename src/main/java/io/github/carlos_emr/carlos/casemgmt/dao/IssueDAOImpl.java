@@ -50,6 +50,34 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @Transactional
 public class IssueDAOImpl extends AbstractJpaDao implements IssueDAO {
+
+    // One authorized read-only patient snapshot owns these finite scalar projections; no managed issue is loaded.
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.read(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.Table.ISSUE_CATALOGUE);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.schema(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.count(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE, patient);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.page(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE, patient, afterId, limit);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.chunk(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE, patient, rowId, column, offset, length);
+    }
+
     private static Logger logger = MiscUtils.getLogger();
 
     @Override

@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
 import io.github.carlos_emr.carlos.model.security.Secrole;
 
-public interface IssueDAO {
+public interface IssueDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public Issue getIssue(Long id);
 

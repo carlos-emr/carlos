@@ -130,6 +130,10 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
         if (note != null) query.setParameter("note", note);
         return !query.setHint("jakarta.persistence.query.timeout", 30_000).setMaxResults(1).getResultList().isEmpty();
     }
+    /** Active chart domain gate independent of whether any note exists; metadata only. */
+    public boolean canReadChart(String provider, int patient) {
+        return provider != null && !provider.isEmpty() && patient > 0 && inPatientDomain(provider, patient);
+    }
     private boolean inPatientDomain(String provider, int patient) {
         List<?> admissions = entityManager().createNativeQuery("SELECT 1 FROM admission WHERE client_id = :patient")
                 .setParameter("patient", patient).setMaxResults(1).getResultList();

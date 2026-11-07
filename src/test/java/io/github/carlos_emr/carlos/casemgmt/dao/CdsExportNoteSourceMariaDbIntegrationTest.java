@@ -52,6 +52,8 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
     private CaseManagementNoteDAO notes;
     private CdsExportNoteAccessDao access;
     private CaseManagementNoteExtDAO extensions;
+    private CaseManagementIssueDAO patientIssues;
+    private IssueDAO catalogue;
     private TransactionTemplate read;
     private final int id = 490_000_000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9_000_000);
     private final String marker = "OwnedNoteSource" + id;
@@ -69,7 +71,7 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", "none", "hibernate.dialect", "org.hibernate.dialect.MariaDBDialect", "hibernate.show_sql", "false")); return factory;
         });
         context.registerBean(PersistenceAnnotationBeanPostProcessor.class); context.registerBean("transactionManager", JpaTransactionManager.class, () -> new JpaTransactionManager(context.getBean(EntityManagerFactory.class)));
-        context.register(CaseManagementNoteDAOImpl.class, CaseManagementNoteExtDAOImpl.class, CdsExportNoteAccessDao.class); context.refresh(); notes = context.getBean(CaseManagementNoteDAO.class); access = context.getBean(CdsExportNoteAccessDao.class); extensions = context.getBean(CaseManagementNoteExtDAO.class);
+        context.register(CaseManagementNoteDAOImpl.class, CaseManagementNoteExtDAOImpl.class, CdsExportNoteAccessDao.class, CaseManagementIssueDAOImpl.class, IssueDAOImpl.class); context.refresh(); notes = context.getBean(CaseManagementNoteDAO.class); access = context.getBean(CdsExportNoteAccessDao.class); extensions = context.getBean(CaseManagementNoteExtDAO.class); patientIssues = context.getBean(CaseManagementIssueDAO.class); catalogue = context.getBean(IssueDAO.class);
         read = new TransactionTemplate(context.getBean(PlatformTransactionManager.class)); read.setReadOnly(true); read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ); read.setTimeout(30);
         var write = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
         write.executeWithoutResult(status -> {
@@ -140,6 +142,30 @@ class CdsExportNoteSourceMariaDbIntegrationTest {
             assertThat(extensions.readCdsExportReceiptColumns()).hasSize(5); assertThat(extensions.findCdsExportRowsAfter(id, (long) id, 32)).isEmpty();
         });
         assertThatThrownBy(() -> read.execute(status -> extensions.readCdsExportValueChunk(id, id + 1, "value", 0, 10))).isInstanceOf(IllegalStateException.class);
+    }
+    @Test void shouldCaptureEveryPatientIssueField_andOnlyItsReferencedCatalogueRows() {
+        read.executeWithoutResult(status -> {
+            assertThat(patientIssues.countCdsExportRows(id)).isEqualTo(1); assertThat(catalogue.countCdsExportRows(id)).isEqualTo(1);
+            var issues = patientIssues.findCdsExportRowsAfter(id, null, 32); assertThat(issues).hasSize(1);
+            assertThat(issues.getFirst().id()).isEqualTo(id); assertThat(issues.getFirst().cells()).hasSize(10);
+            assertThat(new String(issues.getFirst().cells().get("type").inlineBytes(), StandardCharsets.UTF_8)).isEqualTo(marker);
+            var definitions = catalogue.findCdsExportRowsAfter(id, null, 32); assertThat(definitions).hasSize(1);
+            assertThat(definitions.getFirst().id()).isEqualTo(id + 10); assertThat(definitions.getFirst().cells()).hasSize(8);
+            assertThat(new String(definitions.getFirst().cells().get("description").inlineBytes(), StandardCharsets.UTF_8)).isEqualTo("Synthetic CDS note link");
+            assertThatCode(() -> new CdsExportSourceSchemaValidator().verify(patientIssues.readCdsExportSourceSchema(), Set.copyOf(CdsExportPatientTableReadSupport.Plan.CASE_ISSUES.columns()))).doesNotThrowAnyException();
+            assertThatCode(() -> new CdsExportSourceSchemaValidator().verify(catalogue.readCdsExportSourceSchema(), Set.copyOf(CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE.columns()))).doesNotThrowAnyException();
+            assertThat(patientIssues.readCdsExportReceiptColumns()).hasSize(10); assertThat(catalogue.readCdsExportReceiptColumns()).hasSize(8);
+        });
+        assertThatThrownBy(() -> read.execute(status -> patientIssues.readCdsExportValueChunk(id, id + 1, "type", 0, 10))).isInstanceOf(IllegalStateException.class);
+    }
+    @Test void shouldCaptureUnlinkedAndResolvedIssues_withoutAnActivityFilter() {
+        sql.update("delete from casemgmt_issue_notes where id=? and note_id=?", id, id);
+        sql.update("update casemgmt_issue set resolved=1,acute=1,certain=1,major=1 where id=? and demographic_no=?", id, id);
+        read.executeWithoutResult(status -> {
+            assertThat(patientIssues.countCdsExportRows(id)).isEqualTo(1); assertThat(catalogue.countCdsExportRows(id)).isEqualTo(1);
+            var row = patientIssues.findCdsExportRowsAfter(id, null, 32).getFirst();
+            for (String flag : List.of("resolved", "acute", "certain", "major")) assertThat(new String(row.cells().get(flag).inlineBytes(), StandardCharsets.UTF_8)).isEqualTo("1");
+        });
     }
     @Test void shouldCaptureExactPhysicalIssueLinks_withoutIncludingAnotherPatient() {
         read.executeWithoutResult(status -> {

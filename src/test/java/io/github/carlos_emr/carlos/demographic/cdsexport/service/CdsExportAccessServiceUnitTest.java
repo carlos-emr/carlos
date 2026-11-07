@@ -183,6 +183,37 @@ class CdsExportAccessServiceUnitTest {
         policy.setProperty("FILTER_ON_FACILITY", "sometimes");
         assertThatThrownBy(() -> new CdsExportConfigurationService(policy).filterNotesOnFacility()).hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
     }
+    @Test void shouldRequireTheCompleteHistoryScope_beforeReadingPatientIssues() {
+        var command = noteCommand("100"); var actor = access.webActor(session, command); clearInvocations(notes);
+        assertThatThrownBy(() -> access.requireCaseManagementRead(actor, command, 27)).hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
+        verifyNoInteractions(notes);
+    }
+    @Test void shouldRequireBothCurrentProgramDomains_forCompleteIssueReads() {
+        var command = historyCommand("200"); var actor = access.webActor(session, command);
+        for (String denied : List.of("100", "200")) {
+            when(notes.canReadChart(anyString(), eq(27))).thenAnswer(call -> !denied.equals(call.getArgument(0)));
+            assertThatThrownBy(() -> access.requireCaseManagementRead(actor, command, 27)).hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
+        }
+        when(notes.canReadChart(anyString(), eq(27))).thenReturn(true); access.requireCaseManagementRead(actor, command, 27);
+    }
+    @Test void shouldRequireCurrentChartRead_beforeLookingUpAnyIssueDomain() {
+        var command = historyCommand("100"); var actor = access.webActor(session, command);
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_eChart"), eq("r"), eq("27"))).thenReturn(false);
+        assertThatThrownBy(() -> access.requireCaseManagementRead(actor, command, 27)).hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
+        verifyNoInteractions(notes);
+    }
+    @Test void shouldRecheckChartDomain_withoutRequiringANoteToExist() {
+        var command = historyCommand("100"); var actor = access.webActor(session, command);
+        when(notes.canReadChart("100", 27)).thenReturn(true); access.requireCaseManagementRead(actor, command, 27);
+        when(notes.canReadChart("100", 27)).thenReturn(false);
+        assertThatThrownBy(() -> access.requireCaseManagementRead(actor, command, 27)).hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
+        verify(notes, never()).findScope(anyInt(), anyLong());
+    }
+    private static CdsExportCommand historyCommand(String provider) {
+        var categories = java.util.EnumSet.copyOf(CdsExportNoteSourceReader.CATEGORIES); categories.add(CdsCategory.DEMOGRAPHICS);
+        return new CdsExportCommand("issue-rights", provider, null, CdsLogicalProfile.ONTARIO_MD_5_2,
+                CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), List.of(27), categories, "recipient", "audit");
+    }
     private static CdsExportCommand noteCommand(String provider) {
         return new CdsExportCommand("note-rights", provider, null, CdsLogicalProfile.ONTARIO_MD_5_2,
                 CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), List.of(27), java.util.Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.CLINICAL_NOTES), "recipient", "audit");
