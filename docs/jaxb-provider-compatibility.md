@@ -50,6 +50,12 @@ and `LookupCodeValue` (#5721). These properties must remain schema-valid even fo
 cleared calendars. The general legacy adapter resolves an independent clone so
 serialization cannot normalize the caller's lazy state.
 
+Birthday display formatting also uses the returned calendar's own timezone. A
+shared `DateFormatUtils` formatter can have cached another default timezone when
+it was first initialized; that cache must not move a recorded birthday to the
+previous day. The timezone regression initializes that cache before changing the
+default and checks both ordinary clinic zones and the fixed UTC offset extremes.
+
 Date and Calendar values omit trailing fractional-second zeroes. The Calendar
 reader trims XML boundary whitespace before parsing, preserving
 the native JAXB acceptance of whitespace-surrounded date-times; the regression

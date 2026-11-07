@@ -1634,7 +1634,8 @@
         "CalendarXmlStateUnitTest": 3,
         "AppointmentArchiveDateTimeContractUnitTest": 7,
         "PublishedXmlSchemaContractUnitTest": 28,
-        "JaxbGeneratedSchemaUnitTest": 336
+        "JaxbGeneratedSchemaUnitTest": 336,
+        "DemographicBirthDayTimezoneUnitTest": 27
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -5527,6 +5528,22 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": {
+      "reason": "Reviewed main/release changes retain schema-bound birthday XML and physical pronoun/gender length guards. Focused tests cover those bounds, date-only birthday construction and serialization, and formatting after a shared formatter caches another timezone; the required provider and supported-client acceptance remains separate.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicBirthDayTimezoneUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicBirthDayPropertyUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicFieldLengthUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java"
       ],
       "checks": [
         "java-all",
