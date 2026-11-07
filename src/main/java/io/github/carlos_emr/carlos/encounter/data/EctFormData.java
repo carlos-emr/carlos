@@ -352,23 +352,15 @@ public class EctFormData {
         private SimpleDateFormat dateFormat = new SimpleDateFormat(EctFormData.DATE_FORMAT);
 
         /**
-         * This comparator sorts PatientForm descending based on the created date
+         * Sorts PatientForm descending by created date. A row without a created date
+         * ({@code formCreated} is nullable in every form table) sorts by its edited date instead,
+         * and a row with neither ({@code formEdited} is nullable in {@code formBPMH}) sorts last
+         * rather than failing the sort, and with it the chart Forms list (issue #5684). Rows that
+         * have the dates compare exactly as before.
          */
-        public static final Comparator<PatientForm> CREATED_DATE_COMPARATOR = new Comparator<PatientForm>() {
-            public int compare(PatientForm o1, PatientForm o2) {
-                if (o2.created == null && o1.created == null) {
-                    return o2.edited.compareTo(o1.edited);
-                }
-                if (o2.created == null && o1.created != null) {
-                    return o2.edited.compareTo(o1.created);
-                }
-                if (o1.created == null && o2.created != null) {
-                    return o2.created.compareTo(o1.edited);
-                }
-
-                return (o2.created.compareTo(o1.created));
-            }
-        };
+        public static final Comparator<PatientForm> CREATED_DATE_COMPARATOR =
+                Comparator.comparing((PatientForm form) -> form.created != null ? form.created : form.edited,
+                        Comparator.nullsLast(Comparator.<Date>reverseOrder()));
         public static final Comparator<PatientForm> EDITED_DATE_COMPARATOR = new Comparator<PatientForm>() {
             public int compare(PatientForm o1, PatientForm o2) {
                 if (o2.edited == null && o1.edited == null) {
