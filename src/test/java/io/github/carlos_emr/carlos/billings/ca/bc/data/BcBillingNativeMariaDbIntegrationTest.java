@@ -2,6 +2,7 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import io.github.carlos_emr.carlos.entities.MSPBill;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import javax.sql.DataSource;
@@ -25,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_PROVINCE", matches = "bc")
 class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     @Autowired @Qualifier("billingmasterDAO") private BillingmasterDAO dao;
+    @Autowired private BillingServiceDao billingServiceDao;
     @Autowired private DataSource dataSource;
     private JdbcTemplate jdbc;
     private static final int BILL = 9554601;
@@ -53,6 +55,33 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     void shouldMatchPackagedSqlSettings_forApplicationConnections() {
         assertThat(jdbc.queryForObject("select @@SESSION.innodb_strict_mode", Integer.class)).isZero();
         assertThat(jdbc.queryForObject("select @@SESSION.sql_mode", String.class)).isEmpty();
+    }
+
+    @Test
+    void shouldRetainNumericTimeRules_fromPhysicalTinyintFlags() {
+        jdbc.update("insert into billing_msp_servicecode_times (billingservice_no, timeRange) values (?, ?)",
+                "5694START", 0);
+        jdbc.update("insert into billing_msp_servicecode_times (billingservice_no, timeRange) values (?, ?)",
+                "5694RANGE", 1);
+
+        assertThat(billingServiceDao.findTimeRules()).contains(
+                new BillingServiceDao.TimeRule("5694START", "0"),
+                new BillingServiceDao.TimeRule("5694RANGE", "1"));
+    }
+
+    @Test
+    void shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState() {
+        assertThat(dao.findBillStatus(String.valueOf(MASTER))).isEqualTo("O");
+        var state = dao.findCurrentBillState(String.valueOf(MASTER));
+        assertThat(state.practitionerNo()).isEqualTo("BC54");
+        assertThat(state.billingType()).isEqualTo("MSP");
+        assertThat(state.status()).isEqualTo("O");
+        assertThat(state.amount()).isEqualTo("10.00");
+        jdbc.update("UPDATE billingmaster SET billingstatus='P' WHERE billingmaster_no=?", MASTER);
+        assertThat(dao.findBillStatus(String.valueOf(MASTER))).isEqualTo("P");
+        assertThat(dao.findCurrentBillState(String.valueOf(MASTER)).status()).isEqualTo("P");
+        assertThat(dao.findBillStatus(String.valueOf(MASTER + 1))).isNull();
+        assertThat(dao.findCurrentBillState(String.valueOf(MASTER + 1))).isNull();
     }
 
     @Test

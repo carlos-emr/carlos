@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.prevention;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
+import io.github.carlos_emr.carlos.commn.dao.EFormValueDao;
+import io.github.carlos_emr.carlos.commn.dao.ClinicalDataRow;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.*;
@@ -41,6 +43,7 @@ import static org.mockito.Mockito.*;
 class PreventionPrecisionDisplayUnitTest extends CarlosUnitTestBase {
     private final PreventionDao preventions = mock(PreventionDao.class);
     private final PartialDateDao dates = mock(PartialDateDao.class);
+    private final EFormValueDao apValues = mock(EFormValueDao.class);
     private Object originalPreventions;
     private Object originalDates;
 
@@ -49,6 +52,7 @@ class PreventionPrecisionDisplayUnitTest extends CarlosUnitTestBase {
         registerMock(PreventionDao.class, preventions);
         registerMock(PreventionExtDao.class, mock(PreventionExtDao.class));
         registerMock(PartialDateDao.class, dates);
+        registerMock(EFormValueDao.class, apValues);
         originalPreventions = ReflectionTestUtils.getField(PreventionData.class, "preventionDao");
         originalDates = ReflectionTestUtils.getField(PreventionData.class, "partialDateDao");
         ReflectionTestUtils.setField(PreventionData.class, "preventionDao", preventions);
@@ -99,15 +103,11 @@ class PreventionPrecisionDisplayUnitTest extends CarlosUnitTestBase {
     void shouldExecuteInteractiveAutofill_withoutAWholeDatabaseDateGate() throws Exception {
         var query = new io.github.carlos_emr.carlos.report.data.ParameterizedSql(
                 "select prevention_date as last_date from preventions", List.of());
-        var rows = mock(java.sql.ResultSet.class);
-        when(rows.next()).thenReturn(true, false);
-        when(rows.getString("last_date")).thenReturn("2019-01-01");
-        try (var jdbc = mockStatic(io.github.carlos_emr.carlos.db.LegacyJdbcQuery.class)) {
-            jdbc.when(() -> io.github.carlos_emr.carlos.db.LegacyJdbcQuery.getPreparedResultSet(query)).thenReturn(rows);
-            assertThat(io.github.carlos_emr.carlos.eform.EFormUtil.getValues(List.of("last_date"), query))
-                    .containsExactly("2019-01-01");
-            verifyNoInteractions(preventions);
-        }
+        when(apValues.findDatabaseApValues(query, List.of("last_date"))).thenReturn(List.of(
+                new ClinicalDataRow(java.util.Map.of("last_date", "2019-01-01"))));
+        assertThat(io.github.carlos_emr.carlos.eform.EFormUtil.getValues(List.of("last_date"), query))
+                .containsExactly("2019-01-01");
+        verifyNoInteractions(preventions);
     }
 
     @Test
@@ -115,12 +115,10 @@ class PreventionPrecisionDisplayUnitTest extends CarlosUnitTestBase {
         when(preventions.hasUncertainPreventionDates(7)).thenReturn(true);
         var query = new io.github.carlos_emr.carlos.report.data.ParameterizedSql(
                 "select max(prevention_date) as last_date from preventions where demographic_no=?", List.of(7));
-        try (var jdbc = mockStatic(io.github.carlos_emr.carlos.db.LegacyJdbcQuery.class)) {
-            assertThatThrownBy(() -> io.github.carlos_emr.carlos.eform.EFormUtil
-                    .getValuesOrNull(List.of("last_date"), query, 7))
-                    .isInstanceOf(io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException.class);
-            jdbc.verifyNoInteractions();
-        }
+        assertThatThrownBy(() -> io.github.carlos_emr.carlos.eform.EFormUtil
+                .getValuesOrNull(List.of("last_date"), query, 7))
+                .isInstanceOf(io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException.class);
+        verifyNoInteractions(apValues);
     }
 
     @Test
