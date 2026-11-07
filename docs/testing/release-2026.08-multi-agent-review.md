@@ -180,6 +180,23 @@ fresh reports with explicit source/class/report provenance; existing floors are
 preserved. The earlier 489-case run and green head are historical evidence,
 not a substitute for the refreshed source and CI results linked in the PR.
 
+The refreshed application source is frozen at
+`c7ef9f705dc2b07456a7ce6450bf4edd924957b3`. Its fresh focused run passes all 83
+cases without skips. Two strict new-file coverage floors use that committed
+source and independently retained source/class/report/exec fingerprints:
+
+| Source | Covered executable lines | Instructions | Branches |
+| --- | --- | --- | --- |
+| `ImportZipInputStream` | 24/24 | 137/137 | 18/18 |
+| `CalendarDateTimeXmlAdapter` | 13/13 | 53/53 | 5/6 |
+
+The ZIP constructor, count and byte-limit refusal lines are explicitly pinned.
+The calendar's unhit fractional-second-null branch is not a refusal. Exact
+measured floors pass the selected-source comparison and all four ratchet
+regressions. All 291 prior floors, their frozen baseline metadata and exclusions
+are preserved. These focused measurements are not a complete union-coverage or
+release-readiness verdict.
+
 ## Review-comment reconciliation
 
 The review inspected inline threads on merged PRs #5690, #5695, #5688, #5560,
