@@ -52,6 +52,10 @@ class CdsImmunizationProjectionIntegrationTest extends CarlosTestBase {
     @org.springframework.context.annotation.ImportResource("classpath:test-context-full.xml")
     static class CvcConfiguration {
         @org.springframework.context.annotation.Bean
+        io.github.carlos_emr.carlos.managers.LookupListManager lookupListManager() {
+            return new io.github.carlos_emr.carlos.managers.LookupListManager();
+        }
+        @org.springframework.context.annotation.Bean
         io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager cvcManager(
                 io.github.carlos_emr.carlos.commn.dao.CVCMedicationDao arg0,
                 io.github.carlos_emr.carlos.commn.dao.CVCMedicationLotNumberDao arg1,
