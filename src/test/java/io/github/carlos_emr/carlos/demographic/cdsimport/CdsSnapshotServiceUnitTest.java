@@ -57,6 +57,33 @@ class CdsSnapshotServiceUnitTest {
     private static final CdsInputLimitsDto LIMITS=CdsInputLimitsDto.defaults();
     private static final ObjectMapper JSON = new ObjectMapper();
 
+    @Test void shouldRejectExpandedZipBudgets_whenDescriptorSizesAreUnknown() throws Exception {
+        for (String budget : new String[] {"entry", "total", "count"}) {
+            Path source = Files.createDirectory(temp.resolve("budget-" + budget));
+            Path archive = source.resolve("patients.zip");
+            // The entry case must fit the aggregate budget so either missing byte check fails.
+            int payloadSize = budget.equals("entry") ? 4096 : 2048;
+            zip(archive, new String[] {"one.bin", "two.bin", "three.bin"},
+                    new String[] {"x".repeat(payloadSize), "x".repeat(2048), ""});
+            assertTrue(Files.size(archive) < 2048, "Synthetic highly compressed archive stays small");
+            byte[] original = Files.readAllBytes(archive);
+            try (ZipInputStream input = new ZipInputStream(Files.newInputStream(archive))) {
+                assertEquals(-1, input.getNextEntry().getSize());
+            }
+            var limits = new CdsInputLimitsDto(2048, budget.equals("total") ? 3000 : 8192,
+                    budget.equals("count") ? 2 : 10, 256, 65536, 2048, 0, 10000, 8192, 1_000_000);
+            Path durable = Files.createDirectory(temp.resolve("durable-" + budget));
+            CdsInputException failure = assertThrows(CdsInputException.class,
+                    () -> service.snapshot(archive, source, durable, "rejected", limits, () -> false));
+            assertEquals(budget.equals("count") ? "CDS_INPUT_ENTRY_LIMIT" : "CDS_INPUT_BYTE_LIMIT", failure.code());
+            assertFalse(Files.exists(durable.resolve("rejected")));
+            assertFalse(Files.exists(durable.resolve("rejected.pending/snapshot.seal")));
+            assertArrayEquals(original, Files.readAllBytes(archive));
+            // Failed CDS attempts intentionally retain private, unsealed evidence under the job's
+            // durable root; they cannot be consumed as an accepted snapshot or update patients.
+        }
+    }
+
     @Test void shouldRejectDirectoryPayloads_whenSizeIsDeclaredOrComesFromADataDescriptor() throws Exception {
         byte[] payload = "unaccounted directory body".getBytes(StandardCharsets.UTF_8);
         for (boolean descriptor : new boolean[] {false, true}) {
@@ -409,7 +436,7 @@ class CdsSnapshotServiceUnitTest {
         var candidates=new ArrayList<CdsSnapshotFileDto>();service.forEachXml(snapshot,candidates::add);
         Path spool=Files.createDirectory(temp.resolve("spools")).resolve("parsed");
         var invalid=assertThrows(CdsInputException.class,()->new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsXmlParser()
-                .parse(candidates.get(0).path(),spool,LIMITS,()->false,record->{ }));
+                .parse(candidates.get(0).path(),spool,LIMITS,()->false,patient->{ }));
         assertEquals("CDS_XML_MARKUP_LIMIT",invalid.code());assertFalse(Files.exists(spool.resolve("parse.seal")));assertTrue(Files.exists(file));
     }
 
