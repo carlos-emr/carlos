@@ -20,6 +20,8 @@ import io.github.carlos_emr.carlos.integration.ebs.client.ng.AttachmentCachingIn
  * Resource resolver class that detects if a uriToResolve starts with "cid:", as in
  * the case of MCEDT responses. It locates the attached resources using the uriToResolve
  * with "cid:" removed, allowing access of resource despite uri prefix
+ * Each resolution uses the current response thread's attachments; a globally
+ * registered resolver must not retain a previous response's collection.
  */
 public class CidPrefixResourceResolver extends ResourceResolverSpi {
 
@@ -28,8 +30,6 @@ public class CidPrefixResourceResolver extends ResourceResolverSpi {
     private static final String ATTACHMENT_PREFIX = "cid:";
 
     private static final Logger logger = LoggerFactory.getLogger(CidPrefixResourceResolver.class);
-
-    private Collection<Attachment> attachments;
 
     public boolean engineIsThreadSafe() {
         return false;
@@ -46,30 +46,42 @@ public class CidPrefixResourceResolver extends ResourceResolverSpi {
     @Override
     public XMLSignatureInput engineResolveURI(ResourceResolverContext context)
             throws ResourceResolverException {
-        String resourceId = getResourceId(context);
+        String resourceId;
+        try {
+            resourceId = getResourceId(context);
+        } catch (IllegalArgumentException e) {
+            logger.error("EBS attachment URI could not be decoded");
+            throw resolutionFailure(context, "EBS attachment URI could not be decoded");
+        }
         Attachment attachment = getAttachment(resourceId);
 
         if (attachment == null) {
-            String errorMessage = String.format("Unable to resolve attachment for %s with attr %s", resourceId, context.attr);
-            logger.error(errorMessage);
-            throw new ResourceResolverException(errorMessage, context.uriToResolve, context.baseUri);
+            logger.error("EBS attachment could not be resolved");
+            throw resolutionFailure(context, "EBS attachment could not be resolved");
         }
+        logger.debug("EBS attachment resolved");
 
         XMLSignatureInput result;
         try {
             result = new XMLSignatureStreamInput(attachment.getDataHandler().getInputStream());
         } catch (IOException e) {
-            logger.error("Unable to create xml signature input", e);
-
-            throw new ResourceResolverException("Unable to create xml signature input", context.uriToResolve, context.baseUri);
+            logger.error("EBS attachment signature input could not be opened");
+            throw resolutionFailure(context, "EBS attachment signature input could not be opened");
         }
         return result;
+    }
+
+    /** Keeps resolver metadata available without including provider content in the exception message. */
+    private static ResourceResolverException resolutionFailure(ResourceResolverContext context, String message) {
+        return new ResourceResolverException("generic.EmptyMessage", new Object[]{message},
+                context.uriToResolve, context.baseUri);
     }
 
     private String getResourceId(ResourceResolverContext context) {
         String resourceId = context.uriToResolve;
         try {
-            resourceId = URLDecoder.decode(resourceId, "UTF-8");
+            // A cid URI is not form data: a literal '+' is part of the Content-ID.
+            resourceId = URLDecoder.decode(resourceId.replace("+", "%2B"), "UTF-8");
         } catch (UnsupportedEncodingException e1) {
             throw new RuntimeException("Unable to decode", e1);
         }
@@ -86,8 +98,6 @@ public class CidPrefixResourceResolver extends ResourceResolverSpi {
         }
 
         for (Attachment a : attachments) {
-            logger.debug("Comparing " + a.getId() + " with " + resourceId);
-
             if (a.getId().equals(resourceId)) {
                 return a;
             }
@@ -96,9 +106,8 @@ public class CidPrefixResourceResolver extends ResourceResolverSpi {
     }
 
     protected Collection<Attachment> getAttachments() {
-        if (attachments == null) {
-            attachments = AttachmentCachingInterceptor.getAttachments();
-        }
-        return attachments;
+        // Resolver instances may be retained or globally registered; only the current
+        // response thread owns the attachment collection, including after cleanup.
+        return AttachmentCachingInterceptor.getAttachments();
     }
 }

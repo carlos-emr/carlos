@@ -503,6 +503,9 @@
       "area": "EBS transport and WS-Security qualification",
       "sources": [
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpi.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/CidPrefixResourceResolver.java",
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtWsSecurityWithoutJasyptUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/CxfHttpTransportUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java",
@@ -1250,7 +1253,9 @@
         "test_coverage_ratchet.CoverageLaneTest.test_missing_ambiguous_and_failed_lanes_are_refused",
         "test_coverage_ratchet.CoverageLaneTest.test_stale_source_plan_and_changed_or_omitted_inputs_are_refused",
         "test_ebs_payload_privacy.EbsPrivacyTest.test_empty_fabricated_and_untyped_observations_are_refused",
+        "test_ebs_payload_privacy.EbsPrivacyTest.test_logger_negative_control_must_really_disclose_canary_without_mutating_transport",
         "test_ebs_payload_privacy.EbsPrivacyTest.test_payload_canary_is_a_failed_acceptance_not_an_expected_success",
+        "test_ebs_payload_privacy.EbsPrivacyTest.test_stream_consumption_attachment_access_or_missing_direction_is_failed_acceptance",
         "test_generate_path_bindings.PathCandidatesTest.test_deleted_older_scope_is_retained_without_inventing_coverage",
         "test_generate_path_bindings.PathCandidatesTest.test_reviewed_noop_preserves_plan_bytes_and_changed_bindings_are_written",
         "test_generate_path_bindings.PathCandidatesTest.test_writing_candidates_without_review_is_refused",
@@ -1596,7 +1601,9 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "ConsultationListProjectionIntegrationTest": 17,
-        "AddEditDocument2ActionUnitTest": 40
+        "AddEditDocument2ActionUnitTest": 40,
+        "DownloadInInterceptorUnitTest": 10,
+        "AttachmentResolverSpiUnitTest": 18
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -4421,7 +4428,11 @@
       "resultContract": {
         "file": "privacy-result.json",
         "assertions": [
-          "payload-free-logging"
+          "payload-free-logging",
+          "message-streams-preserved",
+          "attachments-untouched",
+          "diagnostic-directions-exercised",
+          "logger-negative-control-detected"
         ]
       }
     },
@@ -4964,8 +4975,32 @@
         "T19"
       ]
     },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpi.java": {
+      "reason": "Real resolver regressions prove unread exact attachment bytes, literal-plus/percent-escaped Content-ID handling, fresh response/thread ownership for reused resolvers, and payload-free success/failure/URI diagnostics.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/CidPrefixResourceResolver.java": {
+      "reason": "The shared parameterized resolver regressions execute this MCEDT implementation independently for exact bytes, literal-plus/percent-escaped Content-IDs, fresh response/thread ownership and private fault diagnostics.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptor.java": {
-      "reason": "Default transport excludes opt-in payload logging and replay read failure propagates. Opt-in privacy remains an explicit finding, not covered by default-only proof.",
+      "reason": "The bare configuration bean defaults diagnostics off; HCV/MCEDT callers enable them when their logging.skip flag is absent. Enabled inbound/outbound diagnostics and inherited fault callbacks omit SOAP, credentials, headers and attachment IDs without accessing or replacing transport streams; an independent logger canary proves disclosure detection and retains stream/attachment ownership observations.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptorUnitTest.java",
         "scripts/ci/EbsPayloadPrivacyProbe.java"

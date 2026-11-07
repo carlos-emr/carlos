@@ -57,6 +57,59 @@ saves, note locks, BCAR saves, appointment updates, demographic merges or JSP
 workflow subset. Native MariaDB and installed/province-specific acceptance remain
 separate requirements.
 
+## Cycle 2: cross-review, state isolation and evidence completeness
+
+Reviewers exchanged areas: security examined the scoped birthday adapter and
+legacy-reader corpus, clinical/release reviewers examined transport diagnostics,
+frontend examined authorization provenance, and persistence reviewed stream/DAO
+boundaries. This produced additional validated corrections:
+
+- Both globally registered attachment resolvers retained the first response's
+  collection in an instance field. Santuario calls the retained instance directly;
+  its current SPI does not honor the legacy `engineIsThreadSafe` method. The fix
+  reads the current thread's attachment context for every resolution. Independent
+  original/fixed probes reproduce and remove contamination across responses and
+  after cleanup. Regression tests prime the old state before concurrent requests.
+- Resolver logs formatted content IDs, arbitrary attachment objects and provider
+  exceptions. Fixed messages retain explicit resolution failures and context
+  metadata without formatting those private values. Signature consumers retain
+  ownership of unread streams.
+- The independent privacy oracle captured only stdout, so a real Log4j leak could
+  pass. Its revised schema requires preserved streams/attachments, both diagnostic
+  directions and detection of a real nonadditive Log4j negative control. Only
+  boolean observations leave memory. Existing historical schema-1 results remain
+  historical, rather than being silently promoted.
+- The strict Node manifest missed the latest release's prescription-test changes.
+  A complete Node 22.23.4/npm 10.9.9 run passes all 7,368 cases. The reviewed
+  manifest update changes exactly five source hashes: four prescription files
+  from the existing release commit, plus the authorization regression. All case
+  rows for the other 512 files remain unchanged. The original manifest rejects
+  this run; the updated exact identities/multiplicities accept it.
+- Expected birthday output is adjusted only for serialization. Both legacy XML
+  reader paths continue consuming the unchanged frozen MOXy input.
+
+## Cycle 3: final adversarial review
+
+Independent reviewers checked the complete fixes, public signatures, caller
+defaults, diagnostic provenance, test sensitivity, exact Node inventory and
+strict result-contract assertions. The final resolver review reproduced a legal
+Content-ID containing literal `+` being decoded as a space and falsely refused.
+Both resolvers now preserve literal plus before one percent-decoding pass;
+tests cover literal `+`, encoded `%2B`, encoded space `%20`, and malformed escapes.
+
+The birthday annotation changes a reviewed CDS source fingerprint. Review confirms
+CDS import uses date components/LocalDate and export builds its XMLBeans document
+from the existing DOB data; neither path uses this JAXB property adapter. The
+single affected reviewed hash and canonical generated crosswalk are refreshed.
+All 25 crosswalk/refusal cases pass, with the 407 field and 130 choice-arm
+dispositions unchanged. Required new Python case identities and resolver test
+bindings are added rather than reducing any gate.
+
+Final local JVM/native, binary-comparison and remote CI results are reconciled
+in the pull request. Full release acceptance remains subject to the requirements
+below; passing the focused corrections does not waive unreviewed compatibility
+differences or incomplete installed/vendor qualification.
+
 ## Review-comment reconciliation
 
 The review inspected inline threads on merged PRs #5690, #5695, #5688, #5560,
