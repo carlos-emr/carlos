@@ -25,7 +25,7 @@ import org.apache.struts2.ServletActionContext;
 public final class AiReviewedDocumentSummary2Action extends ActionSupport {
     private static final String GENERATION_KEY = AiReviewedDocumentSummary2Action.class.getName() + ".generation";
     /** oscarLog.content for every DocumentSummary.* row: the record type, never summary text. */
-    static final String AUDIT_CONTENT = "AI document summary";
+    static final String AUDIT_CONTENT = io.github.carlos_emr.carlos.log.LogConst.CON_AI_DOCUMENT_SUMMARY;
     /** Shown when an honest correction fails provenance validation; the saved draft stays available. */
     static final String CORRECTION_NOT_SAVED = "Your corrections were not saved and the saved draft above is unchanged."
             + " Your edits are shown in the form below so you can correct them. Edited point text must keep words from its"

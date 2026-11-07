@@ -41,6 +41,8 @@ import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpSession;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 
 class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
@@ -149,6 +151,12 @@ class ChartUpdateContextUnitTest extends CarlosUnitTestBase {
         assertThat(snapshot.source()).isEqualTo("Review symptoms.");
         verify(em).clear();
         assertThatThrownBy(() -> context.requireWrite(user, 3001, "tickler")).isInstanceOf(SecurityException.class);
+        // The read row names the document and the patient; the source text stays out of every column.
+        logActionMock.verify(() -> LogAction.addLogSynchronous(user, "ChartUpdates.read",
+                LogConst.CON_AI_CHART_UPDATE, "42", 3001, "documentId=42,demographicNo=3001"));
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), anyString()), never());
+        logActionMock.verify(() -> LogAction.addLogSynchronous(any(), anyString(), contains("symptoms"),
+                anyString(), any(), anyString()), never());
     }
 
     @Test void shouldExcludeReminders_deniedByProgramRoleAccess() {

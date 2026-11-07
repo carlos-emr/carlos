@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.clinical.summary.ChartUpdateSections;
 import io.github.carlos_emr.carlos.clinical.summary.ClinicalSummaryGenerationException;
 import io.github.carlos_emr.carlos.clinical.summary.ReviewedChartUpdateService;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -112,7 +113,8 @@ public final class AiChartUpdates2Action extends ActionSupport {
         try {
             var snapshot = context.load(user, document);
             if ("generate".equals(operation)) {
-                LogAction.addLogSynchronous(user, "ChartUpdates.generate", "documentId=" + document);
+                LogAction.addLogSynchronous(user, "ChartUpdates.generate", LogConst.CON_AI_CHART_UPDATE,
+                        Integer.toString(document), snapshot.patientId(), "documentId=" + document);
                 var engine = generator == null ? new ChartUpdateProposals() : generator;
                 var proposals = engine.generateReport(snapshot.source());
                 var after = context.load(user, document);
@@ -148,8 +150,9 @@ public final class AiChartUpdates2Action extends ActionSupport {
                                     "true".equals(single(request, "confirmed")), single(request, "chartFingerprint"));
                             var result = writer.apply(user, review, single(request, "reviewToken"), key, approval);
                             review.record(key, (result.replay() ? "Already saved: " : "Saved: ") + result.kind() + " #" + result.target());
-                            LogAction.addLogSynchronous(user, "ChartUpdates.accept", "documentId=" + document
-                                    + ",kind=" + result.kind() + ",targetId=" + result.target());
+                            LogAction.addLogSynchronous(user, "ChartUpdates.accept", LogConst.CON_AI_CHART_UPDATE,
+                                    Integer.toString(document), snapshot.patientId(),
+                                    "documentId=" + document + ",kind=" + result.kind() + ",targetId=" + result.target());
                         }
                     }
                 }
