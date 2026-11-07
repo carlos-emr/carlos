@@ -6,7 +6,7 @@ rules:
     message: >-
       Reflective object dumps and equality can expose credentials or patient data
       and load associations. Use explicit safe diagnostics and explicit equality.
-    pattern-regex: '\b(ReflectionToStringBuilder|ReflectionDiffBuilder|RecursiveToStringStyle|MultilineRecursiveToStringStyle|reflectionToString|reflectionEquals|reflectionAppend|reflectionHashCode|reflectionCompare)\b'
+    pattern-regex: '\b(ReflectionToStringBuilder|ReflectionDiffBuilder|RecursiveToStringStyle|MultilineRecursiveToStringStyle|reflectionToString|reflectionEquals|reflectionAppend|reflectionHashCode|reflectionCompare|setTestRecursive)\b'
     paths:
       include: ['**/*.java', '**/*.jsp', '**/*.jspf']
     metadata:

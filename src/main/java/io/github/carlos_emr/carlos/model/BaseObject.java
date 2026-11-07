@@ -37,12 +37,15 @@ import org.hibernate.proxy.LazyInitializer;
  * Legacy model base. New entities should use the current model hierarchy.
  * Equality uses an explicitly supplied persistent key, with reference identity for
  * unsaved objects. Neither diagnostics nor equality traverses patient records or associations.
+ * Entities opting into this contract must expose final forwarding overrides for these
+ * object methods: otherwise Hibernate intercepts the call and loads the target before
+ * this implementation can inspect the proxy. Legacy subclass contracts remain separate.
  */
 public class BaseObject implements Serializable {
     /** Returns a type-only diagnostic without reading fields or associations. */
     @Override
     public String toString() {
-        return getClass().getSimpleName() + "[protected]";
+        return persistentType(this).getSimpleName() + "[protected]";
     }
 
     /** Subclasses with persistent keys opt into identifier equality. */

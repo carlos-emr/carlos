@@ -5,3 +5,8 @@
     // ok: carlos-no-reflective-object-methods
     boolean safe = java.util.Objects.equals(leftId, rightId);
 %>
+
+<%
+    // ruleid: carlos-no-reflective-object-methods
+    boolean recursive = new EqualsBuilder().setTestRecursive(true).append(left, right).isEquals();
+%>

@@ -45,6 +45,11 @@ class DiagnosticExamples {
         return new ToStringBuilder(value, new MultilineRecursiveToStringStyle()).append("value", value).toString();
     }
 
+    boolean unsafeRecursiveEquality(Object left, Object right) {
+        // ruleid: carlos-no-reflective-object-methods
+        return new EqualsBuilder().setTestRecursive(true).append(left, right).isEquals();
+    }
+
     String safe(Integer id) {
         // ok: carlos-no-reflective-object-methods
         return "Security[id=" + id + "]";

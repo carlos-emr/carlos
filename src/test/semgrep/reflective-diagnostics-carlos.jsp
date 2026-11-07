@@ -7,3 +7,8 @@
     // ok: carlos-no-reflective-object-methods
     String safe = "Summary prepared";
 %>
+
+<%
+    // ruleid: carlos-no-reflective-object-methods
+    boolean recursive = new EqualsBuilder().setTestRecursive(true).append(left, right).isEquals();
+%>

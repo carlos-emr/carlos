@@ -65,7 +65,11 @@ the broader audit-quality backlog is tracked separately in #4172 and #5322.
 persistent-key equality for CaseManagementCPP, ClientImage and Issue. Its hash
 is stable when an ID is assigned and never reads clinical fields or associations.
 Persistent type/key extraction recognizes Hibernate proxies without initializing
-their fields.
+their fields. The four entities that opt into this contract have final forwarding
+`equals()`, `hashCode()` and `toString()` overrides: Hibernate otherwise intercepts
+these methods and initializes the target before the base implementation runs.
+Real attached and detached proxy tests verify symmetry, stable collection membership,
+protected diagnostics and zero additional SELECTs.
 CaseManagementNote and CaseManagementIssue retain their existing identifier-based
 overrides; FieldDefValue explicitly uses its `(tableId, fieldName)` composite key
 through the existing JpaId value type, excluding mutable lookup values.
@@ -79,8 +83,12 @@ parts with null safety. No entity-wide reflective equals/hashCode remains.
 and arbitrary-key models, background contexts, log injection, and nested objects
 that throw if formatted. `BaseObjectIdentityUnitTest` checks persistent/unsaved
 identity, stable set membership, and all composite-key components.
+`BaseObjectProxyIntegrationTest` exercises actual Hibernate proxies and committed
+rows for all four affected entities. RecordUx and HRM tests capture DEBUG output
+while checking that the requested clinical records are still returned.
 
 The blocking Semgrep step tests its positive/negative fixture and scans
 `src/main` for reflective object methods, including qualified/static-import forms
-and JSP imports. Its narrow lexical ban intentionally also rejects references to
+and JSP imports, and the recursive equality opt-in `setTestRecursive`.
+Its narrow lexical ban intentionally also rejects references to
 these APIs in application comments: explanatory documentation belongs here.
