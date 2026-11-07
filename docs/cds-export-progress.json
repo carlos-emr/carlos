@@ -53,7 +53,7 @@
     "forwardIntegrationPushed": true,
     "previousIntegratedDevelopHead": "848ca460b2d5779a45950ae1451311f1c9409f33",
     "latestMergeConflictsResolved": 17,
-    "currentDevelopValidationPending": true,
+    "currentDevelopValidationPending": false,
     "upstreamAppointmentMigrationRetained": "V1.0.81",
     "nativeFieldBaselineMigration": "V1.0.82",
     "unpublishedExportLedgerMigration": "V1.0.83"
@@ -154,22 +154,21 @@
     "exactComponentWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85"
   },
   "latestIntegratedPackage": {
-    "state": "FOCUSED_REVISION_INVENTORY_AND_EXACT_COMPONENT_VERIFIED",
-    "head": "f0617b18c78d33e017c4408e8b06744c0af22d92",
-    "javaChecks": 166,
-    "javaSuites": 13,
+    "head": "e635af1a715e074bc1917b43ce3d97f3412d8314",
+    "tests": 4592,
+    "suites": 348,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "14c225f58639e78506e45510337ed5b926999afc3a4850ad82d0a44da56614e3",
-    "exactInstalledNoteCaptureAssertions": 78,
+    "warSha256": "9bb826afaf3eed06763b00ad0f3bb318b9ccc4770283b3bf53c21c50a1f3367a",
+    "exactInstalledAssertions": 107,
+    "genuineImportAssertions": 6,
     "componentOverlays": false,
-    "fullBaselineHead": "93c0910be60165c9e995ee3e8576099cb4ecc155",
-    "fullBaselineJavaChecks": 3931,
-    "fullBaselineJavaSuites": 317,
-    "originalCompletedImportRulesetRetained": true,
-    "nativeNoteIssueRevisionReconciliationComplete": false,
-    "clinicalPublication": false
+    "targetDevelop": "497896230576b492284b1c29efa77f4c4a2409ea",
+    "freshOnAndBcPhysicalContractsMatched": true,
+    "clinicalPublication": false,
+    "qualification": "FULL_CURRENT_DEVELOP_COMPONENT_BASELINE",
+    "finalLegacyNullableReceiptDiffPackagingPending": true
   },
   "historyAndNoteAccess": {
     "state": "PACKAGE_AND_EXACT_INSTALLED_SOURCE_COMPONENT_VERIFIED",
@@ -398,7 +397,9 @@
     "evidenceHead": "aadc39050d65a89f145148b568bad4fd82d93082",
     "exactInstalledAssertions": 107,
     "exactWarSha256": "29cedef0ff78b80bd60f39ea016d477a1e136276de2b27d41229c4caf3d7d4e6",
-    "currentDevelopIntegrationValidationPending": true
+    "currentDevelopIntegrationValidationPending": false,
+    "currentDevelopExactInstalledAssertions": 107,
+    "currentDevelopExactWarSha256": "9bb826afaf3eed06763b00ad0f3bb318b9ccc4770283b3bf53c21c50a1f3367a"
   },
   "historyOccurrenceCheckpoint": {
     "state": "PRESERVED_PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
@@ -416,5 +417,46 @@
     "originalImportRulesetRetained": true,
     "nativeFixtureTextAndTimestampsRestored": true,
     "clinicalPublication": false
+  },
+  "preservedRevisionInventoryPackage": {
+    "state": "FOCUSED_REVISION_INVENTORY_AND_EXACT_COMPONENT_VERIFIED",
+    "head": "f0617b18c78d33e017c4408e8b06744c0af22d92",
+    "javaChecks": 166,
+    "javaSuites": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "packagedWarSha256": "14c225f58639e78506e45510337ed5b926999afc3a4850ad82d0a44da56614e3",
+    "exactInstalledNoteCaptureAssertions": 78,
+    "componentOverlays": false,
+    "fullBaselineHead": "93c0910be60165c9e995ee3e8576099cb4ecc155",
+    "fullBaselineJavaChecks": 3931,
+    "fullBaselineJavaSuites": 317,
+    "originalCompletedImportRulesetRetained": true,
+    "nativeNoteIssueRevisionReconciliationComplete": false,
+    "clinicalPublication": false
+  },
+  "legacyAppointmentNullableLocationUpgrade": {
+    "state": "SOURCE_VERIFIED_FINAL_PACKAGE_PENDING",
+    "focusedChecks": 70,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "onlyKnownAddedSqlNullColumnCanBeExcluded": true,
+    "oldFieldBaselinesAndExactlyMatchedLegacyWholeReceiptsSupported": true,
+    "editedUnknownOrPopulatedAddedValuesRequireReview": true,
+    "storedImportMetadataRewritten": false
+  },
+  "currentPhysicalSourceCatalogue": {
+    "on": {
+      "tables": 462,
+      "columns": 10843,
+      "exhaustiveClinicalOwnershipAndMappingQualified": false
+    },
+    "bc": {
+      "tables": 495,
+      "columns": 15164,
+      "exhaustiveClinicalOwnershipAndMappingQualified": false
+    }
   }
 }

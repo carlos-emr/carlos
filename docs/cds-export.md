@@ -24,7 +24,7 @@ asynchronous browser workflow. Both must call the same authorized application
 service and use the same durable jobs, captured generations, mapping revision,
 dispositions and publication checks. Passing component or metadata/control tests do not establish a complete clinical migration.
 
-The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The preserved full integrated baseline passed 3,931 checks across 317 suites. The preserved current-history package at `aadc39050d65a89f145148b568bad4fd82d93082` passed 4,026 checks across 325 suites, with no failures, errors or skips. Its exact WAR passed 107 installed assertions against the genuine seven-category import, including a real edited current narrative, production history-session assembly, unchanged historical composite-link receipts and complete fixture restoration. The later merge of current develop is a separate pending qualification. Earlier exact-WAR checkpoints remain recorded separately. A concrete clinical export engine, full source coverage, current clinical field/issue/revision reconciliation and end-to-end clinical CLI/browser qualification remain unfinished.
+The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The preserved full integrated baseline passed 3,931 checks across 317 suites. The preserved current-history package at `aadc39050d65a89f145148b568bad4fd82d93082` passed 4,026 checks across 325 suites, with no failures, errors or skips. Its exact WAR passed 107 installed assertions against the genuine seven-category import, including a real edited current narrative, production history-session assembly, unchanged historical composite-link receipts and complete fixture restoration. The later merge of current develop passed 4,592 checks across 348 suites and another 107 exact-WAR installed assertions on a fresh schema and genuine import; the latest nullable legacy-receipt diff has separate focused verification. Earlier exact-WAR checkpoints remain recorded separately. A concrete clinical export engine, full source coverage, current clinical field/issue/revision reconciliation and end-to-end clinical CLI/browser qualification remain unfinished.
 
 Retained enrolment reconciliation now coordinates original source history with witnessed current and archive rows. Exact packaged installed checks passed for both an ordinary import (45 checks) and a shifted training copy (46 checks), including schema-valid XML, a later native termination, and exact restoration of the owned patient and archive changes. The coordinated package check passed; other demographic and archive fields still require coverage.
 
@@ -1201,3 +1201,16 @@ and supporting carrier are qualified. For an older sealed appointment baseline, 
 known added SQL-NULL column can be excluded from the common-field comparison; all original
 receipt bytes remain unchanged. Other schema changes or a populated added value still
 require review.
+
+Current-develop integration at `e635af1a715e074bc1917b43ce3d97f3412d8314`
+passed the complete 4,592-check, 348-suite coordinated package run with zero failures,
+errors or skips. Fresh ON/BC physical schemas and packaged migration bytes match the
+contracts. The exact WAR (`9bb826afaf3eed06763b00ad0f3bb318b9ccc4770283b3bf53c21c50a1f3367a`)
+passed 107 installed assertions after a genuine current-runtime import. The test environment
+uses its own freshly generated account/key; existing protected configuration was not copied.
+
+The later nullable-column fix also handles a legacy appointment without a stored field
+baseline only when removing that one added SQL-NULL field reproduces the exact recorded
+whole-row digest. An edited common field, populated location reference or unknown schema
+cannot use that derivation. No importer metadata is backfilled or restamped. Seventy focused
+appointment checks pass; the final package qualification is recorded separately.
