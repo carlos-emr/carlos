@@ -25,6 +25,8 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import java.io.IOException;
 import java.util.List;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Objects;
 import java.util.Set;
 
@@ -47,6 +49,10 @@ public final class CdsExportDemographicAssembler {
         public NativeRows {
             Objects.requireNonNull(current); Objects.requireNonNull(witness); Objects.requireNonNull(lookups);
             Objects.requireNonNull(contacts); Objects.requireNonNull(pharmacies);
+            if (properties.size() > 8192 || archives.size() > 8192
+                    || properties.size() != propertyWitnesses.size() || archives.size() != archiveWitnesses.size()) {
+                throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_ROW_SCOPE_INVALID");
+            }
             properties = List.copyOf(properties); propertyWitnesses = List.copyOf(propertyWitnesses);
             archives = List.copyOf(archives); archiveWitnesses = List.copyOf(archiveWitnesses);
             if ((custom == null) != (customWitness == null)) throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_NOTE_SCOPE_INVALID");
@@ -63,6 +69,11 @@ public final class CdsExportDemographicAssembler {
             String address, CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked,
             List<CdsExportRetainedFieldDto> allFields, NativeRows rows, int maximumRows, long maximumBytes,
             CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
+        Objects.requireNonNull(rows); Objects.requireNonNull(values); Objects.requireNonNull(checkpoint);
+        if (maximumRows < 1 || maximumRows > 8192 || maximumBytes < 1 || maximumBytes > (64L << 20)
+                || selected == null || !selected.contains(CdsCategory.DEMOGRAPHICS)) {
+            throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_SCOPE_INVALID");
+        }
         values.requireActive(); checkpoint.run();
         var core = new CdsExportDemographicRetainedCoreReconciler().reconcileWithPrimaryPhysician(
                 patient, selected, address, index, checked, allFields, rows.current(), rows.witness(), rows.properties(),
@@ -72,7 +83,34 @@ public final class CdsExportDemographicAssembler {
                 rows.current(), rows.witness(), rows.contacts(), rows.pharmacies(), maximumRows, maximumBytes, values, checkpoint);
         var completeBaseRow = new CdsExportDemographicAncillaryReconciler().reconcile(
                 care.demographic(), patient, rows.current(), rows.witness(), checkpoint);
+        var accounted = accountCareCarriers(completeBaseRow, rows.custom(), checkpoint);
         values.requireActive(); checkpoint.run();
-        return new CdsExportDemographicCareAssembler.Result(completeBaseRow, care.professionalNameUses());
+        return new CdsExportDemographicCareAssembler.Result(accounted, care.professionalNameUses());
     }
+    /** The note reconciler already verified this exact row and witness; close only its three explicit care-team hand-offs. */
+    static CdsExportDemographicRetainedCoreReconciler.Result accountCareCarriers(
+            CdsExportDemographicRetainedCoreReconciler.Result prior, CdsExportCapturedTextRowDto custom,
+            Runnable checkpoint) throws IOException {
+        if (custom == null) return prior;
+        if (!custom.table().equals("demographiccust")) throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_CARE_SCOPE_INVALID");
+        var fields = new LinkedHashMap<>(prior.fields()); var deferred = new HashSet<>(prior.deferredNativeFields());
+        for (String column : Set.of("cust1", "cust2", "cust4")) {
+            checkpoint.run(); var key = new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), column);
+            if (!custom.fields().containsKey(column) || fields.containsKey(key) || !deferred.remove(key)) {
+                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_CARE_SCOPE_INVALID");
+            }
+            String value = custom.fields().get(column);
+            var presence = value == null ? CdsExportFieldAssessmentDto.Presence.SQL_NULL
+                    : value.isEmpty() ? CdsExportFieldAssessmentDto.Presence.EMPTY : CdsExportFieldAssessmentDto.Presence.VALUE;
+            boolean absent = presence != CdsExportFieldAssessmentDto.Presence.VALUE;
+            fields.put(key, new CdsExportFieldAssessmentDto(presence, absent ? CdsExportFieldAssessmentDto.Outcome.ABSENT
+                    : CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW, "", absent ? "ABSENT_DEMOGRAPHIC_CARE_TEAM_CARRIER"
+                    : "DEMOGRAPHIC_CARE_TEAM_CARRIER_REQUIRES_REVIEW"));
+        }
+        boolean ready = prior.coreRepresentable() && fields.values().stream().noneMatch(field -> field.outcome() == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        return new CdsExportDemographicRetainedCoreReconciler.Result(prior.sourceManifestSha256(), prior.unitAddress(),
+                prior.decidedSourceFields(), prior.deferredSourceFields(), fields, deferred, prior.blockers(),
+                ready ? prior.coreChanges() : List.of(), prior.providerUses());
+    }
+
 }

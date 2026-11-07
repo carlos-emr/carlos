@@ -43,10 +43,10 @@ import static io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFie
  */
 public final class CdsExportDemographicAncillaryReconciler {
     private static final Set<String> OPERATIONAL = Set.of(
-            "demographic_no", "lastUpdateDate", "lastUpdateUser", "cds_identity_hin", "cds_identity_issuer");
+            "demographic_no", "date_joined", "lastUpdateDate", "lastUpdateUser", "cds_identity_hin", "cds_identity_issuer");
     private static final Set<String> ANCILLARY = Set.of(
             "alias", "anonymous", "children", "citizenship", "consentToUseEmailForCare",
-            "country_of_origin", "date_joined", "eff_date", "end_date", "family_doctor", "gender", "genderId",
+            "country_of_origin", "eff_date", "end_date", "family_doctor", "gender", "genderId",
             "myOscarUserName", "newsletter", "pcn_indicator", "pref_name", "previousAddress",
             "pronoun", "pronounId", "sourceOfIncome");
 

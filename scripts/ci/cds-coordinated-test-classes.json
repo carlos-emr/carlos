@@ -244,5 +244,6 @@
   "io.github.carlos_emr.carlos.utility.ContextStartupListenerUnitTest",
   "io.github.carlos_emr.carlos.webserv.CdsDocumentWsUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportSupportingFilesValidatorUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicAncillaryReconcilerUnitTest"
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicAncillaryReconcilerUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicAssemblerUnitTest"
 ]

@@ -74,7 +74,7 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
     }
     @Test void shouldBlockEveryPopulatedAncillaryValue_includingWhitespaceAndFalseLookingCodes() throws Exception {
         for (String column : List.of("alias", "anonymous", "children", "citizenship", "consentToUseEmailForCare", "country_of_origin",
-                "date_joined", "eff_date", "end_date", "family_doctor", "gender", "genderId", "myOscarUserName", "newsletter", "pcn_indicator",
+                "eff_date", "end_date", "family_doctor", "gender", "genderId", "myOscarUserName", "newsletter", "pcn_indicator",
                 "pref_name", "previousAddress", "pronoun", "pronounId", "sourceOfIncome")) {
             for (String value : List.of("0", "false", " ", "Clinical 😀 & value")) {
                 var result = reconcile(row(column, value));
@@ -85,7 +85,7 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
         }
     }
     @Test void shouldAccountForCapturedOperationalIdentity_withoutInventingClinicalHistory() throws Exception {
-        for (String column : List.of("lastUpdateDate", "lastUpdateUser", "cds_identity_hin", "cds_identity_issuer")) {
+        for (String column : List.of("date_joined", "lastUpdateDate", "lastUpdateUser", "cds_identity_hin", "cds_identity_issuer")) {
             var result = reconcile(row(column, "fixture"));
             assertThat(result.fields().get(key(column)).outcome()).isEqualTo(Outcome.OPERATIONAL);
             assertThat(result.fields().get(key(column)).destination()).isEmpty();
