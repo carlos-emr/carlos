@@ -148,16 +148,19 @@
     "exactComponentWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85"
   },
   "latestIntegratedPackage": {
-    "state": "PACKAGE_AND_EXACT_NATIVE_ISSUE_CONTEXT_COMPONENT_VERIFIED",
-    "head": "93c0910be60165c9e995ee3e8576099cb4ecc155",
-    "javaChecks": 3931,
-    "javaSuites": 317,
+    "state": "FOCUSED_FINAL_DIFF_AND_EXACT_COMPONENT_VERIFIED",
+    "head": "69afc74197e529fb661aa2ce2484e275690c7530",
+    "javaChecks": 150,
+    "javaSuites": 11,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "75e973f31190fdbf4e4266f7fee08056664ab6848291f0229413a6dcd95af829",
-    "exactInstalledNoteCaptureAssertions": 72,
+    "packagedWarSha256": "b933829ab33ac337d4bb29c0e64a9137e734dd73a30f8e91b7a2c6d30a6e7f4f",
+    "exactInstalledNoteCaptureAssertions": 76,
     "componentOverlays": false,
+    "fullBaselineHead": "93c0910be60165c9e995ee3e8576099cb4ecc155",
+    "fullBaselineJavaChecks": 3931,
+    "fullBaselineJavaSuites": 317,
     "originalCompletedImportRulesetRetained": true,
     "nativeNoteIssueRevisionReconciliationComplete": false,
     "clinicalPublication": false
@@ -284,7 +287,7 @@
     "clinicalPublication": false
   },
   "noteRevisionMetadata": {
-    "state": "FOCUSED_AND_INSTALLED_COMPONENT_VERIFIED_PENDING_FINAL_PACKAGE",
+    "state": "FOCUSED_PACKAGE_AND_EXACT_COMPONENT_VERIFIED",
     "metadataFields": 7,
     "largeBodiesHistoryAndPasswordsNotMaterialized": true,
     "publicProviderAuthorAndSignerSourcesScoped": true,
@@ -293,8 +296,26 @@
     "actualMariaDbDaoChecks": 14,
     "legacyScopeAndAccessChecks": 65,
     "installedComponentAssertions": 74,
-    "componentOverlays": true,
+    "componentOverlays": false,
     "currentRevisionClinicalAssemblyComplete": false,
+    "clinicalPublication": false,
+    "finalPackagedChecks": 150,
+    "finalPackagedSuites": 11,
+    "exactInstalledAssertions": 76
+  },
+  "latestFullCoordinatedPackage": {
+    "state": "PACKAGE_AND_EXACT_NATIVE_ISSUE_CONTEXT_COMPONENT_VERIFIED",
+    "head": "93c0910be60165c9e995ee3e8576099cb4ecc155",
+    "javaChecks": 3931,
+    "javaSuites": 317,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "packagedWarSha256": "75e973f31190fdbf4e4266f7fee08056664ab6848291f0229413a6dcd95af829",
+    "exactInstalledNoteCaptureAssertions": 72,
+    "componentOverlays": false,
+    "originalCompletedImportRulesetRetained": true,
+    "nativeNoteIssueRevisionReconciliationComplete": false,
     "clinicalPublication": false
   }
 }
