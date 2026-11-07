@@ -1568,7 +1568,17 @@
         "premature Content-Length response cannot become a successful download",
         "missing final HTTP chunk cannot become a successful download",
         "unexpected compression is rejected before comparing decoded bytes with a wire Content-Length",
-        "passing Node cases cannot qualify test source modified during execution"
+        "passing Node cases cannot qualify test source modified during execution",
+        "autocomplete type mode requires the selected widget id (bound: true)",
+        "autocomplete type mode requires the selected widget id (bound: false)",
+        "autocomplete fill mode requires the selected widget id (bound: true)",
+        "autocomplete fill mode requires the selected widget id (bound: false)",
+        "the eChart caller enters Safety in exactly one nonempty autocomplete update",
+        "schedule selection captures the response before the provider popup closes",
+        "schedule selection rejects an HTTP error even when the provider popup closes",
+        "schedule selection rejects a missing response after the provider popup closes",
+        "schedule selection rejects a missing CSRF token after the provider popup closes",
+        "schedule selection rejects a response from a different request"
       ],
       "caseManifest": "docs/testing/release-2026.08-node-cases.json"
     },
@@ -2726,7 +2736,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2735,10 +2745,10 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 80,
+      "minimumCases": 109,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
-        "BcBillingNativeMariaDbIntegrationTest": 8,
+        "BcBillingNativeMariaDbIntegrationTest": 10,
         "BcBillingDaoTransactionIntegrationTest": 4,
         "DemographicMergeMariaDbIntegrationTest": 8,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
@@ -2746,6 +2756,11 @@
         "LabRoutingLookupDaoIntegrationTest": 4,
         "LegacyLabNativeMariaDbIntegrationTest": 4,
         "ArchiveAuditTimestampIntegrationTest": 2,
+        "FormXmlImportServiceIntegrationTest": 7,
+        "EFormApColumnLookupIntegrationTest": 2,
+        "AppointmentDaySheetServiceIntegrationTest": 4,
+        "AntenatalReportDaoIntegrationTest": 5,
+        "EFormGroupDaoIntegrationTest": 9,
         "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [

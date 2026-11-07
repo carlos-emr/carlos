@@ -30,8 +30,6 @@
 
 package io.github.carlos_emr.carlos.encounter.data;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -41,14 +39,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import jakarta.persistence.PersistenceException;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -64,9 +59,8 @@ public class EctFormData {
     public static final String GROWTH_FORM_TABLE = "formGrowth0_36";
 
     private static final Pattern FORM_TABLE_NAME = Pattern.compile("^\\w+$");
-    private static final String LEGACY_FORM_SQL = "SELECT form_no, demographic_no, form_date from form where demographic_no=? order by form_no desc";
     private static Logger logger = MiscUtils.getLogger();
-    private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
+    private static EncounterFormDao encounterFormDao() { return SpringUtils.getBean(EncounterFormDao.class); }
 
     public static final String DATE_FORMAT = "dd-MM-yyyy";
     public static final String DATETIME_FORMAT = "dd-MM-yyyy HH:mm:ss";
@@ -82,7 +76,7 @@ public class EctFormData {
     }
 
     public static Form[] getForms() {
-        List<EncounterForm> results = encounterFormDao.findAll();
+        List<EncounterForm> results = encounterFormDao().findAll();
         Collections.sort(results, EncounterForm.BC_FIRST_COMPARATOR);
 
         ArrayList<Form> forms = new ArrayList<Form>();
@@ -137,7 +131,7 @@ public class EctFormData {
     public static ArrayList<PatientForm> getGroupedPatientFormsFromAllTables(Integer demographicId) {
         // grab all of the forms
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-        List<EncounterForm> encounterForms = encounterFormDao.findAll();
+        List<EncounterForm> encounterForms = encounterFormDao().findAll();
         Collections.sort(encounterForms, EncounterForm.BC_FIRST_COMPARATOR);
 
         // grab patient forms for all the above form types grouped by date of edit
@@ -167,28 +161,11 @@ public class EctFormData {
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
-        try {
-            if (!trustedTable.equals("form")) {
-                String sql = groupedFormTableSql(trustedTable);
-
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                        LegacyJdbcQuery.trustedSelectSql(sql), demographicNo)) {
-                    while (rs.next()) {
-                        PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("frmEdited"), jsp);
-                        forms.add(frm);
-                    }
-                }
-            } else {
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LEGACY_FORM_SQL, demographicNo)) {
-                    while (rs.next()) {
-                        PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
-                        forms.add(frm);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Unexpected error.", e);
-            throw (new PersistenceException(e));
+        for (EncounterFormDao.HistoryRow row : encounterFormDao().findPatientHistory(trustedTable, demographicNo.toString(), true)) {
+            PatientForm form = "form".equals(trustedTable)
+                    ? new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited())
+                    : new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited(), jsp);
+            forms.add(form);
         }
 
         return (forms);
@@ -197,7 +174,7 @@ public class EctFormData {
     public static ArrayList<PatientForm> getAllPatientFormsFromAllTables(Integer demographicId) {
         // grab all of the forms
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-        List<EncounterForm> encounterForms = encounterFormDao.findAll();
+        List<EncounterForm> encounterForms = encounterFormDao().findAll();
         Collections.sort(encounterForms, EncounterForm.BC_FIRST_COMPARATOR);
 
         // grab all patient forms for all the above form types
@@ -227,36 +204,10 @@ public class EctFormData {
         Integer demographicNo = parseDemographicNo(demoNo);
         if (demographicNo == null) return forms;
 
-        try {
-            if (!trustedTable.equals("form")) {
-                String sql = patientFormTableSql(trustedTable);
-
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(
-                        LegacyJdbcQuery.trustedSelectSql(sql), demographicNo)) {
-                    while (rs.next()) {
-                        PatientForm frm = new PatientForm(formName, rs.getInt("ID"), rs.getInt("demographic_no"), rs.getDate("formCreated"), rs.getTimestamp("formEdited"));
-
-                        // identify the source table for this form
-                        frm.setTable(trustedTable);
-
-                        forms.add(frm);
-                    }
-                }
-            } else {
-                try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LEGACY_FORM_SQL, demographicNo)) {
-                    while (rs.next()) {
-                        PatientForm frm = new PatientForm(formName, rs.getInt("form_no"), rs.getInt("demographic_no"), rs.getDate("form_date"), rs.getDate("form_date"));
-
-                        // identify the source table for this form
-                        frm.setTable(trustedTable);
-
-                        forms.add(frm);
-                    }
-                }
-            }
-        } catch (SQLException e) {
-            logger.error("Unexpected error.", e);
-            throw (new PersistenceException(e));
+        for (EncounterFormDao.HistoryRow row : encounterFormDao().findPatientHistory(trustedTable, demographicNo.toString(), false)) {
+            PatientForm form = new PatientForm(formName, row.id(), row.demographicNo(), row.created(), row.edited());
+            form.setTable(trustedTable);
+            forms.add(form);
         }
 
         return (forms);
@@ -291,10 +242,6 @@ public class EctFormData {
         return null;
     }
 
-    private static String groupedFormTableSql(String trustedTable) {
-        return "SELECT max(ID) ID, demographic_no, formCreated, date(formEdited) 'lastEdited', max(formEdited) 'frmEdited' FROM " + trustedTable + " WHERE demographic_no=? group by lastEdited";
-    }
-
     private static ArrayList<PatientForm> growthForms(String patient, String formName, String jsp, boolean grouped) {
         ArrayList<PatientForm> results = new ArrayList<>();
         Integer patientNo = parseDemographicNo(patient);
@@ -311,13 +258,9 @@ public class EctFormData {
         return results;
     }
 
-    private static String patientFormTableSql(String trustedTable) {
-        return "SELECT ID, demographic_no, formCreated, formEdited FROM " + trustedTable + " WHERE demographic_no=? ORDER BY ID DESC";
-    }
-
     private static boolean isKnownEncounterFormTable(String table) {
         // EncounterFormDaoImpl caches form-table lookups; keep validation here as the boundary.
-        return !SpringUtils.getBean(EncounterFormDao.class).findByFormTable(table).isEmpty();
+        return !encounterFormDao().findByFormTable(table).isEmpty();
     }
 
     public static PatientForm[] getPatientForms(String demoNo, String table) {

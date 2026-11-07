@@ -31,12 +31,13 @@
 
 package io.github.carlos_emr.carlos.form.data;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.github.carlos_emr.Misc;
+import org.apache.commons.lang3.StringUtils;
+import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
+import io.github.carlos_emr.carlos.commn.dao.StudyDao;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
@@ -44,13 +45,12 @@ import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 public class FrmData {
     private static final Logger _log = MiscUtils.getLogger();
     private static final String FORM_TABLE_IDENTIFIER_PATTERN = "[a-zA-Z]\\w*";
-    private static EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
+    private static EncounterFormDao encounterFormDao() { return SpringUtils.getBean(EncounterFormDao.class); }
 
     public class Form {
         private String formName;
@@ -78,7 +78,7 @@ public class FrmData {
 
     public Form[] getForms() {
 
-        List<EncounterForm> results = encounterFormDao.findAll();
+        List<EncounterForm> results = encounterFormDao().findAll();
 
         ArrayList<Form> forms = new ArrayList<Form>();
         for (EncounterForm encounterForm : results) {
@@ -137,16 +137,10 @@ public class FrmData {
         if (table == null || !table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
             throw new IllegalArgumentException("Invalid form table name");
         }
-        // Build query with validated table identifier and parameterized demoNo
-        String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
-        String whereClause = " WHERE demographic_no=? ORDER BY ID DESC";
-        String sql = selectClause + table + whereClause;
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
-            while (rs.next()) {
-                PatientForm frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
-                        UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
-                forms.add(frm);
-            }
+        for (EncounterFormDao.HistoryRow row : encounterFormDao().findPatientHistory(table, demoNo, false)) {
+            forms.add(new PatientForm(Integer.toString(row.id()), Integer.toString(row.demographicNo()),
+                    UtilDateUtilities.DateToString(row.created(), "yy/MM/dd"),
+                    UtilDateUtilities.DateToString(row.edited(), "yy/MM/dd")));
         }
 
         PatientForm[] ret = {};
@@ -157,52 +151,25 @@ public class FrmData {
     public PatientForm getCurrentPatientForm(String demoNo, String studyNo) throws SQLException {
         PatientForm frm = null;
 
-        // Parameterize studyNo to prevent SQL injection
-        String sql = "SELECT e.form_table from encounterForm e, study s where e.form_name = s.form_name and s.study_no = ?";
-        String table = "";
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, studyNo)) {
-            while (rs.next()) {
-                table = Misc.getString(rs, "form_table");
-            }
-        }
-
-        // table comes from DB (trusted source); validate identifier and parameterize demoNo
-        if (table.isEmpty()) {
-            return null;
-        }
-        if (!table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
-            throw new IllegalArgumentException("Invalid form table name returned from database");
-        }
+        String table = StringUtils.trimToEmpty(SpringUtils.getBean(StudyDao.class).findFormTable(studyNo));
+        if (table.isEmpty()) return null;
+        // Growth versions come from the patient-bound JPA DAO, as in getPatientForms.
         if (EctFormData.GROWTH_FORM_TABLE.equals(table)) {
             EctFormData.PatientForm[] versions = EctFormData.getPatientForms(demoNo, table);
             return versions.length == 0 ? null : growthPatientForm(versions[0]);
         }
-        String selectClause = "SELECT ID, demographic_no, formCreated, formEdited FROM ";
-        String whereClause = " WHERE demographic_no=? ORDER BY ID DESC limit 0,1";
-        sql = selectClause + table + whereClause;
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
-            while (rs.next()) {
-                frm = new PatientForm(Misc.getString(rs, "ID"), Misc.getString(rs, "demographic_no"),
-                        UtilDateUtilities.DateToString(rs.getDate("formCreated"), "yy/MM/dd"), UtilDateUtilities.DateToString(rs.getDate("formEdited"), "yy/MM/dd"));
-            }
+        EncounterFormDao.HistoryRow row = encounterFormDao().findNewestPatientHistory(table, demoNo);
+        if (row != null) {
+            frm = new PatientForm(Integer.toString(row.id()), Integer.toString(row.demographicNo()),
+                    UtilDateUtilities.DateToString(row.created(), "yy/MM/dd"),
+                    UtilDateUtilities.DateToString(row.edited(), "yy/MM/dd"));
         }
-
         return frm;
     }
 
     public String[] getStudyNameLink(String studyNo) throws java.sql.SQLException {
-        String[] ret = new String[2];
-
-        // Parameterize studyNo to prevent SQL injection
-        String sql = "SELECT study_name, study_link FROM study WHERE study_no=?";
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(sql, studyNo)) {
-            while (rs.next()) {
-                ret[0] = Misc.getString(rs, "study_name");
-                ret[1] = Misc.getString(rs, "study_link");
-            }
-        }
-
-        return ret;
+        StudyDao.StudyLink link = SpringUtils.getBean(StudyDao.class).findLink(studyNo);
+        return link == null ? new String[2] : new String[]{StringUtils.trimToEmpty(link.name()), StringUtils.trimToEmpty(link.link())};
     }
 
     //ret[0] = form path;   ret[1] = formId
@@ -211,7 +178,7 @@ public class FrmData {
         String table = null;
 
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
-        List<EncounterForm> forms = encounterFormDao.findByFormName(formName);
+        List<EncounterForm> forms = encounterFormDao().findByFormName(formName);
 
         for (EncounterForm encounterForm : forms) {
             ret[0] = encounterForm.getFormValue();
@@ -236,13 +203,7 @@ public class FrmData {
             if (searchFormName.equals("AR1"))
                 searchFormName = "ar1_99_12"; // quick hack for ease of migration from old forms to new
             if (searchFormName.equals("AR2")) searchFormName = "ar2_99_08"; // ditto
-            String sql = "SELECT form_no FROM " + table + " WHERE demographic_no=? AND form_name=? order by form_no desc limit 0,1";
-            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo,
-                    searchFormName)) {
-                while (rs.next()) {
-                    ret[1] = Misc.getString(rs, "form_no");
-                }
-            }
+            ret[1] = encounterFormDao().findLatestPatientFormId(table, demoNo, searchFormName, false);
             String[] xmlForm = ret.clone();
 
             if (formName.equals("AR1")) {
@@ -296,13 +257,7 @@ public class FrmData {
             EctFormData.PatientForm latest = EctFormData.getShortcutLatestPatientForm(demoNo, table);
             if (latest != null) ret[1] = latest.getFormId();
         } else {
-            // Form edits can share timestamp precision; prefer the newest revision on a tie.
-            String sql = "SELECT ID FROM " + table + " WHERE demographic_no=? order by formEdited desc, ID desc limit 0,1";
-            try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet(LegacyJdbcQuery.trustedSelectSql(sql), demoNo)) {
-                while (rs.next()) {
-                    ret[1] = Misc.getString(rs, "ID");
-                }
-            }
+            ret[1] = encounterFormDao().findLatestPatientFormId(table, demoNo, null, true);
         }
 
         _log.debug("RETURNING " + ret[0] + " = " + ret[1]);
@@ -319,10 +274,8 @@ public class FrmData {
         String ret = "";
 
 
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT value FROM property WHERE name=?", "resource")) {
-            while (rs.next()) {
-                ret = Misc.getString(rs, "value");
-            }
+        for (var property : SpringUtils.getBean(PropertyDao.class).findByName("resource")) {
+            ret = StringUtils.trimToEmpty(property.getValue());
         }
 
         if (ret.compareTo("") == 0)
@@ -335,10 +288,8 @@ public class FrmData {
         String ret = "";
 
 
-        try (ResultSet rs = LegacyJdbcQuery.getPreparedResultSet("SELECT value FROM property WHERE name=?", name)) {
-            while (rs.next()) {
-                ret = Misc.getString(rs, "value");
-            }
+        for (var property : SpringUtils.getBean(PropertyDao.class).findByName(name)) {
+            ret = StringUtils.trimToEmpty(property.getValue());
         }
 
         return ret;

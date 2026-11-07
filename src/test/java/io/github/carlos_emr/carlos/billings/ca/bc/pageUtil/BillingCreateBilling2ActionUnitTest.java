@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.billings.ca.service.GstSettingsService;
 import io.github.carlos_emr.carlos.entities.WCB;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.util.SqlUtils;
+import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -62,7 +62,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * The BC bill form's Continue (billing/CA/BC/CreateBilling): its warnings read reference tables
- * that a Flyway-built BC install ships empty, and {@link SqlUtils#getQueryResultsList(String)}
+ * that a Flyway-built BC install ships empty, and the typed lookup
  * answers {@code null} for no rows. Continue answered HTTP 500 for every bill (issue #4716).
  * Continue also continues only the bill its form names and keeps the billing form the window
  * shows (issue #4673), and bills a WCB form only when it is the bill's own patient's. A refused
@@ -78,7 +78,7 @@ class BillingCreateBilling2ActionUnitTest extends CarlosUnitTestBase {
     private final MockHttpServletResponse response = new MockHttpServletResponse();
     private final SecurityInfoManager securityInfoManager = mock(SecurityInfoManager.class);
     private MockedStatic<ServletActionContext> servletActionContextMock;
-    private MockedStatic<SqlUtils> sqlUtilsMock;
+
 
     @BeforeEach
     void setUp() {
@@ -87,14 +87,11 @@ class BillingCreateBilling2ActionUnitTest extends CarlosUnitTestBase {
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
-        sqlUtilsMock = mockStatic(SqlUtils.class);
-        // billing_msp_servicecode_times with no rows
-        sqlUtilsMock.when(() -> SqlUtils.getQueryResultsList(anyString())).thenReturn(null);
+        registerMock(BillingServiceDao.class, mock(BillingServiceDao.class));
     }
 
     @AfterEach
     void tearDown() {
-        if (sqlUtilsMock != null) sqlUtilsMock.close();
         if (servletActionContextMock != null) servletActionContextMock.close();
     }
 

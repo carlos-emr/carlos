@@ -67,7 +67,9 @@
 %>
 <%@ page import="java.net.URLEncoder" %>
 <%@ page import="java.nio.charset.StandardCharsets" %>
-<%@ page import="java.sql.ResultSet" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="java.util.Calendar" %>
 <%@ page import="java.util.GregorianCalendar" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
@@ -96,11 +98,7 @@
     mygroupno = StringUtils.trimToEmpty(mygroupno);
 %>
 
-<jsp:useBean id="reportMainBean" class="io.github.carlos_emr.AppointmentMainBean"
-             scope="session"/>
-<% if (!reportMainBean.getBDoConfigure()) { %>
 <%@ include file="reportMainBeanConn.jspf" %>
-<% } %>
 
 
 
@@ -297,28 +295,25 @@
                 <td  style="width: 300px;"><fmt:message key="report.reportindex.formDaySheet"/></td>
                 <td><select name="provider_no" class="form-select form-select-sm" style="width:auto;display:inline-block">
                     <%
-                        ResultSet rsgroup = reportMainBean.queryResults("site_search_group".equals(mygroup_dboperation)
-                                ? new String[]{curUser_no} : new String[0], mygroup_dboperation);
-
-                        while (rsgroup.next()) {
-                            if (isTeamAccessPrivacy)
-                                continue;    //skip mygroup display if user have TeamAccessPrivacy
+                        for (String reportGroup : SpringUtils.getBean(MyGroupDao.class)
+                                .findReportGroups(curUser_no, "site_search_group".equals(mygroup_dboperation))) {
+                            if (isTeamAccessPrivacy) continue;
                     %>
-                    <option value="<carlos:encode value='<%= "_grp_"+rsgroup.getString("mygroup_no") %>' context="htmlAttribute"/>"
-                            <%=mygroupno.equals(rsgroup.getString("mygroup_no")) ? "selected" : ""%>><fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>:&nbsp;<carlos:encode value='<%= rsgroup.getString("mygroup_no") %>' context="html"/>
+                    <option value="<carlos:encode value='<%= "_grp_"+reportGroup %>' context="htmlAttribute"/>"
+                            <%=mygroupno.equals(reportGroup) ? "selected" : ""%>><fmt:message key="provider.appointmentprovideradminmonth.formGRP"/>:&nbsp;<carlos:encode value='<%= reportGroup %>' context="html"/>
                     </option>
                     <%
                         }
                     %>
                     <%
-                        rsgroup = reportMainBean.queryResults("team_search_provider".equals(provider_dboperation)
-                                ? new String[]{curUser_no, curUser_no}
-                                : "site_search_provider".equals(provider_dboperation) ? new String[]{curUser_no}
-                                : new String[0], provider_dboperation);
-                        while (rsgroup.next()) {
+                        ProviderDataDao.ReportScope reportScope = "team_search_provider".equals(provider_dboperation)
+                                ? ProviderDataDao.ReportScope.TEAM : "site_search_provider".equals(provider_dboperation)
+                                ? ProviderDataDao.ReportScope.SITE : ProviderDataDao.ReportScope.ALL;
+                        for (ProviderDataDao.ReportChoice reportProvider : SpringUtils.getBean(ProviderDataDao.class)
+                                .findReportChoices(curUser_no, reportScope)) {
                     %>
-                    <option value="<carlos:encode value='<%= rsgroup.getString("provider_no") %>' context="htmlAttribute"/>"
-                            <%=curUser_no.equals(rsgroup.getString("provider_no")) ? "selected" : ""%>><carlos:encode value='<%= rsgroup.getString("last_name") + ", " + rsgroup.getString("first_name") %>' context="html"/>
+                    <option value="<carlos:encode value='<%= reportProvider.providerNo() %>' context="htmlAttribute"/>"
+                            <%=curUser_no.equals(reportProvider.providerNo()) ? "selected" : ""%>><carlos:encode value='<%= reportProvider.lastName() + ", " + reportProvider.firstName() %>' context="html"/>
                     </option>
                     <%
                         }
