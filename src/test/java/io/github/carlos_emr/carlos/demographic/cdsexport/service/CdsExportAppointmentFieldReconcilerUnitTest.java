@@ -54,6 +54,23 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
         prepared=new CdsAppointmentNativeDto("2024-03-01", "09:00", "10:00", "Original imported status", originalPurpose, originalNotes, "0é27", true, List.of());
         var values=new TreeMap<String, String>(); CdsExportDemographicRowDto.COLUMNS.forEach(name-> values.put(name, null)); values.putAll(Map.of("demographic_no", "27", "first_name", "Synthetic", "last_name", "Fixture")); demographic=new CdsExportCapturedTextRowDto("demographic", "0000000027", values); lookups=CdsExportAppointmentMapperUnitTest.lookups();
     }
+    @Test void shouldDeriveOnlyAnExactlyMatchedLegacyReceipt_whenTheAddedLocationColumnIsNull() throws Exception {
+        baseline = false; old.remove("locationCode"); var result = reconcile(); assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+        var unit = index.tables().get("cds_import_unit").get(CdsImportKeys.hash(RUN, KEY)); assertThat(unit.fields().get("native_baseline")).isNull();
+    }
+    @Test void shouldRejectAnEditedLegacyRow_whenNoRecordedFieldBaselineCanProveThePriorValues() {
+        baseline = false; old.remove("locationCode"); current.put("notes", "An edit cannot be backfilled as an original value");
+        assertThatThrownBy(this::reconcile).hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+    }
+    @Test void shouldRejectAPopulatedLocationReference_whenDerivingAnOldUnchangedReceipt() {
+        baseline = false; old.remove("locationCode"); current.put("locationCode", "17");
+        assertThatThrownBy(this::reconcile).hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+    }
+    @Test void shouldRejectAnUnknownLegacyShape_insteadOfDroppingAnotherCapturedColumn() {
+        baseline = false; old.remove("locationCode"); old.remove("billing");
+        assertThatThrownBy(this::reconcile).hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+    }
     @Test void shouldReconcileAPreLocationListReceipt_whenOnlyTheNewNullableColumnIsAdded() throws Exception {
         old.remove("locationCode"); var result = reconcile(); assertThat(result.mapping().nativeRowRepresentable()).isTrue();
         assertThat(result.mapping().value().notes()).isEqualTo(originalNotes); assertThat(result.preparedPaths()).contains("AppointmentNotes", "AppointmentPurpose");

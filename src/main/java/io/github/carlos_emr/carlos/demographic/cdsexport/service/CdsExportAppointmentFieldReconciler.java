@@ -64,6 +64,7 @@ public final class CdsExportAppointmentFieldReconciler {
             if (old.rows().size()!=1)scope(); baseline=old.rows().getFirst();
         }catch (IllegalArgumentException failed){scope(); }
         if (baseline==null&&comparisons.getFirst().reason()==Reason.UNCHANGED_ROW)baseline=witness.state();
+        if (baseline==null)baseline=CdsExportAppointmentProjectionEvidence.legacyNullLocationBaseline(witness.state(), ref.digest());
         if (baseline==null||!baseline.digest().equals(ref.digest())||!baseline.table().equals("appointment")||!baseline.id().equals(ref.id()))review("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
         var difference=CdsExportAppointmentProjectionEvidence.compare(baseline, witness.state()); if (difference.schemaChanged()||!difference.unqualifiedColumns().isEmpty())review("CDS_EXPORT_APPOINTMENT_FIELD_CODEC_REQUIRES_REVIEW");
         var expected=new LinkedHashMap<String, String>(); expected.put("appointment_no", ref.id()); expected.put("demographic_no", Integer.toString(patient));

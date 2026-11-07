@@ -54,19 +54,24 @@ final class CdsExportAppointmentProjectionEvidence {
      * A populated added value, another missing column or any metadata change stays review.
      */
     static CdsNativeRowComparison compare(CdsNativeRowState original, CdsNativeRowState current) {
-        var expected = new HashSet<>(CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns());
-        var priorNames = original.columns().stream().map(CdsNativeRowDigest.Column::name).toList();
-        var currentNames = current.columns().stream().map(CdsNativeRowDigest.Column::name).toList();
-        var legacy = new HashSet<>(expected); legacy.remove("locationCode");
-        if (original.table().equals("appointment") && current.table().equals("appointment")
-                && Set.copyOf(priorNames).equals(legacy) && Set.copyOf(currentNames).equals(expected)) {
-            int added = currentNames.indexOf("locationCode");
-            if (current.cells().get(added).sqlNull() && CdsExactNumeric.codec(current.columns().get(added).type()) == null) {
-                var columns = new ArrayList<>(current.columns()); var cells = new ArrayList<>(current.cells()); columns.remove(added); cells.remove(added);
-                return CdsNativeRowComparison.compare(original, new CdsNativeRowState(current.table(), current.id(), columns, cells));
-            }
-        }
+        var compatible = withoutAddedNullLocation(current);
+        if (compatible != null && original.table().equals("appointment") && original.columns().equals(compatible.columns()))
+            return CdsNativeRowComparison.compare(original, compatible);
         return CdsNativeRowComparison.compare(original, current);
+    }
+    /** Derivation is evidence only when its exact old physical digest matches the recorded receipt. */
+    static CdsNativeRowState legacyNullLocationBaseline(CdsNativeRowState current, String recordedDigest) {
+        var compatible = withoutAddedNullLocation(current);
+        return compatible != null && compatible.digest().equals(recordedDigest) ? compatible : null;
+    }
+    private static CdsNativeRowState withoutAddedNullLocation(CdsNativeRowState current) {
+        var expected = Set.copyOf(CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns());
+        var names = current.columns().stream().map(CdsNativeRowDigest.Column::name).toList();
+        if (!current.table().equals("appointment") || !Set.copyOf(names).equals(expected)) return null;
+        int added = names.indexOf("locationCode");
+        if (!current.cells().get(added).sqlNull() || CdsExactNumeric.codec(current.columns().get(added).type()) != null) return null;
+        var columns = new ArrayList<>(current.columns()); var cells = new ArrayList<>(current.cells()); columns.remove(added); cells.remove(added);
+        return new CdsNativeRowState(current.table(), current.id(), columns, cells);
     }
     private static void invalid()throws IOException{throw new IOException("CDS_EXPORT_APPOINTMENT_PROJECTION_EVIDENCE_INVALID"); }
 }
