@@ -24,7 +24,7 @@ asynchronous browser workflow. Both must call the same authorized application
 service and use the same durable jobs, captured generations, mapping revision,
 dispositions and publication checks. Passing component or metadata/control tests do not establish a complete clinical migration.
 
-The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,941 Java checks and 222 installed demographic/enrolment/primary/professional-physician and coordinated-care component checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
+The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,961 Java checks and 236 installed demographic/enrolment/primary/professional-physician, coordinated-care and disclosure-policy component checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
 
 Retained enrolment reconciliation now coordinates original source history with witnessed current and archive rows. Exact packaged installed checks passed for both an ordinary import (45 checks) and a shifted training copy (46 checks), including schema-valid XML, a later native termination, and exact restoration of the owned patient and archive changes. The coordinated package check passed; other demographic and archive fields still require coverage.
 
@@ -1036,3 +1036,26 @@ The ordinary provenance index and retained-values scope read these settings from
 The retained enrolment source mapper applies the verified original shift to every historical date, including accepted logical corrections and source offsets, and verifies the selected event against the sealed preparation. Counts, duplicate paths, conditional dates and conflicting latest events are checked. This preserves history rather than reducing it to the native latest roster. Sixty focused provenance/source checks and sixteen enrolment-source checks pass. Installed genuine ordinary and shifted imports passed 24 and 25 component checks through nineteen captured sources. The combined package passed 2,797 Java checks without failures, errors or skips; the same packaged WAR passed the 24 ordinary and 25 shifted installed component checks. Native archive/current reconciliation, remaining demographic closure and clinical publication are still unfinished.
 
 The complete reviewed import/export test inventory is committed in `scripts/ci/cds-coordinated-test-classes.json`. To reproduce it, provide the three owned disposable test-database property files through `CDS_TEST_PROPERTIES`, `CDS_LEDGER_TEST_PROPERTIES` and `CDS_EXPORT_TEST_PROPERTIES`, then run `python3 scripts/ci/check-cds-transfer.py`. Optional `--offline`, `--settings` and `--maven-local-repository` select the build environment. The script provisions no databases and reads no configuration secrets into console output. All required database fixtures and dependencies must be available; a skipped suite is not full integration evidence.
+
+
+### Registered disclosure policy
+
+The disclosure-policy service is packaged and installed component verified. Twenty-five focused policy/encryption checks and 14 exact packaged container checks verify registered certificates, approved audit scope, current expiry/revocation, strict JSON types, manifest coherence and real root-file ownership/permission checks. It supplies approved arrangement evidence; it does not grant clinical read access, qualify an export profile or publish an artifact. The clinical engine must connect it to acceptance and recheck it before capture, encryption, publication and download.
+
+`cds.export.policyRoot` identifies an administrator-controlled absolute directory. Every directory in its ancestry must pass the protected-file trust checks. Policy files are root owned, private regular files; a service-readable group is allowed only under the existing protected-file contract. Symlinks and group-writable policy files are refused. Construction performs no policy reads, so metadata/control startup remains available without this configuration.
+
+The protocol-one layout is:
+
+| Relative file | Required fields in addition to `protocol: 1` and `enabled: true` |
+| --- | --- |
+| `policy.json` | `senderSha256`; `recipients`, `certificates` and `auditPlans` maps from registered opaque identifiers to exact file SHA-256 hashes |
+| `sender.json` | Stable `namespace`, `physicianGroup`, `groupContactInformation` |
+| `recipients/<id>.json` | Matching `id`, registered `certificateId`, `certificateSha256`, explicit logical-profile identifiers in `profiles` |
+| `certificates/<certificateId>.der` | Exactly one DER-encoded recipient leaf certificate, pinned by both the manifest and recipient registration |
+| `audit/<id>.json` | Matching `id`, approved access `description`, explicit `recipientIds`, `providerNos` and `profiles` |
+
+Certificates must meet the existing authenticated-delivery contract: current validity, a non-CA RSA key of at least 2048 bits and permitted key encipherment. No recipient private key is accepted or retained. Filenames come from validated registration identifiers; callers cannot supply certificate paths or bytes.
+
+Publish complete policy files before atomically replacing the approved manifest. The service verifies every selected document against that manifest and rereads the manifest before returning. Unknown properties, duplicate keys, trailing JSON documents, numeric/boolean values coerced into identifiers, malformed Unicode, unknown profiles and duplicate approvals are refused. An audit plan must explicitly approve the requested provider, recipient and logical profile.
+
+The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, sender registration, recipient registration, exact certificate and audit plan. Any later byte change requires a new accepted request with a new submission key; resume never replaces the original arrangement. Revoked or expired policy is unavailable even when its old digest is known. No production policy or clinical profile is enabled by this integration.

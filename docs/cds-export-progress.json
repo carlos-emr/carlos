@@ -4,18 +4,19 @@
   "qualifiedProfiles": [],
   "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
   "verifiedBaseline": {
-    "javaChecks": 2941,
+    "javaChecks": 2961,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "3b4234f69dd0cc8eee0b78e66b705c612db4550458f465aa40e5a72deb2cc715",
+    "packagedWarSha256": "1193b63ab5e3515580d9d89d870128421e354d08d618fd99703ce9f1e7f9d328",
     "ordinaryInstalledSourceChecks": 63,
     "shiftedInstalledSourceChecks": 64,
     "capturedSources": 19,
     "clinicalPublication": false,
     "professionalInstalledChecks": 44,
-    "totalInstalledChecks": 222,
-    "careAssemblyInstalledChecks": 51
+    "totalInstalledChecks": 236,
+    "careAssemblyInstalledChecks": 51,
+    "disclosurePolicyInstalledChecks": 14
   },
   "implemented": [
     "Shared pinned wire-schema and scalar contracts with importer facades",
@@ -25,7 +26,8 @@
     "Personal contact, pharmacy, allergy, medication, appointment and immunization mapping/reconciliation components",
     "XML, ZIP/ZIP64, encryption and package validation components",
     "External family/referring-physician binding and witnessed name reconciliation through the demographic parent receipt",
-    "Retained preferred-pharmacy reconciliation and coordinated personal/professional/pharmacy demographic assembly with exact field ownership"
+    "Retained preferred-pharmacy reconciliation and coordinated personal/professional/pharmacy demographic assembly with exact field ownership",
+    "Root-controlled registered recipient/audit policy with a coherent pinned manifest, current certificate checks and immutable accepted arrangement identity"
   ],
   "remaining": [
     "Complete remaining demographic/archive fields and supporting native projections for unrepresented care attributes",
@@ -103,5 +105,17 @@
     "jurisdictionAndPostalChoiceReconciledTogether": true,
     "wholeOwnedPharmacyRowsAndTimestampRestored": true,
     "wholeDemographicQualified": false
+  },
+  "disclosurePolicy": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedPolicyAndEncryptionChecks": 25,
+    "isolatedPhysicalTrustChecks": 14,
+    "rootManifestPinsAllRegistrationBytes": true,
+    "acceptedArrangementCannotRotateSilently": true,
+    "revocationAndExpiryRechecked": true,
+    "strictScalarTypes": true,
+    "readOnlyMetadataStartupPerformsNoPolicyIo": true,
+    "clinicalEngineAndPublicationStillRequired": true,
+    "installedPhysicalTrustChecks": 14
   }
 }

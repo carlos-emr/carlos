@@ -62,6 +62,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicRetainedPhonesReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicScalarReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDictionaryBoundaryUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosurePolicyServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportEngineRegistryUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportEnrolmentHistoryUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportEnrolmentProjectionServiceUnitTest",
