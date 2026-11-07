@@ -38,6 +38,23 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 @Transactional(readOnly = true, propagation = Propagation.MANDATORY)
 public class CdsExportNoteAccessDao extends AbstractJpaDao {
+    /** Complete bounded patient note scope; a hidden or malformed note refuses the whole read rather than disappearing. */
+    @SuppressWarnings("unchecked")
+    public List<CdsExportNoteAccessDto> readScopes(int patient, int maximum) {
+        if (patient < 1 || maximum < 1 || maximum > 8192) throw new IllegalArgumentException("CDS_EXPORT_NOTE_ACCESS_SCOPE_INVALID");
+        List<Object[]> rows = entityManager().createNativeQuery("SELECT note_id, program_no, reporter_caisi_role, locked FROM casemgmt_note WHERE demographic_no = :patient ORDER BY note_id", Object[].class)
+                .setParameter("patient", patient).setHint("jakarta.persistence.query.timeout", 30_000).setMaxResults(maximum + 1).getResultList();
+        if (rows.size() > maximum) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.RESOURCE_LIMIT);
+        var result = new java.util.ArrayList<CdsExportNoteAccessDto>(); long previous = 0;
+        for (Object[] row : rows) {
+            if (!(row[0] instanceof Number) || row[3] != null && !"0".equals(row[3]) && !Character.valueOf('0').equals(row[3])) deny();
+            long id = ((Number) row[0]).longValue(); if (id <= previous) deny(); previous = id;
+            try { result.add(new CdsExportNoteAccessDto(id, patient, (String) row[1], (String) row[2])); }
+            catch (IllegalArgumentException invalid) { deny(); }
+        }
+        return List.copyOf(result);
+    }
     /** Returns the live physical access scope, or null for a missing/unsupported note. */
     @SuppressWarnings("unchecked")
     public CdsExportNoteAccessDto findScope(int patient, long noteId) {

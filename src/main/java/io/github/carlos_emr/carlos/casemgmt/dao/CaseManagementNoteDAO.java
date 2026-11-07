@@ -44,7 +44,7 @@ import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementSearchBean;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.utility.EncounterUtil;
 
-public interface CaseManagementNoteDAO {
+public interface CaseManagementNoteDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     /**
      * Retrieves all case management notes.

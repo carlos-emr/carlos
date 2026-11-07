@@ -32,7 +32,7 @@ public final class CdsExportNativeMetadataReadSupport {
     public enum Table {
         RETAINED_FILES("cds_import_file"), RETAINED_FILE_REFERENCES("cds_import_file_reference"),
         CONTACT("Contact"), DEMOGRAPHIC_CONTACT("DemographicContact"), PHARMACY_LINK("demographicPharmacy"), PHARMACY("pharmacyInfo"),
-        PREVENTIONS_EXT("preventionsExt"),
+        CASE_NOTES("casemgmt_note"), PREVENTIONS_EXT("preventionsExt"),
         PREVENTIONS("preventions"),
         CVC_IMMUNIZATION("CVCImmunization"), CVC_MAPPING("CVCMapping"),
         DEMOGRAPHIC("demographic"), DEMOGRAPHIC_ARCHIVE("demographicArchive"), DEMOGRAPHIC_MERGES("demographic_merged"), DRUGS("drugs"), ALLERGIES("allergies"), PARTIAL_DATE("partial_date"), APPOINTMENT("appointment"),

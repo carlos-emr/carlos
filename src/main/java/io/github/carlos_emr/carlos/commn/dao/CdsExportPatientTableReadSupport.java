@@ -45,6 +45,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public final class CdsExportPatientTableReadSupport {
     public enum Plan {
+        CASE_NOTES("casemgmt_note", "note_id", "demographic_no", List.of("appointmentNo", "archived", "billing_code", "demographic_no", "encounter_type", "history", "hourOfEncTransportationTime", "hourOfEncounterTime", "include_issue_innote", "locked", "minuteOfEncTransportationTime", "minuteOfEncounterTime", "note", "note_id", "observation_date", "password", "position", "program_no", "provider_no", "reporter_caisi_role", "reporter_program_team", "signed", "signing_provider_no", "update_date", "uuid")),
         PREVENTIONS_FULL("preventions", "id", null, List.of("creation_date", "creator", "deleted", "demographic_no", "id", "lastUpdateDate", "never", "next_date", "prevention_date", "prevention_type", "programNo", "provider_name", "provider_no", "refused", "restrictToProgram", "snomedId")),
         PREVENTIONS_EXT("preventionsExt", "id", null, List.of("id", "keyval", "prevention_id", "val")),
         PREVENTION_PRECISION("partial_date", "id", null, List.of("field_name", "format", "id", "table_id", "table_name")),

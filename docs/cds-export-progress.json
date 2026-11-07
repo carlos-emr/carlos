@@ -194,12 +194,20 @@
     "clinicalPublication": false
   },
   "capturedNoteScopes": {
-    "state": "ISOLATED_SHARED_CAPTURE_REGRESSIONS_VERIFIED",
+    "state": "FOCUSED_AND_ACTUAL_IMPORT_CAPTURE_COMPONENT_VERIFIED",
     "focusedChecks": 129,
     "legacyManifestShapePreserved": true,
     "exactCapturedIdentityReauthorizedAfterFinalCallbacks": true,
-    "physicalNoteReaderRegistered": false,
+    "physicalNoteReaderRegistered": true,
     "issueRevisionReconciliationComplete": false,
-    "clinicalPublication": false
+    "clinicalPublication": false,
+    "nativeReaderFocusedChecks": 167,
+    "genuineImportCaptureAssertions": 44,
+    "componentOverlays": true,
+    "notePhysicalColumns": 25,
+    "wholeRowReceiptsVerified": true,
+    "finalTextAndReceiptCallbackRevocationRefused": true,
+    "requiresCompleteHistoryCategoryScope": true,
+    "emptyOrMalformedNativeProgramsRefused": true
   }
 }
