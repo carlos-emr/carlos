@@ -1083,3 +1083,8 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 ### Scoped demographic occurrence service
 
 `CdsExportDemographicOccurrenceService` connects the coordinated demographic mapper, registered sender identity and independent field closure to the same synchronous scoped XML emitter used by the clinical occurrence services. It loads bounded authenticated rows, rejects active merge scope, verifies retained parent receipts, requires every captured demographic field and source ID to be accounted for, and checks final source authority before returning. XML and receipt callbacks stay private until the complete enclosing operation succeeds. Native-only demographics, multiple applied demographic parents, nonempty unrepresented ancillary values and unresolved archive/care facts still require dedicated reconciliation; they cannot produce a partial demographic fallback.
+
+
+### Historical note preparation evidence
+
+The retained preparation reader now decodes the importer’s sealed history/clinical-note preparation for the seven supported history categories. The original payload seal, category-specific issue code and source date dependency must match. Unknown and partial temporal values remain explicit; native timestamp or author reconciliation is not inferred. Twenty-five preparation-reader checks cover existing categories and the new history decoder. Native case-management note capture, issue/revision reconciliation and fresh program-specific access still require separate implementation and installed qualification.

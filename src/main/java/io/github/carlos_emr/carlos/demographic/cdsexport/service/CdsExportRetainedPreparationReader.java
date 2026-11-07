@@ -115,6 +115,41 @@ public class CdsExportRetainedPreparationReader {
             return new Evidence<>(index.sourceManifestSha256(), address, row.fields().get("digest"), value);
         } catch (IOException | IllegalArgumentException invalid) { throw new IOException("CDS_EXPORT_RETAINED_PREPARATION_INVALID"); }
     }
+    /** Historical prepared note meanings remain evidence only; current note, issue and program-access receipts are checked separately. */
+    public Evidence<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto> history(
+            CdsExportRetainedIndexDto index, String address,
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory category) throws IOException {
+        if (category == null) invalid();
+        String expectedIssue = switch (category) {
+            case PERSONAL_HISTORY -> "SocHistory";
+            case FAMILY_HISTORY -> "FamHistory";
+            case PAST_HEALTH -> "MedHistory";
+            case PROBLEM_LIST -> "Concerns";
+            case RISK_FACTORS -> "RiskFactors";
+            case ALERTS_AND_SPECIAL_NEEDS -> "Reminders";
+            case CLINICAL_NOTES -> null;
+            default -> throw new IOException("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        };
+        var type = io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto.class;
+        var row = verify(index, address, category.wireName(), type);
+        try {
+            var value = readRequired(row, type);
+            var dateFields = switch (category) {
+                case PERSONAL_HISTORY -> java.util.Set.<String>of();
+                case FAMILY_HISTORY, RISK_FACTORS -> java.util.Set.of("StartDate");
+                case PAST_HEALTH -> java.util.Set.of("OnsetOrEventDate", "ProcedureDate");
+                case PROBLEM_LIST -> java.util.Set.of("OnsetDate");
+                case ALERTS_AND_SPECIAL_NEEDS -> java.util.Set.of("DateActive");
+                case CLINICAL_NOTES -> java.util.Set.of("EventDateTime");
+                default -> throw new IOException("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+            };
+            if (!java.util.Objects.equals(expectedIssue, value.issueCode())
+                    || dateFields.isEmpty() && (value.observationDate() != null || value.observationField() != null || value.observationMillis() != null)
+                    || !dateFields.isEmpty() && (value.observationDate() == null || value.observationField() == null
+                    || !dateFields.contains(value.observationField()))) invalid();
+            return new Evidence<>(index.sourceManifestSha256(), address, row.fields().get("digest"), value);
+        } catch (IOException | IllegalArgumentException invalid) { throw new IOException("CDS_EXPORT_RETAINED_PREPARATION_INVALID"); }
+    }
     private static <T> T readRequired(CdsExportCapturedTextRowDto row, Class<T> type) throws IOException {
         T value = JSON.readValue(row.fields().get("payload"), type);
         if (value == null) invalid();

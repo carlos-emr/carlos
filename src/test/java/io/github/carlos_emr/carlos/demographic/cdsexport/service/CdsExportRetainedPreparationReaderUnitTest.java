@@ -212,6 +212,69 @@ class CdsExportRetainedPreparationReaderUnitTest {
     private CdsExportRetainedIndexDto allergy() throws Exception {
         return fixture(CdsAllergyDto.class, JSON.writeValueAsString(new CdsAllergyDto("Synthetic", null, null, null, null, null, null, null, null, CdsTemporalDto.unknown(), CdsTemporalDto.unknown())), "AllergiesAndAdverseReactions");
     }
+    private static CdsHistoryNativeDto historyValue(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory category) {
+        String issue = switch (category) {
+            case PERSONAL_HISTORY -> "SocHistory"; case FAMILY_HISTORY -> "FamHistory"; case PAST_HEALTH -> "MedHistory";
+            case PROBLEM_LIST -> "Concerns"; case RISK_FACTORS -> "RiskFactors"; case ALERTS_AND_SPECIAL_NEEDS -> "Reminders";
+            case CLINICAL_NOTES -> null; default -> throw new IllegalArgumentException();
+        };
+        String field = switch (category) {
+            case PERSONAL_HISTORY -> null; case FAMILY_HISTORY, RISK_FACTORS -> "StartDate"; case PAST_HEALTH -> "OnsetOrEventDate";
+            case PROBLEM_LIST -> "OnsetDate"; case ALERTS_AND_SPECIAL_NEEDS -> "DateActive"; case CLINICAL_NOTES -> "EventDateTime";
+            default -> throw new IllegalArgumentException();
+        };
+        return new CdsHistoryNativeDto("Complete historical café 😀", issue, null, null, null, field == null ? null : CdsTemporalDto.unknown(), field, List.of());
+    }
+    @Test void shouldReadEachSealedHistoryCategory_withoutTurningUnknownDatesIntoInventedNativeTimes() throws Exception {
+        for (var category : List.of(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.PERSONAL_HISTORY,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.FAMILY_HISTORY,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.PAST_HEALTH,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.PROBLEM_LIST,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.RISK_FACTORS,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.CLINICAL_NOTES)) {
+            var value = historyValue(category); var source = fixture(CdsHistoryNativeDto.class, JSON.writeValueAsString(value), category.wireName());
+            var evidence = reader.history(source, run + ":" + unit, category);
+            assertThat(evidence.value()).isEqualTo(value); assertThat(evidence.value().observationMillis()).isNull();
+            assertThat(evidence.toString()).doesNotContain("historical", "café", run);
+        }
+    }
+    @Test void shouldRefuseHistoryCategoryAndIssueSubstitution_evenUnderARecomputedPayloadSeal() throws Exception {
+        var category = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.FAMILY_HISTORY;
+        var value = historyValue(category); var changed = new CdsHistoryNativeDto(value.content(), "SocHistory", null, null, null, value.observationDate(), value.observationField(), List.of());
+        assertThatThrownBy(() -> reader.history(fixture(CdsHistoryNativeDto.class, JSON.writeValueAsString(changed), category.wireName()), run + ":" + unit, category))
+                .hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        assertThatThrownBy(() -> reader.history(fixture(CdsHistoryNativeDto.class, JSON.writeValueAsString(value), "PersonalHistory"), run + ":" + unit, category))
+                .hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
+    @Test void shouldRefuseMissingDateDependencies_andAnUnrelatedHistoryClockField() throws Exception {
+        var category = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.CLINICAL_NOTES;
+        for (String field : Arrays.asList(null, "", "ProcedureDate")) {
+            var changed = new CdsHistoryNativeDto("note", null, null, null, null, CdsTemporalDto.unknown(), field, List.of());
+            assertThatThrownBy(() -> reader.history(fixture(CdsHistoryNativeDto.class, JSON.writeValueAsString(changed), category.wireName()), run + ":" + unit, category))
+                    .hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        }
+    }
+    @Test void shouldRejectMissingCreatorFields_andJsonNullHistoryPreparations() throws Exception {
+        var category = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.CLINICAL_NOTES;
+        var missing = JSON.valueToTree(historyValue(category)); ((com.fasterxml.jackson.databind.node.ObjectNode) missing).remove("createdMillis");
+        for (String payload : List.of("null", JSON.writeValueAsString(missing)))
+            assertThatThrownBy(() -> reader.history(fixture(CdsHistoryNativeDto.class, payload, category.wireName()), run + ":" + unit, category))
+                    .hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
+    @Test void shouldRequireOriginalHistorySeal_beforeDecodingTheCapturedPreparation() throws Exception {
+        var category = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.CLINICAL_NOTES;
+        var source = fixture(CdsHistoryNativeDto.class, JSON.writeValueAsString(historyValue(category)), category.wireName());
+        var row = source.tables().get("cds_import_preparation").values().iterator().next(); var fields = new LinkedHashMap<>(row.fields()); fields.put("payload", fields.get("payload") + " ");
+        assertThatThrownBy(() -> reader.history(replace(source, "cds_import_preparation", row.recordKey(), fields), run + ":" + unit, category))
+                .hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
+    @Test void shouldRefuseNonHistoryCategories_beforeInterpretingAnyPreparation() {
+        for (var category : List.of(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.DEMOGRAPHICS,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.REPORTS))
+            assertThatThrownBy(() -> reader.history(null, run + ":" + unit, category)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        assertThatThrownBy(() -> reader.history(null, run + ":" + unit, null)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
     private CdsExportRetainedIndexDto fixture(Class<?> type, String payload, String category) {
         String identity=CdsImportKeys.hash(run, unit), source="c".repeat(64), options="d".repeat(64), ruleset="e".repeat(64);
         var prepared = new LinkedHashMap<String, String>(Map.of("id", identity, "run_id", run, "unit_key", unit, "payload_type", type.getName(), "payload", payload,
