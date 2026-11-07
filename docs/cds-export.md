@@ -24,7 +24,9 @@ asynchronous browser workflow. Both must call the same authorized application
 service and use the same durable jobs, captured generations, mapping revision,
 dispositions and publication checks. Passing component or metadata/control tests do not establish a complete clinical migration.
 
-The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,797 Java checks and 49 installed source-options and enrolment-reconstruction checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
+The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The latest packaged checkpoint passed 2,823 Java checks and 91 installed demographic/enrolment component checks across ordinary and shifted imports. A concrete clinical export engine, full coverage and end-to-end clinical CLI/browser qualification remain unfinished.
+
+Retained enrolment reconciliation now coordinates original source history with witnessed current and archive rows. Exact packaged installed checks passed for both an ordinary import (45 checks) and a shifted training copy (46 checks), including schema-valid XML, a later native termination, and exact restoration of the owned patient and archive changes. The coordinated package check passed; other demographic and archive fields still require coverage.
 
 ## Baseline and integration
 

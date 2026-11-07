@@ -4,13 +4,13 @@
   "qualifiedProfiles": [],
   "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
   "verifiedBaseline": {
-    "javaChecks": 2797,
+    "javaChecks": 2823,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "34275eab9bf825a218c06f053843b1ef7ac2e27341f76126e004ab066fec9264",
-    "ordinaryInstalledSourceChecks": 24,
-    "shiftedInstalledSourceChecks": 25,
+    "packagedWarSha256": "2f68e843da5787c49986216a982fb3495a2d62f6435a807d7bb1648c5ea89da2",
+    "ordinaryInstalledSourceChecks": 45,
+    "shiftedInstalledSourceChecks": 46,
     "capturedSources": 19,
     "clinicalPublication": false
   },
@@ -18,13 +18,13 @@
     "Shared pinned wire-schema and scalar contracts with importer facades",
     "Fenced durable jobs, cohort capture, fresh permissions, CLI entry point and asynchronous browser metadata/control",
     "Encrypted patient source and retained payload capture with verified native baselines",
-    "Demographic core, phone and patient-note reconciliation components",
+    "Demographic core, phone, patient-note and retained/current/archive enrolment reconciliation components",
     "Personal contact, pharmacy, allergy, medication, appointment and immunization mapping/reconciliation components",
     "XML, ZIP/ZIP64, encryption and package validation components"
   ],
   "remaining": [
     "Complete demographic histories, care relationships and remaining native/source field closure",
-    "Finish native/current/archive enrolment reconciliation; captured original request and per-copy options are verified",
+    "Complete the remaining demographic, care-relationship and archive columns; retained/current/archive enrolment is packaged and installed component verified",
     "Complete source catalogue and all selected clinical domain mappings, attachments and merged-chart ownership",
     "Connect a concrete clinical export engine and independent expected-fact inventory to coverage validation",
     "Complete review, audit, recipient encryption, delivery, download authorization and retention lifecycle",
@@ -48,5 +48,18 @@
     "optionsReadFromFrozenSource": true,
     "originalFilesNeededOnlyDuringCapture": true,
     "otherPatientsCopyBindingsExcluded": true
+  },
+  "retainedEnrolmentReconciliation": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedChecks": 67,
+    "ordinaryInstalledOverlayChecks": 45,
+    "shiftedInstalledOverlayChecks": 46,
+    "sourceHistoriesRetained": true,
+    "nativeArchiveFactsReconciled": true,
+    "nativeTerminationNotShiftedAgain": true,
+    "wholeOwnedDemographicRowsRestored": true,
+    "otherDemographicArchiveColumnsStillDeferred": true,
+    "ordinaryInstalledChecks": 45,
+    "shiftedInstalledChecks": 46
   }
 }

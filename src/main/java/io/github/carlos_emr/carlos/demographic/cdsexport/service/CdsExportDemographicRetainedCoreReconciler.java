@@ -75,4 +75,28 @@ public final class CdsExportDemographicRetainedCoreReconciler {
         if (core.coreRepresentable()&&phones.phonesRepresentable()&&note.noteRepresentable()){changes.addAll(core.coreChanges()); changes.addAll(phones.changes()); changes.addAll(note.changes()); }
         values.requireActive(); checkpoint.run(); return new Result(index.sourceManifestSha256(), address, decided, sourceDeferred, fields, nativeDeferred, blockers, changes);
     }
+    /** One coordinated result for core, phone, note and retained/native enrolment history. */
+    public Result reconcileWithHistory(int patient, Set<CdsCategory> selected, String address, CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked, List<CdsExportRetainedFieldDto> allFields,
+            CdsExportCapturedTextRowDto current, CdsExportNativeRowReceiptDto witness, List<CdsExportCapturedTextRowDto> properties,
+            List<CdsExportNativeRowReceiptDto> propertyWitnesses, CdsExportCapturedTextRowDto custom, CdsExportNativeRowReceiptDto customWitness,
+            List<CdsExportCapturedTextRowDto> archives, List<CdsExportNativeRowReceiptDto> archiveWitnesses,
+            Map<String, CdsExportCapturedTextRowDto> providers, int maximumRows, long maximumBytes,
+            CdsExportRetainedSectionWriter.Values values, Runnable checkpoint)throws IOException {
+        var core=reconcileWithAdjuncts(patient, selected, address, index, checked, allFields, current, witness, properties, propertyWitnesses, custom, customWitness, maximumRows, maximumBytes, values, checkpoint);
+        var history=new CdsExportRetainedEnrolmentReconciler().reconcile(patient, address, index, checked, allFields, current, witness, archives, archiveWitnesses, providers, maximumRows, maximumBytes, values, checkpoint);
+        var combined=withHistory(core, history); values.requireActive(); checkpoint.run(); return combined;
+    }
+    static Result withHistory(Result core, CdsExportRetainedEnrolmentReconciler.Result history)throws IOException {
+        if (!core.sourceManifestSha256().equals(history.sourceManifestSha256())||!core.unitAddress().equals(history.unitAddress())
+                ||!Collections.disjoint(core.decidedSourceFields(), history.sourceFields())||!core.deferredSourceFields().containsAll(history.sourceFields())
+                ||!Collections.disjoint(core.fields().keySet(), history.fields().keySet()))throw new IOException("CDS_EXPORT_DEMOGRAPHIC_HISTORY_EVIDENCE_OVERLAP");
+        var fields=new LinkedHashMap<>(core.fields()); fields.putAll(history.fields()); var decided=new HashSet<>(core.decidedSourceFields()); decided.addAll(history.sourceFields());
+        var sourceDeferred=new HashSet<>(core.deferredSourceFields()); sourceDeferred.removeAll(history.sourceFields());
+        var nativeDeferred=new HashSet<>(core.deferredNativeFields()); nativeDeferred.removeAll(history.fields().keySet()); nativeDeferred.addAll(history.deferredNativeFields());
+        var blockers=new HashSet<>(core.blockers()); blockers.addAll(history.blockers()); var changes=new ArrayList<CdsExportRetainedSectionWriter.Change>();
+        if (core.coreRepresentable()&&history.representable()){changes.addAll(core.coreChanges()); changes.addAll(history.changes()); }
+        return new Result(core.sourceManifestSha256(), core.unitAddress(), decided, sourceDeferred, fields, nativeDeferred, blockers, changes);
+    }
+
 }
