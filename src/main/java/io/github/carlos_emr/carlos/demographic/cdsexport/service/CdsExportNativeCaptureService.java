@@ -98,8 +98,11 @@ public class CdsExportNativeCaptureService {
         }
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
         if (lease.document().protocol() != 2 || lease.document().storage() == null) throw new IOException("CDS_EXPORT_STORAGE_BINDING_REQUIRED");
-        List<CdsExportNativeSourceReader> selected = selected(lease, tables);
-        authorize(patient, selected, control); control.checkpoint();
+        var available = selected(lease, tables);
+        authorizeCategories(patient, available, control);
+        List<CdsExportNativeSourceReader> selected = prepareCapture(patient, available, control);
+        for (var reader : selected) reader.authorizeReadScope(patient, control);
+        control.checkpoint();
         Runnable probe = () -> {
             if (TransactionSynchronizationManager.isActualTransactionActive()) control.captureCheckpoint();
             else control.checkpoint();
@@ -118,7 +121,7 @@ public class CdsExportNativeCaptureService {
                         if (reader.table().equals("demographic") && count != 1) throw new IOException("CDS_EXPORT_SELECTED_PATIENT_MISSING");
                         var receiptColumns = List.copyOf(reader.receiptColumns());
                         verifyReceiptColumns(reader.table(), columns, receiptColumns);
-                        scopes.put(reader.table(), new CdsExportCapturedTableDto(columns, count, schema, receiptColumns));
+                        scopes.put(reader.table(), new CdsExportCapturedTableDto(columns, count, schema, receiptColumns, reader.noteAccess()));
                     }
                     var result = new CdsExportNativeCaptureComposer.Result[1]; var index = new CdsExportStagedFileDto[1];
                     var values = store.stage("SOURCE_VALUES", valueOutput -> {
@@ -141,7 +144,14 @@ public class CdsExportNativeCaptureService {
             var plan = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
             captured.tables().forEach((table, scope) -> plan.put(table, new CdsExportNativeCaptureReader.Table(scope.columns(), scope.rows())));
             try (var values = store.open(captured.values()); var index = store.open(captured.index())) {
-                var proof = new CdsExportNativeCaptureReader().verify(values, index, plan, maximumFields, maximumValueBytes, control::checkpoint);
+                CdsExportNativeCaptureReader.Result proof;
+                if (captured.tables().containsKey("casemgmt_note")) {
+                    try (var notes = new CdsExportCapturedNoteScopeValidator(captured.patient(), captured.tables().get("casemgmt_note").noteAccess(),
+                            field -> java.io.OutputStream.nullOutputStream())) {
+                        proof = new CdsExportNativeCaptureReader().scan(values, index, plan, maximumFields, maximumValueBytes, control::checkpoint, notes);
+                        notes.finish();
+                    }
+                } else proof = new CdsExportNativeCaptureReader().verify(values, index, plan, maximumFields, maximumValueBytes, control::checkpoint);
                 if (proof.fields() != captured.fieldCount() || proof.valueBytes() != captured.valueBytes()) throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
             }
             byte[] manifestBytes = JSON.writeValueAsBytes(captured);
@@ -199,13 +209,20 @@ public class CdsExportNativeCaptureService {
             verifyReceiptColumns(reader.table(), table.columns(), table.receiptColumns());
             plan.put(reader.table(), new CdsExportNativeCaptureReader.Table(table.columns(), table.rows()));
         }
+        authorizeCapturedNotes(captured, control);
         try (var values = store.open(captured.values()); var index = store.open(captured.index())) {
-            var proof = new CdsExportNativeCaptureReader().scan(values, index, plan, maximumFields, maximumValueBytes, control::checkpoint, fields);
+            CdsExportNativeCaptureReader.Result proof;
+            if (captured.tables().containsKey("casemgmt_note")) {
+                try (var notes = new CdsExportCapturedNoteScopeValidator(captured.patient(), captured.tables().get("casemgmt_note").noteAccess(), fields)) {
+                    proof = new CdsExportNativeCaptureReader().scan(values, index, plan, maximumFields, maximumValueBytes, control::checkpoint, notes);
+                    notes.finish();
+                }
+            } else proof = new CdsExportNativeCaptureReader().scan(values, index, plan, maximumFields, maximumValueBytes, control::checkpoint, fields);
             if (proof.fields() != captured.fieldCount() || proof.valueBytes() != captured.valueBytes()) {
                 throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
             }
         }
-        patientScope.require(lease); authorize(patientScope.patient(), selected, control); control.checkpoint(); return captured;
+        patientScope.require(lease); authorize(patientScope.patient(), selected, control); authorizeCapturedNotes(captured, control); control.checkpoint(); return captured;
     }
     /** The existing receipt's SELECT * omits this specific reviewed virtual/invisible derived key. */
     private static void verifyReceiptColumns(String table, Set<String> captured,
@@ -240,7 +257,40 @@ public class CdsExportNativeCaptureService {
         }
         authorize(patient.patient(), selected(lease, tables), control); control.checkpoint();
     }
+    /** Rechecks the exact verified generation after a caller's last buffered-row callback. */
+    public void authorizeCapturedSources(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient,
+            Set<String> requiredTables, CdsExportNativeCaptureDto captured, CdsExportRunControl control) {
+        patient.require(lease);
+        if (captured == null || !captured.runId().equals(lease.runId()) || captured.epoch() != lease.epoch()
+                || captured.patient() != patient.patient() || !captured.cohortSha256().equals(patient.cohortSha256())
+                || !captured.tables().keySet().equals(requiredTables)) throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_SCOPE_MISMATCH");
+        authorizeSources(lease, patient, requiredTables, control); authorizeCapturedNotes(captured, control); control.checkpoint();
+    }
+    private static void authorizeCapturedNotes(CdsExportNativeCaptureDto captured, CdsExportRunControl control) {
+        if (TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("CDS_EXPORT_AUTHORIZATION_INSIDE_CAPTURE_REFUSED");
+        var notes = captured.tables().get("casemgmt_note");
+        if (notes != null) for (var scope : notes.noteAccess()) {
+            control.checkpoint(); control.authorizeNote(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.CLINICAL_NOTES, scope);
+        }
+    }
+    private static List<CdsExportNativeSourceReader> prepareCapture(int patient, List<CdsExportNativeSourceReader> available,
+            CdsExportRunControl control) throws IOException {
+        var result = new ArrayList<CdsExportNativeSourceReader>();
+        for (var reader : available) {
+            control.checkpoint(); var prepared = reader.forCapture(patient, control);
+            if (prepared == null || !reader.table().equals(prepared.table()) || !reader.columns().equals(prepared.columns())
+                    || !reader.categories().equals(prepared.categories()) || !reader.requiredTables().equals(prepared.requiredTables())
+                    || reader.requiresSensitiveLaboratoryRead() != prepared.requiresSensitiveLaboratoryRead())
+                throw new IOException("CDS_EXPORT_CAPTURE_PREPARED_SCOPE_INVALID");
+            result.add(prepared);
+        }
+        return List.copyOf(result);
+    }
     private static void authorize(int patient, List<CdsExportNativeSourceReader> readers, CdsExportRunControl control) {
+        authorizeCategories(patient, readers, control);
+        for (var reader : readers) reader.authorizeReadScope(patient, control);
+    }
+    private static void authorizeCategories(int patient, List<CdsExportNativeSourceReader> readers, CdsExportRunControl control) {
         control.authorizePatient(patient);
         var required = new java.util.EnumMap<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory, Boolean>(
                 io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.class);
@@ -248,6 +298,5 @@ public class CdsExportNativeCaptureService {
                 category == io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.LABORATORY_RESULTS
                         && reader.requiresSensitiveLaboratoryRead(), Boolean::logicalOr);
         required.forEach((category, sensitive) -> control.authorizeCategory(patient, category, sensitive));
-        for (var reader : readers) reader.authorizeReadScope(patient, control);
     }
 }

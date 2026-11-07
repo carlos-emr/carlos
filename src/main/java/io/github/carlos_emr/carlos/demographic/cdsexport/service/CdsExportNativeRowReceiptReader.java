@@ -57,6 +57,7 @@ public class CdsExportNativeRowReceiptReader {
             Map.entry("demographicExt", "id"),
             Map.entry("demographiccust", "demographic_no"),
             Map.entry("cds_import_field", "id"),
+            Map.entry("casemgmt_note", "note_id"),
             Map.entry("preventions", "id"),
             Map.entry("preventionsExt", "id"),
             Map.entry("prevention_precision", "id"));
@@ -77,6 +78,7 @@ public class CdsExportNativeRowReceiptReader {
             }
             // finishRow emits the last private callback after the underlying scan.
             captures.authorizeSources(lease, patient, requiredTables, control);
+            if (actual.tables().containsKey("casemgmt_note")) captures.authorizeCapturedSources(lease, patient, requiredTables, actual, control);
             patient.require(lease); control.checkpoint();
             return new CdsExportNativeRowReceiptsDto(source.manifest().plaintextSha256(), counts, fields.available, fields.unavailable, fields.partialRows, missing);
         }

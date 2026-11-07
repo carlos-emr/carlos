@@ -73,6 +73,7 @@ public final class CdsExportCapturedTextRowsReader {
             // The last row callback runs after the underlying scan returns. Recheck live
             // authority after that callback as well, before returning any completed result.
             captures.authorizeSources(lease, patient, requiredTables, control);
+            if (capture.tables().containsKey("casemgmt_note")) captures.authorizeCapturedSources(lease, patient, requiredTables, capture, control);
             return capture;
         }
     }

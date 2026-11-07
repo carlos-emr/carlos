@@ -192,5 +192,14 @@
     "skipped": 0,
     "packagedWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85",
     "clinicalPublication": false
+  },
+  "capturedNoteScopes": {
+    "state": "ISOLATED_SHARED_CAPTURE_REGRESSIONS_VERIFIED",
+    "focusedChecks": 129,
+    "legacyManifestShapePreserved": true,
+    "exactCapturedIdentityReauthorizedAfterFinalCallbacks": true,
+    "physicalNoteReaderRegistered": false,
+    "issueRevisionReconciliationComplete": false,
+    "clinicalPublication": false
   }
 }

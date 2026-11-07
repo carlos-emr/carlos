@@ -1101,3 +1101,8 @@ History and clinical-note payloads require the shared worker's `authorizeNote` b
 
 
 The packaged history-source component was checked through a genuine import of all seven history categories. Exact-WAR readback preserved every retained field, structured descriptions, separate notes, partial-date precision, clock fractions/offsets and author/reviewer dates. Actual program membership revocation, revocation at the end of a note-body stream, and locking of that note all refused the public source-reader entry point. These 32 component assertions do not qualify native note/issue/revision reconciliation or a clinical export profile.
+
+
+### Captured note access dependencies
+
+The encrypted native-source manifest can now carry each note’s patient, native identity, program and reporter-role dependencies. These are saved identities, not saved grants. Native capture prepares an immutable patient scope after category authorization, checks the prepared reader’s table/category/dependency identity, and verifies captured note scope fields independently during readback. Recovery and buffered final-row callbacks recheck the exact captured note dependencies through the common authorization boundary. A missing scope, another patient or note, changed program/role, locked or unknown lock flag, oversized metadata, missing field or expired validator refuses completion. Existing tables omit the empty note metadata property and retain their prior serialized manifest shape. The physical note reader and issue/revision reconciliation still need integration; no clinical profile is enabled by these infrastructure checks.

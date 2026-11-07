@@ -35,6 +35,14 @@ import java.util.Set;
 public interface CdsExportNativeSourceReader {
     /** Immutable request-specific projection. Unselected category payloads must not enter source capture. */
     default CdsExportNativeSourceReader forRequest(io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) { return this; }
+    /**
+     * Immutable patient scope prepared after category authorization and before the source
+     * transaction. A dependency-scoped reader must compare its prepared identities with the
+     * actual source snapshot before reading payloads. Never retain this scope on a singleton.
+     */
+    default CdsExportNativeSourceReader forCapture(int patient, io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control) throws IOException { return this; }
+    /** Exact note dependencies carried in the authenticated manifest, never saved permission grants. */
+    default java.util.List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto> noteAccess() { return java.util.List.of(); }
     /** Additional live fact-scope checks, after ordinary category/patient rights and outside the captured source transaction. */
     default void authorizeReadScope(int patient, io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control) { }
     /** Explicit evidence dependencies; selection cannot omit a configuration/parent/lookup required by this reader. */

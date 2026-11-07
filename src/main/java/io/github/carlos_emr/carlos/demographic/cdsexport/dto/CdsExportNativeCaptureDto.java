@@ -43,6 +43,13 @@ public record CdsExportNativeCaptureDto(int protocol, String runId, long epoch, 
         long expectedFields = 0;
         for (var table : tables.values()) expectedFields = Math.addExact(expectedFields, Math.multiplyExact(table.rows(), table.columns().size()));
         if (expectedFields != fieldCount) throw new IllegalArgumentException("CDS_EXPORT_NATIVE_CAPTURE_RECEIPT_INVALID");
+        for (var entry : tables.entrySet()) {
+            var noteAccess = entry.getValue().noteAccess();
+            if (entry.getKey().equals("casemgmt_note") ? noteAccess.size() != entry.getValue().rows()
+                    || noteAccess.stream().anyMatch(scope -> scope.patient() != patient) : !noteAccess.isEmpty()) {
+                throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_NOTE_ACCESS_INVALID");
+            }
+        }
     }
     @Override public String toString() { return "CdsExportNativeCaptureDto[protected]"; }
 }

@@ -507,6 +507,17 @@ class CdsExportNativeCaptureServiceUnitTest {
         source.dependencies=Set.of("prevention_configuration");
         assertThatThrownBy(()-> service().scan(lease, patientScope, Set.of("demographic"), captured.manifest(), 1000, 8L<<20, new Control(), field-> java.io.OutputStream.nullOutputStream())).hasMessage("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
     }
+    @Test void shouldRefusePreparedCategorySubstitution_beforeEnteringTheSourceSnapshot() {
+        source.preparedReader = laboratoryScope(source, false);
+        assertThatThrownBy(() -> service().capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control()))
+                .hasMessage("CDS_EXPORT_CAPTURE_PREPARED_SCOPE_INVALID");
+        assertThat(source.preparations).isEqualTo(1); assertThat(source.captureTransactions).isZero();
+    }
+    @Test void shouldAuthorizeCategories_beforePreparingPatientDependencies() {
+        var control = new Control(); control.refuseAt = 1;
+        assertThatThrownBy(() -> service().capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, control)).hasMessage("ACCESS_REVOKED");
+        assertThat(source.preparations).isZero(); assertThat(source.captureTransactions).isZero();
+    }
     @Test void aRevocationDuringTheFinalTextRowCallbackCannotReturnACompletedRead()throws Exception{
         var service=service(); var tables=Set.of("demographic"); var captured=service.capture(lease, patientScope, tables, 1000, 8L<<20, new Control()); var callbacks=new AtomicInteger();
         assertThatThrownBy(()-> new CdsExportCapturedTextRowsReader(service).forEach(lease, patientScope, tables, "demographic", captured.manifest(), 1000, 8L<<20, 16384, new Control(), row-> {callbacks.incrementAndGet(); source.denyScopeAt=source.scopeChecks+1; })).hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); assertThat(callbacks.get()).isEqualTo(1);
@@ -635,6 +646,11 @@ class CdsExportNativeCaptureServiceUnitTest {
         }
     }
     private static final class FixtureReader implements CdsExportNativeSourceReader {
+        int preparations; CdsExportNativeSourceReader preparedReader;
+        @Override public CdsExportNativeSourceReader forCapture(int patient, CdsExportRunControl control) {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse(); preparations++;
+            return preparedReader == null ? this : preparedReader;
+        }
         Set<String> dependencies=Set.of();
         @Override public Set<String> requiredTables(){return dependencies; }
         int scopeChecks, denyScopeAt; String declaredTable="demographic";
