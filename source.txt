@@ -1,5 +1,7 @@
 CARLOS PR 5689: verified installed browser state
-Source: cbd63b84c416428653803af72884110445c8c0f4
+Review and browser-script head: 5fea6642e1698277622404ca59913f11693484e6
+Application package source: cbd63b84c416428653803af72884110445c8c0f4
+The only changes after the package source are browser-test cleanup and its regression tests. Application Java, JSPs, configuration and packaging are unchanged.
 Target: release/2026.08
 
 Ubuntu 26.04.1 container, systemd, fresh local Debian package installation:
@@ -13,4 +15,10 @@ inbox-description.png: the assigned reviewer's Inbox shows the exact saved descr
 document-viewer.png: the same document retains its type (others), saved description, observation date and exact PDF content.
 followup-completed.png: the linked task is Complete after the assigned clinician records clinical action in the chart.
 
-All data are synthetic FAKE fixtures. The full document-clinical-followup check passed all five steps, with no failures, skips or residue. Screenshots were captured at verified checkpoints; all workflow assertions and cleanup remained enabled.
+All data are synthetic FAKE fixtures. Screenshots were captured at verified checkpoints of the final installed run; all workflow assertions and cleanup remained enabled.
+Final installed suite: 8 passed, 0 failed, 0 skipped; residue audit clean from an initially absent queue preference; application invocation unchanged.
+The suite covers Inbox filters, document dates, stored-markup encoding, file/forward routing, document review actions, per-provider acknowledgement, metadata controls and the complete clinical follow-up.
+Post-run carlos-ctl check: All checks passed.
+Server-log audit: no unexplained signatures, 0 error events since validation began.
+Targeted Java tests: 125 passed on Ubuntu/JDK 25; 51 passed on physical MariaDB 11.8.6 with 32 KiB pages.
+Node regression tests: 196 passed on Ubuntu, with all requested test-file paths checked for existence before execution.
