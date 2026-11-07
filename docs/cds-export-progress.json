@@ -4,13 +4,13 @@
   "qualifiedProfiles": [],
   "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
   "verifiedBaseline": {
-    "javaChecks": 2823,
+    "javaChecks": 2854,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "packagedWarSha256": "2f68e843da5787c49986216a982fb3495a2d62f6435a807d7bb1648c5ea89da2",
-    "ordinaryInstalledSourceChecks": 45,
-    "shiftedInstalledSourceChecks": 46,
+    "packagedWarSha256": "0036a795a4e33434c32afce4bd185644b6571fde494b14e1e55e128ce650c9f0",
+    "ordinaryInstalledSourceChecks": 63,
+    "shiftedInstalledSourceChecks": 64,
     "capturedSources": 19,
     "clinicalPublication": false
   },
@@ -18,7 +18,7 @@
     "Shared pinned wire-schema and scalar contracts with importer facades",
     "Fenced durable jobs, cohort capture, fresh permissions, CLI entry point and asynchronous browser metadata/control",
     "Encrypted patient source and retained payload capture with verified native baselines",
-    "Demographic core, phone, patient-note and retained/current/archive enrolment reconciliation components",
+    "Demographic core, phone, patient-note, retained/current/archive enrolment and primary-physician reconciliation components",
     "Personal contact, pharmacy, allergy, medication, appointment and immunization mapping/reconciliation components",
     "XML, ZIP/ZIP64, encryption and package validation components"
   ],
@@ -61,5 +61,17 @@
     "otherDemographicArchiveColumnsStillDeferred": true,
     "ordinaryInstalledChecks": 45,
     "shiftedInstalledChecks": 46
+  },
+  "primaryPhysicianReconciliation": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "focusedCoordinatedChecks": 98,
+    "priorInstalledOverlayChecks": 63,
+    "unresolvedSourcePhysiciansPreserved": true,
+    "noImportOperatorFallback": true,
+    "sharedProviderUsesRetained": true,
+    "captureGenerationMismatchRejected": true,
+    "nullNativeReferencesSupported": true,
+    "ordinaryInstalledChecks": 63,
+    "shiftedInstalledChecks": 64
   }
 }

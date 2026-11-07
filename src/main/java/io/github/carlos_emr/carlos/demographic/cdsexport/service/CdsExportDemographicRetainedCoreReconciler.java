@@ -35,8 +35,21 @@ import java.util.*;
 public final class CdsExportDemographicRetainedCoreReconciler {
     public record Result(String sourceManifestSha256, String unitAddress, Set<String> decidedSourceFields, Set<String> deferredSourceFields,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields, Set<CdsExportNativeFieldKeyDto> deferredNativeFields,
-            Set<String> blockers, List<CdsExportRetainedSectionWriter.Change> proposedChanges){
-        public Result{decidedSourceFields=Set.copyOf(decidedSourceFields); deferredSourceFields=Set.copyOf(deferredSourceFields); fields=Map.copyOf(fields); deferredNativeFields=Set.copyOf(deferredNativeFields); blockers=Set.copyOf(blockers); proposedChanges=List.copyOf(proposedChanges); }
+            Set<String> blockers, List<CdsExportRetainedSectionWriter.Change> proposedChanges,
+            Map<CdsExportNativeFieldKeyDto, List<CdsExportFieldAssessmentDto>> providerUses){
+        public Result(String sourceManifestSha256, String unitAddress, Set<String> decidedSourceFields, Set<String> deferredSourceFields,
+                Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields, Set<CdsExportNativeFieldKeyDto> deferredNativeFields,
+                Set<String> blockers, List<CdsExportRetainedSectionWriter.Change> proposedChanges) {
+            this(sourceManifestSha256, unitAddress, decidedSourceFields, deferredSourceFields, fields, deferredNativeFields, blockers, proposedChanges, initialProviderUses(fields));
+        }
+        public Result{decidedSourceFields=Set.copyOf(decidedSourceFields); deferredSourceFields=Set.copyOf(deferredSourceFields); fields=Map.copyOf(fields); deferredNativeFields=Set.copyOf(deferredNativeFields); blockers=Set.copyOf(blockers); proposedChanges=List.copyOf(proposedChanges);
+            var uses=new LinkedHashMap<CdsExportNativeFieldKeyDto, List<CdsExportFieldAssessmentDto>>();
+            for (var entry:providerUses.entrySet()) {
+                if (!publicProviderField(entry.getKey())||!fields.containsKey(entry.getKey())||entry.getValue().isEmpty()||entry.getValue().size()>16)throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_INVALID");
+                var items=List.copyOf(entry.getValue()); if (!summarizeProviderUses(items).equals(fields.get(entry.getKey())))throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_INVALID"); uses.put(entry.getKey(), items);
+            }
+            for (var key:fields.keySet())if (publicProviderField(key)&&!uses.containsKey(key))throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_INVALID"); providerUses=Map.copyOf(uses);
+        }
         public boolean coreRepresentable(){return blockers.isEmpty()&&fields.values().stream().noneMatch(field-> field.outcome()==Outcome.REQUIRES_REVIEW); }
         public boolean demographicComplete(){return coreRepresentable()&&deferredNativeFields.isEmpty()&&deferredSourceFields.isEmpty(); }
         public List<CdsExportRetainedSectionWriter.Change> coreChanges()throws IOException{if (!coreRepresentable())throw new IOException("CDS_EXPORT_DEMOGRAPHIC_CORE_REQUIRES_REVIEW"); return proposedChanges; }
@@ -81,10 +94,10 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             CdsExportCapturedTextRowDto current, CdsExportNativeRowReceiptDto witness, List<CdsExportCapturedTextRowDto> properties,
             List<CdsExportNativeRowReceiptDto> propertyWitnesses, CdsExportCapturedTextRowDto custom, CdsExportNativeRowReceiptDto customWitness,
             List<CdsExportCapturedTextRowDto> archives, List<CdsExportNativeRowReceiptDto> archiveWitnesses,
-            Map<String, CdsExportCapturedTextRowDto> providers, int maximumRows, long maximumBytes,
+            CdsExportPublicProviderLookupsDto lookups, int maximumRows, long maximumBytes,
             CdsExportRetainedSectionWriter.Values values, Runnable checkpoint)throws IOException {
         var core=reconcileWithAdjuncts(patient, selected, address, index, checked, allFields, current, witness, properties, propertyWitnesses, custom, customWitness, maximumRows, maximumBytes, values, checkpoint);
-        var history=new CdsExportRetainedEnrolmentReconciler().reconcile(patient, address, index, checked, allFields, current, witness, archives, archiveWitnesses, providers, maximumRows, maximumBytes, values, checkpoint);
+        var history=new CdsExportRetainedEnrolmentReconciler().reconcile(patient, address, index, checked, allFields, current, witness, archives, archiveWitnesses, lookups, maximumRows, maximumBytes, values, checkpoint);
         var combined=withHistory(core, history); values.requireActive(); checkpoint.run(); return combined;
     }
     static Result withHistory(Result core, CdsExportRetainedEnrolmentReconciler.Result history)throws IOException {
@@ -96,7 +109,47 @@ public final class CdsExportDemographicRetainedCoreReconciler {
         var nativeDeferred=new HashSet<>(core.deferredNativeFields()); nativeDeferred.removeAll(history.fields().keySet()); nativeDeferred.addAll(history.deferredNativeFields());
         var blockers=new HashSet<>(core.blockers()); blockers.addAll(history.blockers()); var changes=new ArrayList<CdsExportRetainedSectionWriter.Change>();
         if (core.coreRepresentable()&&history.representable()){changes.addAll(core.coreChanges()); changes.addAll(history.changes()); }
-        return new Result(core.sourceManifestSha256(), core.unitAddress(), decided, sourceDeferred, fields, nativeDeferred, blockers, changes);
+        var uses=new LinkedHashMap<>(core.providerUses()); uses.putAll(initialProviderUses(history.fields()));
+        return new Result(core.sourceManifestSha256(), core.unitAddress(), decided, sourceDeferred, fields, nativeDeferred, blockers, changes, uses);
+    }
+
+    /** Coordinates primary and enrolment relationships while retaining each use of a shared public provider fact. */
+    public Result reconcileWithPrimaryPhysician(int patient, Set<CdsCategory> selected, String address, CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked, List<CdsExportRetainedFieldDto> allFields,
+            CdsExportCapturedTextRowDto current, CdsExportNativeRowReceiptDto witness, List<CdsExportCapturedTextRowDto> properties,
+            List<CdsExportNativeRowReceiptDto> propertyWitnesses, CdsExportCapturedTextRowDto custom, CdsExportNativeRowReceiptDto customWitness,
+            List<CdsExportCapturedTextRowDto> archives, List<CdsExportNativeRowReceiptDto> archiveWitnesses,
+            CdsExportPublicProviderLookupsDto lookups, int maximumRows, long maximumBytes,
+            CdsExportRetainedSectionWriter.Values values, Runnable checkpoint)throws IOException {
+        var core=reconcileWithHistory(patient, selected, address, index, checked, allFields, current, witness, properties, propertyWitnesses, custom, customWitness, archives, archiveWitnesses, lookups, maximumRows, maximumBytes, values, checkpoint);
+        var primary=new CdsExportDemographicPrimaryPhysicianReconciler().reconcile(patient, address, index, checked, allFields, current, witness, lookups, values, checkpoint);
+        var combined=withPrimaryPhysician(core, primary); values.requireActive(); checkpoint.run(); return combined;
+    }
+    static Result withPrimaryPhysician(Result core, CdsExportDemographicPrimaryPhysicianReconciler.Result primary)throws IOException {
+        if (!core.sourceManifestSha256().equals(primary.sourceManifestSha256())||!core.unitAddress().equals(primary.unitAddress())
+                ||!Collections.disjoint(core.decidedSourceFields(), primary.sourceFields())||!core.deferredSourceFields().containsAll(primary.sourceFields()))throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PRIMARY_EVIDENCE_OVERLAP");
+        var fields=new LinkedHashMap<>(core.fields()); var uses=new LinkedHashMap<CdsExportNativeFieldKeyDto, List<CdsExportFieldAssessmentDto>>(core.providerUses());
+        for (var entry:primary.fields().entrySet()) {
+            var old=fields.get(entry.getKey());
+            if (old==null){fields.put(entry.getKey(), entry.getValue()); if (publicProviderField(entry.getKey()))uses.put(entry.getKey(), List.of(entry.getValue())); }
+            else {
+                if (!publicProviderField(entry.getKey())||old.presence()!=entry.getValue().presence())throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PRIMARY_EVIDENCE_OVERLAP");
+                var items=new ArrayList<>(uses.get(entry.getKey())); if (!items.contains(entry.getValue()))items.add(entry.getValue());
+                if (items.size()>16)throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_LIMIT"); uses.put(entry.getKey(), List.copyOf(items)); fields.put(entry.getKey(), summarizeProviderUses(items));
+            }
+        }
+        var decided=new HashSet<>(core.decidedSourceFields()); decided.addAll(primary.sourceFields()); var sourceDeferred=new HashSet<>(core.deferredSourceFields()); sourceDeferred.removeAll(primary.sourceFields());
+        var nativeDeferred=new HashSet<>(core.deferredNativeFields()); nativeDeferred.removeAll(primary.fields().keySet()); var blockers=new HashSet<>(core.blockers()); blockers.addAll(primary.blockers()); var changes=new ArrayList<CdsExportRetainedSectionWriter.Change>();
+        if (core.coreRepresentable()&&primary.representable()){changes.addAll(core.coreChanges()); changes.addAll(primary.changes()); }
+        return new Result(core.sourceManifestSha256(), core.unitAddress(), decided, sourceDeferred, fields, nativeDeferred, blockers, changes, uses);
+    }
+    private static boolean publicProviderField(CdsExportNativeFieldKeyDto key){return key.table().equals("provider")&&io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS.contains(key.column()); }
+    private static Map<CdsExportNativeFieldKeyDto, List<CdsExportFieldAssessmentDto>> initialProviderUses(Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields){var result=new LinkedHashMap<CdsExportNativeFieldKeyDto, List<CdsExportFieldAssessmentDto>>(); fields.forEach((key, value)-> {if (publicProviderField(key))result.put(key, List.of(value)); }); return result; }
+    private static CdsExportFieldAssessmentDto summarizeProviderUses(List<CdsExportFieldAssessmentDto> uses) {
+        var presence=uses.getFirst().presence(); if (uses.stream().anyMatch(use-> use.presence()!=presence))throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_INVALID");
+        if (uses.size()==1)return uses.getFirst();
+        Outcome outcome=uses.stream().anyMatch(use-> use.outcome()==Outcome.REQUIRES_REVIEW)?Outcome.REQUIRES_REVIEW:uses.stream().anyMatch(use-> use.outcome()==Outcome.MAPPED)?Outcome.MAPPED:uses.stream().anyMatch(use-> use.outcome()==Outcome.OPERATIONAL)?Outcome.OPERATIONAL:Outcome.ABSENT;
+        return new CdsExportFieldAssessmentDto(presence, outcome, "PublicProvider", "EXPLICIT_SHARED_PUBLIC_PROVIDER_USES");
     }
 
 }

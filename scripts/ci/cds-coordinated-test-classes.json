@@ -52,6 +52,8 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicOptionalDateReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicPhoneProjectionServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicPhonesMapperUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicPrimaryAssemblyUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicPrimaryPhysicianReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicProjectionEvidenceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicProviderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicRetainedCoreReconcilerUnitTest",

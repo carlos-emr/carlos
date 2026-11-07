@@ -50,18 +50,12 @@ public final class CdsExportRetainedEnrolmentReconciler {
         public List<CdsExportRetainedSectionWriter.Change> changes()throws IOException {if (!representable())throw new IOException("CDS_EXPORT_ENROLMENT_RECONCILIATION_REQUIRES_REVIEW"); return proposedChanges; }
         @Override public String toString(){return "CdsExportRetainedEnrolmentReconciler.Result[protected]"; }
     }
-    /**
-     * Reconciles the authenticated source history with witnessed current and archive rows
-     * from one capture. Original import options shift retained dates only; native events
-     * already use clinical dates. Any ambiguous episode withholds every proposed change.
-     * Other archive columns remain explicit responsibilities of the enclosing assembly.
-     */
     public Result reconcile(int patient, String address, CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked,
             List<CdsExportRetainedFieldDto> allFields, CdsExportCapturedTextRowDto current, CdsExportNativeRowReceiptDto currentWitness,
             List<CdsExportCapturedTextRowDto> archives, List<CdsExportNativeRowReceiptDto> archiveWitnesses,
-            Map<String, CdsExportCapturedTextRowDto> providers, int maximumRows, long maximumBytes,
+            CdsExportPublicProviderLookupsDto lookups, int maximumRows, long maximumBytes,
             CdsExportRetainedSectionWriter.Values values, Runnable checkpoint)throws IOException {
-        Objects.requireNonNull(checkpoint); Objects.requireNonNull(values); checkpoint.run(); values.requireActive();
+        Objects.requireNonNull(checkpoint); Objects.requireNonNull(values); checkpoint.run(); values.requireActive(); lookups.requireGeneration(index.sourceManifestSha256()); var providers=lookups.providers();
         if (maximumRows<1||maximumRows>8192||maximumBytes<1||maximumBytes>64L<<20||archives.size()+1>maximumRows||archives.size()!=archiveWitnesses.size()||providers.size()>65536)scope();
         var evidence=new CdsExportDemographicProjectionEvidence().verify(patient, address, index, checked, current, currentWitness, checkpoint);
         var parent=new CdsExportRetainedOccurrenceFields().fieldsFor(patient, CdsCategory.DEMOGRAPHICS, address, index, checked, allFields, checkpoint);
@@ -102,7 +96,7 @@ public final class CdsExportRetainedEnrolmentReconciler {
                 if (selected!=null)fact=new Fact(selected.status(), selected.start(), selected.end(), selected.reason(), sourceIdentities.get(selected.ordinal()));
                 for (String column:CdsExportEnrolmentMapper.COLUMNS.keySet())set(row, decisions, column, present(row.fields().get(column))?Outcome.MAPPED:Outcome.ABSENT, "VERIFIED_RETAINED_ENROLMENT_PROJECTION");
             }else {
-                var mapped=new CdsExportEnrolmentMapper().map(patient, row, providers.get(row.fields().get("roster_enrolled_to"))); merge(decisions, mapped.fields());
+                var mapped=new CdsExportEnrolmentMapper().map(patient, row, lookups.find(row.fields().get("roster_enrolled_to"))); merge(decisions, mapped.fields());
                 if (!mapped.representable())blockers.add("NATIVE_ENROLMENT_STATE_OR_PROVIDER_REQUIRES_REVIEW");
                 else if (mapped.event()!=null) {
                     var event=mapped.event(); fact=new Fact(event.status(), event.start(), event.end(), event.terminationReason(), nativeIdentity(mapped.nativeProvider()));
