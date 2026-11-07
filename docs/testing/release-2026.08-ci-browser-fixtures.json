@@ -18,8 +18,8 @@
         "scripts/dependency-tables-playwright-checks.js"
       ],
       "source": "scripts/dependency-tables-playwright-checks.js",
-      "sourceSha256": "d9e2f2ac18af35ad8bc9db331d8149127edb2bb62a4b0fc6e7d2260f62f9d85c",
-      "minimumAssertions": 32
+      "sourceSha256": "e809993326b7005c668d76dd7596756cf6f51fb7bb6d0f2b140f23d61becc255",
+      "minimumAssertions": 47
     },
     {
       "id": "navigation-cancellation-browser-checks",
