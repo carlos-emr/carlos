@@ -122,6 +122,7 @@
         const fillText = ctx.fillText;
         ctx.fillText = function (text, x, y, maxWidth) {
             const value = String(text);
+            y += this.carlosDrop || 0;
             const size = /(\d+(?:\.\d+)?)px/.exec(this.font);
             // eslint-disable-next-line no-control-regex
             if (!size || !value || /[^\u0020-\u00ff]/.test(value)) {
@@ -129,13 +130,17 @@
             }
             const advances = glyphAdvances(value, Number(size[1]), /\bbold\b|\b[6-9]00\b/.test(this.font) ? 'bold' : 'normal');
             const width = advances.reduce((sum, glyph) => sum + glyph.advance, 0);
-            const align = this.textAlign;
+            const align = this.textAlign, baseline = this.textBaseline;
             let left = align === 'center' ? x - width / 2 : (align === 'right' || align === 'end') ? x - width : x;
-            this.textAlign = 'left';
+            let top = y - this.measureText('H').alphabeticBaseline;
+            const t = this.getTransform();
+            // Glyphs sit on a whole-pixel baseline, rounded as Chromium itself rounds it.
+            if (t.b === 0 && t.c === 0 && t.d === 1) top = Math.floor(top + t.f + 0.5) - t.f;
+            this.textAlign = 'left'; this.textBaseline = 'alphabetic';
             try {
-                advances.forEach(glyph => { fillText.call(this, glyph.glyph, left, y); left += glyph.advance; });
+                advances.forEach(glyph => { fillText.call(this, glyph.glyph, left, top); left += glyph.advance; });
             } finally {
-                this.textAlign = align;
+                this.textAlign = align; this.textBaseline = baseline;
             }
         };
         return canvas;
@@ -176,6 +181,31 @@
     // fixtures' "metrics"), and its LineMetrics descent per pixel of font size.
     const JAVA_FONT_METRICS = { 8: [8, 2], 10: [10, 3], 12: [12, 3], 14: [13, 4] };
     const JAVA_DESCENT = 0.2358;
+
+    /**
+     * How far below the middle of Chart.js's label line Java put the baseline of a label hung under an
+     * axis (TextAnchor.TOP_CENTER): the FontMetrics height less the LineMetrics descent below the
+     * label's top.
+     */
+    function javaTopDrop(size) {
+        const [ascent, descent] = JAVA_FONT_METRICS[size] || [Math.ceil(size * (LINE_HEIGHT - JAVA_DESCENT)), Math.ceil(size * JAVA_DESCENT)];
+        scratch.font = font(size);
+        scratch.textBaseline = 'middle';
+        const chromium = -scratch.measureText('H').alphabeticBaseline;
+        scratch.textBaseline = 'alphabetic';
+        return ascent + descent - size * JAVA_DESCENT - textHeight(size) / 2 - chromium;
+    }
+
+    /** Draw a horizontal axis' labels {@code drop} pixels lower than Chart.js laid them out. */
+    function droppedLabels(scale, drop) {
+        if (scale.carlosDrop !== undefined) return;
+        scale.carlosDrop = drop;
+        const drawLabels = scale.drawLabels;
+        scale.drawLabels = function (area) {
+            this.ctx.carlosDrop = drop;
+            try { drawLabels.call(this, area); } finally { this.ctx.carlosDrop = 0; }
+        };
+    }
 
     /**
      * How far below Chromium's "middle" baseline Java put a centred label's baseline. TextUtils centred
@@ -542,8 +572,8 @@
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'left';
         const base = canvasHeight - layout.height;
-        // Labels sat a pixel lower in the "JFree" theme's legend and in a wrapped legend.
-        let top = base + 2 + (look === LOOKS.jfree || layout.wrapped ? 1 : 0);
+        // Labels sit 3px into the legend's row: its 2px padding plus Java's lower baseline.
+        let top = base + 3;
         layout.rows.forEach((row, index) => {
             // FlowArrangement.arrangeNN: gaps between items only, centred without rounding.
             const rowWidth = row.reduce((sum, item) => sum + item.width, 0) + ITEM_GAP * (row.length - 1);
@@ -680,11 +710,12 @@
         // none. Tick labels sat their insets (4px across, 2px along) plus 2px beyond the axis line.
         const AXIS_LINE = 'rgba(128, 128, 128, 0.5)';
         const AXIS_OFFSET = 4;
-        // Java draws a label's glyphs about 1.5px lower in its line box than canvas text sits.
-        const TEXT_DROP = 1.5;
         // Chart.js reserves ticks.padding on both sides of the labels, but JFreeChart's offset and tick
         // mark lie only between the labels and the plot: reserve them as the tick mark length. In an
         // offset plot that length is transparent and drawOffsetAxes draws the real line and marks.
+        // The label space below a date axis, as JFreeChart reserved it; droppedLabels then draws the
+        // labels on Java's baseline within it.
+        const TEXT_DROP = 1.5;
         const tickGap = (shown, offset, horizontal) => (shown
             ? { drawTicks: true, tickLength: offset + 2 + (horizontal ? TEXT_DROP : 0), tickColor: offset || horizontal ? 'rgba(0, 0, 0, 0)' : AXIS_LINE }
             : { drawTicks: false });
@@ -702,7 +733,7 @@
             // drawOffsetAxes draws the axis line; Chart.js's border keeps only the gridline dash.
             border: { display: false, color: AXIS_LINE, width: 1, dash: [2, 2] },
             title: shared ? axisTitle(combined ? 'Date/Time' : spec.xLabel, look) : { display: false },
-            afterFit(scale) { fitLikeJava(scale, look.tick.size); },
+            afterFit(scale) { fitLikeJava(scale, look.tick.size); droppedLabels(scale, javaTopDrop(look.tick.size) - TEXT_DROP); },
         });
         const yScale = (id, lower, upper, look, label, colour, position, offset = 0) => ({
             type: 'linear', min: lower, max: upper, position, offset: false,
