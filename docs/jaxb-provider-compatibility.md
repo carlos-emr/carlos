@@ -35,9 +35,19 @@ or `2026-07-15T13:30:00Z` for `useGMTTime`), and a midnight value keeps its time
 strings for those production shapes, so the only behaviour the adapter has to add
 is the set-state rule. `CalendarXmlAdapter` reads the set-state before copying the
 calendar and `CalendarXmlAdapterUnitTest` pins the strings captured from the
-unmodified release classes under MOXy. Date and Calendar values omit trailing
-fractional-second zeroes; schema annotations retain the existing `xs:dateTime`
-types. The Calendar reader trims XML boundary whitespace before parsing, preserving
+unmodified release classes under MOXy.
+
+Published main (`e53e6cb5551`, beta6) selected Glassfish and wrote the patient
+`birthDay` property as `xs:dateTime`, including midnight and the zone offset.
+This property has a scoped `CalendarDateTimeXmlAdapter` so the global MOXy
+set-state rule cannot turn its declared date-time into a date-only value.
+Nested patient records inherit the same correction. Both date-only and date-time
+inputs remain accepted, and the frozen MOXy corpus remains an unchanged legacy
+reader fixture. The serialization assertions explicitly retain main's birthday
+output. Other Calendar properties keep their existing adapter behavior.
+
+Date and Calendar values omit trailing fractional-second zeroes. The Calendar
+reader trims XML boundary whitespace before parsing, preserving
 the native JAXB acceptance of whitespace-surrounded date-times; the regression
 uses an appointment DTO and rejects any JAXB validation event. Two beans with
 lower-case accessor names also need explicit alphabetical
