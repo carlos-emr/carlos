@@ -202,6 +202,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         Demographic demo = new Demographic();
         demo.setFirstName(firstName);
         demo.setLastName(lastName);
+        demo.setPrefName(""); // The published MariaDB schema requires a non-null preferred name.
         demo.setHcType(hcType);
         demo.setHin(hin);
         demo.setPatientStatus(patientStatus);
