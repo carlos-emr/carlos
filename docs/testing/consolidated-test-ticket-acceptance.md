@@ -12,8 +12,9 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | --- | --- | --- |
 | [#4102](https://github.com/carlos-emr/carlos/issues/4102) | test: run the locking and race tests against a real MariaDB in CI | Implementation and installed acceptance pending. |
 | [#4492](https://github.com/carlos-emr/carlos/issues/4492) | test(scripts): Playwright coverage plan, upgrade-path check, remaining Ontario checks, configuration profiles and hardening (plan Tasks 17 and 35–48) | Implementation and installed acceptance pending. |
+| [#5177](https://github.com/carlos-emr/carlos/issues/5177) | Consolidated validation-harness findings and packaged retakes | Outstanding original source acceptance and complete ON/BC repetitions remain pending. |
 | [#5700](https://github.com/carlos-emr/carlos/issues/5700) | Test: Release 2026.08 full verification coverage plan (Java, Node, Playwright) | Existing merged tooling retained. Scope ownership, compatibility decisions, installed execution and vendor prerequisites remain open. |
-| [#5707](https://github.com/carlos-emr/carlos/issues/5707) | Test: cover successful key-pair creation through the administration UI | Implementation and installed acceptance pending. |
+| [#5707](https://github.com/carlos-emr/carlos/issues/5707) | Test: cover successful key-pair creation through the administration UI | Independent native creation/download/signature/reopen/duplicate lifecycle implemented; installed acceptance pending. |
 | [#5708](https://github.com/carlos-emr/carlos/issues/5708) | Test: cover multi-recipient lab-forwarding rule updates and selective removal | Implementation and installed acceptance pending. |
 | [#5709](https://github.com/carlos-emr/carlos/issues/5709) | Test: broaden lookup-list CRUD coverage and verify consumer/list isolation | Implementation and installed acceptance pending. |
 | [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implementation and installed acceptance pending. |
@@ -37,7 +38,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5737](https://github.com/carlos-emr/carlos/issues/5737) | Test: verify appointment-slot lock expiry and recovery after an abandoned browser | Implementation and installed acceptance pending. |
 | [#5738](https://github.com/carlos-emr/carlos/issues/5738) | Test: cover abandoned appointment cut/paste and stale clipboard recovery | Implementation and installed acceptance pending. |
 | [#5771](https://github.com/carlos-emr/carlos/issues/5771) | Test: Tomcat shutdown leak smoke check doesn't match MariaDB Connector/J thread names | Matcher and independent warning controls implemented; actual installed shutdown retake pending. |
-| [#5779](https://github.com/carlos-emr/carlos/issues/5779) | Test: #5548 inbox counts are only partly exercised on physical MariaDB | Native lab/document/HRM count cases added on ON/BC lanes; physical-MariaDB runs pending. |
+| [#5779](https://github.com/carlos-emr/carlos/issues/5779) | Test: #5548 inbox counts are only partly exercised on physical MariaDB | Seven cases pass on both physical ON and BC Flyway schemas with zero skips at 239cd330e1a; final expanded normal/abnormal assertions and final-head retakes pending. |
 | [#5793](https://github.com/carlos-emr/carlos/issues/5793) | Test: Release adds 11 expected-failure pins, including security and audit checks | Implementation and installed acceptance pending. |
 | [#5794](https://github.com/carlos-emr/carlos/issues/5794) | Test: Front-door check for sanitized error bodies was removed while ResponseSanitizationFilter was rewritten | Temporary installed fault-route adapter and sensitive output assertions added; installed front-door qualification pending. |
 | [#5795](https://github.com/carlos-emr/carlos/issues/5795) | Test: Missing browser-check prerequisites now SKIP instead of failing, including the CDS import gate | Packaged runner enforces strict release/residue checking and fails on report loss; packaged runs pending. |
@@ -74,3 +75,13 @@ fields, native family-floor/routing drift, the fault adapter prerequisite in
 packaged/lifecycle suite entry points, report-copy failures previously ignored,
 and concurrent descriptor changes that must be retained rather than overwritten.
 Focused checks pass; remaining rounds require actual native/installed results.
+
+Round 2 (correctness and sensitivity): require all three new inbox case identities
+on each native lane, with unrelated replacement controls under normal and
+optimized Python. Corrected test discovery for those controls, added missing
+JDK/parser runtime prerequisites, and made descriptor publication atomic while
+preserving package ownership/mode/timestamps. The key-creation check runs
+independently of the original negative GET pin. A real ON/BC MariaDB run passes
+7 cases per province; the exact permission regression passes unprivileged.
+CodeRabbit received the full-review request but declined it due to its account
+rate limit; no successful CodeRabbit review is claimed.

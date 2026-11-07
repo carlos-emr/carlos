@@ -18408,6 +18408,28 @@
       "env": [],
       "fixtures": "Owned synthetic patient and imported year/year-month allergy precision; deletes and verifies owned allergy and partial_date rows.",
       "notes": "Stored partial precision display and reaction-only amendment (#5796). Typed partial dates are outside the supported entry contract (#5576)."
+    },
+    {
+      "name": "admin-keygen-creation",
+      "script": "scripts/admin-api-keygen-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "TEST_PASSWORD",
+        "TEST_PIN",
+        "MYSQL_PASSWORD"
+      ],
+      "envSet": {
+        "API_KEYGEN_CREATION_ONLY": "true"
+      },
+      "notes": "Independent native key creation, download/signature verification, manager reopen and duplicate refusal (#5707). Requires the installed CARLOS public key. No private keys are published.",
+      "fixtures": "Marker-owned seeded control and UI-created RSA key pairs; cleanup removes owned keys and read audits."
     }
   ]
 }

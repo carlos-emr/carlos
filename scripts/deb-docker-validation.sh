@@ -205,7 +205,8 @@ RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     apt-get update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
-      nodejs npm poppler-utils fonts-liberation gnupg libxml2-utils; \
+      nodejs npm poppler-utils fonts-liberation gnupg libxml2-utils \
+      python3 python3-defusedxml openjdk-25-jdk-headless; \
     update-ca-certificates; \
     rm -f /etc/apt/apt.conf.d/98carlos-validation-ca; \
     rm -rf /var/lib/apt/lists/*; \

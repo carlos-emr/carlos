@@ -15,11 +15,29 @@ from pathlib import Path
 import secrets
 import shutil
 import signal
+import stat
 import subprocess
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 WEBAPP = Path('/usr/share/carlos-emr/webapp/carlos')
+
+
+def replace_descriptor(path, data, metadata):
+    """Publish a whole descriptor atomically while preserving package ownership/mode."""
+    descriptor, name = tempfile.mkstemp(prefix='.carlos-test-webxml-', dir=path.parent)
+    pending = Path(name)
+    try:
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fchmod(stream.fileno(), stat.S_IMODE(metadata.st_mode))
+            if os.geteuid() == 0:
+                os.fchown(stream.fileno(), metadata.st_uid, metadata.st_gid)
+            os.fsync(stream.fileno())
+        os.replace(pending, path)
+    finally:
+        pending.unlink(missing_ok=True)
 
 
 @contextmanager
@@ -33,6 +51,7 @@ def fault_routes(webapp, token, compiled):
     if (webapp.resolve() != webapp or descriptor.parent.resolve() != descriptor.parent
             or classes.parent.resolve() != classes.parent):
         raise ValueError('Fault fixture refuses linked application parents')
+    metadata = descriptor.stat()
     before = descriptor.read_bytes()
     if before.count(b'</web-app>') != 1 or b'carlostest5794' in before:
         raise ValueError('Ambiguous installed deployment descriptor')
@@ -46,7 +65,7 @@ def fault_routes(webapp, token, compiled):
     try:
         shutil.copyfile(compiled, classes / compiled.name)
         (classes / compiled.name).chmod(0o644)
-        descriptor.write_bytes(installed)
+        replace_descriptor(descriptor, installed, metadata)
         yield
     finally:
         # Restore the original bytes even after browser failure/interruption.
@@ -54,7 +73,8 @@ def fault_routes(webapp, token, compiled):
         drift = descriptor.read_bytes() not in (installed, before)
         if drift:
             raise RuntimeError('Concurrent descriptor drift; fixture retained for explicit recovery')
-        descriptor.write_bytes(before)
+        replace_descriptor(descriptor, before, metadata)
+        os.utime(descriptor, ns=(metadata.st_atime_ns, metadata.st_mtime_ns))
         (classes / compiled.name).unlink(missing_ok=True)
         classes.rmdir()
         if descriptor.read_bytes() != before or drift:
@@ -108,7 +128,7 @@ def main():
                 restart()
             if hashlib.sha256(descriptor.read_bytes()).hexdigest() != original_hash:
                 raise RuntimeError('Installed descriptor differs after fixture removal')
-            print(json.dumps({'frontDoorCheckPassed': True, 'installedDescriptorRestored': True,
+            print(json.dumps({'wrappedCommandPassed': True, 'installedDescriptorRestored': True,
                               'faultFixtureRemoved': not (WEBAPP / 'WEB-INF/classes/carlostest5794').exists()}))
     finally:
         signal.signal(signal.SIGTERM, previous)

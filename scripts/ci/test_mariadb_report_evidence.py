@@ -46,7 +46,9 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 suffix = "" if selected == "generated" else "-" + selected
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
-                    return (f'<testcase classname="{suite}{suffix}" name="shouldRead_forRow{index}">'
+                    name = (MODULE.INBOX_CASES[index] if family == 'LegacyLabNativeMariaDbIntegrationTest'
+                            and index < len(MODULE.INBOX_CASES) else f'shouldRead_forRow{index}')
+                    return (f'<testcase classname="{suite}{suffix}" name="{name}">'
                             + fault + '</testcase>')
                 body = "".join(case(i) for i in range(count))
                 if duplicate and selected == mode and family == next(iter(required)):
@@ -216,6 +218,21 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.assertEqual([case.outcome for case in cases], ['failure', 'pass'])
         self.assertEqual(diagnostics[0]['declaredTests'], 1)
         self.assertEqual(diagnostics[0]['executedCases'], 2)
+
+    def test_unrelated_passing_cases_cannot_replace_any_inbox_count_case(self):
+        self.seed()
+        for mode in ('flyway', 'bc-flyway'):
+            path = self.reports / ('TEST-example.LegacyLabNativeMariaDbIntegrationTest-' + mode + '.xml')
+            original = path.read_bytes()
+            for name in (
+                'shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched',
+                'shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting',
+                'shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed',
+            ):
+                path.write_bytes(original.replace(name.encode(), b'unrelatedPassingCase'))
+                for optimized in (False, True):
+                    self.assert_refused(self.invoke(optimized), f'Required MariaDB {mode} inbox case identities missing')
+                path.write_bytes(original)
 
 
 if __name__ == "__main__":

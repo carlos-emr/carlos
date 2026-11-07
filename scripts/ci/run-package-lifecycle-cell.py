@@ -276,6 +276,8 @@ def main():
         for name in ('emr', 'drugref', 'ctl'):
             if gate.digest(Path(initial[name]['path'])) != initial[name]['sha256']:
                 raise EvidenceError('Initial package differs from its pin')
+        run(['apt-get', 'install', '-y', '--no-install-recommends', 'openjdk-25-jdk-headless'],
+            'fault-fixture-compiler', environment={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
         run(['apt-get', 'install', '-y', '--no-remove', *[initial[n]['path'] for n in ('ctl', 'emr', 'drugref')]],
             'initial-install', environment={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
         if Path('/var/lib/carlos-emr/.install-incomplete').exists():

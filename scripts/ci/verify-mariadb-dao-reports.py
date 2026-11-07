@@ -46,6 +46,13 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                            "DemographicMergeMariaDbIntegrationTest": 8}}
 
 
+INBOX_CASES = (
+    'shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched',
+    'shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting',
+    'shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed',
+)
+
+
 def verify(reports: Path, output: Path) -> dict:
     if reports.is_symlink() or not reports.is_dir():
         raise EvidenceError("MariaDB report directory is missing or is a symlink")
@@ -55,6 +62,7 @@ def verify(reports: Path, output: Path) -> dict:
     counts = {mode: dict(tests=0, failures=0, skipped=0) for mode in REQUIRED}
     families = {mode: dict.fromkeys(required, 0) for mode, required in REQUIRED.items()}
     identities = set()
+    inbox_cases = {mode: set() for mode in REQUIRED}
     collisions = []
     lines = []
     for report in paths:
@@ -76,6 +84,8 @@ def verify(reports: Path, output: Path) -> dict:
             counts[mode]["tests"] += 1
             if case.outcome != "pass":
                 counts[mode]["failures" if case.outcome == "failure" else "skipped"] += 1
+            if family == 'LegacyLabNativeMariaDbIntegrationTest' and case.outcome == 'pass':
+                inbox_cases[mode].add(case.name)
             if family in families[mode] and case.outcome == "pass":
                 families[mode][family] += 1
             label = f" [{case.container}]" if case.container else ""
@@ -92,6 +102,9 @@ def verify(reports: Path, output: Path) -> dict:
         for family, minimum in required.items():
             if families[mode][family] < minimum:
                 raise EvidenceError(f"Required MariaDB {mode} coverage missing: {family}")
+    for mode in ('flyway', 'bc-flyway'):
+        if not set(INBOX_CASES) <= inbox_cases[mode]:
+            raise EvidenceError(f'Required MariaDB {mode} inbox case identities missing')
     return summary
 
 

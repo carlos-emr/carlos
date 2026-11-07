@@ -93,6 +93,8 @@ class LegacyLabNativeMariaDbIntegrationTest extends CarlosTestBase {
         var filter = new InboxCategoryDao.Filter("FAKE-Inbox", "Native", "", true, true, provider, "N", "all", null, null);
         var result = inbox.count(filter, InboxCategoryDao.Operation.LAB_PATIENT, null);
         assertThat(result.total()).isEqualTo(2);
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.NORMAL, null).total()).isEqualTo(1);
+        assertThat(inbox.count(filter, InboxCategoryDao.Operation.ABNORMAL, null).total()).isEqualTo(1);
         assertThat(result.patients()).containsExactly(new InboxCategoryDao.PatientCount(patient, "Native", "FAKE-Inbox", 2, 0, 0));
         assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_DEMOGRAPHIC, Integer.toString(patient)).total()).isEqualTo(2);
         assertThat(inbox.count(filter, InboxCategoryDao.Operation.LAB_DEMOGRAPHIC, Integer.toString(patient + 1)).total()).isZero();
