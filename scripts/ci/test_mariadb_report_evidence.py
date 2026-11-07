@@ -113,6 +113,24 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 finally:
                     path.write_bytes(original)
 
+    def test_growth_without_archive_failure_cases_is_refused_in_each_lane(self):
+        self.seed()
+        for mode in MODULE.REQUIRED:
+            with self.subTest(mode=mode):
+                suffix = "" if mode == "generated" else "-" + mode
+                path = self.reports / ("TEST-example.Growth0To36FormPersistenceIntegrationTest" + suffix + ".xml")
+                original = path.read_bytes()
+                root = ET.fromstring(original)
+                for case in list(root)[15:]:
+                    root.remove(case)
+                root.set("tests", "15")
+                path.write_bytes(ET.tostring(root))
+                try:
+                    self.assert_refused(self.invoke(),
+                                        f"Required MariaDB {mode} coverage missing: Growth0To36FormPersistenceIntegrationTest")
+                finally:
+                    path.write_bytes(original)
+
     def test_duplicates_and_suite_binding_are_refused(self):
         self.seed(duplicate=True)
         self.assert_refused(self.invoke(), "Duplicate test case identity")

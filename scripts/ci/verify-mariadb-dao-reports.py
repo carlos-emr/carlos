@@ -27,7 +27,7 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                           "BCAR2020FormSaveTransactionIntegrationTest": 15,
                           "RxCorrectionSaveRollbackIntegrationTest": 2,
                           "DemographicMergeMariaDbIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 15},
+                          "Growth0To36FormPersistenceIntegrationTest": 17},
             "flyway": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
                        "LegacyLabNativeMariaDbIntegrationTest": 4, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
@@ -36,7 +36,7 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
                        "DemographicMergeMariaDbIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 15},
+                       "Growth0To36FormPersistenceIntegrationTest": 17},
             "bc-flyway": {"LabRoutingLookupDaoIntegrationTest": 4,
                            "LegacyLabNativeMariaDbIntegrationTest": 4,
                            "ConsultationArchiveDaoIntegrationTest": 1,
@@ -46,7 +46,7 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                            "BcBillingDaoTransactionIntegrationTest": 4,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
                            "DemographicMergeMariaDbIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 15}}
+                           "Growth0To36FormPersistenceIntegrationTest": 17}}
 
 
 def verify(reports: Path, output: Path) -> dict:
