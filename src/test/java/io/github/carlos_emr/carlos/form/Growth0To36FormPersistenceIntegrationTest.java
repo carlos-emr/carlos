@@ -6,6 +6,7 @@ import io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.XmlUtils;
 import jakarta.persistence.EntityManager;
@@ -17,11 +18,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.sql.DataSource;
+import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.aop.support.AopUtils;
@@ -332,6 +336,50 @@ class Growth0To36FormPersistenceIntegrationTest extends CarlosTestBase {
                 assertThat(xmlColumns(document)).hasSize(131);
             }
         } finally {
+            restore(configuration, "save_as_xml", previousEnabled);
+            restore(configuration, "form_record_path", previousPath);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void shouldRetainCommittedFormAndLogSafely_whenArchiveReadOrWriteFails(boolean failRead) throws Exception {
+        Properties configuration = CarlosProperties.getInstance();
+        String previousEnabled = configuration.getProperty("save_as_xml");
+        String previousPath = configuration.getProperty("form_record_path");
+        Growth0To36FormService target = AopTestUtils.getUltimateTargetObject(service);
+        FormGrowth0To36Dao archiveReader = mock(FormGrowth0To36Dao.class,
+                org.mockito.AdditionalAnswers.delegatesTo(forms));
+        if (failRead) {
+            doAnswer(call -> {
+                // The independent connection must see the form before the archive read.
+                assertThat(independentCount()).isEqualTo(1);
+                throw new IllegalStateException("synthetic sensitive archive failure: " + values.getProperty("patientName"));
+            }).when(archiveReader).readArchive(eq(patient), anyInt());
+        }
+        // A regular file cannot be used as an archive directory, even when tests run as root.
+        Path archivePath = failRead ? archive : Files.createFile(archive.resolve("not-a-directory"));
+        // MiscUtils names the logger after the afterCommit callback's anonymous class.
+        try (LogCapture logs = LogCapture.forLogger(Growth0To36FormService.class.getName() + "$1")) {
+            configuration.setProperty("save_as_xml", "true");
+            configuration.setProperty("form_record_path", archivePath.toString());
+            ReflectionTestUtils.setField(target, "forms", archiveReader);
+            int id = service.saveVersion(actor, patient, 0, values);
+            assertThat(id).isPositive();
+            assertThat(independentCount()).isEqualTo(1);
+            assertLegacyProperties(id, service.load(actor, patient, id));
+            verify(archiveReader).readArchive(patient, id);
+            assertThat(logs.events()).singleElement().satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(Level.ERROR);
+                assertThat(event.getMessage().getFormattedMessage())
+                        .isEqualTo("Unable to archive committed Growth form XML; continuing without XML copy");
+                assertThat(event.getThrown()).isNull();
+            });
+            try (var files = Files.list(archive)) {
+                assertThat(files.filter(path -> path.getFileName().toString().endsWith(".xml"))).isEmpty();
+            }
+        } finally {
+            ReflectionTestUtils.setField(target, "forms", forms);
             restore(configuration, "save_as_xml", previousEnabled);
             restore(configuration, "form_record_path", previousPath);
         }

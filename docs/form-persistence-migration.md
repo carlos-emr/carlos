@@ -217,6 +217,8 @@ failure after flushing an identity insert, all 131 physical columns and JDBC
 timestamp metadata, distinct values in all twenty slots, fully null legacy
 slots, coherent grouped-history creation dates and the XML filename/content
 contract consumed by the existing importer.
+Post-commit archive read and filesystem failures retain the committed form,
+emit an error without clinical values or exception details, and leave no XML copy.
 CI's evidence verifier requires this suite in each MariaDB lane.
 The existing synthetic Growth/Rourke browser suite covers the
 packaged save/load/graph/print callers.
@@ -232,7 +234,7 @@ This implementation combines the two duplicate Growth slices on the current
 | #5697 left `FrmData` Growth reads on generic JDBC and moved shortcut/REST fixtures away from the migrated table. | Retain #5696's typed `FrmData` dispatch and real Growth-DAO shortcut/REST fixtures. |
 | #5697 returned untrimmed text and opened an unclosed query result stream. | Preserve the legacy display trim and fully consume the primary-key lookup result list. |
 | #5696's generated-schema mapping omitted the physical `TIMESTAMP` column definition; its grouped creation-date aggregate could come from another version. | Retain #5697's explicit timestamp definition and selected-version grouped projection, with physical metadata and differing-creation-date tests. |
-| #5697 did not require Growth results in the MariaDB evidence verifier; each PR covered different rollback failures. | Require all fifteen combined persistence cases in generated, ON Flyway and BC Flyway CI, including source rejection, database failure and failure after flush. |
+| #5697 did not require Growth results in the MariaDB evidence verifier; each PR covered different rollback failures. | Require all seventeen combined persistence cases in generated, ON Flyway and BC Flyway CI, including source rejection, database failure, failure after flush and post-commit archive failures. |
 
 Both original PRs remain separate proposals. This Growth slice does not close
 #5693 or #2249; the remaining form migrations below are still required.
