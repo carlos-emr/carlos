@@ -39,6 +39,17 @@ function audit(t, lines, { baseline = '# none\n', args = [] } = {}) {
   return { status: result.status, out: result.stdout, err: result.stderr };
 }
 
+test('qualification explicitly audits unbaselined warnings without publishing payload text', t => {
+  const lines = ['2026-11-06 04:40:11,612 WARN example.Fake (Fake.java:17) - FAKE_PRIVATE_WARNING'];
+  assert.equal(audit(t, lines).status, 0, 'ordinary error-only audit preserves its contract');
+  const result = audit(t, lines, {args: ['--include-warn']});
+  assert.equal(result.status, 1);
+  assert.match(result.out, /WARN example.Fake/);
+  assert.doesNotMatch(result.out + result.err, /FAKE_PRIVATE_WARNING/);
+  assert.equal(audit(t, lines, {args: ['--include-warn'],
+    baseline: '^WARN example\\.Fake \\(Fake\\.java:17\\)\tReviewed synthetic warning: docs/testing/release-2026.08-verification.md\n'}).status, 0);
+});
+
 // Fictitious content shaped like the packaged log4j layout.
 const NPE_EVENT = [
   '2026-10-08 04:40:11,612 ERROR utility.DbConnectionFilter (DbConnectionFilter.java:96) - Unexpected error for FAKE-Doe, FAKE-Jane HIN 9876543210',

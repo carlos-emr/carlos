@@ -4,6 +4,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const {run} = require('node:test');
+const crypto = require('node:crypto');
+const fingerprint = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
 function readiness(summary) {
   const c = summary && summary.counts;
@@ -16,6 +18,7 @@ function readiness(summary) {
 async function execute(files, output, options = {}) {
   if (!files.length || new Set(files).size !== files.length) throw new Error('Empty or duplicate Node selection');
   fs.rmSync(output, {force: true});
+  const sourceFiles = Object.fromEntries(files.map(file => [path.relative(process.cwd(), file), fingerprint(file)]));
   const cases = [];
   const containers = new Map();
   const starts = new Map();
@@ -38,13 +41,17 @@ async function execute(files, output, options = {}) {
         outcome: d.todo ? 'TODO' : d.skip ? 'SKIP' : event.type === 'test:pass' ? 'PASS' : 'FAIL'});
     }
   }
-  const record = {schemaVersion: 2, runtime: process.version,
+  const sourceChanged = files.some(file => {
+    try {return fingerprint(file) !== sourceFiles[path.relative(process.cwd(), file)];}
+    catch {return true;}
+  });
+  const record = {schemaVersion: 3, runtime: process.version, sourceFiles, sourceChanged,
     files: files.map(file => path.relative(process.cwd(), file)),
     summary: summary ? {success: summary.success, counts: summary.counts} : null, cases};
   fs.mkdirSync(path.dirname(output), {recursive: true});
   fs.writeFileSync(output, JSON.stringify(record, null, 2) + '\n', {mode: 0o600, flag: 'wx'});
   const identities = cases.map(c => JSON.stringify([c.file, c.parents, c.testNumber, c.name, c.line, c.column]));
-  return readiness(summary) && cases.length === summary.counts.tests && new Set(identities).size === cases.length
+  return !sourceChanged && readiness(summary) && cases.length === summary.counts.tests && new Set(identities).size === cases.length
     && files.every(file => cases.some(c => c.file === path.relative(process.cwd(), file)))
     && cases.every(c => c.outcome === 'PASS' && path.resolve(c.name) !== path.resolve(c.file)) ? 0 : 1;
 }

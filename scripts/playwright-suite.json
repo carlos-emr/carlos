@@ -9148,7 +9148,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "One Report by Template group named with the run marker; cleanup deletes rbt_groups rows carrying the marker and asserts none remain.",
-      "notes": "Expected to FAIL at its only step: RBTGroupManager.addTemplateToGroup stores the group name through Encode.forJava (O\\'Brien, Zo\\353, \\u5c71...)."
+      "notes": "Passes since #5639: RBTGroupManager.addTemplateToGroup stores the group name as typed (trimmed) and the group views encode it at output. Rows stored before that fix keep their Java-escaped text."
     },
     {
       "name": "boundary-document-text",
@@ -18362,11 +18362,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "only-lost"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 334,
-        "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "rx-save-failure-retry-print-lost",
@@ -18385,11 +18381,7 @@
       "envSet": {
         "RX_SAVE_FAILURE_MODE": "print-lost"
       },
-      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive.",
-      "expectedFailure": {
-        "finding": 334,
-        "step": "an uncertain committed save asks the clinician to check rather than claiming nothing was saved"
-      }
+      "fixtures": "Disposable local MariaDB with CREATE TRIGGER permission and a readable live server log. Two native staged medications, an unchanged persisted control and an optional renewal source. Late INSERT trigger is scoped to the owned patient and fires only after an earlier new row exists. Separate committed-save/lost-response controls. Cleanup verifies trigger removal and removes owned clinical rows. Exclusive."
     },
     {
       "name": "report-typed-queries",
