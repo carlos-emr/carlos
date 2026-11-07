@@ -47,10 +47,16 @@
     "coreIntendedTarget": "develop",
     "modernImporterAbsentFromDevelopAtInspection": true,
     "readyToMerge": false,
-    "integratedDevelopHead": "848ca460b2d5779a45950ae1451311f1c9409f33",
+    "integratedDevelopHead": "497896230576b492284b1c29efa77f4c4a2409ea",
     "forwardMergeConflictsResolved": 117,
     "targetVersion": "2026.09.0-alpha1-SNAPSHOT",
-    "forwardIntegrationPushed": true
+    "forwardIntegrationPushed": true,
+    "previousIntegratedDevelopHead": "848ca460b2d5779a45950ae1451311f1c9409f33",
+    "latestMergeConflictsResolved": 17,
+    "currentDevelopValidationPending": true,
+    "upstreamAppointmentMigrationRetained": "V1.0.81",
+    "nativeFieldBaselineMigration": "V1.0.82",
+    "unpublishedExportLedgerMigration": "V1.0.83"
   },
   "evidenceLimits": "Component, transport, byte-level, metadata/control and synthetic-fixture checks do not establish a complete clinical migration or OntarioMD certification.",
   "capturedImportOptions": {
@@ -369,14 +375,14 @@
     "clinicalPublication": false
   },
   "currentHistoryOccurrenceAssembly": {
-    "state": "SOURCE_VERIFIED_PACKAGE_PENDING",
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED_AT_PRESERVED_HEAD",
     "focusedUnitChecks": 115,
     "focusedFailures": 0,
     "focusedErrors": 0,
     "focusedSkipped": 0,
     "priorSingleCategoryInstalledAssertions": 106,
     "priorInstalledComponentOverlays": true,
-    "sharedHistorySessionPackagedQualificationPending": true,
+    "sharedHistorySessionPackagedQualificationPending": false,
     "completeCapturedDomains": [
       "casemgmt_note",
       "casemgmt_note_ext",
@@ -388,6 +394,27 @@
     "allSevenWirePositionsOneAuthenticatedSession": true,
     "expectedMappingRefusalsRequireReview": true,
     "nativeOnlyAndPriorRevisionAuditCarrierRequired": true,
+    "clinicalPublication": false,
+    "evidenceHead": "aadc39050d65a89f145148b568bad4fd82d93082",
+    "exactInstalledAssertions": 107,
+    "exactWarSha256": "29cedef0ff78b80bd60f39ea016d477a1e136276de2b27d41229c4caf3d7d4e6",
+    "currentDevelopIntegrationValidationPending": true
+  },
+  "historyOccurrenceCheckpoint": {
+    "state": "PRESERVED_PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "head": "aadc39050d65a89f145148b568bad4fd82d93082",
+    "tests": 4026,
+    "suites": 325,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warSha256": "29cedef0ff78b80bd60f39ea016d477a1e136276de2b27d41229c4caf3d7d4e6",
+    "exactInstalledAssertions": 107,
+    "componentOverlays": false,
+    "currentClinicalNarrativeEditSerialized": true,
+    "historicalCompositeLinkReceiptsUnchanged": true,
+    "originalImportRulesetRetained": true,
+    "nativeFixtureTextAndTimestampsRestored": true,
     "clinicalPublication": false
   }
 }
