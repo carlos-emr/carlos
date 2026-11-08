@@ -81,7 +81,11 @@ public class CdsExportExecutionService {
         catch (CancellationException interrupted) {
             // release() distinguishes a durable cancel request from stopping a foreground wait.
             finishUninterrupted(() -> ledger.release(lease));
-        } catch (CdsExportReviewException review) { stop(lease, CdsExportState.REVIEW_REQUIRED, review.reason().code()); }
+        } catch (CdsExportReviewException review) {
+            stop(lease, CdsExportState.REVIEW_REQUIRED, review.reason().code());
+            LOG.warn("CDS_EXPORT_REVIEW_REQUIRED run={} epoch={} code={} {}", runId, lease.epoch(),
+                    review.reason().code(), LogSafe.exceptionTrace(review));
+        }
         catch (SecurityException denied) { stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_ACCESS_CHANGED"); }
         catch (IOException failed) {
             if (Thread.currentThread().isInterrupted()) finishUninterrupted(() -> ledger.release(lease));

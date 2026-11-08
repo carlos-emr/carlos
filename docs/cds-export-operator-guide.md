@@ -197,3 +197,5 @@ project issue reports must omit patient data, credentials and private keys.
 
 See the [implementation contract](cds-export.md) for detailed source, job,
 publication, compatibility and recorded verification boundaries.
+
+The approved V1.0.85 forward migration seeds independent `_cds_import=x` only for an existing `admin` role with `_admin=x` or `_admin=w`, preserving every existing import grant or denial. Other roles receive no grant. `provider_no` is permission-row metadata, not a scope restriction used by the privilege evaluator. This durable independent import grant requires separate revocation if administration is later removed.

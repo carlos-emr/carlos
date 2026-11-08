@@ -44,6 +44,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Real owning-DAO patient scopes, snapshot chunks, physical receipts and adverse deleted/current ownership. */
 @Tag("integration") @Tag("cds-export")
+@org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "cds.export.test.properties", matches = ".+")
 class CdsExportDocumentReadMariaDbIntegrationTest {
     @Configuration @EnableTransactionManagement(proxyTargetClass = true) static class Config { }
     private BasicDataSource source;

@@ -42,6 +42,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Physical source/receipt and corrupt-ownership checks against an explicitly disposable migrated database. */
 @Tag("integration") @Tag("cds-export")
+@org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "cds.export.test.properties", matches = ".+")
 class CdsExportLaboratoryReadMariaDbIntegrationTest {
     @Configuration @EnableTransactionManagement(proxyTargetClass = true) static class Config { }
     private BasicDataSource source;

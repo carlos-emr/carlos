@@ -44,6 +44,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Actual raw DAO ownership, malformed-reference, history, value and transaction behavior. No mapping/publication claim. */
 @Tag("integration") @Tag("cds-export")
+@org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "cds.export.test.properties", matches = ".+")
 class CdsExportRelatedSourceMariaDbIntegrationTest {
     @Configuration @EnableTransactionManagement(proxyTargetClass=true) static class Config { }
     private BasicDataSource source; private AnnotationConfigApplicationContext context; private JdbcTemplate sql; private TransactionTemplate read;
