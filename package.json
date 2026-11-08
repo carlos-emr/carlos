@@ -992,7 +992,9 @@
     "test:report-by-template-tabs-playwright": "node scripts/report-by-template-tabs-playwright-checks.js",
     "test:messenger-recipient-isolation-playwright": "node scripts/messenger-recipient-isolation-playwright-checks.js",
     "test:lab-report-pagination-playwright": "node scripts/lab-report-pagination-playwright-checks.js",
-    "test:measurement-plot-semantics-playwright": "node scripts/measurement-plot-semantics-playwright-checks.js"
+    "test:measurement-plot-semantics-playwright": "node scripts/measurement-plot-semantics-playwright-checks.js",
+    "test:first-nations-roundtrip-playwright": "node scripts/first-nations-roundtrip-playwright-checks.js",
+    "test:lookup-list-isolation-playwright": "node scripts/lookup-list-isolation-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

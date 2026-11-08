@@ -297,7 +297,10 @@
       ],
       "timeoutSec": 180,
       "notes": "#5724: exact finite-token epoch boundary, real consent and Administration client revocation, with independent live-client and browser-session controls. SQL stages three isolated clients; credentials are never logged.",
-      "fixtures": "Owned patient, three unique OAuth clients, real request/access tokens and nonces. Exact IDs retained across native deletion for verified token/nonce cleanup; normal application audit retained."
+      "fixtures": "Owned patient, three unique OAuth clients, real request/access tokens and nonces. Exact IDs retained across native deletion for verified token/nonce cleanup; normal application audit retained. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "ServiceClient"
+      ]
     },
     {
       "name": "oauth-rest-surfaces",
@@ -2458,7 +2461,10 @@
       "notes": "#5728/#5729: native overlapping groups plus a directly selected duplicate recipient, removed-member control, changed membership and legacy duplicate storage. Real sender/three recipient sessions verify exact delivery IDs and independent read/unread/archive/restore, immutable shared content/patient links and sender Sent copy.",
       "fixtures": "Five owned clinician logins, two natively created groups, two natively sent patient-linked messages and one explicitly staged legacy duplicate membership. Exact owned message/group/contact cleanup is registered before native writes; unrelated group/member and clinical snapshots remain unchanged. Requires EXCLUSIVE=1 and CARLOS_DISPOSABLE_HOST=true. An initially absent singleton coordinator is pre-seeded with the run marker and removed only with matching ID/creator/timestamp; pre-existing coordinators are preserved exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
-        "messengerMembershipLock"
+        "messengerMembershipLock",
+        "groups_tbl",
+        "groupMembers_tbl",
+        "provider"
       ]
     },
     {
@@ -4400,10 +4406,13 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "#5736: exact-cent amount refusals, corrected partial payment, accepted overpayment/credit, control-invoice preservation and accounting reconciliation. The target has no refund checkbox; no refund flow is fabricated.",
-      "fixtures": "Owned BC bill and control invoice, private payment histories and an isolated five-digit billing provider. Owned financial rows and provider are removed and verified.",
+      "fixtures": "Owned BC bill and control invoice, private payment histories and an isolated five-digit billing provider. Owned financial rows and provider are removed and verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "envSet": {
         "BC_PAYMENT_BOUNDARIES_ONLY": "true"
-      }
+      },
+      "mutates": [
+        "provider"
+      ]
     },
     {
       "name": "billing-bc-receive-payment",
@@ -5375,7 +5384,10 @@
       "timeoutSec": 360,
       "env": [],
       "notes": "#5725: two template schemas and four tabs sharing one context/login. Alternating native runs and actual CSV/XLS downloads prove per-instance parameters, values and cell types. Includes empty results and normal Back clear-session beacons and subsequent tab closure; beacons are never suppressed.",
-      "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified."
+      "fixtures": "Two natively uploaded marker-owned templates and two owned synthetic patients. Native middle-click opens report instances from the Administration library. Clinical rows remain unchanged; exact owned templates/patient and scratch-download cleanup are verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "reportTemplates"
+      ]
     },
     {
       "name": "report-by-template",
@@ -5723,7 +5735,11 @@
         "LAB_UPLOAD_DOCUMENT_STORE"
       ],
       "notes": "Native multi-recipient forwarding, source-wide New/Filed status, cancellation, selective removal and three independent CML uploads. No per-recipient status control exists on this target.",
-      "fixtures": "Owned source login, two recipients and a control provider; three unique CML uploads. Exact owned rules, type rows, routing, lab rows and upload archives are removed and verified."
+      "fixtures": "Owned source login, two recipients and a control provider; three unique CML uploads. Exact owned rules, type rows, routing, lab rows and upload archives are removed and verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "incomingLabRules"
+      ]
     },
     {
       "name": "messenger-demographic-link",
@@ -7795,7 +7811,10 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "#5735: native mixed existing/new/unchanged SOB import, read-only and abandoned previews, method/CSRF refusals, append-only historical periods, unchanged historical claim, duplicate upload and code-admin reopening. Mixed malformed files are refused as a whole; the current UI provides file-level feedback only.",
-      "fixtures": "Four unused marker-owned fee codes (one with two previous periods), one historical owned claim and an untouched synthetic control. Exact fee/history/claim cleanup is registered before setup. No real codes or clinic-wide settings are changed."
+      "fixtures": "Four unused marker-owned fee codes (one with two previous periods), one historical owned claim and an untouched synthetic control. Exact fee/history/claim cleanup is registered before setup. No real codes or clinic-wide settings are changed. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "billingservice"
+      ]
     },
     {
       "name": "billing-on-gst-css-benefit",
@@ -18561,7 +18580,11 @@
         "API_KEYGEN_CREATION_ONLY": "true"
       },
       "notes": "Independent native key creation, download/signature verification, manager reopen and duplicate refusal (#5707). Requires the installed CARLOS public key. No private keys are published.",
-      "fixtures": "Marker-owned seeded control and UI-created RSA key pairs; cleanup removes owned keys and read audits."
+      "fixtures": "Marker-owned seeded control and UI-created RSA key pairs; cleanup removes owned keys and read audits. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "publicKeys",
+        "ServiceClient"
+      ]
     },
     {
       "name": "measurement-plot-semantics",
@@ -18577,6 +18600,42 @@
       "env": [],
       "fixtures": "Two owned synthetic patients and kg measurements; native selected/multi-delete archives. Exact clinical snapshots, ownership checks and verified cleanup. Requires tesseract with English data and lockfile-pinned pngjs.",
       "notes": "Five irregular, out-of-order dates verified against OCR-calibrated axes and actual PNG series with a three-pixel tolerance; single/empty native behavior, deleted vertex and geometry sensitivity controls (#5716). The UI has no date-range controls. Weight units are shown in History as in kg; the graph labels its value axis Weight."
+    },
+    {
+      "name": "first-nations-roundtrip",
+      "script": "scripts/first-nations-roundtrip-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 480,
+      "assertsDatabase": true,
+      "env": [],
+      "fixtures": "Owned patient/control and exact demographic save-support cleanup. Requires actual FIRST_NATIONS_MODULE=true, showBandNumberOnly=false and one configured firstNationCommunity lookup with two distinct three-digit community values; no lookup configuration is changed by this check.",
+      "notes": "#5727 native valid status/community/family save/reopen, manual and cleared community after status revisit, optional Unicode edits/clears, band search after changes, unchanged unrelated values/control. Installed enabled-profile attempt currently fails on real browser ReferenceError and reopened flag (#5815); later steps remain unreached, with no pin or waiver."
+    },
+    {
+      "name": "lookup-list-isolation",
+      "script": "scripts/lookup-list-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "LookupListItem",
+        "consultationServices"
+      ],
+      "fixtures": "Native marker-owned items on all three shipped lists, owned provider/appointment/referral and directory fixtures. Native deactivation evicts caches before guarded SQL cleanup; unrelated lookup rows are compared in full. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5709: inventory in docs/testing/lookup-list-consumer-inventory.md; exact label/value/order/owner, empty and duplicate adds, consumer save/reopen, selective removal/cache isolation. Native UI has no edit/reorder/list-creation controls. Retains strict GET refusal for existing finding 58 (#3059), with explicit status and unchanged-state evidence; no new expected-failure pin."
     }
   ]
 }

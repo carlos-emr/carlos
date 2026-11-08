@@ -16,7 +16,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5700](https://github.com/carlos-emr/carlos/issues/5700) | Test: Release 2026.08 full verification coverage plan (Java, Node, Playwright) | Existing merged tooling retained. Scope ownership, compatibility decisions, installed execution and vendor prerequisites remain open. |
 | [#5707](https://github.com/carlos-emr/carlos/issues/5707) | Test: cover successful key-pair creation through the administration UI | Native creation/download/signature/reopen/duplicate lifecycle passes on the installed ON package with a temporary synthetic primary prerequisite, whose removal restores its original absence; strict missing-prerequisite failure retained. Both ON and BC focused installed retakes pass; final full qualification remains pending. |
 | [#5708](https://github.com/carlos-emr/carlos/issues/5708) | Test: cover multi-recipient lab-forwarding rule updates and selective removal | Installed ON two-recipient/reopen/repeat-save, three-upload routing, cancellation, selective removal and admin isolation pass. Status is source-wide; per-recipient status is unavailable. Original method/CSRF coverage retained. |
-| [#5709](https://github.com/carlos-emr/carlos/issues/5709) | Test: broaden lookup-list CRUD coverage and verify consumer/list isolation | Implementation and installed acceptance pending. |
+| [#5709](https://github.com/carlos-emr/carlos/issues/5709) | Test: broaden lookup-list CRUD coverage and verify consumer/list isolation | Actual list/consumer/operation inventory documented. ON/BC three-list native adds, duplicate/empty behavior, exact ordering/identity, all consumer save/reopen and selective isolation pass. Full removal fails correctly on provider inactive options (#5816); GET still returns 200 and changes order (existing finding 58/#3059). Independent native cache restoration and exact SQL cleanup pass after both failures. PHU is hidden in ON and absent in BC; no positive edit/reorder UI exists. |
 | [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implementation and installed acceptance pending. |
 | [#5716](https://github.com/carlos-emr/carlos/issues/5716) | Test: verify measurement graph dates, values and plotted positions | Installed ON/BC five-point irregular-date geometry, independent rendered-axis calibration, three-pixel tolerance, native selected/multi-delete, clinical isolation and four sensitivity controls pass. Empty history hides Plot; single-point PNG output is observed, with its invisible point/indistinguishable ticks separately tracked as #5814. No date-range controls exist. |
 | [#5717](https://github.com/carlos-emr/carlos/issues/5717) | Test: validate growth-chart point placement and reference curves independently | Implementation and installed acceptance pending. |
@@ -25,7 +25,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5724](https://github.com/carlos-emr/carlos/issues/5724) | Test: cover OAuth access-token expiry and deletion of a client with issued tokens | Native consent, exact expiry-second semantics, client deletion and independent token/session controls pass on installed ON and BC with no clinical writes or residue. |
 | [#5725](https://github.com/carlos-emr/carlos/issues/5725) | Test: verify Report-by-Template results and exports remain isolated across tabs | Installed ON/BC four-tab, shared-login native runs, exact CSV/XLS schemas/values/types, empty results, Back beacons and tab closure pass with clean residue. List parameters used; separate empty-text-parameter defect tracked as #5813. |
 | [#5726](https://github.com/carlos-emr/carlos/issues/5726) | Test: ingest original, corrected and out-of-order HL7 results for one accession | Implementation and installed acceptance pending. |
-| [#5727](https://github.com/carlos-emr/carlos/issues/5727) | Test: cover First Nations field save, edit, clear and community-selection round trips | Implementation and installed acceptance pending. |
+| [#5727](https://github.com/carlos-emr/carlos/issues/5727) | Test: cover First Nations field save, edit, clear and community-selection round trips | Native lifecycle implemented; installed ON enabled-profile attempt fails on the real undefined focus handler and reopened First Nation flag (#5815). Later steps remain unreached. Owned fixtures are removed and the temporary properties/lookup profile is restored exactly; no pin or waiver. |
 | [#5728](https://github.com/carlos-emr/carlos/issues/5728) | Test: verify exactly-once Messenger delivery to overlapping groups and direct recipients | Native ON/BC two overlapping groups plus a direct recipient produce exactly one delivery each; membership edits, a legacy duplicate and a removed-member control pass. Exclusive membership coordination and exact cleanup are required. |
 | [#5729](https://github.com/carlos-emr/carlos/issues/5729) | Test: verify Messenger read and archive state is independent for each recipient | Native ON/BC read, mark-new, archive and restore transitions preserve other recipients, shared content, attachments, patient links and Sent access. |
 | [#5730](https://github.com/carlos-emr/carlos/issues/5730) | Test: expand document-upload coverage across supported formats and malformed content | Implementation and installed acceptance pending. |
@@ -314,3 +314,34 @@ pngjs and distribution Tesseract/English data.
 The complete Ubuntu 26.04 / Node 22.22.1 execution for this batch passes all
 7,398 cases in 520 files, with no failures, skips, cancellations, TODOs or test
 source changes. Its reviewed Node inventory is regenerated from that report.
+
+The additional lookup lifecycle passes four native positive phases on both
+installed provinces, then independently reports both the inactive-provider-option
+defect [#5816](https://github.com/carlos-emr/carlos/issues/5816) and existing GET
+mutation finding 58/#3059 (HTTP 200 with changed stored order). Both failures
+remain fatal, without new pins. Cleanup separately adds/removes an owned cache
+sentinel after SQL teardown and reopens every selected consumer to prove no
+marker remains; this does not count as successful normal removal. Full unrelated
+lookup rows and configuration are restored. The ON `phu` list exists but its
+consumer is hidden by `phu.hide=true`; BC has no `phu` list. These limitations
+and all native UI operations are in `lookup-list-consumer-inventory.md`.
+
+The enabled First Nations ON profile uses two owned synthetic communities and
+the actual installed module. Its first native round trip reaches correct stored
+values, then fails on the reopened First Nation flag; the strict recorder also
+captures the undefined `toggleFirstNationFields` focus handler. These product
+failures are tracked in [#5815](https://github.com/carlos-emr/carlos/issues/5815).
+Later lifecycle steps remain unreached. All owned demographic/control/support
+rows are removed. The app is stopped, the exact original properties and lookup
+rows are verified/restored, and the original profile is started again, clearing
+temporary lookup caches. No successful full-profile qualification is claimed.
+
+CodeRabbit's third requested full review completed on 2026-11-08 at 00:48 UTC
+against 9b8de7c95fe. Its one inline finding correctly identified omitted shared
+fixture declarations. The OAuth clients, Messenger groups/members/providers,
+BC payment/forwarding providers, forwarding rules, report templates, benefit
+codes and key-manager entries now declare their clinic-wide mutations and
+exclusivity wording. All 68 manifest checks pass after the correction. The
+review's docstring advisory is distinct from required CI and is not claimed as
+a passed qualification check. Final scope, new-code review and CI reconciliation
+remain necessary as work continues.

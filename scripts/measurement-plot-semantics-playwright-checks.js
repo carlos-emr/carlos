@@ -29,6 +29,7 @@ async function workflow(s) {
     h.assert(ids.length<=1&&(!control||ids.length===0||ids[0]===control),'Control-patient ownership changed');
     for(const id of ids) {
       h.assert(/^[1-9]\d*$/.test(id),'Invalid control patient key');
+      h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${id} AND last_name=${q(controlName)}`)==='1','Control patient ownership changed');
       const state=readPatientState(sql,id);
       h.assert(Object.entries(state).every(([name,rows])=>['demographic','measurements'].includes(name)||rows.length===0),'Unexpected control clinical rows; retain fixture');
       h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${id} AND (comments IS NULL OR comments<>${q(marker)})`)==='0','Control measurements gained a foreign row');
@@ -36,6 +37,7 @@ async function workflow(s) {
         DELETE FROM demographic WHERE demographic_no=${id} AND last_name=${q(controlName)}`);
       h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographic WHERE demographic_no=${id})+(SELECT COUNT(*) FROM measurements WHERE demographicNo=${id})`)==='0','Control fixture cleanup failed');
     }
+    if(control)h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM demographic WHERE demographic_no=${control})+(SELECT COUNT(*) FROM measurements WHERE demographicNo=${control})`)==='0','Captured control identity or measurements remain; ownership may have changed');
   });
   control=sql.value(`INSERT INTO demographic(last_name,first_name,year_of_birth,month_of_birth,date_of_birth,sex,patient_status,provider_no,hc_type,province,roster_status,lastUpdateDate)
     VALUES(${q(controlName)},'Control','1980','01','02','F','AC',${q(provider)},'ON','ON','NR',NOW()); SELECT LAST_INSERT_ID()`);
