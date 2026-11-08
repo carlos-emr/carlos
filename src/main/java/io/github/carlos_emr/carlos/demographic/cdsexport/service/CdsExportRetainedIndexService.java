@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparationSeal;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
@@ -65,12 +66,16 @@ public class CdsExportRetainedIndexService {
             CdsExportStagedFileDto manifest, long maximumFields, long maximumBytes, int maximumRows, long maximumIndexBytes,
             CdsExportRunControl control) throws IOException {
         Map<String, CdsExportRetainedImportOptionsReader.Options> frozenOptions=null;
-        if (!requiredTables.containsAll(PLANS.keySet()) || maximumRows < 1 || maximumRows > 1_000_000
+        var plans = new HashMap<>(PLANS);
+        if (lease.document().command().categories().contains(CdsCategory.REPORTS)) {
+            plans.put("cds_import_file", Plan.IMPORT_FILES); plans.put("cds_import_file_reference", Plan.IMPORT_FILE_REFERENCES);
+        }
+        if (!requiredTables.containsAll(plans.keySet()) || maximumRows < 1 || maximumRows > 1_000_000
                 || maximumIndexBytes < 1 || maximumIndexBytes > 64L << 20) throw new IllegalArgumentException("CDS_EXPORT_RETAINED_INDEX_SCOPE_INVALID");
         patient.require(lease); var tables = new TreeMap<String, Map<String, CdsExportCapturedTextRowDto>>();
-        PLANS.keySet().forEach(table -> tables.put(table, new TreeMap<>())); long[] count = new long[2];
-        rows.forEachTable(lease, patient, requiredTables, PLANS.keySet(), manifest, maximumFields, maximumBytes, (int) Math.min(maximumIndexBytes, 2_097_152L + io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.MAX_BYTES), control, row -> {
-            Plan plan = PLANS.get(row.table());
+        plans.keySet().forEach(table -> tables.put(table, new TreeMap<>())); long[] count = new long[2];
+        rows.forEachTable(lease, patient, requiredTables, plans.keySet(), manifest, maximumFields, maximumBytes, (int) Math.min(maximumIndexBytes, 2_097_152L + io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.MAX_BYTES), control, row -> {
+            Plan plan = plans.get(row.table());
             if (plan == null || !plan.validRetainedKey(row.recordKey()) || !row.fields().keySet().equals(Set.copyOf(plan.columns()))
                     || !row.recordKey().equals(row.fields().get("id"))) invalid();
             count[0] = Math.addExact(count[0], 1);

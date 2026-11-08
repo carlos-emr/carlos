@@ -626,6 +626,9 @@
     "genuineNativeRepresentations": 3,
     "genuineRetainedScalarFields": 35,
     "durablePublicationReferenceClosureFixPendingExactInstalledRerun": true,
-    "metadataRecoveryDoesNotRequireValidActiveFileBounds": true
+    "metadataRecoveryDoesNotRequireValidActiveFileBounds": true,
+    "retainedPublicationIndexIntegration": "IMPLEMENTED_FOCUSED_VERIFIED_PACKAGE_AND_EXACT_PROOF_PENDING",
+    "publicationIndexAndBindingFocusedChecks": 169,
+    "verifiedRepublishedGenerationsAllowed": true
   }
 }

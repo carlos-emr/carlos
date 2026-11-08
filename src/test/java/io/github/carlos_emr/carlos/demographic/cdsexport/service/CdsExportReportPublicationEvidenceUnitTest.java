@@ -45,6 +45,9 @@ class CdsExportReportPublicationEvidenceUnitTest {
         refs = new ArrayList<>(List.of(new CdsExportRetainedIndexDto.Reference("document", "7", HASH), new CdsExportRetainedIndexDto.Reference("ctl_document", "27_7", HASH), new CdsExportRetainedIndexDto.Reference("cds_import_file", FILE, HASH), new CdsExportRetainedIndexDto.Reference("cds_import_file_reference", linkId, HASH)));
     }
     private CdsExportRetainedIndexDto index() { return new CdsExportRetainedIndexDto(HASH, 2, 1024, Map.of("cds_import_file", Map.of(FILE, new CdsExportCapturedTextRowDto("cds_import_file", FILE, file)), "cds_import_file_reference", Map.of(linkId, new CdsExportCapturedTextRowDto("cds_import_file_reference", linkId, link))), Set.of(ADDRESS), Map.of(ADDRESS, refs), Map.of()); }
+    @Test void shouldAcceptASealedRepublishedGeneration_withoutAssumingItWasTheFirstAttempt() { file.put("generation", "2"); assertThatCode(this::require).doesNotThrowAnyException(); }
+    @ParameterizedTest @ValueSource(strings = {"0", "-1", "02", "9223372036854775808"})
+    void shouldRefuseInvalidOrNoncanonicalPublicationGenerations(String value) { file.put("generation", value); assertThatThrownBy(this::require).hasMessage("CDS_EXPORT_REPORT_PUBLICATION_EVIDENCE_INVALID"); }
     private void require() throws Exception { CdsExportReportPublicationEvidence.require(ADDRESS, index(), refs, Map.of("embedded", variant), () -> {}); }
     @Test void shouldCloseTheWholeDocumentAndDurablePublicationReceipt() { assertThatCode(this::require).doesNotThrowAnyException(); }
     @ParameterizedTest @ValueSource(strings = {"id", "location_key", "digest", "byte_length", "generation", "state"})

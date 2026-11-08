@@ -39,7 +39,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurrenceAssembler {
     private static final Set<String> METADATA = Set.of("document", "ctl_document");
-    private static final Set<String> REQUIRED = Set.of("document", "ctl_document", CdsExportDocumentFileSourceReader.TABLE);
+    private static final Set<String> REQUIRED = Set.of("document", "ctl_document", CdsExportDocumentFileSourceReader.TABLE, "cds_import_file", "cds_import_file_reference");
     private final CdsExportRetainedValuesService values;
     private final CdsExportRetainedReceiptVerificationService verification;
     private final CdsExportNativeRowReceiptReader witnesses;

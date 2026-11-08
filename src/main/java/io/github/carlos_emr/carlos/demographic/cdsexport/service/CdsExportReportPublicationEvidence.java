@@ -62,7 +62,7 @@ final class CdsExportReportPublicationEvidence {
             }
             if (matching.size() != 1) invalid(); var file = matching.getFirst(); var fields = file.fields(); String fileId = fields.get("id");
             if (!used.add(fileId) || !fileId.matches("[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}")
-                    || !"PUBLISHED".equals(fields.get("state")) || !"1".equals(fields.get("generation"))
+                    || !"PUBLISHED".equals(fields.get("state")) || !positiveGeneration(fields.get("generation"))
                     || !variant.digest().equals(fields.get("digest")) || !Long.toString(variant.length()).equals(fields.get("byte_length"))
                     || !CdsImportKeys.hash(fields.get("location")).equals(fields.get("location_key"))) invalid();
             String linkId = CdsImportKeys.hash(run, unit, fileId); var link = links.get(linkId);
@@ -70,6 +70,10 @@ final class CdsExportReportPublicationEvidence {
                     || !unit.equals(link.fields().get("unit_key")) || !fileId.equals(link.fields().get("file_id"))) invalid();
         }
         if (!used.equals(files.keySet()) || !usedLinks.equals(links.keySet())) invalid(); checkpoint.run();
+    }
+    private static boolean positiveGeneration(String value) {
+        try { long generation = Long.parseLong(value); return generation > 0 && Long.toString(generation).equals(value); }
+        catch (NumberFormatException invalid) { return false; }
     }
     private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_REPORT_PUBLICATION_EVIDENCE_INVALID"); }
 }

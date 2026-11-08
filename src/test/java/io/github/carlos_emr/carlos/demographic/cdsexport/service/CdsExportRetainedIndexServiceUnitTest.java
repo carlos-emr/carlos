@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.util.*;
 import org.junit.jupiter.api.*;
 
@@ -59,6 +60,24 @@ class CdsExportRetainedIndexServiceUnitTest {
             return mock(CdsExportNativeCaptureDto.class);
         });
         service = new CdsExportRetainedIndexService(rows, captures); baseline();
+    }
+    private Set<String> reportScope() throws Exception {
+        var old = lease.document(); var command = old.command(); var categories = new HashSet<>(command.categories()); categories.add(CdsCategory.REPORTS);
+        var selected = new CdsExportCommand(command.submissionKey(), command.providerNo(), command.facilityId(), command.profile(), command.selection(), command.physicianNos(), command.patientNos(), categories, command.recipientId(), command.auditPlanId());
+        lease = new CdsExportLeaseDto(lease.runId(), lease.epoch(), lease.token(), new CdsExportJobDocumentDto(2, old.actor(), selected, old.compatibilityDigest(), old.senderNamespace(), old.recipientFingerprint(), old.auditPlanDigest(), old.storage()));
+        var scope = new HashSet<>(TABLES); scope.addAll(Set.of("cds_import_file", "cds_import_file_reference"));
+        when(rows.forEachTable(eq(lease), eq(patient), eq(scope), eq(scope), eq(manifest), anyLong(), anyLong(), anyInt(), eq(control), any())).thenAnswer(call -> { CdsExportCapturedTextRowsReader.Rows out = call.getArgument(9); for (var row : data.values()) out.accept(row); return mock(CdsExportNativeCaptureDto.class); }); return Set.copyOf(scope);
+    }
+    @Test void shouldRetainOriginalPublicationMetadata_whenReportsNeedItsReceiptClosure() throws Exception {
+        var scope = reportScope(); String file = "22222222-2222-4222-8222-222222222222", link = CdsImportKeys.hash(RUN, NATIVE, file);
+        put("publication", row(Plan.IMPORT_FILES, file, Map.of("run_id", RUN, "location", "/private/native/report.pdf", "location_key", CdsImportKeys.hash("/private/native/report.pdf"), "digest", "a".repeat(64), "byte_length", "17", "generation", "2", "state", "PUBLISHED", "verified_epoch", "9")));
+        put("publication-link", row(Plan.IMPORT_FILE_REFERENCES, link, Map.of("run_id", RUN, "unit_key", NATIVE, "file_id", file)));
+        var result = service.index(lease, patient, scope, manifest, 10000, 8L << 20, 1000, 4L << 20, control);
+        assertThat(result.tables().get("cds_import_file")).containsKey(file); assertThat(result.tables().get("cds_import_file_reference")).containsKey(link);
+        assertThat(result.metadataRows()).isEqualTo(data.size()); assertThatThrownBy(() -> result.tables().get("cds_import_file").clear()).isInstanceOf(UnsupportedOperationException.class);
+    }
+    @Test void shouldRefuseMissingPublicationInputs_beforeReportEvidenceCanBeOmitted() throws Exception {
+        reportScope(); assertThatThrownBy(this::index).hasMessage("CDS_EXPORT_RETAINED_INDEX_SCOPE_INVALID");
     }
     private CdsExportRetainedIndexDto index() throws Exception { return service.index(lease, patient, TABLES, manifest, 10000, 8L << 20, 1000, 4L << 20, control); }
     private void baseline() throws Exception {
