@@ -100,6 +100,35 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
             }
         } finally { if (context != null) context.close(); if (source != null) source.close(); }
     }
+    @Test void shouldAllowTheInstalledClinicSiteDirectory_withoutHidingUnsupportedClinicalSources() {
+        boolean siteCreated = false;
+        boolean linkCreated = false;
+        try {
+            assertThat(sql.update("insert into site(site_id,name,short_name,bg_color,status) values(?,?,?,'white',1)",
+                    patient, marker, "CDS-owned")).isEqualTo(1);
+            siteCreated = true;
+            assertThat(sql.update("insert into providersite(provider_no,site_id) values('999998',?)", patient)).isEqualTo(1);
+            linkCreated = true;
+            stableLegacy(() -> read.executeWithoutResult(status -> {
+                catalogue.readSourceSchema();
+                catalogue.requireUnclassifiedSourcesEmpty(patient, () -> {});
+            }));
+            // A clinical source remains subject to the same fail-closed closure check.
+            sql.update("insert into casemgmt_cpp(id,demographic_no,socialHistory,provider_no) values(?,?,?,'989879')",
+                    patient, Integer.toString(patient), "Owned unsupported clinical fact");
+            try {
+                stableLegacy(() -> assertThatThrownBy(() -> read.executeWithoutResult(status ->
+                        catalogue.requireUnclassifiedSourcesEmpty(patient, () -> {})))
+                        .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
+            } finally {
+                sql.update("delete from casemgmt_cpp where id=? and demographic_no=?", patient, Integer.toString(patient));
+            }
+        } finally {
+            if (linkCreated) assertThat(sql.update("delete from providersite where provider_no='999998' and site_id=?", patient)).isEqualTo(1);
+            if (siteCreated) assertThat(sql.update("delete from site where site_id=? and name=?", patient, marker)).isEqualTo(1);
+        }
+    }
+
     @Test void shouldPageEveryOwnedDocument_andLinkIncludingInactiveRows() {
         sql.update("update document set status='D' where document_no=? and doctype=?", patient, marker);
         sql.update("update ctl_document set status='D' where module='demographic' and module_id=? and document_no=?", patient, patient);

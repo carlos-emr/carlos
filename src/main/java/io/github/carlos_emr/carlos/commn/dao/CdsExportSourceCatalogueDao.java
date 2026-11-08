@@ -33,6 +33,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @Repository
 @Transactional(readOnly = true, propagation = Propagation.MANDATORY)
 public class CdsExportSourceCatalogueDao {
+    private static final org.apache.logging.log4j.Logger LOG = org.apache.logging.log4j.LogManager.getLogger(CdsExportSourceCatalogueDao.class);
     @PersistenceContext private EntityManager entityManager;
     public CdsExportTableSchemaDto readSourceSchema() {
         snapshot(); visibility(); var catalogue = CdsExportSourceCatalogue.current(); var engines = engines(); var profile = profile(catalogue, engines.keySet());
@@ -66,7 +67,11 @@ public class CdsExportSourceCatalogueDao {
             if (!profile.tables().get(table).engine().equals("InnoDB")) CdsExportSourceReadLock.requirePinned();
             if (catalogue.tables().get(table) == CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY
                     && !entityManager.createNativeQuery("select 1,1 from `" + table + "`")
-                            .setMaxResults(1).setHint("org.hibernate.timeout", 120).getResultList().isEmpty()) review();
+                            .setMaxResults(1).setHint("org.hibernate.timeout", 120).getResultList().isEmpty()) {
+                // A name from the pinned physical catalogue, with no clinical values or row identifiers.
+                LOG.warn("CDS_EXPORT_SOURCE_CATALOGUE_REQUIRES_REVIEW table={}", table);
+                review();
+            }
         }
         checkpoint.run();
     }

@@ -199,3 +199,5 @@ See the [implementation contract](cds-export.md) for detailed source, job,
 publication, compatibility and recorded verification boundaries.
 
 The approved V1.0.85 forward migration seeds independent `_cds_import=x` only for an existing `admin` role with `_admin=x` or `_admin=w`, preserving every existing import grant or denial. Other roles receive no grant. `provider_no` is permission-row metadata, not a scope restriction used by the privilege evaluator. This durable independent import grant requires separate revocation if administration is later removed.
+
+The clinic `site` directory and `providersite` membership are reference configuration, like `clinic` and `program`; normal web startup creates them. The exporter still pins their entire physical schema, while patient/provider facts and sender context use their owning projections. Populated unsupported clinical tables continue to require review. Protected logs identify the pinned source-table name that blocks closure, without row identifiers or values.

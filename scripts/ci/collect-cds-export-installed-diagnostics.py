@@ -31,6 +31,7 @@ def collect():
         "exceptionClasses": unique(r"\b(?:[a-zA-Z_$][a-zA-Z0-9_$]*\.)*[a-zA-Z_$][a-zA-Z0-9_$]*(?:Exception|Error)\b", 100),
         "failedBeans": unique(r"[Bb]ean (?:with )?name ['\"]([A-Za-z0-9_.$#-]{1,128})['\"]", 100),
         "frames": unique(r"\bat [A-Za-z0-9_.$/]+\([A-Za-z0-9_.]+:\d+\)", 180),
+        "unclassifiedSourceTables": unique(r"CDS_EXPORT_SOURCE_CATALOGUE_REQUIRES_REVIEW table=([A-Za-z0-9_]{1,64})\b", 16),
         "accessDeniedRoots": list(dict.fromkeys("/" + "/".join(path.split("/")[1:4]) for path in denied)),
         "serverStarted": "Server startup in" in text,
         "tlsStarted": "Starting ProtocolHandler" in text,

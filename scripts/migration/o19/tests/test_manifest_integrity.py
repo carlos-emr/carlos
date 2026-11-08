@@ -1098,7 +1098,8 @@ class TestTheOntarioProfile(unittest.TestCase):
         # denial V1.0.9 deletes + V1.0.67's two _msgSMS grants + V1.0.75's
         # doctor _portal.invite grant + V1.0.73's 19 _portal.* grants,
         # V1.0.60's nine booking-prompt grants and V1.0.80's three
-        # front-desk email grants = 548,
+        # front-desk email grants = 548, plus the fresh admin export/import
+        # literal SELECT grants in V1.0.83/V1.0.85 = 550,
         # and 133 objects + V1.0.67's _msgSMS + V1.0.73's 5 _portal.*
         # objects + V1.0.60's booking-prompt object = 140, which is what a
         # live target holds. (V1.0.71 and

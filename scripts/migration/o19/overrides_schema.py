@@ -226,6 +226,15 @@ SEED_COUNT_DELETIONS = {
     "secObjPrivilege": 1,
 }
 
+# These literal SELECT seeds both add one row on a fresh Flyway installation,
+# whose admin role already has _admin=x. They are not VALUES tuples. The native
+# CDS permission contract verifies the real row count and evaluator behavior.
+# Existing installations retain every explicit grant or denial.
+SEED_COUNT_ADDITIONS = {
+    # V1.0.83 independent export, V1.0.85 independent import.
+    "secObjPrivilege": 2,
+}
+
 # Rows the CARLOS webapp creates on its FIRST START (ContextStartupListener:
 # the OSCAR program with a membership for the seeded clinician, and the
 # default site). A packaged host has booted before the import runs, so P0

@@ -152,6 +152,34 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           maven-cache: restore
 
+      - name: Verify focused CDS and legacy integration regressions
+        run: |
+          docker exec carlos-tomcat-dev install -d -m 0700 /opt/cds-export-test-documents
+          python3 - <<'PY'
+          import subprocess
+          selectors = [
+              'DemographicLoggedInInfoSessionGuard2ActionUnitTest',
+              'DemographicUpdate2ActionUnitTest', 'DemographicUpdate2ActionWebUnitTest',
+              'SaveClinicEmailLogo2ActionUnitTest', 'EctConsultationFormRequestUtilUnitTest',
+              'EctDisplayRequestIsolationUnitTest', 'PrescriptionPdfServletUnitTest',
+              'OscarFhirResourceManagerImmunizationUnitTest', 'UserActivityFooterSessionUnitTest',
+              'ConsultationManagerUnitTest', 'EmailComposeAttachmentCompletenessUnitTest',
+              'PreventionPageDataUnitTest', 'PreventionPrintLoaderIntegrationTest',
+              'ProviderPropertyActionDocumentGroupingTest', 'ScheduleAvailabilityViewJspRegressionTest',
+              'JdkEncodingCompatibilityUnitTest', 'SonarPathTraversalExclusionPolicyUnitTest',
+              'JspEncodingRegressionTest', 'AbstractWsPrivilegeUnitTest', 'AllergyWsSecurityUnitTest',
+              'AllergyServiceUnitTest', 'LabServiceUnitTest', 'CdsExportDocumentInputStreamUnitTest',
+              'CdsExportSourceCatalogueUnitTest', 'CdsExportStagingServiceUnitTest',
+              'CdsExportExecutionServiceUnitTest',
+          ]
+          subprocess.run([
+              'docker', 'exec', '-e',
+              'JAVA_TOOL_OPTIONS=-Dcds.export.test.documentRoot=/opt/cds-export-test-documents',
+              'carlos-tomcat-dev', 'mvn', '--batch-mode', '--no-transfer-progress', 'test',
+              '-Dtest.forkCount=1', '-Dtest=' + ','.join(selectors),
+          ], check=True)
+          PY
+
       - name: Run tests
         run: |
           # Native-file unit contracts need ancestry owned by the process or root;
