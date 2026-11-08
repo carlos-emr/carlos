@@ -2923,7 +2923,8 @@ CONSENT_DST_DDL = (
     "DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci")
 
 #: found by name, not number: Flyway numbers are settled at merge
-CONSENT_MIGRATION_GLOB = "V*__one_live_consent_per_type.sql"
+# This oracle qualifies the reviewed OSCAR repair, independently of later native consent migrations.
+CONSENT_MIGRATION_GLOB = "V1.0.59.30__one_live_consent_per_type.sql"
 CONSENT_MIGRATION_DIR = (REPO_ROOT / "database" / "mysql" / "migration"
                          / "common")
 

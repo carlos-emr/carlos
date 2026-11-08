@@ -112,3 +112,4 @@ bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql forward-merge
 common/V1.0.59.32__preserve_native_archive_capacity.sql forward-merge
 common/V1.0.82__cds_native_field_baselines.sql
 common/V1.0.83__cds_export_ledger.sql
+common/V1.0.84__cds_export_artifact_attempts.sql

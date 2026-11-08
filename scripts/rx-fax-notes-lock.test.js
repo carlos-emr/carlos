@@ -336,7 +336,8 @@ test('half-letter printing preserves a delayed fax target and locked notes', asy
   assert.equal(submissions.length, 2);
   assert.equal(submissions[1].target, '');
   const fax = new URL(submissions[1].action, 'https://fixture.invalid');
-  assert.equal(fax.searchParams.get('__method'), 'oscarRxFax');
+  assert.match(fax.pathname, /\/rx\/faxPrescription$/);
+  assert.equal(fax.searchParams.has('__method'), false, 'fax must use its separate POST-only route');
   assert.equal(fax.searchParams.get('scriptId'), '12345');
   assert.equal(context.faxSubmissionPending, true);
   assert.equal(notes.readOnly, true);

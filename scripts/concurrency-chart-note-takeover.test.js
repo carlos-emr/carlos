@@ -10,8 +10,8 @@ const support = require('./lib/concurrency-support');
 // and database doubles. Negative cases must fail even when B's original text is still present.
 async function run({ status = 409, extraResponse, extraConsole, revision = false,
   changedText = false, changedIdentity = false, missingB = false, persistedStale = false, kept = true,
-  responseUrl,
-  alerts = [{ type: 'alert', text: 'Failed to save note! 409' }] } = {}) {
+  responseUrl, lockMessage = 'The note lock was lost',
+  alerts = [{ type: 'alert', text: lockMessage }] } = {}) {
   const recorder = h.createRecorder();
   const marker = 'FAKE-PW-takeover';
   const textB = `${marker} note typed in the window that took the lock`;
@@ -31,7 +31,10 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
         return result;
       },
       async waitForTimeout() {},
+      async evaluate() { return lockMessage; },
+      on() {}, off() {},
       locator(selector) {
+        if (selector === 'input[name="CSRF-TOKEN"]') return { first() { return this; }, async inputValue() { return 'owned-csrf-token'; } };
         if (selector === 'body') return { async innerText() { return 'E-Chart'; } };
         if (selector === '#saveImg') return { first() { return this; }, async click() {
           if (!stale) { bSaved = !missingB; return; }
@@ -41,7 +44,7 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
           if (extraResponse) recorder.badResponses.push(extraResponse);
           if (extraConsole) recorder.consoleIssues.push(extraConsole);
         } };
-        return { async waitFor() {}, async click() {}, async fill(value) { text = value; },
+        return { first() { return this; }, async waitFor() {}, async click() {}, async fill(value) { text = value; },
           async count() { return staleSaved && !kept ? 0 : 1; }, async inputValue() { return text; } };
       },
     };
@@ -70,10 +73,18 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
   const steps = [];
   await sandbox.module.exports.workflow({ patient: '42', marker, recorder,
     config: { baseUrl: new URL('http://127.0.0.1:8080/carlos') },
+    context: { request: { async post(url, options) {
+      assert.equal(url, 'http://127.0.0.1:8080/carlos/CaseManagementEntry');
+      assert.equal(options.form.method, 'save'); assert.equal(options.form.demographicNo, '42');
+      assert.equal(options.headers['CSRF-TOKEN'], 'owned-csrf-token');
+      const escaped = options.form.caseNote_note.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return { status: () => 200, text: async () => `exclusive note lock<textarea>${escaped}</textarea>`,
+        headers: () => ({ 'cache-control': 'no-store' }), async dispose() {} };
+    } } },
     sql: {
       value(query) {
         if (query.includes('casemgmt_note_lock')) return '1';
-        if (query.includes(h.sqlString(`${marker} note typed in the stale window`))) return staleSaved && persistedStale ? '1' : '0';
+        if (query.includes(h.sqlString(`${marker} note typed in the stale window`)) || query.includes(h.sqlString(`${marker} note typed in the stale window <b>&`))) return staleSaved && persistedStale ? '1' : '0';
         if (query.includes(h.sqlString(textB))) return bSaved ? '1' : '0';
         throw new Error(`Unexpected SQL count: ${query}`);
       },
@@ -90,7 +101,7 @@ async function run({ status = 409, extraResponse, extraConsole, revision = false
     cleanup() {}, async chart() { return aChart; },
     async step(label, body) { await body(); h.assertStrictPage(recorder); steps.push(label); },
   });
-  assert.equal(steps.length, 4, 'The refusal must reach both persistence and editor assertions');
+  assert.equal(steps.length, 6, 'The refusal must reach persistence, editor, Sign & Save and native refusal-page assertions');
   h.assertStrictPage(recorder);
 }
 
@@ -99,7 +110,7 @@ test('one expected save 409 and its console error reach the note and editor asse
 });
 
 test('localized save refusal feedback is recognized by its HTTP status', async () => {
-  await run({ alerts: [{ type: 'alert', text: 'Échec de la sauvegarde de la note ! 409' }] });
+  await run({ lockMessage: 'Le verrou de la note a été perdu', alerts: [{ type: 'alert', text: 'Le verrou de la note a été perdu' }] });
 });
 
 for (const status of [200, 403, 500]) {
@@ -159,5 +170,5 @@ test('losing the editor after refusal still fails', async () => {
 });
 
 test('silently refusing the save still fails', async () => {
-  await assert.rejects(run({ alerts: [] }), /no alert or visible message/);
+  await assert.rejects(run({ alerts: [] }), /must warn exactly once/);
 });

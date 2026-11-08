@@ -60,7 +60,14 @@ public final class CdsExportSpringRuntime implements CdsExportCliRuntime {
         effective.setProperty("cds.import.worker.enabled", "false"); effective.setProperty("cds.export.worker.enabled", "false");
         String zone = effective.getProperty("cds.export.clinicalZone", "").strip();
         if (SetOfWork.OPERATIONS.contains(arguments.operation()) && zone.isEmpty()) throw new IllegalStateException("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
-        if (!zone.isEmpty()) TimeZone.setDefault(TimeZone.getTimeZone(java.time.ZoneId.of(zone)));
+        if (!zone.isEmpty()) {
+            try { TimeZone.setDefault(TimeZone.getTimeZone(java.time.ZoneId.of(zone))); }
+            catch (java.time.DateTimeException invalid) {
+                // Status, cancellation, diagnostics and retention do not interpret clinical
+                // clocks. A malformed active zone must not strand those recovery commands.
+                if (SetOfWork.OPERATIONS.contains(arguments.operation())) throw invalid;
+            }
+        }
         context = new AnnotationConfigApplicationContext();
         try {
             context.getEnvironment().setActiveProfiles("cds-export-cli");

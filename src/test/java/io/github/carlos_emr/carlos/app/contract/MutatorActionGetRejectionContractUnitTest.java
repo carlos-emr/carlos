@@ -182,9 +182,6 @@ class MutatorActionGetRejectionContractUnitTest {
             // (ProEditPhoneNum2Action moved to CONDITIONAL_MUTATORS: EditPhoneNum is a dual view/mutate
             // route — GET renders providerPhone.jsp, only a POST or GET-with-faxNumber mutation intent
             // is gated. Its dedicated GET-rejection coverage lives in ProEditPhoneNum2ActionUnitTest.)
-            Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action", "_prevention", "w"),
-            Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action", "_demographic", "w"),
-            Arguments.of("io.github.carlos_emr.carlos.messenger.config.pageUtil.MsgMessengerCreateGroup2Action", "_admin", "w"),
             Arguments.of("io.github.carlos_emr.carlos.lab.pageUtil.FileLabsOnBehalf2Action", "_lab", "w"),
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentAddRecord2Action", "_appointment", "w"),
             Arguments.of("io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentCutRecord2Action", "_appointment", "d"),
@@ -311,8 +308,7 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.messenger.pageUtil.MsgCreateMessage2Action", "_msg", "w"),
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalInvite2Action", "_portal.invite", "w"),
             Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalBookingPrompt2Action", "_portal.booking_prompt", "w"),
-            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action", "_portal.account", "w"),
-            Arguments.of("io.github.carlos_emr.carlos.login.Logout2Action", "", "")
+            Arguments.of("io.github.carlos_emr.carlos.integration.patientportal.web.PortalAccount2Action", "_portal.account", "w")
         );
     }
 

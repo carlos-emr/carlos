@@ -4,11 +4,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const { validateCredentialBaseUrl } = require('./lib/playwright-harness');
 
 for (const name of ['login-playwright-checks.js', 'application-health-playwright-checks.js']) {
   const source = fs.readFileSync(path.join(__dirname, name), 'utf8');
-  const validation = source.slice(source.indexOf('function validateBaseUrl('), source.indexOf('\nfunction appUrl('));
-  const validate = vm.runInNewContext(`(${validation})`, { URL, process: { env: {} } });
+  assert.match(source, /validateCredentialBaseUrl/);
+  const transportGuard = source.split('\n').find(line => line.startsWith('if (baseUrl.protocol'));
+  assert.ok(transportGuard, `${name} must retain its Secure-session-cookie TLS guard`);
+  const validate = value => {
+    const baseUrl = validateCredentialBaseUrl(value, {});
+    vm.runInNewContext(transportGuard, { baseUrl });
+    return baseUrl;
+  };
 
   test(`${name} defaults to the existing devcontainer TLS connector`, () => {
     assert.match(source, /process\.env\.BASE_URL \|\| 'https:\/\/127\.0\.0\.1:8443\/carlos'/);
@@ -22,6 +29,6 @@ for (const name of ['login-playwright-checks.js', 'application-health-playwright
 
   test(`${name} retains its credential and remote-target guards`, () => {
     assert.throws(() => validate('https://user:password@localhost:8443/carlos'), /username or password/);
-    assert.throws(() => validate('https://example.org/carlos'), /Refusing non-local/);
+    assert.throws(() => validate('https://example.org/carlos'), /Refusing non-loopback/);
   });
 }

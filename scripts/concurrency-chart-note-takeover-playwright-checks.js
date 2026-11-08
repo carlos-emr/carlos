@@ -61,6 +61,9 @@ async function workflow(s) {
     FROM casemgmt_note n WHERE n.demographic_no=? ORDER BY n.note_id`, [patient]));
 
   const aChart = await s.chart();
+  // Read the rendered localized message; English-only matching rejects valid translated refusals.
+  const lockLostMessage = await aChart.evaluate(() => noteLockLostError);
+  h.assert(typeof lockLostMessage === 'string' && lockLostMessage.length > 0, 'The chart must provide its localized lock-lost warning');
   await editorOf(aChart).waitFor({ state: 'visible', timeout: 20000 });
 
   await s.step('session B opens the same chart and takes the note lock over with the explicit confirmation', async () => {
@@ -109,7 +112,7 @@ async function workflow(s) {
       && entry.text.startsWith('Failed to load resource:') && entry.text.includes('status of 409 ('));
     h.assert(resourceErrors.length <= 1, 'The stale save reported more than one matching resource-console error');
     consumeExpectedFailure(s.recorder, mark, { status: 409, path: /\/CaseManagementEntry$/ });
-    h.assert(alerts.length === 1 && alerts[0].type === 'alert' && /note lock.*lost/i.test(alerts[0].text),
+    h.assert(alerts.length === 1 && alerts[0].type === 'alert' && alerts[0].text === lockLostMessage,
       'The stale save must warn exactly once that the note lock was lost');
     h.assert(sql.value(notesWith(textA)) === '0', 'The stale window\'s text was written to the chart');
     h.assert(sql.value(notesWith(textB)) === '1', 'Session B\'s note is no longer the stored note');
@@ -122,7 +125,7 @@ async function workflow(s) {
     h.assert(kept, `The stale window's refused Save lost the editor or its typed text (${alerts.length} alert(s) raised)`);
     // The Save handler appends the status to a localized failure message (English: "Failed to save note! 409").
     const told = alerts.some(alert => alert.type === 'alert'
-      && (/lock/i.test(alert.text) || /\s409$/.test(alert.text))) || /note lock/i.test(body);
+      && (alert.text === lockLostMessage || /\s409$/.test(alert.text))) || /note lock/i.test(body);
     h.assert(told, 'The stale window kept its editor but gave the user no alert or visible message that the save was refused');
   });
   await s.step('Sign & Save in the stale window warns again, keeps the typed text and submits nothing', async () => {
@@ -138,7 +141,7 @@ async function workflow(s) {
         await aChart.waitForTimeout(1000); // a native submit would start navigating within this window
       });
     } finally { aChart.off('request', listener); }
-    h.assert(signAlerts.length === 1 && /note lock.*lost/i.test(signAlerts[0].text),
+    h.assert(signAlerts.length === 1 && signAlerts[0].text === lockLostMessage,
       'Sign & Save in the stale window must warn exactly once that the note lock was lost');
     h.assert(!submitted, 'Sign & Save submitted a save that the server can only refuse');
     h.assert(await editorOf(aChart).inputValue() === textA, 'Sign & Save lost the typed text');
