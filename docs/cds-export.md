@@ -1357,3 +1357,14 @@ including invalid appointment-zone settings, before capture or package creation.
 This keeps appointment interpretation and supporting-file calendar calculations
 on the same captured zone/rules identity. Twenty-five affected checks passed;
 configuration remains lazy so metadata recovery is available independently.
+
+
+Report-selected capture now includes the complete physical hospital-report patient-link
+contract through its owning HRM DAO. Any patient-associated hospital report requires
+explicit review until its report adapter is available. An inner join cannot hide a
+dangling link, and numeric legacy spellings in the VARCHAR patient column are
+conservatively refused. Both absence checks share the actual patient snapshot;
+other patients' links stay outside that scope. Twenty-five affected real MariaDB,
+CLI-startup and source-recipe checks passed. The initial incremental CLI run found
+a stale derived V84 SQL resource; refreshing that build output from the committed
+SQL restored validation without changing source migrations or database history.

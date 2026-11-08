@@ -764,5 +764,14 @@
     "checks": 25,
     "conflictingImportExportZonesRefused": true,
     "metadataSettingsRemainLazy": true
+  },
+  "hospitalReportSourceClosure": {
+    "state": "ACTUAL_MARIADB_AND_CLI_COMPONENT_VERIFIED",
+    "checks": 25,
+    "danglingHospitalLinksRefused": true,
+    "legacyNumericPatientAliasesRefused": true,
+    "otherPatientsLinksExcluded": true,
+    "repeatableReadAbsenceVerified": true,
+    "packagedQualificationPending": true
   }
 }

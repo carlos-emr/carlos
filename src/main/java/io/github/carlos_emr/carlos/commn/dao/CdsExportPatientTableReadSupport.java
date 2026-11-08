@@ -45,6 +45,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public final class CdsExportPatientTableReadSupport {
     public enum Plan {
+        HRM_REPORT_LINKS("HRMDocumentToDemographic", "id", "demographicNo", List.of("demographicNo", "hrmDocumentId", "id", "timeAssigned")),
         DOCUMENTS("document", "document_no", null, List.of("abnormal", "appointment_no", "cds_content_precision", "contentdatetime", "contenttype", "docClass", "docSubClass", "doccreator", "docdesc", "docfilename", "doctype", "document_no", "docxml", "number_of_pages", "observationdate", "program_id", "public1", "receivedDate", "report_media", "responsible", "restrictToProgram", "reviewdatetime", "reviewer", "sent_date_time", "source", "sourceFacility", "status", "updatedatetime")),
         DOCUMENT_LINKS("ctl_document", "document_no", null, List.of("document_no", "module", "module_id", "status")),
         MEASUREMENTS_CURRENT("measurements", "id", "demographicNo", List.of("appointmentNo", "comments", "dataField", "dateEntered", "dateObserved", "demographicNo", "id", "measuringInstruction", "providerNo", "type")),

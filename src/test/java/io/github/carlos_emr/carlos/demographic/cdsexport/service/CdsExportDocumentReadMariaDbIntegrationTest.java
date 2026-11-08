@@ -52,6 +52,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     private TransactionTemplate read;
     private DocumentDao documents;
     private CtlDocumentDao links;
+    private io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao hospitalReports;
     private final int patient = 560_000_000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9_000_000);
     private final String marker = "OwnedReport" + patient;
     private final String body = "Complete document 😀 & exact text\r\n".repeat(3000);
@@ -68,7 +69,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         });
         context.registerBean(PersistenceAnnotationBeanPostProcessor.class); context.registerBean("transactionManager", JpaTransactionManager.class, () -> new JpaTransactionManager(context.getBean(jakarta.persistence.EntityManagerFactory.class)));
         context.registerBean("cacheManager", org.springframework.cache.CacheManager.class, org.springframework.cache.support.NoOpCacheManager::new);
-        context.register(DocumentDaoImpl.class, CtlDocumentDaoImpl.class, io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class); context.refresh();
+        context.register(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class, DocumentDaoImpl.class, CtlDocumentDaoImpl.class, io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class); context.refresh();
+        hospitalReports = context.getBean(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class);
         documents = context.getBean(DocumentDao.class); links = context.getBean(CtlDocumentDao.class); read = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
         read.setReadOnly(true); read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ); read.setTimeout(120);
         new TransactionTemplate(context.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
@@ -81,6 +83,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     @AfterEach void cleanup() throws Exception {
         try {
             if (owned) {
+                sql.update("delete from HRMDocumentToDemographic where id=? and hrmDocumentId=?", patient, Integer.toString(patient + 500));
                 sql.update("delete from document_review where id=? and document_no=? and provider_no='989879'", patient, patient);
                 sql.update("delete from DocumentExtraReviewer where id=? and documentNo=? and reviewerProviderNo='989879'", patient, patient);
                 sql.update("delete from document_storage where id=? and documentNo=?", patient, patient);
@@ -170,4 +173,47 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
             });
         } finally { sql.update("update document set docxml=? where document_no=? and doctype=?", body, patient, marker); }
     }
+    private void hospitalReportLink(String owner) {
+        sql.update("insert into HRMDocumentToDemographic(id,demographicNo,hrmDocumentId,timeAssigned) values(?,?,?,CURRENT_TIMESTAMP)",
+                patient, owner, Integer.toString(patient + 500));
+    }
+    @Test void shouldVerifyThePhysicalHospitalReportLinkContract_andRecordExactAbsence() {
+        read.executeWithoutResult(status -> {
+            var reader = new CdsExportHospitalReportScopeSourceReader(hospitalReports);
+            assertThatCode(() -> new CdsExportSourceSchemaValidator().verify(reader.schema(), reader.columns())).doesNotThrowAnyException();
+            assertThat(reader.count(patient)).isZero(); reader.capture(patient, null);
+        });
+        assertThatThrownBy(() -> hospitalReports.requireCdsExportAbsent(patient))
+                .isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+    }
+    @Test void shouldRefuseDanglingHospitalReports_beforeTheyCanAppearAsAnEmptyDocumentDomain() {
+        hospitalReportLink(Integer.toString(patient));
+        var reader = new CdsExportHospitalReportScopeSourceReader(hospitalReports);
+        assertThatThrownBy(() -> read.execute(status -> reader.count(patient))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatThrownBy(() -> read.executeWithoutResult(status -> reader.capture(patient, null))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+    @Test void shouldConservativelyRefuseLegacyNumericPatientAliases_withoutLoadingHospitalReportContent() {
+        hospitalReportLink("0" + patient);
+        for (String alias : List.of("0" + patient, "+" + patient, patient + "suffix", " " + patient)) {
+            sql.update("update HRMDocumentToDemographic set demographicNo=? where id=? and hrmDocumentId=?", alias, patient, Integer.toString(patient + 500));
+            assertThatThrownBy(() -> read.executeWithoutResult(status -> hospitalReports.requireCdsExportAbsent(patient)))
+                    .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        }
+    }
+    @Test void shouldKeepOtherPatientsHospitalReportsOutsideTheSelectedChart() {
+        hospitalReportLink(Integer.toString(patient + 1));
+        assertThatCode(() -> read.executeWithoutResult(status -> hospitalReports.requireCdsExportAbsent(patient))).doesNotThrowAnyException();
+    }
+    @Test void shouldRepeatHospitalReportAbsenceInsideTheSamePatientSnapshot() {
+        read.executeWithoutResult(status -> {
+            hospitalReports.requireCdsExportAbsent(patient);
+            try (var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+                writer.submit(() -> hospitalReportLink(Integer.toString(patient))).get(10, java.util.concurrent.TimeUnit.SECONDS);
+            } catch (Exception failure) { throw new IllegalStateException(failure); }
+            hospitalReports.requireCdsExportAbsent(patient);
+        });
+        assertThatThrownBy(() -> read.executeWithoutResult(status -> hospitalReports.requireCdsExportAbsent(patient)))
+                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
 }
