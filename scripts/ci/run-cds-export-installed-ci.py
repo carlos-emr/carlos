@@ -244,14 +244,36 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),
                 urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=str(private / "tls.crt"))))
             deadline = time.monotonic() + 300
+            readiness = {"requests": 0, "responses": {}, "transportFailures": {}, "tlsVerifyCodes": {},
+                         "loginFieldSeen": False}
+            status["httpReadiness"] = readiness
             while True:
+                readiness["requests"] += 1
                 try:
-                    with opener.open(base_url + "/index", timeout=10) as response:
+                    request = urllib.request.Request(base_url + "/index", headers={
+                        "Accept": "text/html", "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) CDSInstalledCI/1.0"})
+                    with opener.open(request, timeout=10) as response:
                         page = response.read(1 << 20)
+                        code = str(response.status)
+                        readiness["responses"][code] = readiness["responses"].get(code, 0) + 1
+                        readiness["lastResponseBytes"] = len(page)
                         if response.status == 200 and b'id="username"' in page:
+                            readiness["loginFieldSeen"] = True
+                            save()
                             break
-                except (OSError, urllib.error.URLError):
-                    pass
+                except urllib.error.HTTPError as failure:
+                    code = str(failure.code)
+                    readiness["responses"][code] = readiness["responses"].get(code, 0) + 1
+                    failure.close()
+                except (OSError, urllib.error.URLError) as failure:
+                    reason = getattr(failure, "reason", failure)
+                    kind = type(reason).__name__
+                    readiness["transportFailures"][kind] = readiness["transportFailures"].get(kind, 0) + 1
+                    verify = getattr(reason, "verify_code", None)
+                    if isinstance(verify, int):
+                        code = str(verify)
+                        readiness["tlsVerifyCodes"][code] = readiness["tlsVerifyCodes"].get(code, 0) + 1
+                save()
                 probe = run(["python3", "scripts/ci/collect-cds-export-installed-diagnostics.py"], capture=True)
                 if json.loads(probe.stdout).get("fatalStartup") is True:
                     raise RuntimeError("Full web application startup explicitly failed")
@@ -307,6 +329,8 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
     finally:
         # Fixtures and keys exist only in these newly created, exclusively owned containers.
         # No existing install/database is accepted; public evidence omits all secret/source bytes.
+        if "httpReadiness" in status:
+            print("CDS_EXPORT_HTTP_READINESS=" + json.dumps(status["httpReadiness"], sort_keys=True))
         if owned_runtime:
             try:
                 diagnostic = subprocess.run(docker + ["exec", "--user", "0", runtime, "python3",

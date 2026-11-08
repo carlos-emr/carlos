@@ -32,6 +32,8 @@ def collect():
         "failedBeans": unique(r"[Bb]ean (?:with )?name ['\"]([A-Za-z0-9_.$#-]{1,128})['\"]", 100),
         "frames": unique(r"\bat [A-Za-z0-9_.$/]+\([A-Za-z0-9_.]+:\d+\)", 180),
         "accessDeniedRoots": list(dict.fromkeys("/" + "/".join(path.split("/")[1:4]) for path in denied)),
+        "serverStarted": "Server startup in" in text,
+        "tlsStarted": "Starting ProtocolHandler" in text,
         "fatalStartup": any(marker in text for marker in (
             "One or more listeners failed to start", "Context [/carlos] startup failed")),
     }

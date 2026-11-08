@@ -15,10 +15,10 @@ async function main() {
         await page.goto(options.base + '/index', {waitUntil: 'domcontentloaded'});
         await page.locator('#username').fill(options.username);
         await page.locator('#password').fill(options.password);
-        await page.locator('#pin').fill(options.pin);
+        if (await page.locator('#pin').isVisible()) await page.locator('#pin').fill(options.pin);
         await Promise.all([
             page.waitForURL(url => !['/carlos/index', '/carlos/login'].includes(url.pathname)),
-            page.locator('#fullSubmit').click()
+            page.locator('form[name="loginForm"] input[type="submit"]').first().click()
         ]);
         stage = 'AUTHENTICATED_EXPORT_PAGE';
         await page.goto(options.base + '/form/cdsExport', {waitUntil: 'domcontentloaded'});

@@ -167,21 +167,11 @@ function equalityConditions(text, label) {
   });
 }
 
-/** The guarded seed's exact SQL predicate; unknown expressions must fail instead of granting by default. */
-function seedPrerequisite(text, label) {
-  const match = /^\s*roleUserGroup\s*=\s*'((?:[^']|'')*)'\s+AND\s+objectName\s*=\s*'((?:[^']|'')*)'\s+AND\s+privilege\s+IN\s*\(\s*'((?:[^']|'')*)'\s*,\s*'((?:[^']|'')*)'\s*\)\s*$/i.exec(text);
-  assert.ok(match, label + ': the replay of secObjPrivilege does not understand the seed prerequisite "' + text.trim() + '"');
-  const [role, object, first, second] = match.slice(1).map((value) => value.replace(/''/g, "'"));
-  return (row) => sameText(row.roleUserGroup, role) && sameText(row.objectName, object)
-    && [first, second].some((value) => sameText(row.privilege, value));
-}
-
 /**
  * Applies to `table` (a Map keyed by privilegeKey) every statement in `sql` that writes
  * secObjPrivilege. Returns the number of statements applied. Shapes understood:
  *   INSERT [IGNORE] INTO secObjPrivilege [(cols)] VALUES (...),... [ON DUPLICATE KEY UPDATE c = VALUES(c), ...]
  *   INSERT [IGNORE] INTO secObjPrivilege (cols) SELECT <literals> WHERE NOT EXISTS (SELECT 1 FROM secObjPrivilege WHERE ...)
- *   The SELECT may also require EXISTS of an unrestricted role before NOT EXISTS.
  *   DELETE FROM secObjPrivilege [WHERE col = 'x' AND ...]      TRUNCATE [TABLE] secObjPrivilege
  * UPDATE, REPLACE and any other form throw, so a migration that uses one is never silently ignored.
  */
@@ -215,18 +205,16 @@ function applyPrivilegeStatements(table, sql, label) {
     }
     let rows;
     let guard = null;
-    let prerequisite = null;
     const values = /^\s*VALUES\s*/i.exec(rest);
     if (values) {
       const read = readTuples(rest, values[0].length);
       rows = read.rows;
       rest = rest.slice(read.end);
     } else {
-      const select = /^\s*SELECT\s+([\s\S]*?)\s+WHERE\s+(?:EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+`?secObjPrivilege`?\s+WHERE\s+([\s\S]*?)\s*\)\s+AND\s+)?NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+`?secObjPrivilege`?\s+WHERE\s+([\s\S]*?)\s*\)\s*$/i.exec(rest);
+      const select = /^\s*SELECT\s+([\s\S]*?)\s+WHERE\s+NOT\s+EXISTS\s*\(\s*SELECT\s+1\s+FROM\s+`?secObjPrivilege`?\s+WHERE\s+([\s\S]*?)\s*\)\s*$/i.exec(rest);
       assert.ok(select, `${where} is not a statement shape the replay understands (near "${rest.trim().slice(0, 80).replace(/\s+/g, ' ')}")`);
       rows = readTuples(`(${select[1]})`, 0).rows;
-      prerequisite = select[2] ? seedPrerequisite(select[2], where) : null;
-      guard = equalityConditions(select[3], where);
+      guard = equalityConditions(select[2], where);
       rest = '';
     }
     let duplicateUpdate = null;
@@ -242,7 +230,6 @@ function applyPrivilegeStatements(table, sql, label) {
     for (const values of rows) {
       const row = Object.fromEntries(PRIVILEGE_COLUMNS.map((name) => [name, columns.includes(name) ? values[columns.indexOf(name)] : null]));
       const key = privilegeKey(row);
-      if (prerequisite && ![...table.values()].some(prerequisite)) continue;
       if (guard && [...table.values()].some((existing) => guard.every(([column, value]) => sameText(existing[column], value)))) continue;
       if (table.has(key)) {
         if (/IGNORE/.test(verb)) continue;
@@ -510,40 +497,6 @@ test('shouldReplayEachStatementShape_whenBuildingPrivilegeState', () => {
   assert.deepEqual(replay("INSERT IGNORE INTO secObjPrivilege VALUES ('Doctor','_x','o',0,NULL);", [row('doctor', '_x', 'r')]), ['doctor/_x=r']);
   // Text that merely mentions the table is not a statement.
   assert.deepEqual(replay("-- INSERT INTO secObjPrivilege VALUES ('a','_x','r',0,NULL);\nINSERT INTO recyclebin VALUES (1,'secObjPrivilege');"), []);
-});
-
-test('shouldRespectExistingAuthorityAndDenials_whenReplayingTheConditionalImportSeed', () => {
-  const sql = fs.readFileSync(path.join(MIGRATION_DIR, 'common', 'V1.0.85__seed_admin_cds_import_permission.sql'), 'utf8');
-  const row = (roleUserGroup, objectName, privilege, provider_no = null) => ({
-    roleUserGroup, objectName, privilege, priority: '0', provider_no,
-  });
-  for (const [privilege, provider, granted] of [
-    ['x', null, true], ['w', '', true], ['r', null, false], ['o', null, false],
-    ['|o|', null, false], ['x', '999998', true], ['x', '989873', true],
-  ]) {
-    const admin = row('admin', '_admin', privilege, provider);
-    const table = new Map([[privilegeKey(admin), admin]]);
-    applyPrivilegeStatements(table, sql, 'guarded seed fixture');
-    assert.equal(objectPrivileges(table, '_cds_import').get('admin'),
-      granted ? 'x/0' : undefined, 'only existing unrestricted administration is inherited');
-    const before = JSON.stringify([...table]);
-    applyPrivilegeStatements(table, sql, 'guarded seed replay fixture');
-    assert.equal(JSON.stringify([...table]), before, 'replay preserves the exact rows');
-  }
-  for (const privilege of ['x', 'w', 'r', 'o', '|o|']) {
-    const admin = row('admin', '_admin', 'x');
-    const existing = { ...row('admin', '_cds_import', privilege, '989873'), priority: '17' };
-    const table = new Map([admin, existing].map((entry) => [privilegeKey(entry), entry]));
-    const before = JSON.stringify([...table]);
-    applyPrivilegeStatements(table, sql, 'explicit import grant fixture');
-    assert.equal(JSON.stringify([...table]), before, 'explicit grant or denial and metadata remain unchanged');
-  }
-  const doctor = row('doctor', '_admin', 'x');
-  const otherRole = new Map([[privilegeKey(doctor), doctor]]);
-  applyPrivilegeStatements(otherRole, sql, 'non-admin role fixture');
-  assert.equal(otherRole.size, 1);
-  assert.throws(() => applyPrivilegeStatements(new Map(), sql.replace("privilege IN ('x','w')", "privilege <> 'o'"), 'unknown predicate fixture'),
-    /does not understand the seed prerequisite/);
 });
 
 test('shouldRefuseToReplay_whenAStatementShapeIsNotUnderstood', () => {

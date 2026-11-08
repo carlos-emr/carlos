@@ -31,20 +31,49 @@ def main() -> int:
         if not source.is_file():
             raise RuntimeError("Actual packaged Tomcat configuration absent")
         shutil.copyfile(source, BASE / "conf" / name)
-    # This password protects only a new disposable test identity. No deployed key is copied.
-    subprocess.run(["keytool", "-genkeypair", "-alias", "synthetic-ci", "-keyalg", "RSA", "-keysize", "2048",
-        "-storetype", "PKCS12", "-keystore", str(BASE / "conf/tls.p12"), "-storepass", "public-synthetic-tls-only",
-        "-keypass", "public-synthetic-tls-only", "-validity", "7", "-dname", "CN=localhost,OU=SYNTHETIC,O=example.invalid",
-        "-ext", "SAN=IP:127.0.0.1,DNS:localhost", "-noprompt"], check=True)
+    # A proper disposable CA and server chain keep strict Python/Node validation
+    # enabled. Only the public CA and the exact server SPKI leave this container.
+    authority_key = BASE / "conf/tls-ca.key"
+    server_key = BASE / "conf/tls-server.key"
+    certificate = BASE / "tls.crt"
+    server_certificate = BASE / "conf/tls-server.crt"
+    request = BASE / "conf/tls-server.csr"
+    extensions = BASE / "conf/tls-server.ext"
     key = BASE / "conf/tls.p12"
+    previous_umask = os.umask(0o077)
+    try:
+        subprocess.run(["openssl", "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-sha256",
+            "-keyout", str(authority_key), "-out", str(certificate), "-days", "8",
+            "-subj", "/CN=SYNTHETIC-CDS-CI-CA/O=example.invalid",
+            "-addext", "basicConstraints=critical,CA:TRUE",
+            "-addext", "keyUsage=critical,keyCertSign,cRLSign",
+            "-addext", "subjectKeyIdentifier=hash"], check=True)
+        subprocess.run(["openssl", "req", "-new", "-newkey", "rsa:2048", "-nodes", "-sha256",
+            "-keyout", str(server_key), "-out", str(request),
+            "-subj", "/CN=localhost/OU=SYNTHETIC/O=example.invalid"], check=True)
+        extensions.write_text("basicConstraints=critical,CA:FALSE\n"
+            "keyUsage=critical,digitalSignature,keyEncipherment\n"
+            "extendedKeyUsage=serverAuth\nsubjectAltName=IP:127.0.0.1,DNS:localhost\n"
+            "subjectKeyIdentifier=hash\nauthorityKeyIdentifier=keyid:always\n")
+        subprocess.run(["openssl", "x509", "-req", "-in", str(request), "-CA", str(certificate),
+            "-CAkey", str(authority_key), "-CAcreateserial", "-out", str(server_certificate),
+            "-days", "7", "-sha256", "-extfile", str(extensions)], check=True)
+        subprocess.run(["openssl", "verify", "-x509_strict", "-purpose", "sslserver", "-verify_ip", "127.0.0.1",
+            "-CAfile", str(certificate), str(server_certificate)], check=True)
+        subprocess.run(["openssl", "pkcs12", "-export", "-out", str(key), "-inkey", str(server_key),
+            "-in", str(server_certificate), "-certfile", str(certificate), "-name", "synthetic-ci",
+            "-passout", "pass:public-synthetic-tls-only"], check=True)
+    finally:
+        os.umask(previous_umask)
+        for path in (authority_key, server_key, request, extensions, certificate.with_suffix(".srl")):
+            path.unlink(missing_ok=True)
     os.chown(key, 0, account.pw_gid)
     key.chmod(0o640)
-    certificate = BASE / "tls.crt"
-    subprocess.run(["keytool", "-exportcert", "-rfc", "-alias", "synthetic-ci", "-keystore", str(key),
-        "-storepass", "public-synthetic-tls-only", "-file", str(certificate)], check=True)
     certificate.chmod(0o644)
-    public_pem = subprocess.run(["openssl", "x509", "-in", str(certificate), "-pubkey", "-noout"], check=True, capture_output=True).stdout
-    public_der = subprocess.run(["openssl", "pkey", "-pubin", "-outform", "DER"], input=public_pem, capture_output=True, check=True).stdout
+    public_pem = subprocess.run(["openssl", "x509", "-in", str(server_certificate), "-pubkey", "-noout"],
+        check=True, capture_output=True).stdout
+    public_der = subprocess.run(["openssl", "pkey", "-pubin", "-outform", "DER"], input=public_pem,
+        capture_output=True, check=True).stdout
     spki = base64.b64encode(hashlib.sha256(public_der).digest()).decode("ascii")
     (BASE / "conf/server.xml").write_text("""<?xml version="1.0" encoding="UTF-8"?>
 <Server port="-1">
