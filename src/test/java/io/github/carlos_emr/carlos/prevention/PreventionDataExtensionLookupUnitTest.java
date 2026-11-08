@@ -66,8 +66,8 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
                 field(41, "lot", CLINICAL_MARKER), field(41, "dose", "300"),
                 field(41, "reason", "antepartum"), field(41, "name", "synthetic product")));
 
-        // This is the reflection-based text the previous implementation passed into Integer.valueOf.
-        assertThat(injection.toString()).contains(CLINICAL_MARKER);
+        // Diagnostic text is deliberately nonnumeric and must never be parsed as an identifier.
+        assertThat(injection.toString()).isEqualTo("Prevention[id=41]").doesNotContain(CLINICAL_MARKER);
         try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class);
                 LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
             assertThat(PreventionData.getPreventionDataFromExt("workflowId", "17"))

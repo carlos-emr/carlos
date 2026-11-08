@@ -401,7 +401,7 @@ public final class RxDeleteRx2Action extends ActionSupport {
         }
 
         Date date = new Date();
-        String logStatement = drug + " Changing end date to :" + date;
+        String logStatement = "Prescription discontinued";
         // The database transition, rather than the earlier read, arbitrates simultaneous
         // discontinuations. Only its winner may file a note or change the original reason.
         if (drugDao.archiveIfActive(id, bean.getDemographicNo(), reason, date) != 1) {

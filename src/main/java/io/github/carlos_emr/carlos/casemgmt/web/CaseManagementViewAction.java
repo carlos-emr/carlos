@@ -28,7 +28,6 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.PMmodule.dao.SecUserRoleDao;
 import io.github.carlos_emr.carlos.casemgmt.common.Colour;
@@ -185,7 +184,7 @@ public class CaseManagementViewAction {
         }
 
         public String toString() {
-            return (ReflectionToStringBuilder.toString(this));
+            return getClass().getSimpleName() + "[protected]";
         }
     }
 

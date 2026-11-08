@@ -71,7 +71,7 @@ public class CodeFilterManager {
 
      */
     public boolean isCodeValid(String billingCode, String location, boolean procedure, Date dateOfAppt, Demographic demographic) {
-        logger.debug("billingCode " + billingCode + "  location " + location + "  procedure " + procedure + "  dateOfAppt " + dateOfAppt + " Demographic " + demographic);
+        logger.debug("Validating billing code");
         if (codeFilterDataSource == null) {
             return true;
         }

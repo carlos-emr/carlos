@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.ToStringBuilder;
 
 /*
  * Author: Dennis Warren
@@ -499,7 +498,7 @@ public class BpmhDrug {
 
     @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }
