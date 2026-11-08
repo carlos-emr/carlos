@@ -35,11 +35,28 @@ published attempt was expired and physically retired.
 
 Normal engine registration and CLI capability reporting passed 36 affected checks,
 including the real MariaDB/Spring CLI graph with disabled admission, a missing active
-zone and invalid active budgets. Metadata status/control stayed available. The
-registered candidate still requires the actual root-delegated `carlos-ctl` clinical
-export/download and authenticated asynchronous-browser end-to-end checks before this
-PR is ready. A successful component, byte package or workflow declaration alone is
-not completion evidence. The companion adapter is
+zone and invalid active budgets. Metadata status/control stayed available.
+
+The exact normally registered WAR
+(`17f93a04c56771befd30271d4cfd75c2daad2b492be50df7c22742afe847c407`)
+then passed the actual Python CLI, root-issued delegation, service-user Java 25,
+real Spring/MariaDB, clinical publication and authorized download path. Independent
+processes observed the same durable job and submission identity. A second download
+to the same destination was refused without changing its bytes. Status and report
+remained available with both an invalid clinical zone and invalid active budget.
+Independent recipient decryption recovered the exact validated ZIP, all thirteen
+expected native facts matched and four schema-valid clinical mutants were rejected.
+The test retired its own tickets/artifact/metadata and restored temporary
+provider/grant changes; it retained the original native chart and protected keys.
+
+The complete authenticated browser check remains a release gate. Full web startup
+exposed duplicate legacy case-note/issue DAO bean types; the readers now bind to
+the canonical existing names, with a constructor-wiring regression that includes
+both historical names. The installed workspace became unavailable before that
+browser run could be completed. Successful component checks, CLI completion or a
+workflow declaration do not establish browser completion. The current companion
+CLI base also requires reconciliation with its newly published manifest-format-2
+release before both PRs can be marked ready. The adapter is
 [carlos-emr/carlos-ctl#20](https://github.com/carlos-emr/carlos-ctl/pull/20).
 
 The complete reviewed inventory runs in the import/export/shared jobs of
@@ -63,7 +80,7 @@ qualification under the [release process](release-process.md).
 
 The original checkout and its work remain intact. The separate `carlos-ctl`
 worktree starts at `c330ae97683757da4aeff18f70db665c561de1cf`. Its export adapter
-is implemented alongside the Java entry point. The real protected Java25 capability probe has been exercised in an isolated installed container; clinical execution remains unqualified.
+is implemented alongside the Java entry point. The real protected Java 25 capability probe and native-chart clinical export/download have passed in an isolated installed container. The remaining qualification gates are stated above.
 
 ## Implemented foundation
 
