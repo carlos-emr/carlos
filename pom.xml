@@ -1774,6 +1774,12 @@
             <artifactId>jspecify</artifactId>
             <version>1.0.1</version>
         </dependency>
+        <!-- The BCAR 2020 models directly use this existing NotNull annotation. -->
+        <dependency>
+            <groupId>com.sun.istack</groupId>
+            <artifactId>istack-commons-runtime</artifactId>
+            <version>4.1.2</version>
+        </dependency>
 
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
