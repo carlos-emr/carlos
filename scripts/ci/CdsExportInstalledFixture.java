@@ -127,7 +127,10 @@ public final class CdsExportInstalledFixture {
         policy();
         Properties config = new Properties();
         int slash = url.indexOf('/', "jdbc:mysql://".length());
-        config.setProperty("db_uri", url.substring(0, slash + 1)); config.setProperty("db_name", url.substring(slash + 1));
+        config.setProperty("db_uri", url.substring(0, slash + 1));
+        config.setProperty("db_name", url.substring(slash + 1)
+                + "?zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true"
+                + "&jdbcCompliantTruncation=false&characterEncoding=UTF-8&connectionCollation=utf8mb4_general_ci");
         config.setProperty("db_type", "mysql");
         config.setProperty("db_driver", "com.mysql.cj.jdbc.Driver"); config.setProperty("db_username", jdbc.getProperty("jdbcUser"));
         config.setProperty("db_password", jdbc.getProperty("jdbcPassword"));

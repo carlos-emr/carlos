@@ -1105,7 +1105,7 @@ class TestTheOntarioProfile(unittest.TestCase):
         # V1.0.46 seed with INSERT ... SELECT, which the counter does not
         # see and a P0 floor does not need.)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         549)
+                         550)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
                          140)
 
@@ -1192,7 +1192,7 @@ class TestTheBritishColumbiaProfile(unittest.TestCase):
         # doctor _portal.invite grant, V1.0.73's _portal.* rows, V1.0.60's
         # booking-prompt rows and V1.0.80's front-desk email rows)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjPrivilege"],
-                         551)
+                         552)
         self.assertEqual(self.data["SEED_ROW_COUNTS"]["secObjectName"],
                          141)
 

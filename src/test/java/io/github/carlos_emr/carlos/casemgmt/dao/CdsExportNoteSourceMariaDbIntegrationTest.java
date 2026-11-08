@@ -44,6 +44,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Actual owning note DAO reads, strict schema/receipts and snapshot isolation; every fixture row is explicitly owned and removed. */
 @Tag("integration") @Tag("cds-export")
+@org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "cds.export.test.properties", matches = ".+")
 class CdsExportNoteSourceMariaDbIntegrationTest {
     @Configuration @EnableTransactionManagement(proxyTargetClass = true) static class Config { }
     private BasicDataSource source;

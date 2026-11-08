@@ -24,6 +24,9 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    administration authority, demographic reads and every selected clinical-domain
    and patient-specific read. The ledger migration seeds the administrator export
    permission; it preserves an existing customized grant/denial on replay.
+   The append-only importer permission migration seeds `_cds_import` only for an
+   existing unrestricted, global administrator. Existing import grants/denials and
+   restricted or provider-scoped administration grants remain intact.
    A saved job ID or Unix root identity does not replace clinical authorization.
 4. Configure `cds.export.clinicalZone` explicitly and consistently with the clinic
    and `cds.import.clinicalZone`. Configure protected selection, retained import,
