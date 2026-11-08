@@ -135,7 +135,10 @@ def main() -> int:
                 with os.fdopen(os.open(private / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w") as out:
                     out.write(value)
             stage("FRESH_OWNED_DATABASE")
-            execute(docker + ["network", "create", "--internal", network]); owned_network = True
+            # Host Chromium reaches only the explicitly published loopback TLS port.
+            # Docker internal networks suppress published-port bindings; the owned
+            # bridge keeps the database unpublished while permitting this host boundary.
+            execute(docker + ["network", "create", network]); owned_network = True
             execute(docker + ["network", "connect", network, args.build_container]); build_connected = True
             execute(docker + ["run", "-d", "--name", database, "--network", network, "--memory", "2g",
                 "--tmpfs", "/var/lib/mysql:rw,nosuid,noexec,size=1536m",
@@ -285,6 +288,12 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
     except Exception as failure:
         status["status"] = "FAILED"
         status["failureClass"] = type(failure).__name__
+        if isinstance(failure, subprocess.CalledProcessError):
+            command = failure.cmd if isinstance(failure.cmd, list) else []
+            status["failedExecutable"] = Path(command[0]).name if command else "unknown"
+            status["failedOperation"] = command[2] if command and Path(command[0]).name == "docker" and len(command) > 2 else "subprocess"
+            status["failedExit"] = failure.returncode
+            print("CDS_EXPORT_FAILED_SUBPROCESS=" + json.dumps({key: status[key] for key in ("failedExecutable", "failedOperation", "failedExit")}, sort_keys=True))
         save()
         print("CDS installed export failed at", status["stage"], "(" + type(failure).__name__ + ")")
         return 1

@@ -72,6 +72,7 @@ def main() -> int:
                "org.apache.catalina.startup.Bootstrap", "start"]
     with (BASE / "logs/catalina.log").open("xb") as log:
         os.fchown(log.fileno(), account.pw_uid, account.pw_gid)
+        os.fchmod(log.fileno(), 0o600)
         started = subprocess.Popen(["runuser", "--user", "carlos", "--", *command], stdout=log, stderr=log, start_new_session=True)
     (BASE / "tls-info.json").write_text(json.dumps({"protocol": 1, "pid": started.pid, "serviceUid": account.pw_uid,
                                                    "tlsSpkiSha256": spki}))

@@ -1,5 +1,8 @@
 # CDS export implementation contract
 
+For deployment, browser/CLI operation, recipient decryption and support arrangements,
+start with the [operator guide](cds-export-operator-guide.md).
+
 The OntarioMD CDS 5.2 exporter lives beside the modern importer under
 `demographic/cdsexport`, sharing the pinned wire contract and clinical scalar
 semantics while keeping export admission, authorization and delegation independent.
@@ -56,7 +59,10 @@ both historical names. The installed workspace became unavailable before that
 browser run could be completed. Successful component checks, CLI completion or a
 workflow declaration do not establish browser completion. The paired candidate now incorporates the published
 manifest-format-2/ETL-4 billing import contract and retains its filename/audit
-safeguards; the new integration still requires its CI and installed qualification. The adapter is
+safeguards. At `2c46adc7`, all 300 coordinated suites passed: 2,230 export,
+1,160 import and 379 shared checks, with zero failures, errors or skips. The
+MariaDB DAO suite, packaging and JSP compilation also passed. Installed
+qualification of the current paired candidate remains required. The adapter is
 [carlos-emr/carlos-ctl#20](https://github.com/carlos-emr/carlos-ctl/pull/20).
 
 The complete reviewed inventory runs in the import/export/shared jobs of
@@ -185,8 +191,11 @@ also require the sensitive-lab right. This service is independent of import admi
 never substitutes chart write permission for clinical read/disclosure permission. The
 export policy uses `cds.export.enabled` and `cds.export.operator.<operator>.providers` /
 `.facilities`; new admission defaults off, while authorized metadata observation/control
-can remain available. The migration registers `_cds_export`; current `_admin` authority
-is an alternative. No role is granted export rights by this migration.
+can remain available. The migration registers `_cds_export` and grants that independent permission to
+the administrator role. An existing customized administrator grant or denial is
+preserved on replay. Current `_admin` authority remains an alternative. Neither
+permission enables admission or supplies a recipient/audit policy: those controls
+must be configured separately.
 
 Browser and Unix identities have distinct durable operator keys (`web:<securityNo>` and
 `unix:<verifiedLogin>`), even when a Unix login happens to be named `web-7`. Root-issued
@@ -1408,8 +1417,8 @@ mutations were rejected. The original native fixture is retained, temporary gran
 and provider fields were restored, and no application classes were overlaid.
 Publication remained visibly unavailable through the unqualified engine boundary.
 
-Clinical capture now has a separate whole-source coverage gate over all 516 table
-names in the exact shipped ON/BC physical contracts (463 ON, 496 BC). Explicit
+Clinical capture has a separate whole-source coverage gate over all 517 table
+names in the exact shipped ON/BC physical contracts (464 ON, 497 BC). Explicit
 rulings identify mapped sources, reference dictionaries, operational metadata and
 sources that must be empty until their adapter or exclusion is reviewed.
 Unclassified presence conservatively refuses the request across the database;
@@ -1467,3 +1476,53 @@ duplicate, empty or skipped suite evidence refuses the gate. Only sanitized test
 reports are uploaded. The original native importer workflow and its required cases
 remain unchanged. Installed application publication and transport evidence is still
 required separately; a workflow declaration does not establish a passing run.
+
+### Exact installed CLI and authenticated browser workflow
+
+`.github/workflows/cds-export-installed.yml` runs the paired installed export
+on a separate fresh runner, avoiding the workspace storage limit. It builds
+the exact pinned companion source as its actual Debian package and packages
+the application once. A complete WAR entry manifest binds every installed
+file before and after execution. Fixture helpers are compiled separately;
+they never replace a production class or enter the browser/CLI classpath.
+
+The owned environment contains a newly migrated MariaDB database, an ordinary
+native chart with no import metadata, a separate test login and new test-only
+recipient and TLS identities. Missing application/email keys are initialized
+through their actual complete empty-census guards, without loss acknowledgement
+or rotation. No existing runtime, accepted job, clinical fixture or key is reused.
+
+The check invokes the installed `carlos-ctl cds-export` with root delegation,
+observes the same durable job from independent processes, downloads its package
+and refuses an existing destination unchanged. Full service-user Tomcat then
+runs the untouched WAR. Chromium signs in through the normal login page, checks
+GET and tokenless-POST refusal, submits the real form, requires HTTP 202 with
+an incomplete accepted job, reloads that job, waits for the asynchronous worker
+and downloads through the authorized form.
+
+The test recipient decrypts both real downloads independently. A separate
+oracle validates each patient XML against the pinned OntarioMD XSD and compares
+fourteen explicit native facts. Four altered clinical outputs must remain
+schema valid and must fail that comparison. Direct read-only checks require
+two genuinely complete durable jobs, matching CLI/browser implementation
+bindings, unchanged native chart values and no import metadata.
+
+Run on a fresh owned CI host with the repository's Java25 build container,
+the exact pinned CLI checkout and pinned Playwright installation:
+
+```sh
+python3 scripts/ci/run-cds-export-installed-ci.py \
+  --cli-source target/cds-ctl-source \
+  --playwright-module target/cds-browser-tools/node_modules/playwright
+```
+
+Only bounded counts, hashes, fixed failure codes and application stack locations
+are published. Keys, passwords, browser state, clinical payloads and raw traces
+are excluded. The workflow's existence is not a passing qualification result;
+the exact candidate's successful CI evidence is required.
+
+The first dedicated installed run at `7d7a662f` completed the actual CLI flow,
+including real READY, independent status/submission recovery, exclusive delivery,
+recipient decryption, fourteen expected native facts and four schema-valid mutants.
+The combined workflow then stopped at its test TLS/network startup before browser
+execution. That is a CLI checkpoint, not a passing browser qualification.
