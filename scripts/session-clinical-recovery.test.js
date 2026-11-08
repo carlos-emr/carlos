@@ -42,3 +42,11 @@ test('only this acknowledged refused request abandoned by its own document may e
   consumeAcknowledgedAborts(recorder,mark,[native]);assert.equal(recorder.requestFailures.length,3);
   const stillUnknown={...native,state:'dispatching'};consumeAcknowledgedAborts(recorder,mark,[stillUnknown]);assert.equal(recorder.requestFailures.length,3);
 });
+test('observed resource status is literal and must equal the actual acknowledged refusal',()=>{
+  const recorder={badResponses:[{url:target,method:'POST',status:401}],consoleIssues:[
+    {location:{url:target},text:'Failed to load resource: status of 403 (Forbidden)'},
+    {location:{url:target},text:'Failed to load resource: status of 401x (Unauthorized)'},
+    {location:{url:target},text:'Failed to load resource: status of 401 (Unauthorized)'}]};
+  consumeRefusalDiagnostics(recorder,{responses:0,console:0},[record()]);assert.equal(recorder.consoleIssues.length,2);
+  assert.match(recorder.consoleIssues[0].text,/403/);assert.match(recorder.consoleIssues[1].text,/401x/);
+});

@@ -43,8 +43,9 @@ function consumeRefusalDiagnostics(recorder,mark,records){
   recorder.badResponses.splice(mark.responses,bad.length);
   for(let i=recorder.consoleIssues.length-1;i>=mark.console;i--){
     const entry=recorder.consoleIssues[i];
-    if(refused.some(record=>entry.location?.url===record.request.url()
-      &&new RegExp('^Failed to load resource:.*status of '+record.status+' \\(').test(entry.text)))recorder.consoleIssues.splice(i,1);
+    const resourceFailure=/^Failed to load resource:.*status of (\d{3}) \(/.exec(entry.text);
+    if(resourceFailure&&refused.some(record=>entry.location?.url===record.request.url()
+      &&Number(resourceFailure[1])===record.status))recorder.consoleIssues.splice(i,1);
     else if(records.some(record=>record.kind==='note'&&record.state==='acknowledged')
       &&/^CaseManagement autoSave failed (?:401|403|200) (?:Unauthorized|Forbidden|Unexpected autosave response)$/.test(entry.text))recorder.consoleIssues.splice(i,1);
   }

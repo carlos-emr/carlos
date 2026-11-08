@@ -17,7 +17,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5707](https://github.com/carlos-emr/carlos/issues/5707) | Test: cover successful key-pair creation through the administration UI | Native creation/download/signature/reopen/duplicate lifecycle passes on the installed ON package with a temporary synthetic primary prerequisite, whose removal restores its original absence; strict missing-prerequisite failure retained. Both ON and BC focused installed retakes pass; final full qualification remains pending. |
 | [#5708](https://github.com/carlos-emr/carlos/issues/5708) | Test: cover multi-recipient lab-forwarding rule updates and selective removal | Installed ON two-recipient/reopen/repeat-save, three-upload routing, cancellation, selective removal and admin isolation pass. Status is source-wide; per-recipient status is unavailable. Original method/CSRF coverage retained. |
 | [#5709](https://github.com/carlos-emr/carlos/issues/5709) | Test: broaden lookup-list CRUD coverage and verify consumer/list isolation | Actual list/consumer/operation inventory documented. ON/BC three-list native adds, duplicate/empty behavior, exact ordering/identity, all consumer save/reopen and selective isolation pass. Full removal fails correctly on provider inactive options (#5816); GET still returns 200 and changes order (existing finding 58/#3059). Independent native cache restoration and exact SQL cleanup pass after both failures. PHU is hidden in ON and absent in BC; no positive edit/reorder UI exists. |
-| [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implementation and installed acceptance pending. |
+| [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implemented; current-source installed ON/BC strict suites pass the complete populated clinical round trip and cleanup. |
 | [#5716](https://github.com/carlos-emr/carlos/issues/5716) | Test: verify measurement graph dates, values and plotted positions | Installed ON/BC five-point irregular-date geometry, independent rendered-axis calibration, three-pixel tolerance, native selected/multi-delete, clinical isolation and four sensitivity controls pass. Empty history hides Plot; single-point PNG output is observed, with its invisible point/indistinguishable ticks separately tracked as #5814. No date-range controls exist. |
 | [#5717](https://github.com/carlos-emr/carlos/issues/5717) | Test: validate growth-chart point placement and reference curves independently | Implemented; [growth inventory](growth-clinical-geometry-inventory.md). Both sexes pass installed ON/BC coordinates, exact WHO chart/curve/unit/age-axis pixels, independent median relationships, source multiplicity, saved-history/control preservation and owned cleanup. Final full qualification remains pending. |
 | [#5718](https://github.com/carlos-emr/carlos/issues/5718) | Test: broaden decision-support guideline condition and operator coverage | 41 independently specified rules reach all 205 ON chart/list/detail observations, including expanded warnings, native diagnosis resolution, alternating patients, provider scope and unchanged clinical snapshots. Exactly 40 mismatches remain: sex all/notall across four surfaces on five visits (#5817). Other selected operator cases and zero-residue cleanup pass; no pin. Inventory records unsupported/dynamic-context families and missing actual-value readers. |
@@ -945,3 +945,37 @@ checkpoint still requires its own CI and CodeRabbit review. Three workflow
 implementations remain: #5715 populated merge/unmerge, #5801 visual eForm widgets
 and #5803 qualified/qualitative labs; original umbrella/vendor/native-database
 and repeated full qualification obligations remain open.
+
+
+## Populated merge and final resource-diagnostic correction
+
+The #5715 workflow retains the original native merge/refusal action driver and
+adds independently signed/revised histories, prescriptions, allergies, WT
+observations and byte-owned PDFs to both sources and a populated control.
+Baseline qualification precedes merge. Source-bound expectations explicitly
+cover merged medication/allergy/document unions, source-specific notes and
+measurements, actual full clinical pages, native tail navigation, exact PDF
+responses and restored independent histories after unmerge. Complete captured
+clinical state, patient attribution, hashes, drafts and unrelated control remain
+exact. Unknown native writes retain private journals and all fixtures; known
+success/failure paths remove clinical children and proven file bytes before
+parents. See [the workflow inventory](populated-merge-clinical-history-inventory.md).
+
+Current-source strict installed suites pass on ON in **261.2 seconds** and BC in
+**259.4 seconds**, with zero failures/skips. Earlier attempts exposed incomplete
+fixture role metadata and incorrect initial expectations about merged DAO
+unions; they remain failed exploratory evidence. Independent final audits find
+zero owned patient/note/drug/allergy/document residue, no recovery journals,
+unchanged package/configuration, healthy services and all 184 legacy email-log
+rows unchanged.
+
+The full stable Ubuntu 26.04 Node run passes **7,656/7,656 cases in 544 files**,
+with no failures/skips/cancellations/TODOs or changed test source; its exact
+inventory is regenerated. All **356 Python cases pass**. The open Semgrep
+resource-diagnostic comment is corrected using one literal status-capture regex
+and numeric equality to the actual acknowledged refusal; focused controls prove
+that wrong or malformed status text remains a finding. All 13 workflows pass on
+published checkpoint `a144d014074`; CodeRabbit's tenth full-review command reports
+finished. This new checkpoint needs its own CI/review. Implementations #5801 and
+#5803, plus the original full/native/vendor qualification obligations, remain
+pending.

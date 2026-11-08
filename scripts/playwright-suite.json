@@ -19107,6 +19107,25 @@
       ],
       "fixtures": "Two owned infant charts with fixed birth dates and both sexes, independent in-range control measurements, exact owned Forms-menu registrations, native Rourke/Growth saves and repeated measurement fixtures. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5717: independent WHO grid calibration and pinned sex-specific reference PDFs, native form/measurement/combined-source geometry, age 0/23.95 months and irregular dates, exact duplicate-source behavior, two-point tolerance, reference-curve pixel comparison and exact owned/control cleanup. Retains the original Rourke/Growth output checks and original finding selectors. Requires pdftotext/pdfinfo/pdftoppm and the shipped reference assets."
+    },
+    {
+      "name": "demographic-merge-clinical-history",
+      "script": "scripts/demographic-merge-clinical-history-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1200,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "DOCUMENT_DIR"
+      ],
+      "fixtures": "Two owned source charts and a populated unrelated control; signed note revisions and SHA-256 signatures, prescriptions, allergies, measurements and stored PDFs. Exact clinical snapshots, inode/byte ownership and guarded child-first cleanup. Unknown native write acknowledgements retain all fixtures and private recovery journals. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5715: native baseline clinical modules, Administration Merge, head/tail record navigation, document union on the merged head, source ownership and signing/revision preservation, native Unmerge and independent clinical histories. Retains all original invalid-identifier/self/cycle/forged-head/GET controls. Requires CARLOS_DISPOSABLE_HOST=true and installed DOCUMENT_DIR."
     }
   ]
 }
