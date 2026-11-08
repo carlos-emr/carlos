@@ -89,4 +89,22 @@ class PatientUnitTest {
     void shouldMapMaleSex_toFhirMaleGender() {
         assertThat(patient.getFhirResource().getGender()).isEqualTo(AdministrativeGender.MALE);
     }
+
+    @Test
+    void shouldKeepLegacyJsonOmissions_whenStoredDemographicFieldsContainOnlyWhitespace() throws Exception {
+        Demographic source = new Demographic();
+        source.setDemographicNo(122344);
+        source.setFirstName(" ");
+        source.setLastName("Synthetic");
+        source.setPhone("\t");
+        source.setSex("M");
+        source.setBirthDay(demographic.getBirthDay());
+        Patient wrapper = new Patient(source);
+
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(wrapper.getFhirJSON());
+
+        assertThat(json.path("name").get(0).has("given")).isFalse();
+        assertThat(wrapper.getFhirResource().getNameFirstRep().getGivenAsSingleString()).isEqualTo(" ");
+        assertThat(source.getPhone()).isEqualTo("\t");
+    }
 }

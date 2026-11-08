@@ -2,43 +2,43 @@
   "dependencies" : [ {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "hapi-fhir-base",
-    "version" : "8.4.3",
+    "version" : "8.12.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:WHiDSJA6iK9pQRLdhx4NRpWovF86VE7pp19o4FVxUn6Zi+VPY4iHXjzD84bf4vhAJT8i9NHGUVZvasAZuKBcLg=="
+    "integrity" : "sha512:vc3xte4cHoeuCxj5g+rLg2Fz6m3GbH8Sx6JtMhlSMYVvRfAucjSPzfa80j/oqF+XUXgmuZPOzcVjGACjBynB5w=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "hapi-fhir-caching-api",
-    "version" : "8.4.3",
+    "version" : "8.12.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:eYdfd6WztFMjFoNljCkwRN9ZjiaMjYOy49l1OrmzDM4VZL1wds8QanC2DWMJuml9ptEiXrkTfhCzyqK0Bl8pEA=="
+    "integrity" : "sha512:O6uj8BGW2Q5mxN1oJoyj/hVM7dK2lomKDLegdLk3BNlgCjiZWnAd8a3AACdAOjDUfppp+thMo1M6wQ8ALIHU6g=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "hapi-fhir-structures-dstu3",
-    "version" : "8.4.3",
+    "version" : "8.12.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:iAm4bSbhXkp/LtUbybV76vM+Gd3b8gROeNl8pxFZvHvGxWtXG4GFZSLAUwRppeplWeigtYiPq3XPG918LOD3Ig=="
+    "integrity" : "sha512:SaK0cMMIln/zKIbJtEo0Eea3lojbCwJ2oBDB/QAxgOhEX0Dd9Cj8N4uLO9I/GmWmNQBLE+PnaAO66FRhkXJz9Q=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "org.hl7.fhir.dstu3",
-    "version" : "6.9.10",
+    "version" : "6.9.12",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:3YPd+OMy+EPMy8mkHlasjGB+4zFO400cq257GV0BSHCUrU3OYRmDePtLLEgXtSTCWlo3Wek/IQvUbOxjiwmMZA=="
+    "integrity" : "sha512:DTAQThIBSLcwuo7mHRPLydb3ekwLhkhAStpkyegHPHhHDTeuzBK8gnIXHqebvNIWqueexnubdYB5ZSpupGRQAg=="
   }, {
     "groupId" : "ca.uhn.hapi.fhir",
     "artifactId" : "org.hl7.fhir.utilities",
-    "version" : "6.9.10",
+    "version" : "6.9.12",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:JQ6amlQMOPRwmODD9XX4I5t5yQPiQyOGs0KqOEZnB0BaZ/mGdoxNgfEdBBUSKt82Esmbg4YarwmThJFN7123DQ=="
+    "integrity" : "sha512:O6hJU4yNUoDNwHx3u2qamFIv47Hd+iG1kV5nAp6ZFbGnYpsf9tyorja6MVim3U9sjS71BMo+TbvRNErD4msOzg=="
   }, {
     "groupId" : "ca.uhn.hapi",
     "artifactId" : "hapi-base",
@@ -178,11 +178,11 @@
   }, {
     "groupId" : "com.fasterxml.jackson.datatype",
     "artifactId" : "jackson-datatype-jsr310",
-    "version" : "2.17.1",
+    "version" : "2.22.4",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:9QMLwoIxc0/gY0cSsqMHDjZLFFJHKdDYidF57egGutMbpdGzqrmRGDBvuvUQ4coHuW9ub37UKL9LDjbWZX36pw=="
+    "integrity" : "sha512:mKjzWeBCUo7oMVe0zlE50Gazw5OlyetiWguku5Oo9Kz7IxKSfA8pCyEMp8NJB85DfuP3sz3qKrgxgqjnGslghw=="
   }, {
     "groupId" : "com.fasterxml.jackson.jakarta.rs",
     "artifactId" : "jackson-jakarta-rs-base",
@@ -474,11 +474,11 @@
   }, {
     "groupId" : "io.opentelemetry.instrumentation",
     "artifactId" : "opentelemetry-instrumentation-annotations",
-    "version" : "2.10.0",
+    "version" : "2.28.0",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:CJZxE6lMt04OCRG7P9RWD+5WqULuRQNY6utxZphKE0y9+t+JAXirBdyduwysnGgWITxGW9fNkDKDDMz4YZkngg=="
+    "integrity" : "sha512:xJ3SXQ83/kFBJKcPikf/7LY78ogHMdZDUaL4E2asKb24yy2sm1OyzEYsNR3jYanSt/2wU9pIXyv2Uw0Z3dgN1g=="
   }, {
     "groupId" : "io.opentelemetry",
     "artifactId" : "opentelemetry-api",

@@ -313,8 +313,9 @@
         <log4j2.version>2.25.5</log4j2.version>
         <!-- Slf4j Version -->
         <slf4j.version>2.0.20</slf4j.version>
-        <!-- Hapi Fhir Version -->
-        <hapifhir.version>8.4.3</hapifhir.version>
+        <!-- HAPI owns the org.hl7.fhir.* core version (8.12.1 -> 6.9.12).
+             Do not independently pin the core; raise the enforcer floor with HAPI. -->
+        <hapifhir.version>8.12.1</hapifhir.version>
         <!-- Apache CXF Version -->
         <cxf.version>4.1.9</cxf.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
@@ -517,21 +518,14 @@
                 <artifactId>serializer</artifactId>
                 <version>2.7.3</version>
             </dependency>
-            <!-- Override transitive org.hl7.fhir.core (6.5.27) from hapi-fhir-structures-dstu3.
-                 Fixes: CVE-2024-45294, CVE-2024-51132, CVE-2024-52007 (all patched in 6.4.0),
-                 CVE-2026-33180 HTTP auth credential leak in redirects (patched in 6.9.0),
-                 CVE-2026-34359 credential leak via URL prefix matching on redirect (patched in 6.9.4),
-                 CVE-2026-42236 FHIRPath ReDoS in matches()/replaceMatches() (patched in 6.9.7),
-                 and XSLT transform hardening fixes patched in 6.9.10. -->
+            <!-- Saxon is the JAXP TransformerFactory used throughout CARLOS. FHIR core
+                 6.9.12 inherits Saxon 13.0; retain 11.6 so this HAPI update cannot change
+                 XML serialization. XmlUtilsUnitTest checks the provider, version and exact
+                 output. Upgrade deliberately with those compatibility checks, never by inheritance. -->
             <dependency>
-                <groupId>ca.uhn.hapi.fhir</groupId>
-                <artifactId>org.hl7.fhir.utilities</artifactId>
-                <version>6.9.10</version>
-            </dependency>
-            <dependency>
-                <groupId>ca.uhn.hapi.fhir</groupId>
-                <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.10</version>
+                <groupId>net.sf.saxon</groupId>
+                <artifactId>Saxon-HE</artifactId>
+                <version>11.6</version>
             </dependency>
             <!-- Override Apache Neethi 3.2.1 from CXF WSN policy dependencies.
                  Fixes GHSA-reported denial-of-service issues in policy normalization:
@@ -1188,6 +1182,15 @@
             <version>${jackson.version}</version>
         </dependency>
 
+        <!-- Main code uses JavaTimeModule and CdsRuntimeIdentity hashes its actual JAR.
+             Declare the dependency so HAPI cannot select a different Jackson line or drop it.
+             A project Jackson BOM may own this version later (#5711); retain the direct dependency. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
         <!-- Jackson Jakarta XML Bind annotations support - provides JakartaXmlBindAnnotationIntrospector used in Spring configs -->
         <dependency>
             <groupId>com.fasterxml.jackson.module</groupId>
@@ -1517,6 +1520,19 @@
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-structures-dstu3</artifactId>
             <version>${hapifhir.version}</version>
+            <!-- FHIR utilities' terminology/package network clients are unused by CARLOS.
+                 Keep their OkHttp/Okio/Kotlin stack out. Remove only with a reviewed feature
+                 requiring that networking, and update ban-fhir-core-http-stack together. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.squareup.okio</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Annotations 3.0 (@PostConstruct, @Resource, @Nonnull): Tomcat 11 always
@@ -2028,6 +2044,42 @@
                 <artifactId>maven-enforcer-plugin</artifactId>
                 <version>3.6.3</version>
                 <executions>
+                    <!-- HAPI must select its matching core. The floor also prevents an old
+                         core entering through a new path after lock regeneration (#5712). -->
+                    <execution>
+                        <id>ban-fhir-core-below-hapi-floor</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>ca.uhn.hapi.fhir:org.hl7.fhir.*:(,6.9.12)</exclude>
+                                    </excludes>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>HAPI FHIR ${hapifhir.version} requires its managed FHIR core (6.9.12). Do not pin the core independently; raise this floor with HAPI. Historical overrides fixed CVE-2024-45294, CVE-2024-51132, CVE-2024-52007, CVE-2026-33180, CVE-2026-34359, CVE-2026-42236 and XSLT hardening by 6.9.10; the higher floor also protects HAPI API compatibility (#5712).</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <!-- Exclusions alone do not prevent another dependency path from
+                         reintroducing unused network clients. Change only with the feature above. -->
+                    <execution>
+                        <id>ban-fhir-core-http-stack</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>com.squareup.okhttp3:*</exclude>
+                                        <exclude>com.squareup.okio:*</exclude>
+                                        <exclude>org.jetbrains.kotlin:*</exclude>
+                                    </excludes>
+                                    <searchTransitive>true</searchTransitive>
+                                    <message>CARLOS uses FHIR models/parsers, not the utilities network clients. Exclude OkHttp, Okio and Kotlin at every introducing path; inspect mvn dependency:tree before changing this rule (#5712).</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>ban-obsolete-jdom</id>
                         <goals>
