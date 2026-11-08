@@ -6528,7 +6528,7 @@
         "BILLING_PRIVATE_CODE",
         "INVOICE_DIR"
       ],
-      "notes": "Fails at its last step on 2026.08: picking a payer address throws a JavaScript syntax error (double-encoded handler).",
+      "notes": "Native single-item invoice/payment/address lifecycle passes on current release target e0601ced004c (snapshot31); the earlier payer-handler failure no longer reproduces. Multi-item allocation is independently covered by billing-on-multi-item-payments.",
       "fixtures": "Owned private bill for an owned patient, its payments, an owned bill-to address and the invoice PDFs it prints under INVOICE_DIR; all removed."
     },
     {
@@ -18951,6 +18951,73 @@
         "providerArchive",
         "property:tickler_task_assignee"
       ]
+    },
+    {
+      "name": "eform-image-zip-roundtrip",
+      "script": "scripts/eform-image-zip-roundtrip-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "EFORM_IMAGE_DIR",
+        "EFORM_RENDER_TEMP_DIR"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Owned template and patient instance, two marker-owned PNG assets, private downloaded archive/PDF and exact resource/SQL cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5808: export exact image-backed HTML/properties/assets, remove source rows/files, native import of actual downloaded bytes, native chart save/reopen and independently rendered PDF image regions. Verifies unrelated library rows and preexisting asset bytes remain unchanged. Requires local installed image/renderer stores and Poppler."
+    },
+    {
+      "name": "email-consent-transitions",
+      "script": "scripts/email-consent-transitions-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "emailConfig",
+        "eform"
+      ],
+      "fixtures": "Owned patient, local-only sender and SMTP sink, marker-owned eForm/revisions, exact patient consent/log/auxiliary cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5807: native Unknown/Opt-Out/Opt-In entry, denied and explicit Yes acknowledgment, actual SMTP/log attribution, second-context consent change with open opt-in composer, validation preserves pending text, fresh composers reflect changes, and restored opt-in sends once. Pins the current warning/composer-snapshot behavior explicitly; current send does not recheck consent. No new enforcement policy or configuration mutation."
+    },
+    {
+      "name": "billing-on-multi-item-payments",
+      "script": "scripts/billing-on-multi-item-payments-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "provider",
+        "providersite"
+      ],
+      "fixtures": "Three independently priced owned invoice items, an unchanged control invoice, owned billing physician/clinic context and private downloaded PDFs; guarded exact supporting/financial cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5805: native Receive Payment allocations in three stages, leave a line untouched, complete one while another remains partial, then finish all; exact cent allocations, payment/header/extension/audit reconciliation, per-line form/details/history and actual displayed/printed totals. No claim that paid automatically changes status."
     }
   ]
 }

@@ -49,13 +49,13 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5802](https://github.com/carlos-emr/carlos/issues/5802) | Test: verify session loss while clinical editors contain unsaved work | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5803](https://github.com/carlos-emr/carlos/issues/5803) | Test: preserve qualified and nonnumeric laboratory results across views and PDF output | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5804](https://github.com/carlos-emr/carlos/issues/5804) | test(playwright): cover end-to-end lab recall message delivery to delegates | Implemented; [delivery inventory](lab-recall-delivery-inventory.md). Actual send, delegate reads, assigned task/lab navigation and both existing regressions pass on snapshot31 in ON/BC. |
-| [#5805](https://github.com/carlos-emr/carlos/issues/5805) | test(playwright): cover Ontario payments allocated across multiple invoice items | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5805](https://github.com/carlos-emr/carlos/issues/5805) | test(playwright): cover Ontario payments allocated across multiple invoice items | Implemented; [allocation inventory](billing-on-multi-item-payments-inventory.md). All three native stages pass on ON: two distinct partial allocations, complete one item while another remains partial, then finish. Exact item/payment/header/audit amounts, reopened line balances, payment details/history and displayed/printed totals reconcile; the full control snapshot is unchanged. Existing single-item regression also passes. |
 | [#5806](https://github.com/carlos-emr/carlos/issues/5806) | test(playwright): cover OAuth 1.0a registered web callbacks and denial | Native ON/BC exact and plain-query registered callbacks complete actual consent/303 receiver delivery, verifier exchange and signed provider/patient/scope checks. Native Deny, denied exchange and host/scheme/lookalike-path application refusals pass. Encoded-query initiation fails on #5823 and its later stages remain explicitly unreached; independent cases continue. Owned token/client/nonce/patient/receiver cleanup passes, with no new waiver pin. |
-| [#5807](https://github.com/carlos-emr/carlos/issues/5807) | test(playwright): cover email consent states and changes after composition opens | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
-| [#5808](https://github.com/carlos-emr/carlos/issues/5808) | test(playwright): round-trip image-backed eForms through ZIP export and import | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5807](https://github.com/carlos-emr/carlos/issues/5807) | test(playwright): cover email consent states and changes after composition opens | Implemented; [consent inventory](email-consent-transitions-inventory.md). Six native deliveries pass on ON/BC across fresh Unknown/Opt-Out/Opt-In, second-context changes with open drafts, preserved pending body, current warning/snapshot contract and restored Opt-In. Both existing email/consent regressions pass. Sender IDs avoid all legacy log references; ten controls and exact legacy preservation/cleanup pass. |
+| [#5808](https://github.com/carlos-emr/carlos/issues/5808) | test(playwright): round-trip image-backed eForms through ZIP export and import | Implemented; [ZIP inventory](eform-image-zip-roundtrip-inventory.md). Actual exported HTML/properties/two image assets match exactly, source rows/files are absent before native reimport, and chart save/reopen plus PDF text/geometry/colour regions pass in ON/BC. Both existing export/navigation regressions pass; exact owned cleanup and unrelated resource preservation pass. |
 | [#5809](https://github.com/carlos-emr/carlos/issues/5809) | test(playwright): verify eForm page exclusion in deployed PDF output | Native ON/BC clean, form-wrapped and body-direct layouts each pass new and saved-instance PDF output, actual renderer receipts, independently checked page/text/geometry/ink and strict clinical bounds. Native interstitial approval preserves its exact saved revision without an extra save. Exact SQL/download/server-PDF cleanup and refusal controls pass; final full qualification remains pending. |
 | [#5810](https://github.com/carlos-emr/carlos/issues/5810) | test(playwright): cover stale tickler selections during filtering and pagination | Native ON/BC preselected search/status/assignee/page changes, held real list responses, inert pending controls, Clear All, out-of-order completion, exact Complete/Delete POST IDs and task/history/control isolation all pass. Barrier delivery/disposal/route-removal failures are independently exercised. Exact owned cleanup passes; final full qualification remains pending. |
-| [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Native ON/BC 999/1000/1001-row boundaries, aggregate encoded and single streamed-cell character caps, genuine reporting-account timeout observed in MariaDB, explicit timeout guidance/cancellation, same-composer recovery and exact history/private INFO audit receipts pass. Twenty false-table/audit controls and existing QBE regressions pass; owned cleanup is clean. Temporary logging restoration and latest-target full qualification remain pending. |
+| [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Native ON/BC 999/1000/1001-row boundaries, aggregate encoded and single streamed-cell character caps, genuine reporting-account timeout observed in MariaDB, explicit timeout guidance/cancellation, same-composer recovery and exact history/private INFO audit receipts pass. Twenty false-table/audit controls and existing QBE regressions pass; owned cleanup is clean. Temporary logging is restored; latest-target full qualification remains pending. |
 | [#5812](https://github.com/carlos-emr/carlos/issues/5812) | test(playwright): verify MRP tickler preference routes newly created tasks | Implemented; [routing inventory](tickler-mrp-routing-inventory.md). Native ON/BC reach all independent active-MRP, recipient/patient, late association, manual assignment and recovery cases. Four comparisons fail on draft loss (#5824) and arbitrary missing/inactive-MRP fallback (#5825); no unrelated recipient is submitted and no waiver is added. Exact cleanup and cache retirement pass. |
 
 ## Execution and review
@@ -690,3 +690,77 @@ lab rows, and the empty Messenger coordinator baseline. All 13 CI workflows pass
 at the prior published `aa1f1cf20fc4`; CI for the next publication is still required.
 Ten workflow implementations plus umbrella, native-database/vendor and repeated
 full qualification remain pending; this remains a draft with no closure claim.
+
+The image-backed eForm ZIP round trip passes on ON and BC alongside both existing
+export/navigation regressions: three passes, no failures/skips in each province.
+The native import receives the actual downloaded export after exact removal of
+the source template and both assets. Stored HTML/asset bytes, chart-entered
+values, saved-instance images and actual PDF text/geometry/colour regions agree
+with independent expectations. Thirteen omission/corruption/render controls pass.
+Source SHA-256 is `51bb899df48877ebeff664c064ffe9099b7e5f350e7c2d530f2b4946237b1ee8`.
+
+Email consent passes all six delivery cases in each province. Current configured
+behavior is explicit: non-opt-in entry requires a Yes acknowledgment; composition
+snapshots consent and the current send does not recheck it. A second context
+natively opts out/clears consent while the composer remains open. Validation
+preserves the pending body, which the corrected native submission sends unchanged.
+New composers reflect the change, and restored Opt-In sends once. Ten sender-ID
+controls prevent adoption of orphan legacy references. Exceptional recovery of
+the deliberately refused collision run removes only exact owned rows and restores
+the original absent parent; all 184 preexisting email logs retain complete row
+digests in each province, including after the successful final regression retakes.
+No normal test disables constraints.
+
+The Ontario multi-item workflow passes all three allocations, exact item/payment/
+header/extension/transaction relationships, reopened balances, payment history and
+details, and actual displayed/printed totals. Source SHA-256 is `224e2e161f7d823de5963aa4fbc42d6fcb3867b096305f7ca6433e869a4fce08`.
+The existing single-item invoice workflow also passes completely, including the
+previously reported payer-handler case, so its stale manifest note is corrected.
+Both billing workflows and all three email/consent workflows pass together: five
+passes, no failures/skips. BC's three email/consent workflows also pass together.
+Development wrapper/identifier/label failures remain recorded as failed attempts;
+the original retained physician is recovered by its exact ownership ledger, and
+its retained patient is removed only after zero clinical/support/merge references.
+Independent final audits and final-source qualification follow this checkpoint.
+
+A further qualification review finds that the Node gate's initial file selection
+could omit tests added during execution, despite unchanged fingerprints for the
+original files. Two real CLI controls reproduce that false pass before the fix.
+The full-release entry point now compares final discovery with its initial
+selection; added failing or empty files make sourceChanged fatal. The unchanged
+selection still qualifies, and explicit subset execution retains its existing API.
+All 30 focused Node controls pass. The earlier 7,517-case/530-file and
+7,527-case/531-file reports cover their exact selections only. A later run whose
+test source changed during execution correctly reports incomplete and is retained
+as such; it is not used as final qualification. The complete stable-source
+replacement is running. All 13 CI workflows pass at `c05b5083f75`; CI for the next
+publication remains required. Seven workflow implementations plus umbrella,
+native-database/vendor and repeated full acceptance remain open.
+
+The complete stable-source replacement passes **7,531/7,531 Node cases in 532
+files**, with zero failures/skips/cancellations/TODO and sourceChanged=false.
+Its exact case inventory is regenerated. The 30 focused controls pass again.
+Final local cleanup review additionally checks captured sender/template IDs even
+when their marker fields change, preserves unrelated NULL-name templates in the
+full snapshot, and rejects NULL ownership fields through explicit COALESCE.
+A real MariaDB comparison demonstrates that the earlier NOT expression yields
+unknown for NULL, whereas the corrected predicate refuses it.
+
+The final guard-qualified image/PDF and payment retakes pass all native stages;
+ON reports three passes and BC two passes with zero failures/skips. A final
+standalone email retake on each province also passes all six delivery cases after
+the last identity-guard adjustment. Current source SHA-256 values are:
+
+- `eform-image-zip-roundtrip-playwright-checks.js`: `c0b27df634a386490cb10171e1034b89a566bda195af4bb1c35a7e61a2772f8c`.
+
+- `email-consent-transitions-playwright-checks.js`: `093dbbf995afece5586ffd8a20ec8bb3d2f0e362af4a10036d504e0ee11622a1`.
+
+- `billing-on-multi-item-payments-playwright-checks.js`: `224e2e161f7d823de5963aa4fbc42d6fcb3867b096305f7ca6433e869a4fce08`.
+
+Independent publication audits show exact original configuration hashes, passing
+installed health/package checks, NRestarts=0, zero owned patient/provider/archive/
+message/task/lab/eForm/email rows, and the empty Messenger coordinator baseline
+in both provinces. All 184 original email-log row digests still match in each
+database. The source release target remains e0601ced004c. Seven workflows plus
+umbrella/native-database/vendor and repeated full qualification remain open.
+No new expected-failure pin or full-release pass is introduced.

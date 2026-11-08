@@ -50,7 +50,7 @@ INSERT sets seven JPA-normalized fields empty, then an immutable full-row hash i
 retained. After browser closure and child cleanup, one fresh MariaDB connection
 locks the parent for writing and all discovered clinical reference tables for
 reading with NOWAIT, checks the original hash and zero references, and deletes
-only that parent. Only the specifically reviewed `formRourke2009` Aria table is
+only that parent. Only the specifically reviewed `formRourke2009` table under Aria or MyISAM is
 permitted as a read-locked reference; other unsupported engines, triggers,
 cascades, schema changes or a busy lock refuse cleanup. Clinical tables are never
 converted to make a check pass. A lost cleanup acknowledgement retains the private
