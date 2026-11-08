@@ -41,13 +41,13 @@ bookings, archives or extensions, deletes the owned booking/monitors/group, and
 verifies absence plus the unchanged unrelated appointment inventory. Browser
 shutdown and uncertain-write settlement precede SQL cleanup. Missing profile,
 unreached timing/booking assertions, browser errors and cleanup failures cannot
-produce a pass. Seven independent oracle controls exercise valid live/expired
+produce a pass. Nine independent oracle controls exercise valid live/expired
 boundaries and reject unlocked, malformed, ambiguous or incorrectly timed proof.
 
 Example:
 
 ```sh
-CARLOS_DISPOSABLE_HOST=true node scripts/run-playwright-suite.js \
+CARLOS_DISPOSABLE_HOST=true EXCLUSIVE=1 node scripts/run-playwright-suite.js \
   --province ON --profile appointment-lock-expiry --only appointment-slot-expiry
 ```
 
@@ -59,7 +59,7 @@ All stages pass in installed ON and BC Ubuntu 26.04 containers using snapshot31
 takes 20.672 seconds on ON and 20.608 seconds on BC, within the configured
 20-second timeout plus 12-second tolerance. Both final source digests match
 `cc8296b59678a92d2a3037d09c7f12cb86010a7e2c8d402b3185438708f17d8a`.
-Seven oracle controls pass. Both profile supervisors finish successfully, exact original configuration hashes match,
+Nine oracle controls pass, including exact-timeout rejection in both modes. Both profile supervisors finish successfully, exact original configuration hashes match,
 installed health and package verification pass, and `NRestarts=0`. Independent
 post-run audits find zero owned patients, providers, appointments, archives,
 schedule groups or monitor names.

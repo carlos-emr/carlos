@@ -73,7 +73,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     + body + '</testsuite>')
 
     @staticmethod
-    def suite(family):
+    def suite(family: str) -> str:
         if family == 'LegacyLabNativeMariaDbIntegrationTest':
             return MODULE.INBOX_CLASS
         return next((name for name in MODULE.BC_PHYSICAL_CASES if name.rsplit('.', 1)[-1] == family), 'example.' + family)
@@ -235,7 +235,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.seed(duplicate=True)
         self.assert_refused(self.invoke(), "Duplicate test case identity")
         self.seed()
-        path = next(self.reports.glob("*.xml"))
+        path = next(iter(sorted(self.reports.glob("TEST-example.*.xml"))))
         path.write_text(path.read_text().replace('name="example.', 'name="different.', 1))
         self.assert_refused(self.invoke(), "Report filename and suite identity disagree")
 

@@ -168,5 +168,7 @@ async function workflow(s) {
     h.assert(full(moved).length===1&&archive(ids.recover).length===1&&archive(ids.abandon).length===1,'Final move/abandon evidence changed');
   });
 }
-if(require.main===module)runWorkflow(NAME,workflow,{openMaster:false});
+if(require.main===module)runWorkflow(NAME,workflow,{openMaster:false,preflightConfig:()=>{
+  if(process.env.EXCLUSIVE!=='1'||process.env.CARLOS_DISPOSABLE_HOST!=='true')throw new h.SkipCheck('Requires EXCLUSIVE=1 and CARLOS_DISPOSABLE_HOST=true for owned cut-recovery fixtures');
+}});
 module.exports={workflow};

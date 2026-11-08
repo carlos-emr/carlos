@@ -53,21 +53,26 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function waitForStartup(child, output) {
+function waitForStartup(child, output, {timeoutMs=startupTimeoutMs,pollMs=250}={}) {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Timed out waiting for Tomcat startup')), startupTimeoutMs);
-    const interval = setInterval(() => {
+    let settled=false,timeout,interval;
+    const finish=error=>{
+      if(settled)return;
+      settled=true;clearTimeout(timeout);clearInterval(interval);
+      error?reject(error):resolve();
+    };
+    const inspect=()=>{
+      if(output.launchError||child.exitCode!==null||child.signalCode!=null) {
+        finish(output.launchError||new Error(`Tomcat exited before startup with code ${child.exitCode} signal ${child.signalCode}`));
+        return;
+      }
       if (/Server startup in \[\d+\] milliseconds/i.test(output.text)) {
-        clearTimeout(timeout);
-        clearInterval(interval);
-        resolve();
+        finish();
       }
-      if (output.launchError || child.exitCode !== null) {
-        clearTimeout(timeout);
-        clearInterval(interval);
-        reject(output.launchError || new Error(`Tomcat exited before startup with code ${child.exitCode}`));
-      }
-    }, 250);
+    };
+    timeout=setTimeout(()=>finish(new Error('Timed out waiting for Tomcat startup')),timeoutMs);
+    interval=setInterval(inspect,pollMs);
+    inspect();
   });
 }
 
@@ -134,4 +139,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shutdownLeakFindings };
+module.exports = { shutdownLeakFindings, waitForStartup };

@@ -226,6 +226,7 @@ async function workflow(s) {
   try{await callbackWorkflow(s,credentials);}catch(error){throw redactOAuthError(error,credentials);}
 }
 if(require.main===module)runWorkflow('oauth-web-callback',workflow,{openMaster:false,preflightConfig:()=>{
+  if(process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Requires EXCLUSIVE=1 for clinic-wide registered-client fixtures');
   if(!MODES.includes(process.env.EXPECT_OAUTH_MODE||'legacy-restricted'))throw new h.SkipCheck('Declare EXPECT_OAUTH_MODE as scoped, legacy-restricted or legacy-full');
 }});
 module.exports={callbackReceiver,redactOAuthError,workflow};

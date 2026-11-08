@@ -18828,10 +18828,14 @@
       "timeoutSec": 600,
       "assertsDatabase": true,
       "env": [
-        "EXPECT_OAUTH_MODE"
+        "EXPECT_OAUTH_MODE",
+        "EXCLUSIVE"
       ],
-      "fixtures": "Owned registered OAuth client, request/access tokens/nonces and synthetic patient; actual ephemeral loopback callback receiver in the deployed browser namespace, with drained/verified shutdown. No receiver response reflects credentials. Exact owned SQL cleanup and immutable clinical controls.",
-      "notes": "#5806: native consent/303 redirects for exact and extended callbacks, preserved query data and verifier exchange, provider/scope-bound signed reads and configured access mode; native Deny and denied exchange; application-origin host/scheme/lookalike-path refusals. Encoded query callback failure #5823 stays fatal, with refused authorization/exchange stages explicitly unreached. Existing oob and token-lifecycle checks remain registered."
+      "fixtures": "Owned registered OAuth client, request/access tokens/nonces and synthetic patient; actual ephemeral loopback callback receiver in the deployed browser namespace, with drained/verified shutdown. No receiver response reflects credentials. Exact owned SQL cleanup and immutable clinical controls. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5806: native consent/303 redirects for exact and extended callbacks, preserved query data and verifier exchange, provider/scope-bound signed reads and configured access mode; native Deny and denied exchange; application-origin host/scheme/lookalike-path refusals. Encoded query callback failure #5823 stays fatal, with refused authorization/exchange stages explicitly unreached. Existing oob and token-lifecycle checks remain registered.",
+      "mutates": [
+        "ServiceClient"
+      ]
     },
     {
       "name": "report-query-by-example-budgets",
@@ -18865,9 +18869,16 @@
       ],
       "profile": "appointment-lock-expiry",
       "timeoutSec": 600,
-      "env": [],
+      "env": [
+        "EXCLUSIVE"
+      ],
       "notes": "#5737: 20-second supported lock profile; pauses the owned renderer JavaScript without unload, independently times the last accepted heartbeat, checks overlap/non-overlap, live renewals, stale-owner refusal/release and a real non-admin booking. Profile supervisor restores exact configuration bytes.",
-      "fixtures": "Three owned logins, owned patient and isolated owner schedule; exact owned monitor/booking/group cleanup, unchanged unrelated schedule. No SQL expiration or service restart during the scenario."
+      "fixtures": "Three owned logins, owned patient and isolated owner schedule; exact owned monitor/booking/group cleanup, unchanged unrelated schedule. No SQL expiration or service restart during the scenario. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "mygroup",
+        "PageMonitor"
+      ]
     },
     {
       "name": "appointment-cut-recovery",
@@ -18880,10 +18891,17 @@
         "all"
       ],
       "timeoutSec": 600,
-      "env": [],
+      "env": [
+        "EXCLUSIVE"
+      ],
       "notes": "#5738: native Cut immediate full archive/audit, cancelled destination, invalid duration and corrected retry, repeated Paste without autosave, browser/session interruption, and Copy snapshot semantics across source edit/delete. Archive-only abandoned Cut is reported as an incomplete move; no undo policy is invented.",
-      "fixtures": "Owned patient/login/schedule, three source bookings and an unchanged control. Guards identities and dependent rows, removes only owned appointment/archive/monitor/group rows and verifies unrelated appointments unchanged.",
-      "profile": "appointment-lock-expiry"
+      "fixtures": "Owned patient/login/schedule, three source bookings and an unchanged control. Guards identities and dependent rows, removes only owned appointment/archive/monitor/group rows and verifies unrelated appointments unchanged. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "profile": "appointment-lock-expiry",
+      "mutates": [
+        "provider",
+        "mygroup",
+        "PageMonitor"
+      ]
     },
     {
       "name": "lab-recall-delegate-delivery",
@@ -18901,7 +18919,38 @@
         "EXCLUSIVE"
       ],
       "notes": "#5804: uses owned sender/delegate/control logins and the existing native Recall Settings/Recall workflow; sends the actual message, verifies one delivery and patient mapping, reads/reopens as the delegate, opens the assigned task and follows the exact lab link without resending or creating another task. Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1. Refreshes SQL fixture provider caches through an owned native profile save; after exact cleanup and browser shutdown, restarts only the explicitly disposable/exclusive application to discard cached deleted providers.",
-      "fixtures": "Owned patient, three owned accounts/local contact memberships, exact subject/body, native recall preferences, one synthetic routed PATHL7 lab and one linked task. Verified empty namespaces before writes; owned identity/recipient guards and post-cleanup verification; Messenger membership-coordinator baseline restored."
+      "fixtures": "Owned patient, three owned accounts/local contact memberships, exact subject/body, native recall preferences, one synthetic routed PATHL7 lab and one linked task. Verified empty namespaces before writes; owned identity/recipient guards and post-cleanup verification; Messenger membership-coordinator baseline restored. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "providersite",
+        "providerArchive",
+        "groupMembers_tbl",
+        "messengerMembershipLock"
+      ]
+    },
+    {
+      "name": "tickler-mrp-routing",
+      "script": "scripts/tickler-mrp-routing-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "notes": "#5812: native MRP preference, two owned patient/MRP pairs, actual task writes/recipient patient access, patient-free and changed-patient draft/assignee behavior, explicit manual assignment and missing/inactive MRP behavior. Semantic failures remain fatal while safe owned manual-recovery paths continue. Requires an active clinic and disposable/exclusive service management for fixture provider-cache retirement.",
+      "fixtures": "Four owned actors and two owned patients, separate unchanged control task; full known task/history cleanup, strict second-patient reference checks, original first-patient MRP restore, owned provider archive/property cleanup and post-browser application cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "providersite",
+        "providerArchive",
+        "property:tickler_task_assignee"
+      ]
     }
   ]
 }

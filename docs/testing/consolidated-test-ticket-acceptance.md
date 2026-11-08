@@ -56,7 +56,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5809](https://github.com/carlos-emr/carlos/issues/5809) | test(playwright): verify eForm page exclusion in deployed PDF output | Native ON/BC clean, form-wrapped and body-direct layouts each pass new and saved-instance PDF output, actual renderer receipts, independently checked page/text/geometry/ink and strict clinical bounds. Native interstitial approval preserves its exact saved revision without an extra save. Exact SQL/download/server-PDF cleanup and refusal controls pass; final full qualification remains pending. |
 | [#5810](https://github.com/carlos-emr/carlos/issues/5810) | test(playwright): cover stale tickler selections during filtering and pagination | Native ON/BC preselected search/status/assignee/page changes, held real list responses, inert pending controls, Clear All, out-of-order completion, exact Complete/Delete POST IDs and task/history/control isolation all pass. Barrier delivery/disposal/route-removal failures are independently exercised. Exact owned cleanup passes; final full qualification remains pending. |
 | [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Native ON/BC 999/1000/1001-row boundaries, aggregate encoded and single streamed-cell character caps, genuine reporting-account timeout observed in MariaDB, explicit timeout guidance/cancellation, same-composer recovery and exact history/private INFO audit receipts pass. Twenty false-table/audit controls and existing QBE regressions pass; owned cleanup is clean. Temporary logging restoration and latest-target full qualification remain pending. |
-| [#5812](https://github.com/carlos-emr/carlos/issues/5812) | test(playwright): verify MRP tickler preference routes newly created tasks | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5812](https://github.com/carlos-emr/carlos/issues/5812) | test(playwright): verify MRP tickler preference routes newly created tasks | Implemented; [routing inventory](tickler-mrp-routing-inventory.md). Native ON/BC reach all independent active-MRP, recipient/patient, late association, manual assignment and recovery cases. Four comparisons fail on draft loss (#5824) and arbitrary missing/inactive-MRP fallback (#5825); no unrelated recipient is submitted and no waiver is added. Exact cleanup and cache retirement pass. |
 
 ## Execution and review
 
@@ -130,7 +130,7 @@ request after its rate-limit window; review completion remains pending.
 
 ## Expected-failure ownership (#5793)
 
-The current target has 26 pins. The issue's earlier count of 27 includes finding
+The current target has 25 pins after the legitimate retirement of finding 348. The issue's earlier count of 27 includes finding
 335, whose fix and pin removal are already on this branch. The following are
 tracking links, with no release waiver. Every remaining known failure is fatal
 under `--strict-release`; later assertions behind a pinned failure remain
@@ -148,7 +148,7 @@ unreached. Tracker state was checked on 7 November 2026.
 | 343 | `authz-read-print-export` | [#4223](https://github.com/carlos-emr/carlos/issues/4223); closed #5406 is historical evidence, not a live fix tracker. |
 | 344 | `audit-log-locked-patient` | [#4172](https://github.com/carlos-emr/carlos/issues/4172). |
 | 347 | `login-mfa-no-pin` | [#4788, explicit 347 task](https://github.com/carlos-emr/carlos/issues/4788#issuecomment-6713494284). |
-| 348 | `document-clinical-followup` | [#5685](https://github.com/carlos-emr/carlos/issues/5685). |
+| 348 | `document-clinical-followup` | Fixed on the latest target; no current expected-failure pin. Historical owner: [#5685](https://github.com/carlos-emr/carlos/issues/5685). |
 
 The older security/authorization pins retain these fix owners: API-key GET
 creation (163) → #3059; chart note and billing authorization (198, 200), document
@@ -654,3 +654,39 @@ owned patient/provider/provider-archive/message/task/lab metadata rows. The
 Messenger coordinator returns to its empty baseline. Eleven further workflow
 implementations plus umbrella, native-database/vendor and repeated full acceptance
 remain open; no full-release pass is claimed.
+
+The sixth complete CodeRabbit full review finishes at 06:13 UTC on
+`aa1f1cf20fc4`. Its five new findings are verified and corrected: exact expiry
+boundary controls in both modes; deterministic MariaDB report substitution;
+OAuth client and shared Messenger mutation/exclusivity metadata; and startup
+wait termination/interval cleanup. Both appointment workflows and OAuth enforce
+the disposable/exclusive prerequisite before fixture writes. The latter remains
+fatal only on #5823 in fresh ON/BC retakes; every other independent callback case
+is reached and cleanup passes. Both appointment workflows pass again in each
+province, with exact profile restoration. New source SHA-256 values are
+`49323aeefd80734f81820a3addc95984ccd43309e8d6cf84264370a166068fe6`
+(expiry), `e5b74f2b5f92fef40f4ceb977e8b8546be4fd6e5c65859760042d63a8e162a72`
+(cut) and `79a0c94ee83b9fc2338a4229d9fa4e21b378c46438570c3ca35edbf8105cf7e8`
+(OAuth). The new boundary controls reject equality at the expiry threshold, and
+the shutdown controls prove signal exit, original launch-error propagation and
+absence of polling after timeout. Review replies/resolution follow publication.
+
+#5812 reaches all independent cases on both snapshot31 provinces; exactly four
+semantic comparisons fail on #5824/#5825, with clean browser diagnostics. The
+source digest is `8e99ffccaf2aff29f3462319d934cc41c4a57a69036516f26c10f0dbd24df459`.
+The known read-only `formRourke2009` reference is supported under Aria or MyISAM;
+owned writes still require InnoDB, and other nontransactional tables are refused.
+Four real engine/refusal comparisons pass on each installed 16 KiB MariaDB and
+the separate 32 KiB server. Each uses a private nonce-owned database, preserves
+all control/legacy rows and verifies its database is removed.
+
+The complete qualified Ubuntu Node run passes **7,504/7,504 cases in 529 files**,
+with no failures/skips/cancellations/TODO and unchanged test-file digests. The
+case inventory is regenerated from that exact report. All 354 Ubuntu Python
+cases, 68 manifest cases and 24 focused expiry/shutdown/OAuth controls pass.
+Independent final ON/BC audits confirm exact original properties, passing health
+and package checks, `NRestarts=0`, zero owned patient/provider/archive/message/task/
+lab rows, and the empty Messenger coordinator baseline. All 13 CI workflows pass
+at the prior published `aa1f1cf20fc4`; CI for the next publication is still required.
+Ten workflow implementations plus umbrella, native-database/vendor and repeated
+full qualification remain pending; this remains a draft with no closure claim.

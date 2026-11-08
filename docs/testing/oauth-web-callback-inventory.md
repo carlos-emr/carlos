@@ -39,3 +39,7 @@ Real-socket controls cover response confidentiality, interrupted binding,
 malformed incoming requests, resource retirement and namespace collision.
 Diagnostics retain failure attribution while stripping URL queries and known
 OAuth credentials. No secret, token or verifier is an artifact or receiver output.
+
+The registered-client fixture is clinic-wide. Require `EXCLUSIVE=1`; its
+manifest mutation declaration and standalone preflight enforce/document that
+prerequisite before SQL or browser setup.

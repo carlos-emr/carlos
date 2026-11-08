@@ -222,5 +222,7 @@ async function workflow(s) {
     h.assert(await sessions[0].schedule.locator(`a.apptLink[onclick*="appointment_no=${sql.value(`SELECT appointment_no FROM appointment WHERE provider_no=${q(owner.providerNo)}`)}&"]`).count()===1,'Booked appointment is missing from the owner day sheet');
   });
 }
-if(require.main===module)runWorkflow(NAME,workflow,{openMaster:false});
+if(require.main===module)runWorkflow(NAME,workflow,{openMaster:false,preflightConfig:()=>{
+  if(process.env.EXCLUSIVE!=='1'||process.env.CARLOS_DISPOSABLE_HOST!=='true')throw new h.SkipCheck('Requires EXCLUSIVE=1 and CARLOS_DISPOSABLE_HOST=true for owned slot-expiry fixtures');
+}});
 module.exports={workflow,expiryEvidence};
