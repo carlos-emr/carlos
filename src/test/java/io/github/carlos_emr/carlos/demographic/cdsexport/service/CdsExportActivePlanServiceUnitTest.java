@@ -68,4 +68,26 @@ class CdsExportActivePlanServiceUnitTest {
         assertThat(service.resolve().clinicalZone().getId()).isEqualTo("America/Toronto");
     }
 
+    @Test void shouldKeepMetadataIdentityAvailable_whenActiveBudgetsOrBuildIdentityAreInvalid() throws Exception {
+        var valid = new CdsExportActivePlanService(settings(), () -> "2026.09.0-test");
+        var broken = settings(); broken.setProperty("cds.export.maxPatients", "invalid");
+        var service = new CdsExportActivePlanService(broken, () -> { throw new AssertionError("Active build lookup during metadata recovery"); });
+        assertThat(service.compatibilityZoneSha256()).isEqualTo(valid.resolve().zoneSha256());
+    }
+    @Test void shouldKeepInvalidZoneIdentityDistinct_withoutPermittingClinicalWork() throws Exception {
+        var valid = new CdsExportActivePlanService(settings(), () -> "2026.09.0-test");
+        var identities = new java.util.HashSet<String>(); identities.add(valid.compatibilityZoneSha256());
+        for (String zone : new String[] {"", "invalid/zone", " America/Toronto"}) {
+            var configured = settings(); configured.setProperty("cds.export.clinicalZone", zone);
+            var service = new CdsExportActivePlanService(configured, () -> "2026.09.0-test");
+            assertThat(service.compatibilityZoneSha256()).matches("[0-9a-f]{64}");
+            assertThat(identities.add(service.compatibilityZoneSha256())).isTrue();
+            assertThatThrownBy(service::resolve).isInstanceOf(java.io.IOException.class);
+        }
+        var mismatch = settings(); mismatch.setProperty("cds.import.clinicalZone", "America/Vancouver");
+        var service = new CdsExportActivePlanService(mismatch, () -> "2026.09.0-test");
+        assertThat(identities.add(service.compatibilityZoneSha256())).isTrue();
+        assertThatThrownBy(service::resolve).hasMessage("CDS_EXPORT_CLINICAL_ZONE_MISMATCH");
+    }
+
 }

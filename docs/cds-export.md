@@ -1442,3 +1442,23 @@ Eighty-two affected checks passed, including 24 real MariaDB cases, actual write
 blocking/release, lost-connection refusal, independent deadline release and the
 whole catalogue through the actual guarded CLI datasource. Clean packaging and
 installed reruns of this source gate remain required.
+
+
+### Clinical adapter and metadata recovery checkpoint
+
+The complete source-catalogue checkpoint (`c2f54feb7394`) passed a clean package with
+998 focused checks across 66 suites, zero failures, errors or skips, and full Javadoc.
+The exact WAR SHA-256 is
+`293d551b542454e3ee00f1b7414df19b847661dd2c249dcbf9e7db485d7642c5`.
+Installed chart reruns are separate evidence and remain pending at this checkpoint.
+
+`CdsExportClinicalEngine` supplies the concrete OntarioMD adapter to the coordinated
+clinical job service. It is deliberately not registered in the default application
+or CLI context until its installed publication and transport tests pass. PCON is
+not advertised by this adapter. Registry compatibility now depends on installed
+implementation identity and the explicit clinic zone, without parsing active work
+budgets or resolving the application build version. Invalid zones receive a distinct
+non-executable identity so metadata and retention recovery remain available; clinical
+admission still requires the strict active plan. Twenty-four affected identity,
+registry and job orchestration checks passed. This checkpoint does not qualify a
+clinical profile or establish successful clinical publication.

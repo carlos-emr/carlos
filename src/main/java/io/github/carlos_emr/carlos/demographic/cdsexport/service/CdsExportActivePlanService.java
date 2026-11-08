@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.utility.BuildInfo;
+import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.*;
@@ -41,12 +42,29 @@ public class CdsExportActivePlanService {
     @org.springframework.beans.factory.annotation.Autowired
     public CdsExportActivePlanService(@Qualifier("cdsExportProperties") Properties settings) { this(settings, () -> BuildInfo.getInstance().getVersion()); }
     CdsExportActivePlanService(Properties settings, Supplier<String> version) { this.settings.putAll(Objects.requireNonNull(settings)); this.version = Objects.requireNonNull(version); }
-    public Plan resolve() throws IOException {
+    /**
+     * Registry identity must remain available to metadata/recovery commands even when
+     * admission settings are invalid. An invalid zone gets a distinct, non-executable
+     * identity; resolve() still refuses it before any clinical work is accepted.
+     */
+    public String compatibilityZoneSha256() {
+        try { return zone().sha256(); }
+        catch (IOException invalid) {
+            return CdsImportKeys.hash("CARLOS_CDS_EXPORT_INVALID_ZONE_1",
+                    settings.getProperty("cds.export.clinicalZone", ""),
+                    settings.getProperty("cds.import.clinicalZone", ""));
+        }
+    }
+    private CdsExportClinicalZone.Snapshot zone() throws IOException {
         var zone = CdsExportClinicalZone.capture(settings.getProperty("cds.export.clinicalZone", ""));
         String importZone = settings.getProperty("cds.import.clinicalZone", "").trim();
         if (!importZone.isEmpty() && !zone.sha256().equals(CdsExportClinicalZone.capture(importZone).sha256())) {
             throw new IOException("CDS_EXPORT_CLINICAL_ZONE_MISMATCH");
         }
+        return zone;
+    }
+    public Plan resolve() throws IOException {
+        var zone = zone();
         String build = version.get();
         if (build == null || build.isBlank() || build.length() > 128 || !CdsExportNativeFieldAssessments.legal(build, 128) || build.contains("${")
                 || build.codePoints().anyMatch(Character::isISOControl)) throw new IOException("CDS_EXPORT_BUILD_VERSION_UNAVAILABLE");

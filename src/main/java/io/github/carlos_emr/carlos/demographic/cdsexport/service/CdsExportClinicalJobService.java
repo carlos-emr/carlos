@@ -61,7 +61,7 @@ public class CdsExportClinicalJobService {
         this.stores = stores; this.selections = selections; this.cohorts = cohorts; this.ledger = ledger; this.packages = packages;
         this.delivery = delivery; this.publication = publication;
     }
-    public String compatibilityDigest() throws IOException { return digest(identity.current(), plans.resolve().zoneSha256()); }
+    public String compatibilityDigest() throws IOException { return digest(identity.current(), plans.compatibilityZoneSha256()); }
     public CdsExportJobDocumentDto bind(CdsExportActorDto actor, CdsExportCommand command) throws IOException {
         outside(); configuration.requireEnabled(); access.requireScope(actor, command); var plan = plans.resolve();
         var policy = disclosure.resolve(command, Instant.now()); var storage = stores.bind();

@@ -64,7 +64,7 @@ class CdsExportClinicalJobServiceUnitTest {
     private CdsExportJobDto ready;
     @BeforeEach void clinicalJob() throws Exception {
         var settings = new Properties(); settings.setProperty("cds.export.clinicalZone", "America/Toronto"); plan = new CdsExportActivePlanService(settings, () -> "2026.09.0-test").resolve();
-        when(plans.resolve()).thenReturn(plan); when(identity.current()).thenAnswer(call -> runtime.get());
+        when(plans.resolve()).thenReturn(plan); when(plans.compatibilityZoneSha256()).thenReturn(plan.zoneSha256()); when(identity.current()).thenAnswer(call -> runtime.get());
         service = new CdsExportClinicalJobService(identity, plans, configuration, access, disclosure, stores, selections, cohorts, ledger, packages, delivery, provider);
         var command = new CdsExportCommand("job-proof", "999998", null, CdsLogicalProfile.ONTARIO_MD_5_2, CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), List.of(27), Set.of(CdsCategory.DEMOGRAPHICS), "fixture", "fixture");
         var actor = new CdsExportActorDto("agent", "999998", null, null); var binding = new CdsExportStorageBindingDto("primary", "primary", "a".repeat(64));
