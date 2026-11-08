@@ -104,7 +104,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                     if (refs == null || compared == null || !refs.equals(compared.stream().map(CdsExportRetainedReceiptVerificationDto.CheckedReference::expected).toList())) invalid();
                     var prepared = new CdsExportRetainedPreparationReader().report(index, address).value();
                     var sourceValues = new CdsExportReportRetainedSource().read(patient.patient(), address, index, checked, retained, streams, bounds.bytes(), control);
-                    if (refs.size() != 2 * sourceValues.variants().size()) review();
+                    CdsExportReportPublicationEvidence.require(address, index, refs, sourceValues.variants(), control::checkpoint);
                     var assessments = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>(); var nativeRows = new ArrayList<CdsExportCapturedTextRowDto>();
                     var fileAssessments = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
                     var identity = new CdsExportIdentityDto(patientKey, category(), CdsImportKeys.hash("carlos-retained-occurrence-v1", address));

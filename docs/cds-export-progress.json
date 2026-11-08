@@ -610,12 +610,22 @@
     "completeEmbeddedContentDigestAndLengthVerified": true,
     "allSourceDatesIncludingReviewersAndObrObservationsUseOriginalShift": true,
     "referencedFilesRequireExplicitPrivateAttachmentSink": true,
-    "sourceAndBindingFocusedChecks": 120,
+    "sourceAndBindingFocusedChecks": 149,
     "actualMariaDbAndCliChecks": 12,
     "productionUidRealFilesystemChecks": 21,
     "countsOverlap": true,
     "sharedDanglingRestrictedReviewerAndDatabaseFileSidecarsRequireReview": true,
     "nativeOnlyEditedAndOtherDocumentDomainsRequireReview": true,
-    "clinicalPublication": false
+    "clinicalPublication": false,
+    "coordinatedBaselineChecks": 4848,
+    "coordinatedBaselineRequestedSuites": 365,
+    "fullJavadocAtBaselinePassed": true,
+    "genuineImportAssertions": 9,
+    "genuineImportComplete": true,
+    "genuineReportCount": 2,
+    "genuineNativeRepresentations": 3,
+    "genuineRetainedScalarFields": 35,
+    "durablePublicationReferenceClosureFixPendingExactInstalledRerun": true,
+    "metadataRecoveryDoesNotRequireValidActiveFileBounds": true
   }
 }

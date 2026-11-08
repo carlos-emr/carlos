@@ -279,5 +279,7 @@
   "CdsExportReportRetainedSourceUnitTest",
   "CdsExportReportOccurrenceServiceUnitTest",
   "CdsExportDocumentInputStreamUnitTest",
-  "CdsExportCapturedDocumentFilesUnitTest"
+  "CdsExportCapturedDocumentFilesUnitTest",
+  "CdsExportDocumentFileSourceReaderUnitTest",
+  "CdsExportReportPublicationEvidenceUnitTest"
 ]
