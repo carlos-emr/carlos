@@ -104,7 +104,7 @@ class PatientUnitTest {
         var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(wrapper.getFhirJSON());
 
         assertThat(json.path("name").get(0).has("given")).isFalse();
-        assertThat(wrapper.getFhirResource().getNameFirstRep().getGivenAsSingleString()).isEqualTo(" ");
+        assertThat(wrapper.getFhirResource().getNameFirstRep().getGiven().get(0).getValue()).isEqualTo(" ");
         assertThat(source.getPhone()).isEqualTo("\t");
     }
 }
