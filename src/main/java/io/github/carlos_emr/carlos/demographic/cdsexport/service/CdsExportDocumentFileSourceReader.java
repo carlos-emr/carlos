@@ -30,6 +30,7 @@ import java.nio.charset.*;
 import java.nio.file.*;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 /** Native files are encrypted within the same patient snapshot as their complete document/link metadata. */
@@ -39,7 +40,7 @@ public class CdsExportDocumentFileSourceReader implements CdsExportNativeSourceR
     private final DocumentDao documents;
     private final String root;
     private final String configuredMaximumBytes;
-    public CdsExportDocumentFileSourceReader(DocumentDao documents, @Value("${DOCUMENT_DIR:}") String root,
+    public CdsExportDocumentFileSourceReader(@Qualifier("documentDaoImpl") DocumentDao documents, @Value("${DOCUMENT_DIR:}") String root,
             @Value("${cds.export.maxDocumentBytes:1073741824}") String maximumBytes) {
         this.documents = Objects.requireNonNull(documents); this.root = Objects.requireNonNull(root);
         configuredMaximumBytes = Objects.requireNonNull(maximumBytes);

@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.commn.dao.DocumentDao;
 import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -41,13 +42,18 @@ class CdsExportLegacyDaoWiringUnitTest {
         var oldIssues = mock(CaseManagementIssueDAO.class);
         var notes = mock(CaseManagementNoteDAO.class);
         var oldNotes = mock(CaseManagementNoteDAO.class);
+        var documents = mock(DocumentDao.class);
+        var mergedDocuments = mock(DocumentDao.class);
         var scopes = mock(CdsExportNoteAccessDao.class);
         var projection = mock(CdsExportNoteScopeProjectionService.class);
+        when(documents.countCdsExportRows(27)).thenReturn(5L);
         when(issues.countCdsExportRows(27)).thenReturn(3L);
         when(notes.countCdsExportIssueLinks(27)).thenReturn(4L);
         when(projection.read(27, 8192)).thenReturn(List.of());
         when(scopes.readScopes(27, 8192)).thenReturn(List.of());
         try (var context = new AnnotationConfigApplicationContext()) {
+            context.getBeanFactory().registerSingleton("documentDaoImpl", documents);
+            context.getBeanFactory().registerSingleton("documentDao", mergedDocuments);
             context.getBeanFactory().registerSingleton("caseManagementIssueDAO", issues);
             context.getBeanFactory().registerSingleton("CaseManagementIssueDAO", oldIssues);
             context.getBeanFactory().registerSingleton("caseManagementNoteDAO", notes);
@@ -55,8 +61,11 @@ class CdsExportLegacyDaoWiringUnitTest {
             context.getBeanFactory().registerSingleton("cdsExportNoteAccessDao", scopes);
             context.getBeanFactory().registerSingleton("cdsExportNoteScopeProjectionService", projection);
             context.register(CdsExportCaseIssueSourceReader.class, CdsExportNoteSourceReader.class,
-                    CdsExportNoteIssueLinkSourceReader.class);
+                    CdsExportNoteIssueLinkSourceReader.class, CdsExportDocumentSourceReader.class,
+                    CdsExportDocumentFileSourceReader.class);
             context.refresh();
+            assertThat(context.getBean(CdsExportDocumentSourceReader.class).count(27)).isEqualTo(5);
+            assertThat(context.getBean(CdsExportDocumentFileSourceReader.class).count(27)).isEqualTo(5);
             assertThat(context.getBean(CdsExportCaseIssueSourceReader.class).count(27)).isEqualTo(3);
             assertThat(context.getBean(CdsExportNoteIssueLinkSourceReader.class).count(27)).isEqualTo(4);
             var prepared = context.getBean(CdsExportNoteSourceReader.class)
@@ -65,7 +74,8 @@ class CdsExportLegacyDaoWiringUnitTest {
             verify(issues).countCdsExportRows(27);
             verify(notes).countCdsExportIssueLinks(27);
             verify(notes).countCdsExportRows(27);
-            verifyNoInteractions(oldIssues, oldNotes);
+            verify(documents, times(2)).countCdsExportRows(27);
+            verifyNoInteractions(oldIssues, oldNotes, mergedDocuments);
         }
     }
 }

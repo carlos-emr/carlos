@@ -26,11 +26,12 @@ import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import java.util.Set;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 /** Complete patient-associated report metadata; shared, dangling and unqualified restricted documents require review before payload capture. */
 @Service
 public class CdsExportDocumentSourceReader extends CdsExportPatientTableSourceReader {
-    public CdsExportDocumentSourceReader(DocumentDao source) {
+    public CdsExportDocumentSourceReader(@Qualifier("documentDaoImpl") DocumentDao source) {
         super(source, CdsExportPatientTableReadSupport.Plan.DOCUMENTS, Set.of(CdsCategory.REPORTS));
     }
     @Override public Set<String> requiredTables() { return Set.of("document", "ctl_document", CdsExportDocumentFileSourceReader.TABLE); }

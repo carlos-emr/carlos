@@ -54,7 +54,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Profile("cds-export-cli")
 @EnableTransactionManagement(proxyTargetClass = true)
 @org.springframework.context.annotation.EnableAspectJAutoProxy(proxyTargetClass = true)
-@Import({CdsExportSourceSnapshotService.class, io.github.carlos_emr.carlos.commn.dao.CdsExportSourceCatalogueDao.class, CdsExportSourceCatalogueReader.class, io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class, CdsExportHospitalReportScopeSourceReader.class, io.github.carlos_emr.carlos.commn.dao.DocumentDaoImpl.class, io.github.carlos_emr.carlos.commn.dao.CtlDocumentDaoImpl.class, CdsExportDocumentSourceReader.class, CdsExportReportOccurrenceService.class, CdsExportDocumentFileSourceReader.class, CdsExportDocumentLinkSourceReader.class, CdsExportCareOccurrenceService.class, io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.class, CdsExportMeasurementSourceReader.class,
+@Import({CdsExportSourceSnapshotService.class, io.github.carlos_emr.carlos.commn.dao.CdsExportSourceCatalogueDao.class, CdsExportSourceCatalogueReader.class, io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class, CdsExportHospitalReportScopeSourceReader.class, io.github.carlos_emr.carlos.commn.dao.CtlDocumentDaoImpl.class, CdsExportDocumentSourceReader.class, CdsExportReportOccurrenceService.class, CdsExportDocumentFileSourceReader.class, CdsExportDocumentLinkSourceReader.class, CdsExportCareOccurrenceService.class, io.github.carlos_emr.carlos.commn.dao.MeasurementDaoImpl.class, CdsExportMeasurementSourceReader.class,
         io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDaoImpl.class, CdsExportMeasurementExtensionSourceReader.class,
         io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDaoImpl.class, CdsExportDeletedMeasurementSourceReader.class,
         io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDaoImpl.class, CdsExportMeasurementTypeSourceReader.class, CdsExportNewCategoryOccurrenceService.class, CdsExportCategoryOccurrenceRegistry.class, CdsExportLaboratoryOccurrenceService.class, io.github.carlos_emr.carlos.commn.dao.CdsLaboratoryResultDao.class, CdsExportLaboratorySourceReader.class,
@@ -89,6 +89,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 public class CdsExportCliSpringConfiguration {
     @Bean public io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl caseManagementIssueDAO() { return new io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl(); }
     @Bean public io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl caseManagementNoteDAO() { return new io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl(); }
+    // The web context also has a merged-document DAO; export requires the exact-patient owner in both transports.
+    @Bean public io.github.carlos_emr.carlos.commn.dao.DocumentDaoImpl documentDaoImpl() { return new io.github.carlos_emr.carlos.commn.dao.DocumentDaoImpl(); }
     @Bean public io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl drugDao() { return new io.github.carlos_emr.carlos.commn.dao.DrugDaoImpl(); }
     @Bean public io.github.carlos_emr.carlos.commn.dao.AllergyDaoImpl allergyDao() { return new io.github.carlos_emr.carlos.commn.dao.AllergyDaoImpl(); }
     @Bean public CacheManager cacheManager() { return new NoOpCacheManager(); }
