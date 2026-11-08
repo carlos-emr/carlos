@@ -89,7 +89,7 @@ public class printLabDaySheet2Action extends ActionSupport {
         try {
             SpringUtils.getBean(io.github.carlos_emr.carlos.report.FixedDaySheetReportService.class)
                     .writePdf(response, request.getParameter("input_date"), style);
-        } catch (java.time.DateTimeException | IllegalArgumentException ex) {
+        } catch (io.github.carlos_emr.carlos.report.FixedDaySheetReportService.InvalidDateException ex) {
             sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (Exception ex) {
             // Template/JDBC exceptions can contain patient values or configured SQL.

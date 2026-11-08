@@ -19,13 +19,13 @@ public class FixedJasperReportDao {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
-    public record DaySheetRow(Integer appointment_no,
-                              String provider_no,
-                              java.sql.Date appointment_date,
-                              java.sql.Time start_time,
-                              java.sql.Time end_time,
+    public record DaySheetRow(Integer appointmentNo,
+                              String providerNo,
+                              java.sql.Date appointmentDate,
+                              java.sql.Time startTime,
+                              java.sql.Time endTime,
                               String name,
-                              Integer demographic_no,
+                              Integer demographicNo,
                               String notes,
                               String reason,
                               String location,
@@ -34,22 +34,22 @@ public class FixedJasperReportDao {
                               String style,
                               String billing,
                               String status,
-                              java.sql.Timestamp createdatetime,
-                              java.sql.Timestamp updatedatetime,
+                              java.sql.Timestamp createdAt,
+                              java.sql.Timestamp updatedAt,
                               String creator,
                               String remarks) {
         public DaySheetRow {
-            appointment_date = copy(appointment_date);
-            start_time = copy(start_time);
-            end_time = copy(end_time);
-            createdatetime = copy(createdatetime);
-            updatedatetime = copy(updatedatetime);
+            appointmentDate = copy(appointmentDate);
+            startTime = copy(startTime);
+            endTime = copy(endTime);
+            createdAt = copy(createdAt);
+            updatedAt = copy(updatedAt);
         }
-        @Override public Date appointment_date() { return copy(appointment_date); }
-        @Override public java.sql.Time start_time() { return copy(start_time); }
-        @Override public java.sql.Time end_time() { return copy(end_time); }
-        @Override public java.sql.Timestamp createdatetime() { return copy(createdatetime); }
-        @Override public java.sql.Timestamp updatedatetime() { return copy(updatedatetime); }
+        @Override public Date appointmentDate() { return copy(appointmentDate); }
+        @Override public java.sql.Time startTime() { return copy(startTime); }
+        @Override public java.sql.Time endTime() { return copy(endTime); }
+        @Override public java.sql.Timestamp createdAt() { return copy(createdAt); }
+        @Override public java.sql.Timestamp updatedAt() { return copy(updatedAt); }
     }
     private static Date copy(Date value) { return value == null ? null : new Date(value.getTime()); }
     private static java.sql.Time copy(java.sql.Time value) {
@@ -76,7 +76,12 @@ public class FixedJasperReportDao {
 
     /** Retains the legacy date-only selection, across all providers/statuses, with no added ordering. */
     public List<DaySheetRow> daySheet(Date date) {
-        NativeQuery<?> query = entityManager.createNativeQuery("select appointment_no, provider_no, appointment_date, start_time, end_time, name, demographic_no, notes, reason, location, resources, type, style, billing, status, createdatetime, updatedatetime, creator, remarks from appointment where appointment_date = :date")
+        NativeQuery<?> query = entityManager.createNativeQuery("""
+                select appointment_no, provider_no, appointment_date, start_time, end_time, name,
+                       demographic_no, notes, reason, location, resources, type, style, billing,
+                       status, createdatetime, updatedatetime, creator, remarks
+                from appointment where appointment_date = :date
+                """)
                 .unwrap(NativeQuery.class);
         query.addScalar("appointment_no", Integer.class);
         query.addScalar("provider_no", String.class);

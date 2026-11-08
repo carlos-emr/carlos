@@ -86,7 +86,7 @@ Other configured-report boundaries and Query by Example's restricted account are
 unchanged.
 
 Test-only baseline templates in `src/test/resources/jasper-5692-baseline/` are copied
-from release commit `e0601ced004c38040e6ef293e4b3f24fc43826d3` solely for synthetic
+from release commit `e0601ced004c38040e6ef293e4b3f24fc43826d3` (trailing whitespace normalized) solely for synthetic
 JDBC-versus-typed rendered-output comparisons; they are not packaged in the WAR.
 
 `LookupDao.runProcedure` had no production callers and is removed rather than

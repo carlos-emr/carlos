@@ -31,10 +31,10 @@ class FixedJasperReportDaoIntegrationTest extends CarlosTestBase {
         entityManager.flush();
         entityManager.clear();
         var rows = reports.daySheet(Date.valueOf("2025-03-01"));
-        assertThat(rows).extracting(FixedJasperReportDao.DaySheetRow::appointment_no)
+        assertThat(rows).extracting(FixedJasperReportDao.DaySheetRow::appointmentNo)
                 .containsExactlyInAnyOrder(first.getId(), cancelled.getId());
-        assertThat(rows.getFirst().start_time()).isInstanceOf(Time.class);
-        assertThat(rows.getFirst().appointment_date()).isEqualTo(Date.valueOf("2025-03-01"));
+        assertThat(rows.getFirst().startTime()).isInstanceOf(Time.class);
+        assertThat(rows.getFirst().appointmentDate()).isEqualTo(Date.valueOf("2025-03-01"));
         assertThat(rows.getFirst().notes()).isNull();
         for (String name : new String[]{"labDaySheet.xml", "billDaySheet.xml"}) {
             try (var template = getClass().getResourceAsStream("/oscar/oscarReport/pageUtil/" + name);

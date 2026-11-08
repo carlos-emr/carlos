@@ -46,4 +46,35 @@ class FixedDaySheetReportServiceUnitTest {
             assertThat(response.getContentAsByteArray()).isEmpty();
         } finally { System.setProperty("user.home", previous); }
     }
+    @Test
+    void shouldPreserveCustomSqlAndCloseItsConnection_withoutCallingTheClinicalDao() throws Exception {
+        String previous = System.getProperty("user.home");
+        var connection = java.sql.DriverManager.getConnection("jdbc:h2:mem:jasper5692_override");
+        try (var jdbc = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.db.LegacyJdbcQuery.class)) {
+            System.setProperty("user.home", directory.toString());
+            java.nio.file.Files.writeString(directory.resolve("Addresslabel.xml"), """
+                <jasperReport name="override" pageWidth="300" pageHeight="200" columnWidth="260"
+                    leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20">
+                    <query language="sql"><![CDATA[select 'Override5692' as custom_name]]></query>
+                    <field name="custom_name" class="java.lang.String"/>
+                    <detail><band height="20"><element kind="textField" x="0" y="0" width="200" height="20">
+                        <expression><![CDATA[$F{custom_name}]]></expression>
+                    </element></band></detail>
+                </jasperReport>
+                """);
+            jdbc.when(io.github.carlos_emr.carlos.db.LegacyJdbcQuery::getConnection).thenReturn(connection);
+            var reports = mock(FixedJasperReportDao.class);
+            var response = new MockHttpServletResponse();
+            new FixedDaySheetReportService(reports).writePdf(response, null, "labDaySheet.xml");
+            assertThat(connection.isClosed()).isTrue();
+            verifyNoInteractions(reports);
+            try (var pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
+                assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf)).contains("Override5692");
+            }
+        } finally {
+            connection.close();
+            System.setProperty("user.home", previous);
+        }
+    }
+
 }

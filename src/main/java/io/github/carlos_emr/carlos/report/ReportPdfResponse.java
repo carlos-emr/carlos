@@ -24,6 +24,15 @@ public final class ReportPdfResponse {
                     throw new IOException("Report renderer returned invalid PDF data");
                 }
             }
+            try (var channel = java.nio.channels.FileChannel.open(temp.path, java.nio.file.StandardOpenOption.READ)) {
+                int length = (int) Math.min(channel.size(), 128);
+                var tail = java.nio.ByteBuffer.allocate(length);
+                channel.position(channel.size() - length);
+                while (tail.hasRemaining() && channel.read(tail) >= 0) { /* read the bounded trailer */ }
+                if (!new String(tail.array(), StandardCharsets.US_ASCII).matches("(?s).*%%EOF\\s*")) {
+                    throw new IOException("Report renderer returned incomplete PDF data");
+                }
+            }
             response.setContentType("application/pdf");
             response.setHeader("Content-Disposition", disposition);
             response.setHeader("Cache-Control", "max-age=0");

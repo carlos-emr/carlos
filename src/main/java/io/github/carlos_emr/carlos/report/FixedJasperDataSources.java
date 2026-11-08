@@ -15,13 +15,13 @@ public final class FixedJasperDataSources {
 
     public static JRDataSource daySheet(List<DaySheetRow> rows) {
         return source(rows, (row, name) -> switch (name) {
-            case "appointment_no" -> row.appointment_no();
-            case "provider_no" -> row.provider_no();
-            case "appointment_date" -> row.appointment_date();
-            case "start_time" -> row.start_time();
-            case "end_time" -> row.end_time();
+            case "appointment_no" -> row.appointmentNo();
+            case "provider_no" -> row.providerNo();
+            case "appointment_date" -> row.appointmentDate();
+            case "start_time" -> row.startTime();
+            case "end_time" -> row.endTime();
             case "name" -> row.name();
-            case "demographic_no" -> row.demographic_no();
+            case "demographic_no" -> row.demographicNo();
             case "notes" -> row.notes();
             case "reason" -> row.reason();
             case "location" -> row.location();
@@ -30,8 +30,8 @@ public final class FixedJasperDataSources {
             case "style" -> row.style();
             case "billing" -> row.billing();
             case "status" -> row.status();
-            case "createdatetime" -> row.createdatetime();
-            case "updatedatetime" -> row.updatedatetime();
+            case "createdatetime" -> row.createdAt();
+            case "updatedatetime" -> row.updatedAt();
             case "creator" -> row.creator();
             case "remarks" -> row.remarks();
             default -> throw new JRException("Unknown day-sheet field: " + name);

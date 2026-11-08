@@ -43,7 +43,7 @@ import static org.mockito.Mockito.when;
 class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     @Test
-    void shouldUseOneDetachedSnapshot_forHtmlTotalsAndPdfRows() {
+    void shouldUseOneDetachedSnapshot_forHtmlTotalsAndPdfRows() throws Exception {
         var dao = mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class);
         var service = new PatientEndYearStatementService(dao, mock(DemographicManager.class));
         Demographic demographic = new Demographic();
@@ -60,6 +60,41 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
         assertThat(result.summary().getInvoiced()).isEqualTo("30.00");
         assertThat(result.summary().getPaid()).isEqualTo("-5.00");
         verify(dao).statement(123, null, null);
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        try (var jdbc = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.db.LegacyJdbcQuery.class,
+                invocation -> { throw new AssertionError("JDBC attempted during detached PDF rendering"); })) {
+            service.writePdfResponse(response, "statement", result, "2025-01-01", "2025-12-31");
+        }
+        org.mockito.Mockito.verifyNoMoreInteractions(dao);
+        assertThat(response.getContentType()).isEqualTo("application/pdf");
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf))
+                    .contains("A001A", "30.00", "-5.00");
+        }
+    }
+
+    @Test
+    void shouldRenderEveryInvoiceAndService_acrossMultiplePages() throws Exception {
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class);
+        var service = new PatientEndYearStatementService(dao, mock(DemographicManager.class));
+        var patient = new Demographic(); patient.setDemographicNo(123);
+        patient.setFirstName("Multi"); patient.setLastName("Synthetic");
+        var rows = java.util.stream.IntStream.rangeClosed(1, 200).mapToObj(id ->
+                new io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.InvoiceRow(id,
+                        java.sql.Date.valueOf("2025-01-01"), new BigDecimal("3.00"), BigDecimal.ZERO,
+                        List.of(new io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.ItemRow(id, "A5692", "3.00"))))
+                .toList();
+        when(dao.statement(123, null, null)).thenReturn(rows);
+        var result = service.aggregateInvoices(patient, null, null);
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        service.writePdfResponse(response, "multi", result, "2025-01-01", "2025-12-31");
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
+            assertThat(pdf.getNumberOfPages()).isGreaterThan(1);
+            String text = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
+            assertThat(org.apache.commons.lang3.StringUtils.countMatches(text, "A5692")).isEqualTo(200);
+            assertThat(text).contains("600.00");
+        }
+        assertThat(result.summary().getCount()).isEqualTo("200");
     }
 
     @Test
@@ -80,7 +115,7 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "<html>Error</html>"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"", "<html>Error</html>", "%PDF-partial"})
     void shouldRejectInvalidRendererOutput_beforeSettingPdfHeaders(String rendered) {
         var service = spy(new PatientEndYearStatementService(
                 mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class), mock(DemographicManager.class)));

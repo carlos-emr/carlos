@@ -40,13 +40,15 @@ public class FixedDaySheetReportService {
                         parameters);
             }
         } else {
-            if (date == null || date.isBlank()) throw new IllegalArgumentException("Missing report date");
+            if (date == null || date.isBlank()) throw new InvalidDateException();
             String path = switch (style) {
                 case "billDaySheet.xml" -> "/oscar/oscarReport/pageUtil/billDaySheet.xml";
                 case "labDaySheet.xml" -> "/oscar/oscarReport/pageUtil/labDaySheet.xml";
                 default -> throw new IllegalArgumentException("Unsupported day sheet template");
             };
-            Date selected = Date.valueOf(java.time.LocalDate.parse(date));
+            Date selected;
+            try { selected = Date.valueOf(java.time.LocalDate.parse(date)); }
+            catch (java.time.DateTimeException | IllegalArgumentException ex) { throw new InvalidDateException(); }
             var rows = reports.daySheet(selected);
             try (InputStream input = getClass().getResourceAsStream(path)) {
                 if (input == null) throw new IOException("Missing day sheet template");
@@ -63,5 +65,10 @@ public class FixedDaySheetReportService {
             try { JasperExportManager.exportReportToPdfStream(print, output); }
             catch (JRException ex) { throw new IOException("Could not export day sheet", ex); }
         });
+    }
+
+    public static final class InvalidDateException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+        private InvalidDateException() { super("Invalid day sheet date"); }
     }
 }

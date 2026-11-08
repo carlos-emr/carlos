@@ -42,6 +42,7 @@ class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
         patient.setLastName("Fixture");
         patient.setHin("1234567890");
         patient.setSex("F");
+        patient.setPrefName("");
         entityManager.persist(patient);
         entityManager.flush();
     }
@@ -97,6 +98,7 @@ class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
         otherDemographic.setFirstName("Other");
         otherDemographic.setLastName("StatementFixture");
         otherDemographic.setSex("F");
+        otherDemographic.setPrefName("");
         entityManager.persist(otherDemographic);
         entityManager.flush();
         var otherPatient = invoice("PAT", "O", "2025-06-15", "44.00", "0.00");
