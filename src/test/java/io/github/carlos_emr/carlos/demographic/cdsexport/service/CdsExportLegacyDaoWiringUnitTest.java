@@ -48,12 +48,12 @@ class CdsExportLegacyDaoWiringUnitTest {
         when(projection.read(27, 8192)).thenReturn(List.of());
         when(scopes.readScopes(27, 8192)).thenReturn(List.of());
         try (var context = new AnnotationConfigApplicationContext()) {
-            context.registerBean("caseManagementIssueDAO", CaseManagementIssueDAO.class, () -> issues);
-            context.registerBean("CaseManagementIssueDAO", CaseManagementIssueDAO.class, () -> oldIssues);
-            context.registerBean("caseManagementNoteDAO", CaseManagementNoteDAO.class, () -> notes);
-            context.registerBean("CaseManagementNoteDAO", CaseManagementNoteDAO.class, () -> oldNotes);
-            context.registerBean(CdsExportNoteAccessDao.class, () -> scopes);
-            context.registerBean(CdsExportNoteScopeProjectionService.class, () -> projection);
+            context.getBeanFactory().registerSingleton("caseManagementIssueDAO", issues);
+            context.getBeanFactory().registerSingleton("CaseManagementIssueDAO", oldIssues);
+            context.getBeanFactory().registerSingleton("caseManagementNoteDAO", notes);
+            context.getBeanFactory().registerSingleton("CaseManagementNoteDAO", oldNotes);
+            context.getBeanFactory().registerSingleton("cdsExportNoteAccessDao", scopes);
+            context.getBeanFactory().registerSingleton("cdsExportNoteScopeProjectionService", projection);
             context.register(CdsExportCaseIssueSourceReader.class, CdsExportNoteSourceReader.class,
                     CdsExportNoteIssueLinkSourceReader.class);
             context.refresh();
