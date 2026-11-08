@@ -61,16 +61,14 @@ public class CdsExportClinicalOccurrenceService {
     private final CdsExportNativeCaptureService captures;
     private final CdsExportCapturedTextRowsReader rows;
     private final CdsExportHistoryOccurrenceService histories;
-    private final CdsExportImmunizationOccurrenceService immunizations;
-    private final CdsExportAppointmentOccurrenceService appointments;
-    private final CdsExportLaboratoryOccurrenceService laboratories;
+    private final CdsExportCategoryOccurrenceRegistry categories;
     public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures) {
         this(values, verification, witnesses, captures, new CdsExportCapturedTextRowsReader(captures));
     }
     CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows) {
-        this(values, verification, witnesses, captures, rows, null, null);
+        this(values, verification, witnesses, captures, rows, (CdsExportImmunizationOccurrenceService) null, (CdsExportAppointmentOccurrenceService) null);
     }
     public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportImmunizationOccurrenceService immunizations) {
@@ -85,11 +83,16 @@ public class CdsExportClinicalOccurrenceService {
             CdsExportAppointmentOccurrenceService appointments, CdsExportHistoryOccurrenceService histories) {
         this(values, verification, witnesses, captures, new CdsExportCapturedTextRowsReader(captures), Objects.requireNonNull(immunizations), Objects.requireNonNull(appointments), Objects.requireNonNull(histories));
     }
-    @Autowired public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
+    public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportImmunizationOccurrenceService immunizations,
             CdsExportAppointmentOccurrenceService appointments, CdsExportHistoryOccurrenceService histories, CdsExportLaboratoryOccurrenceService laboratories) {
         this(values, verification, witnesses, captures, new CdsExportCapturedTextRowsReader(captures), Objects.requireNonNull(immunizations),
                 Objects.requireNonNull(appointments), Objects.requireNonNull(histories), Objects.requireNonNull(laboratories));
+    }
+    @Autowired public CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportHistoryOccurrenceService histories,
+            CdsExportCategoryOccurrenceRegistry categories) {
+        this(values, verification, witnesses, captures, new CdsExportCapturedTextRowsReader(captures), histories, categories);
     }
     private CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows, CdsExportImmunizationOccurrenceService immunizations, CdsExportAppointmentOccurrenceService appointments) {
@@ -104,12 +107,22 @@ public class CdsExportClinicalOccurrenceService {
             CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows,
             CdsExportImmunizationOccurrenceService immunizations, CdsExportAppointmentOccurrenceService appointments, CdsExportHistoryOccurrenceService histories,
             CdsExportLaboratoryOccurrenceService laboratories) {
-        this.laboratories = laboratories;
-        this.histories = histories;
-        this.appointments=appointments;
-        this.immunizations = immunizations;
+        this(values, verification, witnesses, captures, rows, histories, legacy(immunizations, appointments, laboratories));
+    }
+    private CdsExportClinicalOccurrenceService(CdsExportRetainedValuesService values, CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses, CdsExportNativeCaptureService captures, CdsExportCapturedTextRowsReader rows,
+            CdsExportHistoryOccurrenceService histories, CdsExportCategoryOccurrenceRegistry categories) {
+        this.histories = histories; this.categories = Objects.requireNonNull(categories);
         this.values = Objects.requireNonNull(values); this.verification = Objects.requireNonNull(verification);
         this.witnesses = Objects.requireNonNull(witnesses); this.captures = Objects.requireNonNull(captures); this.rows = Objects.requireNonNull(rows);
+    }
+    private static CdsExportCategoryOccurrenceRegistry legacy(CdsExportImmunizationOccurrenceService immunizations,
+            CdsExportAppointmentOccurrenceService appointments, CdsExportLaboratoryOccurrenceService laboratories) {
+        var selected = new EnumMap<CdsCategory, CdsExportCategoryOccurrenceAssembler>(CdsCategory.class);
+        if (immunizations != null) selected.put(CdsCategory.IMMUNIZATIONS, immunizations);
+        if (appointments != null) selected.put(CdsCategory.APPOINTMENTS, appointments);
+        if (laboratories != null) selected.put(CdsCategory.LABORATORY_RESULTS, laboratories);
+        return new CdsExportCategoryOccurrenceRegistry(selected);
     }
     /** Keeps seven history wire positions within one authenticated patient source session. */
     public void withHistorySource(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient, String patientKey,
@@ -130,19 +143,12 @@ public class CdsExportClinicalOccurrenceService {
             Set<String> requiredTables, CdsExportPatientCaptureDto source, CdsExportStagedFileDto payloadManifest,
             Bounds bounds, CdsExportRunControl control, CdsExportXmlComposer.SectionEmitter xml, Receipts output) throws IOException {
         Objects.requireNonNull(output); patient.require(lease);
-        if (category == CdsCategory.LABORATORY_RESULTS) {
-            if (laboratories == null) scope();
-            return laboratories.append(lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, xml, output);
-        }
         if (CdsExportNoteSourceReader.CATEGORIES.contains(category)) {
             if (histories == null) scope();
             return histories.append(category, lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, xml, output);
         }
-        if (category==CdsCategory.APPOINTMENTS){if (appointments==null)scope(); return appointments.append(lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, xml, output); }
-        if (category == CdsCategory.IMMUNIZATIONS) {
-            if (immunizations == null) scope();
-            return immunizations.append(lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, xml, output);
-        }
+        var assembler = categories.find(category);
+        if (assembler != null) return assembler.append(lease, patient, patientKey, requiredTables, source, payloadManifest, bounds, control, xml, output);
         if (!Set.of(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.MEDICATIONS_AND_TREATMENTS).contains(category)
                 || !lease.document().command().categories().contains(category) || patientKey == null || !patientKey.matches("[0-9a-f]{64}")) scope();
         String table = category == CdsCategory.MEDICATIONS_AND_TREATMENTS ? "drugs" : "allergies", idColumn = table.equals("drugs") ? "drugid" : "allergyid";

@@ -41,7 +41,8 @@ import org.springframework.stereotype.Service;
  * This bounded occurrence component alone does not qualify the complete laboratory source catalogue.
  */
 @Service
-public class CdsExportLaboratoryOccurrenceService {
+public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOccurrenceAssembler {
+    @Override public CdsCategory category() { return CdsCategory.LABORATORY_RESULTS; }
     private static final CdsCategory CATEGORY = CdsCategory.LABORATORY_RESULTS;
     private static final Set<String> TABLES = Set.of("cds_laboratory_result", "hl7TextMessage", "hl7TextInfo", "patientLabRouting");
     private final CdsExportRetainedValuesService values;

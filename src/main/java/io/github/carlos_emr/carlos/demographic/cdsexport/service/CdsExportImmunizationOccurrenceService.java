@@ -38,7 +38,8 @@ import org.springframework.stereotype.Service;
  * must be accounted for before the private result may reach subsequent coverage checks.
  */
 @Service
-public class CdsExportImmunizationOccurrenceService {
+public class CdsExportImmunizationOccurrenceService implements CdsExportCategoryOccurrenceAssembler {
+    @Override public CdsCategory category() { return CdsCategory.IMMUNIZATIONS; }
     private final CdsExportRetainedValuesService values;
     private final CdsExportRetainedReceiptVerificationService verification;
     private final CdsExportNativeRowReceiptReader witnesses;

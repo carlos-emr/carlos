@@ -1250,3 +1250,14 @@ rejected it before any native commitments or patient targets. The rejected run a
 input remain intact, and the separate corrected fixture passed independent XSD validation.
 This verifies an occurrence component; complete native-source coverage, a clinical engine
 and actual delivery/download qualification remain required.
+
+Category-specific occurrence assemblers now share one immutable registry in the CLI
+and web application context. Duplicate handlers and attempts to shadow the coordinated
+demographic, history, allergy or medication paths fail at startup. The seven history
+positions retain their shared authenticated source session. Original standard
+`NewCategory` occurrences have a dedicated retained-source assembler: every original
+field is accounted, the current patient association is checked independently, and
+unrelated demographic edits do not replace supplemental content. Other native fields
+are never repurposed into `NewCategory`. The focused registry/association and clinical
+regression run passed 206 checks; packaged startup and genuine installed qualification
+are pending for this diff.

@@ -524,5 +524,23 @@
     "clinicalPublication": false,
     "qualification": "FULL_CURRENT_DEVELOP_COMPONENT_BASELINE",
     "finalLegacyNullableReceiptDiffPackagingPending": false
+  },
+  "categoryOccurrenceRegistry": {
+    "state": "FOCUSED_COMPONENT_VERIFIED_PACKAGE_PENDING",
+    "focusedCoordinatedChecks": 206,
+    "duplicateOrReservedCategoryHandlersRefused": true,
+    "historySharedSourceSessionRetained": true,
+    "cliAndWebUseSameRegistry": true,
+    "profileQualificationImplied": false
+  },
+  "newCategoryOccurrenceAssembly": {
+    "state": "FOCUSED_ASSOCIATION_COMPONENT_VERIFIED_PACKAGE_PENDING",
+    "standardOriginalNewCategoryOnly": true,
+    "currentPatientAssociationRequired": true,
+    "unrelatedDemographicEditsDoNotReplaceRetainedContent": true,
+    "nativeFieldsRepurposedIntoNewCategory": false,
+    "allRetainedFieldsMustBeAccounted": true,
+    "genuineInstalledQualificationPending": true,
+    "clinicalPublication": false
   }
 }

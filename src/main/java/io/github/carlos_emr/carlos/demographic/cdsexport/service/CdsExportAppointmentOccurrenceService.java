@@ -40,7 +40,8 @@ import org.springframework.stereotype.Service;
  * Archive/history and other unrepresented native facts remain explicit review gates.
  */
 @Service
-public class CdsExportAppointmentOccurrenceService {
+public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryOccurrenceAssembler {
+    @Override public CdsCategory category() { return CdsCategory.APPOINTMENTS; }
     private static final Set<String> REQUIRED=Set.of("appointment", "appointmentArchive", "appointment_status", "provider", "demographic", "demographic_merged", "cds_import_field", "cds_import_unit", "cds_import_preparation", "cds_import_dependency", "cds_import_patient", "cds_import_run", "clinical_timezone");
     private final CdsExportRetainedValuesService values; private final CdsExportRetainedReceiptVerificationService verification;
     private final CdsExportNativeRowReceiptReader witnesses; private final CdsExportNativeCaptureService captures; private final CdsExportCapturedTextRowsReader rows; private final CdsExportClinicalZoneService zones;
