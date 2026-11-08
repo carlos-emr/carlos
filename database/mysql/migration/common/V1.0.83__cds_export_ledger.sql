@@ -3,7 +3,7 @@
 -- Unreleased version follows the current develop high-water mark V1.0.80.
 -- Apply after the importer release has been forward-integrated into the target branch.
 
-CREATE TABLE cds_export_run (
+CREATE TABLE IF NOT EXISTS cds_export_run (
     id VARCHAR(36) NOT NULL,
     submission_key VARCHAR(128) NOT NULL,
     operator VARCHAR(128) NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE cds_export_run (
     KEY idx_cds_export_pending (state, lease_until, updated_at, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
-CREATE TABLE cds_export_event (
+CREATE TABLE IF NOT EXISTS cds_export_event (
     id VARCHAR(36) NOT NULL,
     run_id VARCHAR(36) NOT NULL,
     epoch BIGINT NOT NULL,
