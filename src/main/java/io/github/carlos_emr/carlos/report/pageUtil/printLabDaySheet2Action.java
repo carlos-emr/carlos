@@ -93,7 +93,7 @@ public class printLabDaySheet2Action extends ActionSupport {
             sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (Exception ex) {
             // Template/JDBC exceptions can contain patient values or configured SQL.
-            logger.error("Day sheet generation failed ({})", ex.getClass().getSimpleName());
+            logger.error("Day sheet generation failed: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(ex));
             sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
 

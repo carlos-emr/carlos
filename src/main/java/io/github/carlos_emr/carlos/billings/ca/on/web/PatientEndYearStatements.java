@@ -95,12 +95,12 @@ final class PatientEndYearStatements {
                 break;
             case DATABASE_ERROR:
             case IO_ERROR:
-                LOG.error("end-year-statement failure: reason={}, demographicNo={}",
-                        failure.reason(), safeDemographicNo, failure.getCause());
+                LOG.error("end-year-statement failure: reason={}, demographicNo={}, trace={}",
+                        failure.reason(), safeDemographicNo, LogSafe.exceptionTrace(failure.getCause()));
                 break;
             default:
-                LOG.error("end-year-statement: unexpected reason={}, demographicNo={}",
-                        failure.reason(), safeDemographicNo, failure.getCause());
+                LOG.error("end-year-statement: unexpected reason={}, demographicNo={}, trace={}",
+                        failure.reason(), safeDemographicNo, LogSafe.exceptionTrace(failure.getCause()));
                 break;
         }
     }
