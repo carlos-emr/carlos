@@ -1013,7 +1013,8 @@
     "test:eform-image-zip-roundtrip": "node scripts/eform-image-zip-roundtrip-playwright-checks.js",
     "test:email-consent-transitions-playwright": "node scripts/email-consent-transitions-playwright-checks.js",
     "test:billing-on-multi-item-payments-playwright": "node scripts/billing-on-multi-item-payments-playwright-checks.js",
-    "test:billing-on-ra-replay-playwright": "node scripts/billing-on-ra-replay-playwright-checks.js"
+    "test:billing-on-ra-replay-playwright": "node scripts/billing-on-ra-replay-playwright-checks.js",
+    "test:incoming-mixed-pdf-playwright": "node scripts/incoming-mixed-pdf-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

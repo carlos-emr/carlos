@@ -23,17 +23,17 @@ function recipientView() {
 test('complete two-page recipient output passes the independent text/geometry/ink oracle',()=>{
   const {pages,images}=recipientView();assert.equal(verify(pages,images).length,10);
 });
-for(const [name,mutate] of [
-  ['one entire clinical page suppressed',({pages,images})=>{pages.pop();images.pop();}],
-  ['extra blank page',({pages,images})=>{pages.push({width:540,height:705,words:[]});images.push(images[0]);}],
-  ['clinical pages reversed',({pages})=>pages.reverse()],
-  ['lower-edge content missing',({pages})=>pages[1].words.splice(2,1)],
-  ['duplicated clinical token replacing a corner',({pages})=>{pages[1].words[3]={...pages[1].words[0]};}],
-  ['interstitial printed',({pages})=>pages[0].words.push({text:'NONPAGEINTERSTITIAL',xMin:10,yMin:100,xMax:100,yMax:110})],
-  ['page shifted by interstitial height',({pages})=>{pages[1].words[0].yMin+=67.5;}],
-  ['right edge clipped',({pages})=>{pages[1].words[3].xMax=541;}],
-  ['incorrect paper scale',({pages})=>{pages[1].width=612;}],
-  ['invisible text despite extraction',({images})=>images[1].pixels.fill(255)],
+for(const [name,mutate,pattern] of [
+  ['one entire clinical page suppressed',({pages,images})=>{pages.pop();images.pop();},/exactly two pages/],
+  ['extra blank page',({pages,images})=>{pages.push({width:540,height:705,words:[]});images.push(images[0]);},/exactly two pages/],
+  ['clinical pages reversed',({pages})=>pages.reverse(),/wrong-page eForm clinical content/],
+  ['lower-edge content missing',({pages})=>pages[1].words.splice(2,1),/extra or missing content/],
+  ['duplicated clinical token replacing a corner',({pages})=>{pages[1].words[3]={...pages[1].words[0]};},/Missing, duplicated or wrong-page/],
+  ['interstitial printed',({pages})=>pages[0].words.push({text:'NONPAGEINTERSTITIAL',xMin:10,yMin:100,xMax:100,yMax:110}),/extra or missing content/],
+  ['page shifted by interstitial height',({pages})=>{pages[1].words[0].yMin+=67.5;},/Shifted eForm clinical content/],
+  ['right edge clipped',({pages})=>{pages[1].words[3].xMax=541;},/Clipped eForm clinical content/],
+  ['incorrect paper scale',({pages})=>{pages[1].width=612;},/changed authored paper dimensions/],
+  ['invisible text despite extraction',({images})=>images[1].pixels.fill(255),/Invisible eForm clinical content/],
 ])test('reject renderer output with '+name,()=>{
-  const view=recipientView();mutate(view);assert.throws(()=>verify(view.pages,view.images));
+  const view=recipientView();mutate(view);assert.throws(()=>verify(view.pages,view.images),pattern);
 });

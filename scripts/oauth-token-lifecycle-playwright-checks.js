@@ -14,6 +14,27 @@ const TIMEOUT=30000;
 const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const fields=text=>Object.fromEntries(new URLSearchParams(text.trim()));
 
+/** A late 401 is a bounded timing miss; unrelated authentication/data errors stay fatal. */
+async function boundaryObservation(response,{lower,upper,boundary,patient,marker}) {
+  let contained,failure;
+  try {
+    h.assert([lower,upper,boundary].every(Number.isInteger)&&lower===boundary&&upper>=lower&&upper<=boundary+3,'OAuth boundary observation has invalid clock evidence');
+    if(response.status()===200) {
+      h.assert(/^application\/json/i.test(response.headers()['content-type']||''),'Boundary OAuth response did not return typed JSON');
+      const data=await response.json();h.assert(String(data.demographicNo)===patient&&data.lastName===marker,'Boundary OAuth read returned another patient');
+      contained=upper===boundary;
+    } else {
+      h.assert(response.status()===401&&upper>boundary,'OAuth token was refused inside its boundary or returned an unexpected HTTP status');
+      const text=(await response.text()).trim();
+      h.assert(['invalid_signature','unknown_provider'].includes(text),'Late boundary refusal had an unexpected authentication reason');
+      h.assert(!text.includes(marker)&&!text.includes('demographicNo'),'Late boundary refusal exposed clinical data');
+      contained=false;
+    }
+  }catch(error){failure=error;}
+  try{await response.dispose();}catch(error){failure=failure?new AggregateError([failure,error],failure.message+'; boundary response cleanup: '+error.message):error;}
+  if(failure)throw failure;return contained;
+}
+
 /** Reconcile partial setup and clean each owned client independently. */
 function cleanupClients(sql,clients) {
   const failures=[];
@@ -113,9 +134,8 @@ async function workflow(s) {
       while(now()<boundary&&Date.now()<deadline)await pause(50);
       const lower=now();
       if(lower===boundary) {
-        // Authentication/data failures always fail. Only a successful request
-        // whose observation straddles the second may retry with a fresh token.
-        await positive(expiry,token);contained=now()===boundary;
+        const response=await read(expiry,token),upper=now();
+        contained=await boundaryObservation(response,{lower,upper,boundary,patient,marker});
       }
       h.assert(lower>=boundary,'Timed out before the token expiry boundary');
       while(now()<=boundary&&Date.now()<deadline)await pause(50);
@@ -153,4 +173,4 @@ async function workflow(s) {
   });
 }
 if(require.main===module)runWorkflow('oauth-token-lifecycle',workflow,{openMaster:false});
-module.exports={workflow,cleanupClients};
+module.exports={workflow,cleanupClients,boundaryObservation};

@@ -15,6 +15,16 @@ const {openEditForm}=require('./demographic-edit-update-playwright-checks');
 const q=h.sqlString;
 const NAMES=['reasonCode','consultApptInst','practitionerNoType'];
 
+/** Preserve the original failure when an unknown write prevents safe eviction. */
+async function assertLookupWritesSettled(context,primary) {
+  const uncertain=require('./lib/uncertain-server-writes');await uncertain.drainWrites(context);
+  if(uncertain.hasUncertainWrites(context)) {
+    const unknown=new Error('Lookup write outcome is unknown; retain fixtures for reconciliation');
+    const failures=[...(primary?[primary]:[]),unknown];
+    throw new AggregateError(failures,'Lookup lifecycle failed: '+failures.map(error=>error.message).join('; '));
+  }
+}
+
 async function workflow(s) {
   const {sql,marker,patient}=s;
   const inventory=sql.rows('SELECT id,name,listTitle,active FROM LookupList ORDER BY id');
@@ -190,8 +200,7 @@ async function workflow(s) {
   } catch(error) {primary=error;}
   // Always evict through supported native removals before browser shutdown/SQL.
   const failures=[];
-  await require('./lib/uncertain-server-writes').drainWrites(s.context.browser());
-  h.assert(!require('./lib/uncertain-server-writes').hasUncertainWrites(s.context.browser()),'Lookup write outcome is unknown; retain fixtures for reconciliation');
+  await assertLookupWritesSettled(s.context,primary);
   for(const list of lists)for(const [id,value,text,order,active] of rows(list))if(active==='1')try{await remove(list,{id,value,label:text,order});}catch(error){failures.push(error);}
   if(items.length===lists.length&&duplicate&&!failures.length)try{await s.step('all native removals evict each consumer cache before SQL cleanup',async()=>{
     for(let i=0;i<lists.length;i++)await offered(lists[i],[],i===2?[items[i],duplicate]:[items[i]]);
@@ -240,4 +249,4 @@ async function workflow(s) {
 if(require.main===module)runWorkflow('lookup-list-isolation',workflow,{preflightConfig:()=>{
   if(process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Lookup isolation requires EXCLUSIVE=1 for clinic-wide lists and referral fixtures');
 }});
-module.exports={workflow};
+module.exports={workflow,assertLookupWritesSettled};

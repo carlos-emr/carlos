@@ -21,9 +21,11 @@ function expectedNotice(env=process.env) {
     const {parseProperties}=require('./lib/java-properties');
     const root=env.CARLOS_INSTALLED_WEBAPP_DIR||'/usr/share/carlos-emr/webapp/carlos';
     const properties=parseProperties(fs.readFileSync(path.join(root,'WEB-INF/classes/carlos.properties')));
-    const overrides=parseProperties(fs.readFileSync(env.CARLOS_INSTALLED_PROPERTIES_FILE||'/etc/carlos-emr/carlos.properties'));
-    for(const [key,value] of overrides)properties.set(key,value);
-    notice=properties.get('confidentiality_statement.v1');
+    const override=env.CARLOS_INSTALLED_PROPERTIES_FILE===undefined?'/etc/carlos-emr/carlos.properties':env.CARLOS_INSTALLED_PROPERTIES_FILE;
+    // Empty explicitly declares a standalone deployment with no JVM override.
+    if(override!=='')for(const [key,value] of parseProperties(fs.readFileSync(override)))properties.set(key,value);
+    // CarlosProperties selects the last consecutive version, starting at v1.
+    for(let version=1;properties.has('confidentiality_statement.v'+version);version++)notice=properties.get('confidentiality_statement.v'+version);
   }
   h.assert(typeof notice==='string'&&notice.trim(),'Expected installed confidentiality notice is not configured');
   return notice.trim().replace(/\s+/g,' ');

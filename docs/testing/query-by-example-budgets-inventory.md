@@ -32,8 +32,8 @@ not. Each execution requires one fresh INFO event from `RptByExampleData`, with
 the exact provider, independently computed SHA-256, query length, duration, row
 count and outcome. Foreign loggers, wrong severity, substituted/duplicate metadata,
 extra fields or raw SQL cannot stand in for audit evidence. The audit stream is
-distinct from the clinical database log. Twenty independent controls reject bad
-table fragments and false audit evidence.
+distinct from the clinical database log. Eighteen independent controls reject bad
+table fragments and false audit evidence; two positive controls accept valid inputs.
 
 Requires `CARLOS_DISPOSABLE_VM=1`, a configured read-only reporting account
 (`QBE_REPORTING_USER` defaults to `carlos_report`), a SQL fixture account with

@@ -6,6 +6,7 @@ const h=require('./lib/playwright-harness'),x=require('./lib/export-content-help
 const {runWorkflow,expectValue}=require('./lib/workflow-session');
 const {createOwnedBillingPhysician}=require('./lib/owned-billing-physician');
 const {requirePoppler}=require('./lib/stored-pdf-documents');
+const {settleOperations}=require('./graceful-signal-cancellation');
 const {seedOwnedBill,openHistory,historyRow,openCorrection,captureNativeInvoiceContext,billDate,awaitResponse}=require('./billing-on-invoice-third-party-playwright-checks');
 const graph=require('./lib/pdf-graph');
 const q=h.sqlString,NAME='billing-on-multi-item-payments',ROUTE='/billing/CA/ON/billingON3rdPayments';
@@ -53,7 +54,7 @@ async function workflow(s) {
           const itemIds=items.map(row=>row[0]);h.assert(itemIds.every(value=>/^[1-9]\d*$/.test(value)),'Invalid owned invoice line');
           h.assert(sql.value(`SELECT COUNT(*) FROM billing_on_item_payment WHERE ch1_id=${id} AND billing_on_item_id NOT IN (${itemIds.join(',')||'0'})`)==='0','Unexpected item-payment attribution; retaining invoice');
         }
-        fn();
+        return fn();
       });
     }});
     result=seedOwnedBill(dependent,{payProgram:'PAT',status:'P',code:codes[0],fee:money(fees[0]),date:billDate(),billingContext});
@@ -121,7 +122,7 @@ async function workflow(s) {
     await page.locator('#editPayment input[name="paymentType"]').first().check();
     let response;
     const dialogs=await h.withExpectedDialogs(page,async()=>{
-      const reload=page.waitForEvent('load');[response]=await Promise.all([awaitResponse(s.context,ROUTE),page.locator('#saveBtn').click()]);await reload;
+      [response]=await settleOperations([awaitResponse(s.context,ROUTE),page.waitForEvent('load'),page.locator('#saveBtn').click()]);
     });
     h.assert(response.status()===200&&dialogs.length===1&&dialogs[0].text==='Save payments successfully!','Native multi-item save did not truthfully confirm once');
     for(let i=0;i<3;i++)paid[i]+=STAGES[stage][i];

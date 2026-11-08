@@ -146,7 +146,10 @@ async function workflow(s) {
     const body=await response.text();h.assert(response.status()===200&&body.includes('Your eform was imported.'),'Native import did not report success');
     importId=sql.value(`SELECT fid FROM eform WHERE form_name=${q(name)}`);h.assert(/^[1-9]\d*$/.test(importId)&&importId!==sourceId,'Import did not create a new template');fids.add(importId);
     h.assert(sql.value(`SELECT form_html FROM eform WHERE fid=${importId}`)===html,'Imported template HTML changed');
-    for(const a of assets)h.assert(readRegular(path.join(root,a.name)).bytes.equals(a.bytes),'Imported image bytes changed');
+    for(const a of assets) {
+      const restored=readRegular(path.join(root,a.name));h.assert(restored,'Native import did not restore the '+a.kind+' image file');
+      h.assert(restored.bytes.equals(a.bytes),'Imported image bytes changed: '+a.kind);
+    }
     unchanged();
   });
   const chart=await s.chart(),list=await s.popup(chart,chart.locator('#menuTitleeforms a').first(),'ZIP-chart-eform-list');

@@ -10,7 +10,7 @@ const {workflow:recallWorkflow}=require('./lab-recall-delegate-playwright-checks
 const {INBOX_LINK}=require('./messenger-demographic-link-playwright-checks');
 const {waitForTicklerTable}=require('./tickler-forward-filters-playwright-checks');
 const {revealAuditLink}=require('./lib/playwright-link-audit');
-const {openAdmin,adminFrame,navigates}=require('./billing-on-admin-config-playwright-checks');
+const {saveOwnedProviderProfile}=require('./lib/native-provider-fixture');
 const {restartAndWait}=require('./lib/property-profiles');
 const q=h.sqlString,NAME='lab-recall-delegate-delivery';
 
@@ -123,22 +123,8 @@ async function workflow(s) {
   }
   const popup=(page,locator,label)=>ui.clickOpensPopup(page,locator,{context:sender.context,recorder,label});
   await s.step('owned provider setup refreshes the application active-provider cache through a native profile save',async()=>{
-    const scheduleUrl=sender.schedule.url();
-    const admin=await openAdmin({...s,context:sender.context,schedule:sender.schedule});
-    const frame=await adminFrame(admin,'/admin/ViewProviderSearchRecordsHtm','input[name="keyword"]');
-    await frame.locator('input[name="search_mode"][value="search_providerno"]').check();
-    await frame.locator('input[name="search_status"][value="1"]').check();
-    await frame.locator('input[name="keyword"]').fill(sender.fixture.providerNo);
-    await navigates(admin,frame,frame.locator('input[type="submit"]').first());
-    await navigates(admin,frame,frame.locator(`a[href$="/admin/ViewProviderUpdateProvider?keyword=${sender.fixture.providerNo}"]`));
-    h.assert(await frame.locator('input[name="provider_no"]').inputValue()===sender.fixture.providerNo,'Native cache-refresh form opened another provider');
-    h.assert(await frame.locator('input[name="last_name"]').inputValue()===sender.marker,'Native cache-refresh provider ownership changed');
     cacheCleanupRequired=true;
-    await navigates(admin,frame,frame.locator('input[type="submit"][name="subbutton"]'));
-    h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(sender.fixture.providerNo)} AND last_name=${q(sender.marker)} AND status='1'`)==='1','Native profile save lost the owned active provider');
-    h.assert(sql.value(`SELECT COUNT(*) FROM providerArchive WHERE provider_no=${q(sender.fixture.providerNo)} AND last_name=${q(sender.marker)}`)==='1','Native profile save has no exact archive receipt');
-    if(admin===sender.schedule)await sender.schedule.goto(scheduleUrl,{waitUntil:'load'});
-    else await admin.close();
+    await saveOwnedProviderProfile({...s,context:sender.context,schedule:sender.schedule},sender);
   });
   const findings=[];
   const preference=`provider_no=${q(sender.fixture.providerNo)} AND name='tickler_task_assignee'`;

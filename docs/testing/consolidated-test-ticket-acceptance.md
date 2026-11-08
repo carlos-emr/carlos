@@ -29,7 +29,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5728](https://github.com/carlos-emr/carlos/issues/5728) | Test: verify exactly-once Messenger delivery to overlapping groups and direct recipients | Native ON/BC two overlapping groups plus a direct recipient produce exactly one delivery each; membership edits, a legacy duplicate and a removed-member control pass. Exclusive membership coordination and exact cleanup are required. |
 | [#5729](https://github.com/carlos-emr/carlos/issues/5729) | Test: verify Messenger read and archive state is independent for each recipient | Native ON/BC read, mark-new, archive and restore transitions preserve other recipients, shared content, attachments, patient links and Sent access. |
 | [#5730](https://github.com/carlos-emr/carlos/issues/5730) | Test: expand document-upload coverage across supported formats and malformed content | Fresh ON/BC format/byte/metadata/routing/native output, exact multipart boundaries, draft/retry and safe malformed-preview fallback all reached. Fails only on valid mixed-case PDF page count (#5818); exact cleanup and independent zero-residue audits pass in both provinces. |
-| [#5731](https://github.com/carlos-emr/carlos/issues/5731) | Test: preserve scanned and mixed-geometry PDFs through incoming-document edits | Implementation and installed acceptance pending. |
+| [#5731](https://github.com/carlos-emr/carlos/issues/5731) | Test: preserve scanned and mixed-geometry PDFs through incoming-document edits | Implemented; [mixed-PDF inventory](incoming-mixed-pdf-inventory.md). Native ON/BC image-only/mixed previews, selected extraction, single/all rotation, selected deletion, exact page/crop/pixel/annotation preservation, recycle output and source/extracted reopen pass. Both original and new checks pass together; independent audits confirm zero owned queue/recycle/cache files. Final full qualification remains pending. |
 | [#5732](https://github.com/carlos-emr/carlos/issues/5732) | Test: verify shared contact edits and patient-specific relationship isolation | Installed ON/BC native creation, two-patient linking, shared-detail editing, independent flags, cancelled edits/removal and selective removal pass; unrelated control and cleanup verified. |
 | [#5733](https://github.com/carlos-emr/carlos/issues/5733) | Test: verify complete lab-report content across PDF page breaks | Native ON/BC eight-page PDFs preserve all 60 ordered clinical rows and their comment tokens, numeric columns, flags, patient identity, footers and margins. Extracted coordinates and actual raster ink are checked; omission, duplication and blank-raster controls reject. Source and unrelated-report controls pass. |
 | [#5734](https://github.com/carlos-emr/carlos/issues/5734) | Test: preserve multiple same-severity Rx interaction partners when one is removed | Installed ON/BC native current/staged moderate partners, exact JSON/marker/tooltip identities, staged removal/re-add, current-medication discontinuation/staged re-add, threshold 1/2/3/4 and patient overrides all pass. DrugRef pairs are read-only and independently validated; metformin is a noninteracting control, with no unexpected prescription writes and clean owned cleanup. |
@@ -54,7 +54,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5808](https://github.com/carlos-emr/carlos/issues/5808) | test(playwright): round-trip image-backed eForms through ZIP export and import | Implemented; [ZIP inventory](eform-image-zip-roundtrip-inventory.md). Actual exported HTML/properties/two image assets match exactly, source rows/files are absent before native reimport, and chart save/reopen plus PDF text/geometry/colour regions pass in ON/BC. Both existing export/navigation regressions pass; exact owned cleanup and unrelated resource preservation pass. |
 | [#5809](https://github.com/carlos-emr/carlos/issues/5809) | test(playwright): verify eForm page exclusion in deployed PDF output | Native ON/BC clean, form-wrapped and body-direct layouts each pass new and saved-instance PDF output, actual renderer receipts, independently checked page/text/geometry/ink and strict clinical bounds. Native interstitial approval preserves its exact saved revision without an extra save. Exact SQL/download/server-PDF cleanup and refusal controls pass; final full qualification remains pending. |
 | [#5810](https://github.com/carlos-emr/carlos/issues/5810) | test(playwright): cover stale tickler selections during filtering and pagination | Native ON/BC preselected search/status/assignee/page changes, held real list responses, inert pending controls, Clear All, out-of-order completion, exact Complete/Delete POST IDs and task/history/control isolation all pass. Barrier delivery/disposal/route-removal failures are independently exercised. Exact owned cleanup passes; final full qualification remains pending. |
-| [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Native ON/BC 999/1000/1001-row boundaries, aggregate encoded and single streamed-cell character caps, genuine reporting-account timeout observed in MariaDB, explicit timeout guidance/cancellation, same-composer recovery and exact history/private INFO audit receipts pass. Twenty false-table/audit controls and existing QBE regressions pass; owned cleanup is clean. Temporary logging is restored; latest-target full qualification remains pending. |
+| [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Native ON/BC 999/1000/1001-row boundaries, aggregate encoded and single streamed-cell character caps, genuine reporting-account timeout observed in MariaDB, explicit timeout guidance/cancellation, same-composer recovery and exact history/private INFO audit receipts pass. Twenty controls (18 rejection and two positive) and existing QBE regressions pass; owned cleanup is clean. Temporary logging is restored; latest-target full qualification remains pending. |
 | [#5812](https://github.com/carlos-emr/carlos/issues/5812) | test(playwright): verify MRP tickler preference routes newly created tasks | Implemented; [routing inventory](tickler-mrp-routing-inventory.md). Native ON/BC reach all independent active-MRP, recipient/patient, late association, manual assignment and recovery cases. Four comparisons fail on draft loss (#5824) and arbitrary missing/inactive-MRP fallback (#5825); no unrelated recipient is submitted and no waiver is added. Exact cleanup and cache retirement pass. |
 
 ## Execution and review
@@ -558,7 +558,7 @@ including a 600,000-character streamed value across reader chunks and genuine
 bound to the application class, INFO severity, exact provider/hash/length,
 outcome and visible row count; foreign, substituted or duplicate events cannot
 stand in. Both existing QBE validation/escaping/history/favourite workflows also
-pass. Twenty independent malformed-output/audit controls pass. Full Ubuntu Python
+pass. Twenty table/audit controls (18 rejection and two positive) pass. Full Ubuntu Python
 CI after the target merge passes **354 tests**. The complete qualified Ubuntu
 Node run passes **7,481/7,481 cases in 527 files**, zero failures/skips/cancellations/
 TODO and unchanged test-source digests; the inventory is regenerated from it.
@@ -819,3 +819,57 @@ Independent ON/BC publication audits pass original configuration hashes,
 installed health and package verification, NRestarts=0, zero owned patient/
 provider/archive/message/task/lab rows and the empty Messenger coordinator.
 All 184 original email-log rows retain every column digest in both provinces.
+
+## Mixed incoming PDFs and eighth-review reconciliation
+
+#5731 now has a native scanned/mixed-PDF workflow and an independent raster/
+geometry/annotation oracle. The original extraction/collision/cancellation/
+permission/stale/capacity/filing check remains intact. Both pass together on
+installed ON and BC. The independent audit initially finds an old deleted-page
+recycle omission despite passing browser steps; that attempt is not qualified.
+After the teardown correction, the final paired runs and independent audits pass
+with zero owned queue, recycle or cache files. Original configuration hashes,
+package verification, installed health, NRestarts=0, all 184 legacy email-log row
+digests and the empty Messenger coordinator baseline remain intact.
+
+Native PNG bytes are captured losslessly from the exact UI request. Cache writes
+are drained; unknown responses retain fixtures, changed bytes refuse deletion,
+and preexisting cache entries remain untouched. Twenty-eight focused incoming
+PDF/transport/finalization controls pass. The first complete Node attempt fails
+on the required exclusive-run declaration for the new check; that declaration is
+corrected rather than bypassing the manifest constraint.
+
+CodeRabbit full review 5817664583 completes with fourteen inline findings and one
+outside the diff. The fixes preserve the primary lookup failure on an uncertain
+write, bound OAuth timing misses without hiding data/authentication/server errors,
+await dependent financial cleanup and all save branches, observe Back requests
+until closure, reuse the guarded native provider-profile save, select the
+application's consecutive confidentiality-statement version, support an explicitly
+absent standalone override, improve asset diagnostics, share the engine policy,
+match rejection causes, resolve linked temporary roots and select a deterministic
+JUnit report. QBE evidence now correctly states eighteen rejection controls and
+two positive controls. Publication and individual thread reconciliation follow
+successful native retakes.
+
+The complete stable-source replacement passes **7,595/7,595 Node cases in 540
+files**, with zero failures/skips/cancellations/TODO and sourceChanged=false.
+Its exact case inventory is regenerated. All **356 Ubuntu Python tests** pass.
+The 124 focused Node checks pass; six renderer-fixture checks also pass with a
+symlinked TMPDIR. All thirteen CI workflows pass at published baseline
+`e9b964e855d`; the next head requires fresh CI.
+
+Five workflow implementations remain: #5715, #5717, #5801, #5802 and #5803.
+SMS-feature availability and umbrella/native-database/vendor/repeated full
+qualification remain open. Existing product comparisons remain fatal, with no
+new expected-failure pin or issue-closure claim.
+
+The eighth-review native retakes pass five normal checks on ON and four on BC,
+plus `appointment-cut-recovery` under its real `appointment-lock-expiry` profile
+on each province. This includes exact-second OAuth expiry, default lab notice,
+the shared guarded profile save/real recall delivery, native image ZIP reimport,
+all three payment stages on ON and Back/Paste with zero submitted saves. Both
+temporary appointment configurations are restored exactly and all post-audits
+pass. A separate ON disposable profile activates confidentiality statement v2:
+all sixty clinical results and the actual new notice pass across eight PDF pages;
+the original configuration is restored byte-for-byte and the service restarted.
+Its final health/package/configuration/fixture/legacy-email audit also passes.

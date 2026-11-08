@@ -4,9 +4,9 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {createRequire}=require('node:module');
 
-test('actual multi-item caller preserves inherited SQL/provider/context and physician-dependent cleanup',async()=>{
+for(const cleanupMode of ['synchronous','asynchronous rejection'])test('actual multi-item caller preserves inherited context and '+cleanupMode+' cleanup',async()=>{
   const file=path.join(__dirname,'billing-on-multi-item-payments-playwright-checks.js'),nativeRequire=createRequire(file),module={exports:{}};
-  const stop=new Error('owned seed prefix verified'),registered=[];let completed=false;
+  const stop=new Error('owned seed prefix verified'),cleanupFailure=new Error('synthetic asynchronous claim cleanup failure'),registered=[];let completed=false,release;
   const sql={rows(query){if(query.includes('SELECT DISTINCT service_code'))return [['_ONE'],['_TWO'],['_THREE']];assert(query.includes('SELECT id FROM billing_on_cheader1'));return [];}};
   const session={sql,patient:'123',marker:'FAKE-PW0123456789abcdef',provider:'999998',context:{browserIdentity:'owned'}};
   const dependent=Object.create(session);dependent.cleanup=callback=>registered.push(callback);
@@ -18,7 +18,10 @@ test('actual multi-item caller preserves inherited SQL/provider/context and phys
       seedOwnedBill(s,options){
         assert.equal(s.sql,sql);assert.equal(s.provider,session.provider);assert.equal(s.context,session.context);
         assert.equal(options.billingContext,context);assert.equal(options.fee,'11.23');
-        s.cleanup(()=>{completed=true;});throw stop;
+        s.cleanup(()=>{
+          if(cleanupMode==='synchronous'){completed=true;return;}
+          return new Promise((_resolve,reject)=>{release=()=>{completed=true;reject(cleanupFailure);};});
+        });throw stop;
       },
     },
   };
@@ -27,5 +30,10 @@ test('actual multi-item caller preserves inherited SQL/provider/context and phys
   vm.runInNewContext(fs.readFileSync(file,'utf8'),{require:req,module,exports:module.exports,process,console,URL},{filename:file});
   await assert.rejects(module.exports.workflow(session),error=>error===stop);
   assert.equal(registered.length,1,'Dependent cleanup bypassed the physician gate');
-  await registered[0]();assert.equal(completed,true);
+  const cleanup=registered[0]();
+  if(cleanupMode==='asynchronous rejection') {
+    assert(cleanup&&typeof cleanup.then==='function','Caller must return the dependent cleanup promise');
+    assert.equal(completed,false);const refused=assert.rejects(cleanup,error=>error===cleanupFailure);release();await refused;
+  }else await cleanup;
+  assert.equal(completed,true);
 });

@@ -129,9 +129,16 @@ async function workflow(s) {
   });
   await s.step('repeated explicit Paste fills the retained snapshot without silently creating another booking',async()=>{
     const before=JSON.stringify(all()),page=await destination('15:00');
-    for(let attempt=0;attempt<2;attempt++){await page.locator('#pasteButton').click();await pasted(page,'recover');}
-    await page.locator('#backButton').click();
-    h.assert(JSON.stringify(all())===before&&archive(ids.recover).length===1,'Repeated Paste or Back silently wrote a duplicate');
+    const writes=[];
+    const listen=request=>{if(request.method()==='POST'&&new URL(request.url()).pathname.endsWith('/appointment/AddRecord')){
+      writes.push(request);require('./lib/uncertain-server-writes').retainFixtures(s.context);
+    }};
+    page.on('request',listen);
+    try {
+      for(let attempt=0;attempt<2;attempt++){await page.locator('#pasteButton').click();await pasted(page,'recover');}
+      await require('./graceful-signal-cancellation').settleOperations([page.waitForEvent('close'),page.locator('#backButton').click()]);
+      h.assert(writes.length===0&&JSON.stringify(all())===before&&archive(ids.recover).length===1,'Repeated Paste or Back silently submitted a save or wrote a duplicate');
+    } finally {page.off('request',listen);}
   });
   await s.step('browser session interruption after Cut retains a truthful archive with no invented completed move',async()=>{
     const before=originalSource(ids.abandon);

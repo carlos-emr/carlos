@@ -272,7 +272,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
 
     def test_junit_display_class_names_bind_to_the_qualified_suite(self):
         self.seed()
-        path = next(self.reports.glob("*.xml"))
+        path = self.reports / 'TEST-example.MeasurementDaoIntegrationTest.xml'
         path.write_text(re.sub(r'classname="[^"]+"', 'classname="Clinical DAO display name"', path.read_text()))
         self.assertEqual(self.invoke().returncode, 0)
         self.assertIn("example.", self.output.read_text())

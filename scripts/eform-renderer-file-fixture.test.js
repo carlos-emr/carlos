@@ -5,7 +5,7 @@ const {rendererFileFixture}=require('./eform-deployed-page-exclusion-playwright-
 const title='FAKE-PW0123456789abcdef page exclusion clean';
 const titleOf=bytes=>bytes.toString();
 function store(t) {
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-eform-renderer-fixture-'));
+  const root=fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(),'carlos-eform-renderer-fixture-')));
   t.after(()=>fs.rmSync(root,{recursive:true,force:true}));return root;
 }
 test('recover an owned server PDF after a lost download acknowledgment',t=>{

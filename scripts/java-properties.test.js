@@ -28,5 +28,10 @@ test('installed notice uses installed defaults plus actual operator overrides, i
   assert.equal(expectedNotice(env),'Operator énotice');
   assert.equal(expectedNotice({...env,LAB_PDF_EXPECTED_NOTICE:'Explicit notice'}),'Explicit notice');
   assert.throws(()=>expectedNotice({...env,LAB_PDF_EXPECTED_NOTICE:''}),/not configured/);
+  assert.equal(expectedNotice({...env,CARLOS_INSTALLED_PROPERTIES_FILE:''}),'Installed default');
+  fs.writeFileSync(override,'confidentiality_statement.v2=Newest active notice\nconfidentiality_statement.v4=Later gap\n');
+  assert.equal(expectedNotice(env),'Newest active notice');
+  fs.writeFileSync(override,'confidentiality_statement.v3=Gap does not supersede v1\n');
+  assert.equal(expectedNotice(env),'Installed default');
   fs.unlinkSync(override);assert.throws(()=>expectedNotice(env),/ENOENT/);
 });
