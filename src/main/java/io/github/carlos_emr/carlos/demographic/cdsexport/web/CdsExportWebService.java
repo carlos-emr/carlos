@@ -75,6 +75,8 @@ public class CdsExportWebService {
         if (failure instanceof SecurityException) { status = 403; code = "CDS_EXPORT_ACCESS_DENIED"; }
         else if (failure instanceof CdsExportStaleControlException) { status = 409; code = "CDS_EXPORT_STATUS_CHANGED"; }
         else if (failure instanceof CdsExportSubmissionConflictException) { status = 409; code = "CDS_EXPORT_SUBMISSION_CONFLICT"; }
+        else if (failure instanceof io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportArtifactUnavailableException) { status = 409; code = "CDS_EXPORT_ARTIFACT_UNAVAILABLE"; }
+        else if (failure instanceof IllegalStateException && "CDS_EXPORT_ARTIFACT_BUSY".equals(failure.getMessage())) { status = 409; code = "CDS_EXPORT_ARTIFACT_BUSY"; }
         else if (failure instanceof IllegalArgumentException) {
             status = 400; code = "CDS_EXPORT_PARAMETERS_INVALID";
             if ("CDS_EXPORT_CLIENT_REFRESH_REQUIRED".equals(failure.getMessage())) { status = 409; code = failure.getMessage(); }

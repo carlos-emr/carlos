@@ -91,6 +91,47 @@ public class CdsExportStagingFactory {
                 number("cds.export.maxStagedFileBytes", 128L << 30, 1L << 40),
                 number("cds.export.minimumFreeBytes", 512L << 20, 1L << 40), checkpoint);
     }
+    /**
+     * Retires only an exclusively leased, expired export attempt. This also removes crash
+     * fragments predating the ownership manifest. No configuration, key, import or native
+     * source directory is traversed. A missing/changed key does not prevent safe erasure.
+     */
+    public void purgeAttempt(String runId, long epoch, CdsExportStorageBindingDto binding, Runnable checkpoint) throws IOException {
+        scope(runId, epoch); Objects.requireNonNull(binding); Objects.requireNonNull(checkpoint); checkpoint.run();
+        Path base = root(binding.rootId()), run = base.resolve(runId), directory = run.resolve(Long.toString(epoch));
+        if (!Files.exists(run, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return;
+        CdsExportProtectedFiles.dataDirectory(run);
+        if (!Files.exists(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return;
+        CdsExportProtectedFiles.dataDirectory(directory);
+        // SecureDirectoryStream keeps all unlink operations anchored to this verified directory.
+        try (var opened = Files.newDirectoryStream(directory)) {
+            if (!(opened instanceof java.nio.file.SecureDirectoryStream<Path> secure)) throw new IOException("CDS_EXPORT_SECURE_DIRECTORY_REQUIRED");
+            long count = 0;
+            for (Path entry : opened) {
+                checkpoint.run(); if (++count > 4_000_000 || !entry.getFileName().toString().matches("[0-9a-f]{64}\\.stage")) throw new IOException("CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER");
+                var attrs = secure.getFileAttributeView(entry.getFileName(), java.nio.file.attribute.PosixFileAttributeView.class, java.nio.file.LinkOption.NOFOLLOW_LINKS).readAttributes();
+                if (!attrs.isRegularFile() || !attrs.owner().equals(Files.getOwner(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                        || !attrs.permissions().equals(PosixFilePermissions.fromString("rw-------"))
+                        || ((Number) Files.getAttribute(entry, "unix:nlink", java.nio.file.LinkOption.NOFOLLOW_LINKS)).longValue() != 1) throw new IOException("CDS_EXPORT_CLEANUP_MEMBER_CHANGED");
+            }
+        }
+        checkpoint.run();
+        try (var opened = Files.newDirectoryStream(directory)) {
+            if (!(opened instanceof java.nio.file.SecureDirectoryStream<Path> secure)) throw new IOException("CDS_EXPORT_SECURE_DIRECTORY_REQUIRED");
+            long count = 0;
+            for (Path entry : opened) {
+                checkpoint.run(); if (++count > 4_000_000 || !entry.getFileName().toString().matches("[0-9a-f]{64}\\.stage")) throw new IOException("CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER");
+                var attrs = secure.getFileAttributeView(entry.getFileName(), java.nio.file.attribute.PosixFileAttributeView.class, java.nio.file.LinkOption.NOFOLLOW_LINKS).readAttributes();
+                if (!attrs.isRegularFile() || !attrs.owner().equals(Files.getOwner(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                        || !attrs.permissions().equals(PosixFilePermissions.fromString("rw-------"))
+                        || ((Number) Files.getAttribute(entry, "unix:nlink", java.nio.file.LinkOption.NOFOLLOW_LINKS)).longValue() != 1) throw new IOException("CDS_EXPORT_CLEANUP_MEMBER_CHANGED");
+                secure.deleteFile(entry.getFileName());
+            }
+        }
+        checkpoint.run(); Files.delete(directory);
+        try (var channel = java.nio.channels.FileChannel.open(run, java.nio.file.StandardOpenOption.READ, java.nio.file.LinkOption.NOFOLLOW_LINKS)) { channel.force(true); }
+        // Preserve the run directory: another epoch can be active concurrently.
+    }
     private Path root(String id) throws IOException {
         return CdsExportProtectedFiles.dataDirectory(CdsExportProtectedFiles.absolute(required("cds.export.store." + id + ".root")));
     }

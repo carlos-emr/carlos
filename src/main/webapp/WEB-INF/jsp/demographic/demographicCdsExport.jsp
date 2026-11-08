@@ -81,6 +81,19 @@
             <p id="exportCounts"></p>
             <progress id="exportProgress" max="1" class="w-100"></progress>
             <p id="exportCode"></p>
+            <form id="exportReportForm" method="POST" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExportReport" target="cdsExportDiagnostic">
+                <input type="hidden" name="apiVersion" value="1">
+                <input type="hidden" id="reportRunId" name="runId">
+                <input type="hidden" id="reportCsrf" name="CSRF-TOKEN">
+                <button id="reportExport" type="submit" class="btn btn-outline-secondary" disabled>Download diagnostic report</button>
+            </form>
+            <form id="exportDownloadForm" method="POST" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExportDownload" target="cdsExportDelivery">
+                <input type="hidden" name="apiVersion" value="1">
+                <input type="hidden" name="artifact" value="package">
+                <input type="hidden" id="downloadRunId" name="runId">
+                <input type="hidden" id="downloadCsrf" name="CSRF-TOKEN">
+                <button id="downloadExport" type="submit" class="btn btn-success" disabled>Download encrypted package</button>
+            </form>
             <button id="cancelExport" type="button" class="btn btn-outline-danger" disabled>Cancel export</button>
             <button id="resumeExport" type="button" class="btn btn-outline-primary" disabled>Resume export</button>
         </div>

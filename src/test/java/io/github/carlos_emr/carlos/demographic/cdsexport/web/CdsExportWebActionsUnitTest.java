@@ -147,6 +147,32 @@ class CdsExportWebActionsUnitTest {
         assertThatThrownBy(() -> parser.parse("submission", "999998", "", "omd-5.2", "SELECTED_PATIENTS", "", "27", "Demographics,Demographics", "recipient", "audit"))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+    @ParameterizedTest @ValueSource(strings = {"GET", "HEAD", "PUT", "DELETE"})
+    void shouldRejectNonPostArtifactRequests_beforeAuthorizationOrFileAccess(String method) throws Exception {
+        request.setMethod(method); var artifacts = mock(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportArtifactService.class);
+        new CdsExportDownload2Action(web, exports, artifacts).execute(); assertThat(response.getStatus()).isEqualTo(405);
+        response = new MockHttpServletResponse(); ActionContext.getContext().withServletResponse(response);
+        new CdsExportReport2Action(web, exports).execute(); assertThat(response.getStatus()).isEqualTo(405); verifyNoInteractions(exports, access, artifacts);
+    }
+    @Test void shouldSendOnlyTheAuthorizedRecipientCiphertext_withSafeBinaryHeaders() throws Exception {
+        request.setMethod("POST"); var artifacts = mock(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportArtifactService.class);
+        var download = mock(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportArtifactService.Download.class);
+        var actor = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportActorDto("web-7", "999998", 7, null); var id = job().id();
+        when(exports.downloadActor(viewer, id)).thenReturn(actor); when(artifacts.open(actor, id, "package")).thenReturn(download); when(download.bytes()).thenReturn(3L);
+        org.mockito.Mockito.doAnswer(call -> { ((java.io.OutputStream) call.getArgument(0)).write(new byte[] {1,2,3}); return null; }).when(download).writeTo(any());
+        var action = new CdsExportDownload2Action(web, exports, artifacts); action.setRunId(id); action.setArtifact("package"); action.execute();
+        assertThat(response.getContentAsByteArray()).containsExactly(1,2,3); assertThat(response.getContentType()).isEqualTo("application/pkcs7-mime");
+        assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"cds-export.p7m\""); assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
+        verify(download).complete(); verify(download).close();
+    }
+    @Test void shouldReturnAnExplicitUnavailableError_withoutAnAttachmentOrInternalPaths() throws Exception {
+        request.setMethod("POST"); var artifacts = mock(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportArtifactService.class); var id = job().id();
+        when(artifacts.open(any(), anyString(), anyString())).thenThrow(new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportArtifactUnavailableException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportArtifactUnavailableException.Kind.PACKAGE));
+        var action = new CdsExportDownload2Action(web, exports, artifacts); action.setRunId(id); action.setArtifact("package"); action.execute();
+        assertThat(response.getStatus()).isEqualTo(409); assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getContentAsString()).contains("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
+    }
     private SubmitCdsExport2Action submission() {
         var action = new SubmitCdsExport2Action(web, new CdsExportWebCommandParser(), exports, security);
         action.setSubmissionKey("submission"); action.setProviderNo("999998"); action.setProfile("omd-5.2");

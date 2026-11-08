@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "51fa67a9a18e52f56cedaa2745891ee1d626a1ee24c39e6f1252173fa0ca7c20",
+ "migration_sha256": "5b24f58d96e5933673abbb118675b7f760c73d0e6df200302ec5122a74c63eb9",
  "province": "bc",
  "schema": {
   "checks": [
@@ -13508,6 +13508,210 @@
     null,
     null,
     6
+   ],
+   [
+    "cds_export_attempt",
+    "cleanup_token",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    11
+   ],
+   [
+    "cds_export_attempt",
+    "cleanup_until",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "cds_export_attempt",
+    "context_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_export_attempt",
+    "context_document",
+    "longtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_export_attempt",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    14
+   ],
+   [
+    "cds_export_attempt",
+    "download_operator",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    10
+   ],
+   [
+    "cds_export_attempt",
+    "download_token",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_export_attempt",
+    "download_until",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "cds_export_attempt",
+    "epoch",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "cds_export_attempt",
+    "expires_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    16
+   ],
+   [
+    "cds_export_attempt",
+    "id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_export_attempt",
+    "request_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_export_attempt",
+    "revision",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    17
+   ],
+   [
+    "cds_export_attempt",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_export_attempt",
+    "safe_code",
+    "varchar(96)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    13
+   ],
+   [
+    "cds_export_attempt",
+    "state",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_export_attempt",
+    "updated_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    15
    ],
    [
     "cds_export_event",
@@ -184870,6 +185074,72 @@
     "NO"
    ],
    [
+    "cds_export_attempt",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "idx_cds_export_attempt_expiry",
+    1,
+    1,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "idx_cds_export_attempt_expiry",
+    1,
+    2,
+    "expires_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "idx_cds_export_attempt_expiry",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "uq_cds_export_attempt",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "uq_cds_export_attempt",
+    0,
+    2,
+    "epoch",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "cds_export_event",
     "PRIMARY",
     0,
@@ -195237,6 +195507,42 @@
     null
    ],
    [
+    "cds_export_attempt",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_attempt",
+    "fk_cds_export_attempt_run",
+    1,
+    "run_id",
+    "$self",
+    "cds_export_run",
+    "id"
+   ],
+   [
+    "cds_export_attempt",
+    "uq_cds_export_attempt",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_attempt",
+    "uq_cds_export_attempt",
+    2,
+    "epoch",
+    null,
+    null,
+    null
+   ],
+   [
     "cds_export_event",
     "PRIMARY",
     1,
@@ -199511,6 +199817,13 @@
     "RESTRICT"
    ],
    [
+    "cds_export_attempt",
+    "fk_cds_export_attempt_run",
+    "cds_export_run",
+    "RESTRICT",
+    "CASCADE"
+   ],
+   [
     "cds_export_event",
     "fk_cds_export_event_run",
     "cds_export_run",
@@ -200586,6 +200899,12 @@
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"
+   ],
+   [
+    "cds_export_attempt",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
    ],
    [
     "cds_export_event",

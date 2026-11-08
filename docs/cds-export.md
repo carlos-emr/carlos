@@ -13,7 +13,28 @@ checks pass through real root delegation, Spring/JPA, Struts, login and CSRFGuar
 The CLI candidate passed 66 combined import/export/documentation cases without skips;
 actual root/service-user checks verify separate import/export ticket directories,
 service read access, forgery/modification denial and cleanup.
-A complete clinical engine and verified artifact publication remain unfinished. The separate `carlos-ctl`
+The coordinated patient/cohort pipeline is now packaged and installed component verified.
+The full patient-pipeline baseline passed 4,914 checks; the later cohort/scope package passed
+485 affected checks plus full Javadoc, followed by 60 exact-WAR assertions against the genuine
+report import. The check reads the actual finished ZIP, XML, supporting files, report attachment,
+retained disclosure scope and ownership manifest. Physician folders come from the same captured
+primary physician and OHIP number. Missing assignments require review. Temporary fixture chart
+and provider changes are restored; original importer metadata is preserved.
+
+Artifact publication and retrieval now have focused transaction and boundary verification.
+`cds_export_attempt` retains each epoch's opaque encrypted assets across resume. A private
+publication approval requires a qualified engine, complete retained evidence, fresh scope and
+pinned recipient policy before the sole atomic `READY` transition. A lost commit acknowledgement
+is reconciled under the run lock without deleting possibly published files. A separate download
+lease excludes retention; delivery authenticates the entire ciphertext and rechecks current
+scope. CLI output uses a private, fsynced temporary file and exclusive atomic installation without
+replacing existing files. Browser delivery uses POST/CSRF, fixed attachment names, no-store
+headers and the same service. Bounded diagnostic reports contain lifecycle metadata only and
+remain available for failed/review jobs. Cleanup retires only its exclusively leased old attempt,
+including crash fragments, without reading keys or traversing native/import/configuration paths.
+These changes passed 117 focused checks and 168 MariaDB-ledger/admission/reporting checks. Their clean packaged/runtime verification is pending.
+
+A complete clinical engine and installed qualification of artifact publication remain unfinished. The separate `carlos-ctl`
 worktree includes its export command adapter and shared import/export process transport;
 the adapter requires an installed, qualified Java engine before executing a clinical job.
 Neither logical profile is advertised as supported for export until the complete

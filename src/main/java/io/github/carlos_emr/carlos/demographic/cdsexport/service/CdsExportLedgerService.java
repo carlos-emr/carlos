@@ -29,6 +29,9 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportEventDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportRunDao;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportAttemptDao;
+import io.github.carlos_emr.carlos.commn.model.CdsExportAttempt;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportArtifactContextDto;
 import io.github.carlos_emr.carlos.commn.model.CdsExportEvent;
 import io.github.carlos_emr.carlos.commn.model.CdsExportRun;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDocumentDto;
@@ -73,15 +76,18 @@ public class CdsExportLedgerService {
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build();
     private final CdsExportRunDao runs;
     private final CdsExportEventDao events;
+    private final CdsExportAttemptDao attempts;
     private final TransactionTemplate write;
     private final TransactionTemplate read;
     private final TransactionTemplate captureControl;
+    private final TransactionTemplate reportRead;
 
-    public CdsExportLedgerService(CdsExportRunDao runs, CdsExportEventDao events, PlatformTransactionManager manager) {
-        this.runs = runs; this.events = events;
+    public CdsExportLedgerService(CdsExportRunDao runs, CdsExportEventDao events, CdsExportAttemptDao attempts, PlatformTransactionManager manager) {
+        this.runs = runs; this.events = events; this.attempts = Objects.requireNonNull(attempts);
         write = transaction(manager, false); read = transaction(manager, true);
         captureControl = transaction(manager, false);
         captureControl.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        reportRead = transaction(manager, true); reportRead.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
     private static TransactionTemplate transaction(PlatformTransactionManager manager, boolean readOnly) {
         TransactionTemplate value = new TransactionTemplate(manager);
@@ -129,6 +135,21 @@ public class CdsExportLedgerService {
     }
     public CdsExportJobDto status(String id) {
         runId(id); return transaction(read, () -> dto(required(runs.get(id)), runs.now()));
+    }
+    /** One consistent, bounded metadata snapshot, available without a clinical engine, policy files or decryption keys. */
+    public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto diagnostic(String id) {
+        runId(id); return transaction(reportRead, () -> {
+            var row = dto(required(runs.get(id)), runs.now()); var recent = events.recent(id, 129);
+            var audit = new java.util.ArrayList<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto.Audit>();
+            for (var value : recent.stream().limit(128).toList()) {
+                if (value.type() == null || !value.type().matches("[A-Z][A-Z0-9_]{0,63}") || value.epoch() < 0 || value.at() == null) throw new IllegalStateException("CDS_EXPORT_DIAGNOSTIC_INVALID");
+                if (value.safeCode() != null) safeCode(value.safeCode());
+                audit.add(new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto.Audit(value.type(), value.epoch(), value.safeCode(), value.at().toString()));
+            }
+            return new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto(1, "DIAGNOSTIC_REPORT", id, row.state().name(), row.epoch(),
+                    row.totalPatients(), row.processedPatients(), row.blockedPatients(), row.cancelRequested(), row.complete(), row.artifactAvailable(), row.safeCode(),
+                    row.createdAt().toString(), row.updatedAt().toString(), recent.size() > 128, audit);
+        });
     }
     /** Nullable internal lookup for replay recovery; the application still verifies current authority and exact original intent. */
     public CdsExportJobDto findSubmission(String operator, String submissionKey) {
@@ -187,6 +208,10 @@ public class CdsExportLedgerService {
             run.setOwnerEpoch(Math.addExact(run.getOwnerEpoch(), 1)); run.setOwnerToken(UUID.randomUUID().toString());
             run.setLeaseUntil(now.plusSeconds(LEASE_SECONDS)); run.setState(CdsExportState.DISCOVERING.name());
             resetAttemptEvidence(run);
+            var attempt = new CdsExportAttempt(); attempt.setId(UUID.randomUUID().toString());
+            attempt.setRunId(id); attempt.setEpoch(run.getOwnerEpoch()); attempt.setRequestDigest(run.getRequestDigest());
+            attempt.setState("CAPTURING"); attempt.setCreatedAt(now); attempt.setUpdatedAt(now);
+            attempt.setExpiresAt(now.plusSeconds(7 * 86_400L)); attempts.persist(attempt);
             run.setUpdatedAt(now); event(run, "ATTEMPT_CLAIMED", document.actor().operatorKey(), null, now);
             runs.flush(); return new CdsExportLeaseDto(id, run.getOwnerEpoch(), run.getOwnerToken(), document);
         });
@@ -250,6 +275,219 @@ public class CdsExportLedgerService {
             return new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto(run.getCohortMember(),
                     "COHORT_MANIFEST", run.getCohortDigest(), run.getCohortBytes());
         });
+    }
+    /** Records only an independently finished package, retaining each epoch's ownership after restart. */
+    public CdsExportArtifactContextDto retainPrepared(CdsExportLeaseDto lease, CdsExportClinicalPackageService.Prepared prepared) {
+        Objects.requireNonNull(prepared);
+        if (!lease.runId().equals(prepared.runId()) || lease.epoch() != prepared.epoch()) artifactInvalid();
+        var context = new CdsExportArtifactContextDto(1, lease.runId(), lease.epoch(), prepared.patients(),
+                lease.document().compatibilityDigest(), lease.document().recipientFingerprint(), lease.document().auditPlanDigest(),
+                cohort(lease), prepared.authorization(), prepared.ownership(), prepared.readMe(), prepared.eventLog(), prepared.archive(), null, null);
+        if (!context.cohort().plaintextSha256().equals(prepared.cohortSha256())) artifactInvalid();
+        retain(lease, context, false); return context;
+    }
+    /** No caller-supplied ciphertext descriptor can stand in for completed encryption evidence. */
+    public CdsExportArtifactContextDto retainEncrypted(CdsExportLeaseDto lease, CdsExportDeliveryService.Encrypted encrypted) {
+        Objects.requireNonNull(encrypted); var prepared = Objects.requireNonNull(encrypted.prepared());
+        if (!lease.runId().equals(prepared.runId()) || lease.epoch() != prepared.epoch()) artifactInvalid();
+        var context = new CdsExportArtifactContextDto(1, lease.runId(), lease.epoch(), prepared.patients(),
+                lease.document().compatibilityDigest(), lease.document().recipientFingerprint(), lease.document().auditPlanDigest(),
+                cohort(lease), prepared.authorization(), prepared.ownership(), prepared.readMe(), prepared.eventLog(), prepared.archive(),
+                encrypted.ciphertext(), encrypted.proof());
+        if (!context.cohort().plaintextSha256().equals(prepared.cohortSha256())) artifactInvalid();
+        retain(lease, context, true); return context;
+    }
+    private void retain(CdsExportLeaseDto lease, CdsExportArtifactContextDto context, boolean encrypted) {
+        var text = encodeContext(context); var sha = digest(text);
+        transaction(write, () -> {
+            var run = owned(lease); var now = runs.now();
+            if (run.isCancelRequested()) throw new CancellationException("CDS_EXPORT_CANCELLED");
+            if (state(run) != (encrypted ? CdsExportState.ENCRYPTING : CdsExportState.PACKAGING)
+                    || !Objects.equals(run.getExpectedPatients(), context.patients())
+                    || !Objects.equals(run.getCohortMember(), context.cohort().memberId())
+                    || !Objects.equals(run.getCohortDigest(), context.cohort().plaintextSha256())
+                    || !Objects.equals(run.getCohortBytes(), context.cohort().plaintextBytes())) artifactInvalid();
+            var attempt = attempt(run, lease.epoch());
+            if (sha.equals(attempt.getContextDigest())) { context(attempt); return null; }
+            if (attempt.getContextDocument() != null) {
+                var prior = context(attempt);
+                if (!encrypted || prior.encrypted() || !preparedOnly(context).equals(prior)) artifactInvalid();
+            } else if (encrypted) artifactInvalid();
+            attempt.setContextDocument(text); attempt.setContextDigest(sha); attempt.setUpdatedAt(now);
+            attempt.setState(encrypted ? "ENCRYPTED" : "PREPARED");
+            run.setLeaseUntil(now.plusSeconds(LEASE_SECONDS)); run.setUpdatedAt(now);
+            event(run, encrypted ? "CIPHERTEXT_RETAINED" : "PACKAGE_RETAINED", lease.document().actor().operatorKey(), null, now);
+            return null;
+        });
+    }
+    private static CdsExportArtifactContextDto preparedOnly(CdsExportArtifactContextDto value) {
+        return new CdsExportArtifactContextDto(value.protocol(), value.runId(), value.epoch(), value.patients(),
+                value.compatibilityDigest(), value.recipientFingerprint(), value.auditPlanDigest(), value.cohort(), value.authorization(),
+                value.ownership(), value.readMe(), value.eventLog(), value.archive(), null, null);
+    }
+    private CdsExportAttempt attempt(CdsExportRun run, long epoch) {
+        var attempt = attempts.lock(run.getId(), epoch);
+        if (attempt == null || !Objects.equals(attempt.getRequestDigest(), run.getRequestDigest())) artifactInvalid();
+        return attempt;
+    }
+    private static String encodeContext(CdsExportArtifactContextDto context) {
+        try {
+            var text = JSON.writeValueAsString(context);
+            if (text.getBytes(StandardCharsets.UTF_8).length > MAX_DOCUMENT) artifactInvalid(); return text;
+        } catch (IOException invalid) { throw new IllegalStateException("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID"); }
+    }
+    private static CdsExportArtifactContextDto context(CdsExportAttempt attempt) {
+        var text = attempt.getContextDocument();
+        if (text == null || text.length() > MAX_DOCUMENT || !digest(text).equals(attempt.getContextDigest())) artifactInvalid();
+        try {
+            var value = JSON.readValue(text, CdsExportArtifactContextDto.class);
+            if (value == null || !value.runId().equals(attempt.getRunId()) || value.epoch() != attempt.getEpoch()) artifactInvalid();
+            return value;
+        } catch (IOException invalid) { throw new IllegalStateException("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID"); }
+    }
+    private static void artifactInvalid() { throw new IllegalStateException("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID"); }
+    /** The sole READY transition: private publication evidence, an exact retained context and the live fence. */
+    public CdsExportJobDto publish(CdsExportPublicationService.Approved approval) {
+        Objects.requireNonNull(approval); var lease = approval.lease(); var expected = approval.context();
+        try { return publishOnce(approval); }
+        catch (org.springframework.transaction.TransactionException uncertain) {
+            // Locking waits for the previous commit/rollback. Never infer rollback from a lost response.
+            var recovered = transaction(write, () -> {
+                var run = required(runs.lock(lease.runId())); var attempt = attempt(run, lease.epoch());
+                return published(run, attempt, expected, runs.now()) ? dto(run, runs.now()) : null;
+            });
+            if (recovered != null) return recovered;
+            throw uncertain;
+        }
+    }
+    private CdsExportJobDto publishOnce(CdsExportPublicationService.Approved approval) {
+        var lease = approval.lease(); var expected = approval.context();
+        return transaction(write, () -> {
+            var run = required(runs.lock(lease.runId())); var now = runs.now(); var attempt = attempt(run, lease.epoch());
+            if (published(run, attempt, expected, now)) return dto(run, now);
+            owned(lease);
+            if (run.isCancelRequested()) throw new CancellationException("CDS_EXPORT_CANCELLED");
+            if (state(run) != CdsExportState.ENCRYPTING || !"ENCRYPTED".equals(attempt.getState())
+                    || !expected.encrypted() || !expected.equals(context(attempt))
+                    || !Objects.equals(run.getExpectedPatients(), expected.patients())
+                    || !Objects.equals(run.getCohortMember(), expected.cohort().memberId())
+                    || !Objects.equals(run.getCohortDigest(), expected.cohort().plaintextSha256())) artifactInvalid();
+            run.setProcessedPatients(expected.patients()); run.setBlockedPatients(0);
+            run.setArtifactMember(expected.ciphertext().memberId()); run.setArtifactDigest(expected.ciphertext().plaintextSha256());
+            run.setArtifactBytes(expected.ciphertext().plaintextBytes()); run.setExpiresAt(now.plusSeconds(approval.retentionSeconds()));
+            attempt.setState("PUBLISHED"); attempt.setUpdatedAt(now); attempt.setExpiresAt(run.getExpiresAt());
+            finish(run, CdsExportState.READY, null, now); runs.flush(); return dto(run, now);
+        });
+    }
+    private static boolean published(CdsExportRun run, CdsExportAttempt attempt, CdsExportArtifactContextDto expected, Instant now) {
+        return !run.isCancelRequested() && state(run) == CdsExportState.READY && run.getOwnerEpoch() == expected.epoch()
+                && "PUBLISHED".equals(attempt.getState()) && expected.encrypted() && expected.equals(context(attempt))
+                && Objects.equals(run.getArtifactMember(), expected.ciphertext().memberId())
+                && Objects.equals(run.getArtifactDigest(), expected.ciphertext().plaintextSha256())
+                && Objects.equals(run.getArtifactBytes(), expected.ciphertext().plaintextBytes())
+                && run.getExpiresAt() != null && run.getExpiresAt().isAfter(now);
+    }
+    /** A retained artifact lease is independent of the execution lease, and mutually exclusive with cleanup. */
+    public Download beginDownload(String id, String operator) {
+        runId(id); operator(operator);
+        return transaction(write, () -> {
+            var run = required(runs.lock(id)); var now = runs.now();
+            if (state(run) != CdsExportState.READY || run.isCancelRequested()) throw new IllegalStateException("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
+            var attempt = attempt(run, run.getOwnerEpoch());
+            if (state(run) != CdsExportState.READY || run.isCancelRequested() || attempt.getContextDocument() == null) throw new IllegalStateException("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
+            var context = context(attempt); available(run, attempt, context, now);
+            if (attempt.getCleanupToken() != null || attempt.getDownloadUntil() != null && attempt.getDownloadUntil().isAfter(now)) {
+                throw new IllegalStateException("CDS_EXPORT_ARTIFACT_BUSY");
+            }
+            var token = UUID.randomUUID().toString(); attempt.setDownloadToken(token); attempt.setDownloadOperator(operator);
+            attempt.setDownloadUntil(now.plusSeconds(LEASE_SECONDS)); attempt.setUpdatedAt(now);
+            event(run, "DOWNLOAD_STARTED", operator, null, now);
+            return new Download(id, run.getOwnerEpoch(), token, operator, document(run), context);
+        });
+    }
+    public void downloadCheckpoint(Download download) {
+        transaction(write, () -> {
+            var run = required(runs.lock(download.runId())); var now = runs.now(); var attempt = downloadAttempt(run, download, now);
+            available(run, attempt, download.context(), now);
+            attempt.setDownloadUntil(now.plusSeconds(LEASE_SECONDS)); attempt.setUpdatedAt(now); return null;
+        });
+    }
+    public void finishDownload(Download download, boolean complete) {
+        transaction(write, () -> {
+            var run = required(runs.lock(download.runId())); var now = runs.now(); var attempt = downloadAttempt(run, download, now);
+            if (complete) available(run, attempt, download.context(), now);
+            attempt.setDownloadToken(null); attempt.setDownloadUntil(null); attempt.setDownloadOperator(null); attempt.setUpdatedAt(now);
+            event(run, complete ? "DOWNLOAD_COMPLETE" : "DOWNLOAD_STOPPED", download.operator(), complete ? null : "CDS_EXPORT_DOWNLOAD_INCOMPLETE", now, download.epoch());
+            return null;
+        });
+    }
+    private CdsExportAttempt downloadAttempt(CdsExportRun run, Download download, Instant now) {
+        var attempt = attempt(run, download.epoch());
+        if (!Objects.equals(attempt.getDownloadToken(), download.token()) || !Objects.equals(attempt.getDownloadOperator(), download.operator())
+                || attempt.getDownloadUntil() == null || !attempt.getDownloadUntil().isAfter(now)
+                || !download.context().equals(context(attempt)) || attempt.getCleanupToken() != null) {
+            throw new IllegalStateException("CDS_EXPORT_DOWNLOAD_FENCED");
+        }
+        return attempt;
+    }
+    private static void available(CdsExportRun run, CdsExportAttempt attempt, CdsExportArtifactContextDto expected, Instant now) {
+        if (!published(run, attempt, expected, now)) throw new IllegalStateException("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
+    }
+    /** Opaque lease capability; never send its token/context to a browser or print it in CLI output. */
+    public record Download(String runId, long epoch, String token, String operator,
+            CdsExportJobDocumentDto document, CdsExportArtifactContextDto context) {
+        @Override public String toString() { return "CdsExportDownload[protected]"; }
+    }
+    /** Bounded discovery is metadata-only; all eligibility is checked again under run-before-attempt locks. */
+    public List<String> expiredArtifacts(int limit) {
+        page(limit); return transaction(read, () -> List.copyOf(attempts.expiredRunIds(runs.now(), limit)));
+    }
+    public List<Long> artifactEpochs(String id, long after, int limit) {
+        runId(id); page(limit); if (after < 0) throw new IllegalArgumentException("CDS_EXPORT_EPOCH_INVALID");
+        return transaction(read, () -> List.copyOf(attempts.epochs(id, after, runs.now(), limit)));
+    }
+    public Cleanup beginCleanup(String id, long epoch) {
+        runId(id); if (epoch < 1) throw new IllegalArgumentException("CDS_EXPORT_EPOCH_INVALID");
+        return transaction(write, () -> {
+            var run = required(runs.lock(id)); var attempt = attempt(run, epoch); var now = runs.now();
+            if ("PURGED".equals(attempt.getState()) || attempt.getExpiresAt().isAfter(now)
+                    || run.getOwnerEpoch() == epoch && liveOwner(run, now)
+                    || attempt.getDownloadUntil() != null && attempt.getDownloadUntil().isAfter(now)
+                    || attempt.getCleanupUntil() != null && attempt.getCleanupUntil().isAfter(now)) return null;
+            var token = UUID.randomUUID().toString(); attempt.setCleanupToken(token); attempt.setCleanupUntil(now.plusSeconds(LEASE_SECONDS));
+            attempt.setUpdatedAt(now); attempt.setState("PURGING");
+            if (run.getOwnerEpoch() == epoch && state(run) == CdsExportState.READY) finish(run, CdsExportState.EXPIRED, "CDS_EXPORT_RETENTION_EXPIRED", now);
+            event(run, "CLEANUP_STARTED", run.getOperator(), null, now, epoch);
+            return new Cleanup(id, epoch, token, document(run));
+        });
+    }
+    public void cleanupCheckpoint(Cleanup cleanup) {
+        transaction(write, () -> {
+            var run = required(runs.lock(cleanup.runId())); var attempt = cleanupAttempt(run, cleanup, runs.now());
+            var now = runs.now(); attempt.setCleanupUntil(now.plusSeconds(LEASE_SECONDS)); attempt.setUpdatedAt(now); return null;
+        });
+    }
+    public void finishCleanup(Cleanup cleanup, boolean complete) {
+        transaction(write, () -> {
+            var run = required(runs.lock(cleanup.runId())); var now = runs.now(); var attempt = cleanupAttempt(run, cleanup, now);
+            attempt.setCleanupToken(null); attempt.setCleanupUntil(null); attempt.setUpdatedAt(now);
+            attempt.setState(complete ? "PURGED" : "CLEANUP_FAILED"); if (!complete) attempt.setExpiresAt(now.plusSeconds(300)); attempt.setSafeCode(complete ? null : "CDS_EXPORT_CLEANUP_INCOMPLETE");
+            if (complete) { attempt.setContextDocument(null); attempt.setContextDigest(null); }
+            event(run, complete ? "CLEANUP_COMPLETE" : "CLEANUP_STOPPED", run.getOperator(), complete ? null : "CDS_EXPORT_CLEANUP_INCOMPLETE", now, cleanup.epoch());
+            return null;
+        });
+    }
+    private CdsExportAttempt cleanupAttempt(CdsExportRun run, Cleanup cleanup, Instant now) {
+        var attempt = attempt(run, cleanup.epoch());
+        if (!Objects.equals(attempt.getCleanupToken(), cleanup.token()) || attempt.getCleanupUntil() == null || !attempt.getCleanupUntil().isAfter(now)
+                || run.getOwnerEpoch() == cleanup.epoch() && liveOwner(run, now)
+                || attempt.getDownloadUntil() != null && attempt.getDownloadUntil().isAfter(now)) {
+            throw new IllegalStateException("CDS_EXPORT_CLEANUP_FENCED");
+        }
+        return attempt;
+    }
+    public record Cleanup(String runId, long epoch, String token, CdsExportJobDocumentDto document) {
+        @Override public String toString() { return "CdsExportCleanup[protected]"; }
     }
     public void phase(CdsExportLeaseDto lease, CdsExportState next) {
         Objects.requireNonNull(next);
@@ -370,14 +608,24 @@ public class CdsExportLedgerService {
         return run.getOwnerToken() != null && run.getLeaseUntil() != null && run.getLeaseUntil().isAfter(now);
     }
     private void event(CdsExportRun run, String type, String operator, String code, Instant now) {
+        event(run, type, operator, code, now, run.getOwnerEpoch());
+    }
+    private void event(CdsExportRun run, String type, String operator, String code, Instant now, long epoch) {
+        if (epoch < 0 || epoch > run.getOwnerEpoch()) throw new IllegalArgumentException("CDS_EXPORT_EVENT_EPOCH_INVALID");
         CdsExportEvent event = new CdsExportEvent(); event.setId(UUID.randomUUID().toString()); event.setRunId(run.getId());
-        event.setEpoch(run.getOwnerEpoch()); event.setEventType(type); event.setOperator(operator);
+        event.setEpoch(epoch); event.setEventType(type); event.setOperator(operator);
         event.setSafeCode(code); event.setCreatedAt(now); events.persist(event);
     }
-    private static CdsExportJobDto dto(CdsExportRun run, Instant now) {
+    private CdsExportJobDto dto(CdsExportRun run, Instant now) {
         boolean available = state(run) == CdsExportState.READY && !run.isCancelRequested()
                 && run.getArtifactMember() != null && run.getArtifactDigest() != null
                 && run.getExpiresAt() != null && run.getExpiresAt().isAfter(now);
+        if (available) {
+            var retained = attempts.find(run.getId(), run.getOwnerEpoch());
+            if (retained == null || !"PUBLISHED".equals(retained.getState())) available = false;
+            else try { available = published(run, retained, context(retained), now); }
+            catch (IllegalStateException | IllegalArgumentException invalid) { available = false; }
+        }
         return new CdsExportJobDto(run.getId(), state(run), run.getRevision(), run.getExpectedPatients(),
                 run.getProcessedPatients(), run.getBlockedPatients(), run.isCancelRequested(), liveOwner(run, now),
                 run.getOwnerEpoch(), run.getSafeCode(), run.getCreatedAt(), run.getUpdatedAt(), available);

@@ -188,6 +188,21 @@ public class CdsExportService {
         Integer hint = Objects.equals(provider, owner.providerNo()) ? owner.facilityHint() : null;
         var actor = access.delegatedSession(verifiedOperator, provider, hint); access.requireObserve(actor, owner); return actor;
     }
+    public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto report(LoggedInInfo viewer, String runId) {
+        authorize(viewer, runId); return ledger.diagnostic(runId);
+    }
+    public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto reportDelegated(String verifiedOperator, String provider, String runId) {
+        authorizeDelegated(verifiedOperator, provider, runId); return ledger.diagnostic(runId);
+    }
+    /** Retrieval reconstructs the observer in the exact accepted clinical provider/facility scope. */
+    public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportActorDto downloadActor(LoggedInInfo viewer, String runId) {
+        authorize(viewer, runId); return access.webActor(viewer, ledger.document(runId).command());
+    }
+    public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportActorDto downloadActorDelegated(String verifiedOperator, String provider, String runId) {
+        authorizeDelegated(verifiedOperator, provider, runId); var document = ledger.document(runId);
+        if (!Objects.equals(provider, document.command().providerNo())) throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
+        return access.delegatedActor(verifiedOperator, document.command());
+    }
     private synchronized void schedule(String runId) {
         if (closed || dispatcher == null || supervisionStopped() || !scheduled.add(runId)) return;
         try {

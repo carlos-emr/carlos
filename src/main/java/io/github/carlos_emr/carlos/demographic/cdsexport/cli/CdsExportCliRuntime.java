@@ -32,8 +32,8 @@ public interface CdsExportCliRuntime extends AutoCloseable {
     void resume(String runId);
     void cancel(String runId);
     CdsExportJobDto execute(String runId);
-    /** Reports/downloads remain inaccessible until a separately verified artifact has actually been published. */
-    void report(String runId) throws IOException;
+    /** PHI-free metadata diagnostics remain available for failed/review jobs; a report is not a clinical package. */
+    io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto report(String runId) throws IOException;
     void download(String runId) throws IOException;
     void interruptWait();
     @Override void close();

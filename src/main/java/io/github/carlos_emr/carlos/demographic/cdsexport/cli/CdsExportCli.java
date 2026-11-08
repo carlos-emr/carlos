@@ -95,7 +95,7 @@ public final class CdsExportCli {
             }
             if (arguments.operation().equals("resume")) runtime.resume(run);
             if (arguments.operation().equals("cancel")) runtime.cancel(run);
-            if (arguments.operation().equals("report")) runtime.report(run);
+            if (arguments.operation().equals("report")) line(out, java.util.Objects.requireNonNull(runtime.report(run)));
             if (arguments.operation().equals("download")) runtime.download(run);
             CdsExportJobDto state;
             boolean work = arguments.operation().equals("export") || arguments.operation().equals("resume");
@@ -165,7 +165,7 @@ public final class CdsExportCli {
         result.put("artifactAvailable", job.artifactAvailable()); result.put("safeCode", job.safeCode());
         result.put("waiting", job.waiting()); result.put("complete", job.complete()); return result;
     }
-    private static synchronized void line(PrintStream out, Map<String, ?> value) throws IOException {
+    private static synchronized void line(PrintStream out, Object value) throws IOException {
         out.println(JSON.writeValueAsString(value));
     }
 }

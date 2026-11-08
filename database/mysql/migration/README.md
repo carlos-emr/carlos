@@ -96,6 +96,7 @@ migration/
            V1.0.81__appointment_location_list.sql  # appointment Location List (#3982)
            V1.0.82__cds_native_field_baselines.sql
            V1.0.83__cds_export_ledger.sql
+           V1.0.84__cds_export_artifact_attempts.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -117,8 +118,8 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The combined high-water mark is `common/V1.0.83`,
-so the next unallocated version for ANY location is `V1.0.84`. The portal booking migrations
+`V1.0.3` onward is a forward delta. The combined high-water mark is `common/V1.0.84`,
+so the next unallocated version for ANY location is `V1.0.85`. The portal booking migrations
 occupy `V1.0.60`–`V1.0.61`; appointment locations retain develop's `V1.0.81`, native field baselines use `V1.0.82`, and the unpublished export ledger moves to `V1.0.83`.
 Published SQL files retain their numbers and bytes. The merge ledger preserves develop's history,
 then records the lower release arrivals as `forward-merge`; a database already past those lower

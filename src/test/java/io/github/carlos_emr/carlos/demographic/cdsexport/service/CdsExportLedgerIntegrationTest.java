@@ -42,6 +42,7 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
@@ -129,7 +130,7 @@ class CdsExportLedgerIntegrationTest {
         context.registerBean("entityManagerFactory", LocalContainerEntityManagerFactoryBean.class, () -> {
             var factory = new LocalContainerEntityManagerFactoryBean(); factory.setPersistenceUnitName("entityManagerFactory");
             factory.setDataSource(source); factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-            factory.setManagedTypes(PersistenceManagedTypes.of(CdsExportRun.class.getName(), CdsExportEvent.class.getName()));
+            factory.setManagedTypes(PersistenceManagedTypes.of(CdsExportRun.class.getName(), CdsExportEvent.class.getName(), io.github.carlos_emr.carlos.commn.model.CdsExportAttempt.class.getName()));
             factory.setJpaPropertyMap(Map.of("hibernate.hbm2ddl.auto", nativeDatabase ? "validate" : "create-drop",
                     "hibernate.dialect", nativeDatabase ? "org.hibernate.dialect.MariaDBDialect" : "org.hibernate.dialect.H2Dialect",
                     "hibernate.jdbc.time_zone", "UTC", "hibernate.show_sql", "false")); return factory;
@@ -137,7 +138,7 @@ class CdsExportLedgerIntegrationTest {
         context.registerBean("transactionManager", PlatformTransactionManager.class,
                 () -> new CommitFault(new JpaTransactionManager(context.getBean(EntityManagerFactory.class))));
         context.registerBean(PersistenceAnnotationBeanPostProcessor.class);
-        context.register(CdsExportRunDao.class, CdsExportLedgerService.class);
+        context.register(CdsExportRunDao.class, io.github.carlos_emr.carlos.commn.dao.CdsExportAttemptDao.class, CdsExportLedgerService.class);
         context.registerBean(CdsExportEventDao.class, Audit::new);
         context.refresh(); ledger = context.getBean(CdsExportLedgerService.class);
         audit = (Audit) context.getBean(CdsExportEventDao.class); commits = (CommitFault) context.getBean(PlatformTransactionManager.class);
@@ -145,12 +146,27 @@ class CdsExportLedgerIntegrationTest {
     @AfterEach void closeOwnedResources() {
         try {
             if (context != null && context.isActive() && sql != null && operator != null) {
+                sql.update("delete from cds_export_attempt where run_id in (select id from cds_export_run where operator=?)", operatorKey());
                 sql.update("delete from cds_export_event where run_id in (select id from cds_export_run where operator=?)", operatorKey());
                 sql.update("delete from cds_export_run where operator=?", operatorKey());
             }
         } finally { if (context != null) context.close(); }
     }
 
+    @Test void shouldRetainSeparateAttemptOwnership_whenTheSameRunIsResumed() {
+        var job = ledger.accept(document("recipient")); var first = ledger.claim(job.id(), COMPATIBLE);
+        ledger.release(first); var second = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(second.epoch()).isEqualTo(first.epoch() + 1);
+        assertThat(sql.queryForObject("select count(*) from cds_export_attempt where run_id=?", Long.class, job.id())).isEqualTo(2);
+        assertThat(sql.queryForList("select epoch from cds_export_attempt where run_id=? order by epoch", Long.class, job.id()))
+                .containsExactly(first.epoch(), second.epoch());
+    }
+    @Test void shouldRollbackAttemptCreation_whenItsClaimAuditFails() {
+        var job = ledger.accept(document("recipient")); audit.failNext();
+        assertThatThrownBy(() -> ledger.claim(job.id(), COMPATIBLE)).hasMessage("SYNTHETIC_AUDIT_FAILED");
+        assertThat(sql.queryForObject("select count(*) from cds_export_attempt where run_id=?", Long.class, job.id())).isZero();
+        assertThat(ledger.status(job.id()).state()).isEqualTo(CdsExportState.ACCEPTED);
+    }
     @Test void shouldRecoverTheSameRunAndUnknownTotals_forAnIdenticalSubmission() {
         var document = document("recipient"); var first = ledger.accept(document); var second = ledger.accept(document);
         assertThat(second.id()).isEqualTo(first.id());
@@ -400,6 +416,159 @@ class CdsExportLedgerIntegrationTest {
         assertThatThrownBy(() -> ledger.sealSelection(successor, fixture.sealed())).hasMessage("CDS_EXPORT_COHORT_SCOPE_MISMATCH");
         assertThatThrownBy(() -> ledger.cohort(successor)).hasMessage("CDS_EXPORT_SELECTION_NOT_SEALED");
         assertThat(ledger.status(first.runId()).totalPatients()).isNull();
+    }
+    @Test void shouldRetainPreparedAndEncryptedEvidence_withoutMakingTheArtifactAvailable() throws Exception {
+        var f = artifactFixture(); var context = ledger.retainPrepared(f.lease(), f.prepared());
+        assertThat(context.encrypted()).isFalse(); ledger.retainPrepared(f.lease(), f.prepared());
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=? and event_type='PACKAGE_RETAINED'", Long.class, f.lease().runId())).isEqualTo(1);
+        ledger.phase(f.lease(), CdsExportState.ENCRYPTING); var encrypted = ledger.retainEncrypted(f.lease(), f.encrypted());
+        assertThat(encrypted.encrypted()).isTrue(); assertThat(ledger.status(f.lease().runId()).artifactAvailable()).isFalse();
+        assertThat(sql.queryForObject("select state from cds_export_attempt where run_id=?", String.class, f.lease().runId())).isEqualTo("ENCRYPTED");
+    }
+    @Test void shouldRequirePreparedEvidence_beforeRetainingCiphertext() throws Exception {
+        var f = artifactFixture(); ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
+        assertThatThrownBy(() -> ledger.retainEncrypted(f.lease(), f.encrypted())).hasMessage("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID");
+        assertThat(sql.queryForObject("select context_document from cds_export_attempt where run_id=?", String.class, f.lease().runId())).isNull();
+    }
+    @Test void shouldAtomicallyPublish_andRecoverALostCommitAcknowledgement() throws Exception {
+        var f = artifactFixture(); ledger.retainPrepared(f.lease(), f.prepared()); ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
+        var service = publication(f, () -> commits.loseAcknowledgement = true);
+        var ready = service.publish(f.lease(), f.encrypted(), 3600, org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl.class));
+        assertThat(ready.state()).isEqualTo(CdsExportState.READY); assertThat(ready.complete()).isTrue();
+        assertThat(ready.artifactAvailable()).isTrue(); assertThat(ready.workerOwned()).isFalse();
+        assertThat(sql.queryForObject("select state from cds_export_attempt where run_id=?", String.class, f.lease().runId())).isEqualTo("PUBLISHED");
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=? and event_type='READY'", Long.class, f.lease().runId())).isEqualTo(1);
+    }
+    @Test void shouldRefusePublication_whenTheFinalScopeCheckCancelsTheRun() throws Exception {
+        var f = artifactFixture(); ledger.retainPrepared(f.lease(), f.prepared()); ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
+        var service = publication(f, () -> ledger.cancel(f.lease().runId(), operatorKey()));
+        assertThatThrownBy(() -> service.publish(f.lease(), f.encrypted(), 3600, cohortControl(f.lease()))).hasMessage("CDS_EXPORT_CANCELLED");
+        assertThat(ledger.status(f.lease().runId()).artifactAvailable()).isFalse();
+        assertThat(sql.queryForObject("select artifact_member from cds_export_run where id=?", String.class, f.lease().runId())).isNull();
+    }
+    @Test void shouldLeaveThePackagePrivate_whenNoClinicalEngineIsQualified() throws Exception {
+        var f = artifactFixture(); ledger.retainPrepared(f.lease(), f.prepared()); ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
+        var service = new CdsExportPublicationService(new CdsExportEngineRegistry(List.of()), ledger,
+                org.mockito.Mockito.mock(CdsExportDisclosureScopeService.class), org.mockito.Mockito.mock(CdsExportDisclosurePolicyService.class));
+        assertThatThrownBy(() -> service.publish(f.lease(), f.encrypted(), 3600, cohortControl(f.lease()))).hasMessage("CDS_EXPORT_PROFILE_NOT_QUALIFIED");
+        assertThat(ledger.status(f.lease().runId()).artifactAvailable()).isFalse();
+    }
+    @Test void shouldRejectTamperedRetainedContext_beforeReplacingItWithEncryptedEvidence() throws Exception {
+        var f = artifactFixture(); ledger.retainPrepared(f.lease(), f.prepared()); ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
+        sql.update("update cds_export_attempt set context_document=? where run_id=?", "{}", f.lease().runId());
+        assertThatThrownBy(() -> ledger.retainEncrypted(f.lease(), f.encrypted())).hasMessage("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID");
+        assertThat(ledger.status(f.lease().runId()).artifactAvailable()).isFalse();
+    }
+    private record ArtifactFixture(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto lease,
+            CdsExportClinicalPackageService.Prepared prepared, CdsExportDeliveryService.Encrypted encrypted) { }
+    private ArtifactFixture artifactFixture() throws Exception {
+        var lease = boundLease(); var cohort = preparedCohort(lease); ledger.sealSelection(lease, cohort.sealed());
+        for (var phase : List.of(CdsExportState.RECONCILING, CdsExportState.SERIALIZING, CdsExportState.VALIDATING, CdsExportState.PACKAGING)) ledger.phase(lease, phase);
+        var prepared = org.mockito.Mockito.mock(CdsExportClinicalPackageService.Prepared.class);
+        org.mockito.Mockito.when(prepared.runId()).thenReturn(lease.runId()); org.mockito.Mockito.when(prepared.epoch()).thenReturn(lease.epoch());
+        org.mockito.Mockito.when(prepared.patients()).thenReturn(1L); org.mockito.Mockito.when(prepared.cohortSha256()).thenReturn(cohort.sealed().member().plaintextSha256());
+        var authorization = artifactFile("DISCLOSURE_MANIFEST"); var ownership = artifactFile("ATTEMPT_MEMBERS"); var readMe = artifactFile("SUPPORTING_README"); var eventLog = artifactFile("SUPPORTING_EVENT_LOG");
+        var zip = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPackageDto(artifactFile("PACKAGE_ZIP"), 3, 3, "d".repeat(64));
+        org.mockito.Mockito.when(prepared.authorization()).thenReturn(authorization); org.mockito.Mockito.when(prepared.ownership()).thenReturn(ownership);
+        org.mockito.Mockito.when(prepared.readMe()).thenReturn(readMe); org.mockito.Mockito.when(prepared.eventLog()).thenReturn(eventLog); org.mockito.Mockito.when(prepared.archive()).thenReturn(zip);
+        var encrypted = org.mockito.Mockito.mock(CdsExportDeliveryService.Encrypted.class); var cipher = artifactFile("DELIVERY_CMS");
+        var proof = new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDeliveryDto("cms-aes256gcm-rsa-oaep-sha256-v1", lease.document().recipientFingerprint(), zip.archive().plaintextSha256(), zip.archive().plaintextBytes(), cipher.plaintextSha256(), cipher.plaintextBytes());
+        org.mockito.Mockito.when(encrypted.prepared()).thenReturn(prepared); org.mockito.Mockito.when(encrypted.ciphertext()).thenReturn(cipher); org.mockito.Mockito.when(encrypted.proof()).thenReturn(proof);
+        return new ArtifactFixture(lease, prepared, encrypted);
+    }
+    private static io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto artifactFile(String purpose) {
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto(UUID.randomUUID().toString().replace("-", "").repeat(2), purpose, "e".repeat(64), 1);
+    }
+    private CdsExportPublicationService publication(ArtifactFixture f, Runnable finalAction) throws Exception {
+        var engine = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportEngine.class);
+        org.mockito.Mockito.when(engine.compatibilityDigest()).thenReturn(COMPATIBLE); org.mockito.Mockito.when(engine.qualifiedProfiles()).thenReturn(Set.of(f.lease().document().command().profile()));
+        var scopes = org.mockito.Mockito.mock(CdsExportDisclosureScopeService.class); var scope = org.mockito.Mockito.mock(CdsExportDisclosureScopeService.Verified.class);
+        org.mockito.Mockito.when(scope.runId()).thenReturn(f.lease().runId()); org.mockito.Mockito.when(scope.epoch()).thenReturn(f.lease().epoch());
+        org.mockito.Mockito.when(scope.patients()).thenReturn(1L); String cohortSha = f.prepared().cohortSha256(), authSha = f.prepared().authorization().plaintextSha256();
+        org.mockito.Mockito.when(scope.cohortSha256()).thenReturn(cohortSha); org.mockito.Mockito.when(scope.authorizationSha256()).thenReturn(authSha);
+        // The final no-op checkpoint is outside metadata transactions; only READY's commit acknowledgement is lost.
+        org.mockito.Mockito.when(scopes.verify(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenAnswer(call -> { finalAction.run(); return scope; });
+        return new CdsExportPublicationService(new CdsExportEngineRegistry(List.of(engine)), ledger, scopes, org.mockito.Mockito.mock(CdsExportDisclosurePolicyService.class));
+    }
+    @Test void shouldAuditACompleteDownload_withAnIndependentRetainedArtifactLease() throws Exception {
+        var f = readyArtifact(); var download = ledger.beginDownload(f.lease().runId(), operatorKey());
+        assertThat(download.context().encrypted()).isTrue(); ledger.downloadCheckpoint(download); ledger.finishDownload(download, true);
+        assertThat(sql.queryForObject("select download_token from cds_export_attempt where run_id=?", String.class, f.lease().runId())).isNull();
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=? and event_type='DOWNLOAD_COMPLETE'", Long.class, f.lease().runId())).isEqualTo(1);
+        assertThatThrownBy(() -> ledger.downloadCheckpoint(download)).hasMessage("CDS_EXPORT_DOWNLOAD_FENCED");
+    }
+    @Test void shouldPreventConcurrentDownloads_insteadOfOverwritingTheActiveLease() throws Exception {
+        var f = readyArtifact(); var download = ledger.beginDownload(f.lease().runId(), operatorKey());
+        assertThatThrownBy(() -> ledger.beginDownload(f.lease().runId(), operatorKey())).hasMessage("CDS_EXPORT_ARTIFACT_BUSY");
+        ledger.finishDownload(download, false); assertThat(ledger.beginDownload(f.lease().runId(), operatorKey()).token()).isNotEqualTo(download.token());
+    }
+    @Test void shouldStopDownloadsImmediately_afterDurableCancellation() throws Exception {
+        var f = readyArtifact(); var download = ledger.beginDownload(f.lease().runId(), operatorKey()); ledger.cancel(f.lease().runId(), operatorKey());
+        assertThatThrownBy(() -> ledger.downloadCheckpoint(download)).hasMessage("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
+        assertThatThrownBy(() -> ledger.finishDownload(download, true)).hasMessage("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
+        ledger.finishDownload(download, false);
+        assertThat(sql.queryForObject("select count(*) from cds_export_event where run_id=? and event_type='DOWNLOAD_COMPLETE'", Long.class, f.lease().runId())).isZero();
+    }
+    @Test void shouldFenceAnExpiredDownload_evenIfNoSuccessorHasClaimedIt() throws Exception {
+        var f = readyArtifact(); var download = ledger.beginDownload(f.lease().runId(), operatorKey());
+        sql.update("update cds_export_attempt set download_until=? where run_id=?", Timestamp.from(Instant.parse("2000-01-01T00:00:00Z")), f.lease().runId());
+        assertThatThrownBy(() -> ledger.downloadCheckpoint(download)).hasMessage("CDS_EXPORT_DOWNLOAD_FENCED");
+        var successor = ledger.beginDownload(f.lease().runId(), operatorKey());
+        assertThatThrownBy(() -> ledger.finishDownload(download, false)).hasMessage("CDS_EXPORT_DOWNLOAD_FENCED");
+        ledger.finishDownload(successor, false);
+    }
+    private ArtifactFixture readyArtifact() throws Exception {
+        var f = artifactFixture(); ledger.retainPrepared(f.lease(), f.prepared()); ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
+        publication(f, () -> {}).publish(f.lease(), f.encrypted(), 3600, cohortControl(f.lease())); return f;
+    }
+    @Test void shouldExcludeALiveDownloadFromCleanup_evenWhenItsRetentionIsDue() throws Exception {
+        var f = readyArtifact(); var download = ledger.beginDownload(f.lease().runId(), operatorKey());
+        sql.update("update cds_export_attempt set expires_at=? where run_id=?", Timestamp.from(Instant.parse("2000-01-01T00:00:00Z")), f.lease().runId());
+        assertThat(ledger.beginCleanup(f.lease().runId(), f.lease().epoch())).isNull(); ledger.finishDownload(download, false);
+        var cleanup = ledger.beginCleanup(f.lease().runId(), f.lease().epoch()); assertThat(cleanup).isNotNull();
+        assertThat(ledger.status(f.lease().runId()).state()).isEqualTo(CdsExportState.EXPIRED);
+        assertThatThrownBy(() -> ledger.beginDownload(f.lease().runId(), operatorKey())).hasMessage("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
+        ledger.cleanupCheckpoint(cleanup); ledger.finishCleanup(cleanup, true);
+        assertThat(sql.queryForObject("select state from cds_export_attempt where run_id=?", String.class, f.lease().runId())).isEqualTo("PURGED");
+        assertThat(sql.queryForObject("select context_document from cds_export_attempt where run_id=?", String.class, f.lease().runId())).isNull();
+    }
+    @Test void shouldExcludeTheLiveWorkerFromCleanup_evenWhenAttemptRetentionIsDue() {
+        var lease = boundLease(); sql.update("update cds_export_attempt set expires_at=? where run_id=?", Timestamp.from(Instant.parse("2000-01-01T00:00:00Z")), lease.runId());
+        assertThat(ledger.beginCleanup(lease.runId(), lease.epoch())).isNull();
+    }
+    @Test void shouldRetainFailureEvidence_andAllowAnExplicitCleanupRetry() throws Exception {
+        var f = readyArtifact(); sql.update("update cds_export_attempt set expires_at=? where run_id=?", Timestamp.from(Instant.parse("2000-01-01T00:00:00Z")), f.lease().runId());
+        var first = ledger.beginCleanup(f.lease().runId(), f.lease().epoch()); ledger.finishCleanup(first, false);
+        assertThat(sql.queryForObject("select state from cds_export_attempt where run_id=?", String.class, f.lease().runId())).isEqualTo("CLEANUP_FAILED");
+        assertThat(sql.queryForObject("select context_document from cds_export_attempt where run_id=?", String.class, f.lease().runId())).isNotNull();
+        assertThat(ledger.beginCleanup(f.lease().runId(), f.lease().epoch())).isNull();
+        sql.update("update cds_export_attempt set expires_at=? where run_id=?", Timestamp.from(Instant.parse("2000-01-01T00:00:00Z")), f.lease().runId());
+        var retry = ledger.beginCleanup(f.lease().runId(), f.lease().epoch()); assertThat(retry.token()).isNotEqualTo(first.token());
+        assertThatThrownBy(() -> ledger.finishCleanup(first, true)).hasMessage("CDS_EXPORT_CLEANUP_FENCED"); ledger.finishCleanup(retry, true);
+    }
+    @Test void shouldExposeOnlyBoundedMetadataDiagnostics_withoutRequiringAnArtifactOrClinicalEngine() throws Exception {
+        var job = ledger.accept(document("recipient")); var report = ledger.diagnostic(job.id());
+        assertThat(report.totalPatients()).isNull(); assertThat(report.complete()).isFalse(); assertThat(report.artifactAvailable()).isFalse();
+        assertThat(report.recentEvents()).extracting(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto.Audit::type).containsExactly("ACCEPTED");
+        var encoded = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(report);
+        assertThat(encoded).contains("DIAGNOSTIC_REPORT").doesNotContain(operator, "999998", "recipient", "submissionKey", "context", "token", "member");
+    }
+    @Test void shouldExplicitlyMarkTruncatedDiagnosticHistory_insteadOfSilentlyDroppingEvents() {
+        var job = ledger.accept(document("recipient"));
+        for (int i = 0; i < 65; i++) { var lease = ledger.claim(job.id(), COMPATIBLE); ledger.release(lease); }
+        var report = ledger.diagnostic(job.id()); assertThat(report.eventsTruncated()).isTrue(); assertThat(report.recentEvents()).hasSize(128);
+    }
+    @Test void shouldKeepCorruptArtifactEvidenceUnavailable_inMetadataObservation() throws Exception {
+        var f = readyArtifact(); sql.update("update cds_export_attempt set context_document=? where run_id=?", "{}", f.lease().runId());
+        var observed = ledger.status(f.lease().runId()); assertThat(observed.complete()).isFalse(); assertThat(observed.artifactAvailable()).isFalse();
+        assertThat(observed.state()).isEqualTo(CdsExportState.READY);
+    }
+    @Test void shouldAttributeOldAttemptCleanup_toItsOwnEpochWithoutChangingTheCurrentWorker() {
+        var first = boundLease(); ledger.release(first); var current = ledger.claim(first.runId(), COMPATIBLE);
+        sql.update("update cds_export_attempt set expires_at=? where run_id=? and epoch=?", Timestamp.from(Instant.parse("2000-01-01T00:00:00Z")), first.runId(), first.epoch());
+        var cleanup = ledger.beginCleanup(first.runId(), first.epoch()); assertThat(cleanup).isNotNull(); ledger.finishCleanup(cleanup, true);
+        assertThat(ledger.status(first.runId()).epoch()).isEqualTo(current.epoch()); assertThat(ledger.status(first.runId()).workerOwned()).isTrue();
+        assertThat(sql.queryForList("select epoch from cds_export_event where run_id=? and event_type in ('CLEANUP_STARTED','CLEANUP_COMPLETE')", Long.class, first.runId())).containsOnly(first.epoch()).hasSize(2);
     }
     private record CohortFixture(CdsExportCohortService service, CdsExportCohortService.Sealed sealed) { }
     private io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto boundLease() {

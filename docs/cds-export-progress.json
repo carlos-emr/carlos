@@ -31,14 +31,18 @@
     "Retained preferred-pharmacy reconciliation and coordinated personal/professional/pharmacy demographic assembly with exact field ownership",
     "Root-controlled registered recipient/audit policy with a coherent pinned manifest, current certificate checks and immutable accepted arrangement identity",
     "Independent finished ReadMe/event CSV readback against actual validated XML receipts, actual archive paths and sealed physician totals with bounded complete UTF-8/EOF verification",
-    "Coordinated demographic occurrence service with registered sender IDs and independent exact native/source field closure; unsupported values and scopes refuse serialization"
+    "Coordinated demographic occurrence service with registered sender IDs and independent exact native/source field closure; unsupported values and scopes refuse serialization",
+    "Coordinated patient XML pipeline with independent occurrence inventory, exact field/disposition closure, authenticated reconciliation and finished XML/attachment readback",
+    "Bounded external sorted package-member inventory and cohort orchestration with same-capture physician filing, supporting-file readback and authenticated ownership/scope manifests",
+    "Per-epoch artifact retention, a single privately approved READY transition, lost-acknowledgement recovery, separately leased authorized ciphertext delivery and exclusive retention cleanup",
+    "PHI-free bounded metadata diagnostic reports for CLI and browser, independent of clinical engine and key availability"
   ],
   "remaining": [
     "Complete native-only, merged and unresolved demographic/archive cases and supporting native projections for unrepresented care attributes",
     "Complete native-only history, changed date/author/issue mappings and the prior-revision audit carrier; current imported history now has complete captured context and coordinated occurrence assembly",
     "Complete source catalogue and all selected clinical domain mappings, attachments and merged-chart ownership",
     "Connect a concrete clinical export engine and independent expected-fact inventory to coverage validation",
-    "Complete review, audit, recipient encryption, delivery, download authorization and retention lifecycle",
+    "Qualify the implemented publication, recipient encryption, diagnostic report, download and retention lifecycle in the exact packaged runtime",
     "Run end-to-end clinical exports through both CLI and asynchronous browser jobs"
   ],
   "integration": {
@@ -56,7 +60,8 @@
     "currentDevelopValidationPending": false,
     "upstreamAppointmentMigrationRetained": "V1.0.81",
     "nativeFieldBaselineMigration": "V1.0.82",
-    "unpublishedExportLedgerMigration": "V1.0.83"
+    "unpublishedExportLedgerMigration": "V1.0.83",
+    "exportArtifactAttemptMigration": "V1.0.84"
   },
   "evidenceLimits": "Component, transport, byte-level, metadata/control and synthetic-fixture checks do not establish a complete clinical migration or OntarioMD certification.",
   "capturedImportOptions": {
@@ -644,5 +649,69 @@
     "focusedAffectedRequestedSuites": 20,
     "fullCoordinatedBaselineChecks": 4848,
     "fullCoordinatedBaselineRequestedSuites": 365
+  },
+  "patientDocumentPipeline": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "fullChecks": 4914,
+    "fullSuites": 370,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "fullBaselineHead": "4d27f274a5afbbf4826f4c27e652516339d9b9b1",
+    "exactInstalledAssertions": 49,
+    "genuineImportAssertions": 9
+  },
+  "externalPackageInventory": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "head": "706ca2cdb6a04d9f4a5a835816d62055e1d4497f",
+    "focusedPackageChecks": 439,
+    "exactInstalledAssertions": 55,
+    "genuineImportAssertions": 9,
+    "boundedExternalSort": true,
+    "actualZipAndSupportingFilesReadBack": true
+  },
+  "clinicalCohortPackaging": {
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
+    "head": "0fd447f8cf201dc8a71d9c3741085849e5d62272",
+    "focusedPackageChecks": 485,
+    "focusedSuites": 34,
+    "fullJavadocPassed": true,
+    "exactInstalledAssertions": 60,
+    "genuineImportAssertions": 9,
+    "warSha256": "438f1e0fe113a522315a5abe555d2a1e2931b9ba592a6e668ba74a80967e56b4",
+    "actualCohortPackageService": true,
+    "actualRetainedScopeService": true,
+    "actualFilingNamesAndOwnership": true,
+    "temporaryFixtureChangesRestored": true,
+    "importMetadataRestamped": false,
+    "clinicalPublication": false
+  },
+  "artifactLifecycle": {
+    "state": "FOCUSED_VERIFIED_PACKAGED_RUNTIME_PENDING",
+    "focusedChecks": 117,
+    "focusedFailures": 0,
+    "focusedErrors": 0,
+    "focusedSkipped": 0,
+    "metadataMigration": "V1.0.84",
+    "freshOnAndBcFullMigrationChainsAndSeedFloorsVerified": true,
+    "originalNativeSchemaAndFieldBaselineUnchanged": true,
+    "newOwnedMetadataTable": "cds_export_attempt",
+    "readyRequiresQualifiedClinicalEngine": true,
+    "clinicalEngineQualified": false,
+    "retentionRetryDelaySeconds": 300,
+    "downloadLeaseSeconds": 120,
+    "downloadWallLimitSeconds": 900,
+    "atomicPrivateExclusiveCliOutput": true,
+    "httpPostAndCurrentScopeRequired": true,
+    "oldAttemptCleanupAuditUsesItsOwnEpoch": true,
+    "noPublicationOnByteProofAlone": true,
+    "nativeLedgerAdmissionAndReportingChecks": 168,
+    "nativeFailures": 0,
+    "nativeErrors": 0,
+    "nativeSkipped": 0,
+    "fullPhysicalContractTables": {
+      "on": 463,
+      "bc": 496
+    }
   }
 }

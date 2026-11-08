@@ -28,4 +28,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class CdsExportEventDao extends AbstractDaoImpl<CdsExportEvent> {
     public CdsExportEventDao() { super(CdsExportEvent.class); }
+    /** Only lifecycle scalars are projected; actor identifiers and physical capabilities never leave this DAO. */
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportAuditRowDto> recent(String run, int limit) {
+        return entityManager.createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsExportAuditRowDto(e.eventType,e.epoch,e.safeCode,e.createdAt) from CdsExportEvent e where e.runId=:run order by e.createdAt desc,e.id desc",
+                io.github.carlos_emr.carlos.commn.dto.CdsExportAuditRowDto.class).setParameter("run", run).setMaxResults(limit).getResultList();
+    }
 }

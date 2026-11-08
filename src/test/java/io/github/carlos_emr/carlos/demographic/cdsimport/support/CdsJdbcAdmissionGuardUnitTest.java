@@ -237,7 +237,7 @@ class CdsJdbcAdmissionGuardUnitTest {
 
     @Test
     void shouldAllowExactExportControlMetadata_withoutExemptingClinicalSourceQueries() throws Exception {
-        for (String table : new String[]{"cds_export_run", "cds_export_event"}) {
+        for (String table : new String[]{"cds_export_run", "cds_export_event", "cds_export_attempt"}) {
             assertThat(CdsJdbcAdmissionGuard.clinical("select * from " + table + " where id=?")).isFalse();
             assertThat(CdsJdbcAdmissionGuard.clinical("update " + table + " set id=? where id=?")).isFalse();
             assertThat(CdsJdbcAdmissionGuard.clinical("select r.id from " + table

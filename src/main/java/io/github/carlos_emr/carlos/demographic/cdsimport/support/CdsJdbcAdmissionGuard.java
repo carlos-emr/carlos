@@ -68,7 +68,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
     private static final Set<String> SCHEMA_METADATA = Set.of("tables", "columns", "statistics", "schemata",
             "key_column_usage", "referential_constraints", "table_constraints", "engines", "collations",
             "character_sets", "collation_character_set_applicability", "system_variables", "session_variables");
-    private static final Set<String> LEDGER = Set.of("cds_export_run", "cds_export_event", "cds_import_run", "cds_import_patient", "cds_import_unit",
+    private static final Set<String> LEDGER = Set.of("cds_export_run", "cds_export_event", "cds_export_attempt", "cds_import_run", "cds_import_patient", "cds_import_unit",
             "cds_import_lineage", "cds_import_checkpoint", "cds_import_field", "cds_import_event",
             "cds_import_diagnostic", "cds_import_admission", "cds_import_dependency", "cds_import_file",
             "cds_import_file_reference", "cds_import_upload", "cds_import_review", "cds_import_preparation", "cds_import_identity");
@@ -490,7 +490,7 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
         String name=Ascii.toLowerCase(table.getName().replace("`", "").replace("\"", ""));
         // Export control metadata shares the strict UTF-8 storage contract, without acquiring
         // importer clinical-write ownership. No clinical/export source join is exempted.
-        return name.startsWith("cds_import_") || Set.of("cds_export_run", "cds_export_event").contains(name);
+        return name.startsWith("cds_import_") || Set.of("cds_export_run", "cds_export_event", "cds_export_attempt").contains(name);
     }
     private static SqlShape classify(String sql) throws SQLException {
         String normalized = stripTerminalSemicolons(sql);

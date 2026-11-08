@@ -88,12 +88,14 @@
         }
         function controls() {
             const shown = current ? presentation(current) : null;
+            byId('reportExport').disabled = !fresh || busy || !current;
+            byId('downloadExport').disabled = !fresh || busy || !shown?.complete;
             byId('cancelExport').disabled = !fresh || busy || !shown?.canCancel;
             byId('resumeExport').disabled = !fresh || busy || !shown?.canResume || root.dataset.canResume !== 'true';
         }
         function render(job) {
             current = newest(current, job); const shown = presentation(current); fresh = true;
-            byId('runId').value = current.id; byId('exportStatus').hidden = false;
+            byId('reportRunId').value = current.id; byId('downloadRunId').value = current.id; byId('runId').value = current.id; byId('exportStatus').hidden = false;
             byId('exportState').textContent = shown.label; byId('exportCounts').textContent = shown.count + ' Blocked: ' + current.blockedPatients + '.';
             byId('exportConnection').textContent = current.waiting ? 'Saved; waiting for a compatible worker.' : 'Status confirmed by the server.';
             byId('exportCode').textContent = current.safeCode || '';
@@ -102,6 +104,21 @@
             else { progress.max = Math.max(1, current.totalPatients); progress.value = current.processedPatients; }
             controls();
         }
+        function artifactForm(id, csrfId, needsPackage) {
+            byId(id).addEventListener('submit', async function (event) {
+                event.preventDefault();
+                if (!fresh || busy || !current || needsPackage && !current.complete) { notice('Refresh job status before downloading.', true); return; }
+                try {
+                    if (global.csrfTokenReady) await global.csrfTokenReady;
+                    const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
+                    if (!token) throw new Error('CDS_EXPORT_CSRF_UNAVAILABLE');
+                    byId(csrfId).value = token;
+                    HTMLFormElement.prototype.submit.call(this);
+                } catch (_) { notice('The download could not start. Refresh the page and try again.', true); }
+            });
+        }
+        artifactForm('exportDownloadForm', 'downloadCsrf', true);
+        artifactForm('exportReportForm', 'reportCsrf', false);
         function stale() {
             fresh = false; controls();
             byId('exportConnection').textContent = 'Status could not be refreshed. The job may still be processing; check again before acting.';

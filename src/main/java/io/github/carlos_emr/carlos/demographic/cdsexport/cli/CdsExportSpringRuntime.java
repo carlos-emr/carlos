@@ -94,13 +94,14 @@ public final class CdsExportSpringRuntime implements CdsExportCliRuntime {
         try { return service.executeDelegated(delegation.operator(), arguments.provider(), runId); }
         finally { active = null; }
     }
-    @Override public void report(String runId) throws IOException {
-        status(runId); throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportArtifactUnavailableException(
-                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportArtifactUnavailableException.Kind.REPORT);
+    @Override public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto report(String runId) {
+        return service.reportDelegated(delegation.operator(), arguments.provider(), runId);
     }
     @Override public void download(String runId) throws IOException {
-        status(runId); throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportArtifactUnavailableException(
-                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportArtifactUnavailableException.Kind.PACKAGE);
+        var actor = service.downloadActorDelegated(delegation.operator(), arguments.provider(), runId);
+        try (var download = context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportArtifactService.class).open(actor, runId, arguments.artifactId())) {
+            new CdsExportCliOutput().writeNew(arguments.output(), download::writeTo); download.complete();
+        }
     }
     @Override public void interruptWait() { Thread waiting = active; if (waiting != null) waiting.interrupt(); }
     @Override public void close() { try { context.close(); } finally { TimeZone.setDefault(previousZone); } }

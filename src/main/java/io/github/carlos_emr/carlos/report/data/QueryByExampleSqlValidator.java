@@ -77,6 +77,7 @@ public final class QueryByExampleSqlValidator {
             "appdefinition",
             "appuser",
             "casemgmt_note_lock",
+            "cds_export_attempt",
             "cds_export_event",
             "cds_export_run",
             "cds_import_admission",
