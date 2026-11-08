@@ -40,3 +40,21 @@ old code saved (row 1) before saving its own.
 
 Scripts: `reports/growth-visual.js`, `reports/growth-negative.js`, `reports/compare.py`,
 `reports/patient.sql`.
+
+## Re-check after merging #5694 (head `5d88cad2`)
+
+`release/2026.08` gained #5694 (encounter and eForm queries moved to typed DAOs), which
+conflicted with this PR. After the merge (`5d88cad2`), new packages
+(`2026.09.0~snapshot28+local.pr21`) were installed over the earlier PR install in the same
+container: 0 migrations, `carlos-ctl check` passed.
+
+* `compare-merged/`: new form, redisplay after Save and reopen of the row the base code saved
+  are **0 changed pixels** against the base screenshots.
+* The "filled" screen differs only by Chromium's date picker caught at a different point in
+  its fade-out. Typing into the form focuses the Expected Date of Confinement field, and the
+  base screenshot itself caught that picker mid-fade
+  (`compare-merged/02-filled-datepicker-fade-explained.png`, base on the left). With the
+  picker allowed to close (`after-merged/02-filled-settled.png`) no difference remains, and
+  the field values are identical.
+* Stored row: all 131 columns equal except `ID` and `formEdited`; the source row is unchanged.
+* Browser suite (`reports/suite-after-merged.txt`): 9 of 9 pass.
