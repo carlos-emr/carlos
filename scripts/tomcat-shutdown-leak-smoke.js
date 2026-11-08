@@ -103,13 +103,19 @@ async function main() {
   child.stdout.on('data', (chunk) => { output.text += chunk.toString(); process.stdout.write(chunk); });
   child.stderr.on('data', (chunk) => { output.text += chunk.toString(); process.stderr.write(chunk); });
 
+  let primary;
   try {
     await waitForStartup(child, output);
     await wait(1000);
     await checkHealth();
-  } finally {
-    await stopTomcat(child, closed);
+  } catch (error) { primary = error; }
+  try { await stopTomcat(child, closed); }
+  catch (shutdown) {
+    if (primary) throw new AggregateError([primary, shutdown],
+      `Tomcat check failed: ${primary.message}; shutdown failed: ${shutdown.message}`, {cause: primary});
+    throw shutdown;
   }
+  if (primary) throw primary;
 
   const leaks = shutdownLeakFindings(output.text, baseUrl);
   if (leaks.otherApplications.length) {

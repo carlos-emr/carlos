@@ -91,6 +91,26 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     finally:
                         report.write_text(original)
 
+    def test_foreign_suite_cannot_supply_physical_case_identities(self):
+        self.seed()
+        for family, names in MODULE.BC_PHYSICAL_CASES.items():
+            with self.subTest(family=family):
+                report = self.reports / ('TEST-' + family + '-bc-flyway.xml')
+                original = report.read_text()
+                substituted = original
+                for index, name in enumerate(names):
+                    substituted = substituted.replace('name="' + name + '"', 'name="unrelatedPhysical' + str(index) + '"')
+                report.write_text(substituted)
+                foreign = self.reports / 'TEST-example.ForeignPhysical-bc-flyway.xml'
+                foreign.write_text('<testsuite name="example.ForeignPhysical-bc-flyway" tests="' + str(len(names)) + '" failures="0" errors="0" skipped="0">'
+                                   + ''.join('<testcase classname="' + family + '-bc-flyway" name="' + name + '"/>' for name in names) + '</testsuite>')
+                try:
+                    for optimized in (False, True):
+                        self.assert_refused(self.invoke(optimized), 'Test case belongs to another suite')
+                finally:
+                    report.write_text(original)
+                    foreign.unlink()
+
     def test_clean_controls_pass_in_both_python_modes(self):
         self.seed()
         for optimized in (False, True):

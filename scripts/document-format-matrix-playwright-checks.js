@@ -32,6 +32,12 @@ function paddedPdf(base,target) {
   throw new Error('Could not produce exact-size valid PDF');
 }
 
+/** Preserve prior findings when a later profile prerequisite is unavailable. */
+function unavailableWithFindings(defects,message) {
+  h.assert(defects.length===0,'Document matrix failures before missing prerequisite ('+message+'): '+defects.join('; '));
+  throw new h.SkipCheck(message);
+}
+
 /** Test acceptance as opaque storage separately from claims of valid PDF/image content. */
 async function workflow(s) {
   const {sql,patient,marker}=s;
@@ -116,6 +122,7 @@ async function workflow(s) {
   }
   const defects=[];let sequence=0;
   const record=(okay,message)=>{if(!okay){defects.push(message);console.log('  FAIL document matrix: '+message);}};
+  const unavailable=message=>unavailableWithFindings(defects,message);
   function input(item){return {name:marker+'-'+String(++sequence).padStart(3,'0')+'-'+item.key+'.'+item.extension,mimeType:item.mime,buffer:item.bytes};}
   async function selectFile(form,payload) {
     if(payload.buffer.length<1024*1024)return form.locator('input[type="file"]').setInputFiles(payload);
@@ -179,7 +186,8 @@ async function workflow(s) {
   let form=await openAdd();await form.locator('select[name="docType"]').selectOption(chosenType);await form.locator('#docDesc').fill(marker+' retained empty draft');
   await form.locator('input[type="file"]').setInputFiles(input(empty));
   await ui.clickAndAwaitReload(report,form.locator('input[name="Submit"]'));
-  record(await report.locator('[role="alert"]').count()>0&&/upload|empty|zero|0 bytes/i.test(await report.locator('body').innerText()),'Empty upload lacks application validation feedback');
+  const feedback=await report.locator('[role="alert"]').allInnerTexts();
+  record(feedback.some(text=>/empty files not accepted|zero(?:-|\s*)size|0 bytes/i.test(text)),'Empty upload lacks application validation feedback in its alert');
   record(documents().length===beforeEmpty,'Empty upload created a document');
   const back=report.getByRole('button',{name:'Back',exact:true});if(await back.count())await ui.clickAndAwaitReload(report,back);
   form=await openAdd();
@@ -188,14 +196,14 @@ async function workflow(s) {
   await report.close();
   const inbox=await openInbox(session.schedule,s.recorder,'matrix-inbox');
   const uploader=await ui.clickOpensPopup(inbox,inbox.locator('a[href*="ViewHtml5AddDocuments" i],a[href*="ViewDocumentUploader" i]').first(),{context:session.context,recorder:s.recorder,label:'matrix-inbox-upload'});
-  if(await uploader.locator('#destinationDrop').count()!==1)throw new h.SkipCheck('Format matrix needs the actual modern Inbox PDF uploader; legacy entry is inventoried separately');
+  if(await uploader.locator('#destinationDrop').count()!==1)unavailable('Format matrix needs the actual modern Inbox PDF uploader; legacy entry is inventoried separately');
   await uploader.locator('#destinationDrop').selectOption('pendingDocs');
   await uploader.waitForFunction(()=>!window.jQuery||window.jQuery.active===0);
   // Use a native offered recipient with no active forwarding rules, so an
   // existing clinic forwarding chain cannot become an unowned cleanup target.
   const offered=await uploader.locator('#providerDrop option').evaluateAll(options=>options.map(option=>option.value));
   const routingProvider=offered.find(value=>/^[1-9]\d*$/.test(value)&&sql.value(`SELECT COUNT(*) FROM incomingLabRules WHERE provider_no=${q(value)} AND archive='0'`)==='0');
-  if(!routingProvider)throw new h.SkipCheck('Document matrix needs an offered provider without active forwarding rules');
+  if(!routingProvider)unavailable('Document matrix needs an offered provider without active forwarding rules');
   routingRecipients.add(routingProvider);
   await uploader.locator('#providerDrop').selectOption(routingProvider);
   // A representative image is refused by the actual native file control before
@@ -308,4 +316,4 @@ async function workflow(s) {
 if(require.main===module)runWorkflow('document-format-matrix',workflow,{preflightConfig:()=>{
   if(process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Document routing/actor fixtures require EXCLUSIVE=1');
 },preflight:()=>pdf.requirePoppler('pdftoppm','pdfinfo')});
-module.exports={workflow,paddedPdf};
+module.exports={workflow,paddedPdf,unavailableWithFindings};

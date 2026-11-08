@@ -7,19 +7,21 @@ const {parseCsv}=require('./export-content-helpers');
 const q=h.sqlString;
 
 function seedProvider(s) {
-  const {sql,marker}=s;let id;
+  const {sql,marker}=s;let id,insertConfirmed=false;
   for(let attempt=0;attempt<40;attempt++) {
     const candidate=String(crypto.randomInt(10000,90000));
     if(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(candidate)} OR ohip_no=${q(candidate)}`)==='0'){id=candidate;break;}
   }
   h.assert(id,'No free BC payment provider number');
   s.cleanup(()=>{
+    if(!insertConfirmed&&sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(id)}`)==='0')return;
     h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(id)} AND last_name=${q(marker)}`)==='1','BC payment provider ownership changed');
     sql.execute(`DELETE FROM provider WHERE provider_no=${q(id)} AND last_name=${q(marker)}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${q(id)}`)==='0','BC payment provider remains');
   });
   sql.execute(`INSERT INTO provider(provider_no,last_name,first_name,provider_type,specialty,sex,status,ohip_no,lastUpdateUser,lastUpdateDate)
     VALUES(${q(id)},${q(marker)},'Payment','doctor','','F','1',${q(id)},${q(s.provider)},NOW())`);
+  insertConfirmed=true;
   return id;
 }
 

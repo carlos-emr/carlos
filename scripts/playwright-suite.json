@@ -8045,7 +8045,13 @@
       ],
       "timeoutSec": 300,
       "notes": "#5732: native directory creation, two patient associations, shared details, independent flags/cancellation and selective removal. Existing authorization and method probes remain separate.",
-      "fixtures": "Owned primary and secondary patients, native-created shared contact and unrelated control contact/patient. Exact owned links and contacts are removed and verified."
+      "fixtures": "Owned primary and secondary patients, native-created shared contact and unrelated control contact/patient. Exact owned links and contacts are removed and verified. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "Contact"
+      ],
+      "env": [
+        "EXCLUSIVE"
+      ]
     },
     {
       "name": "contact-editor",
@@ -18754,6 +18760,28 @@
       ],
       "fixtures": "Owned uploader login and patient documents; separate offered provider receives only newly owned Inbox DOC routing. Real installed upload limit, bounded synthetic PDF/image/text fixtures, original control snapshots and exact SQL/files/cache cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5730: actual eDoc and modern Inbox file contracts, independent stored/output bytes and MIME/page/creator/patient/routing metadata, empty/malformed/mismatched/case fixtures, and exact full-multipart limit minus one/at/plus one. Distinguishes opaque storage, client policy and transport-envelope refusal from content validation. Every mismatch remains fatal."
+    },
+    {
+      "name": "lab-version-ingestion",
+      "script": "scripts/lab-version-ingestion-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_VM",
+        "LAB_UPLOAD_DOCUMENT_STORE"
+      ],
+      "mutates": [
+        "providerLabRoutingLock"
+      ],
+      "fixtures": "Owned patients and CML accessions created through the native HL7 uploader, with original/corrected/older timestamps and values, initial native acknowledgment, raw history and independent control snapshots. Shared upload fixture owns SQL/checksum/measurement/archive cleanup and restores original lock presence. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5726: changed same-accession messages are actually ingested; assert per-version routing/review and current/history chart/Inbox surfaces, out-of-order correction safety and byte-identical correction replay without extra effects. Final count/status ordering is recorded separately from clinical expectations; missing and unreached steps cannot pass."
     }
   ]
 }

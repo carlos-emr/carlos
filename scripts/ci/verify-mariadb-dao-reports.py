@@ -118,7 +118,7 @@ def verify(reports: Path, output: Path) -> dict:
                 counts[mode]["failures" if case.outcome == "failure" else "skipped"] += 1
             if case.classname == INBOX_CLASS and not case.container and case.outcome == 'pass':
                 inbox_cases[mode].add(case.name)
-            if mode == 'bc-flyway' and not case.container and case.outcome == 'pass':
+            if mode == 'bc-flyway' and case.classname == suite and not case.container and case.outcome == 'pass':
                 bc_physical_cases.add((case.classname, case.name))
             if family in families[mode] and case.outcome == "pass":
                 families[mode][family] += 1

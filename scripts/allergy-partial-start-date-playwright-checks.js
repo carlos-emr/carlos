@@ -93,8 +93,9 @@ async function workflow(s) {
       await form.locator('#reactionDescription').fill(reaction);
       const sent = await submit();
       await expectValue(sql, `SELECT archived FROM allergies WHERE allergyid=${source}`, '1', 'The amendment did not archive the original');
-      const amended = sql.value(`SELECT allergyid FROM allergies WHERE demographic_no=${patient} AND archived=0 AND reaction=${sqlString(reaction)}`);
-      assert(/^[1-9]\d*$/.test(amended || ''), 'The amendment did not leave one active replacement');
+      const replacements = sql.rows(`SELECT allergyid FROM allergies WHERE demographic_no=${patient} AND archived=0 AND reaction=${sqlString(reaction)}`);
+      assert(replacements.length === 1 && /^[1-9]\d*$/.test(replacements[0][0]), 'The amendment did not leave exactly one active replacement');
+      const amended = replacements[0][0];
       assert(stored(amended) === storage,
         `The amendment stored ${stored(amended)} instead of ${storage} (posted ${JSON.stringify(sent)})`);
       assert(await listedStart(amended) === value, 'The amended allergy list lost its partial precision');

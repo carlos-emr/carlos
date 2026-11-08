@@ -206,7 +206,7 @@ function expectArchivedUploads(stamp, count, why) {
  * from the fixed probe prefix, this run's random stamp and the uploader's millisecond suffix match,
  * so no other document in the store can be touched.
  */
-function removeArchivedUploads(stamp) {
+function removeArchivedUploads(stamp, {requireArchive = true} = {}) {
   const store = process.env.LAB_UPLOAD_DOCUMENT_STORE;
   if (!store) {
     console.warn(`    archived uploads retained: set LAB_UPLOAD_DOCUMENT_STORE to remove LabUpload.lab-upload-probe-${stamp}.hl7.*`);
@@ -219,14 +219,17 @@ function removeArchivedUploads(stamp) {
   const found = ownFiles();
   // name matched the fixed pattern above and is joined to the resolved store root.
   for (const name of found) fs.unlinkSync(path.join(root, name)); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-  // Every run archives at least the first upload; finding none means the store or the archive
-  // name no longer matches, and cleanup would otherwise pass while leaving the files behind.
-  h.assert(found.length > 0, `No archived LabUpload.lab-upload-probe-${stamp}.hl7.* file was found in LAB_UPLOAD_DOCUMENT_STORE`);
+  // A committed source requires an archive. Setup failure before any accepted
+  // upload legitimately has none; still remove any owned partial archive.
+  h.assert(!requireArchive || found.length > 0, `No archived LabUpload.lab-upload-probe-${stamp}.hl7.* file was found in LAB_UPLOAD_DOCUMENT_STORE`);
   h.assert(ownFiles().length === 0, 'The archived synthetic lab uploads were not all removed');
 }
 
 async function workflow(session, options = {}) {
   const { sql, patient, marker, cleanup, config } = session;
+  // A native HL7 continuation returns before the separate legacy flat-CML path.
+  // Its lifecycle must not depend on ON-only labReportInformation on BC.
+  const includeLegacyCml = !options.afterInitial;
   const exclusiveLocks = process.env.EXCLUSIVE === '1' && process.env.CARLOS_DISPOSABLE_VM === 'true';
   const initialLocks = exclusiveLocks
     ? sql.rows('SELECT lab_no FROM providerLabRoutingLock ORDER BY lab_no').map(row => {
@@ -239,7 +242,10 @@ async function workflow(session, options = {}) {
   const failureTrigger = `lab_upload_probe_${stamp}`;
   let triggerMayExist = false;
   const fileName = `lab-upload-probe-${stamp}.hl7`;
-  const content = Buffer.from(syntheticCmlLab(accession, marker), 'latin1');
+  // Optional native-version workflow owns only this accession and the same
+  // durable upload cleanup. Ordinary upload/rollback checks keep their fixture.
+  const content = Buffer.from(options.initialContent
+    ? options.initialContent(accession, marker) : syntheticCmlLab(accession, marker), 'latin1');
   let proof = null;
   if (options.injectFailure) {
     if (!process.env.LAB_ROLLBACK_FAULT_ARTIFACT_DIR) throw new h.SkipCheck(
@@ -260,21 +266,29 @@ async function workflow(session, options = {}) {
   // run's random stamp, so the check finds its own fileUploadCheck row without hashing.
   const ownUpload = `filename LIKE ${h.sqlString(`%${fileName}%`)}`;
   const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-lab-upload-'));
+  cleanup(() => fs.rmSync(workDir, { recursive: true, force: true }));
   // fileName is built from a fixed prefix and random hex, never from input.
   const filePath = path.join(workDir, fileName); // nosemgrep: javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
-  fs.writeFileSync(filePath, content);
   h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload}`) === '0',
     'A fileUploadCheck row already carries this run\'s stamp');
+
+  h.assert(sql.value(`SELECT /* assert empty upload namespace */
+    (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
+    + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString('%'+accession+'%')})
+    + ${includeLegacyCml ? `(SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)})
+    + (SELECT COUNT(*) FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)})` : '0'}`) === '0',
+  'The generated upload namespace already belongs to another source');
 
   // Keep ownership after deleting measurementsExt: a later DELETE may fail or
   // lose its acknowledgement, and the lab_no discovery links will already be gone.
   const ownedMeasurements = new Set();
   let archivedUploadsRemoved = false;
+  let storedLabObserved = false;
   cleanup(async () => {
     if (triggerMayExist) dropOwnedTrigger(sql, failureTrigger, accession);
-    fs.rmSync(workDir, { recursive: true, force: true });
-    const flatLabs = sql.rows(`SELECT id FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`)
-      .map(([id]) => id).filter((id) => /^\d+$/.test(id));
+    const flatLabs = includeLegacyCml ? sql.rows(`SELECT id FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)}`)
+      .map(([id]) => id).filter((id) => /^\d+$/.test(id)) : [];
+    storedLabObserved ||= flatLabs.length > 0;
     if (flatLabs.length) {
       const ids = flatLabs.join(',');
       // Keep the accession-bearing rows until lock cleanup succeeds, so a failed
@@ -288,10 +302,11 @@ async function workflow(session, options = {}) {
         DELETE FROM labTestResults WHERE labPatientPhysicianInfo_id IN (${ids});
         DELETE FROM labPatientPhysicianInfo WHERE id IN (${ids})`);
     }
-    sql.execute(`DELETE FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)}`);
+    if (includeLegacyCml) sql.execute(`DELETE FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)}`);
     const labs = sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)}
       UNION SELECT lab_id FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)}`)
       .map(([labNo]) => labNo).filter((labNo) => /^\d+$/.test(labNo));
+    storedLabObserved ||= labs.length > 0;
     if (labs.length) {
       const measurements = sql.rows(`SELECT measurement_id FROM measurementsExt
         WHERE keyval='lab_no' AND val IN (${labs.map((labNo) => h.sqlString(labNo)).join(',')})`)
@@ -323,7 +338,7 @@ async function workflow(session, options = {}) {
     }
     sql.execute(`DELETE FROM fileUploadCheck WHERE ${ownUpload}`);
     if (!archivedUploadsRemoved) {
-      removeArchivedUploads(stamp);
+      removeArchivedUploads(stamp, {requireArchive: storedLabObserved});
       // A later database verification can fail after file removal succeeded.
       // Keep the initial missing-archive guard, but do not demand deleted files on retry.
       archivedUploadsRemoved = Boolean(process.env.LAB_UPLOAD_DOCUMENT_STORE);
@@ -332,11 +347,13 @@ async function workflow(session, options = {}) {
         (SELECT COUNT(*) FROM hl7TextInfo WHERE accessionNum=${h.sqlString(accession)})
       + (SELECT COUNT(*) FROM fileUploadCheck WHERE ${ownUpload})
       + (SELECT COUNT(*) FROM hl7TextMessage WHERE FROM_BASE64(message) LIKE ${h.sqlString(`%${accession}%`)})
-      + (SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)})
-      + (SELECT COUNT(*) FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)})`) === '0',
+      + ${includeLegacyCml ? `(SELECT COUNT(*) FROM labPatientPhysicianInfo WHERE accession_num=${h.sqlString(flatAccession)})
+      + (SELECT COUNT(*) FROM labReportInformation WHERE location_id=${h.sqlString(flatAccession)})` : '0'}`) === '0',
     'The synthetic lab rows were not all removed');
     if (proof) proof.update({cleanupAcknowledged: true});
   });
+
+  fs.writeFileSync(filePath, content);
 
   await session.step('rejected content stays retryable without a checksum', async () => {
     const invalid = Buffer.from(`SYNTHETIC INVALID LAB ${stamp}`);
@@ -417,6 +434,11 @@ async function workflow(session, options = {}) {
       'The duplicate upload filed a second copy of the lab');
     expectArchivedUploads(stamp, 1, 'after the duplicate upload');
   });
+
+  if (options.afterInitial) {
+    await options.afterInitial({accession, stamp, filePath, fileName, content});
+    return;
+  }
 
   await session.step('lab/CMLlabUpload answers a distinct XML outcome', async () => {
     const { inbox, popup } = await openUploader(session);

@@ -113,7 +113,7 @@ async function workflow(s) {
     await settleOperations([frame.waitForNavigation({waitUntil:'load'}),Promise.resolve().then(()=>control.click())]);
     await h.assertNotErrorPage(frame,'native provider lookup consumer');
   }
-  async function consumer(list) {
+  async function consumer(list,{preflight=false}={}) {
     if(list.name==='reasonCode')return appointmentConsumer();
     if(list.name==='practitionerNoType')return providerConsumer();
     if(list.name==='phu') {
@@ -122,9 +122,16 @@ async function workflow(s) {
     }
     const page=await referralsUI.openFromChart(s,request,reason,'lookup-consultation');
     const select=page.locator('#appointmentInstructions');
-    if(await select.count()!==1)throw new h.SkipCheck('CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP must be enabled');
+    if(await select.count()!==1){
+      h.assertStrictPage(s.recorder);
+      if(preflight)throw new h.SkipCheck('CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP must be enabled');
+      h.assert(false,'The previously qualified consultation lookup consumer disappeared');
+    }
     return {page,select};
   }
+  // Qualify the native feature before adding any clinic-wide lookup item.
+  const prerequisite=await consumer(lists.find(list=>list.name==='consultApptInst'),{preflight:true});
+  if(prerequisite.page!==s.schedule&&prerequisite.page!==s.master)await prerequisite.page.close();
   const optionRows=select=>select.locator('option').evaluateAll(options=>options.map(o=>({value:o.value,id:o.id,text:o.textContent.trim()})));
   const expectedValue=(list,item)=>list.name==='reasonCode'?item.id:item.value;
   async function offered(list,items,absent=[]) {

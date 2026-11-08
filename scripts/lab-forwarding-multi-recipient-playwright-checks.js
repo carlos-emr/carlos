@@ -16,18 +16,42 @@ const {unusedNumber,openInbox,openForwardingRules,confirmAndReload,uploadFromInb
   removeOwnedHl7Labs,removeArchiveFiles,archivesNamed}=require('./lab-forwarding-rules-playwright-checks');
 const TIMEOUT=30000;
 
+/** Continue independent uploads/rules/files after a cleanup failure, retaining every error. */
+function cleanupForwardingResources(sql,{uploads,providers,rulesOwned,work}) {
+  const failures=[];
+  const attempt=operation=>{try{operation();}catch(error){failures.push(error);}};
+  for(const u of uploads) {
+    attempt(()=>{
+      const labs=sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(u.accession)}`).flat();
+      removeOwnedHl7Labs(sql,labs);
+      const predicate=`filename LIKE ${h.sqlString(`LabUpload.${u.name}.%`)}`;
+      sql.execute(`DELETE FROM fileUploadCheck WHERE ${predicate}`);
+      h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${predicate}`)==='0','Upload checksum cleanup failed');
+    });
+    attempt(()=>removeArchiveFiles(archivesNamed(u.name)));
+  }
+  if(rulesOwned)attempt(()=>{
+    h.assert(providers.length&&providers.every(value=>/^\d+$/.test(value)),'Invalid owned forwarding provider identity');
+    const sources=providers.map(h.sqlString).join(',');
+    sql.execute(`DELETE FROM incomingLabRules WHERE provider_no IN (${sources})`);
+    h.assert(sql.value(`SELECT COUNT(*) FROM incomingLabRules WHERE provider_no IN (${sources})`)==='0','Forwarding rule cleanup failed');
+  });
+  attempt(()=>fs.rmSync(work,{recursive:true,force:true}));
+  if(failures.length)throw new AggregateError(failures,'Forwarding upload/rule cleanup failed: '+failures.map(error=>error.message).join('; '));
+}
+
 async function workflow(s) {
   const {sql,marker,config,recorder,patient}=s;
-  if(!process.env.LAB_UPLOAD_DOCUMENT_STORE)throw new h.SkipCheck('LAB_UPLOAD_DOCUMENT_STORE is required for verified upload cleanup');
   const fixture=throwawayLoginFixture({sql,marker,provider:s.provider,testUser:config.testUser});
   const targets=[];
   const uploads=[];
-  let rulesOwned=false;
+  let rulesOwned=false,resourcesClean=true;
   const work=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-fwd-multi-'));
-  s.cleanup(()=>fixture.cleanup());
+  s.cleanup(()=>{h.assert(resourcesClean,'Forwarding source provider retained: resource cleanup failed');fixture.cleanup();});
   s.cleanup(()=>{
     const failures=[];
     for(const id of targets)try {
+      h.assert(resourcesClean,'Forwarding recipient retained: resource cleanup failed');
       // IDs are intents registered before INSERT. A failed insert can leave no
       // row; retaining the intent also covers a lost response after commit.
       if(sql.value(`SELECT COUNT(*) FROM provider WHERE provider_no=${h.sqlString(id)}`)==='0')continue;
@@ -38,20 +62,8 @@ async function workflow(s) {
     if(failures.length)throw new AggregateError(failures,'Forwarding provider cleanup failed: '+failures.map(error=>error.message).join('; '));
   });
   s.cleanup(()=>{
-    for(const u of uploads) {
-      const labs=sql.rows(`SELECT lab_no FROM hl7TextInfo WHERE accessionNum=${h.sqlString(u.accession)}`).flat();
-      removeOwnedHl7Labs(sql,labs);
-      const predicate=`filename LIKE ${h.sqlString(`LabUpload.${u.name}.%`)}`;
-      sql.execute(`DELETE FROM fileUploadCheck WHERE ${predicate}`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE ${predicate}`)==='0','Upload checksum cleanup failed');
-      removeArchiveFiles(archivesNamed(u.name));
-    }
-    if(rulesOwned) {
-      const sources=[fixture.providerNo,...targets].map(h.sqlString).join(',');
-      sql.execute(`DELETE FROM incomingLabRules WHERE provider_no IN (${sources})`);
-      h.assert(sql.value(`SELECT COUNT(*) FROM incomingLabRules WHERE provider_no IN (${sources})`)==='0','Forwarding rule cleanup failed');
-    }
-    fs.rmSync(work,{recursive:true,force:true});
+    try{cleanupForwardingResources(sql,{uploads,providers:[fixture.providerNo,...targets].filter(Boolean),rulesOwned,work});resourcesClean=true;}
+    catch(error){resourcesClean=false;throw error;}
   });
   fixture.create();
   const source=fixture.providerNo;
@@ -64,7 +76,7 @@ async function workflow(s) {
   }
   const [a,b,control]=targets;
   h.assert(sql.value(`SELECT COUNT(*) FROM incomingLabRules WHERE provider_no IN (${[source,...targets].map(h.sqlString).join(',')})`)==='0','Allocated provider number has pre-existing forwarding rules');
-  rulesOwned=true;
+  resourcesClean=false;rulesOwned=true;
   sql.execute(`INSERT INTO incomingLabRules(provider_no,frwdProvider_no,status,archive) VALUES(${h.sqlString(control)},${h.sqlString(b)},'N','0')`);
   const controlRows=()=>JSON.stringify(sql.rows(`SELECT * FROM incomingLabRules WHERE provider_no=${h.sqlString(control)} ORDER BY id`));
   const unchanged=controlRows();
@@ -153,5 +165,5 @@ async function workflow(s) {
   });
   console.log('  Status contract: the native editor applies one source-wide status to every active recipient; it offers no per-recipient status control.');
 }
-if(require.main===module)runWorkflow('lab-forwarding-multi-recipient',workflow,{openMaster:false});
-module.exports={workflow};
+if(require.main===module)runWorkflow('lab-forwarding-multi-recipient',workflow,{openMaster:false,preflightConfig:()=>{if(!process.env.LAB_UPLOAD_DOCUMENT_STORE)throw new h.SkipCheck('LAB_UPLOAD_DOCUMENT_STORE is required for verified upload cleanup');}});
+module.exports={workflow,cleanupForwardingResources};

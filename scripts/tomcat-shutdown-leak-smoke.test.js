@@ -72,3 +72,25 @@ process.once('SIGINT', () => {
     return true;
   });
 });
+
+
+test('CLI preserves a failed health check together with a shutdown timeout', async t => {
+  const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),http=require('node:http');
+  const execFile=require('node:util').promisify(require('node:child_process').execFile);
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-leak-double-failure-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const server=http.createServer((_request,response)=>{response.statusCode=503;response.end('synthetic unhealthy response');});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
+  const catalina=path.join(directory,'catalina');
+  fs.writeFileSync(catalina,`#!/usr/bin/env node
+console.log('Server startup in [1] milliseconds');
+setInterval(()=>{},1000);
+process.on('SIGINT',()=>{});
+`,{mode:0o755});
+  await assert.rejects(execFile(process.execPath,[path.join(__dirname,'tomcat-shutdown-leak-smoke.js')],{
+    env:{...process.env,CATALINA_SH:catalina,BASE_URL:`http://127.0.0.1:${server.address().port}/carlos`,STARTUP_TIMEOUT_MS:'3000',SHUTDOWN_TIMEOUT_MS:'100'},timeout:10000,
+  }),error=>{
+    assert.equal(error.code,1);assert.match(error.stderr,/Unexpected health status 503/);assert.match(error.stderr,/Timed out waiting for Tomcat shutdown/);
+    assert.doesNotMatch(error.stdout,/shutdown leak smoke passed/);return true;
+  });
+});

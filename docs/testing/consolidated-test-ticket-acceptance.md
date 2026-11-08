@@ -24,7 +24,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5719](https://github.com/carlos-emr/carlos/issues/5719) | Test: cover Ontario RA re-import, settlement replay and subsequent adjustments | Implementation and installed acceptance pending. |
 | [#5724](https://github.com/carlos-emr/carlos/issues/5724) | Test: cover OAuth access-token expiry and deletion of a client with issued tokens | Native consent, exact expiry-second semantics, client deletion and independent token/session controls pass on installed ON and BC with no clinical writes or residue. |
 | [#5725](https://github.com/carlos-emr/carlos/issues/5725) | Test: verify Report-by-Template results and exports remain isolated across tabs | Installed ON/BC four-tab, shared-login native runs, exact CSV/XLS schemas/values/types, empty results, Back beacons and tab closure pass with clean residue. List parameters used; separate empty-text-parameter defect tracked as #5813. |
-| [#5726](https://github.com/carlos-emr/carlos/issues/5726) | Test: ingest original, corrected and out-of-order HL7 results for one accession | Implementation and installed acceptance pending. |
+| [#5726](https://github.com/carlos-emr/carlos/issues/5726) | Test: ingest original, corrected and out-of-order HL7 results for one accession | Native original/correction/older CML ingestion, original acknowledgment, per-version routing/review, explicit/history/clinical-chart reads, independent control and exact replay implemented. ON/BC reach all stages and fail on chart-current ranking (#5819) and stale active Measurements (#5820); cleanup is clean. Stronger row-set/read-isolation retakes reach completion on both provinces; one failed BC navigation attempt is retained, with the settled-handoff retake completing without unexpected diagnostics. |
 | [#5727](https://github.com/carlos-emr/carlos/issues/5727) | Test: cover First Nations field save, edit, clear and community-selection round trips | Native lifecycle implemented; installed ON enabled-profile attempt fails on the real undefined focus handler and reopened First Nation flag (#5815). Later steps remain unreached. Owned fixtures are removed and the temporary properties/lookup profile is restored exactly; no pin or waiver. |
 | [#5728](https://github.com/carlos-emr/carlos/issues/5728) | Test: verify exactly-once Messenger delivery to overlapping groups and direct recipients | Native ON/BC two overlapping groups plus a direct recipient produce exactly one delivery each; membership edits, a legacy duplicate and a removed-member control pass. Exclusive membership coordination and exact cleanup are required. |
 | [#5729](https://github.com/carlos-emr/carlos/issues/5729) | Test: verify Messenger read and archive state is independent for each recipient | Native ON/BC read, mark-new, archive and restore transitions preserve other recipients, shared content, attachments, patient links and Sent access. |
@@ -416,3 +416,45 @@ browser diagnostics or cleanup failure occurs. The new renderer preserves the
 single-point limitation #5814: the native 1,000×600 PNG has only 16 red legend
 pixels at y=588, with no red observation glyph in the plot. No fix/closure is
 claimed for that existing product finding.
+
+Additional full review (round 4) completed on 2026-11-08 at 02:12 UTC with eleven
+inline findings (review `5816092162`). Corrections strengthen exact allergy-row
+cardinality; explicit physical-suite binding; secondary-patient audit draining;
+alert-scoped empty-upload feedback and failure-before-skip classification;
+early forwarding/consultation prerequisites; independent forwarding cleanup
+with provider retention; unconfirmed-versus-confirmed BC provider insertion;
+Contact mutation/exclusivity metadata; and preservation of primary plus shutdown
+errors. Focused controls cover late/persistent audits, lost insert acknowledgment,
+changed ownership, independent cleanup failures, missing prerequisites after
+prior findings, and real subprocess health/shutdown failures. All 21 native
+report-evidence tests and 7 shutdown tests pass. ON allergy, shared-contact and
+forwarding retakes pass; BC document retake reaches all cases and fails only on
+#5818. Final qualified Node, remaining retakes, commit and individual review-thread
+replies/resolutions are still pending.
+
+Round-4 verification now includes a complete qualified Ubuntu 26.04/Node 22.22.1
+run: **7,416/7,416 cases in 522 files**, zero failures/skips/cancellations/TODO,
+unchanged test-source digests, with the committed inventory regenerated from
+that report. The full Ubuntu Python CI suite passes **354 tests**. All thirteen
+GitHub workflows also pass at prior committed head `3f2373bc9a1`; this does not
+qualify the still-uncommitted review corrections or replace final-head CI.
+The stronger HL7 Inbox row-set, unrelated-patient exclusion and clinical/source
+read-isolation assertions reach completion on ON and BC, failing only the four
+#5819/#5820 comparisons. One BC repetition encountered local asset-loading errors
+during schedule return and remains a failure; the settled-handoff retake reaches
+all stages with no unexpected browser diagnostics and clean teardown. ON lookup
+preflight and all positive lifecycle phases pass; its two known product failures
+remain fatal, with exact cache/SQL restoration verified. Both environment-only
+prerequisites also report SKIP before database credentials are required, rather
+than misclassifying absence as a database failure.
+
+The remaining round-4 installed retakes are complete: BC payment-boundary
+workflow passes, ON lookup reaches all positive phases and retains both known
+product failures with exact native cache/SQL restoration, and the tightened
+ON/BC document matrix fails only on #5818. Independent post-run audits show
+zero marker-owned patients/documents/providers in the checked containers. The
+settled BC HL7 handoff reaches original review, all version/history/chart reads,
+control isolation, exact replay and teardown, with only the four #5819/#5820
+comparisons failing. These failures remain release blockers, not waiver pins.
+Review-thread replies/resolutions and CI for the next committed head follow
+this verified source checkpoint.

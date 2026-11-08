@@ -9,8 +9,26 @@ const {masterRecordLink}=require('./lib/master-record-link');
 const {openMasterRecord}=require('./master-record-tabs-playwright-checks');
 const {workflow:createDirectory}=require('./contact-editor-playwright-checks');
 const q=h.sqlString;
+/** Drain asynchronous audit writes for a verified owned patient after browser shutdown. */
+async function removePatientAudit(sql,patient,{quietMs=1000,timeoutMs=10000,intervalMs=100}={}) {
+  h.assert(/^[1-9]\d*$/.test(patient),'Invalid patient audit cleanup identity');
+  const deadline=Date.now()+timeoutMs;let quietSince;
+  while(Date.now()<=deadline) {
+    const before=sql.value(`SELECT COUNT(*) FROM log WHERE demographic_no=${patient}`);
+    h.assert(/^\d+$/.test(before),'Owned patient audit count is unreadable');
+    if(before!=='0'){sql.execute(`DELETE FROM log WHERE demographic_no=${patient}`);quietSince=undefined;}
+    const after=sql.value(`SELECT COUNT(*) FROM log WHERE demographic_no=${patient}`);
+    h.assert(/^\d+$/.test(after),'Owned patient audit count is unreadable');
+    if(before==='0'&&after==='0'){
+      quietSince??=Date.now();if(Date.now()-quietSince>=quietMs)return;
+    } else quietSince=undefined;
+    await new Promise(resolve=>setTimeout(resolve,intervalMs));
+  }
+  throw new Error('Owned patient audit writes did not settle; retain patient for recovery');
+}
+
 /** Reconcile incomplete inserts, preserving ownership and independent cleanup. */
-function cleanupSharedFixtures(sql,{patient,marker,ownedPatients,control}) {
+async function cleanupSharedFixtures(sql,{patient,marker,ownedPatients,control,auditTiming}) {
   const failures=[];
   for(const p of [{id:patient,name:marker,primary:true},...ownedPatients])try {
     if(!p.id) {
@@ -26,8 +44,10 @@ function cleanupSharedFixtures(sql,{patient,marker,ownedPatients,control}) {
     // The shared harness owns the primary parent and deletes it only after all
     // child cleanups succeed. Its deliberate retention on any failure remains.
     if(!p.primary) {
+      await removePatientAudit(sql,p.id,auditTiming);
       sql.execute(`DELETE FROM demographicExt WHERE demographic_no=${p.id}; DELETE FROM demographicArchive WHERE demographic_no=${p.id}; DELETE FROM demographic WHERE demographic_no=${p.id} AND last_name=${q(p.name)}`);
       h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${p.id}`)==='0','Owned patient cleanup failed');
+      h.assert(sql.value(`SELECT COUNT(*) FROM log WHERE demographic_no=${p.id}`)==='0','Secondary patient audit residue remains');
     }
   } catch(error){failures.push(error);}
   try {
@@ -178,5 +198,5 @@ async function workflow(s) {
     h.assert(controlState()===unchanged,'Association removal changed control data');
   });
 }
-if(require.main===module)runWorkflow('contact-shared-directory',workflow,{openPatient:true});
-module.exports={workflow,cleanupSharedFixtures};
+if(require.main===module)runWorkflow('contact-shared-directory',workflow,{openPatient:true,preflightConfig:()=>{if(process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Shared Contact directory mutation requires EXCLUSIVE=1');}});
+module.exports={workflow,cleanupSharedFixtures,removePatientAudit};
