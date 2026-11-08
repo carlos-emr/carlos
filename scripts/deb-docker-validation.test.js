@@ -79,6 +79,11 @@ exit 1
   assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg PLAYWRIGHT_VERSION=${driver}`));
   const pin = require('../package-lock.json').packages['node_modules/axe-core'].version;
   assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg AXE_CORE_VERSION=${pin}`));
+  const png = require('../package-lock.json').packages['node_modules/pngjs'].version;
+  assert.equal(require('../package.json').devDependencies.pngjs, png);
+  assert.ok(fs.readFileSync(box.calls, 'utf8').includes(`--build-arg PNGJS_VERSION=${png}`));
+  assert.match(dockerfile, /"pngjs@\$\{PNGJS_VERSION\}"/);
+  assert.match(dockerfile, /tesseract-ocr tesseract-ocr-eng/);
 });
 
 test('should refuse every container command without CARLOS_DISPOSABLE_HOST=true and never call docker', (t) => {

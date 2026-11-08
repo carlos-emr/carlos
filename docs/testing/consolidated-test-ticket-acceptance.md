@@ -18,7 +18,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5708](https://github.com/carlos-emr/carlos/issues/5708) | Test: cover multi-recipient lab-forwarding rule updates and selective removal | Installed ON two-recipient/reopen/repeat-save, three-upload routing, cancellation, selective removal and admin isolation pass. Status is source-wide; per-recipient status is unavailable. Original method/CSRF coverage retained. |
 | [#5709](https://github.com/carlos-emr/carlos/issues/5709) | Test: broaden lookup-list CRUD coverage and verify consumer/list isolation | Implementation and installed acceptance pending. |
 | [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implementation and installed acceptance pending. |
-| [#5716](https://github.com/carlos-emr/carlos/issues/5716) | Test: verify measurement graph dates, values and plotted positions | Implementation and installed acceptance pending. |
+| [#5716](https://github.com/carlos-emr/carlos/issues/5716) | Test: verify measurement graph dates, values and plotted positions | Installed ON/BC five-point irregular-date geometry, independent rendered-axis calibration, three-pixel tolerance, native selected/multi-delete, clinical isolation and four sensitivity controls pass. Empty history hides Plot; single-point PNG output is observed, with its invisible point/indistinguishable ticks separately tracked as #5814. No date-range controls exist. |
 | [#5717](https://github.com/carlos-emr/carlos/issues/5717) | Test: validate growth-chart point placement and reference curves independently | Implementation and installed acceptance pending. |
 | [#5718](https://github.com/carlos-emr/carlos/issues/5718) | Test: broaden decision-support guideline condition and operator coverage | Implementation and installed acceptance pending. |
 | [#5719](https://github.com/carlos-emr/carlos/issues/5719) | Test: cover Ontario RA re-import, settlement replay and subsequent adjustments | Implementation and installed acceptance pending. |
@@ -26,12 +26,12 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5725](https://github.com/carlos-emr/carlos/issues/5725) | Test: verify Report-by-Template results and exports remain isolated across tabs | Installed ON/BC four-tab, shared-login native runs, exact CSV/XLS schemas/values/types, empty results, Back beacons and tab closure pass with clean residue. List parameters used; separate empty-text-parameter defect tracked as #5813. |
 | [#5726](https://github.com/carlos-emr/carlos/issues/5726) | Test: ingest original, corrected and out-of-order HL7 results for one accession | Implementation and installed acceptance pending. |
 | [#5727](https://github.com/carlos-emr/carlos/issues/5727) | Test: cover First Nations field save, edit, clear and community-selection round trips | Implementation and installed acceptance pending. |
-| [#5728](https://github.com/carlos-emr/carlos/issues/5728) | Test: verify exactly-once Messenger delivery to overlapping groups and direct recipients | Implementation and installed acceptance pending. |
-| [#5729](https://github.com/carlos-emr/carlos/issues/5729) | Test: verify Messenger read and archive state is independent for each recipient | Implementation and installed acceptance pending. |
+| [#5728](https://github.com/carlos-emr/carlos/issues/5728) | Test: verify exactly-once Messenger delivery to overlapping groups and direct recipients | Native ON/BC two overlapping groups plus a direct recipient produce exactly one delivery each; membership edits, a legacy duplicate and a removed-member control pass. Exclusive membership coordination and exact cleanup are required. |
+| [#5729](https://github.com/carlos-emr/carlos/issues/5729) | Test: verify Messenger read and archive state is independent for each recipient | Native ON/BC read, mark-new, archive and restore transitions preserve other recipients, shared content, attachments, patient links and Sent access. |
 | [#5730](https://github.com/carlos-emr/carlos/issues/5730) | Test: expand document-upload coverage across supported formats and malformed content | Implementation and installed acceptance pending. |
 | [#5731](https://github.com/carlos-emr/carlos/issues/5731) | Test: preserve scanned and mixed-geometry PDFs through incoming-document edits | Implementation and installed acceptance pending. |
 | [#5732](https://github.com/carlos-emr/carlos/issues/5732) | Test: verify shared contact edits and patient-specific relationship isolation | Installed ON/BC native creation, two-patient linking, shared-detail editing, independent flags, cancelled edits/removal and selective removal pass; unrelated control and cleanup verified. |
-| [#5733](https://github.com/carlos-emr/carlos/issues/5733) | Test: verify complete lab-report content across PDF page breaks | Implementation and installed acceptance pending. |
+| [#5733](https://github.com/carlos-emr/carlos/issues/5733) | Test: verify complete lab-report content across PDF page breaks | Native ON/BC eight-page PDFs preserve all 60 ordered clinical rows and their comment tokens, numeric columns, flags, patient identity, footers and margins. Extracted coordinates and actual raster ink are checked; omission, duplication and blank-raster controls reject. Source and unrelated-report controls pass. |
 | [#5734](https://github.com/carlos-emr/carlos/issues/5734) | Test: preserve multiple same-severity Rx interaction partners when one is removed | Implementation and installed acceptance pending. |
 | [#5735](https://github.com/carlos-emr/carlos/issues/5735) | Test: cover Schedule of Benefits imports that update existing codes and multiple rows | Installed ON native multi-row preview/apply, malformed-file refusal/retry, abandonment, GET/CSRF refusals, exact appended periods, historical claim preservation, duplicate upload and code-admin reopening pass. Error feedback is file-level; per-line diagnostics are absent. |
 | [#5736](https://github.com/carlos-emr/carlos/issues/5736) | Test: cover BC payment amount boundaries, overpayments and supported refunds | Installed BC refusals, exact-cent partial/overpayment, receipt/list/accounting reconciliation and control-invoice preservation pass. No native refund control exists; negative amounts are refused. |
@@ -268,3 +268,49 @@ forwarding source-wide status limitation remains explicit. Malformed mixed SOB
 files offer no partial changes, and a corrected native retry preserves both
 previous fee periods and an existing claim; same-schedule reupload creates no
 new effective period. Fee cleanup continues independently across code owners.
+
+The target advanced to b6fa82558f7 and was merged at d67651993b1. Its CI H2
+execution has 34,123 cases, no failures and 143 skips. Four newly introduced
+physical-type cases lacked H2 routing declarations; the strict gate correctly
+refused them. They are now individually routed to BC Flyway, whose actual CI
+summary confirms all four pass. The native gate additionally requires their
+exact class/method identities and empty containers; four same-count replacement
+controls prove unrelated cases cannot substitute. The revised gate accepts the
+actual H2/permission artifacts, and all 350 Python helper tests pass on Ubuntu.
+This correction still requires green CI on its own published commit.
+
+A fresh d67651993b1 WAR and matching DrugRef were packaged as the local
+snapshot29 Debian set and installed in both Ubuntu 26.04 provinces. The version
+bump is confined to the packaging checkout. Application package SHA-256 is
+ec40d8d8e803832de98df86735ae3c22966b99e57b208ec76e17f80ac6839af5;
+DrugRef package SHA-256 is
+51351fdff4e27b1fe21066d4489c40024e1f17a0205d52582a4fe24c199558d5.
+Both installed package checks and dpkg verification pass. Nineteen focused
+browser retakes pass (10 ON, 9 BC), with no skips or residue, including the
+new Messenger and eight-page lab-PDF workflows. These focused runs do not
+replace the outstanding complete qualification and acceptance rows.
+
+The new measurement oracle independently reads the actual printed date/value
+ticks and rendered red series, rather than reusing the application's dataset or
+range formulas. All five deliberately non-collinear observations and the four
+remaining after native deletion match within three native PNG pixels in both
+provinces. Missing, swapped, shifted and foreign-observation controls reject.
+The history supplies `in kg`; the graph's labels are Weight, Days and Wt, without
+a separate printed kg unit. Native empty and single-output transitions are
+observed. A single sample has no point glyph and repeats rounded value ticks;
+that product limitation is reported as [#5814](https://github.com/carlos-emr/carlos/issues/5814),
+not claimed repaired or waived here.
+
+Chromium CDP corrupts the main-frame PNG bytes when the server declares a UTF-8
+charset, despite displaying the image correctly. The capture helper intercepts
+only the exact native UI graph request for the owned patient/type, fetches that
+one request losslessly with redirects disabled, and fulfills it with identical
+bytes/headers. It does not replay a guessed URL or re-encode the image. The
+original PNG/content-type assertion is retained and passes on installed ON.
+Nine controls cover exact bytes, ambiguous identity, failures, missing/duplicate
+navigation and handler removal. The Docker validation image includes pinned
+pngjs and distribution Tesseract/English data.
+
+The complete Ubuntu 26.04 / Node 22.22.1 execution for this batch passes all
+7,398 cases in 520 files, with no failures, skips, cancellations, TODOs or test
+source changes. Its reviewed Node inventory is regenerated from that report.

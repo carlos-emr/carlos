@@ -989,7 +989,10 @@
     "test:admin-keygen-creation-playwright": "API_KEYGEN_CREATION_ONLY=true node scripts/admin-api-keygen-playwright-checks.js",
     "test:lab-forwarding-multi-recipient-playwright": "node scripts/lab-forwarding-multi-recipient-playwright-checks.js",
     "test:billing-on-benefit-history-playwright": "node scripts/billing-on-benefit-history-playwright-checks.js",
-    "test:report-by-template-tabs-playwright": "node scripts/report-by-template-tabs-playwright-checks.js"
+    "test:report-by-template-tabs-playwright": "node scripts/report-by-template-tabs-playwright-checks.js",
+    "test:messenger-recipient-isolation-playwright": "node scripts/messenger-recipient-isolation-playwright-checks.js",
+    "test:lab-report-pagination-playwright": "node scripts/lab-report-pagination-playwright-checks.js",
+    "test:measurement-plot-semantics-playwright": "node scripts/measurement-plot-semantics-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -1009,6 +1012,7 @@
     "axe-core": "4.14.0",
     "entities": "4.5.0",
     "playwright": "1.61.1",
+    "pngjs": "7.0.0",
     "xml-js": "1.6.11"
   },
   "browserslist": {

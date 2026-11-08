@@ -1983,6 +1983,24 @@
       ]
     },
     {
+      "name": "lab-report-pagination",
+      "script": "scripts/lab-report-pagination-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "LAB_PDF_ARTIFACT_DIR",
+        "LAB_PDF_EXPECTED_NOTICE"
+      ],
+      "notes": "#5733: sixty independently enumerated clinical rows with long unique comments, a separate control report, native Inbox/Print, exact-once order/values/units/ranges/flags, per-page identity/legal/footer/margins, word overlap and actual rendered ink. Offline controls reject dropped/duplicated rows and invisible text.",
+      "fixtures": "Two owned SQL-seeded received PATHL7 reports for one owned patient; this does not claim native upload coverage. Exact message/service ownership and routing/info cleanup are verified independently per report. Optional LAB_PDF_ARTIFACT_DIR retains synthetic PDF/expected-data/page images as intentional evidence; working files are removed."
+    },
+    {
       "name": "lab-pdf-footer",
       "script": "scripts/lab-pdf-footer-playwright-checks.js",
       "tiers": [
@@ -2420,6 +2438,27 @@
       "env": [
         "MESSENGER_DEMOGRAPHIC_NO",
         "MESSENGER_PROVIDER_NO"
+      ]
+    },
+    {
+      "name": "messenger-recipient-isolation",
+      "script": "scripts/messenger-recipient-isolation-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "EXCLUSIVE",
+        "CARLOS_DISPOSABLE_HOST"
+      ],
+      "notes": "#5728/#5729: native overlapping groups plus a directly selected duplicate recipient, removed-member control, changed membership and legacy duplicate storage. Real sender/three recipient sessions verify exact delivery IDs and independent read/unread/archive/restore, immutable shared content/patient links and sender Sent copy.",
+      "fixtures": "Five owned clinician logins, two natively created groups, two natively sent patient-linked messages and one explicitly staged legacy duplicate membership. Exact owned message/group/contact cleanup is registered before native writes; unrelated group/member and clinical snapshots remain unchanged. Requires EXCLUSIVE=1 and CARLOS_DISPOSABLE_HOST=true. An initially absent singleton coordinator is pre-seeded with the run marker and removed only with matching ID/creator/timestamp; pre-existing coordinators are preserved exactly. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "messengerMembershipLock"
       ]
     },
     {
@@ -18523,6 +18562,21 @@
       },
       "notes": "Independent native key creation, download/signature verification, manager reopen and duplicate refusal (#5707). Requires the installed CARLOS public key. No private keys are published.",
       "fixtures": "Marker-owned seeded control and UI-created RSA key pairs; cleanup removes owned keys and read audits."
+    },
+    {
+      "name": "measurement-plot-semantics",
+      "script": "scripts/measurement-plot-semantics-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 360,
+      "assertsDatabase": true,
+      "env": [],
+      "fixtures": "Two owned synthetic patients and kg measurements; native selected/multi-delete archives. Exact clinical snapshots, ownership checks and verified cleanup. Requires tesseract with English data and lockfile-pinned pngjs.",
+      "notes": "Five irregular, out-of-order dates verified against OCR-calibrated axes and actual PNG series with a three-pixel tolerance; single/empty native behavior, deleted vertex and geometry sensitivity controls (#5716). The UI has no date-range controls. Weight units are shown in History as in kg; the graph labels its value axis Weight."
     }
   ]
 }
