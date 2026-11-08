@@ -268,5 +268,6 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryRetainedSourceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCategoryOccurrenceRegistryUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNewCategoryOccurrenceServiceUnitTest"
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNewCategoryOccurrenceServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicAssociationEvidenceUnitTest"
 ]

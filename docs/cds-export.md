@@ -1261,3 +1261,13 @@ unrelated demographic edits do not replace supplemental content. Other native fi
 are never repurposed into `NewCategory`. The focused registry/association and clinical
 regression run passed 206 checks; packaged startup and genuine installed qualification
 are pending for this diff.
+
+Genuine NewCategory qualification exposed an incorrect alias refusal in demographic
+projection evidence. The importer uses sole demographic receipts for the nonmutating
+CareElements and NewCategory parent associations. The exporter now distinguishes only
+these exact original roles, requiring the same run, patient and lineage, canonical native
+unit key and ordinal, original dependency, sole demographic reference and matching
+current witness. A second demographic projection or unknown/extra reference still
+requires review. No demographic source values come from an association receipt.
+The fix passed 94 coordinated checks, including 20 adverse/association checks; final
+packaging and the same genuine NewCategory fixture rerun remain pending.

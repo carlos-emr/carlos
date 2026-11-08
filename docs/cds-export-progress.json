@@ -542,5 +542,20 @@
     "allRetainedFieldsMustBeAccounted": true,
     "genuineInstalledQualificationPending": true,
     "clinicalPublication": false
+  },
+  "demographicStructuralAssociations": {
+    "state": "FOCUSED_FIX_VERIFIED_PACKAGE_PENDING",
+    "focusedChecks": 94,
+    "newAdverseAssociationChecks": 20,
+    "categories": [
+      "CareElements",
+      "NewCategory"
+    ],
+    "sameRunPatientLineageCanonicalNativeKeyAndDependencyRequired": true,
+    "soleDemographicAssociationReferenceRequired": true,
+    "currentWholeRowWitnessMustMatch": true,
+    "secondActualDemographicProjectionStillRequiresReview": true,
+    "sourceValuesNeverSelectedFromAssociationReceipt": true,
+    "historicalMetadataRewritten": false
   }
 }

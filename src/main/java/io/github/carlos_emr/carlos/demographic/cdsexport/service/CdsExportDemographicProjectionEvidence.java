@@ -94,7 +94,10 @@ public final class CdsExportDemographicProjectionEvidence {
                 ||!current.fields().keySet().equals(Set.copyOf(witness.state().columns().stream().map(CdsNativeRowDigest.Column::name).toList())))scope();
         for (var column:witness.state().columns()){checkpoint.run(); if (!matches(witness.state(), column.name(), current.fields().get(column.name())))scope(); }
         for (var entry:index.references().entrySet()) {
-            checkpoint.run(); if (!entry.getKey().equals(address)&&entry.getValue().stream().anyMatch(ref-> ref.table().equals("demographic")&&ref.id().equals(id)))throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ALIAS_REQUIRES_REVIEW");
+            checkpoint.run();
+            if (!entry.getKey().equals(address)&&entry.getValue().stream().anyMatch(ref-> ref.table().equals("demographic")&&ref.id().equals(id))
+                    && !association(patient, address, patientKey, lineage, entry.getKey(), index, checked, witness.digest()))
+                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ALIAS_REQUIRES_REVIEW");
         }
         CdsNativeRowState baseline=null;
         if (unit.fields().get("native_baseline")!=null) {
@@ -133,6 +136,37 @@ public final class CdsExportDemographicProjectionEvidence {
     private static boolean matches(CdsNativeRowState state, String column, String expected)throws IOException {
         int ordinal=-1; for (int i=0; i<state.columns().size(); i++)if (state.columns().get(i).name().equals(column))ordinal=i; if (ordinal<0)scope(); var cell=state.cells().get(ordinal); if (expected==null)return cell.sqlNull();
         byte[] bytes=expected.getBytes(StandardCharsets.UTF_8); return !cell.sqlNull()&&cell.bytes()==bytes.length&&cell.sha256().equals(HexFormat.of().formatHex(CdsImportKeys.digest().digest(bytes)));
+    }
+    /**
+     * The importer does not mutate demographics for these two structural parent units.
+     * Their single receipt proves patient association and must never select demographic
+     * source values or weaken the rejection of a second actual demographic projection.
+     */
+    static boolean association(int patient, String demographicAddress, String patientKey, String lineage, String address,
+            CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked, String currentDigest) {
+        if (patient < 1 || address == null || !address.matches("[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}:[0-9a-f]{64}")
+                || patientKey == null || lineage == null || demographicAddress == null || !demographicAddress.matches("[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}:[0-9a-f]{64}") || !address.substring(0, 36).equals(demographicAddress.substring(0, 36))
+                || !index.appliedUnits().contains(address) || currentDigest == null) return false;
+        String run = address.substring(0, 36), key = address.substring(37), id = CdsImportKeys.hash(run, key);
+        var unit = index.tables().getOrDefault("cds_import_unit", Map.of()).get(id);
+        if (unit == null || !id.equals(unit.recordKey()) || !id.equals(unit.fields().get("id")) || !run.equals(unit.fields().get("run_id"))
+                || !key.equals(unit.fields().get("unit_key")) || !Objects.equals(patientKey, unit.fields().get("patient_key"))
+                || !Objects.equals(lineage, unit.fields().get("lineage_key")) || !("COMMITTED".equals(unit.fields().get("state")) || "ALREADY_COMPLETE".equals(unit.fields().get("state")))) return false;
+        String category = unit.fields().get("category"), ordinal = unit.fields().get("ordinal");
+        if (category == null || !Set.of("CareElements", "NewCategory").contains(category)) return false;
+        try { long value = Long.parseLong(ordinal); if (value < 1 || !Long.toString(value).equals(ordinal)) return false; }
+        catch (NumberFormatException malformed) { return false; }
+        String path = "/OmdCds[1]/PatientRecord[1]/" + category + "[" + ordinal + "]";
+        if (!key.equals(CdsImportKeys.hash(lineage, path, "NATIVE", "0"))) return false;
+        var refs = index.references().get(address); var proof = checked.units().get(address);
+        if (refs == null || refs.size() != 1 || !"demographic".equals(refs.getFirst().table()) || !Integer.toString(patient).equals(refs.getFirst().id())
+                || proof == null || proof.size() != 1 || !refs.equals(proof.stream().map(CdsExportRetainedReceiptVerificationDto.CheckedReference::expected).toList())
+                || !currentDigest.equals(proof.getFirst().currentDigest())
+                || proof.getFirst().reason() != Reason.UNCHANGED_ROW && proof.getFirst().reason() != Reason.CHANGED_ROW) return false;
+        String parent = demographicAddress.substring(37), edgeId = CdsImportKeys.hash(run, key, parent);
+        var edge = index.tables().getOrDefault("cds_import_dependency", Map.of()).get(edgeId);
+        return edge != null && edgeId.equals(edge.recordKey()) && edgeId.equals(edge.fields().get("id")) && run.equals(edge.fields().get("run_id"))
+                && key.equals(edge.fields().get("unit_key")) && parent.equals(edge.fields().get("depends_on_unit_key"));
     }
     private static void scope()throws IOException{throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PROJECTION_SCOPE_INVALID"); }
 }
