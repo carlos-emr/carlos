@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportEmailLexical;
+
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsHealthCardAuthority;
 
 /** Exact guide-constrained preferred pharmacy values. Source disposition and historical reconciliation remain separate evidence. */
@@ -40,7 +42,7 @@ public record CdsExportPreferredPharmacyDto(String name, Address address, CdsExp
     public CdsExportPreferredPharmacyDto {
         if (name == null || name.isEmpty() || !text(name, 50)
                 || phone != null && !"W".equals(phone.type()) || fax != null && !"W".equals(fax.type())
-                || email != null && (!token(email, 50) || !email.matches("([.a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+(([a-zA-Z0-9_-])*\\.([a-zA-Z0-9_-])+)+")))
+                || email != null && (!token(email, 50) || !CdsExportEmailLexical.matches(email)))
             throw new IllegalArgumentException("CDS_EXPORT_PHARMACY_VALUES_INVALID");
     }
     private static boolean text(String value, int maximum) {

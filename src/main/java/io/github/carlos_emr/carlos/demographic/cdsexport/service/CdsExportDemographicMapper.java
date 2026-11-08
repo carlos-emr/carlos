@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportEmailLexical;
+
 import io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsHealthCardAuthority;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicMappingDto;
@@ -69,7 +71,7 @@ public final class CdsExportDemographicMapper {
         String spoken = state.code("spoken_lang", "PreferredSpokenLanguage",
                 Map.of("English", "eng", "French", "fre", "eng", "eng", "fre", "fre", "fra", "fra"));
         String email = state.token("email", "Email", 50, false);
-        if (email != null && !email.matches("([.a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+(([a-zA-Z0-9_-])*\\.([a-zA-Z0-9_-])+)+")) {
+        if (email != null && !CdsExportEmailLexical.matches(email)) {
             state.review("email", "Email", "WIRE_EMAIL_REQUIRES_REVIEW"); email = null;
         }
         String status = state.value("patient_status"); boolean enumerated = true;

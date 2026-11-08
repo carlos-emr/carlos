@@ -192,6 +192,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportVerifiedRangesUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportXmlComposerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportZip64IntegrationTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportEmailLexicalUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportCoverageValidatorUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportDemographicClosureValidatorUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportReconciliationValidatorUnitTest",

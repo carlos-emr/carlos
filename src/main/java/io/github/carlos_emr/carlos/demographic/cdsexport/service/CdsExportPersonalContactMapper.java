@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportEmailLexical;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
@@ -132,7 +134,7 @@ public final class CdsExportPersonalContactMapper {
                 } else if (present(extension)) state.review("workPhoneExtension", root + "/PhoneNumber[W]/extension", "CONTACT_EXTENSION_WITHOUT_WORK_NUMBER");
             }
             String email = token(state, "email", root + "/EmailAddress", 50);
-            if (email != null && !email.matches("([.a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+(([a-zA-Z0-9_-])*\\.([a-zA-Z0-9_-])+)+")) { state.review("email", root + "/EmailAddress", "WIRE_EMAIL_REQUIRES_REVIEW"); email = null; }
+            if (email != null && !CdsExportEmailLexical.matches(email)) { state.review("email", root + "/EmailAddress", "WIRE_EMAIL_REQUIRES_REVIEW"); email = null; }
             String note = note(row, group, states, root);
             if (first != null || last != null) mapped.add(new CdsExportPersonalContactDto(row.recordKey(), first, last, new ArrayList<>(purposes), phones, email, note));
         }

@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportEmailLexical;
+
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsHealthCardAuthority;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
@@ -137,7 +139,7 @@ public final class CdsExportPharmacyMapper {
         CdsExportPreferredPharmacyDto.Address address = line == null && city == null && subdivision == null && postal == null ? null : new CdsExportPreferredPharmacyDto.Address(line, city, subdivision, postal);
         var phone = phone(state, "phone1", root + "/PhoneNumber"); var fax = phone(state, "fax", root + "/FaxNumber");
         String email = token(state, "email", root + "/EmailAddress", 50);
-        if (email != null && !email.matches("([.a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+(([a-zA-Z0-9_-])*\\.([a-zA-Z0-9_-])+)+")) { state.review("email", root + "/EmailAddress", "WIRE_EMAIL_REQUIRES_REVIEW"); email = null; }
+        if (email != null && !CdsExportEmailLexical.matches(email)) { state.review("email", root + "/EmailAddress", "WIRE_EMAIL_REQUIRES_REVIEW"); email = null; }
         return name == null ? null : new CdsExportPreferredPharmacyDto(name, address, phone, fax, email);
     }
     private static CdsExportDemographicMappingDto.Phone phone(CdsExportNativeFieldAssessments state, String column, String path) {

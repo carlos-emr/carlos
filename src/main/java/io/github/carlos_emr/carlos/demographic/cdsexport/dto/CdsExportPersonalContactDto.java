@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportEmailLexical;
+
 import java.util.List;
 import java.util.Set;
 
@@ -40,7 +42,7 @@ public record CdsExportPersonalContactDto(String sourceRecordKey, String firstNa
         if (sourceRecordKey == null || !sourceRecordKey.matches("[0-9]{20}") || firstName == null && lastName == null
                 || firstName != null && !text(firstName, 50) || lastName != null && !text(lastName, 50)
                 || purposes.size() > 8192 || phones.size() > 3 || phones.stream().map(CdsExportDemographicMappingDto.Phone::type).distinct().count() != phones.size()
-                || email != null && (email.codePointCount(0, email.length()) > 50 || !email.matches("([.a-zA-Z0-9_-])+@([a-zA-Z0-9_-])+(([a-zA-Z0-9_-])*\\.([a-zA-Z0-9_-])+)+"))
+                || email != null && (email.codePointCount(0, email.length()) > 50 || !CdsExportEmailLexical.matches(email))
                 || note != null && !text(note, 200)) throw new IllegalArgumentException("CDS_EXPORT_CONTACT_VALUES_INVALID");
     }
     private static boolean text(String value, int maximum) {
