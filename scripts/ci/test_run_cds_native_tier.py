@@ -107,5 +107,58 @@ class NativeEvidenceTest(unittest.TestCase):
                 self.assertEqual(expected, not incomplete)
 
 
+class CoordinatedInventoryTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        (self.root / 'scripts/ci').mkdir(parents=True)
+        self.inventory = self.root / 'scripts/ci/cds-coordinated-test-classes.json'
+
+    def source(self, qualified):
+        path = self.root / 'src/test/java' / (qualified.replace('.', '/') + '.java')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('class Fixture {}')
+
+    def write_inventory(self, values):
+        import json
+        self.inventory.write_text(json.dumps(values))
+
+    def test_real_inventory_is_covered_exactly_once_across_workflow_shards(self):
+        import json
+        repository = MODULE_PATH.resolve().parents[2]
+        partitions = [set(NATIVE.coordinated_classes(repository, shard)) for shard in ('import', 'export', 'shared')]
+        expected = json.loads((repository / 'scripts/ci/cds-coordinated-test-classes.json').read_text())
+        self.assertEqual(len(expected), len(set.union(*partitions)))
+        for first in range(len(partitions)):
+            for second in range(first + 1, len(partitions)):
+                self.assertFalse(partitions[first] & partitions[second])
+
+    def test_exact_source_resolution_keeps_owning_dao_and_simple_export_selectors(self):
+        self.source('example.commn.dao.CdsExportPhysicalTest')
+        self.source('example.cdsexport.service.ClinicalTest')
+        self.write_inventory(['CdsExportPhysicalTest', 'example.cdsexport.service.ClinicalTest'])
+        self.assertEqual(('example.commn.dao.CdsExportPhysicalTest', 'example.cdsexport.service.ClinicalTest'),
+                         NATIVE.coordinated_classes(self.root, 'export'))
+
+    def test_missing_ambiguous_and_wildcard_selectors_refuse_the_gate(self):
+        for values in (['Missing'], ['CdsExport*'], []):
+            with self.subTest(values=values):
+                self.write_inventory(values)
+                with self.assertRaises(ValueError):
+                    NATIVE.coordinated_classes(self.root, 'export')
+        self.source('one.CdsExportDuplicatedTest')
+        self.source('two.CdsExportDuplicatedTest')
+        self.write_inventory(['CdsExportDuplicatedTest'])
+        with self.assertRaises(ValueError):
+            NATIVE.coordinated_classes(self.root, 'export')
+
+    def test_two_spellings_of_the_same_class_cannot_double_count_coverage(self):
+        self.source('example.cdsexport.CdsExportFixtureTest')
+        self.write_inventory(['CdsExportFixtureTest', 'example.cdsexport.CdsExportFixtureTest'])
+        with self.assertRaises(ValueError):
+            NATIVE.coordinated_classes(self.root, 'export')
+
+
 if __name__ == '__main__':
     unittest.main()

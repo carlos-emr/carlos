@@ -1,0 +1,71 @@
+# Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+name: CDS coordinated import and export
+
+on:
+  pull_request:
+    branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
+    paths:
+      - 'src/main/java/**'
+      - 'src/main/resources/**'
+      - 'src/test/java/**'
+      - 'src/test/resources/**'
+      - 'database/mysql/migration/**'
+      - 'scripts/ci/*cds*'
+      - 'scripts/schema-contract.py'
+      - 'scripts/verify-cds-export-source-catalogue.py'
+      - 'pom.xml'
+      - '.github/actions/dev-container/**'
+      - '.github/workflows/cds-transfer.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: cds-transfer-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  coordinated-contracts:
+    name: CDS transfer / ${{ matrix.shard }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [import, export, shared]
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start Java 25 build container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+      - name: Verify source catalogue and compile application and tests once
+        run: |
+          python3 scripts/verify-cds-export-source-catalogue.py
+          docker exec carlos-tomcat-dev mvn -B -DskipTests test-compile
+      - name: Prepare harness workspace ownership
+        run: sudo chown -R "$(id -u):$(id -g)" target
+      - name: Install hash-pinned harness dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/cds-transfer-venv"
+          "$RUNNER_TEMP/cds-transfer-venv/bin/python" -m pip install \
+            --disable-pip-version-check --require-hashes -r scripts/ci/requirements.txt
+          echo "$RUNNER_TEMP/cds-transfer-venv/bin" >> "$GITHUB_PATH"
+      - name: Verify inventory partition and non-skipping evidence checks
+        run: python3 -m unittest discover -s scripts/ci -p test_run_cds_native_tier.py -v
+      - name: Run the reviewed shard against newly migrated owned databases
+        run: python3 scripts/ci/run-cds-native-tier.py --coordinated-shard '${{ matrix.shard }}'
+      - name: Preserve sanitized contract reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cds-transfer-${{ matrix.shard }}-reports
+          path: target/cds-native-*/reports/TEST-*.xml
+          if-no-files-found: warn
+          retention-days: 7

@@ -62,6 +62,35 @@ REQUIRED_CASES = {
 }
 
 
+def coordinated_classes(repository, shard):
+    """Resolve the reviewed inventory exactly once and partition every suite without overlap."""
+    inventory = json.loads((repository / 'scripts/ci/cds-coordinated-test-classes.json').read_text())
+    if not isinstance(inventory, list) or not inventory or any(not isinstance(item, str) for item in inventory):
+        raise ValueError('Reviewed CDS inventory is invalid')
+    sources = repository / 'src/test/java'
+    selected, resolved = [], set()
+    for item in inventory:
+        if not re.fullmatch(r'[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*', item):
+            raise ValueError('Reviewed CDS selector is not an exact class')
+        matches = [sources / (item.replace('.', '/') + '.java')] if '.' in item else list(sources.rglob(item + '.java'))
+        if len(matches) != 1 or not matches[0].is_file() or matches[0].is_symlink():
+            raise ValueError('Reviewed CDS test is missing or ambiguous')
+        qualified = '.'.join(matches[0].relative_to(sources).with_suffix('').parts)
+        if qualified in resolved:
+            raise ValueError('Reviewed CDS inventory contains duplicate classes')
+        resolved.add(qualified)
+        # Owning DAO tests live outside the feature package. Keep those with the
+        # corresponding direction, rather than silently omitting them from CI.
+        simple = matches[0].stem
+        direction = ('export' if '.cdsexport.' in qualified or simple.startswith('CdsExport')
+                     else 'import' if '.cdsimport.' in qualified else 'shared')
+        if direction == shard:
+            selected.append(qualified)
+    if not selected or len({item.rsplit('.', 1)[-1] for item in selected}) != len(selected):
+        raise ValueError('Reviewed CDS shard is empty or has ambiguous report identities')
+    return tuple(selected)
+
+
 def collect_reports(required, source, destination):
     """Reject missing, skipped or inconsistent physical evidence and strip captured configuration."""
     total, incomplete = 0, []
@@ -169,10 +198,16 @@ def main():
                         help='Regenerate/check only fresh ON/BC schema contracts; never report native tests as run')
     parser.add_argument('--refresh-schema-contracts', action='store_true',
                         help='Regenerate ON/BC physical contracts from this newly owned full-chain reference server')
+    parser.add_argument('--coordinated-shard', choices=('import', 'export', 'shared'),
+                        help='Run an exact partition of the complete import/export inventory, with no skipped suites')
     args = parser.parse_args()
     if args.schema_only and not args.refresh_schema_contracts:
         parser.error('--schema-only requires --refresh-schema-contracts')
+    if args.coordinated_shard and args.schema_only:
+        parser.error('--coordinated-shard cannot be combined with --schema-only')
     repository = Path(__file__).resolve().parents[2]
+    selectors = coordinated_classes(repository, args.coordinated_shard) if args.coordinated_shard else CLASSES
+    required = tuple(item.rsplit('.', 1)[-1] for item in selectors)
     nonce = uuid.uuid4().hex
     name = 'cds-native-' + nonce
     network = name + '-net'
@@ -187,7 +222,8 @@ def main():
     (private / 'client.cnf').write_text('[client]\nuser=root\npassword=' + password + '\n')
     for path in private.iterdir():
         path.chmod(0o600)
-    created_network = created_database = connected_build = False
+    created_network = created_database = connected_build = created_document_root = False
+    document_root = '/var/lib/carlos-cds-transfer-documents-' + nonce
     docker = ['docker', '--host=unix:///var/run/docker.sock']
     log_path = output / 'native-tier.log'
 
@@ -233,6 +269,8 @@ def main():
             profiles = [('carlos_cds_test', 'jdbc.properties', 'on')]
             if not args.schema_only:
                 profiles.append(('cds_ledger_test', 'ledger.properties', 'on'))
+            if args.coordinated_shard:
+                profiles.append(('cds_export_test', 'export.properties', 'on'))
             if args.refresh_schema_contracts:
                 profiles.append(('cds_full_test', 'bc.properties', 'bc'))
             run(client + ['-e', '; '.join('CREATE DATABASE ' + database + ' CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci'
@@ -278,17 +316,28 @@ def main():
             original_reports = repository / 'target' / 'surefire-reports'
             reports = output / 'reports'
             reports.mkdir(mode=0o700)
-            for simple in CLASSES:
+            for simple in required:
                 for previous in original_reports.glob('TEST-*.' + simple + '.xml'):
                     previous.unlink()
-            tested = build(maven + ['surefire:test', '-Dtest.forkCount=1', '-Dgroups=integration',
-                                    '-Dtest=' + ','.join(CLASSES),
+            test_command = maven + ['surefire:test', '-Dtest.forkCount=1',
+                                    '-Dtest=' + ','.join(selectors),
                                     '-Dcds.test.properties=' + container_private + '/jdbc.properties',
-                                    '-Dcds.ledger.test.properties=' + container_private + '/ledger.properties'], log, check=False)
-            total, incomplete = collect_reports(CLASSES, original_reports, reports)
+                                    '-Dcds.ledger.test.properties=' + container_private + '/ledger.properties']
+            if args.coordinated_shard:
+                test_command.append('-Dcds.export.test.properties=' + container_private + '/export.properties')
+                # The native-file tests exercise real trusted ancestry. A bind-mounted
+                # checkout can be owned by the host runner; do not relax its ownership
+                # checks or change host permissions to make those tests pass.
+                build(['mkdir', '-m', '0700', document_root], log)
+                created_document_root = True
+                test_command.append('-Dcds.export.test.documentRoot=' + document_root)
+            else:
+                test_command.append('-Dgroups=integration')
+            tested = build(test_command, log, check=False)
+            total, incomplete = collect_reports(required, original_reports, reports)
             if tested.returncode or incomplete:
                 raise RuntimeError('Required native contracts incomplete: ' + ', '.join(incomplete))
-            print(f'CDS native tier passed: {total} tests across {len(CLASSES)} required suites; zero skips.')
+            print(f'CDS native tier passed: {total} tests across {len(required)} required suites; zero skips.')
             print('Sanitized reports: ' + str(output / 'reports'))
         return 0
     except (subprocess.CalledProcessError, RuntimeError, OSError, ET.ParseError, DefusedXmlException, ValueError) as failure:
@@ -298,6 +347,9 @@ def main():
     finally:
         cleanup_failures = []
         with (output / 'cleanup.log').open('w') as log:
+            if created_document_root:
+                if build(['rm', '-rf', '--', document_root], log, check=False).returncode:
+                    cleanup_failures.append('document-root')
             if created_database:
                 if run(docker + ['rm', '--force', '--volumes', name], log, check=False).returncode:
                     cleanup_failures.append('database')

@@ -1462,3 +1462,16 @@ non-executable identity so metadata and retention recovery remain available; cli
 admission still requires the strict active plan. Twenty-four affected identity,
 registry and job orchestration checks passed. This checkpoint does not qualify a
 clinical profile or establish successful clinical publication.
+
+
+### Coordinated workflow execution
+
+`.github/workflows/cds-transfer.yml` partitions the entire reviewed coordinated
+inventory into import, export and shared jobs on separate fresh runners. Each job
+compiles once and runs its exact selectors against its own newly migrated import,
+ledger and export schemas using the existing native-tier harness. The matrix does
+not archive complete WARs or share mutable database fixtures. Missing, ambiguous,
+duplicate, empty or skipped suite evidence refuses the gate. Only sanitized test
+reports are uploaded. The original native importer workflow and its required cases
+remain unchanged. Installed application publication and transport evidence is still
+required separately; a workflow declaration does not establish a passing run.
