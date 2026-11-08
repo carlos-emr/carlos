@@ -19126,6 +19126,52 @@
       ],
       "fixtures": "Two owned source charts and a populated unrelated control; signed note revisions and SHA-256 signatures, prescriptions, allergies, measurements and stored PDFs. Exact clinical snapshots, inode/byte ownership and guarded child-first cleanup. Unknown native write acknowledgements retain all fixtures and private recovery journals. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5715: native baseline clinical modules, Administration Merge, head/tail record navigation, document union on the merged head, source ownership and signing/revision preservation, native Unmerge and independent clinical histories. Retains all original invalid-identifier/self/cycle/forged-head/GET controls. Requires CARLOS_DISPOSABLE_HOST=true and installed DOCUMENT_DIR."
+    },
+    {
+      "name": "eform-visual-widgets",
+      "script": "scripts/eform-visual-widgets-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "assertsDatabase": true,
+      "timeoutSec": 900,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "EFORM_IMAGE_DIR",
+        "EFORM_RENDER_TEMP_DIR"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "One native editor-created template, owned patient/revisions and unrelated control, exact owned PNG and renderer PDFs. Unknown native writes retain all fixtures and private request journals. Complete unrelated template/image/control snapshots are preserved on success and failure. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5801: actual editor inventory, xBox defaults and native radio grouping, image selection and wet-signature placement/drawing/clear, independent persisted markup/value checks, native instance histories/reopen, actual PDF controls/image/signature/toolbar, native library-pencil Update of the same template and revised new-instance layout. #5826 remains a fatal product finding; no expected-failure pin. Requires Poppler and real installed image/renderer directories."
+    },
+    {
+      "name": "lab-qualified-results",
+      "script": "scripts/lab-qualified-results-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "assertsDatabase": true,
+      "timeoutSec": 900,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "LAB_UPLOAD_DOCUMENT_STORE",
+        "LAB_QUALIFIED_ARTIFACT_DIR"
+      ],
+      "mutates": [
+        "providerLabRoutingLock"
+      ],
+      "fixtures": "Five native source labs and a separate owned patient/control, preclaimed unique accessions, exact message/measurement/routing/checksum/archive cleanup. Read-only allocator checks refuse dangling references; unknown submitted writes retain all fixtures and private journals. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5803: literal qualified/qualitative/numeric results across actual entry, stored HL7, native reports/history/grid/rows/visible tooltips, every offered Plot and actual PDFs. Independent printed-axis OCR and pixel geometry reject bound coercion; exact PDF columns preserve attribution. #5827/#5828 remain fatal with no expected-failure pin. Requires Poppler and English Tesseract."
     }
   ]
 }

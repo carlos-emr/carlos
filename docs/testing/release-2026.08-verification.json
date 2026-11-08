@@ -384,10 +384,14 @@
         "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsDataUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/CommonLabTestValuesUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/util/LabVersionComparatorUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/web/LabDisplayHelperUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/web/LabDisplayHelperUnitTest.java",
+        "scripts/lab-qualified-results-playwright-checks.js",
+        "scripts/lib/qualified-lab-oracle.js",
+        "scripts/qualified-lab-oracle.test.js",
+        "docs/testing/lab-qualified-results-inventory.md"
       ],
       "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep.",
-      "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key.",
+      "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal.",
       "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm.",
       "requiredChecks": [
         "evidence-self-tests",
@@ -751,10 +755,13 @@
         "src/test/java/io/github/carlos_emr/carlos/email/action/EmailCompose2ActionUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/eform/EFormExportZipLimitsUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/ImportZipInputStreamUnitTest.java",
-        "docs/eform-zip-import-limits.md"
+        "docs/eform-zip-import-limits.md",
+        "scripts/eform-visual-widgets-playwright-checks.js",
+        "scripts/eform-visual-widgets.test.js",
+        "docs/testing/eform-visual-widgets-inventory.md"
       ],
       "implementation": "Extend real save/reopen/print workflows for every changed form and eForm resource. Keep saved primary state distinct from failed email/PDF/fax/EDoc work and assert visible, retry-safe recovery.",
-      "cases": "Unticked/checked/blank/long/multiline/quoted/Unicode data; autosave pending/error and multiple clicks; form version and refresh; editor toolbar/Bootstrap/jQuery aliases/AP values/calendar/signature; Mac ZIPs, bounded bulk export, path and collision attacks; actual expanded ZIP bytes/count and properties/retained-HTML budgets, exact-limit acceptance, rejection before publication and owned staging cleanup; primary save succeeds then secondary preparation fails; expired email draft.",
+      "cases": "Unticked/checked/blank/long/multiline/quoted/Unicode data; autosave pending/error and multiple clicks; form version and refresh; editor toolbar/Bootstrap/jQuery aliases/AP values/calendar/signature; Mac ZIPs, bounded bulk export, path and collision attacks; actual expanded ZIP bytes/count and properties/retained-HTML budgets, exact-limit acceptance, rejection before publication and owned staging cleanup; primary save succeeds then secondary preparation fails; expired email draft. Native visual editor non-text controls: independent xBox/radio defaults, real grouping and local image/wet signature, exact saved/cleared markup and value rows, native history/reopen, actual PDF selected controls and image/ink pixels, same-template Update and revised new-instance layout. Explicit empty-field loss #5826 remains fatal.",
       "acceptance": "All entered values survive reopen and print, no duplicate primary save on retry, and the user sees exactly which operation failed with no clinical diagnostic disclosure.",
       "requiredChecks": [
         "evidence-self-tests",

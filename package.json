@@ -1017,7 +1017,9 @@
     "test:incoming-mixed-pdf-playwright": "node scripts/incoming-mixed-pdf-playwright-checks.js",
     "test:session-clinical-recovery-playwright": "node scripts/session-clinical-recovery-playwright-checks.js",
     "test:form-growth-clinical-geometry-playwright": "node scripts/form-growth-clinical-geometry-playwright-checks.js",
-    "test:demographic-merge-clinical-history-playwright": "node scripts/demographic-merge-clinical-history-playwright-checks.js"
+    "test:demographic-merge-clinical-history-playwright": "node scripts/demographic-merge-clinical-history-playwright-checks.js",
+    "test:eform-visual-widgets-playwright": "node scripts/eform-visual-widgets-playwright-checks.js",
+    "test:lab-qualified-results-playwright": "node scripts/lab-qualified-results-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",

@@ -10,7 +10,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 
 | Ticket | Scope | Status |
 | --- | --- | --- |
-| [#4102](https://github.com/carlos-emr/carlos/issues/4102) | test: run the locking and race tests against a real MariaDB in CI | Implementation and installed acceptance pending. |
+| [#4102](https://github.com/carlos-emr/carlos/issues/4102) | test: run the locking and race tests against a real MariaDB in CI | Physical MariaDB CI lanes are retained. The specifically requested SMS queue/settings and consent first-save locking reproductions remain blocked by the absence of their referenced implementation on this release target; unrelated DAO tests do not close this ticket. |
 | [#4492](https://github.com/carlos-emr/carlos/issues/4492) | test(scripts): Playwright coverage plan, upgrade-path check, remaining Ontario checks, configuration profiles and hardening (plan Tasks 17 and 35–48) | Implementation and installed acceptance pending. |
 | [#5177](https://github.com/carlos-emr/carlos/issues/5177) | Consolidated validation-harness findings and packaged retakes | Outstanding original source acceptance and complete ON/BC repetitions remain pending. |
 | [#5700](https://github.com/carlos-emr/carlos/issues/5700) | Test: Release 2026.08 full verification coverage plan (Java, Node, Playwright) | Existing merged tooling retained. Scope ownership, compatibility decisions, installed execution and vendor prerequisites remain open. |
@@ -44,9 +44,9 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5795](https://github.com/carlos-emr/carlos/issues/5795) | Test: Missing browser-check prerequisites now SKIP instead of failing, including the CDS import gate | Packaged runner enforces strict release/residue checking and fails on report loss; packaged runs pending. |
 | [#5796](https://github.com/carlos-emr/carlos/issues/5796) | Test: Stored partial-precision allergy start dates are no longer covered (allergy-partial-start-date removed) | Installed ON year/year-month display and both reaction-only amendments pass with clean residue audit. Both ON and BC focused installed retakes pass; final full qualification remains pending. |
 | [#5797](https://github.com/carlos-emr/carlos/issues/5797) | Test: Two new tests never run in CI, and the H2 test job doesn't fail on unexpected skips | Dedicated permission and legacy-library CI lanes plus exact-result checks implemented; full CI/native acceptance pending. |
-| [#5801](https://github.com/carlos-emr/carlos/issues/5801) | Test: cover visual eForm editor checkboxes, radio groups, images and signatures | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5801](https://github.com/carlos-emr/carlos/issues/5801) | Test: cover visual eForm editor checkboxes, radio groups, images and signatures | Implemented; [visual-widget inventory](eform-visual-widgets-inventory.md). Both installed provinces reach native creation, instance revisions, reopen, PDF image/signature checks and same-template Update; cleared-default loss #5826 remains fatal. |
 | [#5802](https://github.com/carlos-emr/carlos/issues/5802) | Test: verify session loss while clinical editors contain unsaved work | Implemented; [session inventory](session-clinical-recovery-inventory.md). Both ON and BC strict-release suites pass all six stages and exact cleanup. Real refusal, no unauthorized writes, native heartbeat closure, same-account D1 recovery, same-browser other-account/storage isolation and conservative request supervision are covered. |
-| [#5803](https://github.com/carlos-emr/carlos/issues/5803) | Test: preserve qualified and nonnumeric laboratory results across views and PDF output | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5803](https://github.com/carlos-emr/carlos/issues/5803) | Test: preserve qualified and nonnumeric laboratory results across views and PDF output | Implemented; [qualified-lab inventory](lab-qualified-results-inventory.md). Both installed provinces reach all native reports, histories, plots, PDFs, grids and rows. Bound-to-number graph coercion #5827 and literal/history loss under the shipped filter #5828 remain fatal. |
 | [#5804](https://github.com/carlos-emr/carlos/issues/5804) | test(playwright): cover end-to-end lab recall message delivery to delegates | Implemented; [delivery inventory](lab-recall-delivery-inventory.md). Actual send, delegate reads, assigned task/lab navigation and both existing regressions pass on snapshot31 in ON/BC. |
 | [#5805](https://github.com/carlos-emr/carlos/issues/5805) | test(playwright): cover Ontario payments allocated across multiple invoice items | Implemented; [allocation inventory](billing-on-multi-item-payments-inventory.md). All three native stages pass on ON: two distinct partial allocations, complete one item while another remains partial, then finish. Exact item/payment/header/audit amounts, reopened line balances, payment details/history and displayed/printed totals reconcile; the full control snapshot is unchanged. Existing single-item regression also passes. |
 | [#5806](https://github.com/carlos-emr/carlos/issues/5806) | test(playwright): cover OAuth 1.0a registered web callbacks and denial | Native ON/BC exact and plain-query registered callbacks complete actual consent/303 receiver delivery, verifier exchange and signed provider/patient/scope checks. Native Deny, denied exchange and host/scheme/lookalike-path application refusals pass. Encoded-query initiation fails on #5823 and its later stages remain explicitly unreached; independent cases continue. Owned token/client/nonce/patient/receiver cleanup passes, with no new waiver pin. |
@@ -979,3 +979,126 @@ published checkpoint `a144d014074`; CodeRabbit's tenth full-review command repor
 finished. This new checkpoint needs its own CI/review. Implementations #5801 and
 #5803, plus the original full/native/vendor qualification obligations, remain
 pending.
+
+## Final workflow implementation and current dependency baseline
+
+The later sections of this register are chronological checkpoints; earlier
+statements about unimplemented workflows and pending checkpoint CI are historical.
+All thirteen CI workflows pass on published checkpoint `b66b3a598dc`, and all
+64 inline review threads are resolved there. The eleventh full CodeRabbit
+request was explicitly rate-limited, so no eleventh completed review is claimed.
+The final publication requires a new accepted full review and fresh CI.
+
+Both remaining workflow implementations are now present: #5801 visual eForm
+controls and #5803 qualified/qualitative labs. This exhausts the previously
+enumerated five missing workflow implementations, without asserting full ticket
+or release acceptance. Their inventories describe actual supported controls,
+independent clinical oracles, fatal findings and conservative owned cleanup.
+
+At the prior installed snapshot31 baseline (`e0601ced004c`), both provinces reach
+native eForm create/save/revision/reopen, same-template Update, revised new-instance
+layout and independent actual PDF image/signature checks. Strict suites fail
+only on cleared-default restoration (#5826), in 38.2 seconds on ON and 39.2 seconds
+on BC. Subsequent positional PDF and cleared-signature output coverage requires
+its own retake; those earlier receipts do not qualify the stronger source.
+
+The qualified-lab workflow reaches all five native reports/PDFs, every offered
+plot, value histories and cumulative grid/row/visible-tooltip comparisons on both
+snapshot31 provinces. It correctly fails on invented bound points (#5827) and
+qualitative literal/history loss under the shipped filter (#5828). Independent
+numeric cholesterol, qualitative empty plots, all source/report/PDF literals,
+clinical controls and strict browser diagnostics pass. Initial exploratory
+fixtures with textual numeric-reference bounds are retained as failed attempts;
+the final fixture uses numeric reference ranges and does not waive those errors.
+Independent final audits on both provinces confirm zero owned fixtures, exact
+configuration/package integrity and every original column digest in all 184
+legacy email-log rows.
+
+The target advanced to `c9a7cdb38df` (#5513). The merge introduces no harness
+production change relative to that release target. Its isolated Java 25 Maven
+build succeeds, compiling 2,622 Java test files; this package build skips execution
+and is not a Java test-pass receipt. Complete EMR and pinned DrugRef snapshot32
+Debian packages, including the pinned Chromium renderer, build successfully on
+Ubuntu 26.04 with unchanged Debian rules. The first build ran out of workspace
+disk; a second was cancelled after a failed temporary-mount attempt. Those logs
+are preserved. The successful third attempt follows cleanup of redundant generated
+files, unused images and download caches. No renderer or DrugRef payload is skipped.
+
+The EMR package SHA-256 is
+`950eb88557338f8dea66a19bd019df91183e5ca5366d4383f219825713757076`;
+the matching DrugRef package SHA-256 is
+`25549dba598a6c3550756112aead15e2a1829e3eccf22b2c177fe81145cc3bd7`.
+Both province package upgrades complete through the normal maintainer scripts.
+The Docker image excludes documentation by default; each omitted README is
+restored from its own exact package payload and checked against that package's
+registered digest. An initial attempt to use the EMR README for DrugRef is
+correctly refused and retained as a failed receipt. Final verification requires
+empty `dpkg -V` output as well as a successful exit, avoiding a false pass when
+the command reports missing files but returns zero. Original product findings, missing
+target SMS/locking features, vendor prerequisites, native database matrices and
+complete repeated ON/BC qualification remain open. No new failure pin or issue
+closure is introduced.
+
+
+### Final source qualification
+
+The complete stable Ubuntu 26.04 run passes **7,701/7,701 Node cases in 546
+files**, with zero failed/skipped/cancelled/TODO cases and `sourceChanged=false`.
+Its exact case inventory is regenerated. All **356 Python cases** and all **53
+focused eForm/lab/findings controls** pass. The first new full Node attempt
+correctly fails on the findings-log evidence prefix. An intermediate 7,700-case
+run has all cases pass but is correctly refused because its test sources changed;
+it is not a qualification receipt.
+
+The final eForm source measures actual print-media control rectangles and checks
+each PDF mark's field identity/position plus total multiplicity. Independent
+positive and refusal controls reject swapped or displaced marks, changed paper
+geometry and unmeasurable cleared controls. The native visual editor's 600x800
+CSS content uses a Letter PDF, rather than implying a custom physical page.
+Both initial drawn and subsequent cleared signature PDFs are checked, without
+an extra primary save. Initial screen-relative/custom-paper assumptions remain
+failed exploratory attempts. Final snapshot32 strict suites reach all native
+stages and fail only on #5826 on **ON 43.7s / BC 46.1s**. Selected peer controls
+stay correctly attributed while restored defaults fail; images and drawn/cleared
+signature output pass independently. No browser diagnostic or failure pin is added.
+
+Qualified-lab strict suites on snapshot32 reach completion on **ON 180.3s /
+BC 131.1s**, failing only on #5827/#5828. Exact source/report/PDF literals,
+numeric control geometry, supported empty qualitative plots and unchanged
+clinical/control snapshots pass. The final BC snapshot32 regression batch passes
+session recovery (**185.6s**), growth (**216.8s**) and populated merge/unmerge
+(**288.5s**) with zero failures/skips. Its independent post-audit passes strict
+package/configuration/health checks, zero owned SQL/files/journals, the empty
+Messenger coordinator and every original column digest in all 184 legacy
+email-log rows.
+
+ON growth (**244.9s**) and populated merge/unmerge (**161.2s**) pass. Its first
+session attempt fails before its first structured PASS on a 20-second frame
+navigation timeout; the failed receipt is retained, and its independent audit
+confirms clean fixtures/configuration/packages/legacy rows before an unchanged
+source retake. The unchanged-source retake passes all six stages and cleanup in **173.4s**,
+with zero failures/skips. The earlier waiting output is not evidence that the
+session stages passed. Final independent audits follow the last eForm retakes.
+
+
+The acceptance cross-check strengthens native radio isolation in both directions,
+with both independent checkboxes selected before each radio change. The complete
+53 focused controls pass again, and every one of the 546 qualified Node test-file
+digests remains unchanged. Exact-source final eForm retakes complete in **ON
+64.0s / BC 50.8s**, reaching every native stage and failing only on #5826.
+The earlier 43.7s/46.1s receipts remain historical. Drawn/cleared signature, image,
+template Update, saved-history/control preservation and strict browser diagnostics
+pass independently. The published head receives fresh complete CI.
+
+The three local review rounds cover the original 46 source-issue contracts,
+correctness/failure/cleanup sensitivity, and exact source/package/inventory and
+reached installed outcomes. Their remaining release-acceptance blockers are
+explicit above. Final external CodeRabbit review and CI must be reconciled on
+the published head; local control passes do not waive a clinical product failure.
+
+
+Final independent ON and BC audits pass after the exact-source last retakes:
+original configuration hashes, empty package-verification output, healthy
+services with zero automatic restarts, all eight fixture/coordinator SQL counts
+zero, no owned clinical files or recovery journals, and all 184 legacy email-log
+rows unchanged in every original column. Earlier failed receipts are preserved.
