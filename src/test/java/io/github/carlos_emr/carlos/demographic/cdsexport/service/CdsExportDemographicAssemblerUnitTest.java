@@ -99,4 +99,46 @@ class CdsExportDemographicAssemblerUnitTest {
         assertThatThrownBy(() -> CdsExportDemographicAssembler.accountCareCarriers(prior, custom, () -> {})).hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_CARE_SCOPE_INVALID");
     }
 
+    @Test void shouldCloseOnlyAnExactlyAbsentSelectedLegacyAlertCarrier() throws Exception {
+        for (String value : new String[] {null, ""}) {
+            var values = new LinkedHashMap<String, String>(); values.put("cust3", value);
+            var custom = new CdsExportCapturedTextRowDto("demographiccust", "0000000027", values);
+            var key = new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), "cust3");
+            var prior = new CdsExportDemographicRetainedCoreReconciler.Result(HASH, "parent", Set.of(), Set.of(), Map.of(), Set.of(key), Set.of(), List.of());
+            var result = CdsExportDemographicAssembler.accountAlertCarrier(prior, custom,
+                    Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS), () -> {});
+            assertThat(result.demographicComplete()).isTrue(); assertThat(result.deferredNativeFields()).isEmpty();
+            assertThat(result.fields().get(key).outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.ABSENT);
+            assertThat(result.fields().get(key).presence()).isEqualTo(value == null
+                    ? CdsExportFieldAssessmentDto.Presence.SQL_NULL : CdsExportFieldAssessmentDto.Presence.EMPTY);
+        }
+    }
+    @Test void shouldWithholdXmlForAnyPopulatedLegacyAlertCarrier() throws Exception {
+        for (String value : List.of("Legacy patient alert", " ", "<unotes>café 😀</unotes>")) {
+            var custom = new CdsExportCapturedTextRowDto("demographiccust", "0000000027", Map.of("cust3", value));
+            var key = new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), "cust3");
+            var prior = new CdsExportDemographicRetainedCoreReconciler.Result(HASH, "parent", Set.of(), Set.of(), Map.of(), Set.of(key), Set.of(),
+                    List.of(new CdsExportRetainedSectionWriter.Change("NoteAboutPatient[1]", Set.of(), xml -> xml.text("preserved note"))));
+            var result = CdsExportDemographicAssembler.accountAlertCarrier(prior, custom,
+                    Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS), () -> {});
+            assertThat(result.demographicComplete()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
+            assertThat(result.fields().get(key).outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        }
+    }
+    @Test void shouldRequireTheSelectedAlertHandoffAndLeaveAnUnselectedProjectionUntouched() throws Exception {
+        var custom = new CdsExportCapturedTextRowDto("demographiccust", "0000000027", Map.of("content", "note"));
+        var key = new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), "cust3");
+        var prior = new CdsExportDemographicRetainedCoreReconciler.Result(HASH, "parent", Set.of(), Set.of(), Map.of(), Set.of(key), Set.of(), List.of());
+        assertThat(CdsExportDemographicAssembler.accountAlertCarrier(prior, custom, Set.of(CdsCategory.DEMOGRAPHICS), () -> {})).isSameAs(prior);
+        assertThatThrownBy(() -> CdsExportDemographicAssembler.accountAlertCarrier(prior, custom,
+                Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS), () -> {}))
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_ALERT_SCOPE_INVALID");
+        var withValue = new CdsExportCapturedTextRowDto("demographiccust", "0000000027", Map.of("cust3", ""));
+        var noHandoff = new CdsExportDemographicRetainedCoreReconciler.Result(HASH, "parent", Set.of(), Set.of(), Map.of(), Set.of(), Set.of(), List.of());
+        assertThatThrownBy(() -> CdsExportDemographicAssembler.accountAlertCarrier(noHandoff, withValue,
+                Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS), () -> {}))
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_ALERT_SCOPE_INVALID");
+    }
+
+
 }

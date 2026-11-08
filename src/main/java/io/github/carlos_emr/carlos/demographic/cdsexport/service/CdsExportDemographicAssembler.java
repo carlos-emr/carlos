@@ -83,9 +83,34 @@ public final class CdsExportDemographicAssembler {
                 rows.current(), rows.witness(), rows.contacts(), rows.pharmacies(), maximumRows, maximumBytes, values, checkpoint);
         var completeBaseRow = new CdsExportDemographicAncillaryReconciler().reconcile(
                 care.demographic(), patient, rows.current(), rows.witness(), checkpoint);
-        var accounted = accountCareCarriers(completeBaseRow, rows.custom(), checkpoint);
+        var careCarriers = accountCareCarriers(completeBaseRow, rows.custom(), checkpoint);
+        var accounted = accountAlertCarrier(careCarriers, rows.custom(), selected, checkpoint);
         values.requireActive(); checkpoint.run();
         return new CdsExportDemographicCareAssembler.Result(accounted, care.professionalNameUses());
+    }
+    /** Close the selected legacy alert carrier only after the note reconciler authenticated its exact row. */
+    static CdsExportDemographicRetainedCoreReconciler.Result accountAlertCarrier(
+            CdsExportDemographicRetainedCoreReconciler.Result prior, CdsExportCapturedTextRowDto custom,
+            Set<CdsCategory> selected, Runnable checkpoint) throws IOException {
+        if (custom == null || !selected.contains(CdsCategory.ALERTS_AND_SPECIAL_NEEDS)) return prior;
+        checkpoint.run();
+        var key = new CdsExportNativeFieldKeyDto("demographiccust", custom.recordKey(), "cust3");
+        var fields = new LinkedHashMap<>(prior.fields()); var deferred = new HashSet<>(prior.deferredNativeFields());
+        if (!custom.table().equals("demographiccust") || !custom.fields().containsKey("cust3")
+                || fields.containsKey(key) || !deferred.remove(key)) {
+            throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_ALERT_SCOPE_INVALID");
+        }
+        String value = custom.fields().get("cust3");
+        var presence = value == null ? CdsExportFieldAssessmentDto.Presence.SQL_NULL
+                : value.isEmpty() ? CdsExportFieldAssessmentDto.Presence.EMPTY : CdsExportFieldAssessmentDto.Presence.VALUE;
+        boolean absent = presence != CdsExportFieldAssessmentDto.Presence.VALUE;
+        fields.put(key, new CdsExportFieldAssessmentDto(presence, absent ? CdsExportFieldAssessmentDto.Outcome.ABSENT
+                : CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW, "", absent ? "ABSENT_LEGACY_PATIENT_ALERT_CARRIER"
+                : "LEGACY_PATIENT_ALERT_CARRIER_REQUIRES_REVIEW"));
+        boolean ready = prior.coreRepresentable() && absent;
+        return new CdsExportDemographicRetainedCoreReconciler.Result(prior.sourceManifestSha256(), prior.unitAddress(),
+                prior.decidedSourceFields(), prior.deferredSourceFields(), fields, deferred, prior.blockers(),
+                ready ? prior.coreChanges() : List.of(), prior.providerUses());
     }
     /** The note reconciler already verified this exact row and witness; close only its three explicit care-team hand-offs. */
     static CdsExportDemographicRetainedCoreReconciler.Result accountCareCarriers(

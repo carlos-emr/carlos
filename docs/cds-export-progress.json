@@ -743,5 +743,20 @@
     "unknownPublicationPreservesOwnedFiles": true,
     "ambientTransactionsRefusedBeforeWork": true,
     "publishedResultMustBeCompleteAndMatchLease": true
+  },
+  "legacyLaboratoryClosure": {
+    "state": "ACTUAL_MARIADB_COMPONENT_VERIFIED",
+    "checks": 69,
+    "legacyOnlyAndUnknownPatientRoutingRefused": true,
+    "otherPatientRoutingExcluded": true,
+    "packagedQualificationPending": true
+  },
+  "combinedDemographicAlertClosure": {
+    "state": "FOCUSED_COMPONENT_VERIFIED",
+    "checks": 40,
+    "sqlNullAndEmptyExplicitlyAbsent": true,
+    "populatedOrWhitespaceLegacyCarrierRequiresReview": true,
+    "exactHandoffRequired": true,
+    "preservedAllCategoryImportRerunPending": true
   }
 }

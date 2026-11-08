@@ -1334,3 +1334,19 @@ The subsequent genuine import completed with both original reports, 35 retained 
 Installed report verification also required original publication/control rows in the retained index. Report-selected indexing now includes both file metadata tables from the same authenticated source generation and requires those inputs explicitly; other category scopes retain their existing index recipe. Sealed, positive publication generations are accepted after immutable retirement/republication, instead of assuming every committed report came from generation one. The updated index/publication regressions passed 169 focused checks; coordinated packaging and the existing genuine fixture rerun remain pending for this diff.
 
 The corrected report/index checkpoint passed 317 affected package checks across 20 requested suites with zero failures, errors or skips, following the full 4,848-check, 365-suite coordinated baseline and full Javadoc. Its exact WAR (`eba42c36451d91bccacc8d189ba446989af8efc024d2dd72c2586e372f12c77f`) passed 44 installed report assertions against the same genuine completed import, plus the original nine import assertions. Both reports, all three native representations, all 35 retained fields and all 105 document/link/file fields closed. Complete large UTF8 text, embedded binary, referenced file bytes, unchanged temporal spelling, changed native metadata/file review, an absent attachment sink and final callback access revocation were verified. A failed private attachment was physically removed. Original native rows/files/grants were restored and the original import ruleset remained unchanged. Application/helper deployment roots were immutable and no application classes were overlaid. The report component is qualified at this checkpoint; whole-source coverage, a concrete qualified clinical engine, publication/retrieval/retention and real clinical CLI/browser execution remain open.
+
+
+Combined all-category qualification found an unresolved legacy alert carrier in the
+otherwise complete demographic field ledger. Selected `demographiccust.cust3` now
+receives an explicit absence decision only for SQL NULL or empty text. Populated
+values, including whitespace, require review and withhold proposed XML. The exact
+previously authenticated handoff must exist; an unselected alert projection is
+unchanged. Forty affected demographic/closure checks passed. The same genuine
+completed sixteen-category import remains preserved for exact-WAR rerunning.
+
+Laboratory source capture now refuses selected-patient routes outside the supported
+exact `HL7` type before counting or paging structured results. A chart containing
+only legacy or unknown laboratory routes cannot appear empty and export silently.
+Other patients' routes remain outside the scope. Sixty-nine affected checks passed,
+including twenty actual MariaDB projection cases. These source-closure changes
+still require coordinated packaging and do not qualify clinical publication.

@@ -128,6 +128,26 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
         });
         assertThatThrownBy(() -> results.readCdsExportReceiptColumns()).isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
     }
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML", "BCP", "DOC", "hl7"})
+    void shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(String type) {
+        sql.update("insert into patientLabRouting(id,created,demographic_no,lab_no,lab_type) values(?,CURRENT_TIMESTAMP,?,?,?)", patient + 2, patient, patient + 1, type);
+        assertThatThrownBy(() -> read.execute(status -> results.countCdsExportRows(patient))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatThrownBy(() -> read.execute(status -> results.findCdsExportRowsAfter(patient, null, 32))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatThrownBy(() -> read.execute(status -> results.readCdsExportValueChunk(patient, key(0), "informationFromLab", 0, 1))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatThrownBy(() -> read.execute(status -> context.getBean(PatientLabRoutingDao.class).countCdsExportRows(patient))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+    @Test void shouldRefuseLegacyOnlyLaboratoryData_insteadOfReportingAnEmptyStructuredInventory() {
+        sql.update("delete from cds_laboratory_result where runId=? and sourcePath=?", run, marker);
+        sql.update("delete from patientLabRouting where id=? and demographic_no=?", patient, patient);
+        sql.update("insert into patientLabRouting(id,created,demographic_no,lab_no,lab_type) values(?,CURRENT_TIMESTAMP,?,?,'MDS')", patient + 2, patient, patient);
+        assertThatThrownBy(() -> read.execute(status -> results.countCdsExportRows(patient))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+    @Test void shouldKeepAnotherPatientsLegacyRoutes_outsideTheSelectedPatientScope() {
+        sql.update("insert into patientLabRouting(id,created,demographic_no,lab_no,lab_type) values(?,CURRENT_TIMESTAMP,?,?,'MDS')", patient + 2, patient + 1, patient + 1);
+        Long count = read.execute(status -> results.countCdsExportRows(patient)); assertThat(count).isEqualTo(36L);
+    }
     @Test void shouldRejectCrossPatientHl7Routing_beforeReadingAnyResultBody() {
         sql.update("insert into patientLabRouting(id,created,demographic_no,lab_no,lab_type) values(?,CURRENT_TIMESTAMP,?,?,'HL7')", patient + 2, patient + 1, patient); review();
     }

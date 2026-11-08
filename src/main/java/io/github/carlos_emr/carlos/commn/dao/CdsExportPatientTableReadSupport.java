@@ -288,9 +288,18 @@ public final class CdsExportPatientTableReadSupport {
         if (rowId == null || !rowId.matches("[0-9a-f]{64}")) invalid();
         return chunkBound(em, Plan.LABORATORY_RESULTS, patient, rowId, column, offset, length, new Bindings(null, null));
     }
-    /** Refuse shared, dangling or duplicated HL7 ownership before any result body is read. */
+    /** Refuse unsupported routes and shared, dangling or duplicated HL7 ownership before any result body is read. */
     public static void requireLocalLaboratoryAssociations(EntityManager em, int patient) {
         patient(patient);
+        // A projection limited to HL7 must prove that it is not hiding this patient's
+        // older MDS/CML/BCP or unknown routing. Numeric lab IDs are local to each type;
+        // interpreting a legacy route as HL7 would bind an unrelated result body.
+        var unsupported = query(em, """
+                select 1,1 from patientLabRouting r where r.demographic_no=:patient
+                and (r.lab_type is null or CAST(r.lab_type AS BINARY)<>CAST('HL7' AS BINARY))
+                """).setParameter("patient", patient).setMaxResults(1).getResultList();
+        if (!unsupported.isEmpty()) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.UNMAPPED_DATA);
         String selected = "(exists (select 1 from patientLabRouting p where p.lab_type='HL7' and p.demographic_no=:patient and p.lab_no=r.lab_no)"
                 + " or exists (select 1 from cds_laboratory_result l where l.demographicNo=:patient and l.nativeLabNo=r.lab_no))";
         var shared = query(em, "select 1,1 from patientLabRouting r where r.lab_type='HL7' and r.demographic_no<>:patient and " + selected)
