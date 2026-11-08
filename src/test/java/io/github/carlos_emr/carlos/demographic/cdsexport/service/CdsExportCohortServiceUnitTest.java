@@ -193,4 +193,35 @@ class CdsExportCohortServiceUnitTest {
                 new CdsExportActorDto("agent", "999998", null, null), command, "a".repeat(64), "sender", "b".repeat(64), "c".repeat(64),
                 new CdsExportStorageBindingDto("primary", "primary", "d".repeat(64))));
     }
+    @Test void shouldReadRetainedPatientIds_withoutRevivingAnExecutionLeaseOrCaptureCapability() throws Exception {
+        var sealed = cohorts.prepare(lease, selection(row(27, "100") + row(28, null), 2), control);
+        var ids = new java.util.ArrayList<Integer>();
+        assertThat(cohorts.readRetained(store, run, 1, lease.document(), sealed.member(), 2, () -> {}, patient -> ids.add(patient.demographicNo()))).isEqualTo(2);
+        assertThat(ids).containsExactly(27, 28); org.mockito.Mockito.verifyNoInteractions(ledger);
+    }
+    @Test void shouldRefuseAnotherRetainedEpochOrPatientCount_beforeReturningAnyIdentifiers() throws Exception {
+        var sealed = cohorts.prepare(lease, selection(row(27, null) + row(28, null), 2), control);
+        var ids = new java.util.ArrayList<Integer>();
+        assertThatThrownBy(() -> cohorts.readRetained(store, run, 2, lease.document(), sealed.member(), 2, () -> {}, patient -> ids.add(patient.demographicNo())))
+                .hasMessage("CDS_EXPORT_COHORT_INVENTORY_INVALID");
+        assertThatThrownBy(() -> cohorts.readRetained(store, run, 1, lease.document(), sealed.member(), 3, () -> {}, patient -> ids.add(patient.demographicNo())))
+                .hasMessage("CDS_EXPORT_COHORT_INVENTORY_INVALID"); assertThat(ids).isEmpty();
+    }
+    @Test void shouldRequireExactRetainedIntent_insteadOfRediscoveringOrSubstitutingAPatient() throws Exception {
+        var sealed = cohorts.prepare(lease, selection(row(27, null) + row(28, null), 2), control);
+        var other = lease(CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), List.of(27, 29));
+        assertThatThrownBy(() -> cohorts.readRetained(store, run, 1, other.document(), sealed.member(), 2, () -> {}, patient -> {}))
+                .hasMessage("CDS_EXPORT_COHORT_INVENTORY_INVALID");
+    }
+    @Test void shouldRejectAChangedRetainedSelectionTerminator_evenAfterReturningItsLastPatient() throws Exception {
+        var selection = selection(row(27, null) + row(28, null), 2); var sealed = cohorts.prepare(lease, selection, control);
+        Path file = root.resolve(selection.inventory().memberId() + ".stage"); byte[] bytes = Files.readAllBytes(file); bytes[bytes.length - 1] ^= 1; Files.write(file, bytes);
+        assertThatThrownBy(() -> cohorts.readRetained(store, run, 1, lease.document(), sealed.member(), 2, () -> {}, patient -> {}))
+                .isInstanceOf(java.io.IOException.class);
+    }
+    @Test void shouldPropagateRetainedPermissionFailure_withoutReturningACompletionReceipt() throws Exception {
+        var sealed = cohorts.prepare(lease, selection(row(27, null) + row(28, null), 2), control);
+        assertThatThrownBy(() -> cohorts.readRetained(store, run, 1, lease.document(), sealed.member(), 2, () -> {}, patient -> { throw new SecurityException("REVOKED"); }))
+                .hasMessage("REVOKED");
+    }
 }

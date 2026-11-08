@@ -263,12 +263,15 @@ public class CdsExportNativeCaptureService {
         }
     }
     private List<CdsExportNativeSourceReader> selected(CdsExportLeaseDto lease, Set<String> tables) {
+        return selected(lease.document().command(), tables);
+    }
+    private List<CdsExportNativeSourceReader> selected(io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command, Set<String> tables) {
         return tables.stream().sorted().map(table -> {
             var registered = readers.get(table);
             if (registered == null) throw new IllegalStateException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
-            var reader = registered.forRequest(lease.document().command());
+            var reader = registered.forRequest(command);
             if (reader == null || !table.equals(reader.table()) || reader.categories().isEmpty()
-                    || !lease.document().command().categories().containsAll(reader.categories()) || !tables.containsAll(reader.requiredTables())) {
+                    || !command.categories().containsAll(reader.categories()) || !tables.containsAll(reader.requiredTables())) {
                 throw new IllegalStateException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
             }
             return reader;
@@ -277,12 +280,20 @@ public class CdsExportNativeCaptureService {
     /** Fresh access check for processing captured source/files, without rereading mutable clinical values. */
     public void authorizeSources(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient,
             Set<String> requiredTables, CdsExportRunControl control) {
-        Objects.requireNonNull(control); patient.require(lease); var tables = Set.copyOf(requiredTables);
+        patient.require(lease); authorizeScope(lease.document().command(), patient.patient(), requiredTables, control);
+    }
+    /**
+     * Authorization only for a separately authenticated retained-artifact scope. This neither
+     * reads payload values nor mints a capture ticket or an executing lease for a READY job.
+     */
+    public void authorizeScope(io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command,
+            int patient, Set<String> requiredTables, CdsExportRunControl control) {
+        Objects.requireNonNull(command); Objects.requireNonNull(control); var tables = Set.copyOf(requiredTables);
         if (TransactionSynchronizationManager.isActualTransactionActive()) throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
-        if (tables.isEmpty() || tables.size() > 256 || !readers.keySet().containsAll(tables)) {
+        if (patient < 1 || tables.isEmpty() || tables.size() > 256 || !readers.keySet().containsAll(tables)) {
             throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
         }
-        authorize(patient.patient(), selected(lease, tables), control); control.checkpoint();
+        authorize(patient, selected(command, tables), control); control.checkpoint();
     }
     /** Rechecks the exact verified generation after a caller's last buffered-row callback. */
     public void authorizeCapturedSources(CdsExportLeaseDto lease, CdsExportCohortService.Patient patient,

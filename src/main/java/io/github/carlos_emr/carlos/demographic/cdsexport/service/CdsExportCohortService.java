@@ -31,6 +31,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCohortManifestDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDocumentDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportSelectionDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
@@ -102,6 +103,27 @@ public class CdsExportCohortService {
         verifySelection(store, lease.document().command(), manifest.selection(), control);
         return new Cursor(new Sealed(lease, manifest, member), store.open(manifest.selection().inventory()), control);
     }
+    @FunctionalInterface public interface RetainedPatients { void accept(CdsExportSelectionRowDto patient) throws IOException; }
+    /**
+     * Reads protected retained selection metadata after the caller authorizes its published
+     * artifact context. Exact intent/epoch/count and authenticated EOF remain mandatory.
+     * The callback receives identifiers, never a Patient capture capability or execution lease.
+     */
+    public long readRetained(CdsExportStagingService store, String runId, long epoch, CdsExportJobDocumentDto intent,
+            CdsExportStagedFileDto file, long expectedPatients, Runnable checkpoint, RetainedPatients patients) throws IOException {
+        outside(); Objects.requireNonNull(store); Objects.requireNonNull(intent); Objects.requireNonNull(checkpoint); Objects.requireNonNull(patients);
+        if (expectedPatients < 1 || expectedPatients > 2_000_000) invalid(); checkpoint.run();
+        var manifest = manifest(store, file);
+        if (!manifest.runId().equals(runId) || manifest.epoch() != epoch || !manifest.intent().equals(intent)
+                || manifest.selection().patients() != expectedPatients) invalid();
+        long count = 0;
+        try (var input = store.open(manifest.selection().inventory())) {
+            var rows = new Rows(input, intent.command(), expectedPatients, checkpoint); CdsExportSelectionRowDto row;
+            while ((row = rows.next()) != null) { checkpoint.run(); patients.accept(row); count++; }
+            if (!rows.eof || count != expectedPatients) invalid();
+        }
+        checkpoint.run(); return count;
+    }
     private static CdsExportCohortManifestDto manifest(CdsExportStagingService store, CdsExportStagedFileDto file) throws IOException {
         if (!file.purpose().equals("COHORT_MANIFEST") || file.plaintextBytes() < 1 || file.plaintextBytes() > MAX_MANIFEST) invalid();
         try (var input = store.open(file)) {
@@ -163,7 +185,10 @@ public class CdsExportCohortService {
         private final CdsExportJsonLines lines; private final CdsExportCommand command; private final long expected;
         private long count; private int previous; private boolean eof;
         Rows(InputStream input, CdsExportCommand command, long expected, CdsExportRunControl control) {
-            lines = new CdsExportJsonLines(input, 1024, control::checkpoint); this.command = command; this.expected = expected;
+            this(input, command, expected, control::checkpoint);
+        }
+        Rows(InputStream input, CdsExportCommand command, long expected, Runnable checkpoint) {
+            lines = new CdsExportJsonLines(input, 1024, checkpoint); this.command = command; this.expected = expected;
         }
         CdsExportSelectionRowDto next() throws IOException {
             if (eof) return null; var node = lines.next();

@@ -86,4 +86,19 @@ class CdsExportSourceRecipeUnitTest {
         assertThatThrownBy(() -> service(original).requiredTables(command(Set.of(CdsCategory.DEMOGRAPHICS))))
                 .hasMessage("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
     }
+    @Test void shouldAuthorizeRetainedSources_withoutOpeningClinicalValuesOrIssuingCaptureTickets() {
+        var source = reader("demographic", Set.of(CdsCategory.DEMOGRAPHICS), Set.of());
+        var control = mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl.class);
+        service(source).authorizeScope(command(Set.of(CdsCategory.DEMOGRAPHICS)), 27, Set.of("demographic"), control);
+        verify(control).authorizePatient(27); verify(control).authorizeCategory(27, CdsCategory.DEMOGRAPHICS, false);
+        verify(source).authorizeReadScope(27, control); verify(source, never()).schema(); verify(source, never()).count(anyInt());
+        verifyNoInteractions(stores);
+    }
+    @Test void shouldRefuseRetainedSourcesOutsideTheAcceptedCategoryScope() {
+        var source = reader("document", Set.of(CdsCategory.REPORTS), Set.of());
+        var control = mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl.class);
+        assertThatThrownBy(() -> service(source).authorizeScope(command(Set.of(CdsCategory.DEMOGRAPHICS)), 27, Set.of("document"), control))
+                .hasMessage("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
+        verifyNoInteractions(control);
+    }
 }

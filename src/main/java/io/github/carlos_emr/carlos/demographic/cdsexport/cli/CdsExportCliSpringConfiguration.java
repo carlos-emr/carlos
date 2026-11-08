@@ -80,7 +80,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
         CdsExportRetainedDependencySourceReader.class, CdsExportRetainedPatientSourceReader.class, CdsExportRetainedPayloadService.class,
         CdsExportRetainedValuesService.class, CdsExportRetainedPreparationReader.class, CdsExportClinicalOccurrenceService.class, CdsExportDemographicOccurrenceService.class,
         CdsExportPatientInventoryService.class, CdsExportPatientDocumentService.class, CdsExportPackageInventoryService.class,
-        CdsExportPatientFileBindingService.class, CdsExportClinicalPackageService.class,
+        CdsExportPatientFileBindingService.class, CdsExportClinicalPackageService.class, CdsExportDisclosureScopeService.class,
         io.github.carlos_emr.carlos.commn.dao.CdsImportRunDao.class, CdsExportRetainedRunSourceReader.class, CdsExportRetainedIndexService.class,
         io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDaoImpl.class, CdsExportAppointmentSourceReader.class,
         io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDaoImpl.class, CdsExportAppointmentStatusSourceReader.class, CdsExportPublicProviderSourceReader.class, CdsExportAppointmentProjectionService.class, CdsExportNativeRowReceiptReader.class, CdsExportRetainedReceiptVerificationService.class,
