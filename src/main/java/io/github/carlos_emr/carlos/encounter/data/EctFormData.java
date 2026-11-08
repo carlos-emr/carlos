@@ -37,12 +37,12 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.EncounterFormDao;
+import io.github.carlos_emr.carlos.commn.dao.forms.FormGrowth0To36Dao;
 import io.github.carlos_emr.carlos.commn.model.EncounterForm;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -55,9 +55,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
 public class EctFormData {
 
+    /** Growth form table routed through the patient-bound JPA DAO. */
+    public static final String GROWTH_FORM_TABLE = "formGrowth0_36";
+
     private static final Pattern FORM_TABLE_NAME = Pattern.compile("^\\w+$");
-    // Legacy built-in form table that is valid but not registered in encounterForm.
-    private static final Set<String> INTERNAL_FORM_TABLES = Set.of("formGrowth0_36");
     private static Logger logger = MiscUtils.getLogger();
     private static EncounterFormDao encounterFormDao() { return SpringUtils.getBean(EncounterFormDao.class); }
 
@@ -150,6 +151,9 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getGroupedPatientFormsAsArrayList(String demoNo, String formName, String table, String jsp) {
+        if (GROWTH_FORM_TABLE.equals(StringUtils.trimToNull(table))) {
+            return growthForms(demoNo, formName, jsp, true);
+        }
         String trustedTable = validateFormTable(table);
         if (trustedTable == null) return (new ArrayList<PatientForm>());
 
@@ -190,6 +194,9 @@ public class EctFormData {
     }
 
     public static ArrayList<PatientForm> getPatientFormsAsArrayList(String demoNo, String formName, String table) {
+        if (GROWTH_FORM_TABLE.equals(StringUtils.trimToNull(table))) {
+            return growthForms(demoNo, formName, null, false);
+        }
         String trustedTable = validateFormTable(table);
         if (trustedTable == null) return (new ArrayList<PatientForm>());
 
@@ -226,13 +233,29 @@ public class EctFormData {
             }
             return null;
         }
-        if ("form".equals(normalizedTable) || INTERNAL_FORM_TABLES.contains(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
+        if ("form".equals(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
             return normalizedTable;
         }
         if (logger.isWarnEnabled()) {
             logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(normalizedTable));
         }
         return null;
+    }
+
+    private static ArrayList<PatientForm> growthForms(String patient, String formName, String jsp, boolean grouped) {
+        ArrayList<PatientForm> results = new ArrayList<>();
+        Integer patientNo = parseDemographicNo(patient);
+        if (patientNo == null) return results;
+        var dao = SpringUtils.getBean(FormGrowth0To36Dao.class);
+        var versions = grouped ? dao.findGroupedHistory(patientNo) : dao.findHistory(patientNo);
+        for (var version : versions) {
+            PatientForm form = grouped
+                    ? new PatientForm(formName, version.id(), version.patient(), version.created(), version.edited(), jsp)
+                    : new PatientForm(formName, version.id(), version.patient(), version.created(), version.edited());
+            form.setTable(GROWTH_FORM_TABLE);
+            results.add(form);
+        }
+        return results;
     }
 
     private static boolean isKnownEncounterFormTable(String table) {

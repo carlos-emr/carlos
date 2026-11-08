@@ -110,7 +110,8 @@ class Frm2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
 
         assertThat(response.getStatus()).isEqualTo(405);
         assertThat(response.getHeader("Allow")).isEqualTo("POST");
-        verify(record, never()).saveFormRecord(any());
+        verify(record, never()).saveFormRecord(any(), any());
+        verify(record, never()).saveFormRecord(any(Properties.class));
     }
 
     @Test
@@ -122,16 +123,20 @@ class Frm2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
         assertThat(new Frm2Action().execute()).isEqualTo(ActionSupport.NONE);
 
         assertThat(response.getStatus()).isEqualTo(405);
-        verify(record, never()).saveFormRecord(any());
+        verify(record, never()).saveFormRecord(any(), any());
+        verify(record, never()).saveFormRecord(any(Properties.class));
     }
 
     @Test
     @DisplayName("should still draw the growth graph by GET, as the graph links open it")
-    void shouldDrawTheGraph_whenOpenedByGet() {
+    void shouldDrawTheGraph_whenOpenedByGet() throws Exception {
         request.setMethod("GET");
         request.setParameter("submit", "graph");
+        when(record.findActionValue("graph")).thenReturn("graph");
+        when(record.createActionURL("graph", "graph", "1373", "0"))
+                .thenReturn("graph?demographic_no=1373&formId=0");
 
-        new Frm2Action().execute();
+        assertThat(new Frm2Action().execute()).isEqualTo("graph");
 
         assertThat(response.getStatus()).isEqualTo(200);
         verify(record).getGraph(any(LoggedInInfo.class), eq(1373), eq(0));
@@ -142,9 +147,17 @@ class Frm2ActionMethodGuardUnitTest extends CarlosUnitTestBase {
     void shouldSaveTheForm_whenPosted() throws Exception {
         request.setMethod("POST");
         request.setParameter("submit", "save");
+        request.setParameter("form_link", "formrourke2017p1.jsp");
+        when(record.saveFormRecord(any(LoggedInInfo.class), any(Properties.class))).thenReturn(99);
+        when(record.findActionValue("save")).thenReturn("save");
+        when(record.createActionURL("save", "save", "1373", "99"))
+                .thenReturn("save?demographic_no=1373&formId=99");
 
-        new Frm2Action().execute();
+        assertThat(new Frm2Action().execute()).isNull();
 
-        verify(record).saveFormRecord(any(Properties.class));
+        assertThat(response.getStatus()).isEqualTo(302);
+        assertThat(response.getRedirectedUrl()).isEqualTo(
+                "/form/forwardname?form_link=formrourke2017p1.jsp&demographic_no=1373&formId=99&saved=true");
+        verify(record).saveFormRecord(any(LoggedInInfo.class), any(Properties.class));
     }
 }
