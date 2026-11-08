@@ -83,8 +83,8 @@ class AppointmentTextInputUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"add,keyword,256", "add,reason,81", "add,notes,256", "add,resources,256",
-            "edit,keyword,256", "edit,reason,81", "edit,notes,256", "edit,resources,256"})
+    @CsvSource({"add,keyword,256", "add,reason,81", "add,notes,32769", "add,resources,256",
+            "edit,keyword,256", "edit,reason,81", "edit,notes,32769", "edit,resources,256"})
     void oversizedTextIsRefusedBeforeAnyAppointmentArchiveOrEventWrite(String mode, String field, int length) throws Exception {
         request.setParameter(field, "\uD83D\uDE00".repeat(length));
         String result;

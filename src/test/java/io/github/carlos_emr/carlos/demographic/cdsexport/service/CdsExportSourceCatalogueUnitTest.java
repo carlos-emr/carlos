@@ -41,11 +41,12 @@ class CdsExportSourceCatalogueUnitTest {
     }
     @Test void shouldBindEveryRulingToTheExactShippedOntarioAndBcPhysicalContracts() throws Exception {
         var catalogue = CdsExportSourceCatalogue.current();
-        assertThat(catalogue.tables()).hasSize(516);
-        assertThat(catalogue.profiles()).extracting(profile -> profile.tables().size()).containsExactly(463, 496);
+        assertThat(catalogue.tables()).hasSize(517);
+        assertThat(catalogue.profiles()).extracting(profile -> profile.tables().size()).containsExactly(464, 497);
         assertThat(catalogue.tables().get("eChart")).isEqualTo(CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY);
         assertThat(catalogue.tables().get("allergies")).isEqualTo(CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE);
         assertThat(catalogue.tables().get("provider_facility")).isEqualTo(CdsExportSourceCatalogue.Disposition.OPERATIONAL);
+        assertThat(catalogue.tables().get("billing_filename_import")).isEqualTo(CdsExportSourceCatalogue.Disposition.OPERATIONAL);
         assertThat(new CdsExportSourceSchemaValidator().verify(catalogue.scope(), Set.of("catalogueSha256"))).matches("[0-9a-f]{64}");
         assertThatThrownBy(() -> catalogue.tables().clear()).isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> catalogue.profiles().getFirst().tables().clear()).isInstanceOf(UnsupportedOperationException.class);

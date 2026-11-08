@@ -43,6 +43,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 /** Physical program-access query tests. Every fixture change rolls back; no clinic records are used. */
 @Tag("integration") @Tag("cds-export")
+@org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "cds.export.test.properties", matches = ".+")
 class CdsExportNoteAccessDaoMariaDbIntegrationTest {
     @Configuration @EnableTransactionManagement(proxyTargetClass = true) static class Config { }
     private BasicDataSource source;

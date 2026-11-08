@@ -55,7 +55,7 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("web")
 @Tag("demographic")
-class DemographicUpdate2ActionTest extends CarlosWebTestBase {
+class DemographicUpdate2ActionWebUnitTest extends CarlosWebTestBase {
 
     private static final String TEST_PROVIDER = "999998";
     @Mock
