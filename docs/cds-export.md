@@ -1271,3 +1271,13 @@ current witness. A second demographic projection or unknown/extra reference stil
 requires review. No demographic source values come from an association receipt.
 The fix passed 94 coordinated checks, including 20 adverse/association checks; final
 packaging and the same genuine NewCategory fixture rerun remain pending.
+
+The final association/registry checkpoint at `58300bcff913` passed 480 affected
+checks across 42 requested suites (zero failures, errors or skips), after the preserved
+4,658-check full baseline. Its actual WAR SHA-256 is
+`f1cd5a8972cb35709d9b47ff617884962327a98fcf8cdd9ee4460285c7e5f969`. The same original completed
+NewCategory import passed 23 exact installed export assertions and six genuine-import
+assertions, including complete original field/type closure, current demographic edits
+without replacing supplemental values, independent XSD validation and final-callback
+category permission revocation. Native data/grants were restored; historical metadata
+was not rewritten, and no component class overlays were used.

@@ -462,18 +462,18 @@
     }
   },
   "latestVerifiedDiffPackage": {
-    "head": "4b27881d5fe13254356eadf8899ea85cd8449f25",
-    "suites": 11,
-    "tests": 144,
+    "head": "58300bcff913d02db85c7d6024293aac3ac298cd",
+    "suites": 42,
+    "tests": 480,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "warSha256": "879ccf07960510fd9b51a125e8794b2b30aacfdbfbb27a29551d2992f8b9ed22",
-    "exactInstalledAssertions": 107,
+    "warSha256": "f1cd5a8972cb35709d9b47ff617884962327a98fcf8cdd9ee4460285c7e5f969",
+    "exactInstalledNewCategoryAssertions": 23,
+    "genuineOrdinaryClinicalImportAssertions": 6,
     "componentOverlays": false,
-    "fullBaselineHead": "e635af1a715e074bc1917b43ce3d97f3412d8314",
-    "fullBaselineTests": 4592,
-    "fullBaselineSuites": 348,
+    "fullBaselineHead": "b69bbdb5f2de03a86545d6b6bfeacd28bef7985e",
+    "fullBaselineTests": 4658,
     "clinicalPublication": false
   },
   "laboratoryOccurrenceAssembly": {
@@ -526,25 +526,35 @@
     "finalLegacyNullableReceiptDiffPackagingPending": false
   },
   "categoryOccurrenceRegistry": {
-    "state": "FOCUSED_COMPONENT_VERIFIED_PACKAGE_PENDING",
+    "state": "PACKAGED_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "focusedCoordinatedChecks": 206,
     "duplicateOrReservedCategoryHandlersRefused": true,
     "historySharedSourceSessionRetained": true,
     "cliAndWebUseSameRegistry": true,
-    "profileQualificationImplied": false
+    "profileQualificationImplied": false,
+    "affectedPackageChecks": 480,
+    "affectedPackageRequestedSuites": 42,
+    "exactInstalledNewCategoryAssertions": 23
   },
   "newCategoryOccurrenceAssembly": {
-    "state": "FOCUSED_ASSOCIATION_COMPONENT_VERIFIED_PACKAGE_PENDING",
+    "state": "PACKAGED_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "standardOriginalNewCategoryOnly": true,
     "currentPatientAssociationRequired": true,
     "unrelatedDemographicEditsDoNotReplaceRetainedContent": true,
     "nativeFieldsRepurposedIntoNewCategory": false,
     "allRetainedFieldsMustBeAccounted": true,
-    "genuineInstalledQualificationPending": true,
-    "clinicalPublication": false
+    "genuineInstalledQualificationPending": false,
+    "clinicalPublication": false,
+    "exactInstalledAssertions": 23,
+    "genuineOrdinaryClinicalImportAssertions": 6,
+    "unrelatedCurrentDemographicEditSerialized": true,
+    "finalCallbackRevocationRefused": true,
+    "originalNativeAndRulesetRestoredOrRetained": true,
+    "exactWarSha256": "f1cd5a8972cb35709d9b47ff617884962327a98fcf8cdd9ee4460285c7e5f969",
+    "componentOverlays": false
   },
   "demographicStructuralAssociations": {
-    "state": "FOCUSED_FIX_VERIFIED_PACKAGE_PENDING",
+    "state": "PACKAGED_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "focusedChecks": 94,
     "newAdverseAssociationChecks": 20,
     "categories": [
@@ -556,6 +566,8 @@
     "currentWholeRowWitnessMustMatch": true,
     "secondActualDemographicProjectionStillRequiresReview": true,
     "sourceValuesNeverSelectedFromAssociationReceipt": true,
-    "historicalMetadataRewritten": false
+    "historicalMetadataRewritten": false,
+    "affectedPackageChecks": 480,
+    "exactInstalledSupplementalAssertions": 23
   }
 }
