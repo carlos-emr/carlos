@@ -11,6 +11,7 @@ async function main() {
     const page = await context.newPage();
     page.setDefaultTimeout(45000);
     let stage = 'LOGIN';
+    let acceptedRunId = null;
     try {
         await page.goto(options.base + '/index', {waitUntil: 'domcontentloaded'});
         await page.locator('#username').fill(options.username);
@@ -60,6 +61,7 @@ async function main() {
         assert.equal(accepted.job.artifactAvailable, false);
         assert.match(accepted.job.id, /^[0-9a-f-]{36}$/);
         const runId = accepted.job.id;
+        acceptedRunId = runId;
 
         stage = 'RELOAD_AND_ASYNCHRONOUS_WORKER';
         await page.goto(options.base + '/form/cdsExport?runId=' + runId, {waitUntil: 'domcontentloaded'});
@@ -68,7 +70,9 @@ async function main() {
             return ['Transfer package ready', 'Review required — package unavailable',
                 'Export stopped — package unavailable', 'Export cancelled', 'Transfer package expired'].includes(state);
         }, null, {timeout: 300000});
+        stage = 'RELOADED_JOB_READY_STATE';
         assert.equal(await page.locator('#exportState').textContent(), 'Transfer package ready');
+        stage = 'RELOADED_JOB_BINDING_AND_STATUS';
         assert.equal(await page.locator('#runId').inputValue(), runId);
         assert.equal(await page.locator('#downloadExport').isDisabled(), false);
         const statusResponse = await context.request.get(options.base + '/form/cdsExportStatus?apiVersion=1&runId=' + runId);
@@ -118,6 +122,32 @@ async function main() {
         console.log('PASS actual authenticated asynchronous CDS export browser flow');
     } catch (failure) {
         // No page content, credentials, storage state, trace or network body is published.
+        const diagnostic = {protocol: 1, status: 'FAILED', stage, failureClass: failure.constructor.name};
+        if (acceptedRunId && /^[0-9a-f-]{36}$/.test(acceptedRunId)) {
+            diagnostic.runId = acceptedRunId;
+            try {
+                const response = await context.request.get(options.base + '/form/cdsExportStatus?apiVersion=1&runId=' + acceptedRunId,
+                    {timeout: 10000});
+                diagnostic.statusHttp = response.status();
+                if (response.status() === 200) {
+                    const result = await response.json();
+                    const job = result.job || {};
+                    diagnostic.state = /^[A-Z_]{1,32}$/.test(job.state) ? job.state : 'UNAVAILABLE';
+                    diagnostic.safeCode = typeof job.safeCode === 'string' && /^CDS_[A-Z0-9_]{1,90}$/.test(job.safeCode)
+                        ? job.safeCode : null;
+                    for (const field of ['complete', 'artifactAvailable', 'workerOwned']) {
+                        if (typeof job[field] === 'boolean') diagnostic[field] = job[field];
+                    }
+                    for (const field of ['totalPatients', 'processedPatients', 'blockedPatients']) {
+                        if (job[field] === null || Number.isSafeInteger(job[field])) diagnostic[field] = job[field];
+                    }
+                }
+            } catch (unavailable) {
+                diagnostic.statusDiagnosticUnavailable = true;
+            }
+        }
+        console.error('CDS_EXPORT_BROWSER_DIAGNOSTIC=' + JSON.stringify(diagnostic));
+        await fs.writeFile(options.proof, JSON.stringify(diagnostic, null, 2));
         console.error('CDS_EXPORT_BROWSER_FAILED:' + stage + ':' + failure.constructor.name);
         throw new Error('CDS_EXPORT_BROWSER_FAILED:' + stage);
     } finally {

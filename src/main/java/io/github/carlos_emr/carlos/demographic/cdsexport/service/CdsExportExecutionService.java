@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunCont
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportControlOutcomeUnknownException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportOwnerFencedException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import java.io.IOException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -84,10 +85,16 @@ public class CdsExportExecutionService {
         catch (SecurityException denied) { stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_ACCESS_CHANGED"); }
         catch (IOException failed) {
             if (Thread.currentThread().isInterrupted()) finishUninterrupted(() -> ledger.release(lease));
-            else stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+            else {
+                stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+                LOG.error("CDS_EXPORT_IO_FAILED run={} epoch={} {}", runId, lease.epoch(), LogSafe.exceptionTrace(failed));
+            }
         } catch (RuntimeException failed) {
             if (Thread.currentThread().isInterrupted()) finishUninterrupted(() -> ledger.release(lease));
-            else stop(lease, CdsExportState.FAILED, "CDS_EXPORT_EXECUTION_FAILED");
+            else {
+                stop(lease, CdsExportState.FAILED, "CDS_EXPORT_EXECUTION_FAILED");
+                LOG.error("CDS_EXPORT_EXECUTION_FAILED run={} epoch={} {}", runId, lease.epoch(), LogSafe.exceptionTrace(failed));
+            }
         }
         catch (Error failed) { fatal.set(true); throw failed; }
         return true;
