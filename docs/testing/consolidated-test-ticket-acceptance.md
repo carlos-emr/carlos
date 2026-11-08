@@ -19,7 +19,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5709](https://github.com/carlos-emr/carlos/issues/5709) | Test: broaden lookup-list CRUD coverage and verify consumer/list isolation | Actual list/consumer/operation inventory documented. ON/BC three-list native adds, duplicate/empty behavior, exact ordering/identity, all consumer save/reopen and selective isolation pass. Full removal fails correctly on provider inactive options (#5816); GET still returns 200 and changes order (existing finding 58/#3059). Independent native cache restoration and exact SQL cleanup pass after both failures. PHU is hidden in ON and absent in BC; no positive edit/reorder UI exists. |
 | [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implementation and installed acceptance pending. |
 | [#5716](https://github.com/carlos-emr/carlos/issues/5716) | Test: verify measurement graph dates, values and plotted positions | Installed ON/BC five-point irregular-date geometry, independent rendered-axis calibration, three-pixel tolerance, native selected/multi-delete, clinical isolation and four sensitivity controls pass. Empty history hides Plot; single-point PNG output is observed, with its invisible point/indistinguishable ticks separately tracked as #5814. No date-range controls exist. |
-| [#5717](https://github.com/carlos-emr/carlos/issues/5717) | Test: validate growth-chart point placement and reference curves independently | Implementation and installed acceptance pending. |
+| [#5717](https://github.com/carlos-emr/carlos/issues/5717) | Test: validate growth-chart point placement and reference curves independently | Implemented; [growth inventory](growth-clinical-geometry-inventory.md). Both sexes pass installed ON/BC coordinates, exact WHO chart/curve/unit/age-axis pixels, independent median relationships, source multiplicity, saved-history/control preservation and owned cleanup. Final full qualification remains pending. |
 | [#5718](https://github.com/carlos-emr/carlos/issues/5718) | Test: broaden decision-support guideline condition and operator coverage | 41 independently specified rules reach all 205 ON chart/list/detail observations, including expanded warnings, native diagnosis resolution, alternating patients, provider scope and unchanged clinical snapshots. Exactly 40 mismatches remain: sex all/notall across four surfaces on five visits (#5817). Other selected operator cases and zero-residue cleanup pass; no pin. Inventory records unsupported/dynamic-context families and missing actual-value readers. |
 | [#5719](https://github.com/carlos-emr/carlos/issues/5719) | Test: cover Ontario RA re-import, settlement replay and subsequent adjustments | Implemented; [replay inventory](billing-on-ra-replay-inventory.md). Installed ON original/duplicate import, protected settlement replay and subsequent signed -5.00 recovery/settlement/reimport pass. Exact original/rejected/control financial state and net balance remain correct. SQL NULL/foreign ownership and captured-header drift refuse cleanup; unacknowledged writes retain fixtures. Final full qualification remains pending. |
 | [#5724](https://github.com/carlos-emr/carlos/issues/5724) | Test: cover OAuth access-token expiry and deletion of a client with issued tokens | Native consent, exact expiry-second semantics, client deletion and independent token/session controls pass on installed ON and BC with no clinical writes or residue. |
@@ -45,7 +45,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5796](https://github.com/carlos-emr/carlos/issues/5796) | Test: Stored partial-precision allergy start dates are no longer covered (allergy-partial-start-date removed) | Installed ON year/year-month display and both reaction-only amendments pass with clean residue audit. Both ON and BC focused installed retakes pass; final full qualification remains pending. |
 | [#5797](https://github.com/carlos-emr/carlos/issues/5797) | Test: Two new tests never run in CI, and the H2 test job doesn't fail on unexpected skips | Dedicated permission and legacy-library CI lanes plus exact-result checks implemented; full CI/native acceptance pending. |
 | [#5801](https://github.com/carlos-emr/carlos/issues/5801) | Test: cover visual eForm editor checkboxes, radio groups, images and signatures | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
-| [#5802](https://github.com/carlos-emr/carlos/issues/5802) | Test: verify session loss while clinical editors contain unsaved work | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5802](https://github.com/carlos-emr/carlos/issues/5802) | Test: verify session loss while clinical editors contain unsaved work | Implemented; [session inventory](session-clinical-recovery-inventory.md). Both ON and BC strict-release suites pass all six stages and exact cleanup. Real refusal, no unauthorized writes, native heartbeat closure, same-account D1 recovery, same-browser other-account/storage isolation and conservative request supervision are covered. |
 | [#5803](https://github.com/carlos-emr/carlos/issues/5803) | Test: preserve qualified and nonnumeric laboratory results across views and PDF output | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5804](https://github.com/carlos-emr/carlos/issues/5804) | test(playwright): cover end-to-end lab recall message delivery to delegates | Implemented; [delivery inventory](lab-recall-delivery-inventory.md). Actual send, delegate reads, assigned task/lab navigation and both existing regressions pass on snapshot31 in ON/BC. |
 | [#5805](https://github.com/carlos-emr/carlos/issues/5805) | test(playwright): cover Ontario payments allocated across multiple invoice items | Implemented; [allocation inventory](billing-on-multi-item-payments-inventory.md). All three native stages pass on ON: two distinct partial allocations, complete one item while another remains partial, then finish. Exact item/payment/header/audit amounts, reopened line balances, payment details/history and displayed/printed totals reconcile; the full control snapshot is unchanged. Existing single-item regression also passes. |
@@ -892,3 +892,56 @@ through Chromium 149.0.7827.55 against the same snapshot-31 Debian packages.
 All 13 CI workflows pass on the preceding `55b39ac685af` checkpoint; the next
 commit requires its own CI result. The five unimplemented workflows and original
 full/repeated/vendor acceptance obligations above remain pending.
+
+
+### Growth and populated-editor session-loss checkpoint
+
+Two further workflow implementations address #5717 and #5802. The complete stable
+Ubuntu 26.04 Node run passes **7,645/7,645 cases in 543 files**, with zero failed,
+skipped, cancelled or TODO cases and no changed test source. The exact case
+inventory is regenerated from that report. The original Rourke/Growth defaults,
+original finding selectors and existing heartbeat check remain registered.
+
+Growth runs both sexes with fixed birth dates, irregular and boundary inputs,
+repeated module observations and an unrelated plausible control. The independent
+WHO reference oracle verifies every actual vector point, the existing
+duplicate-source representation and explicit median relationships. It compares
+more than 330,000 reference pixels per first page, plus the older-child page,
+with zero unexplained pixel differences; the worst reached point error is
+1.14 points against a 2-point tolerance. Both installed provincial runs pass.
+The BC suite entry completes in 263.3 seconds with zero failures/skips.
+Saved Rourke/Growth histories and all four module observations stay unchanged
+through graph/print reads; the original native setup's acknowledged history
+count is preserved rather than assuming one row.
+
+The session workflow establishes native saved note/eForm baselines and an exact
+acknowledged private D1, holds every native owned autosave before typing N2,
+and accounts for an earlier D1 request explicitly. The saved eForm's genuine
+Save request is bound to its actual instance and action identity. A separate
+context logs out, after which actual application-origin refusals preserve
+all clinical snapshots. The release's visible generic 403 error is asserted
+truthfully. Native heartbeat closure, original-context same-account recovery,
+other-account DOM/session/local/IndexedDB isolation and exact D1 persistence
+are required. The final strict-release suites complete all six stages and cleanup in
+227.6 seconds on ON and 220.8 seconds on BC, with no failure or skip. All saved,
+draft and pending clinical values and the patient marker are excluded from both
+raw/visible unauthenticated response content and login/error pages.
+
+Request supervision refuses cancelled clients before dispatch, drains real
+upstream operations, preserves primary diagnostics and keeps a private durable
+journal for uncertain writes. It resumes supervision for authenticated recovery
+without leaving a write-aborting route active. Independent real-HTTP/fault
+controls cover selective release, phase handoff, cancellation, ownership, lost
+acknowledgement, journal failure and closed-page delivery. Two conservative
+parent/journal receipts left by earlier failed harness attempts were reconciled
+only after proving every request was aborted before dispatch and every owned
+clinical child was already absent; those attempts are not qualification evidence.
+
+Independent final ON/BC audits pass configuration/package integrity, health,
+NRestarts=0, zero owned clinical/account fixtures, the empty Messenger coordinator
+and every original column digest in all 184 legacy email-log rows. All 13 CI
+workflows pass on the preceding published `09b6395b881` checkpoint. The new
+checkpoint still requires its own CI and CodeRabbit review. Three workflow
+implementations remain: #5715 populated merge/unmerge, #5801 visual eForm widgets
+and #5803 qualified/qualitative labs; original umbrella/vendor/native-database
+and repeated full qualification obligations remain open.

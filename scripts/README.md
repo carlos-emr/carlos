@@ -58,3 +58,21 @@ journal and forbids replay. Generic patient/support-row deletion is not used by
 this metadata phase. Cross-user authorization denial additionally requires
 suitable independent restricted-account credentials;
 the two-session phase uses the configured account and does not claim that coverage.
+
+### Clinical session recovery and growth chart oracles
+
+`npm run test:session-clinical-recovery-playwright` requires an exclusive,
+explicitly disposable installed host. It distinguishes saved notes/forms,
+acknowledged private drafts and native requests still pending when another
+browser context logs out. It verifies actual refusals, heartbeat closure and
+same-browser recovery/account isolation. See the
+[session inventory](../docs/testing/session-clinical-recovery-inventory.md) for
+its request journal, generic 403 feedback contract and exact cleanup prerequisites.
+
+`npm run test:form-growth-clinical-geometry-playwright` requires `EXCLUSIVE=1`
+and Poppler. It exercises native Rourke/Growth output for both sexes, fixed birth
+dates, irregular/boundary observations and repeated Measurements inputs. An
+independent WHO grid/curve oracle verifies coordinates, source multiplicity,
+units/age axis and median relationships. See the
+[growth inventory](../docs/testing/growth-clinical-geometry-inventory.md) for
+reference assets, rendering tolerances and reached qualification status.

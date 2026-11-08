@@ -355,10 +355,13 @@
       "sources": [
         "scripts/echart-cpp-issue-refresh.test.js",
         "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRequestIsolationUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterPanelPrivilegeRegressionUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/encounter/pageUtil/EncounterPanelPrivilegeRegressionUnitTest.java",
+        "scripts/session-clinical-recovery-playwright-checks.js",
+        "scripts/lib/held-clinical-requests.js",
+        "docs/testing/session-clinical-recovery-inventory.md"
       ],
       "implementation": "Extend executed-JavaScript and real browser tests around pending CPP mutations, not merely refresh requests. Exercise each changed navbar action with concurrent logout.",
-      "cases": "Save/Sign/Exit while CPP is pending; success, 403, 409, 500, abort and delayed/out-of-order callback; queued save cancels on failure and recovers only explicitly; two charts/visits/providers; session invalidates between action stages; no extra chart/group issue lookups.",
+      "cases": "Save/Sign/Exit while CPP is pending; success, 403, 409, 500, abort and delayed/out-of-order callback; queued save cancels on failure and recovers only explicitly; two charts/visits/providers; session invalidates between action stages; no extra chart/group issue lookups. Owned populated note/eForm session loss: distinguish acknowledged D1 from held N2/E2, real separate-context Logout, application-origin refusals and generic403 feedback, native heartbeat closure, exact saved/draft histories and same-browser same/other-account recovery with browser-storage isolation.",
       "acceptance": "No stale note or CPP overwrite, cross-patient action, null-session 500, duplicate save or misleading saved state.",
       "requiredChecks": [
         "evidence-self-tests",
@@ -490,10 +493,14 @@
         "src/test/java/io/github/carlos_emr/carlos/report/JasperReportTemplatesIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/form/pdfservlet/FrmCustomedPDFServletUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/form/util/Rourke2020PdfReportIntegrationTest.java",
-        "docs/testing/release-2026.08-main-release-browser-findings.json"
+        "docs/testing/release-2026.08-main-release-browser-findings.json",
+        "scripts/form-growth-clinical-geometry-playwright-checks.js",
+        "scripts/form-rourke2020-growth-playwright-checks.js",
+        "scripts/lib/growth-clinical-oracle.js",
+        "docs/testing/growth-clinical-geometry-inventory.md"
       ],
       "implementation": "Rerun the established before/after PDF corpus on the final packaged WAR; extend renderer security and concurrency, and preserve the already-added half-letter browser dimension/content assertions.",
-      "cases": "A4/Letter/A6/396x612 half-letter, print/reprint/fax, auto-print, signatures, long patient/pharmacy headers, all Rourke/BC/legacy forms, long notes and checked marks, CJK/emoji/accents, no host fonts/unwritable font cache, PDF 2.0 consumers, Brotli input, warm-cache two-patient parallel rendering; Flying Saucer resource/network/path refusals.",
+      "cases": "A4/Letter/A6/396x612 half-letter, print/reprint/fax, auto-print, signatures, long patient/pharmacy headers, all Rourke/BC/legacy forms, long notes and checked marks, CJK/emoji/accents, no host fonts/unwritable font cache, PDF 2.0 consumers, Brotli input, warm-cache two-patient parallel rendering; Flying Saucer resource/network/path refusals. Native Rourke/Growth output for fixed male/female infant birth dates, independent WHO grid/curve/unit/age-axis and median relationships, irregular and birth/24-month-edge observations, form/module inclusion and exact duplicate representation, complete saved-history and unrelated-control preservation.",
       "acceptance": "No clipped, blank, overlapped or omitted clinical content, unsupported font fallback, cross-patient cache leakage, partial PDF success, SSRF or leaked temporary artifact.",
       "requiredChecks": [
         "evidence-self-tests",
