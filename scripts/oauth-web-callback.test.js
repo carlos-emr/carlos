@@ -40,7 +40,7 @@ test('OAuth diagnostics keep failure attribution while removing URL queries and 
   const result=redactOAuthError(error,new Set(['request-fixture','access-fixture','secret-fixture']));
   assert.equal(result,error);assert.equal(result.failedStep,'native callback');
   for(const secret of ['request-fixture','access-fixture','secret-fixture'])assert(!result.message.includes(secret)&&!result.stack.includes(secret));
-  assert(result.message.includes('page.goto failed')&&result.message.includes('https://clinic.test/oauth'));
+  assert.equal(result.message,'page.goto failed: https://clinic.test/oauth Authorization token=[redacted OAuth credential] secret=[redacted OAuth credential]');
 });
 test('a namespace collision never adopts or deletes an existing OAuth client',async()=>{
   const cleanups=[];let ownershipReads=0,writes=0;
