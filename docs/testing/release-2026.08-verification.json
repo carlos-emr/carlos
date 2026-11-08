@@ -1788,6 +1788,14 @@
             {
               "name": "shouldKeepSubmissionLikeAndBoundValues_forMatchingRecord",
               "container": ""
+            },
+            {
+              "name": "shouldRetainNumericTimeRules_fromPhysicalTinyintFlags",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState",
+              "container": ""
             }
           ]
         },
@@ -2577,6 +2585,24 @@
             },
             {
               "name": "shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetServiceIntegrationTest": {
+          "check": "java-native-bc-flyway",
+          "cases": [
+            {
+              "name": "shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.AntenatalReportDaoIntegrationTest": {
+          "check": "java-native-bc-flyway",
+          "cases": [
+            {
+              "name": "shouldRetainPhysicalPlannerTextAndTinyintFlags_whenPatientOwnsTheForm",
               "container": ""
             }
           ]

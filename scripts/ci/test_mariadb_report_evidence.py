@@ -42,12 +42,15 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             if selected == "generated":
                 required["MeasurementDaoIntegrationTest"] += 3000 - sum(required.values())
             for family, count in required.items():
-                suite = (MODULE.INBOX_CLASS if family == 'LegacyLabNativeMariaDbIntegrationTest' else "example." + family)
+                suite = self.suite(family)
                 suffix = "" if selected == "generated" else "-" + selected
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
                     name = (MODULE.INBOX_CASES[index] if family == 'LegacyLabNativeMariaDbIntegrationTest'
                             and index < len(MODULE.INBOX_CASES) else f'shouldRead_forRow{index}')
+                    physical = MODULE.BC_PHYSICAL_CASES.get(suite, ()) if selected == 'bc-flyway' else ()
+                    if index < len(physical):
+                        name = physical[index]
                     return (f'<testcase classname="{suite}{suffix}" name="{name}">'
                             + fault + '</testcase>')
                 body = "".join(case(i) for i in range(count))
@@ -57,6 +60,25 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 (self.reports / ("TEST-" + suite + suffix + ".xml")).write_text(
                     f'<testsuite name="{suite}{suffix}" tests="{count}" failures="0" errors="0" skipped="0">'
                     + body + '</testsuite>')
+
+    @staticmethod
+    def suite(family):
+        if family == 'LegacyLabNativeMariaDbIntegrationTest':
+            return MODULE.INBOX_CLASS
+        return next((name for name in MODULE.BC_PHYSICAL_CASES if name.rsplit('.', 1)[-1] == family), 'example.' + family)
+
+    def test_each_physical_type_case_is_required_even_when_family_counts_are_unchanged(self):
+        self.seed()
+        for family, names in MODULE.BC_PHYSICAL_CASES.items():
+            report = self.reports / ('TEST-' + family + '-bc-flyway.xml')
+            original = report.read_text()
+            for name in names:
+                with self.subTest(case=name):
+                    report.write_text(original.replace('name="' + name + '"', 'name="unrelatedPhysicalCase"'))
+                    try:
+                        self.assert_refused(self.invoke(), 'Required MariaDB bc-flyway physical-type case identities missing')
+                    finally:
+                        report.write_text(original)
 
     def test_clean_controls_pass_in_both_python_modes(self):
         self.seed()
@@ -108,7 +130,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             for family in required:
                 with self.subTest(mode=mode, family=family):
                     suffix = "" if mode == "generated" else "-" + mode
-                    suite = MODULE.INBOX_CLASS if family == "LegacyLabNativeMariaDbIntegrationTest" else "example." + family
+                    suite = self.suite(family)
                     path = self.reports / ("TEST-" + suite + suffix + ".xml")
                     original = path.read_bytes()
                     path.unlink()

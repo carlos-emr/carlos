@@ -57,6 +57,15 @@ INBOX_CASES = (
     'shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed',
 )
 INBOX_CLASS = 'io.github.carlos_emr.carlos.commn.dao.LegacyLabNativeMariaDbIntegrationTest'
+BC_PHYSICAL_CASES = {
+    'io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetServiceIntegrationTest': (
+        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',),
+    'io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingNativeMariaDbIntegrationTest': (
+        'shouldRetainNumericTimeRules_fromPhysicalTinyintFlags',
+        'shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState'),
+    'io.github.carlos_emr.carlos.commn.dao.AntenatalReportDaoIntegrationTest': (
+        'shouldRetainPhysicalPlannerTextAndTinyintFlags_whenPatientOwnsTheForm',),
+}
 
 
 def verify(reports: Path, output: Path) -> dict:
@@ -69,6 +78,7 @@ def verify(reports: Path, output: Path) -> dict:
     families = {mode: dict.fromkeys(required, 0) for mode, required in REQUIRED.items()}
     identities = set()
     inbox_cases = {mode: set() for mode in REQUIRED}
+    bc_physical_cases = set()
     collisions = []
     lines = []
     for report in paths:
@@ -92,6 +102,8 @@ def verify(reports: Path, output: Path) -> dict:
                 counts[mode]["failures" if case.outcome == "failure" else "skipped"] += 1
             if case.classname == INBOX_CLASS and not case.container and case.outcome == 'pass':
                 inbox_cases[mode].add(case.name)
+            if mode == 'bc-flyway' and not case.container and case.outcome == 'pass':
+                bc_physical_cases.add((case.classname, case.name))
             if family in families[mode] and case.outcome == "pass":
                 families[mode][family] += 1
             label = f" [{case.container}]" if case.container else ""
@@ -111,6 +123,8 @@ def verify(reports: Path, output: Path) -> dict:
     for mode in ('flyway', 'bc-flyway'):
         if not set(INBOX_CASES) <= inbox_cases[mode]:
             raise EvidenceError(f'Required MariaDB {mode} inbox case identities missing')
+    if not {(family, name) for family, names in BC_PHYSICAL_CASES.items() for name in names} <= bc_physical_cases:
+        raise EvidenceError('Required MariaDB bc-flyway physical-type case identities missing')
     return summary
 
 
