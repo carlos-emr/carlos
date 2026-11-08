@@ -49,6 +49,9 @@ jobs:
         run: |
           python3 scripts/verify-cds-export-source-catalogue.py
           docker exec carlos-tomcat-dev mvn -B -DskipTests test-compile
+      - name: Verify canonical legacy web DAO wiring
+        if: matrix.shard == 'export'
+        run: docker exec carlos-tomcat-dev mvn -B -Dtest=CdsExportLegacyDaoWiringUnitTest surefire:test
       - name: Prepare harness workspace ownership
         run: sudo chown -R "$(id -u):$(id -g)" target
       - name: Install hash-pinned harness dependencies
