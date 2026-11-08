@@ -30,12 +30,9 @@ their printed content or make PDF/UA claims.
 
 ## Other consumers
 
-Displaytag 3.8.0 contains optional export implementations that reference
-`com.lowagie`, but CARLOS does not select them. Displaytag's bundled defaults
-disable PDF export (`export.pdf=false`) and name `FopExportView`; no CARLOS
-override enables its legacy OpenPDF export views. Its OpenPDF 2.4.0
-dependency is optional and does not bring another OpenPDF jar into the WAR.
-Do not enable those legacy views with the unified OpenPDF 3 classpath.
+The displaytag runtime, including its optional legacy `com.lowagie` export views,
+is removed by #5472. The replacement JSTL tables do not expose those adapters.
+Do not reintroduce legacy OpenPDF export views into the unified OpenPDF 3 classpath.
 
 ## Regression evidence
 

@@ -99,7 +99,9 @@
             }
 
             function checkUncheck(referralId) {
-                var checked = $("input[name^='checked_" + referralId + "']").prop("checked");
+                // Exact name: every page of the list is in the document, so a prefix match on
+                // checked_5 would also find checked_50 (hidden, disabled, unchecked) on another page.
+                var checked = $("input[name='checked_" + referralId + "']").prop("checked");
 
                 $.post("<%= request.getContextPath() %>/admin/ManageBillingReferral",
                     { method: "modifyBatch", id: referralId, checked: checked },
@@ -141,7 +143,8 @@
             }
         </script>
         <link href="${pageContext.request.contextPath}/css/displaytag.css" rel="stylesheet"></link>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
 
     <body vlink="#0000FF" class="BodyStyle">
 
@@ -190,9 +193,22 @@
                 <%
                 } else {
                 %>
-                <display:table name="referrals" id="referral" class="its" pagesize="15"
-                               style="border:1px solid #666666; width:99%;margin-top:2px;"
-                               requestURI="ManageBillingReferral?method=list">
+                <c:if test="${not empty referrals}">
+                <table class="its" style="border:1px solid #666666; width:99%;margin-top:2px;" id="referral" data-carlos-table data-page-size="15" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+                    <th scope="col"></th>
+                    <th scope="col"></th>
+                    <th scope="col"><fmt:message key='admin.billingreferralAdmin.col.firstName'/></th>
+                    <th scope="col"><fmt:message key='admin.billingreferralAdmin.col.lastName'/></th>
+                    <th scope="col"><fmt:message key='admin.billingreferralAdmin.col.specialty'/></th>
+                    <th scope="col"><fmt:message key='admin.billingreferralAdmin.col.address'/></th>
+                    <th scope="col"><fmt:message key='admin.billingreferralAdmin.col.phone'/></th>
+                    <th scope="col"><fmt:message key='admin.billingreferralAdmin.col.fax'/></th>
+                    <th scope="col"><fmt:message key='admin.billingreferralAdmin.col.label'/></th>
+                </tr></thead>
+<tbody><c:forEach var="referral" items="${referrals}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
                     <%
                         ProfessionalSpecialist ps = (ProfessionalSpecialist) pageContext.getAttribute("referral");
 
@@ -202,20 +218,24 @@
                         }
                     %>
 
-                    <display:column><input type="checkbox" name="checked_${carlos:forHtmlAttribute(referral.id)}"
-                                           onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/></display:column>
-                    <display:column><a href="javascript:void(0)"
+                    <td><input type="checkbox" id="referral-select-${carlos:forHtmlAttribute(referral.id)}"
+                               name="checked_${carlos:forHtmlAttribute(referral.id)}"
+                               onChange="checkUncheck('${carlos:forJavaScriptAttribute(referral.id)}')"/>
+                        <label class="table-selection-label" for="referral-select-${carlos:forHtmlAttribute(referral.id)}"><fmt:message key="dms.incomingDocs.select"/> ${carlos:forHtml(referral.firstName)} ${carlos:forHtml(referral.lastName)}</label></td>
+                    <td><a href="javascript:void(0)" <%-- NOSONAR Web:S6844 - the link markup displaytag rendered for this row action, kept as it looked --%>
                                        onclick="openEditSpecialist('${carlos:forJavaScriptAttribute(referral.id)}')"><carlos:encode value='<%= linkName %>'/>
-                    </a></display:column>
-                    <display:column property="firstName" title="<fmt:message key='admin.billingreferralAdmin.col.firstName'/>"/>
-                    <display:column property="lastName" title="<fmt:message key='admin.billingreferralAdmin.col.lastName'/>"/>
-                    <display:column property="specialtyType" title="<fmt:message key='admin.billingreferralAdmin.col.specialty'/>"/>
-                    <display:column property="streetAddress" title="<fmt:message key='admin.billingreferralAdmin.col.address'/>"/>
-                    <display:column property="phoneNumber" title="<fmt:message key='admin.billingreferralAdmin.col.phone'/>"/>
-                    <display:column property="faxNumber" title="<fmt:message key='admin.billingreferralAdmin.col.fax'/>"/>
-                    <display:column title="<fmt:message key='admin.billingreferralAdmin.col.label'/>" url="/printReferralLabelAction" paramId="billingreferralNo"
-                                    paramProperty="id"><fmt:message key="admin.billingreferralAdmin.label.link"/></display:column>
-                </display:table>
+                    </a></td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.firstName))}" data-sort-type="${carlos:tableSortType(referral.firstName)}">${carlos:forHtml(referral.firstName)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.lastName))}" data-sort-type="${carlos:tableSortType(referral.lastName)}">${carlos:forHtml(referral.lastName)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.specialtyType))}" data-sort-type="${carlos:tableSortType(referral.specialtyType)}">${carlos:forHtml(referral.specialtyType)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.streetAddress))}" data-sort-type="${carlos:tableSortType(referral.streetAddress)}">${carlos:forHtml(referral.streetAddress)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.phoneNumber))}" data-sort-type="${carlos:tableSortType(referral.phoneNumber)}">${carlos:forHtml(referral.phoneNumber)}</td>
+                    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(referral.faxNumber))}" data-sort-type="${carlos:tableSortType(referral.faxNumber)}">${carlos:forHtml(referral.faxNumber)}</td>
+                    <td><c:url var="tableColumnUrl" value="/printReferralLabelAction"><c:param name="billingreferralNo" value="${referral.id}"/></c:url><a href="${carlos:forHtmlAttribute(tableColumnUrl)}"><fmt:message key="admin.billingreferralAdmin.label.link"/></a></td>
+                </tr></c:forEach></tbody>
+</table>
+                </c:if>
+<c:if test="${empty referrals}"><fmt:message key="table.msg.emptyList"/></c:if>
             </td>
         </tr>
         <tr>

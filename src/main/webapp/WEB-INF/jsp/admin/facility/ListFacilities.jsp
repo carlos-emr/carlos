@@ -66,34 +66,31 @@
                 return false;
             }
         </script>
-    </head>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
+</head>
     <body>
     <h1><fmt:message key="admin.facility.list.heading"/></h1>
     <form action="${pageContext.request.contextPath}/FacilityManager" method="post">
-        <display:table class="simple" cellspacing="2" cellpadding="3"
-                       id="facility" name="facilities" export="false" pagesize="0"
-                       requestURI="/FacilityManager">
-            <display:setProperty name="paging.banner.placement" value="bottom"/>
-            <display:setProperty name="paging.banner.item_name" value="agency"/>
-            <display:setProperty name="paging.banner.items_name" value="facilities"/>
-            <fmt:message key="admin.facility.list.msgNoFacilities" var="noFacilitiesMessage"/>
-            <display:setProperty name="basic.msg.empty_list" value="${noFacilitiesMessage}"/>
+        <c:if test="${not empty facilities}">
+        <table class="carlos-table-spaced simple" id="facility" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+            <th scope="col"><span data-table-sort><fmt:message key="admin.facility.list.header.name"/></span></th>
+            <th scope="col"><span data-table-sort><fmt:message key="admin.facility.list.header.description"/></span></th>
 
-            <display:column property="name" sortable="true" titleKey="admin.facility.list.header.name"/>
-            <display:column property="description" sortable="true" titleKey="admin.facility.list.header.description"/>
+            <th scope="col"></th>
+        </tr></thead>
+<tbody><c:forEach var="facility" items="${facilities}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.name))}" data-sort-type="${carlos:tableSortType(facility.name)}">${carlos:forHtml(facility.name)}</td>
+            <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(facility.description))}" data-sort-type="${carlos:tableSortType(facility.description)}">${carlos:forHtml(facility.description)}</td>
 
-            <display:column sortable="false" title="">
+            <td>
                 <a href="<%=request.getContextPath() %>/FacilityManager?method=edit&id=${carlos:forHtmlAttribute(facility.id)}">
                     <fmt:message key="admin.facility.list.linkEdit"/> </a>
-            </display:column>
-            <!--
-            < isplay:column sortable="false" title="">
-            <a href="< tml:rewrite action="/FacilityManager"/>?method=delete&id=< :out value="${facility.id}"/>&name=< :out value="${facility.name}"/>"
-            onclick="return ConfirmDelete('< :out value="${facility.name}"/>')">
-            Delete </a>
-            </ isplay:column>
-            -->
-        </display:table>
+            </td>
+        </tr></c:forEach></tbody>
+</table>
+        </c:if>
+<c:if test="${empty facilities}"><fmt:message key="admin.facility.list.msgNoFacilities"/></c:if>
     </form>
     <!--
             <p><a href="< tml:rewrite action="/FacilityManager"/>?method=add">

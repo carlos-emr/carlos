@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercises the application's Jasper PDF facade and direct POI spreadsheet writer. */
+/** Exercises the application's Jasper PDF facade and direct JDK spreadsheet writer. */
 @Tag("unit")
 @Tag("report")
 class JasperExporterCompatibilityUnitTest {
@@ -60,7 +60,7 @@ class JasperExporterCompatibilityUnitTest {
     }
 
     @Test
-    void shouldPreserveUnicodeCellValues_whenExportingExcelWithApplicationPoiVersion() throws Exception {
+    void shouldPreserveUnicodeCellValues_whenExportingExcelThroughTheJdkWriter() throws Exception {
         var bytes = new ByteArrayOutputStream();
         var patient = new DxRegistedPTInfo(TEXT, "FAKE-Compatibility", "X", "2000-01-01",
                 "0001234", "0000000001", "icd9", "001", "2026-08-01", "2026-08-02", "A");

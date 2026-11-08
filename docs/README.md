@@ -54,6 +54,7 @@ records the staged persistence migration and module follow-ups.
 | [Response-filter lifecycle](response-filter-lifecycle.md) | Response capture ownership, nested forwards, error sanitization, and the Tomcat compatibility contract |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [Container-provided Jakarta APIs](container-provided-apis.md) | Which web-tier Jakarta APIs Tomcat 11 supplies (`provided`), why JSTL still ships in the WAR, and the checks that hold it |
+| [Dependency footprint replacements](dependency-footprint-5472.md) | Report, chart, browser and table dependency replacements, output differences and validation (#5472) |
 | [JAXB provider compatibility](jaxb-provider-compatibility.md) | Glassfish JAXB, preserved MOXy XML/JSON contracts, published SOAP schemas, and compatibility evidence |
 | [JasperReports and OpenPDF 3](jasperreports-openpdf3.md) | Shared PDF dependencies, stock OpenPDF and Brotli decisions, and report-export compatibility checks (#5471) |
 | [JDK equivalents audit](jdk-equivalents-audit.md) | Behaviour-preserving Commons replacements, compatibility coverage and retained legacy semantics (#5483) |

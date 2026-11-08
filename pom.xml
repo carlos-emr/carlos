@@ -361,8 +361,6 @@
         <hapi-hl7.version>2.6.0</hapi-hl7.version>
         <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
         <flyway.version>13.12.0</flyway.version>
-        <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
-        <selenium.version>4.46.0</selenium.version>
         <!-- Testing -->
         <junit-jupiter.version>6.1.3</junit-jupiter.version>
         <mockito.version>5.23.0</mockito.version>
@@ -618,9 +616,10 @@
                 <version>3.0.4</version>
             </dependency>
             <!-- Expression Language 6.0, the version Tomcat 11 implements (#5416).
-                 Provided on every path: displaytag's JSTL API still asks for EL 5 at
-                 compile scope, and Tomcat always loads jakarta.el.* from its own
-                 lib/el-api.jar, so a copy in WEB-INF/lib is never used. See
+                 Provided on every path: the JSTL API (jakarta.servlet.jsp.jstl-api)
+                 still asks for EL 5 at compile scope, and Tomcat always loads
+                 jakarta.el.* from its own lib/el-api.jar, so a copy in WEB-INF/lib is
+                 never used. See
                  docs/container-provided-apis.md. -->
             <dependency>
                 <groupId>jakarta.el</groupId>
@@ -692,7 +691,7 @@
              org.slf4j:jcl-over-slf4j redefines the same classes and adds a
              META-INF/services entry that reroutes JCL through SLF4J. Shipping
              both left the winning LogFactory to class-loader order, so it is
-             excluded from hapi-fhir-base; the poi, displaytag and javamelody-core
+             excluded from hapi-fhir-base; the poi and javamelody-core
              exclusions date from older releases of those libraries and are kept
              as defence in depth. It is banned
              outright by maven-enforcer-plugin (ban-duplicate-commons-logging).
@@ -1028,6 +1027,12 @@
             <version>${twelvemonkeys.version}</version>
         </dependency>
 
+        <!-- Tomcat supplies no JSTL. Keep the API even when table dependencies change. -->
+        <dependency>
+            <groupId>jakarta.servlet.jsp.jstl</groupId>
+            <artifactId>jakarta.servlet.jsp.jstl-api</artifactId>
+            <version>3.0.2</version>
+        </dependency>
         <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace).
              Bundles shaded Xalan 2.7.2, unaffected by separately resolved Xalan artifacts.
              See docs/security/jstl-shaded-xalan.md for CVE-2022-34169 triage. -->
@@ -1176,12 +1181,6 @@
             <version>${jasperreports.version}</version>
         </dependency>
 
-        <!-- Direct XLSX writer for tabular exports. Version aligned with poi via dependencyManagement. -->
-        <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi-ooxml</artifactId>
-        </dependency>
-
         <!-- ==================== Jackson / JSON ==================== -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -1240,44 +1239,12 @@
             <version>2.0.5</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.jfree</groupId>
-            <artifactId>jfreechart</artifactId>
-            <version>1.5.6</version>
-        </dependency>
-
-        <!-- apache poi -->
+        <!-- Independent workbook reader used only to validate application XLSX exports. -->
         <dependency>
             <groupId>org.apache.poi</groupId>
-            <artifactId>poi</artifactId>
+            <artifactId>poi-ooxml</artifactId>
             <version>${poi.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <!-- UPGRADED displaytag to Jakarta EE compatible hazendaz fork -->
-        <!-- Temporary bridge solution - full DataTables migration planned for Q2 2026 -->
-        <!-- Used in JSP files: admin (6), BC billing (3), PMmodule (1), casemgmt (1) -->
-        <dependency>
-            <groupId>com.github.hazendaz</groupId>
-            <artifactId>displaytag</artifactId>
-            <version>3.8.0</version>
-            <exclusions>
-                <!-- Exclude SLF4J to use project's managed version -->
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <!-- Exclude to avoid conflicts with project's logging setup -->
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
+            <scope>test</scope>
         </dependency>
 
         <!-- ==================== Utilities ==================== -->
@@ -1620,50 +1587,6 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
-        </dependency>
-        <!-- Selenium drives the pinned headless Chromium for eForm browser PDF rendering.
-             Deliberately NOT selenium-java: chrome-driver keeps the tree to the
-             Chromium path only (no firefox/edge/safari driver artifacts in the WAR). -->
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-chrome-driver</artifactId>
-            <version>${selenium.version}</version>
-            <!-- Selenium's tracing hooks need only the API. Keep the unused SDK and
-                 exporters out of the WAR; application telemetry remains a no-op. -->
-            <exclusions>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-trace</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-metrics</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-logs</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-extension-autoconfigure</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-exporter-logging</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational

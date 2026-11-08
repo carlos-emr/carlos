@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "fixtures": [
     {
+      "id": "chart-draw-playwright-checks",
+      "command": [
+        "node",
+        "scripts/chart-draw-playwright-checks.js"
+      ],
+      "source": "scripts/chart-draw-playwright-checks.js",
+      "sourceSha256": "3b4e29dfe4741e96b26a8120fc8477903388030b2b711795f389887b986b6a9b",
+      "minimumAssertions": 1775
+    },
+    {
+      "id": "dependency-tables-playwright-checks",
+      "command": [
+        "node",
+        "scripts/dependency-tables-playwright-checks.js"
+      ],
+      "source": "scripts/dependency-tables-playwright-checks.js",
+      "sourceSha256": "6646485045208abc3e61a1d335649b3d4b96573c055899bf769b2a50a18b70e8",
+      "minimumAssertions": 47
+    },
+    {
       "id": "navigation-cancellation-browser-checks",
       "command": [
         "node",
@@ -161,5 +181,5 @@
       "minimumAssertions": 139
     }
   ],
-  "workflowSha256": "a2c432cf823bb4dd082b2ee6f1230fed6f1aee639ed527a51e0203dd925aaa6e"
+  "workflowSha256": "c49974042598c2fa3c3c683b35c6ad3b3980afa3c88c247bf7b3747fc050ae82"
 }

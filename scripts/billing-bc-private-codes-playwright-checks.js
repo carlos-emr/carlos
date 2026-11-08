@@ -139,7 +139,7 @@ async function workflow(s) {
 
     await s.step(STEP.remove, async () => {
       await Promise.all([frame.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-        ownedRow().getByRole('link', { name: 'Delete', exact: true }).click()]);
+        ownedRow().getByRole('button', { name: 'Delete', exact: true }).click()]);
       await expectValue(sql, `SELECT COUNT(*) FROM billingservice WHERE description=${q(marker)}`, '0', 'Delete did not remove the private code');
       await frame.locator('h3', { hasText: 'Manage Private Bill' }).waitFor({ timeout: TIMEOUT });
       h.assert(await ownedRow().count() === 0, 'The deleted private code is still listed');

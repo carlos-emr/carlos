@@ -127,7 +127,7 @@ class SitesAdminJspRegressionTest {
     void shouldOpenSite_withEditMethod() throws IOException {
         String page = read(LIST_JSP);
 
-        assertThat(page).contains("/admin/ManageSites?method=edit&siteId=${carlos:forHtmlAttribute(site.siteId)}");
+        assertThat(page).contains("/admin/ManageSites?method=edit&amp;siteId=${carlos:forUriComponent(site.siteId)}");
         assertThat(page).doesNotContain("ManageSites?method=update");
     }
 }

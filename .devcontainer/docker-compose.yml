@@ -1,6 +1,9 @@
 services:
   carlos:
     container_name: carlos-tomcat-dev
+    # Chrome for Testing and its matching chromedriver have Linux amd64 builds only.
+    # Docker Desktop emulates this service on Apple Silicon; DB and DrugRef stay native.
+    platform: linux/amd64
     # Run tini as PID 1 so orphaned subprocesses are reaped. The eForm browser renderer
     # launches a Chromium process tree per render; on an abnormal teardown (watchdog kill,
     # redeploy mid-render) orphaned helpers reparent to PID 1 and — without an init — become

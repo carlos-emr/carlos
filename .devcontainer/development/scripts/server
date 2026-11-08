@@ -15,6 +15,12 @@ case $command in
     ;;
 
   start)
+    # The eForm PDF and measurement-chart renderer needs a running chromedriver on loopback
+    # (eform_pdf_browser_service_url); start the image's matching driver beside Tomcat.
+    if command -v chromedriver >/dev/null 2>&1 && ! pgrep -f 'chromedriver --port=9515' >/dev/null 2>&1; then
+      nohup chromedriver --port=9515 --allowed-ips=127.0.0.1 > /tmp/chromedriver.log 2>&1 &
+      echo "chromedriver started on 127.0.0.1:9515 (log: /tmp/chromedriver.log)"
+    fi
     export CATALINA_PID="$PID_FILE"
     catalina.sh jpda start
 
@@ -33,6 +39,7 @@ case $command in
     ;;
 
   stop)
+    pkill -f 'chromedriver --port=9515' 2>/dev/null || true
     export CATALINA_PID="$PID_FILE"
     catalina.sh stop
 

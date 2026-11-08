@@ -46,20 +46,37 @@ function removeFromRemoteQueue(remoteReferralId) {
 	</table>
 </div>
 <!--  show current clients -->
-<display:table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" name="queue" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
-	<display:column sortable="false" title="">
+<c:if test="${not empty queue}">
+<table class="carlos-table-spaced simple" id="queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+    <th scope="col"></th>
+    <th scope="col"><span data-table-sort>Client Name</span></th>
+    <th scope="col"><span data-table-sort>Referral Date</span></th>
+    <th scope="col"><span data-table-sort>Referring Provider</span></th>
+    <caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
+        <th scope="col"><span data-table-sort>Temporary Admission</span></th>
+    </caisi:isModuleLoad>
+    <th scope="col"><span data-table-sort>Notes</span></th>
+</tr></thead>
+<tbody><c:forEach var="queue_entry" items="${queue}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+    <td>
 		<a href="javascript:void(0);" onclick="removeFromQueue('${carlos:forJavaScript(queue_entry.id)}');return false;"> Remove </a>
-	</display:column>
-	<display:column property="clientFormattedName" sortable="true" title="Client Name" />
-	<display:column property="referralDate" sortable="true" title="Referral Date" />
-	<display:column property="providerFormattedName" sortable="true" title="Referring Provider" />
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.clientFormattedName))}" data-sort-type="${carlos:tableSortType(queue_entry.clientFormattedName)}">${carlos:forHtml(queue_entry.clientFormattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.referralDate))}" data-sort-type="${carlos:tableSortType(queue_entry.referralDate)}">${carlos:forHtml(queue_entry.referralDate)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.providerFormattedName))}" data-sort-type="${carlos:tableSortType(queue_entry.providerFormattedName)}">${carlos:forHtml(queue_entry.providerFormattedName)}</td>
   	<caisi:isModuleLoad moduleName="pmm.refer.temporaryAdmission.enabled">
-		<display:column property="temporaryAdmission" sortable="true" title="Temporary Admission" />
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.temporaryAdmission))}" data-sort-type="${carlos:tableSortType(queue_entry.temporaryAdmission)}">${carlos:forHtml(queue_entry.temporaryAdmission)}</td>
 	</caisi:isModuleLoad>
-	<display:column property="notes" sortable="true" title="Notes" />
-</display:table>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.notes))}" data-sort-type="${carlos:tableSortType(queue_entry.notes)}">${carlos:forHtml(queue_entry.notes)}</td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty queue}">Queue is empty.</c:if>
 
 <c:if test="${remoteQueue!=null}">
 	<br /><br />
@@ -74,15 +91,29 @@ function removeFromRemoteQueue(remoteReferralId) {
 		</table>
 	</div>
 	<!--  show current clients -->
-	<display:table class="simple" cellspacing="2" cellpadding="3" id="queue_entry" name="remoteQueue" export="false" pagesize="0" requestURI="/PMmodule/ProgramManager">
-		<display:setProperty name="paging.banner.placement" value="bottom" />
-		<display:setProperty name="basic.msg.empty_list" value="Queue is empty." />
-		<display:column sortable="false" title="">
+    <c:if test="${not empty remoteQueue}">
+    <table class="carlos-table-spaced simple" id="remote_queue_entry" data-carlos-table data-page-size="0" data-default-sort="0" data-default-order="ascending">
+<thead><tr>
+
+
+        <th scope="col"></th>
+        <th scope="col"><span data-table-sort>Client Name</span></th>
+        <th scope="col"><span data-table-sort>Referral Date</span></th>
+        <th scope="col"><span data-table-sort>Referring Provider</span></th>
+        <th scope="col"><span data-table-sort>Notes</span></th>
+    </tr></thead>
+<tbody><c:forEach var="queue_entry" items="${remoteQueue}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+
+        <td>
 			<a href="javascript:void(0);" onclick="removeFromRemoteQueue('${carlos:forJavaScript(queue_entry.remoteReferral.remoteReferralId)}');return false;"> Remove </a>
-		</display:column>
-		<display:column property="clientName" sortable="true" title="Client Name" />
-		<display:column property="remoteReferral.referralDate" sortable="true" title="Referral Date" />
-		<display:column property="providerName" sortable="true" title="Referring Provider" />
-		<display:column property="remoteReferral.reasonForReferral" sortable="true" title="Notes" />
-	</display:table>
+        </td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.clientName))}" data-sort-type="${carlos:tableSortType(queue_entry.clientName)}">${carlos:forHtml(queue_entry.clientName)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.remoteReferral.referralDate))}" data-sort-type="${carlos:tableSortType(queue_entry.remoteReferral.referralDate)}">${carlos:forHtml(queue_entry.remoteReferral.referralDate)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.providerName))}" data-sort-type="${carlos:tableSortType(queue_entry.providerName)}">${carlos:forHtml(queue_entry.providerName)}</td>
+        <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(queue_entry.remoteReferral.reasonForReferral))}" data-sort-type="${carlos:tableSortType(queue_entry.remoteReferral.reasonForReferral)}">${carlos:forHtml(queue_entry.remoteReferral.reasonForReferral)}</td>
+    </tr></c:forEach></tbody>
+</table>
+    </c:if>
+<c:if test="${empty remoteQueue}">Queue is empty.</c:if>
 </c:if>

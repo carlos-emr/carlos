@@ -75,13 +75,17 @@ class SpreadsheetExportsUnitTest {
     }
 
     @Test
-    void shouldKeepIdentifiersAndFormulaLikeNamesAsText_whenRowsAreFlushedToDisk() throws Exception {
+    void shouldKeepIdentifiersAndFormulaLikeNamesAsText_whenStreamingRows() throws Exception {
         var patient = new DxRegistedPTInfo("=1+1", "Élodie,\"name\"\nline", "X", "00100101", "0012345", "0012345678",
                 "icd9", "001", "2026-10-01", "2026-10-02", "A");
         var output = new ByteArrayOutputStream();
         DxResearchExcel.write(output, Collections.nCopies(205, patient));
         try (var workbook = new XSSFWorkbook(new ByteArrayInputStream(output.toByteArray()))) {
             var sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getSheetName()).isEqualTo("Dx Research");
+            assertThat(sheet.getPaneInformation().isFreezePane()).isTrue();
+            assertThat(sheet.getPaneInformation().getHorizontalSplitPosition()).isEqualTo((short) 1);
+            assertThat(sheet.getColumnWidth(0)).isEqualTo(22 * 256);
             assertThat(sheet.getLastRowNum()).isEqualTo(205);
             for (int index : List.of(1, 205)) {
                 var row = sheet.getRow(index);
@@ -92,6 +96,14 @@ class SpreadsheetExportsUnitTest {
                 assertThat(row.getCell(5).getStringCellValue()).isEqualTo("0012345678");
             }
         }
+    }
+
+    @Test
+    void shouldRejectTooManyPatients_beforeWritingTheWorkbook() {
+        var output = new ByteArrayOutputStream();
+        assertThatThrownBy(() -> DxResearchExcel.write(output, Collections.nCopies(1_048_576, null)))
+                .isInstanceOf(java.io.IOException.class).hasMessage("Export exceeds worksheet row limit");
+        assertThat(output.size()).isZero();
     }
 
     @Test

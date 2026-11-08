@@ -697,4 +697,21 @@ class DxresearchReport2ActionTest extends CarlosWebTestBase {
             assertThat(getMockResponse().getStatus()).isEqualTo(200);
         }
     }
+
+    /**
+     * The registry page iterates {@code listview} with {@code <c:forEach>}, which accepts a
+     * collection, never a lone bean. The default (no-method) path reached from the
+     * Administration menu must therefore seed an empty list, not a placeholder bean.
+     */
+    @Test
+    @DisplayName("should seed an empty result list, not a placeholder bean, on the default path")
+    void shouldSeedEmptyResultList_whenNoMethodIsRequested() throws Exception {
+        setSessionAttribute("radiovaluestatus", "patientRegistedAll");
+
+        executeAction(action);
+
+        Object listview = getMockRequest().getSession().getAttribute("listview");
+        assertThat(listview).isInstanceOf(java.util.List.class);
+        assertThat((java.util.List<?>) listview).isEmpty();
+    }
 }

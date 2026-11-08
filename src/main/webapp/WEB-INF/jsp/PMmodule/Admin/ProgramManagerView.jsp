@@ -87,6 +87,8 @@
     <input type="hidden" name="method" value=""/>
     <input type="hidden" name="vacancyOrTemplateId" value="${carlos:forHtmlAttribute(requestScope.vacancyOrTemplateId)}"/>
 
+    <%-- Shared table assets once, ahead of whichever tab renders its fragment table. --%>
+    <%@ include file="/WEB-INF/jsp/common/carlosTableAssets.jspf" %>
     <c:choose>
         <c:when test="${selectedTab == 'Staff'}">
             <jsp:include page="/WEB-INF/jsp/PMmodule/Admin/ProgramView/staff.jsp"/>
