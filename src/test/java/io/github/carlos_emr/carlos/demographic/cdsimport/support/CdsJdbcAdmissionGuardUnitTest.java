@@ -51,7 +51,7 @@ class CdsJdbcAdmissionGuardUnitTest {
         assertThatThrownBy(() -> CdsJdbcAdmissionGuard.prepareBinaryRead(guarded, "UPDATE drugs SET takemin=1 WHERE drugid=27")).isInstanceOf(SQLException.class);
     }
 
-    @Test void shouldApplyThePhysicalMaintenanceGateBeforeExecutingAServerBinaryRead() throws Exception {
+    @Test void shouldApplyThePhysicalMaintenanceGate_beforeExecutingAServerBinaryRead() throws Exception {
         Connection raw = mock(Connection.class); var driver = mock(com.mysql.cj.jdbc.JdbcConnection.class);
         var binary = mock(com.mysql.cj.jdbc.ServerPreparedStatement.class);
         var check = mock(java.sql.PreparedStatement.class); var rows = mock(java.sql.ResultSet.class);

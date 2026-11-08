@@ -179,7 +179,7 @@ class CdsTargetReceiptMariaDbIntegrationTest {
         }
     }
 
-    @Test void shouldRejectAnExactFloatChangeHiddenByTheOriginalSqlReceipt() throws Exception {
+    @Test void shouldRejectAnExactFloatChange_hiddenByTheOriginalSqlReceipt() throws Exception {
         try (Connection connection = connection(); var statement = connection.createStatement()) {
             statement.execute("CREATE TEMPORARY TABLE demographic (demographic_no INT PRIMARY KEY, dose FLOAT NULL, other DOUBLE NULL)");
             statement.executeUpdate("INSERT INTO demographic VALUES (1,0.1,0.1)");

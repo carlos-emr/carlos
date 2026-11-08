@@ -57,7 +57,7 @@ class CdsAllergyArchiveStateUnitTest {
             assertThat(nativeRow.getArchived()).isEqualTo(expected);
         }
     }
-    @Test void shouldLeaveUnmarkedAndUnrelatedResidualRecordsOnTheirExistingImportPath() throws Exception {
+    @Test void shouldLeaveUnmarkedAndUnrelatedResidualRecords_onTheirExistingImportPath() throws Exception {
         assertThat(normalization.allergy(parsed("")).archived()).isFalse();
         String unrelated = "<ResidualInfo><cdsd:DataElement><cdsd:Name>Unrelated native extension</cdsd:Name>"
                 + "<cdsd:DataType>text</cdsd:DataType><cdsd:Content>" + "x".repeat(1_000_000) + "</cdsd:Content></cdsd:DataElement></ResidualInfo>";

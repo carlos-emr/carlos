@@ -38183,7 +38183,8 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsXmlText.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportAccessService.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaContentOrder.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsCareScalarContract.java"
         ],
         "normalization": "Exact full date required by wire type. Fixed unit/LOINC codes checked, yes/no become full native Yes/No; no unit guessing. Nonquantified numeric text becomes dedicated typed-text measurement and blocking clinical review. Oversized goals use visible full-source reference, no prefix. Source has no author; import actor audit stays separate. Calendar-only native DATETIME anchors use a strict civil day and the first valid same-day clock, retaining full-date precision; unrepresentable days stop preflight. Adjusted anchors are explicitly reported.",
         "normativeBasis": [
@@ -40489,7 +40490,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "78039a1458a7b26103a46e6b2567430d298788d56edc3cc4228252873016f1ba"
+    "sha256": "9053cd93329e22c7190f12c256d0f93d3669a0d2e16b1c5455794f1268c554e1"
   },
   "root": "cds:OmdCds",
   "schemas": [
