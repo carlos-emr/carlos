@@ -168,7 +168,7 @@
     "freshOnAndBcPhysicalContractsMatched": true,
     "clinicalPublication": false,
     "qualification": "FULL_CURRENT_DEVELOP_COMPONENT_BASELINE",
-    "finalLegacyNullableReceiptDiffPackagingPending": true
+    "finalLegacyNullableReceiptDiffPackagingPending": false
   },
   "historyAndNoteAccess": {
     "state": "PACKAGE_AND_EXACT_INSTALLED_SOURCE_COMPONENT_VERIFIED",
@@ -360,17 +360,18 @@
     "clinicalPublication": false
   },
   "currentCaseManagementProjectionEvidence": {
-    "state": "FOCUSED_COMPONENT_VERIFIED_PENDING_RECONCILER",
+    "state": "PACKAGED_AND_EXACT_INSTALLED_HISTORY_RECONCILIATION_COMPONENT_VERIFIED",
     "focusedChecks": 21,
     "physicalTables": [
       "casemgmt_note",
       "casemgmt_note_ext",
+      "casemgmt_issue_notes",
       "casemgmt_issue",
       "issue"
     ],
     "allScalarFieldsMatchedToWholeRowWitness": true,
     "missingAndExtraColumnsRefused": true,
-    "clinicalPrecedenceImplemented": false,
+    "clinicalPrecedenceImplemented": true,
     "clinicalPublication": false
   },
   "currentHistoryOccurrenceAssembly": {
@@ -399,7 +400,7 @@
     "exactWarSha256": "29cedef0ff78b80bd60f39ea016d477a1e136276de2b27d41229c4caf3d7d4e6",
     "currentDevelopIntegrationValidationPending": false,
     "currentDevelopExactInstalledAssertions": 107,
-    "currentDevelopExactWarSha256": "9bb826afaf3eed06763b00ad0f3bb318b9ccc4770283b3bf53c21c50a1f3367a"
+    "currentDevelopExactWarSha256": "879ccf07960510fd9b51a125e8794b2b30aacfdbfbb27a29551d2992f8b9ed22"
   },
   "historyOccurrenceCheckpoint": {
     "state": "PRESERVED_PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
@@ -437,7 +438,7 @@
     "clinicalPublication": false
   },
   "legacyAppointmentNullableLocationUpgrade": {
-    "state": "SOURCE_VERIFIED_FINAL_PACKAGE_PENDING",
+    "state": "PACKAGED_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "focusedChecks": 70,
     "failures": 0,
     "errors": 0,
@@ -445,7 +446,9 @@
     "onlyKnownAddedSqlNullColumnCanBeExcluded": true,
     "oldFieldBaselinesAndExactlyMatchedLegacyWholeReceiptsSupported": true,
     "editedUnknownOrPopulatedAddedValuesRequireReview": true,
-    "storedImportMetadataRewritten": false
+    "storedImportMetadataRewritten": false,
+    "affectedPackageChecks": 144,
+    "exactInstalledHistoryRegressionAssertions": 107
   },
   "currentPhysicalSourceCatalogue": {
     "on": {
@@ -458,5 +461,20 @@
       "columns": 15164,
       "exhaustiveClinicalOwnershipAndMappingQualified": false
     }
+  },
+  "latestVerifiedDiffPackage": {
+    "head": "4b27881d5fe13254356eadf8899ea85cd8449f25",
+    "suites": 11,
+    "tests": 144,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warSha256": "879ccf07960510fd9b51a125e8794b2b30aacfdbfbb27a29551d2992f8b9ed22",
+    "exactInstalledAssertions": 107,
+    "componentOverlays": false,
+    "fullBaselineHead": "e635af1a715e074bc1917b43ce3d97f3412d8314",
+    "fullBaselineTests": 4592,
+    "fullBaselineSuites": 348,
+    "clinicalPublication": false
   }
 }

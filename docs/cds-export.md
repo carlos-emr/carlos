@@ -1214,3 +1214,12 @@ baseline only when removing that one added SQL-NULL field reproduces the exact r
 whole-row digest. An edited common field, populated location reference or unknown schema
 cannot use that derivation. No importer metadata is backfilled or restamped. Seventy focused
 appointment checks pass; the final package qualification is recorded separately.
+
+The final nullable-location compatibility diff was packaged at `4b27881d5fe` and passed
+144 checks across its 11 affected suites (zero failures, errors or skips). Its actual
+WAR SHA-256 is `879ccf07960510fd9b51a125e8794b2b30aacfdbfbb27a29551d2992f8b9ed22`. The same packaged
+application passed all 107 installed history assertions using the preserved genuine
+current-develop import fixture; no component class overlays or historical metadata
+rewrites were used. This is a focused verification after the preserved 4,592-check
+full current-develop baseline, not an additional full-suite count. Clinical publication
+and complete engine qualification remain outstanding.
