@@ -17,10 +17,6 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
-import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
-import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 
@@ -47,53 +43,29 @@ import static org.mockito.Mockito.when;
 class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase {
 
     @Test
-    void shouldLoadInvoiceItemsInOneBulkQuery_andGroupThemByInvoice() throws Exception {
-        BillingONCHeader1Dao headerDao = mock(BillingONCHeader1Dao.class);
-        BillingONItemDao itemDao = mock(BillingONItemDao.class);
-        PatientEndYearStatementService service = new PatientEndYearStatementService(
-                headerDao, itemDao, mock(DemographicManager.class));
-
+    void shouldUseOneDetachedSnapshot_forHtmlTotalsAndPdfRows() {
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class);
+        var service = new PatientEndYearStatementService(dao, mock(DemographicManager.class));
         Demographic demographic = new Demographic();
         demographic.setDemographicNo(123);
         demographic.setFirstName("Jane");
-        demographic.setLastName("Doe");
-        demographic.setHin("1234567890");
-
-        BillingONCHeader1 first = header(101, "30.00", "10.00");
-        BillingONCHeader1 second = header(202, "40.00", "5.00");
-        Date from = new Date(0);
-        Date to = new Date(1000);
-        when(headerDao.findBillingsAndDemographicsByDemoIdAndDates(123, "PAT", from, to))
-                .thenReturn(List.of(new Object[] {first}, new Object[] {second}));
-
-        BillingONItem firstItem = item(101, "A001A", "10.00");
-        BillingONItem secondItem = item(202, "K013A", "20.00");
-        when(itemDao.findByCh1IdsExcludingDeleted(List.of(101, 202)))
-                .thenReturn(List.of(firstItem, secondItem));
-
-        PatientEndYearStatementService.Result result =
-                service.aggregateInvoices(demographic, from, to);
-
-        assertThat(result.invoices()).hasSize(2);
-        assertThat(result.invoices().get(0).invoiced()).isEqualTo("30.00");
-        assertThat(result.invoices().get(0).paid()).isEqualTo("10.00");
-        assertThat(result.summary().getInvoiced()).isEqualTo("70.00");
-        assertThat(result.summary().getPaid()).isEqualTo("15.00");
-        assertThat(result.invoices().get(0).services())
-                .extracting("code")
-                .containsExactly("A001A");
-        assertThat(result.invoices().get(1).services())
-                .extracting("code")
-                .containsExactly("K013A");
-        verify(itemDao).findByCh1IdsExcludingDeleted(List.of(101, 202));
-        verify(itemDao, never()).findByCh1Id(101);
-        verify(itemDao, never()).findByCh1Id(202);
+        demographic.setLastName("Fixture");
+        var item = new io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.ItemRow(101, "A001A", "10.1");
+        var row = new io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.InvoiceRow(101,
+                java.sql.Date.valueOf("2025-01-01"), new BigDecimal("30.00"), new BigDecimal("-5.00"), List.of(item));
+        when(dao.statement(123, null, null)).thenReturn(List.of(row));
+        var result = service.aggregateInvoices(demographic, null, null);
+        assertThat(result.reportRows()).containsExactly(row);
+        assertThat(result.invoices().getFirst().services().getFirst().fee()).isEqualTo("10.10");
+        assertThat(result.summary().getInvoiced()).isEqualTo("30.00");
+        assertThat(result.summary().getPaid()).isEqualTo("-5.00");
+        verify(dao).statement(123, null, null);
     }
 
     @Test
     void shouldLeaveResponseUntouched_whenRenderingFailsAfterWritingPartialBytes() {
         var service = spy(new PatientEndYearStatementService(
-                mock(BillingONCHeader1Dao.class), mock(BillingONItemDao.class), mock(DemographicManager.class)));
+                mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class), mock(DemographicManager.class)));
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         doAnswer(invocation -> {
             ((java.io.OutputStream) invocation.getArgument(0)).write("%PDF-partial".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
@@ -111,7 +83,7 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
     @org.junit.jupiter.params.provider.ValueSource(strings = {"", "<html>Error</html>"})
     void shouldRejectInvalidRendererOutput_beforeSettingPdfHeaders(String rendered) {
         var service = spy(new PatientEndYearStatementService(
-                mock(BillingONCHeader1Dao.class), mock(BillingONItemDao.class), mock(DemographicManager.class)));
+                mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class), mock(DemographicManager.class)));
         var response = new org.springframework.mock.web.MockHttpServletResponse();
         doAnswer(invocation -> {
             ((java.io.OutputStream) invocation.getArgument(0)).write(rendered.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
@@ -124,25 +96,4 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
         assertThat(response.getContentType()).isNull();
     }
 
-    private static BillingONCHeader1 header(int id, String total, String paid) throws Exception {
-        BillingONCHeader1 header = new BillingONCHeader1();
-        // The entity id is generated in production. The unit test seeds it via
-        // reflection so the aggregation result can key invoice rows
-        // deterministically without bootstrapping JPA.
-        java.lang.reflect.Field idField = header.getClass().getDeclaredField("id");
-        idField.setAccessible(true);
-        idField.set(header, id);
-        header.setTotal(new BigDecimal(total));
-        header.setPaid(new BigDecimal(paid));
-        header.setBillingDate(new Date(0));
-        return header;
-    }
-
-    private static BillingONItem item(int ch1Id, String serviceCode, String fee) {
-        BillingONItem item = new BillingONItem();
-        item.setCh1Id(ch1Id);
-        item.setServiceCode(serviceCode);
-        item.setFee(fee);
-        return item;
-    }
 }

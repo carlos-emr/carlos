@@ -26,8 +26,9 @@ import static org.mockito.Mockito.mock;
 /** Real DAO/JDBC/Jasper/PDF coverage for the statement's invoice eligibility and totals. */
 @Tag("integration")
 @Tag("billing")
+@Tag("mariadb-native")
 class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
-    @Autowired private BillingONCHeader1Dao headerDao;
+    @Autowired private io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao reportDao;
     @Autowired private BillingONItemDao itemDao;
     @PersistenceContext(unitName = "entityManagerFactory") private EntityManager entityManager;
     private PatientEndYearStatementService service;
@@ -35,7 +36,7 @@ class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
 
     @BeforeEach
     void setUp() {
-        service = new PatientEndYearStatementService(headerDao, itemDao, mock(DemographicManager.class));
+        service = new PatientEndYearStatementService(reportDao, mock(DemographicManager.class));
         patient = new Demographic();
         patient.setFirstName("Statement");
         patient.setLastName("Fixture");
@@ -114,6 +115,7 @@ class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
         assertThat(result.summary().getPaid()).isEqualTo("70.25");
 
         String text = pdfText(result);
+        assertThat(text).isEqualTo(baselinePdfText(result));
         assertThat(text).contains("End Year Statement", "Fixture", "1234567890", "Invoiced:", "2025-01-01", "2025-12-31",
                 "A007A", "K030A", "A001A", "34.70", "25.00", "80.05", "70.25")
                 .doesNotContain("DEL99", "DEL88", "HCP99", "OLD99", "NEW99", "OTH99", "999.99", "888.88");
@@ -153,9 +155,50 @@ class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
         assertThat(itemDao.findByCh1IdsExcludingDeleted(null)).isEmpty();
     }
 
+    @Test
+    void shouldSupportOptionalDates_withoutWideningPatientOrProgramSelection() {
+        invoice("PAT", "O", "2024-12-31", "1.00", "0.00");
+        invoice("PAT", "S", "2025-12-31", "2.00", "0.00");
+        invoice("HCP", "O", "2025-12-31", "9.00", "0.00");
+        assertThat(service.aggregateInvoices(patient, null, null).summary().getInvoiced()).isEqualTo("3.00");
+        assertThat(service.aggregateInvoices(patient, Date.valueOf("2025-01-01"), null)
+                .summary().getInvoiced()).isEqualTo("2.00");
+        assertThat(service.aggregateInvoices(patient, null, Date.valueOf("2024-12-31"))
+                .summary().getInvoiced()).isEqualTo("1.00");
+        assertThat(service.aggregateInvoices(patient, Date.valueOf("2026-01-01"), Date.valueOf("2025-01-01"))
+                .invoices()).isEmpty();
+    }
+
+    private String baselinePdfText(PatientEndYearStatementService.Result result) throws Exception {
+        var summary = result.summary();
+        var parameters = new java.util.HashMap<String, Object>();
+        parameters.put("patientId", summary.getPatientNo());
+        parameters.put("patientName", summary.getPatientName());
+        parameters.put("hin", summary.getHin());
+        parameters.put("address", summary.getAddress());
+        parameters.put("phone", summary.getPhone());
+        parameters.put("fromDate", "2025-01-01");
+        parameters.put("toDate", "2025-12-31");
+        parameters.put("invoiceCount", summary.getCount());
+        parameters.put("totalInvoiced", summary.getInvoiced());
+        parameters.put("totalPaid", summary.getPaid());
+        try (var input = getClass().getResourceAsStream("/jasper-5692-baseline/end_year_statement_report.jrxml");
+             var sub = getClass().getResourceAsStream("/jasper-5692-baseline/end_year_statement_subreport.jrxml")) {
+            var report = net.sf.jasperreports.engine.JasperCompileManager.compileReport(input);
+            parameters.put("SUBREPORT", net.sf.jasperreports.engine.JasperCompileManager.compileReport(sub));
+            var print = entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+                try { return net.sf.jasperreports.engine.JasperFillManager.fillReport(report, parameters, connection); }
+                catch (net.sf.jasperreports.engine.JRException ex) { throw new java.sql.SQLException(ex); }
+            });
+            try (var pdf = Loader.loadPDF(net.sf.jasperreports.engine.JasperExportManager.exportReportToPdf(print))) {
+                return new PDFTextStripper().getText(pdf);
+            }
+        }
+    }
+
     private String pdfText(PatientEndYearStatementService.Result result) throws Exception {
         var response = new MockHttpServletResponse();
-        service.writePdfResponse(response, "statement", result.summary(), "2025-01-01", "2025-12-31");
+        service.writePdfResponse(response, "statement", result, "2025-01-01", "2025-12-31");
         byte[] bytes = response.getContentAsByteArray();
         assertThat(response.getContentType()).isEqualTo("application/pdf");
         assertThat(response.getContentLength()).isEqualTo(bytes.length);

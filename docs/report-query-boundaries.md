@@ -60,10 +60,34 @@ empty-caption fallback for database failures.
 
 ## Jasper and remaining legacy APIs
 
-`printLabDaySheet2Action` and `PatientEndYearStatementService` retain managed
-connections with try-with-resources. Their Jasper templates execute embedded
-queries, so removing the connection requires a separately reviewed template and
-JRDataSource/projection conversion. This change does not replace that contract.
+The bundled lab/billing day sheets and patient end-year statement use
+`FixedJasperReportDao` detached projections and explicit `FixedJasperDataSources`.
+The fixed templates contain no SQL or `REPORT_CONNECTION`. The statement loads
+headers and items in one repeatable-read transaction; HTML totals and PDF details
+use the same result. Blank statement date endpoints use optional bound predicates.
+Patient lookup retains its writable transaction for demographic-access audit writes.
+PDF methods suspend ambient transactions and render without database access.
+
+Both downloads render to owner-only temporary files, validate the PDF signature,
+and set headers only after generation succeeds. Files are removed on every exit;
+output/cleanup failures propagate. Day sheets preserve `NoPages` with HTTP 204 and
+no PDF body when no rows match; the statement retains its zero-total header/footer.
+The day-sheet query retains date-only selection across all providers/statuses and
+has no added ORDER BY; its historic row order is not guaranteed by SQL.
+
+The administrator-installed `${user.home}/Addresslabel.xml` override retains its
+original precedence and arbitrary embedded SQL through the package-private
+`ConfiguredJasperTemplateRenderer` managed JDBC boundary. It is explicitly outside
+the fixed query contract: changing its query to a fixed typed selection would
+silently change the report. Override compilation/query/export failures propagate;
+there is no automatic fallback after an override fails. Its SQL is never executed
+through the clinical EntityManager. `printLabDaySheet2Action` owns no JDBC resources.
+Other configured-report boundaries and Query by Example's restricted account are
+unchanged.
+
+Test-only baseline templates in `src/test/resources/jasper-5692-baseline/` are copied
+from release commit `e0601ced004c38040e6ef293e4b3f24fc43826d3` solely for synthetic
+JDBC-versus-typed rendered-output comparisons; they are not packaged in the WAR.
 
 `LookupDao.runProcedure` had no production callers and is removed rather than
 retaining an untyped routine-name/string-array execution API. A future routine

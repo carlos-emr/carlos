@@ -5580,6 +5580,23 @@
       "fixtures": "Owns a patient, two PDFs (rows and files) and the refiled copy, all removed. Snapshots and restores the test provider's edoc_browser_in_document_report preference, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "report-fixed-jasper",
+      "script": "scripts/report-fixed-jasper-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD"
+      ],
+      "notes": "Both typed fixed Jasper PDF templates, explicit empty-result response, malformed-date error, complete output and unchanged appointment status (#5692). Requires pdftotext.",
+      "fixtures": "Owns one patient and one appointment in 2091 with marker/id-scoped cleanup; no shared clinical fixtures."
+    },
+    {
       "name": "report-daysheet-labs",
       "script": "scripts/report-daysheet-labs-playwright-checks.js",
       "tiers": [
