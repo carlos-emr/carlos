@@ -96,17 +96,7 @@ public final class FhirJsonCompatibility {
         for (int index = array.size() - 1; index >= 0; index--) {
             JsonNode item = array.get(index);
             if (isBlankText(item)) {
-                JsonNode slot = metadata == null ? null : metadata.get(index);
-                // Only this value's id/extension justifies retaining a null placeholder.
-                // A null/null pair would decode as an extra empty FHIR repetition.
-                if (slot != null && !slot.isNull()) {
-                    array.set(index, JSON.nullNode());
-                } else {
-                    array.remove(index);
-                    if (metadata != null) {
-                        metadata.remove(index);
-                    }
-                }
+                omitBlankArrayValue(array, metadata, index);
                 changed = true;
             } else {
                 changed |= omitBlankPrimitives(item);
@@ -120,6 +110,20 @@ public final class FhirJsonCompatibility {
             changed = true;
         }
         return changed;
+    }
+
+    private static void omitBlankArrayValue(ArrayNode array, ArrayNode metadata, int index) {
+        JsonNode slot = metadata == null ? null : metadata.get(index);
+        // Only this value's id/extension justifies retaining a null placeholder.
+        // A null/null pair would decode as an extra empty FHIR repetition.
+        if (slot != null && !slot.isNull()) {
+            array.set(index, JSON.nullNode());
+            return;
+        }
+        array.remove(index);
+        if (metadata != null) {
+            metadata.remove(index);
+        }
     }
 
     private static boolean allNull(ArrayNode array) {
