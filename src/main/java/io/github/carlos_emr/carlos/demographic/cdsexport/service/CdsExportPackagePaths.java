@@ -32,6 +32,19 @@ import java.util.Locale;
 public final class CdsExportPackagePaths {
     private List<String> previous;
     public byte[] accept(String relative) throws IOException {
+        List<String> key = canonicalParts(relative);
+        if (previous != null) {
+            int common = 0; while (common < Math.min(previous.size(), key.size())
+                    && previous.get(common).equals(key.get(common))) common++;
+            if (common == previous.size() || common == key.size()
+                    || previous.get(common).compareTo(key.get(common)) >= 0) {
+                throw new IOException("CDS_EXPORT_PACKAGE_PATH_COLLISION_OR_ORDER");
+            }
+        }
+        previous = key; return relative.getBytes(StandardCharsets.UTF_8);
+    }
+    /** Same component collation for encrypted external sorting and final collision/order checks. */
+    static List<String> canonicalParts(String relative) throws IOException {
         if (relative == null || relative.isEmpty() || relative.length() > 8192 || relative.startsWith("/")
                 || relative.endsWith("/") || relative.indexOf('\\') >= 0
                 || relative.codePoints().anyMatch(c -> Character.isISOControl(c) || c >= 0xd800 && c <= 0xdfff
@@ -43,16 +56,7 @@ public final class CdsExportPackagePaths {
                 || p.endsWith(".") || !p.equals(p.strip()) || p.matches("(?i)(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\..*)?"))) {
             throw new IOException("CDS_EXPORT_PACKAGE_PATH_INVALID");
         }
-        List<String> key = parts.stream().map(p -> Normalizer.normalize(p, Normalizer.Form.NFC).toLowerCase(Locale.ROOT)).toList();
-        if (previous != null) {
-            int common = 0; while (common < Math.min(previous.size(), key.size())
-                    && previous.get(common).equals(key.get(common))) common++;
-            if (common == previous.size() || common == key.size()
-                    || previous.get(common).compareTo(key.get(common)) >= 0) {
-                throw new IOException("CDS_EXPORT_PACKAGE_PATH_COLLISION_OR_ORDER");
-            }
-        }
-        previous = key; byte[] bytes = relative.getBytes(StandardCharsets.UTF_8);
-        if (bytes.length > 65535) throw new IOException("CDS_EXPORT_PACKAGE_PATH_INVALID"); return bytes;
+        if (relative.getBytes(StandardCharsets.UTF_8).length > 65535) throw new IOException("CDS_EXPORT_PACKAGE_PATH_INVALID");
+        return parts.stream().map(p -> Normalizer.normalize(p, Normalizer.Form.NFC).toLowerCase(Locale.ROOT)).toList();
     }
 }

@@ -47,7 +47,7 @@ class CdsExportPatientDocumentServiceUnitTest {
         assertThat(result.validation().xmlSha256()).isEqualTo(result.xml().plaintextSha256());
         assertThat(result.attachments()).isEmpty(); assertThat(f.members()).hasSize(prior.size() + 2);
         try (var audit = f.store.open(result.reconciliation())) {
-            assertThat(new String(audit.readAllBytes(), StandardCharsets.UTF_8)).contains("nativeId", "\"expected\":1", "\"emitted\":1");
+            assertThat(new String(audit.readAllBytes(), StandardCharsets.UTF_8)).contains("nativeId", "outputDigest", "\"expected\":1", "\"emitted\":1");
         }
         verify(f.captures).authorizeCapturedSources(eq(f.lease), eq(f.patient), eq(f.tables), eq(f.source.capture()), eq(f.control));
         assertThat(result.toString()).isEqualTo("CdsExportPatientDocument[protected]");

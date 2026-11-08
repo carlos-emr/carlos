@@ -128,6 +128,7 @@ public class CdsExportPatientDocumentService {
                 active.set(false);
                 if (failed.get() || !receipts.equals(dispositions.keySet()) || !retainedFields.equals(expected.retainedFields())) invalid();
                 for (var owner : attachmentOwners.values()) if (!receipts.contains(owner)) invalid();
+                for (var disposition : dispositions.values()) line(audit, disposition, auditBytes, bounds.indexBytes());
                 var coverage = new CdsExportCoverageValidator().validate(expected.sourceManifestSha256(), expected.identities().iterator(),
                         dispositions.values().iterator(), bounds.indexRows(), control::checkpoint);
                 if (!coverage.sourceCoverageComplete()) invalid();
