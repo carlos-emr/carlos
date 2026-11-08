@@ -144,9 +144,16 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
      * Creates a Document entity.
      */
     private Document createDocument(String doctype, String creator, char status) {
+        return createDocument(doctype, "Test document", creator, status);
+    }
+
+    /**
+     * Creates a Document entity with the given description.
+     */
+    private Document createDocument(String doctype, String docdesc, String creator, char status) {
         Document doc = new Document();
         doc.setDoctype(doctype);
-        doc.setDocdesc("Test document");
+        doc.setDocdesc(docdesc);
         doc.setDocfilename("test.pdf");
         doc.setDoccreator(creator);
         doc.setResponsible(creator);
@@ -668,6 +675,67 @@ public class InboxResultsDaoIntegrationTest extends CarlosTestBase {
                             String.valueOf(acknowledgedLastNight), String.valueOf(acknowledgedLastYear));
             assertThat(bounded).extracting(result -> result.segmentID)
                     .containsExactlyInAnyOrder(String.valueOf(acknowledgedThisMorning), String.valueOf(acknowledgedAtMidnight));
+        }
+    }
+
+    /**
+     * Every Inbox view shows a document's type in its Discipline column, as clinicians sort by it
+     * (#5685). The row carries the type as its discipline and the saved description
+     * ({@code document.docdesc}) as its description. Before, the column showed the type in six of
+     * the query shapes and the description in the other two, depending only on which view was
+     * open, and the discipline was the routing marker "DOC". A document with no type was worse:
+     * mapping the null type threw, and the catch-all ended the page there, dropping that row and
+     * every row after it.
+     */
+    @Nested
+    @DisplayName("populateDocumentResultsData document type and description")
+    @Tag("read")
+    class PopulateDocumentResultsDataDescription {
+
+        private int routeDocument(int moduleId, String doctype, String docdesc) {
+            Document doc = createDocument(doctype, docdesc, PROVIDER_NO, 'A');
+            createCtlDocument("demographic", moduleId, doc.getDocumentNo());
+            createProviderLabRouting(PROVIDER_NO, doc.getDocumentNo(), "DOC", "N");
+            entityManager.flush();
+            return doc.getDocumentNo();
+        }
+
+        /**
+         * The same ten shapes as the acknowledged-since bound: the provider's whole list of
+         * patient documents and of unmatched ones, one patient, a name search and the unmatched
+         * view, each with labs and documents mixed and separate. Together they reach every query
+         * the method builds. Empty and whitespace-only types and descriptions are returned as
+         * none and must not truncate the list. Nonblank text, including surrounding spaces and
+         * literal markup, must be returned unchanged.
+         */
+        @ParameterizedTest(name = "{0}, mixLabsAndDocs={1}")
+        @CsvSource({"provider,true", "provider,false", "providerUnmatched,true", "providerUnmatched,false",
+                "patient,true", "patient,false", "nameSearch,true", "nameSearch,false", "unmatched,true", "unmatched,false"})
+        @DisplayName("should list each document with its type as discipline and its saved description")
+        void shouldListDocumentTypeAndSavedDescription_inEveryInboxQueryShape(String shape, boolean mixLabsAndDocs) {
+            int moduleId = "unmatched".equals(shape) || "providerUnmatched".equals(shape) ? -1 : demoId;
+            int described = routeDocument(moduleId, "lab", "FAKE CT head report");
+            int untyped = routeDocument(moduleId, null, "FAKE referral letter");
+            int undescribed = routeDocument(moduleId, "consult", "");
+            int whitespaceDescription = routeDocument(moduleId, "consult", " \t ");
+            int literalDescription = routeDocument(moduleId, "consult", "  FAKE <report> & follow-up  ");
+            int blankType = routeDocument(moduleId, " \t ", "FAKE discharge note");
+            String demographicNo = "patient".equals(shape) ? String.valueOf(demoId) : "unmatched".equals(shape) ? "0" : null;
+            String lastName = "nameSearch".equals(shape) ? "Patient" : "";
+
+            List<LabResultData> result = inboxResultsDao.populateDocumentResultsData(
+                    PROVIDER_NO, demographicNo, "", lastName, "", "N",
+                    false, null, null, mixLabsAndDocs, null, null, null, null);
+
+            assertThat(result).extracting(row -> row.segmentID, row -> row.discipline, row -> row.description)
+                    .containsExactlyInAnyOrder(
+                            tuple(String.valueOf(described), "lab", "FAKE CT head report"),
+                            tuple(String.valueOf(untyped), null, "FAKE referral letter"),
+                            tuple(String.valueOf(undescribed), "consult", null),
+                            tuple(String.valueOf(whitespaceDescription), "consult", null),
+                            tuple(String.valueOf(literalDescription), "consult", "  FAKE <report> & follow-up  "),
+                            tuple(String.valueOf(blankType), null, "FAKE discharge note"));
+            assertThat(result).allSatisfy(row -> assertThat(row.isDocument()).isTrue());
         }
     }
 
