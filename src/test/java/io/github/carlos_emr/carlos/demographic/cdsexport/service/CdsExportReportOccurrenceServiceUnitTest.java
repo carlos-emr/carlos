@@ -37,10 +37,10 @@ class CdsExportReportOccurrenceServiceUnitTest {
     private CdsReportNativeDto prepared;
     private CdsReportNativeDto.Variant variant;
     @BeforeEach void setup() {
-        document = new HashMap<>(Map.of("document_no", "7", "doctype", "CDS", "status", "A", "docfilename", "original.txt", "docClass", "Consultation", "contenttype", "text/plain;charset=UTF-8", "cds_content_precision", "UNKNOWN", "docdesc", "Imported report", "abnormal", "0", "public1", "0")); document.put("restrictToProgram", "0");
+        document = new HashMap<>(Map.of("document_no", "7", "doctype", "CDS", "status", "A", "docfilename", "original.txt", "docClass", "Consultant Report", "contenttype", "text/plain;charset=UTF-8", "cds_content_precision", "UNKNOWN", "docdesc", "Imported report", "abnormal", "0", "public1", "0")); document.put("restrictToProgram", "0");
         link = new HashMap<>(Map.of("document_no", "7", "module", "demographic", "module_id", "27", "status", "A"));
         variant = new CdsReportNativeDto.Variant("embedded", "txt", "text/plain;charset=UTF-8", "a".repeat(64), 12, false, List.of());
-        prepared = new CdsReportNativeDto(Map.of("Class", "Consultation", "Format", "Text"), List.of(variant), CdsTemporalDto.unknown(), CdsTemporalDto.unknown(), CdsTemporalDto.unknown());
+        prepared = new CdsReportNativeDto(Map.of("Class", "Consultant Report", "Format", "Text"), List.of(variant), CdsTemporalDto.unknown(), CdsTemporalDto.unknown(), CdsTemporalDto.unknown());
     }
     private void bind() throws IOException { CdsExportReportOccurrenceService.bind(new CdsExportCapturedTextRowDto("document", CdsExportPatientTableSourceReader.key(7), document), new CdsExportCapturedTextRowDto("ctl_document", CdsExportPatientTableSourceReader.key(7), link), prepared, variant, "original.txt", 27); }
     @Test void shouldBindOriginalPreparedMetadata_withoutInventingSourceTiming() { assertThatCode(this::bind).doesNotThrowAnyException(); }

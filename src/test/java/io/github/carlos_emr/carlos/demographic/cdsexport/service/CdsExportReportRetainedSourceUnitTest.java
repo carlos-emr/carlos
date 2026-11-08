@@ -51,7 +51,7 @@ class CdsExportReportRetainedSourceUnitTest {
         values = mock(CdsExportRetainedSectionWriter.Values.class);
         when(values.text(any())).thenAnswer(call -> new StringReader(texts.get(call.getArgument(0, CdsExportRetainedFieldDto.class).id())));
         when(values.binary(any())).thenAnswer(call -> new ByteArrayInputStream(binaries.get(call.getArgument(0, CdsExportRetainedFieldDto.class).id())));
-        scalar("Format", "Text"); scalar("Class", "Consultation");
+        scalar("Format", "Text"); scalar("Class", "Consultant Report");
     }
     @Test void shouldBindLargeUnicodeText_andPreserveEverySourceField() throws Exception {
         String text = "Clinical 漢字 😀\n".repeat(6000); embedded(text); var result = read();

@@ -319,6 +319,9 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
             try (Connection raw = nodeOne.openUnpooledCdsMaintenanceConnection(); Statement kill = raw.createStatement()) {
                 kill.execute("KILL CONNECTION " + previous.connectionId());
             }
+            // KILL acknowledges the request before MariaDB necessarily releases GET_LOCK.
+            // Observe that release before testing the independent admission-row drain.
+            awaitAdvisoryRelease();
             Future<CdsImportMaintenanceService.Owner> takeover = worker.submit(() -> acquireOnly(second));
             assertBlocked(takeover);
             unit.commit();
@@ -790,6 +793,21 @@ class CdsImportMaintenanceMariaDbIntegrationTest {
     }
     private static void assertBlocked(Future<?> future) {
         assertThatThrownBy(() -> future.get(200, TimeUnit.MILLISECONDS)).isInstanceOf(TimeoutException.class);
+    }
+    private void awaitAdvisoryRelease() throws SQLException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        try (Connection raw = nodeOne.openUnpooledCdsMaintenanceConnection();
+                var query = raw.prepareStatement("SELECT IS_USED_LOCK(?)")) {
+            query.setQueryTimeout(2); query.setString(1, nodeOne.getCdsAdmissionState().lockName());
+            while (true) {
+                try (var rows = query.executeQuery()) {
+                    assertThat(rows.next()).isTrue(); if (rows.getObject(1) == null) return;
+                }
+                if (System.nanoTime() >= deadline) throw new AssertionError("Killed maintenance owner retained its advisory lock");
+                java.util.concurrent.locks.LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(10));
+                if (Thread.currentThread().isInterrupted()) throw new AssertionError("Advisory-release observation interrupted");
+            }
+        }
     }
     private String value() throws SQLException {
         try (Connection raw = nodeOne.openUnpooledCdsMaintenanceConnection(); Statement sql = raw.createStatement();

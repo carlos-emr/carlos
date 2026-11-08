@@ -299,7 +299,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
     }
     @Test void shouldReadOriginalSealedReportRepresentations_andRequireTheirExactIdentity() throws Exception {
         var variant = new CdsReportNativeDto.Variant("embedded", "txt", "text/plain;charset=UTF-8", "a".repeat(64), 17, false, List.of());
-        var value = new CdsReportNativeDto(Map.of("Format", "Text", "Class", "Consultation"), List.of(variant), CdsTemporalDto.unknown(), CdsTemporalDto.unknown(), CdsTemporalDto.unknown());
+        var value = new CdsReportNativeDto(Map.of("Format", "Text", "Class", "Consultant Report"), List.of(variant), CdsTemporalDto.unknown(), CdsTemporalDto.unknown(), CdsTemporalDto.unknown());
         var evidence = reader.report(fixture(CdsReportNativeDto.class, JSON.writeValueAsString(value), "Reports"), run + ":" + unit);
         assertThat(evidence.value()).isEqualTo(value);
         assertThatThrownBy(() -> reader.report(fixture(CdsReportNativeDto.class, JSON.writeValueAsString(value), "LaboratoryResults"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
