@@ -1350,3 +1350,10 @@ only legacy or unknown laboratory routes cannot appear empty and export silently
 Other patients' routes remain outside the scope. Sixty-nine affected checks passed,
 including twenty actual MariaDB projection cases. These source-closure changes
 still require coordinated packaging and do not qualify clinical publication.
+
+
+Clinical job planning now refuses conflicting explicit import/export clinic zones,
+including invalid appointment-zone settings, before capture or package creation.
+This keeps appointment interpretation and supporting-file calendar calculations
+on the same captured zone/rules identity. Twenty-five affected checks passed;
+configuration remains lazy so metadata recovery is available independently.

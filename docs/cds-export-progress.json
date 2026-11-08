@@ -758,5 +758,11 @@
     "populatedOrWhitespaceLegacyCarrierRequiresReview": true,
     "exactHandoffRequired": true,
     "preservedAllCategoryImportRerunPending": true
+  },
+  "clinicalZoneCoordination": {
+    "state": "FOCUSED_COMPONENT_VERIFIED",
+    "checks": 25,
+    "conflictingImportExportZonesRefused": true,
+    "metadataSettingsRemainLazy": true
   }
 }

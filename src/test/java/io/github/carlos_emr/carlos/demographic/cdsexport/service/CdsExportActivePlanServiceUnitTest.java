@@ -55,4 +55,17 @@ class CdsExportActivePlanServiceUnitTest {
         var settings = settings(); var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test"); settings.setProperty("cds.export.maxPatients", "0");
         assertThat(service.resolve().archive().patients()).isEqualTo(100_000);
     }
+    @Test void shouldBindSupportingFilesAndAppointmentsToTheSameConfiguredClinicZone() throws Exception {
+        var settings = settings(); settings.setProperty("cds.import.clinicalZone", " America/Toronto ");
+        var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");
+        assertThat(service.resolve().clinicalZone().getId()).isEqualTo("America/Toronto");
+        settings.setProperty("cds.import.clinicalZone", "America/Vancouver");
+        assertThatThrownBy(() -> new CdsExportActivePlanService(settings, () -> "2026.09.0-test").resolve())
+                .hasMessage("CDS_EXPORT_CLINICAL_ZONE_MISMATCH");
+        settings.setProperty("cds.import.clinicalZone", "invalid/zone");
+        assertThatThrownBy(() -> new CdsExportActivePlanService(settings, () -> "2026.09.0-test").resolve())
+                .hasMessage("CDS_EXPORT_CLINICAL_ZONE_INVALID");
+        assertThat(service.resolve().clinicalZone().getId()).isEqualTo("America/Toronto");
+    }
+
 }

@@ -42,7 +42,12 @@ public class CdsExportActivePlanService {
     public CdsExportActivePlanService(@Qualifier("cdsExportProperties") Properties settings) { this(settings, () -> BuildInfo.getInstance().getVersion()); }
     CdsExportActivePlanService(Properties settings, Supplier<String> version) { this.settings.putAll(Objects.requireNonNull(settings)); this.version = Objects.requireNonNull(version); }
     public Plan resolve() throws IOException {
-        var zone = CdsExportClinicalZone.capture(settings.getProperty("cds.export.clinicalZone", "")); String build = version.get();
+        var zone = CdsExportClinicalZone.capture(settings.getProperty("cds.export.clinicalZone", ""));
+        String importZone = settings.getProperty("cds.import.clinicalZone", "").trim();
+        if (!importZone.isEmpty() && !zone.sha256().equals(CdsExportClinicalZone.capture(importZone).sha256())) {
+            throw new IOException("CDS_EXPORT_CLINICAL_ZONE_MISMATCH");
+        }
+        String build = version.get();
         if (build == null || build.isBlank() || build.length() > 128 || !CdsExportNativeFieldAssessments.legal(build, 128) || build.contains("${")
                 || build.codePoints().anyMatch(Character::isISOControl)) throw new IOException("CDS_EXPORT_BUILD_VERSION_UNAVAILABLE");
         var bounds = new CdsExportClinicalOccurrenceService.Bounds(number("maxCapturedFields", 1_000_000, 1, 100_000_000),
