@@ -174,7 +174,24 @@ public class CdsExportClinicalPackageService {
             owned.add(archive.archive());
             if (archive.entries() != expectedMembers) invalid();
             authorizeCohort(lease, tables, files.values(), control, patients); disclosure.resolveAccepted(lease.document(), Instant.now()); control.checkpoint();
-            var result = new Prepared(lease.runId(), lease.epoch(), cohort.plaintextSha256(), patients, metadata, archive, members.member(), readMe, eventLog[0], authorization);
+            var descriptors = owned.stream().sorted(Comparator.comparing(CdsExportStagedFileDto::memberId)).toList();
+            var ownership = store.stage("ATTEMPT_MEMBERS", output -> {
+                line(output, new OwnershipHeader("OWNERSHIP", 1, lease.runId(), lease.epoch(), cohort.plaintextSha256(), descriptors.size()));
+                String previous = null;
+                for (var member : descriptors) {
+                    control.checkpoint(); if (member.memberId().equals(previous)) invalid(); line(output, member); previous = member.memberId();
+                }
+                line(output, new OwnershipEnd("END", descriptors.size()));
+            });
+            owned.add(ownership);
+            try (var input = store.open(ownership)) {
+                var lines = new CdsExportJsonLines(input, 1 << 20, control::checkpoint);
+                if (!same(new OwnershipHeader("OWNERSHIP", 1, lease.runId(), lease.epoch(), cohort.plaintextSha256(), descriptors.size()), lines.next())) invalid();
+                for (var member : descriptors) if (!same(member, lines.next())) invalid();
+                if (!same(new OwnershipEnd("END", descriptors.size()), lines.next()) || lines.next() != null) invalid();
+            }
+            authorizeCohort(lease, tables, files.values(), control, patients); disclosure.resolveAccepted(lease.document(), Instant.now()); control.checkpoint();
+            var result = new Prepared(lease.runId(), lease.epoch(), cohort.plaintextSha256(), patients, metadata, archive, members.member(), readMe, eventLog[0], authorization, ownership);
             complete = true; return result;
         } catch (IOException | RuntimeException | Error failure) { primary = failure; throw failure; }
         finally {
@@ -200,6 +217,8 @@ public class CdsExportClinicalPackageService {
     private record ScopeHeader(String kind, int protocol, String runId, long epoch, String cohortSha256, String compatibilityDigest, long patients, Set<String> tables) { }
     private record ScopePatient(String kind, int patient, String sourceManifestSha256, List<CdsExportNoteAccessDto> notes) { }
     private record ScopeEnd(String kind, long patients) { }
+    private record OwnershipHeader(String kind, int protocol, String runId, long epoch, String cohortSha256, long files) { }
+    private record OwnershipEnd(String kind, long files) { }
     private static boolean same(Object expected, com.fasterxml.jackson.databind.JsonNode actual) throws IOException {
         return actual != null && JSON.readTree(JSON.writeValueAsBytes(expected)).equals(actual);
     }
@@ -231,11 +250,11 @@ public class CdsExportClinicalPackageService {
     public static final class Prepared {
         private final String runId, cohortSha256; private final long epoch, patients;
         private final CdsExportPackageMetadataDto metadata; private final CdsExportPackageDto archive;
-        private final CdsExportStagedFileDto members, readMe, eventLog, authorization;
+        private final CdsExportStagedFileDto members, readMe, eventLog, authorization, ownership;
         private Prepared(String run, long epoch, String cohort, long patients, CdsExportPackageMetadataDto metadata,
-                CdsExportPackageDto archive, CdsExportStagedFileDto members, CdsExportStagedFileDto readMe, CdsExportStagedFileDto eventLog, CdsExportStagedFileDto authorization) {
+                CdsExportPackageDto archive, CdsExportStagedFileDto members, CdsExportStagedFileDto readMe, CdsExportStagedFileDto eventLog, CdsExportStagedFileDto authorization, CdsExportStagedFileDto ownership) {
             runId = run; this.epoch = epoch; cohortSha256 = cohort; this.patients = patients; this.metadata = metadata;
-            this.archive = archive; this.members = members; this.readMe = readMe; this.eventLog = eventLog; this.authorization = authorization;
+            this.archive = archive; this.members = members; this.readMe = readMe; this.eventLog = eventLog; this.authorization = authorization; this.ownership = ownership;
         }
         public String runId() { return runId; }
         public long epoch() { return epoch; }
@@ -247,6 +266,7 @@ public class CdsExportClinicalPackageService {
         public CdsExportStagedFileDto readMe() { return readMe; }
         public CdsExportStagedFileDto eventLog() { return eventLog; }
         public CdsExportStagedFileDto authorization() { return authorization; }
+        public CdsExportStagedFileDto ownership() { return ownership; }
         @Override public String toString() { return "CdsExportPreparedClinicalPackage[protected]"; }
     }
     private static void invalid() throws IOException { throw new IOException("CDS_EXPORT_CLINICAL_PACKAGE_INVALID"); }

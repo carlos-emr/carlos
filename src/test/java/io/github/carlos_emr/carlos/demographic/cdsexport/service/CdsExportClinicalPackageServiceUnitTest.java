@@ -84,10 +84,18 @@ class CdsExportClinicalPackageServiceUnitTest {
             assertThat(lines.next().path("patient").asInt()).isEqualTo(27);
             assertThat(lines.next().path("kind").asText()).isEqualTo("END"); assertThat(lines.next()).isNull();
         }
+        try (var input = fixture.store.open(prepared.ownership())) {
+            var lines = new CdsExportJsonLines(input, 1 << 20, () -> {}); var header = lines.next();
+            assertThat(header.path("kind").asText()).isEqualTo("OWNERSHIP"); long count = header.path("files").asLong();
+            var ids = new TreeSet<String>();
+            for (long i = 0; i < count; i++) { var item = lines.next(); assertThat(ids.add(item.path("memberId").asText())).isTrue(); }
+            assertThat(ids).contains(prepared.archive().archive().memberId(), prepared.authorization().memberId()).doesNotContain(fixture.cohort.memberId(), prepared.ownership().memberId());
+            assertThat(count).isEqualTo(fixture.members().size() - 2L); assertThat(lines.next().path("kind").asText()).isEqualTo("END"); assertThat(lines.next()).isNull();
+        }
         var order = inOrder(ledger); order.verify(ledger).status(fixture.run); order.verify(ledger).cohort(fixture.lease);
         order.verify(ledger).phase(fixture.lease, CdsExportState.RECONCILING); order.verify(ledger).phase(fixture.lease, CdsExportState.SERIALIZING);
         order.verify(ledger).phase(fixture.lease, CdsExportState.VALIDATING); order.verify(ledger).phase(fixture.lease, CdsExportState.PACKAGING);
-        verify(fixture.captures, times(2)).authorizeSources(fixture.lease, fixture.patient, fixture.tables, fixture.control);
+        verify(fixture.captures, times(3)).authorizeSources(fixture.lease, fixture.patient, fixture.tables, fixture.control);
         assertThat(prepared.toString()).isEqualTo("CdsExportPreparedClinicalPackage[protected]");
     }
     @Test void shouldRefuseAnUnfinishedCohort_evenWhenEveryReturnedPatientHasValidXml() throws Exception {
