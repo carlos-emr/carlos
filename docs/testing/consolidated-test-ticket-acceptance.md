@@ -55,7 +55,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5808](https://github.com/carlos-emr/carlos/issues/5808) | test(playwright): round-trip image-backed eForms through ZIP export and import | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5809](https://github.com/carlos-emr/carlos/issues/5809) | test(playwright): verify eForm page exclusion in deployed PDF output | Native ON/BC clean, form-wrapped and body-direct layouts each pass new and saved-instance PDF output, actual renderer receipts, independently checked page/text/geometry/ink and strict clinical bounds. Native interstitial approval preserves its exact saved revision without an extra save. Exact SQL/download/server-PDF cleanup and refusal controls pass; final full qualification remains pending. |
 | [#5810](https://github.com/carlos-emr/carlos/issues/5810) | test(playwright): cover stale tickler selections during filtering and pagination | Native ON/BC preselected search/status/assignee/page changes, held real list responses, inert pending controls, Clear All, out-of-order completion, exact Complete/Delete POST IDs and task/history/control isolation all pass. Barrier delivery/disposal/route-removal failures are independently exercised. Exact owned cleanup passes; final full qualification remains pending. |
-| [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Native ON/BC 999/1000/1001-row boundaries, aggregate encoded and single streamed-cell character caps, genuine reporting-account timeout observed in MariaDB, explicit timeout guidance/cancellation, same-composer recovery and exact history/private INFO audit receipts pass. Twenty false-table/audit controls and existing QBE regressions pass; owned cleanup is clean. Temporary logging restoration and latest-target full qualification remain pending. |
 | [#5812](https://github.com/carlos-emr/carlos/issues/5812) | test(playwright): verify MRP tickler preference routes newly created tasks | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 
 ## Execution and review
@@ -545,3 +545,40 @@ clean teardown, with only #5823's encoded-query initiation failing. Their exact
 source digest is retained; the refused encoding variant's later stages remain
 unreached. QBE audit testing next uses a separately owned temporary INFO override;
 its restoration and full latest-target installed qualification remain pending.
+
+The fifth requested CodeRabbit full review finished on 2026-11-08 at 03:52 UTC
+for `78c0617d3f4` with no new inline findings. All 32 then-existing threads remain
+resolved. Its docstring advisory is still inconclusive (26.77% against an 80%
+threshold), with unsupported/file-limit skips; it is not claimed as a passed
+check or as a full independent review of later scope. Final documentation and
+scope review remain required.
+
+#5811's installed ON/BC retakes pass all seven budget/timeout/recovery stages,
+including a 600,000-character streamed value across reader chunks and genuine
+15-second database execution observed under `carlos_report`. Audit receipts are
+bound to the application class, INFO severity, exact provider/hash/length,
+outcome and visible row count; foreign, substituted or duplicate events cannot
+stand in. Both existing QBE validation/escaping/history/favourite workflows also
+pass. Twenty independent malformed-output/audit controls pass. Full Ubuntu Python
+CI after the target merge passes **354 tests**. The complete qualified Ubuntu
+Node run passes **7,481/7,481 cases in 527 files**, zero failures/skips/cancellations/
+TODO and unchanged test-source digests; the inventory is regenerated from it.
+See [the QBE budget inventory](query-by-example-budgets-inventory.md).
+
+The application WAR compiles/packages successfully from latest target
+`e0601ced004c38040e6ef293e4b3f24fc43826d3` (4,677 production and 2,621 test sources;
+Java execution is skipped by this build command). A local snapshot31 Debian pair
+is being assembled with the complete renderer and pinned DrugRef input. No newer
+installed-package result is claimed until installation and retakes complete.
+Fourteen other requested workflow additions plus umbrella/native database/vendor
+and repeated full qualification remain open.
+
+Snapshot31 packages are built from source `e0601ced004c38040e6ef293e4b3f24fc43826d3`:
+`carlos-emr_2026.09.0~snapshot31_amd64.deb` SHA-256
+`2b04bbe07c3ea46fd59f6c90aaeffd7c221054ff211207419a2e3691df526951` and
+`carlos-emr-drugref_2026.09.0~snapshot31_all.deb` SHA-256
+`e0b45d149824e3b5065cadeb21ec30fe7790d2003f0433b1ce462330a3bf4254`.
+Both include the complete pinned renderer/DrugRef inputs; no release component is
+skipped. Installation and new package-qualified retakes follow. Independent
+post-QBE audits show zero owned patients, extension/history rows or active
+reporting queries in both containers. All 68 manifest controls pass too.
