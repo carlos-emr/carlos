@@ -59,6 +59,7 @@ class OscarFhirResourceManagerImmunizationUnitTest extends CarlosUnitTestBase {
     @DisplayName("should attach extensions from the manager before mapping a detached prevention")
     void shouldAttachPreventionExts_whenMappingImmunizationById() {
         PreventionManager preventionManager = createAndRegisterMock(PreventionManager.class);
+        var projections = createAndRegisterMock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
         OscarFhirConfigurationManager configurationManager = mock(OscarFhirConfigurationManager.class);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(configurationManager.getLoggedInInfo()).thenReturn(loggedInInfo);
@@ -82,6 +83,7 @@ class OscarFhirResourceManagerImmunizationUnitTest extends CarlosUnitTestBase {
         Immunization<Prevention> immunization =
                 OscarFhirResourceManager.getImmunizationById(configurationManager, PREVENTION_ID);
 
+        verify(projections).requireSupported(7, java.util.Set.of("Immunizations"));
         assertThat(immunization).isNotNull();
         assertThat(immunization.getFhirResource().getLotNumber()).isEqualTo("LOT-9");
         verify(preventionManager).getPreventionExtByPrevention(loggedInInfo, PREVENTION_ID);

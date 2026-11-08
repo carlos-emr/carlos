@@ -60,6 +60,12 @@ class PrescriptionPdfServletUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(ProviderDao.class, mock(ProviderDao.class));
         registerMock(DemographicManager.class, mock(DemographicManager.class));
+        registerMock(PrescriptionPdfComposer.class, new PrescriptionPdfComposer(
+                (PrescriptionDao) mockedBeans.get(PrescriptionDao.class),
+                (DigitalSignatureManager) mockedBeans.get(DigitalSignatureManager.class),
+                (SecurityInfoManager) mockedBeans.get(SecurityInfoManager.class),
+                (ProviderDao) mockedBeans.get(ProviderDao.class),
+                (DemographicManager) mockedBeans.get(DemographicManager.class)));
     }
 
     @ParameterizedTest
@@ -112,7 +118,7 @@ class PrescriptionPdfServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPreserveMethodRefusal_whenFaxUsesGetWithInvalidSatelliteInput() throws Exception {
+    void shouldRefuseRetiredFaxEndpoint_whenGetHasInvalidSatelliteInput() throws Exception {
         MockHttpServletRequest request = printRequest();
         request.setParameter("__method", "oscarRxFax");
         request.setParameter("useSC", "true");
@@ -120,12 +126,12 @@ class PrescriptionPdfServletUnitTest extends CarlosUnitTestBase {
 
         servlet().service(request, response);
 
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
-        assertThat(response.getHeader("Allow")).isEqualTo("POST");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_GONE);
+        assertThat(response.getContentAsString()).contains("fax-failure", "Reload it");
     }
 
     @Test
-    void shouldPreserveSignatureRefusal_whenFaxHasInvalidSatelliteInput() throws Exception {
+    void shouldRefuseRetiredFaxEndpoint_whenPostHasInvalidSatelliteInput() throws Exception {
         MockHttpServletRequest request = printRequest();
         request.setMethod("POST");
         request.setParameter("__method", "oscarRxFax");
@@ -134,7 +140,8 @@ class PrescriptionPdfServletUnitTest extends CarlosUnitTestBase {
 
         servlet().service(request, response);
 
-        assertThat(response.getContentAsString()).contains("fax-failure", "not signed");
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_GONE);
+        assertThat(response.getContentAsString()).contains("fax-failure", "Reload it");
         assertThat(response.getErrorMessage()).isNull();
     }
 

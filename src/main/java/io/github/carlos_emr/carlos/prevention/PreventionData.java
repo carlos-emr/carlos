@@ -461,7 +461,8 @@ public class PreventionData {
         } catch (PreventionDatePrecisionException unsafeDate) {
             throw unsafeDate;
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            log.error("PREVENTION_SOURCE_UNAVAILABLE {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
+            throw new IllegalStateException("PREVENTION_SOURCE_UNAVAILABLE", e);
         }
         return list;
     }

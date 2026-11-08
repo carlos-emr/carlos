@@ -210,6 +210,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
     @DisplayName("should load request with associations when estimating request fields")
     void shouldLoadRequestWithAssociations_whenEstimatingRequestFields() {
         ConsultationRequest request = new ConsultationRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "id", 456);
         request.setDemographicId(123);
         request.setServiceId(10);
         request.setPatientWillBook(false);
@@ -276,6 +277,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
 
     private ConsultationRequest stubRequestForForm() {
         ConsultationRequest request = new ConsultationRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "id", 456);
         request.setDemographicId(123);
         request.setServiceId(10);
         Demographic demographic = new Demographic();

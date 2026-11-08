@@ -30,6 +30,9 @@ class EmailComposeAttachmentCompletenessUnitTest extends CarlosUnitTestBase {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
         injectDependency(manager, "securityInfoManager", security);
+        var ownership = mock(io.github.carlos_emr.carlos.documentManager.AttachmentOwnershipService.class);
+        when(ownership.allBelongToDemographic(any(), any(), any())).thenReturn(true);
+        injectDependency(manager, "attachmentOwnershipService", ownership);
         // A renderer that returns null must not silently remove a selected attachment.
         injectDependency(manager, "documentAttachmentManager", mock(DocumentAttachmentManager.class));
         injectDependency(manager, "formsManager", mock(FormsManager.class));
@@ -49,10 +52,10 @@ class EmailComposeAttachmentCompletenessUnitTest extends CarlosUnitTestBase {
             LoggedInInfo loggedInInfo, MockHttpServletRequest request) throws PDFGenerationException {
         String[] selected = {"42"};
         switch (type) {
-            case EFORM -> manager.prepareEFormAttachments(loggedInInfo, "", selected);
-            case DOC -> manager.prepareEDocAttachments(loggedInInfo, selected);
-            case LAB -> manager.prepareLabAttachments(loggedInInfo, selected);
-            case HRM -> manager.prepareHRMAttachments(loggedInInfo, selected);
+            case EFORM -> manager.prepareEFormAttachments(loggedInInfo, "", selected, 123);
+            case DOC -> manager.prepareEDocAttachments(loggedInInfo, selected, 123);
+            case LAB -> manager.prepareLabAttachments(loggedInInfo, selected, 123);
+            case HRM -> manager.prepareHRMAttachments(loggedInInfo, selected, 123);
             case FORM -> manager.prepareFormAttachments(request, new MockHttpServletResponse(), selected, 123);
             default -> throw new AssertionError("Unexpected test type");
         }

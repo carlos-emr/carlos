@@ -59,6 +59,9 @@ class EctDisplayRequestIsolationUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         security = createAndRegisterMock(SecurityInfoManager.class);
+        var displayPreferences = createAndRegisterMock(io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferenceResolver.class);
+        org.mockito.Mockito.lenient().when(displayPreferences.resolve(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferences.defaults());
         demographics = createAndRegisterMock(DemographicManager.class);
         templates = createAndRegisterMock(EncounterTemplateDao.class);
         groups = createAndRegisterMock(MeasurementGroupStyleDao.class);

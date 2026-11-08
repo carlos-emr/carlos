@@ -21,7 +21,9 @@ permissions:
 
 concurrency:
   group: cds-export-installed-${{ github.event.pull_request.number || github.run_id }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Preserve the running clinical proof and its bounded failure evidence. GitHub
+  # keeps only the latest pending revision in this group when another push arrives.
+  cancel-in-progress: false
 
 jobs:
   installed-export:

@@ -107,6 +107,7 @@ class AllergyServiceUnitTest extends CarlosUnitTestBase {
 
         inject("allergyManager", mockAllergyManager);
         inject("securityInfoManager", mockSecurityInfoManager);
+        service.setCdsLegacyProjectionService(mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class));
     }
 
     private void inject(String fieldName, Object value) throws Exception {

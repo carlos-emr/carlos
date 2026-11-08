@@ -104,12 +104,21 @@ class DemographicLoggedInInfoSessionGuard2ActionUnitTest extends CarlosWebTestBa
                 "io.github.carlos_emr.carlos.demographic.pageUtil.DeleteDemographicRelationship2Action",
                 "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action",
                 "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action",
-                "io.github.carlos_emr.carlos.demographic.pageUtil.ImportLogDownload2Action",
+                "io.github.carlos_emr.carlos.demographic.cdsimport.web.LegacyCdsImportLog2Action",
                 "io.github.carlos_emr.carlos.demographic.pageUtil.RourkeExport2Action"
         );
     }
 
     private ActionSupport instantiateAction(String actionClassName) throws Exception {
+        if (actionClassName.equals(io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action.class.getName())) {
+            return new io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action(mockSecurityInfoManager,
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class),
+                    org.mockito.Mockito.mock(org.springframework.transaction.PlatformTransactionManager.class));
+        }
+        if (actionClassName.equals(io.github.carlos_emr.carlos.demographic.cdsimport.web.LegacyCdsImportLog2Action.class.getName())) {
+            return new io.github.carlos_emr.carlos.demographic.cdsimport.web.LegacyCdsImportLog2Action(
+                    org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsWebService.class), mockSecurityInfoManager);
+        }
         return (ActionSupport) Class.forName(actionClassName).getDeclaredConstructor().newInstance();
     }
 }

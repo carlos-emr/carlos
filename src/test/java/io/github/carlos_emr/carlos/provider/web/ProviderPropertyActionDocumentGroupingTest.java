@@ -36,6 +36,8 @@ class ProviderPropertyActionDocumentGroupingTest {
         try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
             spring.when(() -> SpringUtils.getBean(UserPropertyDAO.class)).thenReturn(dao);
+            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferencePersister.class))
+                    .thenReturn(new io.github.carlos_emr.carlos.encounter.display.EchartDisplayPreferencePersister(dao));
 
             ProviderPropertyAction.updateOrCreateProviderProperties(request);
 

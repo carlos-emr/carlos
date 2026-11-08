@@ -113,6 +113,7 @@ class UserActivityFooterSessionUnitTest {
         request.setServletPath(path);
         var session = request.getSession();
         session.setMaxInactiveInterval(60);
+        session.setAttribute("user", "999997");
         session.setAttribute(LAST_ACTIVITY, lastActivity);
         var loggedIn = mock(LoggedInInfo.class);
         when(loggedIn.getLoggedInProviderNo()).thenReturn("999997");

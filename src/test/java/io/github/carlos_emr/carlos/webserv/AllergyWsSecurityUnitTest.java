@@ -67,6 +67,8 @@ class AllergyWsSecurityUnitTest {
     private static final int TEST_DEMOGRAPHIC_ID = 12345;
 
     private AllergyWs service;
+    private final io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections =
+            org.mockito.Mockito.mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class);
 
     @BeforeEach
     void setUp() {
@@ -77,6 +79,7 @@ class AllergyWsSecurityUnitTest {
             }
         };
 
+        service.setCdsLegacyProjectionService(projections);
         ReflectionTestUtils.setField(service, "allergyManager", allergyManager);
         ReflectionTestUtils.setField(service, "securityInfoManager", securityInfoManager);
     }

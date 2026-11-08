@@ -1452,7 +1452,7 @@ public class ConsultationManagerUnitTest extends CarlosUnitTestBase {
             request.setLetterheadAddress(text);
             request.setReasonForReferral(text);
             request.setStatusText(text);
-            when(mockConsultRequestDao.find(TEST_REQUEST_ID)).thenReturn(request);
+            when(mockConsultRequestDao.findWithAssociations(TEST_REQUEST_ID)).thenReturn(request);
             when(mockConsultationRequestExtDao.getConsultationRequestExts(TEST_REQUEST_ID))
                 .thenReturn(Collections.singletonList(createExt(1, TEST_REQUEST_ID, "legacyText", text)));
 

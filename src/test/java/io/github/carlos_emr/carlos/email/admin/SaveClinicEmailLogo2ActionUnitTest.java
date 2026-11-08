@@ -367,6 +367,7 @@ class SaveClinicEmailLogo2ActionUnitTest {
     // servlet multipart parser are fixtures. An error must stop before execute/save/audit.
     private String runUploadInterceptors(MultiPartRequestWrapper multipart) throws Exception {
         SaveClinicEmailLogo2Action action = spy(action());
+        doReturn(java.util.Locale.CANADA).when(action).getLocale();
         doReturn("Upload refused").when(action).getText(anyString(), any(String[].class));
         servletActionContext.when(ServletActionContext::getRequest).thenReturn(multipart);
         ActionInvocation invocation = mock(ActionInvocation.class);

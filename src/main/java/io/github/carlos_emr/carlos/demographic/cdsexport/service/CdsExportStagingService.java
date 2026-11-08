@@ -316,7 +316,8 @@ public final class CdsExportStagingService {
     }
     private SecretKey fileKey(byte[] header) throws IOException {
         try {
-            Mac derive = Mac.getInstance("HmacSHA256"); derive.init(master);
+            Mac derive = Mac.getInstance("HmacSHA256"); // NOPMD HardCodedCryptoKey -- JCA algorithm name; key material comes from the protected per-attempt master.
+            derive.init(master);
             derive.update("CARLOS-CDS-STAGE-KEY-1\n".getBytes(StandardCharsets.US_ASCII));
             derive.update(header, 8, 64);
             byte[] bytes = derive.doFinal();

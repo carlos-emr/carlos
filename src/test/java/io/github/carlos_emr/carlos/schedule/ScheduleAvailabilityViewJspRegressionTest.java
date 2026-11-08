@@ -76,8 +76,9 @@ class ScheduleAvailabilityViewJspRegressionTest {
                 .contains("provider-availability-link")
                 .contains("provider.appointmentProviderAdminDay.viewAvailability")
                 .contains("/schedule/FlipView?originalpage=")
-                .doesNotContain("name='flipview'")
-                .doesNotContain("goFilpView");
+                .contains("<label for=\"flipview<%=nProvider%>\" class=\"visually-hidden\">")
+                .contains("id=\"flipview<%=nProvider%>\"")
+                .doesNotContain("ondblclick=\"goFilpView");
     }
 
     /**

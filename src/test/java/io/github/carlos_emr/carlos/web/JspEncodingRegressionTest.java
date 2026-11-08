@@ -779,8 +779,9 @@ class JspEncodingRegressionTest {
 
         assertThat(displayRxRecordJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .containsPattern(carlosEncodePattern(
-                        "providerDao\\.getProviderName\\(drug\\.getProviderNo\\(\\)\\)", "html"))
+                .contains("SafeEncode.forHtmlContent(drug.getCdsCurrentness() == null")
+                .contains("? providerDao.getProviderName(drug.getProviderNo())")
+                .contains(": drug.getOutsideProviderName() == null ? \"Unknown source prescriber\" : drug.getOutsideProviderName()) %>")
                 .containsPattern(carlosEncodePattern("drug\\.getDosageDisplay\\(\\)", "html"))
                 .containsPattern(carlosEncodePattern("StringUtils\\.trimToEmpty\\(drug\\.getComment\\(\\)\\)", "html"))
                 .contains("${carlos:forHtml(pharmacy.name)}")

@@ -39,8 +39,7 @@ public class LegacyCdsImportLog2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager; this.web = web; }
     @Override public String execute() throws Exception {
         var request = ServletActionContext.getRequest(); var response = ServletActionContext.getResponse();
-        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
-                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        LoggedInInfo loggedInInfo = LoggedInInfo.requireLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }

@@ -62,7 +62,8 @@ class JdkEncodingCompatibilityUnitTest {
         assertThatThrownBy(() -> UtilMisc.encode64(null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> MsgCommxml.encode64(null)).isInstanceOf(NullPointerException.class);
         EmailLog email = new EmailLog();
-        assertThatThrownBy(() -> email.setBody(null)).isInstanceOf(NullPointerException.class);
+        email.setBody(null);
+        assertThat(email.getBody()).isNull();
     }
 
     @Test

@@ -154,7 +154,10 @@ jobs:
 
       - name: Run tests
         run: |
-          docker exec carlos-tomcat-dev bash -c "
+          # Native-file unit contracts need ancestry owned by the process or root;
+          # the host checkout is runner-owned. Keep the real trust checks intact.
+          docker exec carlos-tomcat-dev install -d -m 0700 /opt/cds-export-test-documents
+          docker exec -e JAVA_TOOL_OPTIONS=-Dcds.export.test.documentRoot=/opt/cds-export-test-documents carlos-tomcat-dev bash -c "
             echo '========================================='
             echo 'Running Tests (JUnit 5 with H2)'
             echo '========================================='

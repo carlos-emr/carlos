@@ -830,6 +830,7 @@ class AbstractWsPrivilegeUnitTest extends CarlosUnitTestBase {
         private final SecurityInfoManager securityInfoManager;
 
         private TestMeasurementWs(LoggedInInfo loggedInInfo, SecurityInfoManager securityInfoManager) {
+            setCdsLegacyProjectionService(mock(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService.class));
             this.loggedInInfo = loggedInInfo;
             this.securityInfoManager = securityInfoManager;
         }
