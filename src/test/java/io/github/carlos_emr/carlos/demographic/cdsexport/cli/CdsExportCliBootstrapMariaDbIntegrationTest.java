@@ -90,7 +90,11 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
                     context.getBean(org.springframework.transaction.PlatformTransactionManager.class));
             sourceRead.setReadOnly(true);
             sourceRead.setIsolationLevel(org.springframework.transaction.TransactionDefinition.ISOLATION_REPEATABLE_READ);
+            try (var held = context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceSnapshotService.class).acquire(() -> {})) {
             sourceRead.execute(status -> {
+                var catalogue = context.getBean(io.github.carlos_emr.carlos.commn.dao.CdsExportSourceCatalogueDao.class);
+                assertThat(catalogue.readSourceSchema().table()).isEqualTo("clinical_source_catalogue");
+                catalogue.requireUnclassifiedSourcesEmpty(27, () -> {});
                 var reader = context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicSourceReader.class);
                 try {
                     assertThat(new io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceSchemaValidator()
@@ -98,6 +102,7 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
                 } catch (java.io.IOException failed) { throw new java.io.UncheckedIOException(failed); }
                 return null;
             });
+            }
             assertThat(sql.queryForObject("select count(*) from provider where provider_no='989876'", Long.class)).isZero();
             String run = null;
             try (var spring = mockStatic(SpringUtils.class)) {

@@ -71,12 +71,19 @@ public class CdsExportNativeCaptureService {
     private final CdsExportStagingFactory stores;
     private final CdsExportRunDao clock;
     private final TransactionTemplate read;
+    private final CdsExportSourceSnapshotService snapshots;
     @Autowired public CdsExportNativeCaptureService(ObjectProvider<CdsExportNativeSourceReader> installed,
+            CdsExportStagingFactory stores, CdsExportRunDao clock, PlatformTransactionManager transactions, CdsExportSourceSnapshotService snapshots) {
+        this(installed.orderedStream().toList(), stores, clock, transactions, snapshots);
+    }
+    public CdsExportNativeCaptureService(ObjectProvider<CdsExportNativeSourceReader> installed,
             CdsExportStagingFactory stores, CdsExportRunDao clock, PlatformTransactionManager transactions) {
-        this(installed.orderedStream().toList(), stores, clock, transactions);
+        this(installed.orderedStream().toList(), stores, clock, transactions, null);
     }
     CdsExportNativeCaptureService(List<CdsExportNativeSourceReader> installed, CdsExportStagingFactory stores,
-            CdsExportRunDao clock, PlatformTransactionManager transactions) {
+            CdsExportRunDao clock, PlatformTransactionManager transactions) { this(installed, stores, clock, transactions, null); }
+    private CdsExportNativeCaptureService(List<CdsExportNativeSourceReader> installed, CdsExportStagingFactory stores,
+            CdsExportRunDao clock, PlatformTransactionManager transactions, CdsExportSourceSnapshotService snapshots) {
         var registered = new TreeMap<String, CdsExportNativeSourceReader>();
         for (var reader : List.copyOf(installed)) {
             if (reader.table() == null || !reader.table().matches("[A-Za-z0-9_]{1,64}")
@@ -84,7 +91,7 @@ public class CdsExportNativeCaptureService {
                 throw new IllegalStateException("CDS_EXPORT_SOURCE_READER_AMBIGUOUS");
             }
         }
-        readers = Map.copyOf(registered); this.stores = Objects.requireNonNull(stores); this.clock = Objects.requireNonNull(clock);
+        readers = Map.copyOf(registered); this.stores = Objects.requireNonNull(stores); this.clock = Objects.requireNonNull(clock); this.snapshots = snapshots;
         read = new TransactionTemplate(transactions); read.setReadOnly(true);
         read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ); read.setTimeout(120);
     }
@@ -135,7 +142,11 @@ public class CdsExportNativeCaptureService {
         var store = stores.openExisting(lease.runId(), lease.epoch(), lease.document().storage(), probe);
         var owned = new ArrayList<CdsExportStagedFileDto>(3); boolean complete = false; Throwable primary = null;
         try {
-            var captured = read.execute(status -> {
+            if (tables.contains("clinical_source_catalogue") && snapshots == null) throw new IOException("CDS_EXPORT_SOURCE_SNAPSHOT_GUARD_MISSING");
+            CdsExportNativeCaptureDto captured;
+            try (var held = tables.contains("clinical_source_catalogue") ? snapshots.acquire(control::checkpoint)
+                    : io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock.none()) {
+                captured = read.execute(status -> {
                 control.captureCheckpoint(); var started = clock.now(); var scopes = new TreeMap<String, CdsExportCapturedTableDto>();
                 try {
                     for (var reader : selected) {
@@ -165,6 +176,8 @@ public class CdsExportNativeCaptureService {
                             result[0].fields(), result[0].valueBytes(), values, index[0]);
                 } catch (IOException failure) { throw new UncheckedIOException(failure); }
             });
+                held.verify();
+            } catch (java.sql.SQLException failed) { throw new IOException("CDS_EXPORT_SOURCE_SNAPSHOT_GUARD_FAILED", failed); }
             Objects.requireNonNull(captured); patientScope.require(lease); authorize(patient, selected, control); control.checkpoint();
             var plan = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
             captured.tables().forEach((table, scope) -> plan.put(table, new CdsExportNativeCaptureReader.Table(scope.columns(), scope.rows())));

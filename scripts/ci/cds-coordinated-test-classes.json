@@ -296,5 +296,6 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportActivePlanServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImplementationIdentityServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportClinicalJobServiceUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeDemographicAssemblerUnitTest"
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeDemographicAssemblerUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceCatalogueUnitTest"
 ]

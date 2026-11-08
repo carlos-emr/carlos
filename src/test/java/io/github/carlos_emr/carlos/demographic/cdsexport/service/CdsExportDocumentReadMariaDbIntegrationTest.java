@@ -52,6 +52,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     private TransactionTemplate read;
     private DocumentDao documents;
     private CtlDocumentDao links;
+    private CdsExportSourceCatalogueDao catalogue;
     private io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao hospitalReports;
     private final int patient = 560_000_000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9_000_000);
     private final String marker = "OwnedReport" + patient;
@@ -69,7 +70,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         });
         context.registerBean(PersistenceAnnotationBeanPostProcessor.class); context.registerBean("transactionManager", JpaTransactionManager.class, () -> new JpaTransactionManager(context.getBean(jakarta.persistence.EntityManagerFactory.class)));
         context.registerBean("cacheManager", org.springframework.cache.CacheManager.class, org.springframework.cache.support.NoOpCacheManager::new);
-        context.register(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class, DocumentDaoImpl.class, CtlDocumentDaoImpl.class, io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class); context.refresh();
+        context.register(CdsExportSourceCatalogueDao.class, io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class, DocumentDaoImpl.class, CtlDocumentDaoImpl.class, io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class); context.refresh();
+        catalogue = context.getBean(CdsExportSourceCatalogueDao.class);
         hospitalReports = context.getBean(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class);
         documents = context.getBean(DocumentDao.class); links = context.getBean(CtlDocumentDao.class); read = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
         read.setReadOnly(true); read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ); read.setTimeout(120);
@@ -84,6 +86,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         try {
             if (owned) {
                 sql.update("delete from HRMDocumentToDemographic where id=? and hrmDocumentId=?", patient, Integer.toString(patient + 500));
+                sql.update("delete from casemgmt_cpp where id=? and demographic_no=?", patient, Integer.toString(patient));
+                sql.update("delete from formRourke2009 where ID=? and demographic_no=?", patient, patient);
                 sql.update("delete from document_review where id=? and document_no=? and provider_no='989879'", patient, patient);
                 sql.update("delete from DocumentExtraReviewer where id=? and documentNo=? and reviewerProviderNo='989879'", patient, patient);
                 sql.update("delete from document_storage where id=? and documentNo=?", patient, patient);
@@ -214,6 +218,104 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         });
         assertThatThrownBy(() -> read.executeWithoutResult(status -> hospitalReports.requireCdsExportAbsent(patient)))
                 .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test void shouldVerifyTheWholePhysicalSourceContract_withoutReadingClinicalValues() {
+        stableLegacy(() -> read.executeWithoutResult(status -> {
+            var schema = catalogue.readSourceSchema();
+            assertThatCode(() -> new CdsExportSourceSchemaValidator().verify(schema, Set.of("catalogueSha256"))).doesNotThrowAnyException();
+            catalogue.requireUnclassifiedSourcesEmpty(patient, () -> {});
+        }));
+        assertThatThrownBy(catalogue::readSourceSchema).isInstanceOf(org.springframework.transaction.IllegalTransactionStateException.class);
+    }
+    @Test void shouldRefuseUnclassifiedClinicalSourceRows_insteadOfTreatingTheChartAsFullyCovered() {
+        sql.update("insert into casemgmt_cpp(id,demographic_no,socialHistory,provider_no) values(?,?,?,'989879')", patient, Integer.toString(patient), "Owned unrepresented clinical source");
+        assertThatThrownBy(() -> read.executeWithoutResult(status -> catalogue.requireUnclassifiedSourcesEmpty(patient, () -> {})))
+                .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+    }
+    @Test void shouldRefuseAnUnknownPhysicalSourceTable_evenWhenItIsEmpty() {
+        String table = "cds_export_coverage_probe_" + patient;
+        sql.execute("create table `" + table + "` (id int primary key) engine=InnoDB");
+        try {
+            stableLegacy(() -> assertThatThrownBy(() -> read.executeWithoutResult(status -> catalogue.readSourceSchema()))
+                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
+        } finally { sql.execute("drop table `" + table + "`"); }
+    }
+    @Test void shouldRefuseAnUnknownColumnInAnOtherwiseOperationalTable_beforeExcludingItsValues() {
+        String column = "cds_export_probe_" + patient;
+        sql.execute("alter table AppDefinition add column `" + column + "` varchar(8) null");
+        try {
+            stableLegacy(() -> assertThatThrownBy(() -> read.executeWithoutResult(status -> catalogue.readSourceSchema()))
+                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
+        } finally { sql.execute("alter table AppDefinition drop column `" + column + "`"); }
+    }
+
+    private io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock legacyLock() throws java.sql.SQLException {
+        return io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock.acquireUnpooled(
+                java.sql.DriverManager.getConnection(source.getUrl(), source.getUsername(), source.getPassword()));
+    }
+    private void stableLegacy(Runnable work) {
+        try (var held = legacyLock()) { work.run(); }
+        catch (java.sql.SQLException failed) { throw new IllegalStateException("OWNED_SOURCE_SNAPSHOT_LOCK_FAILED", failed); }
+    }
+    @Test void shouldRefuseAnUnpinnedNontransactionalSource_evenWhenItsCurrentCountIsZero() {
+        assertThatThrownBy(() -> read.executeWithoutResult(status -> catalogue.readSourceSchema()))
+                .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+    }
+    @Test void shouldKeepTheLegacyTableStableUntilThePatientSnapshotReleasesItsReadLock() throws Exception {
+        sql.update("insert into formRourke2009(ID,demographic_no,provider_no) values(?,?,'989879')", patient, patient);
+        try (var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var started = new java.util.concurrent.CountDownLatch(1); var writerId = new java.util.concurrent.atomic.AtomicLong();
+            java.util.concurrent.Future<Integer> pending;
+            try (var held = legacyLock()) {
+                pending = writer.submit(() -> {
+                    try (var connection = java.sql.DriverManager.getConnection(source.getUrl(), source.getUsername(), source.getPassword());
+                            var id = connection.createStatement(); var ids = id.executeQuery("select CONNECTION_ID()")) {
+                        assertThat(ids.next()).isTrue(); writerId.set(ids.getLong(1));
+                        try (var statement = connection.prepareStatement("update formRourke2009 set formCreated='2000-01-01' where ID=? and demographic_no=?")) {
+                            statement.setQueryTimeout(10); statement.setInt(1, patient); statement.setInt(2, patient); started.countDown(); return statement.executeUpdate();
+                        }
+                    }
+                });
+                assertThat(started.await(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5); boolean waiting = false;
+                while (System.nanoTime() < deadline) {
+                    var states = sql.queryForList("select STATE from information_schema.PROCESSLIST where ID=?", String.class, writerId.get());
+                    waiting = states.stream().filter(Objects::nonNull).anyMatch(value -> value.toLowerCase(Locale.ROOT).contains("lock"));
+                    if (waiting) break; if (pending.isDone()) throw new AssertionError("Legacy writer bypassed the owned READ lock");
+                    java.util.concurrent.locks.LockSupport.parkNanos(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(20));
+                }
+                assertThat(waiting).isTrue(); assertThat(pending.isDone()).isFalse(); held.verify();
+            }
+            assertThat(pending.get(10, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(1);
+            assertThat(sql.queryForObject("select CAST(formCreated AS CHAR) from formRourke2009 where ID=? and demographic_no=?", String.class, patient, patient)).isEqualTo("2000-01-01");
+        }
+    }
+    @Test void shouldRefuseAConnectionLostDuringTheLegacyReadLock_beforeItCanQualifySourceAbsence() throws Exception {
+        var connection = java.sql.DriverManager.getConnection(source.getUrl(), source.getUsername(), source.getPassword());
+        var held = io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock.acquireUnpooled(connection);
+        try {
+            held.verify(); connection.close();
+            assertThatThrownBy(held::verify).isInstanceOf(java.sql.SQLException.class);
+            assertThatThrownBy(io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock::requirePinned)
+                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+            assertThatThrownBy(held::close).isInstanceOf(java.sql.SQLException.class);
+        } finally { try { held.close(); } catch (java.sql.SQLException ignored) { } connection.close(); }
+    }
+
+    @Test void shouldReleaseTheLegacyTableAtItsIndependentDeadline_evenWithoutAnotherCaptureCheckpoint() throws Exception {
+        sql.update("insert into formRourke2009(ID,demographic_no,provider_no) values(?,?,'989879')", patient, patient);
+        var connection = java.sql.DriverManager.getConnection(source.getUrl(), source.getUsername(), source.getPassword());
+        var held = io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock.acquireUnpooled(connection, 3000);
+        try (var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
+            var started = new java.util.concurrent.CountDownLatch(1);
+            var pending = writer.submit(() -> { started.countDown(); return sql.update("update formRourke2009 set formCreated='2000-01-01' where ID=? and demographic_no=?", patient, patient); });
+            assertThat(started.await(1, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(pending.get(6, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(1);
+            assertThat(connection.isClosed()).isTrue();
+            assertThatThrownBy(held::verify).isInstanceOf(java.sql.SQLException.class);
+            assertThatThrownBy(held::close).isInstanceOf(java.sql.SQLException.class);
+        } finally { try { held.close(); } catch (java.sql.SQLException ignored) { } connection.close(); }
     }
 
 }

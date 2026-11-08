@@ -1404,3 +1404,41 @@ lookup contract and exact typed field closure, while every patient-owned clinica
 row still requires its exact independent witness. Fabricated whole-provider
 receipts are refused. Twenty-one affected scope checks passed; the same native
 fixture remains available for exact-package rerunning without import metadata.
+
+
+The native demographic checkpoint (`132b6bd4aabf`) passed a clean 986-check,
+65-suite package build and full Javadoc. Its exact WAR
+(`10d31751d32f762367898f1621f33d773bcc59ba7e1a1cd0a340189da5020191`)
+passed installed shared-job export of a fresh native chart with no import metadata.
+All thirteen independently expected facts matched, including complete Unicode note
+text and the registered physician/patient identities; four schema-valid clinical
+mutations were rejected. The original native fixture is retained, temporary grants
+and provider fields were restored, and no application classes were overlaid.
+Publication remained visibly unavailable through the unqualified engine boundary.
+
+Clinical capture now has a separate whole-source coverage gate over all 516 table
+names in the exact shipped ON/BC physical contracts (463 ON, 496 BC). Explicit
+rulings identify mapped sources, reference dictionaries, operational metadata and
+sources that must be empty until their adapter or exclusion is reviewed.
+Unclassified presence conservatively refuses the request across the database;
+column names never establish patient ownership or justify discarding a source.
+Missing required reader beans cannot reduce the expected inventory. Unknown
+tables, columns, types, primary keys, engines or filtered metadata visibility
+require review. Schema-wide SELECT visibility is required to establish that no
+unreadable clinical table exists. The schema and empty-source probes return no
+clinical, credential or key values. `scripts/verify-cds-export-source-catalogue.py`
+checks canonical schema hashes, explicit table membership and mapped-scope coverage.
+
+The stock Rourke 2009 form uses Aria in ON and MyISAM in BC. A dedicated controlled
+unpooled connection holds a fixed READ lock on that one legacy table for the
+bounded patient capture transaction. The regular transactional sources retain
+their repeatable-read snapshot. No native data or schema is changed. Acquisition,
+connection identity, release, loss and timeout are checked; automatic reconnect
+is refused. An independent deadline aborts the physical lock connection after at
+most 150 seconds, so a stalled capture cannot keep the legacy table locked. Failure
+to acquire, maintain or release the lock withholds capture. Database permissions
+must allow this legacy table READ lock. Metadata status/control recovery stays lazy.
+Eighty-two affected checks passed, including 24 real MariaDB cases, actual writer
+blocking/release, lost-connection refusal, independent deadline release and the
+whole catalogue through the actual guarded CLI datasource. Clean packaging and
+installed reruns of this source gate remain required.

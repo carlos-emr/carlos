@@ -1722,6 +1722,13 @@
                 <targetPath>db/migration</targetPath>
                 <filtering>false</filtering>
             </resource>
+            <!-- Export coverage reads the exact reviewed physical contracts; never filter schema evidence. -->
+            <resource>
+                <directory>${basedir}/database/mysql/schema-contract</directory>
+                <targetPath>cds-export/physical-schema</targetPath>
+                <filtering>false</filtering>
+                <includes><include>on.json</include><include>bc.json</include></includes>
+            </resource>
         </resources>
 
         <plugins>

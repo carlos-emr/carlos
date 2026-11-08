@@ -775,16 +775,24 @@
     "packagedQualificationPending": true
   },
   "nativeDemographicCurrentAssembly": {
-    "state": "FOCUSED_COMPONENT_VERIFIED",
+    "state": "EXACT_PACKAGED_WAR_INSTALLED_NATIVE_FACTS_VERIFIED",
     "affectedChecks": 69,
     "newAssemblyAndBoundaryChecks": 13,
     "sameTypedMappersAsRetainedWorkflow": true,
     "exactSourceWitnessAndNativeFieldClosure": true,
     "registeredPatientIdentityVerified": true,
     "nativeDemographicArchivesStillRequireReview": true,
-    "packagedAndInstalledQualificationPending": true,
+    "packagedAndInstalledQualificationPending": false,
     "publicProviderProjectionScopeChecks": 21,
-    "publicProviderWholeRowsNeverReadOrInvented": true
+    "publicProviderWholeRowsNeverReadOrInvented": true,
+    "packageChecks": 986,
+    "packageSuites": 65,
+    "fullJavadocPassed": true,
+    "head": "132b6bd4aabf8f8675898fba8d4be0343e5142bc",
+    "warSha256": "10d31751d32f762367898f1621f33d773bcc59ba7e1a1cd0a340189da5020191",
+    "independentNativeFacts": 13,
+    "schemaValidClinicalMutationsRejected": 4,
+    "nativeFixtureHasImportMetadata": false
   },
   "combinedAllCategoryInstalled": {
     "state": "EXACT_PACKAGED_WAR_INDEPENDENT_FACTS_VERIFIED",
@@ -800,5 +808,20 @@
     "componentOverlays": false,
     "originalImportMetadataRestamped": false,
     "clinicalPublication": false
+  },
+  "wholeSourceCatalogue": {
+    "state": "FOCUSED_REAL_MARIADB_AND_GUARDED_CLI_VERIFIED",
+    "tables": 516,
+    "ontarioPhysicalTables": 463,
+    "bcPhysicalTables": 496,
+    "affectedChecks": 82,
+    "documentAndSourceMariaDbCases": 24,
+    "unknownTablesColumnsAndUnclassifiedPopulationRefused": true,
+    "missingReaderCannotShrinkCoverage": true,
+    "fullSchemaVisibilityRequired": true,
+    "legacyNontransactionalTablePinnedWithDedicatedReadLock": true,
+    "independentLockDeadlineMilliseconds": 150000,
+    "nativeClinicalDataOrImportMetadataChanged": false,
+    "cleanPackageAndInstalledQualificationPending": true
   }
 }
