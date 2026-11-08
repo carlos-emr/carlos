@@ -279,6 +279,7 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             status["installedWarAfter"] = verify_installed()
             status["status"] = "PASSED"
             stage("QUALIFIED_EXACT_CANDIDATE")
+            print("CDS_EXPORT_INSTALLED_PROOF=" + json.dumps(status, sort_keys=True))
             print("PASS exact installed CLI and authenticated asynchronous CDS export; evidence:", public)
             return 0
     except Exception as failure:
@@ -298,6 +299,7 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
                 text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30)
             if diagnostic.returncode == 0:
                 (public / "application-startup-codes.json").write_text(diagnostic.stdout)
+                print("CDS_EXPORT_TOMCAT_DIAGNOSTICS=" + diagnostic.stdout.strip())
         cleanup = []
         with (private / "cleanup.log").open("w") as out:
             for owned, command in (
@@ -314,10 +316,12 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             classes = re.findall(r"\b(?:[a-zA-Z_$][a-zA-Z0-9_$]*\.)*[a-zA-Z_$][a-zA-Z0-9_$]*(?:Exception|Error)\b", data)
             frames = re.findall(r"\bat (?:io\.github\.carlos_emr\.[A-Za-z0-9_.$]+)\([A-Za-z0-9_.]+:\d+\)", data)
             compile_locations = re.findall(r"[\w/.-]+\.java:\d+(?::\d+)?", data)
-            (public / "failure-codes.json").write_text(json.dumps({
+            diagnostics = {
                 "codes": list(dict.fromkeys(codes))[-100:], "exceptionClasses": list(dict.fromkeys(classes))[-100:],
                 "applicationFrames": list(dict.fromkeys(frames))[-100:], "compileLocations": list(dict.fromkeys(compile_locations))[-50:]
-            }, indent=2))
+            }
+            (public / "failure-codes.json").write_text(json.dumps(diagnostics, indent=2))
+            print("CDS_EXPORT_INSTALLED_DIAGNOSTICS=" + json.dumps(diagnostics, sort_keys=True))
         # Remove only credentials owned by this harness. No secrets or traces are artifact inputs.
         for name in ("password", "client.cnf", "jdbc.properties", "browser-options.json", "browser.bin", "tls.crt"):
             (private / name).unlink(missing_ok=True)
