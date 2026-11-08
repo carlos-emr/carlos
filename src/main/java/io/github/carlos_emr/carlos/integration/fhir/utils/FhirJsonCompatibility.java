@@ -1,3 +1,4 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.integration.fhir.utils;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -5,6 +6,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.StreamWriteFeature;
+import com.fasterxml.jackson.core.util.DefaultIndenter;
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.core.util.Separators;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -31,6 +35,13 @@ public final class FhirJsonCompatibility {
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .disable(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
             .build();
+    private static final DefaultPrettyPrinter HAPI_LAYOUT = new DefaultPrettyPrinter()
+            .withSeparators(Separators.createDefaultInstance()
+                    .withObjectFieldValueSpacing(Separators.Spacing.AFTER));
+
+    static {
+        HAPI_LAYOUT.indentObjectsWith(new DefaultIndenter("  ", "\n"));
+    }
 
     private FhirJsonCompatibility() { }
 
@@ -40,12 +51,16 @@ public final class FhirJsonCompatibility {
      * Primitive extensions/ids live in parallel underscore properties; preserve those
      * and the null placeholders HAPI used when an array value carried metadata.
      * Remove this adapter only with a deliberate review of the outbound JSON contract.
+     *
+     * @throws IllegalStateException if the encoded JSON cannot be read or rewritten,
+     *         including when its nesting depth or number length exceeds Jackson's limits;
+     *         callers must refuse the export rather than send an incomplete message
      */
     public static String encode(FhirContext context, BaseResource resource) {
         String encoded = context.newJsonParser().setPrettyPrint(true).encodeResourceToString(resource);
         try {
             JsonNode tree = JSON.readTree(encoded);
-            return omitBlankPrimitives(tree) ? JSON.writerWithDefaultPrettyPrinter().writeValueAsString(tree) : encoded;
+            return omitBlankPrimitives(tree) ? JSON.writer(HAPI_LAYOUT).writeValueAsString(tree) : encoded;
         } catch (JsonProcessingException exception) {
             // Refuse the export; never return an empty or partially rewritten clinical message.
             throw new IllegalStateException("Unable to encode the FHIR JSON compatibility contract", exception);
@@ -75,17 +90,22 @@ public final class FhirJsonCompatibility {
 
     private static boolean omitBlankArrayValues(ObjectNode parent, String name, ArrayNode array) {
         boolean changed = false;
-        JsonNode metadata = parent.get("_" + name);
-        // Iterate backwards so metadata indices still refer to the original values.
+        JsonNode metadataNode = parent.get("_" + name);
+        ArrayNode metadata = metadataNode instanceof ArrayNode arrayNode ? arrayNode : null;
+        // Remove corresponding slots backwards so remaining values keep their own metadata.
         for (int index = array.size() - 1; index >= 0; index--) {
             JsonNode item = array.get(index);
             if (isBlankText(item)) {
-                // Any parallel metadata array makes every position significant,
-                // including a blank value preceding another value's extension.
-                if (metadata instanceof ArrayNode) {
+                JsonNode slot = metadata == null ? null : metadata.get(index);
+                // Only this value's id/extension justifies retaining a null placeholder.
+                // A null/null pair would decode as an extra empty FHIR repetition.
+                if (slot != null && !slot.isNull()) {
                     array.set(index, JSON.nullNode());
                 } else {
                     array.remove(index);
+                    if (metadata != null) {
+                        metadata.remove(index);
+                    }
                 }
                 changed = true;
             } else {
@@ -95,7 +115,20 @@ public final class FhirJsonCompatibility {
         if (array.isEmpty()) {
             parent.remove(name);
         }
+        if (metadata != null && allNull(metadata)) {
+            parent.remove("_" + name);
+            changed = true;
+        }
         return changed;
+    }
+
+    private static boolean allNull(ArrayNode array) {
+        for (JsonNode node : array) {
+            if (!node.isNull()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean isBlankText(JsonNode node) {

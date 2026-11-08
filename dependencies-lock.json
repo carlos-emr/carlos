@@ -178,11 +178,11 @@
   }, {
     "groupId" : "com.fasterxml.jackson.datatype",
     "artifactId" : "jackson-datatype-jsr310",
-    "version" : "2.22.4",
+    "version" : "2.17.1",
     "scope" : "compile",
     "type" : "jar",
     "optional" : false,
-    "integrity" : "sha512:mKjzWeBCUo7oMVe0zlE50Gazw5OlyetiWguku5Oo9Kz7IxKSfA8pCyEMp8NJB85DfuP3sz3qKrgxgqjnGslghw=="
+    "integrity" : "sha512:9QMLwoIxc0/gY0cSsqMHDjZLFFJHKdDYidF57egGutMbpdGzqrmRGDBvuvUQ4coHuW9ub37UKL9LDjbWZX36pw=="
   }, {
     "groupId" : "com.fasterxml.jackson.jakarta.rs",
     "artifactId" : "jackson-jakarta-rs-base",

@@ -105,6 +105,6 @@ class PatientUnitTest {
 
         assertThat(json.path("name").get(0).has("given")).isFalse();
         assertThat(wrapper.getFhirResource().getNameFirstRep().getGiven().get(0).getValue()).isEqualTo(" ");
-        assertThat(source.getPhone()).isEqualTo("\t");
+        assertThat(json.path("telecom").get(0).has("value")).isFalse();
     }
 }

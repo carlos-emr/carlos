@@ -313,9 +313,10 @@
         <log4j2.version>2.25.5</log4j2.version>
         <!-- Slf4j Version -->
         <slf4j.version>2.0.20</slf4j.version>
-        <!-- HAPI owns the org.hl7.fhir.* core version (8.12.1 -> 6.9.12).
-             Do not independently pin the core; raise the enforcer floor with HAPI. -->
+        <!-- Keep fhir-core.version equal to the core managed by HAPI (8.12.1 -> 6.9.12).
+             Direct application API dependencies need these managed versions too. -->
         <hapifhir.version>8.12.1</hapifhir.version>
+        <fhir-core.version>6.9.12</fhir-core.version>
         <!-- Apache CXF Version -->
         <cxf.version>4.1.9</cxf.version>
         <!-- Drools 10.x KIE API (upgraded from 7.74.1.Final for Jakarta EE compatibility) -->
@@ -410,6 +411,28 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Align Jupiter and Platform, including Mockito's transitive Jupiter API. -->
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit-jupiter.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Moving the Jackson XML override here changes dependency depth. Preserve
+                 the previously resolved Woodstox version rather than mediating to CXF's older copy. -->
+            <dependency>
+                <groupId>com.fasterxml.woodstox</groupId>
+                <artifactId>woodstox-core</artifactId>
+                <version>7.2.0</version>
+            </dependency>
+            <!-- Version override for JasperReports' transitive Jackson XML module. -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-xml</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.apache.poi</groupId>
                 <artifactId>poi</artifactId>
@@ -511,12 +534,23 @@
                 <artifactId>jakarta.transaction-api</artifactId>
                 <version>2.0.1</version>
             </dependency>
-            <!-- Struts uses the standalone Xalan serializer; Glassfish JSTL
-                 shades its own Xalan implementation. -->
+            <!-- Keep the standalone DOM3 serializer's resolved version pinned;
+                 Glassfish JSTL's Xalan implementation is separately shaded. -->
             <dependency>
                 <groupId>xalan</groupId>
                 <artifactId>serializer</artifactId>
                 <version>2.7.3</version>
+            </dependency>
+            <!-- Match HAPI's managed core for the direct application API dependencies. -->
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.dstu3</artifactId>
+                <version>${fhir-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ca.uhn.hapi.fhir</groupId>
+                <artifactId>org.hl7.fhir.utilities</artifactId>
+                <version>${fhir-core.version}</version>
             </dependency>
             <!-- Saxon is the JAXP TransformerFactory used throughout CARLOS. FHIR core
                  6.9.12 inherits Saxon 13.0; retain 11.6 so this HAPI update cannot change
@@ -758,6 +792,8 @@
             <artifactId>commons-io</artifactId>
             <version>2.22.0</version>
         </dependency>
+        <!-- Also pins the version used transitively by OpenSAML, HAPI FHIR and/or
+             JasperReports; removing this declaration can downgrade the resolved jar. -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-collections4</artifactId>
@@ -796,6 +832,8 @@
         <!-- ==================== HTTP Client ==================== -->
 
         <!-- Apache HttpClient 5.x — migrated from 4.5.14 (httpclient + httpmime merged into httpclient5) -->
+        <!-- Also pins the version used transitively by OpenSAML, HAPI FHIR and/or
+             JasperReports; removing this declaration can downgrade the resolved jar. -->
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
@@ -1035,8 +1073,9 @@
             <artifactId>jakarta.servlet.jsp.jstl</artifactId>
             <version>3.0.1</version>
         </dependency>
-        <!-- Standalone Xalan serializer, separate from JSTL's shaded Xalan copy.
-             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
+        <!-- Standalone DOM3 serializer (org.apache.xml.serializer.dom3.LSSerializerImpl),
+             retained at the baseline version for compatibility. This is separate
+             from Glassfish JSTL's shaded Xalan implementation. -->
         <dependency>
             <groupId>xalan</groupId>
             <artifactId>serializer</artifactId>
@@ -1183,12 +1222,12 @@
         </dependency>
 
         <!-- Main code uses JavaTimeModule and CdsRuntimeIdentity hashes its actual JAR.
-             Declare the dependency so HAPI cannot select a different Jackson line or drop it.
-             A project Jackson BOM may own this version later (#5711); retain the direct dependency. -->
+             Keep the release line's existing version so unfinished CDS imports can resume.
+             A deliberate Jackson alignment belongs with the BOM work (#5711). -->
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-            <version>${jackson.version}</version>
+            <version>2.17.1</version>
         </dependency>
 
         <!-- Jackson Jakarta XML Bind annotations support - provides JakartaXmlBindAnnotationIntrospector used in Spring configs -->
@@ -1198,12 +1237,6 @@
             <version>${jackson.version}</version>
         </dependency>
 
-        <!-- Jackson XML support - explicit version to override older transitive from jasperreports -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-xml</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
 
         <!-- ==================== Healthcare Domain (CDS, FHIR, XML) ==================== -->
 
@@ -1427,25 +1460,9 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <version>${junit-jupiter.version}</version>
             <scope>test</scope>
         </dependency>
 
-        <!-- JUnit Jupiter API - explicit version to override mockito-junit-jupiter transitive -->
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <version>${junit-jupiter.version}</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- JUnit Jupiter Params for parameterized tests -->
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <version>${junit-jupiter.version}</version>
-            <scope>test</scope>
-        </dependency>
 
         <!-- AssertJ for fluent assertions -->
         <dependency>
@@ -1480,6 +1497,8 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Also pins the version used transitively by OpenSAML, HAPI FHIR and/or
+             JasperReports; removing this declaration can downgrade the resolved jar. -->
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
@@ -1604,6 +1623,198 @@
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
         </dependency>
+        <!-- Application APIs previously available only through other libraries. FHIR core
+             follows the HAPI upgrade; other declarations retain baseline resolved versions.
+             JSTL stays compile scope because Tomcat does not supply its API. -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>org.hl7.fhir.dstu3</artifactId>
+            <!-- Preserve HAPI's exclusion of unused network clients on this direct path too. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-net</groupId>
+                    <artifactId>commons-net</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.squareup.okio</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>org.hl7.fhir.utilities</artifactId>
+            <!-- Preserve HAPI's exclusion of unused network clients on this direct path too. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-net</groupId>
+                    <artifactId>commons-net</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.squareup.okio</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <!-- Recheck this pin when jackson.version changes. Preserve the resolved
+                 annotation version unless the Jackson upgrade requires a newer API. -->
+            <version>2.22</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.activation</groupId>
+            <artifactId>jakarta.activation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.mail</groupId>
+            <artifactId>jakarta.mail-api</artifactId>
+            <version>2.1.5</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
+            <version>3.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.soap</groupId>
+            <artifactId>jakarta.xml.soap-api</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.xml.ws</groupId>
+            <artifactId>jakarta.xml.ws-api</artifactId>
+            <version>4.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents.core5</groupId>
+            <artifactId>httpcore5</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.santuario</groupId>
+            <artifactId>xmlsec</artifactId>
+            <version>4.0.4</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.wss4j</groupId>
+            <artifactId>wss4j-ws-security-common</artifactId>
+            <version>4.0.2</version>
+            <!-- Preserve CXF's exclusion: EBS supplies its own PasswordEncryptor. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.jasypt</groupId>
+                    <artifactId>jasypt</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.wss4j</groupId>
+            <artifactId>wss4j-ws-security-dom</artifactId>
+            <version>4.0.2</version>
+            <!-- Preserve CXF's exclusion: EBS supplies its own PasswordEncryptor. -->
+            <exclusions>
+                <exclusion>
+                    <groupId>org.jasypt</groupId>
+                    <artifactId>jasypt</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.drools</groupId>
+            <artifactId>drools-compiler</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.kie</groupId>
+            <artifactId>kie-api</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.kie</groupId>
+            <artifactId>kie-internal</artifactId>
+            <version>${drools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-beans</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-expression</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.xhtmlrenderer</groupId>
+            <artifactId>flying-saucer-core</artifactId>
+            <version>10.7.0</version>
+        </dependency>
+        <!-- Application report writers import JRPdfExporter and its configuration API
+             from this module; jasperreports-openpdf previously supplied it transitively. -->
+        <dependency>
+            <groupId>net.sf.jasperreports</groupId>
+            <artifactId>jasperreports-pdf-core</artifactId>
+            <version>${jasperreports.version}</version>
+        </dependency>
+
+        <!-- Additional direct imports in the current release branch (SOAP interceptors,
+             CDS JSON timestamps and nullable diagnostics). Preserve their resolved versions;
+             aligning JavaTimeModule to jackson.version is a separate dependency upgrade. -->
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-core</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-bindings-soap</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-rt-frontend-simple</artifactId>
+            <version>${cxf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jspecify</groupId>
+            <artifactId>jspecify</artifactId>
+            <version>1.0.1</version>
+        </dependency>
+        <!-- The BCAR 2020 models directly use this existing NotNull annotation. -->
+        <dependency>
+            <groupId>com.sun.istack</groupId>
+            <artifactId>istack-commons-runtime</artifactId>
+            <version>4.1.2</version>
+        </dependency>
+
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
              IMPROPER_UNICODE case-folding detector). CLASS retention, compile-only; provided scope
@@ -2053,10 +2264,10 @@
                             <rules>
                                 <bannedDependencies>
                                     <excludes>
-                                        <exclude>ca.uhn.hapi.fhir:org.hl7.fhir.*:(,6.9.12)</exclude>
+                                        <exclude>ca.uhn.hapi.fhir:org.hl7.fhir.*:(,${fhir-core.version})</exclude>
                                     </excludes>
                                     <searchTransitive>true</searchTransitive>
-                                    <message>HAPI FHIR ${hapifhir.version} requires its managed FHIR core (6.9.12). Do not pin the core independently; raise this floor with HAPI. Historical overrides fixed CVE-2024-45294, CVE-2024-51132, CVE-2024-52007, CVE-2026-33180, CVE-2026-34359, CVE-2026-42236 and XSLT hardening by 6.9.10; the higher floor also protects HAPI API compatibility (#5712).</message>
+                                    <message>HAPI FHIR ${hapifhir.version} requires its managed FHIR core (${fhir-core.version}). Keep fhir-core.version equal to HAPI's managed core; raise it with HAPI. Historical overrides fixed CVE-2024-45294, CVE-2024-51132, CVE-2024-52007, CVE-2026-33180, CVE-2026-34359, CVE-2026-42236 and XSLT hardening by 6.9.10; the higher floor also protects HAPI API compatibility (#5712).</message>
                                 </bannedDependencies>
                             </rules>
                         </configuration>
