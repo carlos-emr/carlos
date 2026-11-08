@@ -54,12 +54,14 @@ records the staged persistence migration and module follow-ups.
 | [Response-filter lifecycle](response-filter-lifecycle.md) | Response capture ownership, nested forwards, error sanitization, and the Tomcat compatibility contract |
 | [Resources Directory](resources-directory.md) | Application resources structure |
 | [Container-provided Jakarta APIs](container-provided-apis.md) | Which web-tier Jakarta APIs Tomcat 11 supplies (`provided`), why JSTL still ships in the WAR, and the checks that hold it |
+| [Dependency footprint replacements](dependency-footprint-5472.md) | Report, chart, browser and table dependency replacements, output differences and validation (#5472) |
 | [JAXB provider compatibility](jaxb-provider-compatibility.md) | Glassfish JAXB, preserved MOXy XML/JSON contracts, published SOAP schemas, and compatibility evidence |
 | [JasperReports and OpenPDF 3](jasperreports-openpdf3.md) | Shared PDF dependencies, stock OpenPDF and Brotli decisions, and report-export compatibility checks (#5471) |
 | [JDK equivalents audit](jdk-equivalents-audit.md) | Behaviour-preserving Commons replacements, compatibility coverage and retained legacy semantics (#5483) |
 | [Library conventions for new code](architecture/library-conventions.md) | Preferred JDK and library APIs, HTTP-client decision, and legacy compatibility boundaries (#5485) |
 | [GitHub Issue Management](github-issue-management.md) | Issue tracking and workflow |
 | [Database Schema Management](database-schema-management.md) | Flyway baseline, forward migrations, where migrations run |
+| [MariaDB JDBC connector](mariadb-connector-migration.md) | Connector migration, legacy configuration compatibility, packaging and physical database validation |
 | [Database Index Review (2026-09-04)](database-index-review-2026-09-04.md) | Index state vs. DAO query patterns; rationale for the V1.0.18/V1.0.19 index migrations |
 | [Testing Exclusions](Testing_Exclusion_of_MCEDT_and_HinValidator_tests.md) | Excluded test documentation |
 

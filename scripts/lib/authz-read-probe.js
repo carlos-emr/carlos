@@ -6,10 +6,10 @@
  * what came back.
  *
  * Classification (the application's own refusal vocabulary):
- *   refused  405, a 401/403 that carries the application's own response header (`fromApp`: the WAF's
+ *   refused  401/403/405 carrying the application's own response header (`fromApp`: the WAF's
  *            block page does not), a redirect to securityError / noRights, or the "Security Exception"
  *            page (securityError.jsp is what every SecurityException ends in, delivered as HTTP 403)
- *   error    5xx, the generic "Error Page" (CARLOS error page), an unmarked 401/403 (WAF/proxy) or any
+ *   error    5xx, the generic "Error Page" (CARLOS error page), an unmarked 401/403/405 (WAF/proxy) or any
  *            other redirect (a login or session-timeout bounce): nothing was served, but the refusal is not deliberate, so a
  *            check that pins a refusal accepts only `refused`
  *   served   2xx whose body is real content (not an error page). A caller that wants proof of WHICH
@@ -72,9 +72,9 @@ function probeAuthenticationState(context,url,options){return probeWithTransport
 function classify(result) {
   const { status } = result;
   const lead = result.lead || '';
-  // A 401/403 is the application's refusal only with proof the application answered; an unmarked one
+  // A 401/403/405 is the application's refusal only with proof the application answered; an unmarked one
   // (a WAF block, a proxy page) decided nothing about the role, so it reads as an error.
-  if (status === 405) return 'refused';
+  if (status === 405) return result.fromApp === true ? 'refused' : 'error';
   if ([401, 403].includes(status)) return result.fromApp ? 'refused' : 'error';
   // Only the application's own refusal destinations count; a login or session-timeout redirect is
   // an error (the session was lost, nothing was decided about the role).
@@ -101,9 +101,9 @@ function refusedByApp(result) {
   return result.status >= 300 && result.status < 400 && /securityError|noRights/i.test(result.location || '');
 }
 
-/** The refusal expected for HEAD: the application's refusal, or 405 where the route is GET-only (a container runs doGet for HEAD). */
+/** The refusal expected for HEAD: the application's refusal, or its own 405 where the route is GET-only. */
 function refusedHead(result) {
-  return refusedByApp(result) || result.status === 405;
+  return refusedByApp(result) || (result.status === 405 && result.fromApp === true);
 }
 
 /** Absolute URL for an application path (`route?query`), validated by the harness. */

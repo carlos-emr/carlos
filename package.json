@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
+    "test:dependency-tables-playwright": "node scripts/dependency-tables-playwright-checks.js",
+    "test:chart-draw-playwright": "node scripts/chart-draw-playwright-checks.js",
     "test:rx-reprint-authorization-playwright": "node scripts/rx-reprint-authorization-playwright-checks.js",
     "test:flowsheet-prevention-print-playwright": "node scripts/flowsheet-prevention-print-playwright-checks.js",
     "test:rx-profile-legend": "node scripts/rx-profile-legend-playwright-checks.js",
@@ -99,6 +101,7 @@
     "test:schedule-setting-playwright": "node scripts/schedule-setting-playwright-checks.js",
     "test:schedule-period-delete-playwright": "node scripts/schedule-period-delete-playwright-checks.js",
     "test:scripts": "node --test scripts/*.test.js",
+    "test:ui-scroll-quick-pick-browser": "node scripts/ui-scroll-quick-pick-browser-check.js",
     "test:scripts:release": "node scripts/run-node-release-tests.js --output target/release-node-results.json",
     "test:multisite-tickler-filter-playwright": "node scripts/multisite-tickler-filter-playwright-checks.js",
     "test:tickler-crud-playwright": "node scripts/tickler-crud-playwright-checks.js",

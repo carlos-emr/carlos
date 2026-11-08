@@ -62,6 +62,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext" %>
 
@@ -173,6 +174,12 @@ function fallbackCopy(text) {
            title="${carlos:forHtmlAttribute(calculatorsTitle)}"
            onclick="window.open('${carlos:forJavaScriptAttribute(ctx)}/encounter/ViewCalculators?demo=${carlos:forUriComponent(popupDemographicNo)}', 'ClinicalCalculators', 'width=800,height=650,scrollbars=yes,resizable=yes'); return false;"><fmt:message key="encounter.Index.calculators"/></a>
     </div>
+    <% if (SpringUtils.getBean(SecurityInfoManager.class).hasPrivilege(loggedInInfo, "_report", "r", null)) { %>
+    <div>
+        <a id="chartHistoricalRecordsLink" target="_blank" rel="noopener"
+           href="${carlos:forHtmlAttribute(ctx)}/report/ViewReportecharthistory?demographic_no=${carlos:forUriComponent(popupDemographicNo)}"><fmt:message key="encounter.historicalChart.title"/></a>
+    </div>
+    <% } %>
     <% if (CarlosProperties.getInstance().hasProperty("ONTARIO_MD_INCOMINGREQUESTOR")) {%>
         <div>
         <button type="button" id="chartOmdButton" style="background: none; border: 0; padding: 0; font: inherit; color: #0000ee; text-decoration: underline; cursor: pointer;" onClick="popupPage(600,175,'Calculators','${carlos:forJavaScriptAttribute(ctx)}/common/omdDiseaseList?sex=${carlos:forUriComponent(popupPatientSex)}&amp;age=${carlos:forUriComponent(popupPatientAge)}'); return false;"><fmt:message key="encounter.Header.OntMD"/></button>

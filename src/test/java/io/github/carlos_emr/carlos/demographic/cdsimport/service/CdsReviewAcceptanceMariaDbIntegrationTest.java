@@ -155,8 +155,8 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
         assertThat(jdbc.getProperty("ownedDisposableDatabase")).isEqualTo("true");
         assertThat(jdbc.getProperty("jdbcUrl", "")).matches("jdbc:(mysql|mariadb)://[^/]+/carlos_cds_test(?:\\?.*)?");
         dataSource = new OscarTrackingBasicDataSource();
-        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        dataSource.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:", "jdbc:mysql:"));
+        dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
+        dataSource.setUrl(jdbc.getProperty("jdbcUrl"));
         dataSource.setUsername(jdbc.getProperty("jdbcUser"));
         dataSource.setPassword(jdbc.getProperty("jdbcPassword"));
         dataSource.setDefaultAutoCommit(true);

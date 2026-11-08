@@ -591,7 +591,7 @@ function navigationCancellation(entry) {
 }
 
 /**
- * Snapshot pending loads before a navigation, including same-address reloads.
+ * Track pending loads across a navigation, including same-address reloads.
  * A later URL comparison alone cannot distinguish a load the browser abandoned
  * from a request that failed independently before the test left the page.
  */
@@ -631,6 +631,17 @@ function trackPendingNavigationRequests(page) {
       operation.documentRequest = request;
       navigations.add(operation);
       documentNavigations.set(request, operation);
+    } else if (frame) {
+      // The old document can start another polling/resource load while its
+      // replacement response is pending. It still belongs to that document.
+      // Candidate membership alone is not an exemption: response readiness is
+      // frozen at failure and replacement must be confirmed. A pre-response
+      // application abort stays fatal even after a later commit.
+      for (const operation of navigations) {
+        if (!operation.replacingDocument || !belongsTo(frame, operation.frame)) continue;
+        if (!candidates.has(request)) candidates.set(request, new Set());
+        candidates.get(request).add(operation);
+      }
     }
     pending.set(request, frame);
   });

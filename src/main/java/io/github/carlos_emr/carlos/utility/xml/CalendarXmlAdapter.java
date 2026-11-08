@@ -33,8 +33,8 @@ import javax.xml.datatype.XMLGregorianCalendar;
  * <p>MOXy decides the shape of a calendar value from {@link Calendar#isSet(int)}, never from the
  * field values themselves:
  * <ul>
- * <li>no time field set (a {@code clear()}ed calendar with only year, month and day assigned, such
- * as {@code Demographic.getBirthDay()}) marshals as a plain {@code xs:date} value;</li>
+ * <li>no time field set (a {@code clear()}ed calendar with only year, month and day assigned)
+ * marshals as a plain {@code xs:date} value;</li>
  * <li>otherwise the value is a full date-time, and the zone offset is written only when the zone
  * fields are set. Every calendar built through {@code setTime}/{@code setTimeInMillis} (all of
  * {@code DateUtils.toGregorianCalendar}) has them set and therefore carries its offset, for
@@ -45,6 +45,8 @@ import javax.xml.datatype.XMLGregorianCalendar;
  * the strength of its value alone, because the published WSDLs declare these elements
  * {@code xs:dateTime}. Calendar is required by the existing DTO signatures and its field-set
  * state is part of the compatibility contract; java.time values cannot carry that state.
+ * Properties whose published main contract requires a date-time regardless of field-set state,
+ * such as {@code Demographic.getBirthDay()}, explicitly use {@link CalendarDateTimeXmlAdapter}.
  */
 public final class CalendarXmlAdapter extends XmlCompatibilityAdapter<String, Calendar> {
     /** Immutable and thread-safe; created once instead of once per marshalled value. */
@@ -66,8 +68,11 @@ public final class CalendarXmlAdapter extends XmlCompatibilityAdapter<String, Ca
         boolean hasTime = value.isSet(Calendar.HOUR_OF_DAY) || value.isSet(Calendar.HOUR)
                 || value.isSet(Calendar.MINUTE) || value.isSet(Calendar.SECOND) || value.isSet(Calendar.MILLISECOND);
         boolean hasZone = value.isSet(Calendar.ZONE_OFFSET) || value.isSet(Calendar.DST_OFFSET);
-        GregorianCalendar calendar = new GregorianCalendar(value.getTimeZone());
-        calendar.setTimeInMillis(value.getTimeInMillis());
+        // Calendar computes and normalizes fields lazily, even in getTimeInMillis().
+        // Resolve an independent copy so writing XML cannot change the caller's state.
+        Calendar copy = (Calendar) value.clone();
+        GregorianCalendar calendar = new GregorianCalendar(copy.getTimeZone());
+        calendar.setTimeInMillis(copy.getTimeInMillis());
         XMLGregorianCalendar result = DATATYPE_FACTORY.newXMLGregorianCalendar(calendar);
         if (!hasZone) {
             result.setTimezone(DatatypeConstants.FIELD_UNDEFINED);

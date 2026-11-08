@@ -1,131 +1,170 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
-"""Execute the package transform against valid and drifting upstream inputs."""
+"""Refuse older or incomplete DrugRef WARs before packaging a broken upgrade."""
 from pathlib import Path
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[3]
-HELPER = ROOT / 'debian/apply-drugref-jdbc-default.py'
-NS = {'b': 'http://www.springframework.org/schema/beans'}
-FIXTURE = b'''<?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans">
-    <!-- Preserve all unrelated bytes, not merely the parsed XML semantics. -->
-    <bean id="unrelated" class="example.Unchanged" />
-    <bean id="dataSource" class="com.zaxxer.hikari.HikariDataSource" destroy-method="close">
+HELPER = ROOT / 'debian/check-drugref-jdbc.py'
+PACKAGE = 'io/github/carlos_emr/drugref2026/util/'
+FIXTURE = b'''<beans xmlns="http://www.springframework.org/schema/beans">
+    <bean id="dataSource" class="io.github.carlos_emr.drugref2026.util.DrugrefDataSource" destroy-method="close">
         <property name="driverClassName" value="${db_driver}" />
-        <property name="jdbcUrl" value="${db_url}?serverTimezone=UTC" />
-        <property name="autoCommit" value="false" />
+        <property name="jdbcUrl" value="${db_url}" />
         <property name="username" value="${db_user}" />
         <property name="password" value="${db_password}" />
-        <property name="maximumPoolSize" value="32" />
-        <property name="minimumIdle" value="2" />
-        <property name="connectionTimeout" value="10000" />
     </bean>
-    <bean id="later" class="example.AlsoUnchanged" />
-</beans>
-'''
+</beans>'''
 
 
 class JdbcDefaultsPackagingTest(unittest.TestCase):
-    def transform(self, content):
-        return subprocess.run([sys.executable, str(HELPER), '--stdin'], input=content, capture_output=True)
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.webapp = Path(self.temporary.name)
+        self.classes = self.webapp / 'WEB-INF/classes'
+        self.classes.mkdir(parents=True)
+        self.config = self.classes / 'spring_config.xml'
+        self.config.write_bytes(FIXTURE)
+        for name in ('DrugrefDataSource', 'MariaDbJdbcCompatibility', 'MariaDbCompatibilityDriver',
+                     'MariaDbPreferredTlsPlugin'):
+            path = self.classes / (PACKAGE + name + '.class')
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b'fixture')
+        self.service = self.classes / 'META-INF/services/org.mariadb.jdbc.plugin.TlsSocketPlugin'
+        self.service.parent.mkdir(parents=True)
+        self.service.write_text(PACKAGE.replace('/', '.') + 'MariaDbPreferredTlsPlugin\n', encoding='utf-8')
+        self.libraries = self.webapp / 'WEB-INF/lib'
+        self.libraries.mkdir(parents=True)
+        self.connector = self.libraries / 'mariadb-java-client-3.5.11.jar'
+        self.write_connector(self.connector)
 
-    def test_exact_override_is_inserted_without_changing_existing_bytes(self):
-        result = self.transform(FIXTURE)
+    def write_connector(self, path):
+        with zipfile.ZipFile(path, 'w') as archive:
+            archive.writestr('org/mariadb/jdbc/Driver.class', b'fixture')
+
+    def check(self):
+        return subprocess.run([sys.executable, str(HELPER), str(self.webapp)], capture_output=True)
+
+    def test_migrated_application_is_verified_without_modifying_configuration(self):
+        result = self.check()
         self.assertEqual(result.returncode, 0, result.stderr)
-        root = ET.fromstring(result.stdout)
-        props = root.findall("b:bean[@id='dataSource']/b:property[@name='dataSourceProperties']", NS)
-        self.assertEqual(len(props), 1)
-        self.assertEqual(props[0].attrib, {'name': 'dataSourceProperties', 'ref': 'carlosDebianMetadataProperties'})
-        parser = root.find("b:bean[@id='carlosDebianJdbcUrl']", NS)
-        self.assertEqual(parser.get('class'), 'com.mysql.cj.conf.ConnectionUrl')
-        self.assertEqual(parser.get('factory-method'), 'getConnectionUrlInstance')
-        self.assertEqual(parser.find("b:constructor-arg[@index='0']", NS).get('value'), '${db_url}?serverTimezone=UTC')
-        self.assertIsNotNone(parser.find("b:constructor-arg[@index='1']/b:null", NS))
-        selected = root.find("b:bean[@id='carlosDebianMetadataMode']", NS)
-        self.assertEqual(selected.get('factory-method'), 'getProperty')
-        self.assertEqual(selected.find("b:constructor-arg[@index='1']", NS).get('value'), '${db_use_information_schema:false}')
-        entries = root.findall("b:bean[@id='carlosDebianMetadataProperties']/b:property[@name='sourceMap']/b:map/b:entry", NS)
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0].attrib, {'key': 'useInformationSchema', 'value-ref': 'carlosDebianMetadataMode'})
-        # Remove only the two documented additions, then compare every original byte.
-        addition = b'        <property name="dataSourceProperties" ref="carlosDebianMetadataProperties" />\n'
-        cleaned = result.stdout.replace(addition, b'', 1)
-        start = cleaned.index(b'\n    <!-- CARLOS Debian JDBC metadata defaults -->\n')
-        ending = b'    <!-- End CARLOS Debian JDBC metadata defaults -->\n'
-        end = cleaned.index(ending, start) + len(ending)
-        self.assertEqual(cleaned[:start] + cleaned[end:], FIXTURE)
+        self.assertEqual(self.config.read_bytes(), FIXTURE)
 
-    def test_upstream_datasource_drift_and_ambiguous_inputs_fail_closed(self):
-        altered = [
+    def test_old_prebuilt_wars_and_changed_url_wiring_are_refused(self):
+        invalid = [
+            FIXTURE.replace(b'io.github.carlos_emr.drugref2026.util.DrugrefDataSource',
+                            b'com.zaxxer.hikari.HikariDataSource'),
+            FIXTURE.replace(b'${db_url}', b'${db_url}?serverTimezone=UTC'),
+            FIXTURE.replace(b'${db_driver}', b'com.mysql.cj.jdbc.Driver'),
+            FIXTURE.replace(b'${db_user}', b'root'),
+            FIXTURE.replace(b'${db_password}', b'hard-coded-password'),
+            FIXTURE.replace(b'<property name="username" value="${db_user}" />', b''),
+            FIXTURE.replace(b'<property name="password" value="${db_password}" />', b''),
             FIXTURE.replace(b'id="dataSource"', b'id="otherSource"'),
-            FIXTURE.replace(b'com.zaxxer.hikari.HikariDataSource', b'example.OtherPool'),
-            FIXTURE.replace(b'${db_url}?serverTimezone=UTC', b'${db_url}?different=true'),
-            FIXTURE.replace(b'name="maximumPoolSize" value="32"', b'name="maximumPoolSize" value="64"'),
-            FIXTURE.replace(b'name="minimumIdle"', b'name="maximumPoolSize"'),
-            FIXTURE.replace(b'    </bean>', b'        <property name="dataSourceProperties" value="existing" />\n    </bean>'),
-            FIXTURE.replace(b'</beans>', b'<bean id="dataSource" class="example.OtherPool" /></beans>'),
-            FIXTURE.replace(b'<beans ', b'<!DOCTYPE beans SYSTEM "file:///private">\n<beans '),
+            FIXTURE.replace(b'</beans>', b'<bean id="dataSource" /></beans>'),
+            FIXTURE.replace(b'</bean>', b'<property name="jdbcUrl" value="other" /></bean>'),
+            FIXTURE.replace(b'</beans>', b'<bean class="com.mysql.cj.conf.ConnectionUrl" /></beans>'),
+            b'<!DOCTYPE beans SYSTEM "file:///private">' + FIXTURE,
             b'<beans>',
         ]
-        for content in altered:
+        for content in invalid:
             with self.subTest(content=content):
-                result = self.transform(content)
+                self.config.write_bytes(content)
+                result = self.check()
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, b'')
+                self.assertEqual(self.config.read_bytes(), content)
 
-    def test_existing_names_or_aliases_of_generated_beans_are_rejected(self):
-        for declaration in [b'<bean id="carlosDebianJdbcUrl" class="example.Decoy" />',
-                            b'<bean name="other,carlosDebianMetadataMode" class="example.Decoy" />',
-                            b'<alias name="unrelated" alias="carlosDebianMetadataProperties" />']:
-            with self.subTest(declaration=declaration):
-                result = self.transform(FIXTURE.replace(b'</beans>', declaration + b'</beans>'))
+    def test_utf16_and_utf32_xml_entities_are_refused_before_parsing(self):
+        xml = ('<!DOCTYPE beans [<!ENTITY url "${db_url}">]>'
+               + FIXTURE.decode('utf-8').replace('${db_url}', '&url;'))
+        for encoding in ('utf-16', 'utf-16-be', 'utf-32', 'utf-32-be'):
+            with self.subTest(encoding=encoding):
+                self.config.write_bytes(xml.encode(encoding))
+                result = self.check()
                 self.assertNotEqual(result.returncode, 0)
-                self.assertEqual(result.stdout, b'')
+                self.assertIn(b'NUL bytes or XML entities', result.stderr)
 
-    def test_repeated_transform_is_refused(self):
-        first = self.transform(FIXTURE)
-        self.assertEqual(first.returncode, 0, first.stderr)
-        self.assertNotEqual(self.transform(first.stdout).returncode, 0)
+    def test_missing_compatibility_classes_are_refused(self):
+        for name in ('DrugrefDataSource', 'MariaDbJdbcCompatibility', 'MariaDbCompatibilityDriver',
+                     'MariaDbPreferredTlsPlugin'):
+            with self.subTest(name=name):
+                path = self.classes / (PACKAGE + name + '.class')
+                path.unlink()
+                self.assertNotEqual(self.check().returncode, 0)
+                path.write_bytes(b'fixture')
 
-    def test_literal_opening_in_comment_or_cdata_cannot_fake_a_transform(self):
-        opening = b'<bean id="dataSource" class="com.zaxxer.hikari.HikariDataSource" destroy-method="close">'
-        actual = FIXTURE.replace(opening, opening.replace(b'<bean ', b'<bean  '))
-        for decoy in [b'<!-- ' + opening + b'\n    </bean> -->',
-                      b'<![CDATA[' + opening + b'\n    </bean>]]>']:
-            with self.subTest(decoy=decoy):
-                content = actual.replace(b'    <!-- Preserve', b'    ' + decoy + b'\n    <!-- Preserve')
-                result = self.transform(content)
+    def test_missing_and_wrong_tls_service_registration_are_refused(self):
+        self.service.unlink()
+        self.assertNotEqual(self.check().returncode, 0)
+        for content in ('', '# no provider\n', 'example.WrongProvider\n',
+                        2 * (PACKAGE.replace('/', '.') + 'MariaDbPreferredTlsPlugin\n')):
+            with self.subTest(content=content):
+                self.service.write_text(content, encoding='utf-8')
+                self.assertNotEqual(self.check().returncode, 0)
+
+    def test_missing_duplicate_and_old_connectors_are_refused(self):
+        self.connector.unlink()
+        self.assertNotEqual(self.check().returncode, 0)
+        self.write_connector(self.connector)
+        duplicate = self.libraries / 'mariadb-java-client-3.4.0.jar'
+        self.write_connector(duplicate)
+        self.assertNotEqual(self.check().returncode, 0)
+        self.connector.unlink()
+        self.assertNotEqual(self.check().returncode, 0, 'the sole connector must also match the pin')
+        duplicate.unlink()
+        self.write_connector(self.connector)
+        old = self.libraries / 'mysql-connector-j-9.1.0.jar'
+        old.write_bytes(b'old connector')
+        self.assertNotEqual(self.check().returncode, 0)
+
+    def test_renamed_and_multi_release_mysql_connectors_are_refused(self):
+        renamed = self.libraries / 'legacy-driver.jar'
+        for entry in ('com/mysql/cj/jdbc/Driver.class',
+                      'META-INF/versions/21/com/mysql/cj/jdbc/Driver.class'):
+            with self.subTest(entry=entry):
+                with zipfile.ZipFile(renamed, 'w') as archive:
+                    archive.writestr(entry, b'fixture')
+                result = self.check()
                 self.assertNotEqual(result.returncode, 0)
-                self.assertEqual(result.stdout, b'')
+                self.assertIn(b'MySQL Connector/J classes', result.stderr)
 
-    def test_file_failure_preserves_input_and_success_preserves_mode(self):
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / 'spring_config.xml'
-            path.write_bytes(b'not xml')
-            result = subprocess.run([sys.executable, str(HELPER), str(path)], capture_output=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(path.read_bytes(), b'not xml')
-            path.write_bytes(FIXTURE)
-            path.chmod(0o640)
-            result = subprocess.run([sys.executable, str(HELPER), str(path)], capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(path.stat().st_mode & 0o777, 0o640)
-            self.assertEqual(path.read_bytes(), self.transform(FIXTURE).stdout)
+    def test_truncated_or_misnamed_connector_is_refused(self):
+        self.connector.write_bytes(b'not a jar')
+        self.assertNotEqual(self.check().returncode, 0)
+        with zipfile.ZipFile(self.connector, 'w') as archive:
+            archive.writestr('unrelated.class', b'fixture')
+        self.assertNotEqual(self.check().returncode, 0)
 
-    def test_symlink_input_is_never_followed(self):
-        with tempfile.TemporaryDirectory() as directory:
-            target = Path(directory) / 'original.xml'
-            target.write_bytes(FIXTURE)
-            link = Path(directory) / 'spring_config.xml'
-            link.symlink_to(target)
-            result = subprocess.run([sys.executable, str(HELPER), str(link)], capture_output=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(target.read_bytes(), FIXTURE)
+
+class FlywayConnectorPackagingTest(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('jar'), 'requires a JDK jar tool')
+    def test_prebuilt_war_with_wrong_or_duplicate_connector_is_refused(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            staging = Path(temporary)
+            war = staging / 'carlos.war'
+            output = staging / 'output'
+            for connectors in (('mariadb-java-client-3.4.0.jar',),
+                               ('mariadb-java-client-3.5.11.jar', 'mariadb-java-client-3.4.0.jar')):
+                with self.subTest(connectors=connectors):
+                    with zipfile.ZipFile(war, 'w') as archive:
+                        for name in ('flyway-core-12.0.0.jar', 'flyway-mysql-12.0.0.jar', *connectors):
+                            archive.writestr('WEB-INF/lib/' + name, b'fixture')
+                    environment = os.environ.copy()
+                    environment['JAVA_HOME'] = str(Path(shutil.which('jar')).resolve().parents[1])
+                    result = subprocess.run(
+                        ['sh', str(ROOT / 'debian/build-flyway-runner.sh'), str(war), str(output)],
+                        cwd=ROOT, env=environment, capture_output=True)
+                    self.assertEqual(result.returncode, 1, result.stderr)
+                    self.assertIn(b'must ship exactly mariadb-java-client-3.5.11.jar', result.stderr)
+                    self.assertFalse((output / 'carlos-flyway-runner.jar').exists())
 
 
 if __name__ == '__main__':

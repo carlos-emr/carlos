@@ -11,6 +11,13 @@ and VS-Code.
       search for "Dev Containers" by Microsoft and click "Install".
 * **Git:** Installed
 
+On Apple Silicon, Docker Desktop must support `linux/amd64` emulation. The CARLOS application
+container uses that platform because its eForm PDF and measurement-chart renderer needs a matching
+Chrome for Testing/chromedriver pair, which upstream publishes for Linux amd64. MariaDB and DrugRef
+continue to use the host's native architecture. The Compose configuration selects the application
+platform automatically; direct image builds must include `--platform=linux/amd64`. This affects only
+the development container and does not change release browser pins.
+
 ## Optional: If you are developing on windows it's recommended that you work within WSL (Windows Subsystem for Linux)
 
 ### Steps to get started within WSL 

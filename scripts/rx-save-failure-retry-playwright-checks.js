@@ -138,6 +138,14 @@ async function workflow(s) {
       const urls=new Set(failures.map(row=>row.url));urls.add(h.appUrl(s.config.baseUrl,'/csrfguard'));s.recorder.requestFailures.splice(mark.failures,1);
       for(let index=s.recorder.consoleIssues.length-1;index>=mark.console;index--){const item=s.recorder.consoleIssues[index];if(urls.has(item.location?.url)&&/^Failed to load resource:.*ERR_FAILED/.test(item.text))s.recorder.consoleIssues.splice(index,1);}
       h.assert(await rx.locator('#carlosModal:visible').count()===0,'Lost response opened a false success preview');
+      // Check the automatic refresh before retry or reload can hide a broken
+      // callback. It must show the committed medications without discarding
+      // the clinician's still-rendered draft or changing the unrelated control.
+      for(const card of cards) {
+        await rx.locator('#drugProfile').getByText(card.name,{exact:false}).first().waitFor({state:'visible',timeout:30000});
+        h.assert(await rx.locator(`#instructions_${card.key}`).inputValue()===card.instructions,'Uncertain save lost an entered medication/direction');
+      }
+      h.assert(controls()===controlBefore,'Uncertain-save refresh changed its unrelated control');
       const persisted=snapshot(),retryMark=failureMark(s.recorder);let retry;
       const retryDialogs=await h.withExpectedDialogs(rx,async()=>{
         const alert=rx.waitForEvent('dialog',{predicate:dialog=>dialog.type()==='alert',timeout:30000});alert.catch(()=>{});

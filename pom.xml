@@ -82,7 +82,7 @@
             justification comment. The procedure for adding or dropping an entry is in
             docs/static-analysis-workflows.md ("SonarCloud path-traversal exclusions").
         -->
-        <sonar.issue.ignore.multicriteria>pvuSelf,s2083BillingsMSPDocumentTeleplanReportUploadServlet,s2083BillingsBcMSPDocumentTeleplanReportUploadServlet,s2083GenTa2Action,s2083TeleplanCodesManager,s2083TeleplanResponse,s2083DownloadBilling2Action,s2083ManageTeleplan2Action,s2083BillingOnRaService,s2083OhipClaimExtractService,s2083BillingDocumentErrorReportUpload2Action,s2083BillingLegacyReport2Action,s2083MoveMohFiles2Action,s2083ScheduleOfBenefitsUpload2Action,s2083CreateHRMFile,s2083Util,s2083EDoc,s2083IncomingDocUtil,s2083IncomingDocumentMutationLock,s2083IncomingDocumentPublication,s2083IncomingDocumentScratch,s2083StoredDocumentRevision,s2083AddEditDocument2Action,s2083DocumentUpload2Action,s2083ManageDocument2Action,s2083DxResearchLoadAssociations2Action,s2083EFormExportZip,s2083DelImage2Action,s2083DisplayImage2Action,s2083ManageEForm2Action,s2083HtmlUpload2Action,s2083ImageUpload2Action,s2083EFormImageViewForPdfGenerationServlet,s2083MeasurementFlowSheet,s2083EctAddMeasurementStyleSheet2Action,s2083FaxImporter,s2083FrmSetupForm2Action,s2083FrmXmlUpload2Action,s2083FrmCustomedPDFServlet,s2083FrmPDFServlet,s2083PhsStarHandler,s2083Update2Action,s2083ActionUtils,s2083Download2Action,s2083Upload2Action,s2083FileUploadCheck,s2083LabAllLabUpload2Action,s2083DefaultHandler,s2083ExcellerisOntarioHandler,s2083FHIRCommunicationRequestHandler,s2083IHAPOIHandler,s2083MEDITECHHandler,s2083PDFHandler,s2083Utilities,s2083LabBcPathNetLabUpload2Action,s2083LabOnCMLUploadLabUpload2Action,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008,jaxbCalendarS2143,jaxbDateS2143</sonar.issue.ignore.multicriteria>
+        <sonar.issue.ignore.multicriteria>pvuSelf,s2083BillingsMSPDocumentTeleplanReportUploadServlet,s2083BillingsBcMSPDocumentTeleplanReportUploadServlet,s2083GenTa2Action,s2083TeleplanCodesManager,s2083TeleplanResponse,s2083DownloadBilling2Action,s2083ManageTeleplan2Action,s2083BillingOnRaService,s2083OhipClaimExtractService,s2083BillingDocumentErrorReportUpload2Action,s2083BillingLegacyReport2Action,s2083MoveMohFiles2Action,s2083ScheduleOfBenefitsUpload2Action,s2083CreateHRMFile,s2083Util,s2083EDoc,s2083IncomingDocUtil,s2083IncomingDocumentMutationLock,s2083IncomingDocumentPublication,s2083IncomingDocumentScratch,s2083StoredDocumentRevision,s2083AddEditDocument2Action,s2083DocumentUpload2Action,s2083ManageDocument2Action,s2083DxResearchLoadAssociations2Action,s2083EFormExportZip,s2083DelImage2Action,s2083DisplayImage2Action,s2083ManageEForm2Action,s2083HtmlUpload2Action,s2083ImageUpload2Action,s2083EFormImageViewForPdfGenerationServlet,s2083MeasurementFlowSheet,s2083EctAddMeasurementStyleSheet2Action,s2083FaxImporter,s2083FrmSetupForm2Action,s2083FrmXmlUpload2Action,s2083FrmCustomedPDFServlet,s2083FrmPDFServlet,s2083PhsStarHandler,s2083Update2Action,s2083ActionUtils,s2083Download2Action,s2083Upload2Action,s2083FileUploadCheck,s2083LabAllLabUpload2Action,s2083DefaultHandler,s2083ExcellerisOntarioHandler,s2083FHIRCommunicationRequestHandler,s2083IHAPOIHandler,s2083MEDITECHHandler,s2083PDFHandler,s2083Utilities,s2083LabBcPathNetLabUpload2Action,s2083LabOnCMLUploadLabUpload2Action,pvuDocS6549,csrfTplS6638,csrfTplS3403,bcFormLabel,bcFormLabel2008,bcFormFont,bcFormFont2008,jaxbCalendarS2143,jaxbDateS2143,mariaJdbcLegacyDates</sonar.issue.ignore.multicriteria>
         <!-- PathValidationUtils itself: it IS the sanitizer, so its own file operations take the unvalidated input by design -->
         <sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>javasecurity:S2083</sonar.issue.ignore.multicriteria.pvuSelf.ruleKey>
         <sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>**/io/github/carlos_emr/carlos/utility/PathValidationUtils.java</sonar.issue.ignore.multicriteria.pvuSelf.resourceKey>
@@ -281,6 +281,12 @@
         <sonar.issue.ignore.multicriteria.bcFormFont.resourceKey>**/WEB-INF/jsp/form/formbc*.jsp</sonar.issue.ignore.multicriteria.bcFormFont.resourceKey>
         <sonar.issue.ignore.multicriteria.bcFormFont2008.ruleKey>Web:UnsupportedTagsInHtml5Check</sonar.issue.ignore.multicriteria.bcFormFont2008.ruleKey>
         <sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>**/WEB-INF/jsp/form/formBCNewBorn2008*.jsp</sonar.issue.ignore.multicriteria.bcFormFont2008.resourceKey>
+        <!-- JDBC's Date/Time/Timestamp/Calendar API is the contract of this compatibility adapter.
+             GregorianCalendar's cutover, strict validation and year-one zero-date conversion are
+             intentionally retained and tested against Connector/J; java.time handles modern JDBC types.
+             S2143 is a file-level modernization suggestion, so suppress only this rule for this adapter. -->
+        <sonar.issue.ignore.multicriteria.mariaJdbcLegacyDates.ruleKey>java:S2143</sonar.issue.ignore.multicriteria.mariaJdbcLegacyDates.ruleKey>
+        <sonar.issue.ignore.multicriteria.mariaJdbcLegacyDates.resourceKey>**/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java</sonar.issue.ignore.multicriteria.mariaJdbcLegacyDates.resourceKey>
         <!--
             These two JAXB compatibility boundaries must bind the existing Date/Calendar DTO
             properties. Calendar.isSet also carries the legacy MOXy lexical-form contract that
@@ -355,8 +361,6 @@
         <hapi-hl7.version>2.6.0</hapi-hl7.version>
         <!-- Flyway schema migrations (Community edition covers MariaDB/MySQL) -->
         <flyway.version>13.12.0</flyway.version>
-        <!-- Selenium: drives the pinned headless Chromium for eForm browser PDF rendering -->
-        <selenium.version>4.46.0</selenium.version>
         <!-- Testing -->
         <junit-jupiter.version>6.1.3</junit-jupiter.version>
         <mockito.version>5.23.0</mockito.version>
@@ -612,9 +616,10 @@
                 <version>3.0.4</version>
             </dependency>
             <!-- Expression Language 6.0, the version Tomcat 11 implements (#5416).
-                 Provided on every path: displaytag's JSTL API still asks for EL 5 at
-                 compile scope, and Tomcat always loads jakarta.el.* from its own
-                 lib/el-api.jar, so a copy in WEB-INF/lib is never used. See
+                 Provided on every path: the JSTL API (jakarta.servlet.jsp.jstl-api)
+                 still asks for EL 5 at compile scope, and Tomcat always loads
+                 jakarta.el.* from its own lib/el-api.jar, so a copy in WEB-INF/lib is
+                 never used. See
                  docs/container-provided-apis.md. -->
             <dependency>
                 <groupId>jakarta.el</groupId>
@@ -686,7 +691,7 @@
              org.slf4j:jcl-over-slf4j redefines the same classes and adds a
              META-INF/services entry that reroutes JCL through SLF4J. Shipping
              both left the winning LogFactory to class-loader order, so it is
-             excluded from hapi-fhir-base; the poi, displaytag and javamelody-core
+             excluded from hapi-fhir-base; the poi and javamelody-core
              exclusions date from older releases of those libraries and are kept
              as defence in depth. It is banned
              outright by maven-enforcer-plugin (ban-duplicate-commons-logging).
@@ -956,11 +961,11 @@
             <artifactId>commons-dbcp2</artifactId>
             <version>2.14.0</version>
         </dependency>
-        <!-- MySQL JDBC driver (runtime) -->
+        <!-- MariaDB Connector/J supports MariaDB and MySQL; legacy configuration is adapted at the boundary. -->
         <dependency>
-            <groupId>com.mysql</groupId>
-            <artifactId>mysql-connector-j</artifactId>
-            <version>9.6.0</version>
+            <groupId>org.mariadb.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>3.5.11</version>
         </dependency>
         <!-- Flyway schema migrations: flyway-core is the engine; flyway-mysql adds the
              MariaDB/MySQL database module required since Flyway 9. Both are Community edition. -->
@@ -1022,13 +1027,22 @@
             <version>${twelvemonkeys.version}</version>
         </dependency>
 
-        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace) -->
+        <!-- Tomcat supplies no JSTL. Keep the API even when table dependencies change. -->
+        <dependency>
+            <groupId>jakarta.servlet.jsp.jstl</groupId>
+            <artifactId>jakarta.servlet.jsp.jstl-api</artifactId>
+            <version>3.0.2</version>
+        </dependency>
+        <!-- Glassfish JSTL 3.0.1 implementation (Jakarta EE 10 - jakarta.tags namespace).
+             Bundles shaded Xalan 2.7.2, unaffected by separately resolved Xalan artifacts.
+             See docs/security/jstl-shaded-xalan.md for CVE-2022-34169 triage. -->
         <dependency>
             <groupId>org.glassfish.web</groupId>
             <artifactId>jakarta.servlet.jsp.jstl</artifactId>
             <version>3.0.1</version>
         </dependency>
-        <!-- Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
+        <!-- Standalone Xalan serializer, separate from JSTL's shaded Xalan copy.
+             Provides org.apache.xml.serializer.OutputPropertiesFactory used by Struts. -->
         <dependency>
             <groupId>xalan</groupId>
             <artifactId>serializer</artifactId>
@@ -1167,12 +1181,6 @@
             <version>${jasperreports.version}</version>
         </dependency>
 
-        <!-- Direct XLSX writer for tabular exports. Version aligned with poi via dependencyManagement. -->
-        <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi-ooxml</artifactId>
-        </dependency>
-
         <!-- ==================== Jackson / JSON ==================== -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -1231,44 +1239,12 @@
             <version>2.0.5</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.jfree</groupId>
-            <artifactId>jfreechart</artifactId>
-            <version>1.5.6</version>
-        </dependency>
-
-        <!-- apache poi -->
+        <!-- Independent workbook reader used only to validate application XLSX exports. -->
         <dependency>
             <groupId>org.apache.poi</groupId>
-            <artifactId>poi</artifactId>
+            <artifactId>poi-ooxml</artifactId>
             <version>${poi.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <!-- UPGRADED displaytag to Jakarta EE compatible hazendaz fork -->
-        <!-- Temporary bridge solution - full DataTables migration planned for Q2 2026 -->
-        <!-- Used in JSP files: admin (6), BC billing (3), PMmodule (1), casemgmt (1) -->
-        <dependency>
-            <groupId>com.github.hazendaz</groupId>
-            <artifactId>displaytag</artifactId>
-            <version>3.8.0</version>
-            <exclusions>
-                <!-- Exclude SLF4J to use project's managed version -->
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-api</artifactId>
-                </exclusion>
-                <!-- Exclude to avoid conflicts with project's logging setup -->
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
+            <scope>test</scope>
         </dependency>
 
         <!-- ==================== Utilities ==================== -->
@@ -1611,50 +1587,6 @@
         <dependency>
             <groupId>io.opentelemetry</groupId>
             <artifactId>opentelemetry-api</artifactId>
-        </dependency>
-        <!-- Selenium drives the pinned headless Chromium for eForm browser PDF rendering.
-             Deliberately NOT selenium-java: chrome-driver keeps the tree to the
-             Chromium path only (no firefox/edge/safari driver artifacts in the WAR). -->
-        <dependency>
-            <groupId>org.seleniumhq.selenium</groupId>
-            <artifactId>selenium-chrome-driver</artifactId>
-            <version>${selenium.version}</version>
-            <!-- Selenium's tracing hooks need only the API. Keep the unused SDK and
-                 exporters out of the WAR; application telemetry remains a no-op. -->
-            <exclusions>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-common</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-trace</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-metrics</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-logs</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-extension-autoconfigure</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-sdk-extension-autoconfigure-spi</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>io.opentelemetry</groupId>
-                    <artifactId>opentelemetry-exporter-logging</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <!-- SpotBugs annotations: provides edu.umd.cs.findbugs.annotations.SuppressFBWarnings for
              per-site, justified suppression of Find Security Bugs findings (e.g. the informational
