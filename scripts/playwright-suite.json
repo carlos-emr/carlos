@@ -18636,6 +18636,49 @@
       ],
       "fixtures": "Native marker-owned items on all three shipped lists, owned provider/appointment/referral and directory fixtures. Native deactivation evicts caches before guarded SQL cleanup; unrelated lookup rows are compared in full. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5709: inventory in docs/testing/lookup-list-consumer-inventory.md; exact label/value/order/owner, empty and duplicate adds, consumer save/reopen, selective removal/cache isolation. Native UI has no edit/reorder/list-creation controls. Retains strict GET refusal for existing finding 58 (#3059), with explicit status and unchanged-state evidence; no new expected-failure pin."
+    },
+    {
+      "name": "decision-support-operators",
+      "script": "scripts/decision-support-operators-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 1200,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE",
+        "DS_OPERATOR_ARTIFACT_DIR"
+      ],
+      "mutates": [
+        "provider",
+        "dsGuidelines",
+        "dsGuidelineProviderMap"
+      ],
+      "fixtures": "Owned provider, two synthetic patients, fixed clinical records and 41 provider-scoped seeded definitions; no guideline authoring UI exists. Cleanup verifies exact owned mappings and preserves a provider if rule cleanup fails. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5718: age year/month/day boundaries, drugs/notes/billing/diagnosis/sex any/all/negative operators, native six-row expansion, alternating chart/list/per-condition detail, independent truth tables and SQL snapshots, native diagnosis resolution. Unsupported/dynamic-context families are inventoried separately. Synthetic JSON observations are retained; all mismatches remain fatal. Sex all/notall defect tracked as #5817; no new pin."
+    },
+    {
+      "name": "rx-same-severity-partners",
+      "script": "scripts/rx-same-severity-partners-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "provider"
+      ],
+      "fixtures": "Owned clinician login/preferences and patient/current medication; staged catalog products and native discontinuation/patient override. Read-only validated DrugRef pairs, a noninteracting metformin control, and verified owned note/signature/support cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5734: ciprofloxacin has simultaneous moderate phenytoin/warfarin partners from current and staged sources. Exact JSON/marker/tooltip identities, selective removal/re-add, native current-medication discontinuation, no stale card IDs, thresholds and patient/provider overrides. Existing major/moderate/minor and refusal checks remain registered."
     }
   ]
 }

@@ -20,7 +20,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5715](https://github.com/carlos-emr/carlos/issues/5715) | Test: verify clinical-record preservation through populated patient merge and unmerge | Implementation and installed acceptance pending. |
 | [#5716](https://github.com/carlos-emr/carlos/issues/5716) | Test: verify measurement graph dates, values and plotted positions | Installed ON/BC five-point irregular-date geometry, independent rendered-axis calibration, three-pixel tolerance, native selected/multi-delete, clinical isolation and four sensitivity controls pass. Empty history hides Plot; single-point PNG output is observed, with its invisible point/indistinguishable ticks separately tracked as #5814. No date-range controls exist. |
 | [#5717](https://github.com/carlos-emr/carlos/issues/5717) | Test: validate growth-chart point placement and reference curves independently | Implementation and installed acceptance pending. |
-| [#5718](https://github.com/carlos-emr/carlos/issues/5718) | Test: broaden decision-support guideline condition and operator coverage | Implementation and installed acceptance pending. |
+| [#5718](https://github.com/carlos-emr/carlos/issues/5718) | Test: broaden decision-support guideline condition and operator coverage | 41 independently specified rules reach all 205 ON chart/list/detail observations, including expanded warnings, native diagnosis resolution, alternating patients, provider scope and unchanged clinical snapshots. Exactly 40 mismatches remain: sex all/notall across four surfaces on five visits (#5817). Other selected operator cases and zero-residue cleanup pass; no pin. Inventory records unsupported/dynamic-context families and missing actual-value readers. |
 | [#5719](https://github.com/carlos-emr/carlos/issues/5719) | Test: cover Ontario RA re-import, settlement replay and subsequent adjustments | Implementation and installed acceptance pending. |
 | [#5724](https://github.com/carlos-emr/carlos/issues/5724) | Test: cover OAuth access-token expiry and deletion of a client with issued tokens | Native consent, exact expiry-second semantics, client deletion and independent token/session controls pass on installed ON and BC with no clinical writes or residue. |
 | [#5725](https://github.com/carlos-emr/carlos/issues/5725) | Test: verify Report-by-Template results and exports remain isolated across tabs | Installed ON/BC four-tab, shared-login native runs, exact CSV/XLS schemas/values/types, empty results, Back beacons and tab closure pass with clean residue. List parameters used; separate empty-text-parameter defect tracked as #5813. |
@@ -32,7 +32,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5731](https://github.com/carlos-emr/carlos/issues/5731) | Test: preserve scanned and mixed-geometry PDFs through incoming-document edits | Implementation and installed acceptance pending. |
 | [#5732](https://github.com/carlos-emr/carlos/issues/5732) | Test: verify shared contact edits and patient-specific relationship isolation | Installed ON/BC native creation, two-patient linking, shared-detail editing, independent flags, cancelled edits/removal and selective removal pass; unrelated control and cleanup verified. |
 | [#5733](https://github.com/carlos-emr/carlos/issues/5733) | Test: verify complete lab-report content across PDF page breaks | Native ON/BC eight-page PDFs preserve all 60 ordered clinical rows and their comment tokens, numeric columns, flags, patient identity, footers and margins. Extracted coordinates and actual raster ink are checked; omission, duplication and blank-raster controls reject. Source and unrelated-report controls pass. |
-| [#5734](https://github.com/carlos-emr/carlos/issues/5734) | Test: preserve multiple same-severity Rx interaction partners when one is removed | Implementation and installed acceptance pending. |
+| [#5734](https://github.com/carlos-emr/carlos/issues/5734) | Test: preserve multiple same-severity Rx interaction partners when one is removed | Installed ON/BC native current/staged moderate partners, exact JSON/marker/tooltip identities, staged removal/re-add, current-medication discontinuation/staged re-add, threshold 1/2/3/4 and patient overrides all pass. DrugRef pairs are read-only and independently validated; metformin is a noninteracting control, with no unexpected prescription writes and clean owned cleanup. |
 | [#5735](https://github.com/carlos-emr/carlos/issues/5735) | Test: cover Schedule of Benefits imports that update existing codes and multiple rows | Installed ON native multi-row preview/apply, malformed-file refusal/retry, abandonment, GET/CSRF refusals, exact appended periods, historical claim preservation, duplicate upload and code-admin reopening pass. Error feedback is file-level; per-line diagnostics are absent. |
 | [#5736](https://github.com/carlos-emr/carlos/issues/5736) | Test: cover BC payment amount boundaries, overpayments and supported refunds | Installed BC refusals, exact-cent partial/overpayment, receipt/list/accounting reconciliation and control-invoice preservation pass. No native refund control exists; negative amounts are refused. |
 | [#5737](https://github.com/carlos-emr/carlos/issues/5737) | Test: verify appointment-slot lock expiry and recovery after an abandoned browser | Implementation and installed acceptance pending. |
@@ -345,3 +345,21 @@ exclusivity wording. All 68 manifest checks pass after the correction. The
 review's docstring advisory is distinct from required CI and is not claimed as
 a passed qualification check. Final scope, new-code review and CI reconciliation
 remain necessary as work continues.
+
+The decision-support final retake reaches 41 rules over A/B/A, A after native
+diagnosis resolution, then B again (205 rule/patient observations). The actual
+six-row chart expander is used. Forty fatal mismatches are confined to sex
+all/notall on four surfaces per visit, tracked as #5817. All other selected
+operators, source transitions, provider scope and clinical snapshots agree;
+owned guideline, patient and provider counts return to zero. Quoted DSL note
+literals and exact list-row identity were corrected during development; those
+earlier failed attempts are retained. `decision-support-operator-inventory.md`
+records implementation limits and the missing notes/billing actual-text reader.
+
+The multi-partner Rx retakes pass in both installed provinces. Ciprofloxacin's
+two moderate partners (current phenytoin and staged warfarin) remain distinct
+through selective removal and re-addition. Native discontinuation removes only
+the current source; a staged re-add restores both. Exact authoritative effect,
+evidence/comment and partner identities survive all applicable thresholds and
+patient/provider overrides. Only an owned clinician's preferences change, and
+the DrugRef catalog is not modified. Source fixtures and cleanup are verified.
