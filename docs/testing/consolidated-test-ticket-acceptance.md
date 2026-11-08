@@ -1102,3 +1102,41 @@ original configuration hashes, empty package-verification output, healthy
 services with zero automatic restarts, all eight fixture/coordinator SQL counts
 zero, no owned clinical files or recovery journals, and all 184 legacy email-log
 rows unchanged in every original column. Earlier failed receipts are preserved.
+
+
+### Final CodeRabbit reconciliation and native CDS tier
+
+CodeRabbit full review **5818778696** completes on `823ddcf8048`, selecting 149
+files and raising two valid inline findings. The lifecycle cell now installs its
+fixture-only JDK after the pinned package installation, dependency checks,
+transition and read-only checks, immediately before the first smoke phase that
+needs compilation. This preserves clean-install and upgrade runtime dependency
+coverage. The session-recovery manifest explicitly declares its two owned
+provider logins in `mutates`, preserving the disposable/exclusive prerequisites
+and exact owned cleanup. All **356 Python tests** and **68 manifest tests** pass
+after these changes.
+
+CodeRabbit could not review the generated Node inventory. Independent regeneration
+from the qualified 7,701-case report matches the complete file byte-for-byte,
+and all 546 test-file digests remain exact. Manual review of the two filtered
+files finds only pinned dev dependency `pngjs` 7.0.0 with registry integrity and
+no install hook, plus three exact disposable error-servlet baseline patterns.
+Their source/frame/path constraints and negative controls remain intact; no new
+warning or clinical failure waiver is introduced.
+
+A separate clean source checkout of `823ddcf8048` is freshly compiled inside the
+Ubuntu 26.04 builder. The required physical CDS native tier passes **91/91 cases
+across 12 suites**, zero errors/failures/skips, on its newly owned digest-pinned
+MariaDB 11.8.8 with **32 KiB** InnoDB pages. Source/compiled-byte fingerprints
+remain exact. Independent clinical-cell precision and admission-seed replay
+oracles pass; the temporary database container/network are removed and only
+sanitized reports are public evidence. The installed ON/BC application databases
+are not used by this tier.
+
+Fresh package-window strict server-log audits remain failed: **17 unclassified
+WARN signatures each**, with three existing known signatures (ON 616 events,
+BC 433). Categories include property defaults, Drools/Hibernate, refusal-probe
+logging and local SOAP security warnings. These are unresolved classification
+and release-qualification evidence, not automatically seventeen product defects.
+They are recorded on #5700 without a new waiver. The independent clinical,
+configuration, package and cleanup audits above remain passing.

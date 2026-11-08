@@ -19086,7 +19086,10 @@
         "EXCLUSIVE"
       ],
       "fixtures": "Owned patient/control, two owned provider logins with exact program/profile cleanup, native saved note/eForm and a durably acknowledged private draft. Native requests are held before dispatch; unknown server outcomes retain private journals and all fixtures. Provider caches are retired by an explicit post-cleanup application restart. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "#5802: real out-of-band Logout, native expired autosave and saved-eForm submission, actual refusal and no unauthorized clinical write, truthful feedback, native heartbeat closure, same-account recovery and another account in the original browser context. Requires CARLOS_DISPOSABLE_HOST=true. Saved drafts and still-pending content are distinct; no new unauthenticated storage or recovery policy."
+      "notes": "#5802: real out-of-band Logout, native expired autosave and saved-eForm submission, actual refusal and no unauthorized clinical write, truthful feedback, native heartbeat closure, same-account recovery and another account in the original browser context. Requires CARLOS_DISPOSABLE_HOST=true. Saved drafts and still-pending content are distinct; no new unauthenticated storage or recovery policy.",
+      "mutates": [
+        "provider"
+      ]
     },
     {
       "name": "form-growth-clinical-geometry",

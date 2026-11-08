@@ -279,8 +279,6 @@ def main():
         for name in ('emr', 'drugref', 'ctl'):
             if gate.digest(Path(initial[name]['path'])) != initial[name]['sha256']:
                 raise EvidenceError('Initial package differs from its pin')
-        run(['apt-get', 'install', '-y', '--no-install-recommends', 'openjdk-25-jdk-headless'],
-            'fault-fixture-compiler', environment={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
         run(['apt-get', 'install', '-y', '--no-remove', *[initial[n]['path'] for n in ('ctl', 'emr', 'drugref')]],
             'initial-install', environment={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
         if Path('/var/lib/carlos-emr/.install-incomplete').exists():
@@ -326,6 +324,9 @@ def main():
         assertions['documents-cleanup-preserved'] = documents
         set_expected_build(environment, package_contents(Path(context['target']['emr']['path']), context['target']['emr']['sha256']))
         read_only(environment, 'read-only-after'); assertions['read-only-state-preserved'] = True
+        # Keep runtime-dependency checks free of fixture-only compiler prerequisites.
+        run(['apt-get', 'install', '-y', '--no-install-recommends', 'openjdk-25-jdk-headless'],
+            'fault-fixture-compiler', environment={**os.environ, 'DEBIAN_FRONTEND': 'noninteractive'})
         smoke(environment, 'client-after'); assertions['unchanged-client-after'] = True
         details['candidateDeployment'] = attest(Path(context['war']['path']), base_url=environment['BASE_URL'])
         assertions['candidate-application-bound'] = True
