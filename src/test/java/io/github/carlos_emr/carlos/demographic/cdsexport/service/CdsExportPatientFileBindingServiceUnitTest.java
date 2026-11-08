@@ -53,6 +53,10 @@ class CdsExportPatientFileBindingServiceUnitTest {
     @Test void shouldRefuseRosterOwnershipChangedSinceSelection() {
         assertThatThrownBy(() -> bind("222222", "1971-03-04", "C27", List.of(physician()))).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
     }
+    @Test void shouldInterpretLegalDateWhitespace_withoutChangingTheXmlDateOrShiftingItsCalendarDay() throws Exception {
+        var result = bind("111111", " \t1971-03-04-05:00\r\n", "C27", List.of(physician()));
+        assertThat(result.dateOfBirth()).isEqualTo(java.time.LocalDate.of(1971, 3, 4));
+    }
     @Test void shouldRefuseMissingPhysician_insteadOfUsingTheOperator() {
         demographic.put("provider_no", null);
         assertThatThrownBy(() -> bind(null, "1971-03-04", "C27", List.of(physician()))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");

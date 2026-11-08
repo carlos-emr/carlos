@@ -76,7 +76,7 @@ public class CdsExportPatientFileBindingService {
         if (providers.size() != 1) throw review(); checkpoint.run();
         var publicValue = new CdsExportPublicProviderMapper().map(providers.getFirst(), CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN).value();
         if (publicValue == null || publicValue.ohipNumber() == null || publicValue.ohipNumber().isBlank()) throw review();
-        String lexical = xml.dateOfBirth();
+        String lexical = xml.dateOfBirth() == null ? null : xml.dateOfBirth().strip();
         if (lexical == null || !lexical.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}(?:Z|[+-][0-9]{2}:[0-9]{2})?")) throw review();
         LocalDate birth;
         try { birth = LocalDate.parse(lexical.substring(0, 10)); }

@@ -118,6 +118,7 @@ public final class CdsExportSupportingFilesValidator {
         if (reports == null ? xml.textReports() != 0 || xml.binaryReports() != 0 : xml.textReports() > reports || xml.binaryReports() > reports) invalid();
     }
     private static boolean birth(String lexical, LocalDate expected) {
+        if (lexical != null) lexical = lexical.strip();
         return lexical != null && lexical.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}(?:Z|[+-][0-9]{2}:[0-9]{2})?") && lexical.substring(0, 10).equals(expected.toString());
     }
     private static void validateEvent(String line, CdsExportXmlValidationDto xml, Set<CdsCategory> selected) throws IOException {

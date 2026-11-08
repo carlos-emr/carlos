@@ -63,6 +63,13 @@ class CdsExportSupportingFilesValidatorUnitTest {
         assertThat(result.eventLogSha256()).isEqualTo(HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(log)));
     }
     @Test void shouldRefuseAlteredAuditText_inTheFinishedReadme() { readMe = replace(readMe, "Synthetic approved audit arrangement", "Different terms"); assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID"); }
+    @Test void shouldBindLegalDateWhitespace_toTheSameCalendarDayAndFilename() throws Exception {
+        var first = actual.getFirst(); var x = first.xml();
+        var xml = new CdsExportXmlValidationDto(x.senderPatientId(), x.legalFirstName(), x.legalLastName(), " \t" + x.dateOfBirth() + "\r\n",
+                x.occurrences(), x.textReports(), x.binaryReports(), x.externalReferences(), x.xmlSha256(), x.xmlBytes());
+        actual = List.of(new CdsExportSupportingFilesValidator.Patient(first.relativePath(), first.naming(), xml));
+        assertThat(validate().patientFiles()).isEqualTo(1);
+    }
     @Test void shouldRefuseAnAlteredPatientHash_evenWhenItsFilePathAndCountsStillMatch() { readMe = replace(readMe, "a".repeat(64), "b".repeat(64)); assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID"); }
     @Test void shouldRefuseAnAlteredPatientPath_withoutCountingTheReadmeAsOutputEvidence() { readMe = replace(readMe, actual.getFirst().relativePath(), "ExportRoot/other.xml"); assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID"); }
     @Test void shouldRefuseIncorrectCsvCounts_insteadOfTrustingTheComposerSummary() { log = replace(log, "\"C27\",\"1\"", "\"C27\",\"2\""); assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID"); }
