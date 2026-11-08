@@ -45,8 +45,10 @@ public final class ReportPdfResponse {
     }
 
     private static final class TemporaryPdf implements AutoCloseable {
-        private final java.nio.file.Path path = PathValidationUtils.createSecureTempFile("carlos-report-", ".pdf").toPath();
-        private TemporaryPdf() throws IOException { }
+        private final java.nio.file.Path path;
+        private TemporaryPdf() throws IOException {
+            path = PathValidationUtils.createSecureTempFile("carlos-report-", ".pdf").toPath();
+        }
         @Override public void close() throws IOException { Files.deleteIfExists(path); }
     }
 }

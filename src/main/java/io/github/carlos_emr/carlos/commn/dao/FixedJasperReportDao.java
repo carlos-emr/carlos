@@ -50,16 +50,16 @@ public class FixedJasperReportDao {
         @Override public java.sql.Time endTime() { return copy(endTime); }
         @Override public java.sql.Timestamp createdAt() { return copy(createdAt); }
         @Override public java.sql.Timestamp updatedAt() { return copy(updatedAt); }
-    }
-    private static Date copy(Date value) { return value == null ? null : new Date(value.getTime()); }
-    private static java.sql.Time copy(java.sql.Time value) {
-        return value == null ? null : new java.sql.Time(value.getTime());
-    }
-    private static java.sql.Timestamp copy(java.sql.Timestamp value) {
-        if (value == null) return null;
-        var result = new java.sql.Timestamp(value.getTime());
-        result.setNanos(value.getNanos());
-        return result;
+        private static Date copy(Date value) { return value == null ? null : new Date(value.getTime()); }
+        private static java.sql.Time copy(java.sql.Time value) {
+            return value == null ? null : new java.sql.Time(value.getTime());
+        }
+        private static java.sql.Timestamp copy(java.sql.Timestamp value) {
+            if (value == null) return null;
+            var result = new java.sql.Timestamp(value.getTime());
+            result.setNanos(value.getNanos());
+            return result;
+        }
     }
 
     public record ItemRow(Integer invoiceId, String serviceCode, String fee) { }
@@ -111,23 +111,32 @@ public class FixedJasperReportDao {
 
     /** Both reads share one repeatable-read transaction; summary and PDF consume these exact rows. */
     public List<InvoiceRow> statement(Integer patient, Date from, Date to) {
-        String predicate = "h.demographic_no = :patient and h.pay_program = 'PAT' "
-                + "and (h.status is null or h.status <> 'D')"
-                + (from == null ? "" : " and h.billing_date >= :fromDate")
-                + (to == null ? "" : " and h.billing_date <= :toDate");
-        NativeQuery<?> headers = entityManager.createNativeQuery("select h.id, h.billing_date, h.total, h.paid "
-                + "from billing_on_cheader1 h join demographic d on d.demographic_no = h.demographic_no where "
-                + predicate + " order by h.id").unwrap(NativeQuery.class);
+        NativeQuery<?> headers = entityManager.createNativeQuery("""
+                select h.id, h.billing_date, h.total, h.paid
+                from billing_on_cheader1 h join demographic d on d.demographic_no = h.demographic_no
+                where h.demographic_no = :patient and h.pay_program = 'PAT'
+                  and (h.status is null or h.status <> 'D')
+                  and (:fromDate is null or h.billing_date >= :fromDate)
+                  and (:toDate is null or h.billing_date <= :toDate)
+                order by h.id
+                """).unwrap(NativeQuery.class);
         headers.addScalar("id", Integer.class).addScalar("billing_date", Date.class)
                 .addScalar("total", BigDecimal.class).addScalar("paid", BigDecimal.class);
         bind(headers, patient, from, to);
         List<?> rows = headers.getResultList();
         if (rows.isEmpty()) return List.of();
         // Join back to the same patient/range instead of constructing an unbounded IN parameter list.
-        NativeQuery<?> details = entityManager.createNativeQuery("select bi.ch1_id, bi.service_code, bi.fee "
-                + "from billing_on_item bi join billing_on_cheader1 h on h.id = bi.ch1_id "
-                + "join demographic d on d.demographic_no = h.demographic_no where " + predicate
-                + " and (bi.status is null or bi.status <> 'D') order by bi.ch1_id, bi.service_code, bi.id")
+        NativeQuery<?> details = entityManager.createNativeQuery("""
+                select bi.ch1_id, bi.service_code, bi.fee
+                from billing_on_item bi join billing_on_cheader1 h on h.id = bi.ch1_id
+                join demographic d on d.demographic_no = h.demographic_no
+                where h.demographic_no = :patient and h.pay_program = 'PAT'
+                  and (h.status is null or h.status <> 'D')
+                  and (:fromDate is null or h.billing_date >= :fromDate)
+                  and (:toDate is null or h.billing_date <= :toDate)
+                  and (bi.status is null or bi.status <> 'D')
+                order by bi.ch1_id, bi.service_code, bi.id
+                """)
                 .unwrap(NativeQuery.class);
         details.addScalar("ch1_id", Integer.class).addScalar("service_code", String.class).addScalar("fee", String.class);
         bind(details, patient, from, to);
@@ -140,13 +149,13 @@ public class FixedJasperReportDao {
         return rows.stream().map(value -> {
             Object[] r = (Object[]) value;
             return new InvoiceRow((Integer) r[0], (Date) r[1], (BigDecimal) r[2], (BigDecimal) r[3],
-                    items.getOrDefault((Integer) r[0], List.of()));
+                    items.getOrDefault(r[0], List.of()));
         }).toList();
     }
 
     private static void bind(NativeQuery<?> query, Integer patient, Date from, Date to) {
         query.setParameter("patient", patient);
-        if (from != null) query.setParameter("fromDate", from);
-        if (to != null) query.setParameter("toDate", to);
+        query.setParameter("fromDate", from, Date.class);
+        query.setParameter("toDate", to, Date.class);
     }
 }

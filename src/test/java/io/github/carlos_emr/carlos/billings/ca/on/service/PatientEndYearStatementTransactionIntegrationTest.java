@@ -86,19 +86,25 @@ class PatientEndYearStatementTransactionIntegrationTest extends CarlosTestBase {
     @Test
     void shouldSuspendAmbientTransaction_andPropagateRenderingFailure() {
         var dao = mock(FixedJasperReportDao.class);
-        var target = spy(new PatientEndYearStatementService(dao, mock(DemographicManager.class)));
-        doAnswer(call -> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            throw new PatientEndYearStatementService.Failure(PatientEndYearStatementService.Reason.PDF_ERROR);
-        }).when(target).writePdfTo(any(), any(), any(), any());
+        var target = new PatientEndYearStatementService(dao, mock(DemographicManager.class));
         var service = proxy(target);
+        var summary = io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary.builder().build();
+        var result = new PatientEndYearStatementService.Result(summary, java.util.List.of(), java.util.List.of());
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        new TransactionTemplate(transactions).executeWithoutResult(status -> {
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-            assertThatThrownBy(() -> service.writePdfResponse(response, "synthetic", null, null, null))
-                    .isInstanceOf(PatientEndYearStatementService.Failure.class);
-            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
-        });
+        try (var compiler = mockStatic(net.sf.jasperreports.engine.JasperCompileManager.class)) {
+            compiler.when(() -> net.sf.jasperreports.engine.JasperCompileManager.compileReport(any(java.io.InputStream.class)))
+                    .thenAnswer(call -> {
+                        assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+                        throw new net.sf.jasperreports.engine.JRException("Synthetic compilation failure");
+                    });
+            new TransactionTemplate(transactions).executeWithoutResult(status -> {
+                assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+                assertThatThrownBy(() -> service.writePdfResponse(response, "synthetic", result, null, null))
+                        .isInstanceOf(PatientEndYearStatementService.Failure.class);
+                assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            });
+            compiler.verify(() -> net.sf.jasperreports.engine.JasperCompileManager.compileReport(any(java.io.InputStream.class)));
+        }
         verifyNoInteractions(dao);
         assertThat(response.getContentAsByteArray()).isEmpty();
         assertThat(response.getContentType()).isNull();

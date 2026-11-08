@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
-@ResourceLock("SYSTEM_PROPERTIES")
+@ResourceLock(org.junit.jupiter.api.parallel.Resources.SYSTEM_PROPERTIES)
 class FixedDaySheetReportServiceUnitTest {
     @TempDir Path directory;
 
@@ -32,15 +32,15 @@ class FixedDaySheetReportServiceUnitTest {
     }
 
     @Test
-    void shouldPropagateDatabaseFailure_beforeSettingSuccessHeaders() throws Exception {
+    void shouldPropagateDatabaseFailure_beforeSettingSuccessHeaders() {
         String previous = System.getProperty("user.home");
         try {
             System.setProperty("user.home", directory.toString());
             var reports = mock(FixedJasperReportDao.class);
             when(reports.daySheet(any())).thenThrow(new IllegalStateException("synthetic query failure"));
             var response = new MockHttpServletResponse();
-            assertThatThrownBy(() -> new FixedDaySheetReportService(reports)
-                    .writePdf(response, "2025-01-01", "labDaySheet.xml"))
+            var service = new FixedDaySheetReportService(reports);
+            assertThatThrownBy(() -> service.writePdf(response, "2025-01-01", "labDaySheet.xml"))
                     .isInstanceOf(IllegalStateException.class);
             assertThat(response.getContentType()).isNull();
             assertThat(response.getContentAsByteArray()).isEmpty();

@@ -88,7 +88,6 @@ public class PatientEndYearStatementService {
     @SuppressWarnings("java:S1075")
     private static final String JASPER_SUBREPORT_PATH =
             "/oscar/oscarBilling/ca/on/reports/end_year_statement_subreport.jrxml";
-    private static final String PAT_BILLING_TYPE = "PAT";
     private static final String REPORT_ERROR_KEY = "errors.billing.ca.on.database";
 
     private final FixedJasperReportDao reportDao;
@@ -210,6 +209,11 @@ public class PatientEndYearStatementService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void writePdfTo(OutputStream out, Result result,
                            String fromDateParam, String toDateParam) {
+        renderPdfTo(out, result, fromDateParam, toDateParam);
+    }
+
+    // Both public entry points suspend transactions before calling this detached renderer.
+    private void renderPdfTo(OutputStream out, Result result, String fromDateParam, String toDateParam) {
         HashMap<String, Object> reportParams = buildReportParams(result.summary(), fromDateParam, toDateParam);
         try {
             JasperReport report = compileReport(JASPER_REPORT_PATH);
@@ -252,7 +256,7 @@ public class PatientEndYearStatementService {
         try {
             io.github.carlos_emr.carlos.report.ReportPdfResponse.write(response,
                     "attachment;filename=" + filenameWithoutExt + ".pdf",
-                    output -> writePdfTo(output, result, fromDateParam, toDateParam));
+                    output -> renderPdfTo(output, result, fromDateParam, toDateParam));
         } catch (IOException e) {
             throw new Failure(Reason.IO_ERROR, e);
         }

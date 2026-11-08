@@ -25,14 +25,10 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.Date;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -64,6 +60,7 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
         try (var jdbc = org.mockito.Mockito.mockStatic(io.github.carlos_emr.carlos.db.LegacyJdbcQuery.class,
                 invocation -> { throw new AssertionError("JDBC attempted during detached PDF rendering"); })) {
             service.writePdfResponse(response, "statement", result, "2025-01-01", "2025-12-31");
+            jdbc.verifyNoInteractions();
         }
         org.mockito.Mockito.verifyNoMoreInteractions(dao);
         assertThat(response.getContentType()).isEqualTo("application/pdf");
@@ -99,16 +96,22 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
 
     @Test
     void shouldLeaveResponseUntouched_whenRenderingFailsAfterWritingPartialBytes() {
-        var service = spy(new PatientEndYearStatementService(
-                mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class), mock(DemographicManager.class)));
+        var service = new PatientEndYearStatementService(
+                mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class), mock(DemographicManager.class));
+        var patient = new Demographic(); patient.setDemographicNo(123);
+        var result = service.aggregateInvoices(patient, null, null);
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        doAnswer(invocation -> {
-            ((java.io.OutputStream) invocation.getArgument(0)).write("%PDF-partial".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
-            throw new PatientEndYearStatementService.Failure(PatientEndYearStatementService.Reason.PDF_ERROR);
-        }).when(service).writePdfTo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", null, null, null))
-                .isInstanceOf(PatientEndYearStatementService.Failure.class);
+        try (var exporter = org.mockito.Mockito.mockStatic(net.sf.jasperreports.engine.JasperExportManager.class)) {
+            exporter.when(() -> net.sf.jasperreports.engine.JasperExportManager.exportReportToPdfStream(
+                    org.mockito.ArgumentMatchers.any(net.sf.jasperreports.engine.JasperPrint.class),
+                    org.mockito.ArgumentMatchers.any(java.io.OutputStream.class))).thenAnswer(invocation -> {
+                        ((java.io.OutputStream) invocation.getArgument(1)).write(
+                                "%PDF-partial".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                        throw new net.sf.jasperreports.engine.JRException("Synthetic export failure");
+                    });
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", result, null, null))
+                    .isInstanceOf(PatientEndYearStatementService.Failure.class);
+        }
         assertThat(response.getContentAsByteArray()).isEmpty();
         assertThat(response.getContentType()).isNull();
         assertThat(response.getHeader("Content-Disposition")).isNull();
@@ -117,16 +120,21 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"", "<html>Error</html>", "%PDF-partial"})
     void shouldRejectInvalidRendererOutput_beforeSettingPdfHeaders(String rendered) {
-        var service = spy(new PatientEndYearStatementService(
-                mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class), mock(DemographicManager.class)));
+        var service = new PatientEndYearStatementService(
+                mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class), mock(DemographicManager.class));
+        var patient = new Demographic(); patient.setDemographicNo(123);
+        var result = service.aggregateInvoices(patient, null, null);
         var response = new org.springframework.mock.web.MockHttpServletResponse();
-        doAnswer(invocation -> {
-            ((java.io.OutputStream) invocation.getArgument(0)).write(rendered.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
-            return null;
-        }).when(service).writePdfTo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", null, null, null))
-                .isInstanceOf(PatientEndYearStatementService.Failure.class);
+        try (var exporter = org.mockito.Mockito.mockStatic(net.sf.jasperreports.engine.JasperExportManager.class)) {
+            exporter.when(() -> net.sf.jasperreports.engine.JasperExportManager.exportReportToPdfStream(
+                    org.mockito.ArgumentMatchers.any(net.sf.jasperreports.engine.JasperPrint.class),
+                    org.mockito.ArgumentMatchers.any(java.io.OutputStream.class))).thenAnswer(invocation -> {
+                        ((java.io.OutputStream) invocation.getArgument(1)).write(rendered.getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                        return null;
+                    });
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", result, null, null))
+                    .isInstanceOf(PatientEndYearStatementService.Failure.class);
+        }
         assertThat(response.getContentAsByteArray()).isEmpty();
         assertThat(response.getContentType()).isNull();
     }

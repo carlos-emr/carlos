@@ -4,7 +4,6 @@ package io.github.carlos_emr.carlos.report;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.pageUtil.printLabDaySheet2Action;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;

@@ -1,7 +1,6 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
 import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
 import io.github.carlos_emr.carlos.commn.model.BillingONItem;
@@ -117,8 +116,8 @@ class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
         assertThat(result.summary().getPaid()).isEqualTo("70.25");
 
         String text = pdfText(result);
-        assertThat(text).isEqualTo(baselinePdfText(result));
-        assertThat(text).contains("End Year Statement", "Fixture", "1234567890", "Invoiced:", "2025-01-01", "2025-12-31",
+        assertThat(text).isEqualTo(baselinePdfText(result))
+                .contains("End Year Statement", "Fixture", "1234567890", "Invoiced:", "2025-01-01", "2025-12-31",
                 "A007A", "K030A", "A001A", "34.70", "25.00", "80.05", "70.25")
                 .doesNotContain("DEL99", "DEL88", "HCP99", "OLD99", "NEW99", "OTH99", "999.99", "888.88");
     }

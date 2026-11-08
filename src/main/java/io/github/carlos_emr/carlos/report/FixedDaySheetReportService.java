@@ -48,7 +48,7 @@ public class FixedDaySheetReportService {
             };
             Date selected;
             try { selected = Date.valueOf(java.time.LocalDate.parse(date)); }
-            catch (java.time.DateTimeException | IllegalArgumentException ex) { throw new InvalidDateException(); }
+            catch (java.time.DateTimeException | IllegalArgumentException _) { throw new InvalidDateException(); }
             var rows = reports.daySheet(selected);
             try (InputStream input = getClass().getResourceAsStream(path)) {
                 if (input == null) throw new IOException("Missing day sheet template");
