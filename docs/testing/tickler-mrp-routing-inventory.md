@@ -55,8 +55,9 @@ tables remain unsupported. `mixed-engine-reference-mariadb-checks.js` qualifies
 the real locking/refusal behavior in a nonce-owned private database. For both
 engines, an empty reference permits only the exact owned parent deletion; a live
 reference refuses deletion and leaves parent, control and legacy rows unchanged.
-All four comparisons pass on both installed 16 KiB MariaDB servers and the
-separate 32 KiB MariaDB server. Each private database is verified removed.
+All four checks of the mixed-engine reference-table locking and refusal harness
+pass on both installed 16 KiB MariaDB servers and the separate 32 KiB MariaDB
+server. The four MRP workflow failures described above remain fatal. Each private database is verified removed.
 
 ```sh
 CARLOS_DISPOSABLE_HOST=true EXCLUSIVE=1 \
