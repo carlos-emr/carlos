@@ -1235,3 +1235,18 @@ Native-only or changed HL7 requires explicit review. Focused verification passed
 156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine
 installed laboratory import/export qualification are pending. This component does
 not qualify the remaining native laboratory catalogue or clinical publication.
+
+The coordinated laboratory checkpoint at `b69bbdb5f2de` passed the full
+4,658-check package run (353 requested suites; zero failures, errors or skips). Its
+actual WAR SHA-256 is `f94c8df0780a25a431d7c05ee94de65d6808c99a7ee5b8cfbf6ae5680bf674a4`. A genuine ordinary
+clinical import produced three structured results, one blocked result and two native
+HL7 records. The exact packaged application passed 39 installed export assertions
+plus seven genuine-import assertions, including independent native/source field closure,
+XSD readback, all source temporal spellings, changed-HL7 review and final-callback
+sensitive-permission revocation. No component class overlays were used, and native rows,
+grants and original import ruleset metadata were restored or retained exactly.
+The fixture initially contained an invalid reference-range choice; preflight correctly
+rejected it before any native commitments or patient targets. The rejected run and its
+input remain intact, and the separate corrected fixture passed independent XSD validation.
+This verifies an occurrence component; complete native-source coverage, a clinical engine
+and actual delivery/download qualification remain required.

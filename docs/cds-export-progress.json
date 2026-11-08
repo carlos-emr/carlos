@@ -154,21 +154,20 @@
     "exactComponentWarSha256": "4a14ee9116899c87815588efc316a3b0ae725f24766339453fbf90a8fbcfce85"
   },
   "latestIntegratedPackage": {
-    "head": "e635af1a715e074bc1917b43ce3d97f3412d8314",
-    "tests": 4592,
-    "suites": 348,
+    "head": "b69bbdb5f2de03a86545d6b6bfeacd28bef7985e",
+    "tests": 4658,
+    "suites": 353,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
-    "warSha256": "9bb826afaf3eed06763b00ad0f3bb318b9ccc4770283b3bf53c21c50a1f3367a",
-    "exactInstalledAssertions": 107,
-    "genuineImportAssertions": 6,
+    "warSha256": "f94c8df0780a25a431d7c05ee94de65d6808c99a7ee5b8cfbf6ae5680bf674a4",
+    "exactInstalledLaboratoryAssertions": 39,
+    "genuineLaboratoryImportAssertions": 7,
     "componentOverlays": false,
     "targetDevelop": "497896230576b492284b1c29efa77f4c4a2409ea",
     "freshOnAndBcPhysicalContractsMatched": true,
     "clinicalPublication": false,
-    "qualification": "FULL_CURRENT_DEVELOP_COMPONENT_BASELINE",
-    "finalLegacyNullableReceiptDiffPackagingPending": false
+    "qualification": "FULL_CURRENT_DEVELOP_WITH_EXACT_INSTALLED_LABORATORY_COMPONENT"
   },
   "historyAndNoteAccess": {
     "state": "PACKAGE_AND_EXACT_INSTALLED_SOURCE_COMPONENT_VERIFIED",
@@ -478,7 +477,7 @@
     "clinicalPublication": false
   },
   "laboratoryOccurrenceAssembly": {
-    "state": "FOCUSED_COMPONENT_VERIFIED_FINAL_PACKAGE_PENDING",
+    "state": "PACKAGED_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "focusedChecks": 156,
     "actualMariaDbAndCliBootstrapChecks": 13,
     "failures": 0,
@@ -497,6 +496,33 @@
     "sealedOriginalDatesAndReviewerDatesReconciled": true,
     "nativeOnlyOrChangedHl7RequiresReview": true,
     "concreteClinicalEngineComplete": false,
-    "clinicalPublication": false
+    "clinicalPublication": false,
+    "exactInstalledAssertions": 39,
+    "genuineOrdinaryClinicalImportAssertions": 7,
+    "evidenceHead": "b69bbdb5f2de03a86545d6b6bfeacd28bef7985e",
+    "exactWarSha256": "f94c8df0780a25a431d7c05ee94de65d6808c99a7ee5b8cfbf6ae5680bf674a4",
+    "componentOverlays": false,
+    "allNativeAndRetainedFieldsClosed": true,
+    "changedNativeHl7Refused": true,
+    "finalCallbackSensitivePermissionRevocationRefused": true,
+    "nativeFixtureRestored": true,
+    "originalRulesetRetained": true
+  },
+  "preservedFullCurrentDevelopPackage": {
+    "head": "e635af1a715e074bc1917b43ce3d97f3412d8314",
+    "tests": 4592,
+    "suites": 348,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "warSha256": "9bb826afaf3eed06763b00ad0f3bb318b9ccc4770283b3bf53c21c50a1f3367a",
+    "exactInstalledAssertions": 107,
+    "genuineImportAssertions": 6,
+    "componentOverlays": false,
+    "targetDevelop": "497896230576b492284b1c29efa77f4c4a2409ea",
+    "freshOnAndBcPhysicalContractsMatched": true,
+    "clinicalPublication": false,
+    "qualification": "FULL_CURRENT_DEVELOP_COMPONENT_BASELINE",
+    "finalLegacyNullableReceiptDiffPackagingPending": false
   }
 }
