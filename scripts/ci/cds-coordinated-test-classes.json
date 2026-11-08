@@ -285,5 +285,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceRecipeUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPatientInventoryServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPatientDocumentServiceUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPackageInventoryServiceUnitTest"
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPackageInventoryServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportClinicalPackageServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPatientFileBindingServiceUnitTest"
 ]

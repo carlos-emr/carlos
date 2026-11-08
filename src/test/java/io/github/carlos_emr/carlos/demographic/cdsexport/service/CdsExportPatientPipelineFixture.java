@@ -51,6 +51,7 @@ final class CdsExportPatientPipelineFixture {
     final CdsExportStagingService store;
     final CdsExportLeaseDto lease;
     final CdsExportPatientCaptureDto source;
+    final CdsExportStagedFileDto cohort;
     final CdsExportPatientInventoryService inventories;
     final Set<String> tables = Set.of("demographic", "cds_import_unit", "cds_import_field");
     final Map<String, Map<String, CdsExportCapturedTextRowDto>> metadata = new HashMap<>();
@@ -73,13 +74,15 @@ final class CdsExportPatientPipelineFixture {
         store = new CdsExportStagingService(root, run, 1, new SecretKeySpec(new byte[32], "AES"), 8L << 20, 0, () -> {});
         when(stores.openExisting(eq(run), eq(1L), eq(storage), any())).thenReturn(store);
         when(patient.patient()).thenReturn(27);
+        cohort = store.stage("COHORT_MANIFEST", output -> output.write(1));
+        when(patient.cohortSha256()).thenReturn(cohort.plaintextSha256());
         var values = store.stage("SOURCE_VALUES", output -> {});
         var index = store.stage("SOURCE_INDEX", output -> {});
         var manifest = store.stage("SOURCE_MANIFEST", output -> output.write(1));
         var scopes = new HashMap<String, CdsExportCapturedTableDto>();
         tables.forEach(table -> scopes.put(table, new CdsExportCapturedTableDto(Set.of("id"), table.equals("demographic") ? 1 : 0, HASH)));
         var now = Instant.now();
-        source = new CdsExportPatientCaptureDto(new CdsExportNativeCaptureDto(2, run, 1, 27, HASH, now, now, scopes, 1, 0, values, index), manifest);
+        source = new CdsExportPatientCaptureDto(new CdsExportNativeCaptureDto(2, run, 1, 27, cohort.plaintextSha256(), now, now, scopes, 1, 0, values, index), manifest);
         nativeRows.add(new CdsExportNativeRowReceiptDto("demographic", "27", "0000000027", HASH));
         when(indices.index(any(), any(), anySet(), any(), anyLong(), anyLong(), anyInt(), anyLong(), any())).thenAnswer(call -> index());
         when(witnesses.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any())).thenAnswer(call -> {
