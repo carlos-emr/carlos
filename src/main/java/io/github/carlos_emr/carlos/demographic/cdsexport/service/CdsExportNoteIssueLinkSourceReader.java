@@ -28,12 +28,13 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import java.io.IOException;
 import java.util.Set;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 /** Complete physical note/issue links; parent-note authorization covers this relation, not issue payloads. */
 @Service
 public class CdsExportNoteIssueLinkSourceReader implements CdsExportNativeSourceReader {
     private final CaseManagementNoteDAO source;
-    public CdsExportNoteIssueLinkSourceReader(CaseManagementNoteDAO source) { this.source = java.util.Objects.requireNonNull(source); }
+    public CdsExportNoteIssueLinkSourceReader(@Qualifier("caseManagementNoteDAO") CaseManagementNoteDAO source) { this.source = java.util.Objects.requireNonNull(source); }
     @Override public String table() { return "casemgmt_issue_notes"; }
     @Override public Set<String> columns() { return Set.of("id", "note_id"); }
     @Override public Set<CdsCategory> categories() { return CdsExportNoteSourceReader.CATEGORIES; }

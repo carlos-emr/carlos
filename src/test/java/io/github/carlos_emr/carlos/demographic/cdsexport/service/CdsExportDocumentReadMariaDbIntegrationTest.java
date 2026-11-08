@@ -58,6 +58,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     private final String marker = "OwnedReport" + patient;
     private final String body = "Complete document 😀 & exact text\r\n".repeat(3000);
     private boolean owned;
+    private boolean ownedReviewer;
     @BeforeEach void setup() throws Exception {
         var settings = new Properties(); try (var input = Files.newInputStream(Path.of(System.getProperty("cds.export.test.properties")))) { settings.load(input); }
         if (!"true".equals(settings.getProperty("ownedDisposableDatabase")) || !settings.getProperty("jdbcUrl", "").matches("jdbc:mysql://[^/]+/cds_export_test(?:\\?.*)?")) throw new IllegalArgumentException("Owned disposable care database required");
@@ -88,12 +89,13 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 sql.update("delete from HRMDocumentToDemographic where id=? and hrmDocumentId=?", patient, Integer.toString(patient + 500));
                 sql.update("delete from casemgmt_cpp where id=? and demographic_no=?", patient, Integer.toString(patient));
                 sql.update("delete from formRourke2009 where ID=? and demographic_no=?", patient, patient);
-                sql.update("delete from document_review where id=? and document_no=? and provider_no='989879'", patient, patient);
+                sql.update("delete from document_review where id=? and document_no=? and provider_no='989875'", patient, patient);
                 sql.update("delete from DocumentExtraReviewer where id=? and documentNo=? and reviewerProviderNo='989879'", patient, patient);
                 sql.update("delete from document_storage where id=? and documentNo=?", patient, patient);
                 sql.update("delete c from ctl_document c join document d on d.document_no=c.document_no where d.document_no between ? and ? and d.doctype=?", patient, patient + 35, marker);
                 sql.update("delete from ctl_document where module='demographic' and module_id=? and document_no=?", patient, patient + 100);
                 sql.update("delete from document where document_no between ? and ? and doctype=?", patient, patient + 35, marker);
+                if (ownedReviewer) assertThat(sql.update("delete from provider where provider_no='989875' and first_name='OwnedDocSource' and last_name='CDS source fixture'")).isEqualTo(1);
             }
         } finally { if (context != null) context.close(); if (source != null) source.close(); }
     }
@@ -141,7 +143,10 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         assertThatThrownBy(() -> read.execute(status -> links.countCdsExportRows(patient))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
     @Test void shouldRequireReviewForSeparateNativeReviewerHistory() {
-        sql.update("insert into document_review(id,document_no,provider_no,date_reviewed) values(?,?,'989879',CURRENT_TIMESTAMP)", patient, patient);
+        assertThat(sql.queryForObject("select count(*) from provider where provider_no='989875'", Long.class)).isZero();
+        sql.update("insert into provider(provider_no,first_name,last_name,provider_type,specialty,sex,status,lastUpdateDate) values('989875','OwnedDocSource','CDS source fixture','doctor','','U','1',CURRENT_TIMESTAMP)");
+        ownedReviewer = true;
+        sql.update("insert into document_review(id,document_no,provider_no,date_reviewed) values(?,?,'989875',CURRENT_TIMESTAMP)", patient, patient);
         assertThatThrownBy(() -> read.execute(status -> documents.countCdsExportRows(patient))).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
     @Test void shouldRequireReviewForAdditionalNativeReviewerAssociations() {

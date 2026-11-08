@@ -832,15 +832,6 @@ CARLOSDOC_SEED_DELETES = [
 # synthesizes for them (SQL over the staging row alias `s`). The ETL
 # pre-check aborts naming any such column that lacks an entry here.
 VALUE_EXPRS = {
-    # The CLI builds this helper from the actual source flags and remapped
-    # consent type before copying. Keep deleted history and retire undecided
-    # and surplus live records; never turn a missing decision into consent.
-    "Consent": {
-        "optout": "COALESCE(s.`optout`, 1)",
-        "deleted": "COALESCE((SELECT r.`deleted` FROM "
-                   "{archive}.`Consent__live` r "
-                   "WHERE r.`id` = s.`id`), 1)",
-    },
     # uid groups pharmacy record revisions in CARLOS; each imported O19
     # pharmacy heads its own group.
     "pharmacyInfo": {"uid": "s.`recordID`"},

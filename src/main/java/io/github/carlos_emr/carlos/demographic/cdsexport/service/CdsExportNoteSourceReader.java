@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 /**
  * Physical case notes through the owning DAO, with immutable preauthorized patient scope.
@@ -51,7 +52,7 @@ public class CdsExportNoteSourceReader extends CdsExportPatientTableSourceReader
     private final CdsExportNoteScopeProjectionService projection;
     private final int patient;
     private final List<CdsExportNoteAccessDto> access;
-    @Autowired public CdsExportNoteSourceReader(CaseManagementNoteDAO notes, CdsExportNoteAccessDao scopes, CdsExportNoteScopeProjectionService projection) {
+    @Autowired public CdsExportNoteSourceReader(@Qualifier("caseManagementNoteDAO") CaseManagementNoteDAO notes, CdsExportNoteAccessDao scopes, CdsExportNoteScopeProjectionService projection) {
         this(notes, scopes, projection, 0, List.of());
     }
     private CdsExportNoteSourceReader(CaseManagementNoteDAO notes, CdsExportNoteAccessDao scopes, CdsExportNoteScopeProjectionService projection,
