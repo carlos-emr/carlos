@@ -22,6 +22,7 @@
     "test:appointment-slot-lock-booker-playwright": "node scripts/appointment-slot-lock-booker-playwright-checks.js",
     "test:appointment-slot-expiry-playwright": "node scripts/appointment-slot-expiry-playwright-checks.js",
     "test:appointment-cut-recovery-playwright": "node scripts/appointment-cut-recovery-playwright-checks.js",
+    "test:lab-recall-delegate-delivery-playwright": "node scripts/lab-recall-delegate-delivery-playwright-checks.js",
     "test:appointment-group-paste-restriction-playwright": "node scripts/appointment-group-paste-restriction-playwright-checks.js",
     "test:appointment-slot-lock-non-admin-playwright": "node scripts/appointment-slot-lock-non-admin-playwright-checks.js",
     "test:consultation-consultant-validation-playwright": "node scripts/consultation-consultant-validation-playwright-checks.js",

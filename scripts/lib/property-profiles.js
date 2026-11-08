@@ -128,4 +128,4 @@ function runProfileChild(args,profile,signal,{file='/etc/carlos-emr/carlos.prope
     if(signal.aborted)stop();
   });
 }
-module.exports = {PROFILES, propertiesFor, renderProperties, withPropertyProfile, runProfileChild,verifyActiveProfile,handoffRecord,readinessSeconds};
+module.exports = {PROFILES, propertiesFor, renderProperties, withPropertyProfile, runProfileChild,verifyActiveProfile,handoffRecord,readinessSeconds,restartAndWait};

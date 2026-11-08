@@ -48,7 +48,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5801](https://github.com/carlos-emr/carlos/issues/5801) | Test: cover visual eForm editor checkboxes, radio groups, images and signatures | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5802](https://github.com/carlos-emr/carlos/issues/5802) | Test: verify session loss while clinical editors contain unsaved work | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5803](https://github.com/carlos-emr/carlos/issues/5803) | Test: preserve qualified and nonnumeric laboratory results across views and PDF output | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
-| [#5804](https://github.com/carlos-emr/carlos/issues/5804) | test(playwright): cover end-to-end lab recall message delivery to delegates | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5804](https://github.com/carlos-emr/carlos/issues/5804) | test(playwright): cover end-to-end lab recall message delivery to delegates | Implemented; [delivery inventory](lab-recall-delivery-inventory.md). Actual send, delegate reads, assigned task/lab navigation and both existing regressions pass on snapshot31 in ON/BC. |
 | [#5805](https://github.com/carlos-emr/carlos/issues/5805) | test(playwright): cover Ontario payments allocated across multiple invoice items | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5806](https://github.com/carlos-emr/carlos/issues/5806) | test(playwright): cover OAuth 1.0a registered web callbacks and denial | Native ON/BC exact and plain-query registered callbacks complete actual consent/303 receiver delivery, verifier exchange and signed provider/patient/scope checks. Native Deny, denied exchange and host/scheme/lookalike-path application refusals pass. Encoded-query initiation fails on #5823 and its later stages remain explicitly unreached; independent cases continue. Owned token/client/nonce/patient/receiver cleanup passes, with no new waiver pin. |
 | [#5807](https://github.com/carlos-emr/carlos/issues/5807) | test(playwright): cover email consent states and changes after composition opens | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
@@ -626,3 +626,31 @@ bytes, and pass installed health/package verification with `NRestarts=0`.
 Independent post-run audits find zero owned patients, providers, appointments,
 archives, groups or monitor names. Twelve further requested workflow implementations, plus umbrella,
 native-database/vendor and repeated full acceptance, remain open.
+
+#5804's final native delivery workflow and both affected existing regressions
+(`lab-recall-delegate`, `lab-linked-tickler`) pass together in ON and BC: three
+passes each, no failures or skips. The delegate reads/reopens the actual sent
+message and opens the correctly assigned task and exact lab; the control receives
+nothing, and reads do not resend or duplicate clinical work. Fresh-sender and
+MRP-default explicit-assignee cases both pass after native registration refreshes
+the SQL fixture providers' application cache. Earlier cache/navigation fixture
+failures remain retained as failed development evidence, not product findings.
+
+The final source SHA-256 values are
+`c257c40cdad790db3ed740f03a5a0fb98ac3fa967335e74a4c8ec29d48ead846`
+(existing recall), `f2380ad2b3c681050bbb24099fee2127d94b6bc4c294e93fc865ab03d99b0833`
+(delivery extension), and
+`0f5efcda8eed026a062ab9e33a1d0beb88ead40a5bb100ac4e212689ea83d48d`
+(profile helper). All match the retake sources. The qualified Ubuntu Node run
+passes **7,497/7,497 cases in 529 files**, no failures/skips/cancellations/TODO
+and unchanged test-file digests; the inventory is regenerated. Nine lab ownership
+controls and all 68 manifest controls pass. The manifest caught a second
+`runLast` flag; it was removed, preserving the existing unique destructive probe
+ordering rather than weakening that invariant.
+
+Both post-cleanup cache restarts complete. Independent audits show exact original
+configuration hashes, passing health/package checks, `NRestarts=0`, and zero
+owned patient/provider/provider-archive/message/task/lab metadata rows. The
+Messenger coordinator returns to its empty baseline. Eleven further workflow
+implementations plus umbrella, native-database/vendor and repeated full acceptance
+remain open; no full-release pass is claimed.

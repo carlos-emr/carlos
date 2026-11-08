@@ -18884,6 +18884,24 @@
       "notes": "#5738: native Cut immediate full archive/audit, cancelled destination, invalid duration and corrected retry, repeated Paste without autosave, browser/session interruption, and Copy snapshot semantics across source edit/delete. Archive-only abandoned Cut is reported as an incomplete move; no undo policy is invented.",
       "fixtures": "Owned patient/login/schedule, three source bookings and an unchanged control. Guards identities and dependent rows, removes only owned appointment/archive/monitor/group rows and verifies unrelated appointments unchanged.",
       "profile": "appointment-lock-expiry"
+    },
+    {
+      "name": "lab-recall-delegate-delivery",
+      "script": "scripts/lab-recall-delegate-delivery-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "notes": "#5804: uses owned sender/delegate/control logins and the existing native Recall Settings/Recall workflow; sends the actual message, verifies one delivery and patient mapping, reads/reopens as the delegate, opens the assigned task and follows the exact lab link without resending or creating another task. Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1. Refreshes SQL fixture provider caches through an owned native profile save; after exact cleanup and browser shutdown, restarts only the explicitly disposable/exclusive application to discard cached deleted providers.",
+      "fixtures": "Owned patient, three owned accounts/local contact memberships, exact subject/body, native recall preferences, one synthetic routed PATHL7 lab and one linked task. Verified empty namespaces before writes; owned identity/recipient guards and post-cleanup verification; Messenger membership-coordinator baseline restored."
     }
   ]
 }
