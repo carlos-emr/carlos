@@ -37,6 +37,16 @@ const SERVICE = 'CARLOSRECALL';
 const SETTINGS = ['lab_recall_delegate', 'lab_recall_msg_subject', 'lab_recall_tickler_assignee', 'lab_recall_tickler_priority'];
 const SNAPSHOT_NAMES = [...SETTINGS, 'labRecallMsgSubject'];
 
+/** Resolve only a claimed lab, including an INSERT whose acknowledgement was lost. */
+function claimedRecallLabId({claimed,labNo},recovered) {
+  if(!claimed)return null;
+  h.assert(Array.isArray(recovered)&&recovered.length<=1&&recovered.every(id=>/^[1-9]\d*$/.test(id)&&Number.isSafeInteger(Number(id))),
+    'Ambiguous or invalid recall lab identity');
+  if(!recovered.length) {h.assert(!labNo,'Owned recall lab disappeared; retaining dependent rows');return null;}
+  h.assert(!labNo||labNo===recovered[0],'Owned recall lab identity changed');
+  return recovered[0];
+}
+
 function hl7(marker, accession, stamp) {
   return [
     `MSH|^~\\&|PATHL7|CW|CARLOS|TEST|${stamp}||ORU^R01|RECALL${stamp}|P|2.3|||ER|AL`,
@@ -47,13 +57,19 @@ function hl7(marker, accession, stamp) {
   ].join('\r');
 }
 
-async function workflow(s) {
+/**
+ * Exercise native recall settings, composer and linked task with an optional owned
+ * delegate/delivery extension. Return exact lab/task identities for recipient checks.
+ */
+async function workflow(s, { delegateIdentity, beforeRecall, sendRecall } = {}) {
   const { sql, patient, provider, marker, context, recorder } = s;
   const q = h.sqlString;
-  const delegateRow = sql.rows(`SELECT provider_no, last_name, first_name FROM provider WHERE status='1' AND provider_no NOT LIKE '-%'
+  const delegateRow = delegateIdentity || sql.rows(`SELECT provider_no, last_name, first_name FROM provider WHERE status='1' AND provider_no NOT LIKE '-%'
     AND provider_no<>${q(provider)} AND last_name LIKE 'FAKE-%' ORDER BY last_name, first_name, provider_no LIMIT 1`)[0];
   if (!delegateRow) throw new h.SkipCheck('No other active FAKE provider exists to be the recall delegate');
   const [delegate, delegateLast, delegateFirst] = delegateRow;
+  h.assert(JSON.stringify(sql.rows(`SELECT provider_no,last_name,first_name FROM provider WHERE provider_no=${q(delegate)} AND status='1'`))===JSON.stringify([delegateRow]),
+    'Recall delegate identity is missing, inactive or changed');
   const subject = `${marker} recall: please book a follow-up`;
   const ticklerMessage = `${marker} recall tickler`;
 
@@ -97,22 +113,32 @@ async function workflow(s) {
   });
 
   // The lab: one synthetic result routed to the test provider and the owned patient.
+  const accession = `RECALL-${marker.slice(-10)}`;
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}100000`;
+  const payload=Buffer.from(hl7(marker,accession,stamp),'utf8').toString('base64');
+  const identity=`serviceName=${q(SERVICE)} AND type='PATHL7' AND BINARY message=BINARY ${q(payload)}`;
   const owned = { labNo: null };
+  let claimed=false;
   s.cleanup(() => {
-    if (!owned.labNo) return;
-    const lab = Number(owned.labNo);
-    h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id=${lab} AND serviceName=${q(SERVICE)}`) === '1', 'Owned lab identity changed');
+    if(!claimed)return;
+    const recovered=sql.rows(`SELECT lab_id FROM hl7TextMessage WHERE ${identity}`).flat();
+    const lab=claimedRecallLabId({claimed,labNo:owned.labNo},recovered);
+    if(!lab)return;
+    h.assert(sql.value(`SELECT COUNT(*) FROM patientLabRouting WHERE lab_no=${lab} AND lab_type='HL7' AND demographic_no<>${patient}`)==='0',
+      'Recall lab gained another patient route; retaining it');
+    h.assert(sql.value(`SELECT COUNT(*) FROM providerLabRouting WHERE lab_no=${lab} AND lab_type='HL7' AND provider_no NOT IN (${q(provider)},${q(delegate)})`)==='0',
+      'Recall lab gained a foreign provider route; retaining it');
     sql.execute(`DELETE FROM patientLabRouting WHERE lab_no=${lab} AND lab_type='HL7'; DELETE FROM providerLabRouting WHERE lab_no=${lab} AND lab_type='HL7';
       DELETE FROM hl7TextInfo WHERE lab_no=${lab}; DELETE FROM hl7TextMessage WHERE lab_id=${lab} AND serviceName=${q(SERVICE)}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM patientLabRouting WHERE lab_no=${lab} AND lab_type='HL7')
       + (SELECT COUNT(*) FROM providerLabRouting WHERE lab_no=${lab} AND lab_type='HL7')
       + (SELECT COUNT(*) FROM hl7TextInfo WHERE lab_no=${lab}) + (SELECT COUNT(*) FROM hl7TextMessage WHERE lab_id=${lab})`) === '0', 'Owned lab rows remain');
   });
-  const accession = `RECALL-${marker.slice(-10)}`;
-  const now = new Date();
-  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}100000`;
+  h.assert(sql.value(`SELECT COUNT(*) FROM hl7TextMessage WHERE ${identity}`)==='0','Recall lab namespace collision');
+  claimed=true;
   const labNo = sql.value(`INSERT INTO hl7TextMessage (fileUploadCheck_id, message, type, serviceName, created)
-    VALUES (0, ${q(Buffer.from(hl7(marker, accession, stamp), 'utf8').toString('base64'))}, 'PATHL7', ${q(SERVICE)}, NOW()); SELECT LAST_INSERT_ID()`);
+    VALUES (0, ${q(payload)}, 'PATHL7', ${q(SERVICE)}, NOW()); SELECT LAST_INSERT_ID()`);
   h.assert(/^[1-9]\d*$/.test(labNo), 'The fixture lab did not insert');
   owned.labNo = labNo;
   sql.execute(`INSERT INTO hl7TextInfo (lab_no, sex, health_no, result_status, final_result_count, obr_date, priority, requesting_client,
@@ -230,8 +256,10 @@ async function workflow(s) {
 
   let tickler;
   let recallSubject;
+  let savedTicklerNo;
   await s.step('the lab\'s Recall opens a message with the delegate ticked and a tickler form for the delegate at the saved priority', async () => {
     const lab = await openLab('lab-recall-display');
+    if(beforeRecall)await beforeRecall({lab,delegate,labNo,accession});
     const recall = lab.locator('input[type="button"][value="Recall"]');
     h.assert(await recall.count() === 1, 'The lab display offers no Recall button with a recall delegate set');
     // handleLab asks documentManager/inboxManage whether the lab has a patient, then opens both windows.
@@ -264,8 +292,6 @@ async function workflow(s) {
     h.assert(await ticked.count() === 1 && await ticked.isChecked(), 'The recall message does not tick the delegate');
     h.assert((await message.locator('body').innerText()).includes(`${delegateLast}, ${delegateFirst}`), 'The recall message does not name the delegate');
     recallSubject = await message.locator('#subject').inputValue();
-    await message.close();
-
     const ticklerUrl = new URL(tickler.url());
     h.assert(ticklerUrl.searchParams.get('docType') === 'HL7' && ticklerUrl.searchParams.get('docId') === labNo
       && ticklerUrl.searchParams.get('demographic_no') === patient && ticklerUrl.searchParams.has('recall'),
@@ -273,10 +299,17 @@ async function workflow(s) {
     const ticklerForm = tickler.locator('form[name="serviceform"]');
     await ticklerForm.waitFor({ state: 'visible', timeout: TIMEOUT });
     h.assert(await ticklerForm.locator('input[name="demographic_no"]').last().inputValue() === patient, 'The recall tickler form is not for the lab\'s patient');
-    h.assert(await ticklerForm.locator('select[name="task_assigned_to"]').inputValue() === delegate, 'The recall tickler form is not assigned to the delegate');
+    const assignedSelect=ticklerForm.locator('select[name="task_assigned_to"]');
+    const selectedAssignee=await assignedSelect.inputValue();
+    h.assert(selectedAssignee===delegate,`The recall tickler form is not assigned to the delegate: requested taskTo=${ticklerUrl.searchParams.get('taskTo')}, selected=${JSON.stringify(selectedAssignee)}, options=${await assignedSelect.locator('option').count()}, genericPreferenceRows=${sql.value(`SELECT COUNT(*) FROM property WHERE provider_no=${q(provider)} AND name='tickler_task_assignee'`)}`);
     h.assert(await ticklerForm.locator('select[name="priority"]').inputValue() === 'High', 'The recall tickler form does not carry the saved priority');
     h.assert(await ticklerForm.locator('input[name="docType"]').inputValue() === 'HL7'
       && await ticklerForm.locator('input[name="docId"]').inputValue() === labNo, 'The recall tickler form does not carry the lab');
+    if(sendRecall) {
+      h.assert(recallSubject===subject,'Refusing to send a recall with the wrong configured subject');
+      await sendRecall({message,subject,delegate,labNo,accession});
+    }
+    if(!message.isClosed())await message.close();
     await lab.close();
   });
 
@@ -310,6 +343,7 @@ async function workflow(s) {
       WHERE demographic_no=${patient} AND message=${q(ticklerMessage)}`);
     h.assert(rows.length === 1, `Expected one recall tickler, found ${rows.length}`);
     const [[ticklerNo, assignee, creator, priority, status]] = rows;
+    savedTicklerNo=ticklerNo;
     h.assert(assignee === delegate && creator === provider, `The recall tickler was assigned to ${assignee} and created by ${creator}`);
     h.assert(priority === 'High' && status === 'A', `The recall tickler has priority ${priority} and status ${status}`);
     const link = sql.rows(`SELECT doctype, lab_type, document_no, deleted IS NULL FROM ticklerdocs WHERE tickler_id=${Number(ticklerNo)}`);
@@ -320,7 +354,8 @@ async function workflow(s) {
   await s.step('the recall message opened by Recall carried the subject saved in Lab Recall Settings', async () => {
     h.assert(recallSubject === subject, `The recall message's Subject was "${recallSubject}", not the saved "${subject}"`);
   });
+  return {labNo,accession,subject,ticklerNo:savedTicklerNo,delegate,ticklerMessage};
 }
 
 if (require.main === module) runWorkflow('lab-recall-delegate', workflow, { openMaster: false });
-module.exports = { workflow };
+module.exports = { workflow, claimedRecallLabId };
