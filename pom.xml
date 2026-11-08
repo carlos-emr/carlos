@@ -2269,6 +2269,14 @@
                                     <searchTransitive>true</searchTransitive>
                                     <message>HAPI FHIR ${hapifhir.version} requires its managed FHIR core (${fhir-core.version}). Keep fhir-core.version equal to HAPI's managed core; raise it with HAPI. Historical overrides fixed CVE-2024-45294, CVE-2024-51132, CVE-2024-52007, CVE-2026-33180, CVE-2026-34359, CVE-2026-42236 and XSLT hardening by 6.9.10; the higher floor also protects HAPI API compatibility (#5712).</message>
                                 </bannedDependencies>
+                                <!-- Also compare with HAPI's original requested versions, so
+                                     a stale fhir-core.version cannot lower its own safety floor. -->
+                                <requireUpperBoundDeps>
+                                    <includes>
+                                        <include>ca.uhn.hapi.fhir:org.hl7.fhir.dstu3</include>
+                                        <include>ca.uhn.hapi.fhir:org.hl7.fhir.utilities</include>
+                                    </includes>
+                                </requireUpperBoundDeps>
                             </rules>
                         </configuration>
                     </execution>

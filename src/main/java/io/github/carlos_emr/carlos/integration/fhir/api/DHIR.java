@@ -30,7 +30,7 @@ package io.github.carlos_emr.carlos.integration.fhir.api;
 
 import java.util.HashSet;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.util.RawValue;
 import io.github.carlos_emr.carlos.integration.fhir.builder.AbstractFhirMessageBuilder;
@@ -63,7 +63,7 @@ public class DHIR {
      */
     public static String encodeSubmission(Bundle bundle, String destinationUrl, String clientRequestId) {
         String body = FhirJsonCompatibility.encode(AbstractFhirMessageBuilder.getFhirContext(), bundle);
-        ObjectNode envelope = new ObjectMapper().createObjectNode();
+        ObjectNode envelope = JsonNodeFactory.instance.objectNode();
         envelope.put("url", destinationUrl);
         envelope.put("service", "DHIR");
         envelope.putRawValue("body", new RawValue(body));

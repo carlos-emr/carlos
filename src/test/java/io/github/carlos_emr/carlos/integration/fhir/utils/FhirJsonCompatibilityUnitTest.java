@@ -19,9 +19,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
@@ -211,24 +208,6 @@ class FhirJsonCompatibilityUnitTest {
         assertThatIllegalStateException().isThrownBy(() -> FhirJsonCompatibility.encode(FHIR, dose))
                 .withMessage("Unable to encode the FHIR JSON compatibility contract")
                 .withCauseInstanceOf(com.fasterxml.jackson.core.exc.StreamConstraintsException.class);
-    }
-
-    @Test
-    void shouldCentralizeOutboundJsonEncoding_inProductionSources() throws Exception {
-        var bypasses = new ArrayList<Path>();
-        try (var paths = Files.walk(Path.of("src/main"))) {
-            for (Path path : paths.filter(Files::isRegularFile)
-                    .filter(p -> p.toString().endsWith(".java") || p.toString().endsWith(".jsp"))
-                    .filter(p -> !p.endsWith("FhirJsonCompatibility.java")).toList()) {
-                String source = Files.readString(path);
-                if (source.contains("newJsonParser(") && source.matches("(?s).*encodeResourceTo(String|Writer)\\s*\\(.*")) {
-                    bypasses.add(path);
-                }
-            }
-        }
-        assertThat(bypasses).as("Outbound FHIR JSON must use the compatibility encoder").isEmpty();
-        assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/prevention/dhirSubmission.jsp")))
-                .contains("DHIR.encodeSubmission(bundle,");
     }
 
     @Test

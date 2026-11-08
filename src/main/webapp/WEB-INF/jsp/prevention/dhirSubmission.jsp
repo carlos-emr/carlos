@@ -461,7 +461,7 @@
                 <input type="button" value="Close Window" onClick="window.close()"/>
                 <%
                         }
-                    } catch (IOException e) {
+                    } catch (IOException | IllegalStateException e) {
                         logger.error("Failed to submit DHIR request", e);
                     } catch (NoSuchAlgorithmException e) {
                         logger.error("Failed to create an HttpClient that allows all SSL", e);
