@@ -2,6 +2,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const {resultMarkup,verifyAudit}=require('./report-query-by-example-budgets-playwright-checks');
+const {spawnSync}=require('node:child_process');
 const QUERY='SELECT 1',HASH='e004ebd5b5532a4b85984a62f8ad48a81aa3460c1ca07701f386135d72cdecf5';
 function log({provider='999998',hash=HASH,length=8,duration=15,rows=1,outcome='success',logger='data.RptByExampleData',level='INFO',suffix=''}={}) {
   return `2026-11-08 00:00:00,000 ${level} ${logger} (RptByExampleData.java:246) - Query-by-Example audit provider=${provider} queryHash=${hash} queryLength=${length} durationMs=${duration} rowCount=${rows} outcome=${outcome}${suffix}`;
@@ -27,3 +28,9 @@ for(const [label,html] of [
   ['partial table',table.replace('</table>','')],['dangling entity',table.replace('&amp;','&am')],
   ['raw ampersand',table.replace('&amp;','&')],
 ])test('QBE size oracle rejects '+label,()=>assert.throws(()=>resultMarkup(html)));
+
+for(const value of ['true','1','false',''])test('QBE timeout preflight uses the suite disposable-VM convention: '+JSON.stringify(value),()=>{
+  const child=spawnSync(process.execPath,['-e',`try{require('./scripts/report-query-by-example-budgets-playwright-checks').preflightConfig();}catch(error){process.stdout.write(error.message);process.exitCode=2;}`],
+    {cwd:require('node:path').resolve(__dirname,'..'),encoding:'utf8',env:{...process.env,CARLOS_DISPOSABLE_VM:value,LAB_UPLOAD_JOURNAL_UNIT:'',LAB_UPLOAD_SERVER_LOG:''}});
+  assert.equal(child.status,2);assert.match(child.stdout,value==='true'?/readable application audit/:/CARLOS_DISPOSABLE_VM=true/);
+});

@@ -18857,7 +18857,7 @@
         "LAB_UPLOAD_SERVER_LOG"
       ],
       "fixtures": "One marker-owned patient and 1201 demographicExt rows; successful query history scoped to provider/marker. Genuine bounded reporting-account cross-join timeout observed in MariaDB processlist, with no shared grants or configuration changed by the check. Cleanup refuses active queries or changed ownership and verifies exact SQL removal.",
-      "notes": "#5811: 999/1000/1001 row boundaries, independent encoded result-table character budget, real database timeout and same-composer recovery, exact successful-history semantics and private application audit metadata. Requires CARLOS_DISPOSABLE_VM=1, actual read-only reporting account (QBE_REPORTING_USER defaults to carlos_report), and a readable application INFO audit source via either log-source variable. Missing execution/receipts cannot pass."
+      "notes": "#5811: 999/1000/1001 row boundaries, independent encoded result-table character budget, real database timeout and same-composer recovery, exact successful-history semantics and private application audit metadata. Requires CARLOS_DISPOSABLE_VM=true, actual read-only reporting account (QBE_REPORTING_USER defaults to carlos_report), and a readable application INFO audit source via either log-source variable. Missing execution/receipts cannot pass."
     },
     {
       "name": "appointment-slot-expiry",
@@ -19063,7 +19063,9 @@
         "INCOMINGDOCUMENT_RECYCLEBIN"
       ],
       "mutates": [
-        "property"
+        "property:incoming_document_default_queue",
+        "property:incoming_document_entry_mode",
+        "property:view_document_as"
       ],
       "fixtures": "Owned image-only and mixed-content queue PDFs, distinct MediaBox/CropBox/rotation and a link annotation; untouched queue/recycle/cache control hashes, exact preferences and guarded byte-matching file cleanup. Unacknowledged native edits retain durable recovery journals and all fixtures. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5731: real Incoming Docs image previews, extract page 2, rotate one/all pages and delete page 1. Independently render every output and compare identities/order/crops/relative rotation/pixels/annotation action, including reopened source/extracted/recycled outputs. No OCR. Original collision/cancellation/permission/stale/capacity coverage remains in incoming-pdf-extraction."

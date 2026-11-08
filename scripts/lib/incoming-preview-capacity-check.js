@@ -71,6 +71,7 @@ async function checkIncomingPreviewCapacity(session, page, ownedName, {onCapture
     return route.fulfill({status: 503, contentType: 'text/html', headers: {'Retry-After': '1', 'Cache-Control': 'no-store'}, body: busyHtml});
   };
   await page.route(pattern, routeHandler);
+  let primary;
   try {
     for (const [mode, suffix, contentType] of [['Pdf', 'Pdf', 'application/pdf'], ['Image', 'Image', 'image/png']]) {
       method = `viewIncomingDocPageAs${suffix}`; attempts = 0;captured=undefined;
@@ -94,6 +95,15 @@ async function checkIncomingPreviewCapacity(session, page, ownedName, {onCapture
     // Only responses deliberately injected and subsequently recovered are expected.
     session.recorder.badResponses = session.recorder.badResponses.filter(entry => !(entry.status === 503 && targets.has(capacityTarget(entry.url))));
     session.recorder.consoleIssues = session.recorder.consoleIssues.filter(entry => !expectedCapacityConsole(entry, targets));
-  } finally {await page.unroute(pattern,routeHandler);await Promise.allSettled([...forwarded]);if(forwardFailures.length)throw new AggregateError(forwardFailures,'Native preview forwarding failed');}
+  } catch(error) {primary=error;}
+  // Removing the route and draining every upstream operation are both required,
+  // even when the UI assertion or the other cleanup operation failed.
+  const cleanupFailures=[];
+  try {await page.unroute(pattern,routeHandler);} catch(error) {cleanupFailures.push(error);}
+  while(forwarded.size)await Promise.allSettled([...forwarded]);
+  const extra=[...new Set([...cleanupFailures,...forwardFailures])]
+    .filter(error=>error!==primary&&!primary?.errors?.includes(error));
+  if(primary&&!extra.length)throw primary;
+  if(primary||extra.length)throw new AggregateError([...(primary?[primary]:[]),...extra],'Native preview forwarding or cleanup failed');
 }
 module.exports = {checkIncomingPreviewCapacity, recoveredPreviewBytes, capacityTarget, expectedCapacityConsole};

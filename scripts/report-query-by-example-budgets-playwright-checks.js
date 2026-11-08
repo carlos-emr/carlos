@@ -190,13 +190,14 @@ async function workflow(s) {
     assert.deepEqual(sql.rows(`SELECT * FROM demographic WHERE demographic_no=${patient}`),clinicalBefore,'QBE resource limits changed the owned clinical record');
   });
 }
-if(require.main===module)runWorkflow('report-query-by-example-budgets',workflow,{openMaster:false,preflightConfig:()=>{
-  if(process.env.CARLOS_DISPOSABLE_VM!=='1')throw new h.SkipCheck('Real bounded database timeout fixture requires CARLOS_DISPOSABLE_VM=1');
+function preflightConfig(){
+  if(process.env.CARLOS_DISPOSABLE_VM!=='true')throw new h.SkipCheck('Real bounded database timeout fixture requires CARLOS_DISPOSABLE_VM=true');
   const reader=serverLogFromEnvironment();if(!reader.configured)throw new h.SkipCheck('QBE requires readable application audit INFO receipts via LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG');reader.since(reader.mark());
   h.assert(/^[A-Za-z0-9_.-]{1,128}$/.test(process.env.QBE_REPORTING_USER||'carlos_report'),'Invalid configured QBE reporting username');
-},preflight:({sql})=>{
+}
+if(require.main===module)runWorkflow('report-query-by-example-budgets',workflow,{openMaster:false,preflightConfig,preflight:({sql})=>{
   const grants=sql.rows('SHOW GRANTS FOR CURRENT_USER()').flat();
   if(!grants.some(grant=>/^GRANT (?:ALL PRIVILEGES|[^;]*\bPROCESS\b[^;]*) ON \*\.\*/i.test(grant)))
     throw new h.SkipCheck('QBE timeout observation requires the SQL fixture account to hold PROCESS; its grant text is never logged');
 }});
-module.exports={resultMarkup,audits,verifyAudit,workflow};
+module.exports={resultMarkup,audits,verifyAudit,workflow,preflightConfig};

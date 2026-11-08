@@ -3,6 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const {recoveredPreviewBytes, capacityTarget, expectedCapacityConsole} = require('./lib/incoming-preview-capacity-check');
+const {checkIncomingPreviewCapacity}=require('./lib/incoming-preview-capacity-check');
 const destination = 'https://127.0.0.1/carlos/documentManager/ManageDocument?method=viewIncomingDocPageAsPdf&pdfName=owned.pdf';
 const pdf = Buffer.from('%PDF-1.7\n' + 'x'.repeat(120) + '\n%%EOF\n');
 function fixture({status = 200, mime = 'application/pdf', bytes = pdf, failBody = false} = {}) {
@@ -58,4 +59,29 @@ test('only a proven injected503 for the exact preview may ignore its client-only
     assert.equal(expectedCapacityConsole({...issue, ...change}, targets), false);
   }
   assert.equal(capacityTarget('not a URL'), null);
+});
+
+for(const forwardFailure of [false,true])test('preview cleanup preserves the primary error and unroute failure'+(forwardFailure?' and drains failed forwarding':''),async()=>{
+  const primary=new Error('native preview assertion'),cleanup=new Error('unroute failed'),transport=new Error('upstream failed');
+  let handler,release,drained=false;
+  const gate=new Promise(resolve=>{release=resolve;});
+  const page={
+    route:async(_pattern,fn)=>{handler=fn;},
+    unroute:async()=>{release();throw cleanup;},
+    waitForResponse:()=>Promise.resolve({}),waitForEvent:()=>Promise.resolve(),
+    locator:()=>({selectOption:async()=>{
+      if(!forwardFailure)return;
+      for(let index=0;index<6;index++){
+        const operation=handler({request:()=>({url:()=>destination,method:()=> 'GET'}),
+          fulfill:async()=>{},abort:async()=>{},fetch:async()=>{await gate;drained=true;throw transport;}});
+        if(index<5)await operation;else operation.catch(()=>{});
+      }
+    }}),
+    frameLocator:()=>({locator:()=>({waitFor:async()=>{throw primary;}})}),
+  };
+  await assert.rejects(checkIncomingPreviewCapacity({context:{},config:{baseUrl:'https://127.0.0.1/carlos'}},page,'owned.pdf'),error=>{
+    assert(error instanceof AggregateError);assert(error.errors.includes(primary));assert(error.errors.includes(cleanup));
+    assert.equal(error.errors.includes(transport),forwardFailure);return true;
+  });
+  assert.equal(drained,forwardFailure);
 });

@@ -873,3 +873,22 @@ pass. A separate ON disposable profile activates confidentiality statement v2:
 all sixty clinical results and the actual new notice pass across eight PDF pages;
 the original configuration is restored byte-for-byte and the service restarted.
 Its final health/package/configuration/fixture/legacy-email audit also passes.
+
+### Ninth full review reconciliation
+
+The ninth full CodeRabbit review of `55b39ac685af` raised three valid findings.
+Preview capacity cleanup now preserves its original assertion together with route
+removal and upstream forwarding failures, and drains forwarding even when removal
+fails. Two independent fault controls exercise these combined failures. The
+mixed-PDF manifest names all three preference rows for the independent residue
+audit. Query-by-Example now requires the shared `CARLOS_DISPOSABLE_VM=true`
+convention; four subprocess controls prove that `true` reaches its next prerequisite
+and `1`, `false` and an empty value refuse before database/browser mutation.
+
+The immutable review-fix qualification checkout passes **7,601/7,601 Node cases
+in 540 files**, with no failed, skipped, cancelled or TODO case and no changed
+test source. The installed ON original extraction and mixed-PDF pair passes again
+through Chromium 149.0.7827.55 against the same snapshot-31 Debian packages.
+All 13 CI workflows pass on the preceding `55b39ac685af` checkpoint; the next
+commit requires its own CI result. The five unimplemented workflows and original
+full/repeated/vendor acceptance obligations above remain pending.
