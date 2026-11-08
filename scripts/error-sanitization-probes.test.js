@@ -36,3 +36,26 @@ test('the schedule refusal must come from the route rather than a generic upstre
     assert.throws(()=>assertScheduleDateRefusal(400,body,{}),/did not come from the schedule route/);
   }
 });
+
+test('installed fault oracle rejects unsanitized, intercepted, redirected and assertion-free success', () => {
+  const {assertSanitizedFault} = require('./error-sanitization-playwright-checks');
+  const sanitized = 'Error. Reference ID: 12345678-1234-1234-1234-123456789abc';
+  const headers = {'content-type':'text/html;charset=UTF-8'};
+  assert.doesNotThrow(() => assertSanitizedFault(500, sanitized, headers));
+  for (const [status, body, metadata, reason] of [
+    [200, sanitized, headers, /expected HTTP 500/], [302, sanitized, headers, /expected HTTP 500/],
+    [500, 'nginx 500', headers, /missing sanitized Reference ID/],
+    [500, sanitized + ' FAKE-private-error-5794', headers, /leaked its original body/],
+    [500, sanitized + ' java.lang.Exception', headers, /leaked a stack trace/],
+    [500, sanitized, {'content-type':'application/json'}, /not replaced by the HTML sanitizer/],
+    [500, sanitized, {...headers,'content-disposition':'attachment'}, /started a download/],
+  ]) assert.throws(() => assertSanitizedFault(status, body, metadata), reason);
+});
+
+test('sendError qualification requires an observed ERROR dispatch as well as a sanitized body', () => {
+  const {assertSanitizedFault} = require('./error-sanitization-playwright-checks');
+  const body = 'Reference ID: 12345678-1234-1234-1234-123456789abc';
+  const headers = {'content-type':'text/html'};
+  assert.throws(() => assertSanitizedFault(500, body, headers, true), /real ERROR dispatcher/);
+  assert.doesNotThrow(() => assertSanitizedFault(500, body, {...headers,'x-carlos-test-error-dispatch':'observed'}, true));
+});

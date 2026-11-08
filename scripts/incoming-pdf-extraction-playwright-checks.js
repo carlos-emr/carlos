@@ -10,6 +10,9 @@ const { runWorkflow } = require('./lib/workflow-session');
 const {checkIncomingPreviewCapacity} = require('./lib/incoming-preview-capacity-check');
 const {checkIncomingFilingCapacity} = require('./lib/incoming-filing-capacity-check');
 const {createPageEditCleanupGuard, checkIncomingPageEditCapacity} = require('./lib/incoming-page-edit-capacity-check');
+const {createIncomingPreviewFixture}=require('./lib/incoming-preview-fixture');
+const {readRegular,retireOwnedFile}=require('./lib/owned-file-retirement');
+const graph=require('./lib/pdf-graph');
 
 function fixturePdf(marker) {
   const objects = ['<< /Type /Catalog /Pages 2 0 R >>',
@@ -55,6 +58,12 @@ async function workflow(s) {
   const source = path.join(directory, name);
   const destination = path.join(directory, `${s.marker}E3.pdf`);
   const unrelated = path.join(directory, `T${name}`);
+  const recycle=path.join(root,'1','File_deleted');
+  const recycleBefore=new Map(fs.existsSync(recycle)?fs.readdirSync(recycle).map(entry=>{
+    const value=readRegular(path.join(recycle,entry));h.assert(value,'Recycle entry disappeared during inventory');return [entry,value.bytes];
+  }):[]);
+  h.assert(![...recycleBefore.keys()].some(entry=>entry.startsWith(s.marker)),'Owned recycle namespace already exists');
+  const previews=createIncomingPreviewFixture(s,{names:[name,path.basename(destination),path.basename(unrelated)],cache:path.join(root,'1','File_cache')});
   const owned = [];
   const pageEditGuard = createPageEditCleanupGuard({marker: s.marker, source, owned});
   const filingGuard = createPageEditCleanupGuard({marker: s.marker, source, owned});
@@ -65,6 +74,15 @@ async function workflow(s) {
   s.cleanup(() => {
     pageEditGuard.assertCleanup();
     filingGuard.assertCleanup();
+    previews.cleanup();
+    for(const entry of fs.existsSync(recycle)?fs.readdirSync(recycle):[])if(!recycleBefore.has(entry)&&entry.startsWith(s.marker)) {
+      h.assert(entry===s.marker+'d1of2.pdf','Unfamiliar owned recycle output; retain it');
+      const file=path.join(recycle,entry),value=readRegular(file);h.assert(value,'Owned recycled page disappeared');
+      const text=graph.pageText(value.bytes,1);
+      h.assert(graph.pageCount(value.bytes)===1&&text.includes(s.marker+' page 1')&&!text.includes(s.marker+' page 2')&&!text.includes(s.marker+' page 3'),'Recycled PDF has another page/owner; retain it');
+      retireOwnedFile(file,bytes=>bytes.equals(value.bytes));
+    }
+    for(const [entry,bytes] of recycleBefore){const value=readRegular(path.join(recycle,entry));h.assert(value&&value.bytes.equals(bytes),'Unrelated recycled PDF changed');}
     for (const file of owned) if (fs.existsSync(file)) fs.unlinkSync(file);
     const ids = preferences.map(row => row[0]);
     h.assert(ids.every(id => /^[1-9]\d*$/.test(id)), 'Invalid preference fixture identity');
@@ -95,6 +113,7 @@ async function workflow(s) {
   fs.utimesSync(staleScratch, staleTime, staleTime);
   fs.utimesSync(unrelatedHidden, staleTime, staleTime);
   h.assert(inspect(source).pages === 3, 'The synthetic input PDF is not three pages');
+  await previews.install();
   const { page: inbox } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#inboxLink').first(),
     { context: s.context, recorder: s.recorder, label: 'incoming-pdf-inbox' });
   const page = await s.popup(inbox, inbox.locator('a[href*="ViewIncomingDocs"]').first(), 'incoming-pdf-editor');
@@ -110,7 +129,7 @@ async function workflow(s) {
   h.assert((await page.locator('fieldset legend').allTextContents()).some(text => text.includes(name)), 'Incoming queue did not open the owned PDF');
   const extract = () => page.locator('button[onclick^="extractPagePdf("]');
   await s.step('native PDF and image previews wait through capacity overload and recover without replaying mutations', async () => {
-    await checkIncomingPreviewCapacity(s, page, name);
+    await checkIncomingPreviewCapacity(s, page, name,{onCaptured:previews.capture});
     h.assert(fs.readFileSync(source).equals(original), 'Preview waiting changed the owned source PDF');
   });
   await s.step('reap abandoned scratch files while preserving fresh work and unrelated hidden files', async () => {

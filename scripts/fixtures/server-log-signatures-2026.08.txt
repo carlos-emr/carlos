@@ -88,3 +88,7 @@ ERROR pageUtil.FrmXmlUpload2Action (FrmXmlUpload2Action.java:191)
 # Added with scripts/eform-email-error-playwright-checks.js: deliberately unavailable owned eForm attachment in the #4477 browser check,
 # captured on the installed 2026.09.0~snapshot27 package; no exception message or patient data.
 ERROR action.EmailCompose2Action (EmailCompose2Action.java:312) @EmailComposeManager.patientAttachmentIds :: io.github.carlos_emr.carlos.utility.PDFGenerationException
+# Installed disposable #5794 fixture, observed 2026-11-07 on snapshot28.
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:460) uri=/carlos/ws/rs/__test-error-b7b14930bf56c8b606643af113d2dc35
+ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:349) uri=/carlos/__test-error-b7b14930bf56c8b606643af113d2dc35.jsp @carlostest5794.ErrorSanitizationFaultServlet.doGet :: jakarta.servlet.ServletException
+ERROR utility.DbConnectionFilter (DbConnectionFilter.java:87) @carlostest5794.ErrorSanitizationFaultServlet.doGet :: jakarta.servlet.ServletException

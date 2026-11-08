@@ -76,3 +76,19 @@ test('passing Node cases cannot qualify test source modified during execution', 
   assert.equal(report.sourceChanged,true);
   assert.match(Object.values(report.sourceFiles)[0],/^[0-9a-f]{64}$/);
 });
+
+for(const [label,added] of [['stable selection',null],['new failing test',"require('node:test')('late',()=>{throw Error('must run next time');});"],['new empty test','']])
+test('actual release CLI checks its final discovery set: '+label,t=>{
+  const directory=fs.mkdtempSync(path.join(os.tmpdir(),'node-release-discovery-'));
+  t.after(()=>fs.rmSync(directory,{recursive:true,force:true}));
+  const runner=path.join(directory,'runner.cjs'),source=path.join(directory,'initial.test.js'),output=path.join(directory,'result.json');
+  fs.copyFileSync(require.resolve('./run-node-release-tests'),runner);
+  const action=added===null?'':"require('node:fs').writeFileSync(require('node:path').join(__dirname,'late.test.js'),"+JSON.stringify(added)+");";
+  fs.writeFileSync(source,"require('node:test')('initial pass',()=>{"+action+"});\n");
+  const environment={...process.env};delete environment.NODE_TEST_CONTEXT;
+  const child=spawnSync(process.execPath,[runner,'--output',output],{env:environment,encoding:'utf8',timeout:15000});
+  assert.equal(child.status,added===null?0:1,child.stderr+' '+child.stdout);
+  const report=JSON.parse(fs.readFileSync(output));
+  assert.equal(report.summary.success,true);assert.equal(report.cases.length,1);assert.equal(report.cases[0].outcome,'PASS');
+  assert.equal(report.sourceChanged,added!==null,'Newly discovered files were silently omitted from qualification');
+});

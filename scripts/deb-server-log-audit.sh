@@ -201,6 +201,13 @@ awk -v show="$SHOW_MESSAGES" -v include_warn="$INCLUDE_WARN" '
   }
   sig != "" {
     line = $0
+    # The disposable #5794 servlet lives outside the production package tree.
+    # Preserve that exact frame so its intentional exception cannot allowlist
+    # an unlocated ServletException from an ordinary application request.
+    if (frame == "" && line ~ /^[ \t]+at carlostest5794\.ErrorSanitizationFaultServlet\.doGet\(/) {
+      frame = "carlostest5794.ErrorSanitizationFaultServlet.doGet"
+      sig = sig " @" frame
+    }
     # The first CARLOS frame says where the failure surfaced, so a baseline
     # entry for one deliberate 500 cannot also hide the same exception class
     # thrown anywhere else.

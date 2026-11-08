@@ -4,6 +4,7 @@
 const { assert, sqlString } = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { nativeGraphResponse } = require('./lib/native-graph-response');
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
@@ -45,18 +46,13 @@ async function workflow(s) {
     // global.js reuses a named window which may already belong to another
     // measurements page. Observe the actual UI-generated image response rather
     // than assuming a new popup or navigating to a guessed endpoint.
-    const rendered = s.context.waitForEvent('response', {
-      predicate: response => new URL(response.url()).pathname.endsWith('/GraphMeasurements')
-        && response.request().isNavigationRequest(), timeout: 20000,
-    });
-    rendered.catch(() => {});
-    await history.locator('input[onclick*="GraphMeasurements"]').click();
-    const response = await rendered;
-    const url = new URL(response.url());
+    const response = await nativeGraphResponse(s,
+      () => history.locator('input[onclick*="GraphMeasurements"]').click(), { type: 'WT' });
+    const url = new URL(response.url);
     assert(url.origin === new URL(s.config.baseUrl).origin, 'Measurement graph points outside the application');
-    assert(response.status() === 200, 'Graph image request failed');
-    assert((response.headers()['content-type'] || '').startsWith('image/png'), 'Graph did not declare PNG content');
-    const body = await response.body();
+    assert(response.status === 200, 'Graph image request failed');
+    assert((response.headers['content-type'] || '').startsWith('image/png'), 'Graph did not declare PNG content');
+    const body = response.body;
     assert(body.length > 100 && body.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])),
       'Graph returned an error document or invalid PNG instead of plot bytes');
 

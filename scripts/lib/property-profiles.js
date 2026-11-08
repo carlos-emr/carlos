@@ -11,6 +11,7 @@ const PROFILES = Object.freeze({
   'legacy-contacts': {NEW_CONTACTS_UI: 'false'},
   'private-consent': {privateConsentEnabled: 'true',STUDENT_PARTICIPATION_CONSENT:'false'},
   'appointment-options': {mc_number: 'true', emailApptReminder: 'yes'},
+  'appointment-lock-expiry': {appointment_locking_timeout: '20', allowMultipleSameDayGroupAppt: 'yes'},
 });
 function propertiesFor(name, env = process.env) {
   if (!Object.hasOwn(PROFILES, name)) throw new Error(`Unknown property profile ${name}`);
@@ -127,4 +128,4 @@ function runProfileChild(args,profile,signal,{file='/etc/carlos-emr/carlos.prope
     if(signal.aborted)stop();
   });
 }
-module.exports = {PROFILES, propertiesFor, renderProperties, withPropertyProfile, runProfileChild,verifyActiveProfile,handoffRecord,readinessSeconds};
+module.exports = {PROFILES, propertiesFor, renderProperties, withPropertyProfile, runProfileChild,verifyActiveProfile,handoffRecord,readinessSeconds,restartAndWait};

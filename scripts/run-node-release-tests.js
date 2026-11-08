@@ -6,6 +6,8 @@ const path = require('node:path');
 const {run} = require('node:test');
 const crypto = require('node:crypto');
 const fingerprint = file => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const discoverTests = () => fs.readdirSync(__dirname).filter(file => file.endsWith('.test.js'))
+  .sort().map(file => path.join(__dirname, file));
 
 function readiness(summary) {
   const c = summary && summary.counts;
@@ -41,10 +43,18 @@ async function execute(files, output, options = {}) {
         outcome: d.todo ? 'TODO' : d.skip ? 'SKIP' : event.type === 'test:pass' ? 'PASS' : 'FAIL'});
     }
   }
-  const sourceChanged = files.some(file => {
+  let sourceChanged = files.some(file => {
     try {return fingerprint(file) !== sourceFiles[path.relative(process.cwd(), file)];}
     catch {return true;}
   });
+  // A new test is absent from the initial fingerprint map. Recheck the full
+  // discovery set too, so passing the original selection cannot omit it.
+  if(options.discover) {
+    try {
+      const identities=selection=>selection.map(file=>path.resolve(file)).sort();
+      sourceChanged ||= JSON.stringify(identities(options.discover()))!==JSON.stringify(identities(files));
+    }catch {sourceChanged=true;}
+  }
   const record = {schemaVersion: 3, runtime: process.version, sourceFiles, sourceChanged,
     files: files.map(file => path.relative(process.cwd(), file)),
     summary: summary ? {success: summary.success, counts: summary.counts} : null, cases};
@@ -58,9 +68,8 @@ async function execute(files, output, options = {}) {
 
 async function main(argv = process.argv.slice(2)) {
   if (argv.length !== 2 || argv[0] !== '--output') throw new Error('Usage: run-node-release-tests.js --output FILE');
-  const files = fs.readdirSync(path.join(__dirname)).filter(file => file.endsWith('.test.js'))
-    .sort().map(file => path.join(__dirname, file));
-  const code = await execute(files, argv[1]);
+  const files = discoverTests();
+  const code = await execute(files, argv[1], {discover:discoverTests});
   console.log(code === 0 ? 'Node release tests: all cases passed' : 'Node release readiness incomplete; see metadata report');
   return code;
 }

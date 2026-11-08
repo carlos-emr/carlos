@@ -53,6 +53,7 @@ async function fixture(t, type, fault) {
       throw new Error(`Unexpected row query: ${query}`);
     },
     value(query) {
+      if(query.includes('assert empty upload namespace'))return '0';
       if (/FROM demographic\s/.test(query)) return patientPresent ? '1' : '0';
       if (query.includes('(SELECT COUNT(*) FROM hl7TextInfo')) {
         if (failFinalCheck) {
@@ -123,7 +124,7 @@ async function fixture(t, type, fault) {
         // A deliberately missing archive must not prevent the test's own teardown.
         fs.writeFileSync(path.join(archiveStore, `LabUpload.lab-upload-probe-${uploadStamp}.hl7.999`), 'synthetic');
       }
-      if (cleanups.length) await cleanups[0]();
+      for (const cleanup of [...cleanups].reverse()) await cleanup();
     } finally {
       if (archiveStore) fs.rmSync(archiveStore, {recursive: true, force: true});
       for (const [name, value] of Object.entries(previousSettings)) {
@@ -136,7 +137,7 @@ async function fixture(t, type, fault) {
     cleanup(fn) {cleanups.push(fn);},
     step() {throw new Error('stop before browser');},
   }), /stop before browser/);
-  assert.equal(cleanups.length, 1);
+  assert.equal(cleanups.length, 2);
   // The real workflow registered its cleanup before the synthetic upload acquired a lock.
   locks.add('101');
   if (fault === 'borrowed') locks.delete('100');
@@ -239,3 +240,52 @@ for (const type of ['HL7', 'CML']) {
     assert.equal(f.patientPresent(), false);
   });
 }
+
+
+test('payload write failure still removes its owned scratch directory', async t => {
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-lab-write-failure-test-'));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const payloadDir=path.join(root,'payload');
+  const originalMkdtemp=fs.mkdtempSync,originalWrite=fs.writeFileSync;
+  t.mock.method(fs,'mkdtempSync',prefix=>{
+    if(String(prefix).includes('carlos-lab-upload-')){fs.mkdirSync(payloadDir);return payloadDir;}
+    return originalMkdtemp(prefix);
+  });
+  t.mock.method(fs,'writeFileSync',(file,...args)=>{
+    if(path.dirname(String(file))===payloadDir)throw new Error('synthetic payload write failure');
+    return originalWrite(file,...args);
+  });
+  const previous=process.env.LAB_UPLOAD_DOCUMENT_STORE;
+  process.env.LAB_UPLOAD_DOCUMENT_STORE=root;
+  t.after(()=>{if(previous===undefined)delete process.env.LAB_UPLOAD_DOCUMENT_STORE;else process.env.LAB_UPLOAD_DOCUMENT_STORE=previous;});
+  const cleanups=[];
+  const sql={rows:()=>[],value:()=> '0',execute:query=>assert.match(query,/^DELETE FROM /)};
+  await assert.rejects(workflow({sql,patient:'123',marker:'FAKE-PW0123456789abcdef',config:{baseUrl:'https://localhost/carlos'},cleanup:fn=>cleanups.push(fn)}),/synthetic payload write failure/);
+  assert.equal(fs.existsSync(payloadDir),true,'the failure must occur after scratch allocation');
+  assert.ok(cleanups.length,'the workflow must register recovery before writing');
+  for(const cleanup of [...cleanups].reverse())await cleanup();
+  assert.equal(fs.existsSync(payloadDir),false,'failed setup must not leave its payload directory');
+});
+
+
+test('pre-existing accession ownership refuses setup without deleting source rows', async t => {
+  const cleanups=[],deletes=[];
+  const sql={rows:()=>[],value:query=>query.includes('assert empty upload namespace')?'1':'0',execute:query=>deletes.push(query)};
+  await assert.rejects(workflow({sql,patient:'123',marker:'FAKE-PW0123456789abcdef',config:{},cleanup:fn=>cleanups.push(fn)}),/namespace already belongs to another source/);
+  assert.equal(cleanups.length,1,'only scratch recovery may be registered before foreign ownership is refused');
+  for(const cleanup of cleanups)await cleanup();
+  assert.deepEqual(deletes,[],'collision refusal must preserve every existing source');
+});
+
+test('HL7 continuation setup and cleanup do not require ON-only legacy CML tables',async t=>{
+  const store=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-hl7-only-cleanup-'));
+  const previous=process.env.LAB_UPLOAD_DOCUMENT_STORE;process.env.LAB_UPLOAD_DOCUMENT_STORE=store;
+  t.after(()=>{if(previous===undefined)delete process.env.LAB_UPLOAD_DOCUMENT_STORE;else process.env.LAB_UPLOAD_DOCUMENT_STORE=previous;fs.rmSync(store,{recursive:true,force:true});});
+  const cleanups=[],queries=[];
+  const read=query=>{queries.push(query);assert.doesNotMatch(query,/labReportInformation|labPatientPhysicianInfo|labTestResults/);};
+  const sql={rows(query){read(query);return [];},value(query){read(query);return '0';},execute:read};
+  await assert.rejects(workflow({sql,patient:'123',marker:'FAKE-PW0123456789abcdef',config:{},cleanup:fn=>cleanups.push(fn),step:()=>{throw new Error('stop before browser');}},
+    {afterInitial:()=>{throw new Error('native continuation must not run in this setup probe');}}),/stop before browser/);
+  for(const cleanup of [...cleanups].reverse())await cleanup();
+  assert.ok(queries.some(query=>query.includes('hl7TextInfo')));assert.ok(queries.some(query=>query.startsWith('DELETE FROM fileUploadCheck')));
+});

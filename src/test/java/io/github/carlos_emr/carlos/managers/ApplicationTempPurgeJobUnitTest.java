@@ -327,18 +327,14 @@ class ApplicationTempPurgeJobUnitTest {
     @Test
     @DisplayName("Counts a scan failure when the swept directory cannot be listed")
     void shouldCountScanFailure_whenDirectoryUnreadable() throws IOException {
-        // Root ignores POSIX permission bits, so an unreadable directory is only reproducible as
-        // a non-root user (the devcontainer runs as root and skips this); the production change —
-        // a scan abort counts as at least one failure so the cycle summary can never report
-        // failed=0 for a cycle that listed nothing — is a single reviewed line.
-        assumeTrue(!"root".equals(System.getProperty("user.name")),
-                "POSIX permission bits are ignored when running as root");
-
         Path unreadable = tempRoot.resolve("unreadable");
         Files.createDirectory(unreadable);
         Set<PosixFilePermission> original = Files.getPosixFilePermissions(unreadable);
         try {
             Files.setPosixFilePermissions(unreadable, EnumSet.noneOf(PosixFilePermission.class));
+            // Test actual permission semantics: a root process with DAC bypass
+            // removed can exercise this path just like an ordinary user.
+            assumeTrue(!Files.isReadable(unreadable), "Process can bypass unreadable directory mode bits");
 
             PurgeOutcome outcome = ApplicationTempPurgeJob.purgeExpiredEntries(unreadable, Instant.now());
 

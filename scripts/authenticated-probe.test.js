@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
 const cookie = { name: 'JSESSIONID', value: 'synthetic', domain: '127.0.0.1', path: '/carlos', secure: true, expires: -1 };
+const {hasUncertainWrites,drainWrites}=require('./lib/uncertain-server-writes');
 function withHeartbeat(fetch) {return async(url,options)=>new URL(url).pathname.endsWith('/status/SessionHeartbeat')?{status:()=>200,json:async()=>({valid:true}),dispose:async()=>{}}:fetch(url,options);}
 function fixture(cookies = [cookie], status = 405) {
   const calls = [];
@@ -13,6 +14,25 @@ function fixture(cookies = [cookie], status = 405) {
   } };
   return { session, calls };
 }
+for(const failureAt of ['heartbeat','token','target',null])test('mutating POST retains fixtures only after an unacknowledged target dispatch: '+failureAt,async()=>{
+  const {session}=fixture();let target=0;
+  session.context.request.fetch=async(url,options)=>{
+    const stage=url.endsWith('/status/SessionHeartbeat')?'heartbeat':url.endsWith('/csrfguard')?'token':'target';
+    if(stage==='target'){target++;assert.equal(Object.hasOwn(options,'mutatingPost'),false);}
+    if(stage===failureAt)throw new Error('synthetic '+stage+' transport failure');
+    return {status:()=>200,json:async()=>({valid:true}),text:async()=> 'var masterTokenValue="synthetic";',dispose:async()=>{}};
+  };
+  const operation=authenticatedProbe(session,'/carlos/settle',{method:'POST',allowPost:true,mutatingPost:true});
+  if(failureAt)await assert.rejects(operation,/synthetic.*transport failure/);else await operation;
+  await drainWrites(session.context);
+  assert.equal(target,failureAt==='heartbeat'||failureAt==='token'?0:1);
+  assert.equal(hasUncertainWrites(session.context),failureAt==='target');
+});
+test('mutating capability cannot enable a GET or bypass explicit authenticated POST opt-in',async()=>{
+  const {session,calls}=fixture();
+  for(const options of [{mutatingPost:true},{method:'POST',mutatingPost:true}])await assert.rejects(authenticatedProbe(session,'/carlos/save',options),/explicitly enabled authenticated POST/);
+  assert.equal(calls.length,0);
+});
 for (const method of ['GET', 'HEAD']) {
   test(`${method} explicitly carries the Secure browser session over HTTP loopback`, async () => {
     const { session, calls } = fixture();

@@ -81,7 +81,7 @@
 #   CONTAINER           container name (default carlos-deb-validation)
 #   IMAGE               image tag (default carlos-deb-validation:26.04)
 #   BASE_IMAGE          default ubuntu:26.04
-#   PLAYWRIGHT_VERSION  default 1.60.0 (runbook section 5; do not run
+#   PLAYWRIGHT_VERSION  default 1.61.1 (runbook section 5; do not run
 #                       `playwright install`: the package ships Chromium)
 #   AXE_CORE_VERSION    default 4.14.0 (accessibility-smoke prerequisite)
 #   BUILD_PROXY         optional http(s) proxy URL for apt and npm while
@@ -104,10 +104,11 @@ RESET_PASSWORD="${RESET_PASSWORD:-Carlos2026!Verify}"
 CONTAINER="${CONTAINER:-carlos-deb-validation}"
 IMAGE="${IMAGE:-carlos-deb-validation:26.04}"
 BASE_IMAGE="${BASE_IMAGE:-ubuntu:26.04}"
-PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.60.0}"
+PLAYWRIGHT_VERSION="${PLAYWRIGHT_VERSION:-1.61.1}"
 # Match the repository's exact dependency; a floating install changes the audit rules.
 AXE_CORE_VERSION="4.14.0"
 ENTITIES_VERSION="4.5.0"
+PNGJS_VERSION="7.0.0"
 BUILD_PROXY="${BUILD_PROXY:-}"
 BUILD_CA_BUNDLE="${BUILD_CA_BUNDLE:-}"
 APT_FORCE_HTTPS="${APT_FORCE_HTTPS:-false}"
@@ -198,14 +199,16 @@ ARG APT_FORCE_HTTPS=false
 ARG PLAYWRIGHT_VERSION
 ARG AXE_CORE_VERSION
 ARG ENTITIES_VERSION
+ARG PNGJS_VERSION
 RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     if [ "$APT_FORCE_HTTPS" = true ]; then sed -i 's#http://#https://#g' /etc/apt/sources.list.d/*.sources; fi; \
     if [ -n "$BUILD_PROXY" ]; then printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$BUILD_PROXY" "$BUILD_PROXY" > /etc/apt/apt.conf.d/99carlos-validation-proxy; fi; \
     printf 'Acquire::https::CaInfo "/run/secrets/validation_ca";\n' > /etc/apt/apt.conf.d/98carlos-validation-ca; \
-    apt-get update; \
+    apt-get -o APT::Update::Error-Mode=any update; \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
       ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
-      nodejs npm poppler-utils fonts-liberation gnupg libxml2-utils; \
+      nodejs npm poppler-utils tesseract-ocr tesseract-ocr-eng fonts-liberation gnupg libxml2-utils \
+      python3 python3-defusedxml openjdk-25-jdk-headless; \
     update-ca-certificates; \
     rm -f /etc/apt/apt.conf.d/98carlos-validation-ca; \
     rm -rf /var/lib/apt/lists/*; \
@@ -215,7 +218,7 @@ RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
     cd /root && npm init -y >/dev/null; \
     if [ -n "$BUILD_PROXY" ]; then export HTTPS_PROXY="$BUILD_PROXY"; fi; \
     export NODE_EXTRA_CA_CERTS=/run/secrets/validation_ca; \
-    npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}" "axe-core@${AXE_CORE_VERSION}" "entities@${ENTITIES_VERSION}"
+    npm install --save-exact --no-audit --no-fund "playwright@${PLAYWRIGHT_VERSION}" "axe-core@${AXE_CORE_VERSION}" "entities@${ENTITIES_VERSION}" "pngjs@${PNGJS_VERSION}"
 ENV container=docker
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
@@ -224,7 +227,7 @@ EOF
   docker build --network host --secret "id=validation_ca,src=$ctx/extra-ca.crt" -t "$IMAGE" \
     --build-arg BASE_IMAGE="$BASE_IMAGE" --build-arg BUILD_PROXY="$BUILD_PROXY" \
     --build-arg APT_FORCE_HTTPS="$APT_FORCE_HTTPS" --build-arg PLAYWRIGHT_VERSION="$PLAYWRIGHT_VERSION" --build-arg AXE_CORE_VERSION="$AXE_CORE_VERSION" \
-    --build-arg ENTITIES_VERSION="$ENTITIES_VERSION" \
+    --build-arg ENTITIES_VERSION="$ENTITIES_VERSION" --build-arg PNGJS_VERSION="$PNGJS_VERSION" \
     "$ctx" >"$LOG_DIR/image-build.log" 2>&1 || { rm -rf "$ctx"; die "image build failed; see $LOG_DIR/image-build.log"; }
   rm -rf "$ctx"
 }
@@ -290,7 +293,7 @@ cmd_up() {
         printf 'Acquire::http::Proxy \"%s\";\nAcquire::https::Proxy \"%s\";\n' '$BUILD_PROXY' '$BUILD_PROXY' > /etc/apt/apt.conf.d/99carlos-validation-proxy
       fi
       printf 'Acquire::https::CaInfo \"/run/carlos-validation-ca.pem\";\\n' > /etc/apt/apt.conf.d/98carlos-validation-ca
-      apt-get update
+      apt-get -o APT::Update::Error-Mode=any update
       apt-get install -y --no-remove /debs/$emr /debs/$drugref /debs/$ctl" >"$LOG_DIR/install.log" 2>&1; then
     die "apt-get install failed; see $LOG_DIR/install.log"
   fi
@@ -500,6 +503,9 @@ cmd_suite() {
   require_disposable
   mkdir -p "$LOG_DIR"
   [ "$#" -gt 0 ] || set -- --tier smoke
+  # Packaged validation is qualification: missing prerequisites and known-fail
+  # pins must remain failures. Local diagnostics can invoke the runner directly.
+  set -- "$@" --strict-release --residue-audit
   # The run must match the configuration the install is in: an install left in a
   # profile skips the checks that profile cannot run, and a skip passes.
   local active requested='' prev='' arg
@@ -525,9 +531,12 @@ cmd_suite() {
   quoted=$(printf '%q ' "$@")
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   before=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
-  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
+  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true python3 scripts/ci/run-installed-error-sanitization.py -- node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
     2>&1 | tee "$LOG_DIR/suite-$stamp.log" || rc=$?
-  docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || true
+  docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || {
+    echo "FAIL required suite JUnit report could not be retained" >&2
+    rc=1
+  }
   after=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
   # A browser failure can be the first symptom of the JVM being killed and
   # restarted; a run that tested two processes must not finish green.

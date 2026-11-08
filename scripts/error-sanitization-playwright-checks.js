@@ -17,7 +17,7 @@
  * front door. Both former error probes must now return controlled HTTP 400s,
  * with no stack trace, private input, download, or server-error replacement.
  *
- * Deterministic 5xx replacement is exercised by
+ * Additional unit-level 5xx replacement is exercised by
  * ResponseSanitizationFilterTomcatIntegrationTest: test-only servlets under real
  * Tomcat cover HTML errors and /ws bodies (including clean partial JSON), with
  * successful/400 controls and a disabled-filter negative control. Those fixtures
@@ -31,7 +31,7 @@
 
 const legacyHarness=require('./lib/legacy-check');
 const { chromium } = require('playwright');
-const { shouldIgnoreHttpsErrors, assertStrictPage, wireStrictPage } = require('./lib/playwright-harness');
+const { SkipCheck, shouldIgnoreHttpsErrors, assertStrictPage, wireStrictPage } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -91,13 +91,24 @@ function assertScheduleDateRefusal(status,body,headers) {
     'Invalid schedule-count dates: the 400 did not come from the schedule route');
 }
 
+function assertSanitizedFault(status, body, headers, errorDispatch = false) {
+  if (errorDispatch) assert(headers['x-carlos-test-error-dispatch'] === 'observed', 'Fault fixture did not execute the real ERROR dispatcher');
+  assert(status === 500, `Fault fixture: expected HTTP 500, got ${status}`);
+  assert(REFERENCE_ID_PATTERN.test(body), 'Fault fixture: missing sanitized Reference ID');
+  assert(!headers['content-disposition'], 'Fault fixture started a download');
+  assert((headers['content-type'] || '').toLowerCase().includes('text/html'),
+    'Fault fixture was not replaced by the HTML sanitizer');
+  assert(!body.includes('FAKE-private-error-5794'), 'Fault fixture leaked its original body');
+  for (const marker of STACK_TRACE_MARKERS) assert(!body.includes(marker), 'Fault fixture leaked a stack trace');
+}
+
 if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',async({cancellation})=>{
-  if (config.baseUrl.protocol !== 'https:') {
-    console.warn(
-      'WARN: BASE_URL is not HTTPS. This check also establishes that the packaged front door '
-      + 'passes the sanitized error body through unmodified, so run it against :443.',
-    );
+  const faultToken = process.env.ERROR_SANITIZATION_FAULT_TOKEN || '';
+  if (!/^[a-f0-9]{32}$/.test(faultToken)) {
+    throw new SkipCheck('Run scripts/ci/run-installed-error-sanitization.py inside the disposable packaged container to provision temporary fault routes');
   }
+  assert(config.baseUrl.protocol === 'https:' && (!config.baseUrl.port || config.baseUrl.port === '443'),
+    'Error sanitization requires the packaged HTTPS front door on port 443');
   const browser = await chromium.launch({...(getLaunchOptions(config.chromePath)),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   const recorder = createRecorder();
   try {
@@ -144,6 +155,16 @@ if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',a
       assertScheduleDateRefusal(ws.status(), wsBody, ws.headers());
     } finally { await ws.dispose(); }
 
+    // Exercise a JSON 5xx under /ws and an exception dispatched through ERROR,
+    // using the installed descriptor and packaged nginx rather than a mock filter.
+    for (const suffix of [`/ws/rs/__test-error-${faultToken}`, `/__test-error-${faultToken}.jsp?mode=throw`, `/__test-error-${faultToken}.jsp?mode=error`]) {
+      const fault = await page.request.get(`${config.baseUrl.href}${suffix}`, { failOnStatusCode: false, maxRedirects: 0 });
+      try {
+        assertSanitizedFault(fault.status(), await fault.text(), fault.headers(), suffix.endsWith('mode=error'));
+      } finally { await fault.dispose(); }
+      cancellation?.throwIfCancelled();
+    }
+
     await screenshot(page, config.screenshotDir, 'error-sanitization');
     cancellation?.throwIfCancelled();
     await page.close();
@@ -158,7 +179,7 @@ if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',a
     cancellation?.throwIfCancelled();
 
     console.log('PASS error sanitization: former server-error probes return controlled HTTP 400 refusals '
-      + 'through the packaged front door without reflected input or stack traces');
+      + 'and deterministic /ws and ERROR-dispatch 500 bodies are sanitized through the packaged front door');
   } catch (error) {
     console.error('FAIL error sanitization Playwright check');
     console.error(error.stack || error.message);
@@ -169,4 +190,4 @@ if (require.main === module) legacyHarness.runLegacyCheck('error-sanitization',a
   }
 });
 
-module.exports = { assertControlledRefusal, assertScheduleDateRefusal };
+module.exports = { assertControlledRefusal, assertScheduleDateRefusal, assertSanitizedFault };

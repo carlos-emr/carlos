@@ -6,6 +6,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { captureMail } = require('./lib/loopback-mail-capture');
+const { nextEmailSenderId } = require('./lib/email-sender-fixture-id');
 
 async function workflow(s) {
   const recipient = `${s.marker.toLowerCase()}@example.com`;
@@ -37,9 +38,10 @@ async function workflow(s) {
   s.sql.execute(`UPDATE demographic SET email=${h.sqlString(recipient)} WHERE demographic_no=${s.patient};
     INSERT INTO Consent (demographic_no,consent_type_id,explicit,optout,last_entered_by,consent_date,edit_date,deleted)
     VALUES (${s.patient},${consentType},1,0,${h.sqlString(s.provider)},NOW(),NOW(),0)`);
-  configId = s.sql.value(`INSERT INTO emailConfig (emailType,emailProvider,active,senderFirstName,senderLastName,senderEmail,configDetails)
-    VALUES ('SMTP','LOCAL',1,'Coverage','Fixture',${h.sqlString(sender)},
-      ${h.sqlString(JSON.stringify({ host: '127.0.0.1', port: String(sink.port) }))}); SELECT LAST_INSERT_ID()`);
+  configId = nextEmailSenderId(s.sql);
+  s.sql.execute(`INSERT INTO emailConfig (id,emailType,emailProvider,active,senderFirstName,senderLastName,senderEmail,configDetails)
+    VALUES (${configId},'SMTP','LOCAL',1,'Coverage','Fixture',${h.sqlString(sender)},
+      ${h.sqlString(JSON.stringify({ host: '127.0.0.1', port: String(sink.port) }))})`);
   h.assert(/^[1-9]\d*$/.test(configId), 'Owned loopback sender was not created');
   const html = `<!DOCTYPE html><html><head><title>Coverage mail</title></head><body>
     <form method="post" action="" name="FormName" id="FormName">
@@ -91,6 +93,7 @@ async function workflow(s) {
   await s.step('find the delivery in Administration email status using sender and status filters', async () => {
     const { page: admin } = await ui.clickOpensPopupOrNavigates(s.schedule, s.schedule.locator('#admin-panel, #admin2').first(),
       { context: s.context, recorder: s.recorder, label: 'mail-admin' });
+    await admin.waitForLoadState('networkidle', {timeout: 20000});
     const link = admin.locator('a[rel*="/admin/ManageEmails?"]');
     const panel = link.locator('xpath=ancestor::div[contains(@class,"accordion-collapse")][1]');
     if (!await panel.isVisible()) await admin.locator(`[data-bs-target="#${await panel.getAttribute('id')}"]`).click();
