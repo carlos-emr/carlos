@@ -359,7 +359,7 @@
 
         function wtEnglish2Metric(obj) {
 //if(isNumber(document.forms[0].c_ppWt) ) {
-//	weight = document.forms[0].c_ppWt.value;
+//  weight = document.forms[0].c_ppWt.value;
             if (isNumber(obj)) {
                 weight = obj.value;
                 weightM = Math.round(weight * 10 * 0.4536) / 10;
