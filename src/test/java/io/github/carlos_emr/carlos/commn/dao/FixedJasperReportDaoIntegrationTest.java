@@ -54,6 +54,7 @@ class FixedJasperReportDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void shouldKeepNoPages_forAnEmptyDay() throws Exception {
         var rows = reports.daySheet(Date.valueOf("1901-01-01"));
         assertThat(rows).isEmpty();
