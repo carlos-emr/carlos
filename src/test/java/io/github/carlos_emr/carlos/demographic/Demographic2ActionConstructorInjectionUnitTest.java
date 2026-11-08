@@ -30,7 +30,20 @@ import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import org.apache.struts2.spring.SpringObjectFactory;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Scope;
+import org.springframework.stereotype.Component;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import java.util.Comparator;
 import java.util.stream.Stream;
 
@@ -55,6 +68,8 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
     private static final Path DEMOGRAPHIC_SOURCE_DIR =
             Path.of("src/main/java/io/github/carlos_emr/carlos/demographic");
     private static final String DEMOGRAPHIC_PACKAGE = "io.github.carlos_emr.carlos.demographic";
+    private static final Path STRUTS_CONFIG_DIR = Path.of("src/main/webapp/WEB-INF/classes");
+    private static final Set<String> STRUTS_ACTION_CLASSES = configuredActionClasses();
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("constructorInjectedActions")
@@ -72,18 +87,96 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("constructorInjectedActions")
-    @DisplayName("should retain a public no-arg constructor for Struts instantiation")
-    void shouldRetainNoArgConstructor_forStrutsInstantiation(Class<?> actionClass) {
-        // Struts builds these actions through SpringObjectFactory under the default
-        // `name` autowire strategy (see Demographic2ActionInjectionRegressionTest for why
-        // `constructor` must not be set globally). That strategy autowires an instance
-        // Spring created from the default constructor, so dropping the no-arg constructor
-        // in favour of the injected one alone would compile, pass the instantiation test
-        // above, and then fail on the first request to the action.
+    @DisplayName("should instantiate through the configured Struts Spring factory")
+    void shouldBuildThroughConfiguredStrutsFactory_forEachConstructorInjectedAction(Class<?> actionClass) throws Exception {
+        Component component = AnnotatedElementUtils.findMergedAnnotation(actionClass, Component.class);
+        if (component != null && !component.value().isBlank() && STRUTS_ACTION_CLASSES.contains(component.value())) {
+            // The real Struts 7.4 factory resolves an explicitly named bean before
+            // falling back to class construction. Spring owns these constructors.
+            assertThat(STRUTS_ACTION_CLASSES).doesNotContain(actionClass.getName());
+            Scope scope = AnnotatedElementUtils.findMergedAnnotation(actionClass, Scope.class);
+            assertThat(scope).as("%s must have request-independent action instances", actionClass.getName()).isNotNull();
+            assertThat(scope.value()).isEqualTo("prototype");
+            try (var context = new AnnotationConfigApplicationContext()) {
+                for (Class<?> dependency : injectionConstructor(actionClass).getParameterTypes()) {
+                    if (!dependency.isPrimitive()) {
+                        context.getBeanFactory().registerResolvableDependency(dependency, testDependency(dependency));
+                    }
+                }
+                context.register(actionClass);
+                context.refresh();
+                assertThat(context.isPrototype(component.value())).isTrue();
+                var factory = new SpringObjectFactory();
+                factory.setApplicationContext(context);
+                assertThat(factory.getAutowireStrategy()).isEqualTo(AutowireCapableBeanFactory.AUTOWIRE_BY_NAME);
+                Object first = factory.buildBean(component.value(), Map.of(), true);
+                Object second = factory.buildBean(component.value(), Map.of(), true);
+                assertThat(first).isInstanceOf(actionClass).isNotSameAs(second);
+                assertThat(second).isInstanceOf(actionClass);
+            }
+            return;
+        }
+        // Legacy actions referenced by class name still take the default name-
+        // autowire path. Keep the original public no-arg requirement for them.
         assertThat(hasPublicNoArgConstructor(actionClass))
-                .as("%s must keep a public no-arg constructor delegating to its injected constructor,"
-                        + " otherwise Struts cannot instantiate it at runtime", actionClass.getName())
+                .as("%s must keep a public no-arg constructor when Struts constructs it by class name", actionClass.getName())
                 .isTrue();
+    }
+
+    /** Follow only the actual included application configuration; comments cannot invent mappings. */
+    private static Set<String> configuredActionClasses() {
+        var factory = XMLInputFactory.newDefaultFactory();
+        factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+        factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+        factory.setXMLResolver((publicId, systemId, baseUri, namespace) -> {
+            throw new XMLStreamException("External Struts configuration resources are forbidden in this test");
+        });
+        Path root = STRUTS_CONFIG_DIR.toAbsolutePath().normalize();
+        var pending = new ArrayDeque<Path>();
+        var visited = new HashSet<Path>();
+        var classes = new HashSet<String>();
+        pending.add(root.resolve("struts.xml"));
+        try {
+            while (!pending.isEmpty()) {
+                Path file = pending.removeFirst();
+                if (!visited.add(file)) {
+                    continue;
+                }
+                if (!file.startsWith(root) || visited.size() > 100) {
+                    throw new IllegalStateException("Unexpected Struts configuration include scope");
+                }
+                try (var input = Files.newInputStream(file)) {
+                    var xml = factory.createXMLStreamReader(input, StandardCharsets.UTF_8.name());
+                    try {
+                        while (xml.hasNext()) {
+                            if (xml.next() != XMLStreamConstants.START_ELEMENT) {
+                                continue;
+                            }
+                            if (xml.getLocalName().equals("include")) {
+                                String include = xml.getAttributeValue(null, "file");
+                                if (include == null) {
+                                    throw new IllegalStateException("Struts include has no file");
+                                }
+                                pending.add(root.resolve(include).normalize());
+                            } else if (xml.getLocalName().equals("action")) {
+                                String action = xml.getAttributeValue(null, "class");
+                                if (action != null) {
+                                    classes.add(action);
+                                }
+                            }
+                        }
+                    } finally {
+                        xml.close();
+                    }
+                }
+            }
+            if (classes.isEmpty()) {
+                throw new IllegalStateException("No configured Struts actions were found");
+            }
+            return Set.copyOf(classes);
+        } catch (IOException | XMLStreamException failure) {
+            throw new IllegalStateException("Cannot verify the actual included Struts action mappings", failure);
+        }
     }
 
     private static boolean hasPublicNoArgConstructor(Class<?> actionClass) {
@@ -93,9 +186,9 @@ class Demographic2ActionConstructorInjectionUnitTest extends CarlosWebTestBase {
 
     /**
      * Returns the dependency-injection entry point: the public constructor with the most
-     * parameters. Actions also expose a no-arg constructor that delegates to this one via
-     * {@code SpringUtils.getBean(...)} so Struts (default {@code name} autowire) can build
-     * them, while tests and Spring constructor wiring use the parameterized constructor.
+     * parameters. Legacy class-mapped actions retain their delegating no-arg constructor.
+     * Explicitly named prototype beans use Spring's constructor injection through the
+     * actual Struts factory, without changing its global autowire strategy.
      */
     private static Constructor<?> injectionConstructor(Class<?> actionClass) {
         Constructor<?> injection = Arrays.stream(actionClass.getConstructors())

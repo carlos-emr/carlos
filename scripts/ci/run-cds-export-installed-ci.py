@@ -232,6 +232,9 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             status["cli"] = {"rootDelegation": True, "foregroundReady": True, "independentStatus": True,
                              "submissionRecovery": True, "authorizedDownload": True, "existingOutputRefusedUnchanged": True,
                              "ciphertextSha256": before}
+            print("CDS_EXPORT_CLI_CHECKPOINT=" + json.dumps({
+                "warSha256": status["warSha256"], "cli": status["cli"], "oracle": status["cliOracle"]
+            }, sort_keys=True), flush=True)
             stage("REAL_TLS_TOMCAT_STARTUP")
             # Setup owns a fresh Catalina base. It does not alter a packaged class or WEB-INF file.
             run(["python3", "scripts/ci/setup-cds-export-installed-tomcat.py"])
@@ -241,6 +244,7 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             base_url = "https://" + mappings + "/carlos"
             execute(docker + ["cp", runtime + ":/opt/cds-tomcat-ci/tls.crt", str(private / "tls.crt")])
             tls = read_json("/opt/cds-tomcat-ci/tls-info.json")
+            status["packagedTomcatContextSha256"] = tls["packagedContextSha256"]
             opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),
                 urllib.request.HTTPSHandler(context=ssl.create_default_context(cafile=str(private / "tls.crt"))))
             deadline = time.monotonic() + 300

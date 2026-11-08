@@ -10,6 +10,7 @@ from pathlib import Path
 import pwd
 import shutil
 import subprocess
+from defusedxml import ElementTree as XML
 
 BASE = Path("/opt/cds-tomcat-ci")
 WEB = Path("/usr/share/carlos-emr/webapp/carlos")
@@ -91,8 +92,22 @@ def main() -> int:
   </Service>
 </Server>
 """)
-    (BASE / "conf/Catalina/localhost/carlos.xml").write_text(
-        '<Context docBase="/usr/share/carlos-emr/webapp/carlos" reloadable="false"/>')
+    # Use the complete packaged context. A replacement fragment loses Tomcat's
+    # load-bearing forward/wrapper setting and silently yields empty HTTP 200s.
+    descriptor = Path("/workspace/debian/assets/tomcat/Catalina/localhost/carlos.xml")
+    if descriptor.is_symlink() or not descriptor.is_file() or descriptor.stat().st_size > (1 << 20):
+        raise RuntimeError("The actual regular packaged context descriptor is required")
+    context_bytes = descriptor.read_bytes()
+    context = XML.fromstring(context_bytes)
+    if (context.tag != "Context" or context.get("docBase") != str(WEB)
+            or context.get("suspendWrappedResponseAfterForward") != "false"
+            or context.get("reloadable") != "false"):
+        raise RuntimeError("The actual immutable packaged application context is required")
+    installed_context = BASE / "conf/Catalina/localhost/carlos.xml"
+    shutil.copyfile(descriptor, installed_context)
+    if installed_context.read_bytes() != context_bytes:
+        raise RuntimeError("Packaged context bytes changed during installation")
+    context_sha256 = hashlib.sha256(context_bytes).hexdigest()
     command = ["java", "-Xmx1536m", "-Duser.timezone=America/Toronto",
                "-Dcarlos_override_properties=/etc/carlos-emr/carlos.properties",
                "-Dcatalina.home=/usr/share/tomcat11", "-Dcatalina.base=" + str(BASE),
@@ -104,7 +119,7 @@ def main() -> int:
         os.fchmod(log.fileno(), 0o600)
         started = subprocess.Popen(["runuser", "--user", "carlos", "--", *command], stdout=log, stderr=log, start_new_session=True)
     (BASE / "tls-info.json").write_text(json.dumps({"protocol": 1, "pid": started.pid, "serviceUid": account.pw_uid,
-                                                   "tlsSpkiSha256": spki}))
+                                                   "tlsSpkiSha256": spki, "packagedContextSha256": context_sha256}))
     print("PASS new TLS Tomcat started as service user with exact installed WAR")
     return 0
 

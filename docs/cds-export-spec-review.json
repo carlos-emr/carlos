@@ -300,6 +300,25 @@
       "Native-only history, merges, unsupported carriers and other unqualified representations remain explicit review cases.",
       "Current candidate browser qualification and required CI must pass.",
       "Deployment must establish audit access and actual support arrangements."
-    ]
+    ],
+    "currentCandidateQualification": "PENDING_CURRENT_HEAD_BROWSER_AND_REQUIRED_GATES",
+    "lastFullCoordinatedCheckpoint": {
+      "head": "0ca658cf2ec1aee4343d8045267cc1cdbb269e23",
+      "workflowRun": 42520881596,
+      "tests": 3773,
+      "suites": 301,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "installedBrowserGate": ".github/workflows/cds-export-installed.yml",
+    "lastInstalledAttempt": {
+      "head": "3f69d56e29a73a9115de78ad5d9a642e80db2b4c",
+      "workflowRun": 42525528372,
+      "cliClinicalCheckpointPassed": true,
+      "browserComplete": false,
+      "emptyLoginResponseFromIncompleteFixtureContext": true
+    },
+    "currentRevisionUsesExactPackagedContext": true
   }
 }

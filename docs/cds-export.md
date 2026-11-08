@@ -82,6 +82,36 @@ matching the existing billing-table disposition. All previous 516 source rulings
 remain unchanged; the current catalogue has 517 rulings (464 ON and 497 BC tables).
 No original CDS import metadata is rebound or rewritten.
 
+## Current verification checkpoint
+
+At `0ca658cf`, all 301 coordinated suites passed: 2,234 export, 1,160 import
+and 379 shared checks, with no errors, failures or skips. Later import/export
+shards and the canonical DAO wiring check also passed. These checkpoints do not
+replace current-head browser, broad Java or resource verification.
+
+The installed runner now uses the actual packaged Tomcat context descriptor,
+verified byte for byte, alongside the immutable WAR. Replacing that descriptor
+with a minimal test context had omitted `suspendWrappedResponseAfterForward=false`
+and produced empty HTTP 200 login responses despite successful application/TLS
+startup. Sanitization stays enabled. A proper disposable CA/server chain, strict
+certificate validation and the real desktop login form are used. Successful CLI
+clinical checkpoints are printed separately from the complete browser result.
+
+The action-instantiation contract distinguishes named Spring prototype beans
+from legacy class-mapped actions. It follows the included Struts mappings and
+exercises the real Struts 7.4 factory, checks independent instances and retains
+the legacy no-argument constructor requirement. Global autowiring is unchanged.
+Both contracts run early and in the strict coordinated inventory; the current
+304-suite revision still requires its passing reports.
+
+A proposed independent importer admin grant requires explicit approval after
+automatic approval review rejected that persistent permission change. The
+unpublished draft seed was removed and original permission defaults, manifests
+and migration bindings were restored. The unchanged security-seed contract stays
+in the coordinated inventory. No exemption, weakened security gate or successful
+readiness claim substitutes for that unresolved decision. DCO attestation and
+external quality checks also remain outstanding.
+
 ## Baseline and integration
 
 The implementation worktree starts at `release/2026.08` commit

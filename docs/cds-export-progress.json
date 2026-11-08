@@ -26,17 +26,17 @@
       "unclassifiedPresenceRequiresReview": true
     },
     "coordinatedCheckpoint": {
-      "head": "2c46adc7fdb537bd6f13fd37d995a7d4fc19f757",
-      "workflowRun": 42515629568,
-      "tests": 3769,
-      "suites": 300,
+      "head": "0ca658cf2ec1aee4343d8045267cc1cdbb269e23",
+      "workflowRun": 42520881596,
+      "tests": 3773,
+      "suites": 301,
       "failures": 0,
       "errors": 0,
       "skipped": 0,
       "shards": {
         "export": {
-          "tests": 2230,
-          "suites": 184
+          "tests": 2234,
+          "suites": 185
         },
         "import": {
           "tests": 1160,
@@ -68,23 +68,46 @@
     },
     "installedQualification": {
       "workflow": ".github/workflows/cds-export-installed.yml",
-      "workflowRun": 42517169975,
-      "status": "RERUN_PENDING_BROWSER_NETWORK_FIX",
+      "status": "CURRENT_REVISION_RERUN_PENDING",
       "freshOwnedRuntime": true,
       "productionClassOverlays": false,
       "independentNativeFacts": 14,
       "schemaValidClinicalMutants": 4,
       "realCliAndAuthenticatedBrowser": true,
+      "exactPackagedTomcatContextRequired": true,
+      "packagedContextSha256": "2f54277d0a1e59cf9e359f9d320f8e9b37fe949026cd82fbf28db3d0c6d0b737",
+      "strictTestTlsCaAndServerChain": true,
       "previousAttempt": {
-        "workflowRun": 42517169975,
+        "head": "3f69d56e29a73a9115de78ad5d9a642e80db2b4c",
+        "workflowRun": 42525528372,
         "overall": "FAILED_BEFORE_BROWSER",
         "cliClinicalReady": true,
         "cliIndependentNativeFacts": 14,
         "cliSchemaValidClinicalMutantsDetected": 4,
         "cliRecipientDecryption": true,
-        "failureStage": "REAL_TLS_TOMCAT_STARTUP"
+        "failureStage": "REAL_TLS_TOMCAT_STARTUP",
+        "serverStarted": true,
+        "tlsStarted": true,
+        "http200Responses": 128,
+        "loginBodyBytes": 0,
+        "fixtureDescriptorWasIncomplete": true
       }
-    }
+    },
+    "permissionProposal": {
+      "status": "PENDING_EXPLICIT_APPROVAL_NOT_APPLIED",
+      "migration": "V1.0.85__seed_admin_cds_import_permission.sql",
+      "existingDefaultsPreserved": true,
+      "automaticApprovalReviewRejectedPersistentGrant": true,
+      "preservesExplicitImportGrantsAndDenials": true,
+      "grantsOtherRoles": false
+    },
+    "actionInstantiationContract": {
+      "legacyClassMappedActionsRetainNoArg": true,
+      "namedPrototypeBeansUseActualStrutsFactory": true,
+      "globalAutowireStrategyUnchanged": true,
+      "currentRevisionVerificationPending": true
+    },
+    "reviewedInventorySuites": 304
   },
   "verifiedClinicalCheckpoint": {
     "warSha256": "17f93a04c56771befd30271d4cfd75c2daad2b492be50df7c22742afe847c407",
@@ -128,7 +151,9 @@
     "Any missing clinical authorization, changed accepted policy or incompatible runtime"
   ],
   "remaining": [
-    "Complete exact-current-candidate installed CLI and authenticated asynchronous browser qualification",
+    "Complete exact-current-candidate authenticated asynchronous browser and CLI qualification",
+    "Validate actual Struts named-bean construction alongside legacy class-mapped action conventions",
+    "Resolve the independent import permission seed decision without weakening the security contract",
     "Complete current-head broad, security and installed resource CI gates",
     "Obtain the repository-required DCO attestation for unsigned historical commits before readiness"
   ],

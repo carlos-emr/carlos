@@ -89,8 +89,8 @@ class Demographic2ActionInjectionRegressionTest {
         // AUTOWIRE_CONSTRUCTOR on already-instantiated framework objects (interceptors,
         // results, validators), which Spring rejects ("AUTOWIRE_CONSTRUCTOR not supported
         // for existing bean instance") and the whole webapp fails to start. Actions are
-        // instead instantiated via their no-arg constructor (delegating to the injected
-        // constructor through SpringUtils), so this strategy must never be set globally.
+        // instead built through named prototype beans, or legacy no-arg constructors
+        // delegating through SpringUtils. Neither requires changing this global strategy.
         assertThat(strutsConfig)
                 .as("global constructor autowire strategy breaks webapp startup")
                 .doesNotContain("struts.objectFactory.spring.autoWire");
