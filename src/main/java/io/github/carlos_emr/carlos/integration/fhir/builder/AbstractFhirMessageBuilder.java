@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.integration.fhir.model.Sender;
 import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ActorType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import ca.uhn.fhir.context.FhirContext;
+import io.github.carlos_emr.carlos.integration.fhir.utils.FhirJsonCompatibility;
 
 
 /**
@@ -302,7 +303,7 @@ public abstract class AbstractFhirMessageBuilder<T extends BaseResource> {
         if (resource == null) {
             return "";
         }
-        return getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resource);
+        return FhirJsonCompatibility.encode(getFhirContext(), resource);
     }
 
     public void attachPDF(String pdf, String title) {

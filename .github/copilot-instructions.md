@@ -28,7 +28,7 @@
 | Database | MariaDB/MySQL | - |
 | CSRF | OWASP CSRFGuard | 4.5 (Jakarta) |
 | XSS | OWASP Encoder | 1.4.0 (Jakarta) |
-| FHIR | HAPI FHIR | 8.4.0 |
+| FHIR DSTU3 | HAPI FHIR | 8.12.1 |
 | Web Services | Apache CXF | 4.1.5 |
 | Rules | Drools | 10.1.0 |
 | Caching | Caffeine | 3.2.3 |

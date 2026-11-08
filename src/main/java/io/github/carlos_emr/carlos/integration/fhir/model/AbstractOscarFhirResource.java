@@ -38,6 +38,7 @@ import io.github.carlos_emr.carlos.integration.fhir.resources.constants.ActorTyp
 import org.hl7.fhir.dstu3.model.Reference;
 import org.hl7.fhir.dstu3.model.Resource;
 import ca.uhn.fhir.context.FhirContext;
+import io.github.carlos_emr.carlos.integration.fhir.utils.FhirJsonCompatibility;
 
 
 public abstract class AbstractOscarFhirResource<FHIR extends org.hl7.fhir.dstu3.model.BaseResource, OSCAR extends AbstractModel<?>>
@@ -135,7 +136,7 @@ public abstract class AbstractOscarFhirResource<FHIR extends org.hl7.fhir.dstu3.
     }
 
     public String getFhirJSON() {
-        return getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(getFhirResource());
+        return FhirJsonCompatibility.encode(getFhirContext(), getFhirResource());
     }
 
     public String getFhirXML() {

@@ -58,7 +58,7 @@
 <%@page import="org.hl7.fhir.dstu3.model.Patient" %>
 <%@page import="org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.integration.fhir.builder.AbstractFhirMessageBuilder" %>
+<%@page import="io.github.carlos_emr.carlos.integration.fhir.api.DHIR" %>
 <%@page import="org.hl7.fhir.dstu3.model.Bundle" %>
 <%@page import="java.util.Map" %>
 
@@ -85,7 +85,6 @@
 <%@page import="org.apache.hc.client5.http.classic.HttpClient" %>
 <%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@page import="com.fasterxml.jackson.databind.JsonNode" %>
-<%@page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -346,8 +345,6 @@
                 <%
                     try {
                         ObjectMapper dhirMapper = new ObjectMapper();
-                        String theString = AbstractFhirMessageBuilder.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
-                        JsonNode jbundle = dhirMapper.readTree(theString);
 
                         String clientRequestId = UUID.randomUUID().toString();
 
@@ -360,14 +357,10 @@
                         httpPost.addHeader("x-oneid-email", providerEmail);
                         httpPost.addHeader("x-access-token", oneIdToken);
 
-                        ObjectNode obj = dhirMapper.createObjectNode();
-                        obj.put("url", CarlosProperties.getInstance().getProperty("dhir.url"));
-                        obj.put("service", "DHIR");
-                        obj.set("body", jbundle);
-                        obj.put("client-request-id", clientRequestId);
-                        obj.put("client-app-desc", "EMR");
+                        String payload = DHIR.encodeSubmission(bundle,
+                                CarlosProperties.getInstance().getProperty("dhir.url"), clientRequestId);
 
-                        HttpEntity reqEntity = new ByteArrayEntity(obj.toString().getBytes("UTF-8"), ContentType.APPLICATION_JSON);
+                        HttpEntity reqEntity = new ByteArrayEntity(payload.getBytes("UTF-8"), ContentType.APPLICATION_JSON);
                         httpPost.setEntity(reqEntity);
                         httpPost.setHeader("Content-type", "application/json");
 
@@ -468,7 +461,7 @@
                 <input type="button" value="Close Window" onClick="window.close()"/>
                 <%
                         }
-                    } catch (IOException e) {
+                    } catch (IOException | IllegalStateException e) {
                         logger.error("Failed to submit DHIR request", e);
                     } catch (NoSuchAlgorithmException e) {
                         logger.error("Failed to create an HttpClient that allows all SSL", e);
