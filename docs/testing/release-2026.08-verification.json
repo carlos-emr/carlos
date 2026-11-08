@@ -2628,7 +2628,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2638,7 +2638,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2500,
+      "minimumCases": 2519,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2657,7 +2657,8 @@
         "BillingHistoryDaoIntegrationTest": 1,
         "LookupDaoIntegrationTest": 1,
         "AbstractDaoFindAllOrderingIntegrationTest": 6,
-        "CaseManagementIssueDAOIntegrationTest": 21
+        "CaseManagementIssueDAOIntegrationTest": 21,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2687,7 +2688,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2696,7 +2697,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 88,
+      "minimumCases": 107,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -2713,7 +2714,8 @@
         "LegacyLabUploadDaoIntegrationTest": 6,
         "LabRoutingLookupDaoIntegrationTest": 4,
         "LegacyLabNativeMariaDbIntegrationTest": 4,
-        "ArchiveAuditTimestampIntegrationTest": 2
+        "ArchiveAuditTimestampIntegrationTest": 2,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2743,7 +2745,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2752,7 +2754,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 90,
+      "minimumCases": 109,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 10,
@@ -2767,7 +2769,8 @@
         "EFormApColumnLookupIntegrationTest": 2,
         "AppointmentDaySheetServiceIntegrationTest": 4,
         "AntenatalReportDaoIntegrationTest": 5,
-        "EFormGroupDaoIntegrationTest": 9
+        "EFormGroupDaoIntegrationTest": 9,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
