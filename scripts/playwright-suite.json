@@ -17980,11 +17980,7 @@
       "env": [
         "DOCUMENT_DIR"
       ],
-      "fixtures": "Owned patient, two PDFs, routing/queue rows and two tasks; a distinct throwaway doctor with copied native program memberships. A native provider edit publishes the reviewer into cached pickers; native retirement removes it before SQL account cleanup. Sender Forward, fresh reviewer Inbox/task/clinical note/completion, control preservation. Exclusive shared document routing and provider picker caches.",
-      "expectedFailure": {
-        "finding": 348,
-        "step": "the forwarded Inbox row displays its exact seeded description and patient identity"
-      }
+      "fixtures": "Owned patient, two PDFs, routing/queue rows and two tasks; a distinct throwaway doctor with copied native program memberships. A native provider edit publishes the reviewer into cached pickers; native retirement removes it before SQL account cleanup. Sender Forward, fresh reviewer Inbox/task/clinical note/completion, control preservation. Exclusive shared document routing and provider picker caches."
     },
     {
       "name": "appointment-calendar-new-jan29",
