@@ -1373,7 +1373,9 @@ SQL restored validation without changing source migrations or database history.
 A native chart without an applied demographic import parent now uses the existing
 typed demographic, phone, patient-note, current-enrolment, personal-contact and
 pharmacy mappers through the same coordinated occurrence service. Every selected
-row is matched to its independent captured witness before assembly. Native field
+patient-owned row is matched to its independent captured witness before assembly.
+The six public physician fields retain their existing authenticated lookup scope
+and exact typed field closure; no private whole-provider row is read or invented. Native field
 closure covers the entire captured row universe, and the registered patient ID
 is used in actual XML. A retained demographic field without a proven parent,
 extra/unaccounted providers, populated unsupported carriers, multiple parents or
@@ -1383,3 +1385,22 @@ checks passed, including twelve native assembly/boundary cases, schema readback,
 selected-note witness scope, substituted fields, registered-ID mismatch and shared
 primary/enrolment physician uses. Clean packaging and genuine installed native
 chart verification remain required for this addition.
+
+
+The actual shared job service now passes combined installed reconciliation for all
+sixteen categories from one genuine completed import in the exact packaged WAR
+(`811521002bb6968e3a5a58702ebabc861fadb92f753a09c048344bfe9edce3bc`).
+All source facts plus the independently checked native allergy archive state and
+configured appointment offset matched. Eighteen schema-valid clinical mutations
+were rejected, including archive-state and time-offset changes. The clean build
+passed 836 checks across 55 suites and full Javadoc. The original input, native
+fixture and import metadata remain preserved. The unqualified production profile
+still refused publication, as required; this is a combined clinical package proof.
+
+Installed native-chart verification caught a scope error in the new witness join:
+public provider candidates intentionally have only six public fields and no whole
+private-account receipt. Native assembly now retains their existing authenticated
+lookup contract and exact typed field closure, while every patient-owned clinical
+row still requires its exact independent witness. Fabricated whole-provider
+receipts are refused. Twenty-one affected scope checks passed; the same native
+fixture remains available for exact-package rerunning without import metadata.

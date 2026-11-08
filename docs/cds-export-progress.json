@@ -777,11 +777,28 @@
   "nativeDemographicCurrentAssembly": {
     "state": "FOCUSED_COMPONENT_VERIFIED",
     "affectedChecks": 69,
-    "newAssemblyAndBoundaryChecks": 12,
+    "newAssemblyAndBoundaryChecks": 13,
     "sameTypedMappersAsRetainedWorkflow": true,
     "exactSourceWitnessAndNativeFieldClosure": true,
     "registeredPatientIdentityVerified": true,
     "nativeDemographicArchivesStillRequireReview": true,
-    "packagedAndInstalledQualificationPending": true
+    "packagedAndInstalledQualificationPending": true,
+    "publicProviderProjectionScopeChecks": 21,
+    "publicProviderWholeRowsNeverReadOrInvented": true
+  },
+  "combinedAllCategoryInstalled": {
+    "state": "EXACT_PACKAGED_WAR_INDEPENDENT_FACTS_VERIFIED",
+    "head": "bfc9fac0e9b9f7ac4cc45f1342705414e96ec95a",
+    "warSha256": "811521002bb6968e3a5a58702ebabc861fadb92f753a09c048344bfe9edce3bc",
+    "packageChecks": 836,
+    "suites": 55,
+    "fullJavadocPassed": true,
+    "genuineModernImportCategories": 16,
+    "genuineImportChecks": 10,
+    "independentInstalledChecks": 27,
+    "schemaValidClinicalMutationsRejected": 18,
+    "componentOverlays": false,
+    "originalImportMetadataRestamped": false,
+    "clinicalPublication": false
   }
 }

@@ -176,6 +176,9 @@ public class CdsExportDemographicOccurrenceService {
                 "demographicArchive", "id", "provider", "provider_no", "Contact", "id", "DemographicContact", "id", "pharmacyInfo", "recordID", "demographicPharmacy", "id");
         if (!rows.keySet().equals(TABLES) || !witnesses.keySet().equals(TABLES)) scope();
         for (String table : TABLES) {
+            // Public provider candidates are a six-column authenticated lookup, never a whole private account-row receipt.
+            // Their exact selected fields and owner references still undergo typed mapping and independent field closure.
+            if (table.equals("provider")) { if (!witnesses.get(table).isEmpty()) scope(); continue; }
             var byKey = new HashMap<String, CdsExportNativeRowReceiptDto>();
             for (var witness : witnesses.get(table)) if (!table.equals(witness.table()) || byKey.putIfAbsent(witness.recordKey(), witness) != null) scope();
             for (var row : rows.get(table)) {

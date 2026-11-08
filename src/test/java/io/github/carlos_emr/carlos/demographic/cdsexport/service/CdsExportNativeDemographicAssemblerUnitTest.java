@@ -94,6 +94,10 @@ class CdsExportNativeDemographicAssemblerUnitTest {
         rows.get("provider").add(new CdsExportCapturedTextRowDto("provider", CdsExportPublicProviderSourceReader.key("99"), values));
         assertThatThrownBy(this::assemble).isInstanceOf(IOException.class);
     }
+    private Map<String, List<CdsExportNativeRowReceiptDto>> witnessesWithoutProviderReceipts() {
+        var providerRows = rows.get("provider"); rows.put("provider", List.of());
+        try { return witnesses(); } finally { rows.put("provider", providerRows); }
+    }
     private Map<String, List<CdsExportNativeRowReceiptDto>> witnesses() {
         var result = new LinkedHashMap<String, List<CdsExportNativeRowReceiptDto>>();
         for (var table : rows.entrySet()) {
@@ -156,10 +160,19 @@ class CdsExportNativeDemographicAssemblerUnitTest {
         var provider = new LinkedHashMap<String, String>(); io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS.forEach(column -> provider.put(column, null));
         provider.putAll(Map.of("provider_no", "99", "first_name", "Shared", "last_name", "Physician", "ohip_no", "654321"));
         rows.get("provider").add(new CdsExportCapturedTextRowDto("provider", CdsExportPublicProviderSourceReader.key("99"), provider));
+        var proof = witnessesWithoutProviderReceipts();
+        CdsExportDemographicOccurrenceService.requireNativeWitnesses(rows, proof, Set.of(CdsCategory.DEMOGRAPHICS), () -> {});
         var result = assemble();
         assertThat(result.demographic().demographic().primaryPhysician()).isNotNull(); assertThat(result.demographic().events()).hasSize(1);
         assertThat(result.fields().keySet().stream().filter(key -> key.table().equals("provider"))).hasSize(6);
         assertThat(result.fields().values()).noneMatch(value -> value.outcome() == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+    }
+
+    @Test void shouldRefuseAFabricatedWholeProviderReceipt_insteadOfTreatingPublicFieldsAsAPrivateAccountRow() {
+        var proof = witnesses();
+        proof.put("provider", List.of(new CdsExportNativeRowReceiptDto("provider", "99", CdsExportPublicProviderSourceReader.key("99"), HASH)));
+        assertThatThrownBy(() -> CdsExportDemographicOccurrenceService.requireNativeWitnesses(rows, proof, Set.of(CdsCategory.DEMOGRAPHICS), () -> {}))
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
     }
 
 }
