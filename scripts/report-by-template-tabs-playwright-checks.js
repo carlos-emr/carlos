@@ -100,18 +100,18 @@ async function workflow(s) {
     for(const kind of ['CSV','XLS']) {
       const file=await x.saveDownload(page,scratch,()=>page.locator(`input[name="get${kind}"]`).click());
       try {
-        h.assert(file.name===`oscarReport.${kind.toLowerCase()}`,'Report export has the wrong filename');
+        h.assert(file.name===`oscarReport.${kind==='XLS'?'xlsx':'csv'}`,'Report export has the wrong filename');
         if(kind==='CSV') {
           const actual=x.parseCsv(file.bytes.toString('utf8'));
           const expected=[template.header,template.row(sex)];
           h.assert(JSON.stringify(actual)===JSON.stringify(expected),'CSV leaked another report, parameters or stale rows');
         } else {
-          const cells=x.xlsCells(file.bytes);
-          h.assert(cells.length===2&&cells[0].length===template.header.length&&cells[1].length===template.header.length,'XLS has another report\'s dimensions');
-          h.assert(JSON.stringify(cells[0].map(cell=>cell.value))===JSON.stringify(template.header),'XLS headers leaked another report');
+          const cells=x.xlsxCells(file.bytes);
+          h.assert(cells.length===2&&cells[0].length===template.header.length&&cells[1].length===template.header.length,'XLSX has another report\'s dimensions');
+          h.assert(JSON.stringify(cells[0].map(cell=>cell.value))===JSON.stringify(template.header),'XLSX headers leaked another report');
           for(let i=0;i<template.header.length;i++) {
             const cell=cells[1][i],expected=template.row(sex)[i];
-            h.assert(cell.type===template.types[i]&&(cell.type==='number'?cell.value===Number(expected):cell.value===expected),'XLS cell value or type leaked another report');
+            h.assert(cell.type===template.types[i]&&(cell.type==='number'?cell.value===Number(expected):cell.value===expected),'XLSX cell value or type leaked another report');
           }
         }
       } finally{fs.rmSync(file.file,{force:true});}

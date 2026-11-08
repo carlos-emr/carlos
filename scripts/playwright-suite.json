@@ -18734,6 +18734,26 @@
       ],
       "fixtures": "Owned clinician login/preferences and patient/current medication; staged catalog products and native discontinuation/patient override. Read-only validated DrugRef pairs, a noninteracting metformin control, and verified owned note/signature/support cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5734: ciprofloxacin has simultaneous moderate phenytoin/warfarin partners from current and staged sources. Exact JSON/marker/tooltip identities, selective removal/re-add, native current-medication discontinuation, no stale card IDs, thresholds and patient/provider overrides. Existing major/moderate/minor and refusal checks remain registered."
+    },
+    {
+      "name": "document-format-matrix",
+      "script": "scripts/document-format-matrix-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1200,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE"
+      ],
+      "mutates": [
+        "provider"
+      ],
+      "fixtures": "Owned uploader login and patient documents; separate offered provider receives only newly owned Inbox DOC routing. Real installed upload limit, bounded synthetic PDF/image/text fixtures, original control snapshots and exact SQL/files/cache cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5730: actual eDoc and modern Inbox file contracts, independent stored/output bytes and MIME/page/creator/patient/routing metadata, empty/malformed/mismatched/case fixtures, and exact full-multipart limit minus one/at/plus one. Distinguishes opaque storage, client policy and transport-envelope refusal from content validation. Every mismatch remains fatal."
     }
   ]
 }

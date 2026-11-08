@@ -28,7 +28,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5727](https://github.com/carlos-emr/carlos/issues/5727) | Test: cover First Nations field save, edit, clear and community-selection round trips | Native lifecycle implemented; installed ON enabled-profile attempt fails on the real undefined focus handler and reopened First Nation flag (#5815). Later steps remain unreached. Owned fixtures are removed and the temporary properties/lookup profile is restored exactly; no pin or waiver. |
 | [#5728](https://github.com/carlos-emr/carlos/issues/5728) | Test: verify exactly-once Messenger delivery to overlapping groups and direct recipients | Native ON/BC two overlapping groups plus a direct recipient produce exactly one delivery each; membership edits, a legacy duplicate and a removed-member control pass. Exclusive membership coordination and exact cleanup are required. |
 | [#5729](https://github.com/carlos-emr/carlos/issues/5729) | Test: verify Messenger read and archive state is independent for each recipient | Native ON/BC read, mark-new, archive and restore transitions preserve other recipients, shared content, attachments, patient links and Sent access. |
-| [#5730](https://github.com/carlos-emr/carlos/issues/5730) | Test: expand document-upload coverage across supported formats and malformed content | Implementation and installed acceptance pending. |
+| [#5730](https://github.com/carlos-emr/carlos/issues/5730) | Test: expand document-upload coverage across supported formats and malformed content | Fresh ON/BC format/byte/metadata/routing/native output, exact multipart boundaries, draft/retry and safe malformed-preview fallback all reached. Fails only on valid mixed-case PDF page count (#5818); exact cleanup and independent zero-residue audits pass in both provinces. |
 | [#5731](https://github.com/carlos-emr/carlos/issues/5731) | Test: preserve scanned and mixed-geometry PDFs through incoming-document edits | Implementation and installed acceptance pending. |
 | [#5732](https://github.com/carlos-emr/carlos/issues/5732) | Test: verify shared contact edits and patient-specific relationship isolation | Installed ON/BC native creation, two-patient linking, shared-detail editing, independent flags, cancelled edits/removal and selective removal pass; unrelated control and cleanup verified. |
 | [#5733](https://github.com/carlos-emr/carlos/issues/5733) | Test: verify complete lab-report content across PDF page breaks | Native ON/BC eight-page PDFs preserve all 60 ordered clinical rows and their comment tokens, numeric columns, flags, patient identity, footers and margins. Extracted coordinates and actual raster ink are checked; omission, duplication and blank-raster controls reject. Source and unrelated-report controls pass. |
@@ -44,6 +44,19 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5795](https://github.com/carlos-emr/carlos/issues/5795) | Test: Missing browser-check prerequisites now SKIP instead of failing, including the CDS import gate | Packaged runner enforces strict release/residue checking and fails on report loss; packaged runs pending. |
 | [#5796](https://github.com/carlos-emr/carlos/issues/5796) | Test: Stored partial-precision allergy start dates are no longer covered (allergy-partial-start-date removed) | Installed ON year/year-month display and both reaction-only amendments pass with clean residue audit. Both ON and BC focused installed retakes pass; final full qualification remains pending. |
 | [#5797](https://github.com/carlos-emr/carlos/issues/5797) | Test: Two new tests never run in CI, and the H2 test job doesn't fail on unexpected skips | Dedicated permission and legacy-library CI lanes plus exact-result checks implemented; full CI/native acceptance pending. |
+
+| [#5801](https://github.com/carlos-emr/carlos/issues/5801) | Test: cover visual eForm editor checkboxes, radio groups, images and signatures | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5802](https://github.com/carlos-emr/carlos/issues/5802) | Test: verify session loss while clinical editors contain unsaved work | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5803](https://github.com/carlos-emr/carlos/issues/5803) | Test: preserve qualified and nonnumeric laboratory results across views and PDF output | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5804](https://github.com/carlos-emr/carlos/issues/5804) | test(playwright): cover end-to-end lab recall message delivery to delegates | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5805](https://github.com/carlos-emr/carlos/issues/5805) | test(playwright): cover Ontario payments allocated across multiple invoice items | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5806](https://github.com/carlos-emr/carlos/issues/5806) | test(playwright): cover OAuth 1.0a registered web callbacks and denial | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5807](https://github.com/carlos-emr/carlos/issues/5807) | test(playwright): cover email consent states and changes after composition opens | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5808](https://github.com/carlos-emr/carlos/issues/5808) | test(playwright): round-trip image-backed eForms through ZIP export and import | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5809](https://github.com/carlos-emr/carlos/issues/5809) | test(playwright): verify eForm page exclusion in deployed PDF output | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5810](https://github.com/carlos-emr/carlos/issues/5810) | test(playwright): cover stale tickler selections during filtering and pagination | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5812](https://github.com/carlos-emr/carlos/issues/5812) | test(playwright): verify MRP tickler preference routes newly created tasks | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 
 ## Execution and review
 
@@ -363,3 +376,43 @@ the current source; a staged re-add restores both. Exact authoritative effect,
 evidence/comment and partner identities survive all applicable thresholds and
 patient/provider overrides. Only an owned clinician's preferences change, and
 the DrugRef catalog is not modified. Source fixtures and cleanup are verified.
+
+Current target refresh: merged `d9f0a9551784` into `52b5b9c80752` and retained
+both the upstream growth requirements and this PR's exact inbox/physical-type
+identities. All 20 focused MariaDB evidence-verifier tests pass after conflict
+resolution. A complete qualified Ubuntu 26.04/Node 22.22.1 run passes **7,405
+cases in 522 files**, with zero failures/skips/cancellations/TODO and unchanged
+test source digests. The committed inventory is regenerated from that result.
+The Java 25 build compiles 4,677 production and 2,620 test sources and packages
+successfully; this compile/package command intentionally skips test execution.
+Fresh Debian snapshot30 uses source `52b5b9c80752ea3d3732ee9e92bb98c6a3cd69ed`:
+application SHA-256 `bdc240d0e9581c57290e76634a5ab3e62322e3a295236863d9851009fd2b8e32`,
+DrugRef SHA-256 `bfa728a4a9c1223ce1032f19004858aefdb981753f619f1339162493adab1996`.
+Installed upgrade/health and changed-library browser retakes remain pending.
+
+The 8 November open-ticket refresh also identifies twelve additional pure test
+coverage requests, #5801–#5812, created after this PR's initial inventory. They
+are included above as pending work in the same PR; the original batch cannot be
+presented as “all open test tickets.” No implementation, execution or closure is
+claimed for these new rows.
+
+Both fresh snapshot30 installed upgrades and `carlos-ctl check` pass on ON and
+BC with `NRestarts=0`. `dpkg -V` is clean after restoring the two exact packaged
+README files omitted by the base image's documentation-exclusion policy; the
+policy itself was not changed. ON measurement geometry, lab-PDF pagination,
+report-tab isolation, Rx partner semantics and Messenger recipient isolation
+all pass against the updated target. The report harness now decodes the
+upstream migration's exact `oscarReport.xlsx` OOXML output and retains every
+cell-value/type and tab-isolation assertion. Historical XLS receipts above
+belong to snapshot29. The new BC document matrix reaches every planned case,
+fails only on #5818, acknowledges only the two precisely asserted malformed
+render refusals with visible fallback, and verifies zero owned residue. Final
+ON and remaining BC retakes are pending.
+
+The ON snapshot30 document-matrix repetition reaches every format, native output,
+exact request-size boundary, draft/retry and precisely asserted malformed render
+fallback too. It fails only on the same #5818 mixed-case page count; no unexpected
+browser diagnostics or cleanup failure occurs. The new renderer preserves the
+single-point limitation #5814: the native 1,000×600 PNG has only 16 red legend
+pixels at y=588, with no red observation glyph in the plot. No fix/closure is
+claimed for that existing product finding.

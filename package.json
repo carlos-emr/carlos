@@ -998,7 +998,8 @@
     "test:first-nations-roundtrip-playwright": "node scripts/first-nations-roundtrip-playwright-checks.js",
     "test:lookup-list-isolation-playwright": "node scripts/lookup-list-isolation-playwright-checks.js",
     "test:decision-support-operators-playwright": "node scripts/decision-support-operators-playwright-checks.js",
-    "test:rx-same-severity-partners-playwright": "node scripts/rx-same-severity-partners-playwright-checks.js"
+    "test:rx-same-severity-partners-playwright": "node scripts/rx-same-severity-partners-playwright-checks.js",
+    "test:document-format-matrix-playwright": "node scripts/document-format-matrix-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
