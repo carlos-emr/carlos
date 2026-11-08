@@ -76,6 +76,7 @@ class CdsRulesetFingerprintMappingUnitTest {
                         "commn/dao/PreventionExtDao",
                         "commn/dao/PartialDateDao",
                         "demographic/cds/contract/CdsExactNumeric",
+                        "demographic/cds/contract/CdsCareScalarContract",
                         "commn/dao/DemographicDaoImpl",
                         "commn/dao/DemographicExtDao",
                         "commn/dao/DemographicExtDaoImpl",

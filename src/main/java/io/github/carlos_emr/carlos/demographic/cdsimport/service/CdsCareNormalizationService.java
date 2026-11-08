@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException;
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,13 +40,9 @@ import org.springframework.stereotype.Service;
 /** Pure interpretation of one emitted CareElements child; no patient tree or catalogue mutation. */
 @Service
 public class CdsCareNormalizationService {
-    public static final int GOAL_NATIVE_BYTE_BUDGET = 32768;
-    public static final String OVERFLOW_GOALS = "[Imported collaborative goals: complete value available in Care Elements source details]";
-    public static final Set<String> SECTIONS = Set.of("SmokingStatus", "SmokingPacks", "Weight", "Height",
-            "WaistCircumference", "BloodPressure", "DiabetesComplicationsScreening",
-            "DiabetesMotivationalCounselling", "DiabetesSelfManagementCollaborative",
-            "DiabetesSelfManagementChallenges", "DiabetesEducationalSelfManagement",
-            "HypoglycemicEpisodes", "SelfMonitoringBloodGlucose");
+    public static final int GOAL_NATIVE_BYTE_BUDGET = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCareScalarContract.GOAL_NATIVE_BYTE_BUDGET;
+    public static final String OVERFLOW_GOALS = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCareScalarContract.OVERFLOW_GOALS;
+    public static final Set<String> SECTIONS = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCareScalarContract.ELEMENTS;
     private final CdsFieldParser fields;
     private final CdsClinicalNormalizationService clinical;
     public CdsCareNormalizationService(CdsFieldParser fields, CdsClinicalNormalizationService clinical) {
@@ -166,11 +161,7 @@ public class CdsCareNormalizationService {
         return asserted ? "Yes" : "No";
     }
     private static String nonnegativeDecimal(String original) {
-        String value = original.strip();
-        if (!value.matches("[+]?(?:[0-9]++(?:\\.[0-9]*+)?|\\.[0-9]++)")) return null;
-        BigDecimal number = new BigDecimal(value);
-        if (!Double.isFinite(number.doubleValue())) return null;
-        return number.stripTrailingZeros().toPlainString();
+        return io.github.carlos_emr.carlos.demographic.cds.contract.CdsCareScalarContract.nonnegativeDecimal(original);
     }
     private static CdsClinicalDiagnosticDto diagnostic(String code, String field) {
         return new CdsClinicalDiagnosticDto(code, field);

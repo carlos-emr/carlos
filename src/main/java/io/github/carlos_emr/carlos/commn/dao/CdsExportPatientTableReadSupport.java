@@ -45,6 +45,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public final class CdsExportPatientTableReadSupport {
     public enum Plan {
+        MEASUREMENTS_CURRENT("measurements", "id", "demographicNo", List.of("appointmentNo", "comments", "dataField", "dateEntered", "dateObserved", "demographicNo", "id", "measuringInstruction", "providerNo", "type")),
+        MEASUREMENTS_EXT("measurementsExt", "id", null, List.of("id", "keyval", "measurement_id", "val")),
+        MEASUREMENTS_DELETED("measurementsDeleted", "id", "demographicNo", List.of("comments", "dataField", "dateDeleted", "dateEntered", "dateObserved", "demographicNo", "id", "measuringInstruction", "originalId", "providerNo", "type")),
+        MEASUREMENT_TYPES("measurementType", "id", null, List.of("createDate", "id", "measuringInstruction", "type", "typeDescription", "typeDisplayName", "validation")),
         LABORATORY_RESULTS("cds_laboratory_result", "id", "demographicNo", List.of(
                 "abnormalFlag", "accessionNumber", "collectionDate", "collectionPrecision", "demographicNo", "highLimit", "id", "importedBy",
                 "informationFromLab", "laboratoryName", "lowLimit", "nativeLabNo", "notesFromLab", "physiciansNotes", "referenceRange",
@@ -162,6 +166,9 @@ public final class CdsExportPatientTableReadSupport {
             };
         }
         private String patientPredicate() {
+            if (this == MEASUREMENTS_EXT) return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient and m.`id`=d.`measurement_id`)";
+            if (this == MEASUREMENT_TYPES) return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient"
+                    + " and CAST(m.`type` AS BINARY)=CAST(d.`type` AS BINARY) and CAST(m.`measuringInstruction` AS BINARY)=CAST(d.`measuringInstruction` AS BINARY))";
             if (this == LABORATORY_ROUTING) return "d.`demographic_no`=:patient and d.`lab_type`='HL7'";
             if (this == LABORATORY_MESSAGES || this == LABORATORY_INFORMATION) {
                 String lab = this == LABORATORY_MESSAGES ? "d.`lab_id`" : "d.`lab_no`";
@@ -226,6 +233,16 @@ public final class CdsExportPatientTableReadSupport {
         var selected=requireSelected(plan, patient, ids); if (selected.isEmpty())invalid(); return chunkBound(em, plan, patient, row, column, offset, length, new Bindings(null, selected));
     }
     private CdsExportPatientTableReadSupport() { }
+    /** Extensions cannot disambiguate a reused measurement identity belonging to another chart's deleted record. */
+    public static void requireLocalMeasurementAssociations(EntityManager em, int patient) {
+        patient(patient);
+        var shared = query(em, """
+                select 1,1 from measurements m join measurementsDeleted d on d.originalId=m.id
+                where (m.demographicNo=:patient or d.demographicNo=:patient) and m.demographicNo<>d.demographicNo
+                """).setParameter("patient", patient).setMaxResults(1).getResultList();
+        if (!shared.isEmpty()) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+    }
     /** Exact string-key paging for the structured result's SHA-256 identity, never a numeric conversion. */
     public static List<CdsExportRawKeyRowDto> laboratoryPage(EntityManager em, int patient, String after, int limit) {
         if (after != null && !after.matches("[0-9a-f]{64}")) invalid();

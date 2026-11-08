@@ -569,5 +569,24 @@
     "historicalMetadataRewritten": false,
     "affectedPackageChecks": 480,
     "exactInstalledSupplementalAssertions": 23
+  },
+  "careObservationAssembly": {
+    "state": "SOURCE_AND_SEMANTIC_COMPONENT_TESTED_PACKAGE_AND_INSTALLED_PROOF_PENDING",
+    "nativeTables": [
+      "measurements",
+      "measurementsExt",
+      "measurementsDeleted",
+      "measurementType"
+    ],
+    "sourceFocusedChecks": 80,
+    "actualMariaDbSourceAndCliChecks": 11,
+    "careSourceAndNativeRegressionChecks": 147,
+    "careBindingPreparationAndRegistryChecks": 80,
+    "countsOverlap": true,
+    "sharedNativeScalarContractPreservesExistingSemantics": true,
+    "allThirteenOriginalCoreKindsBoundToSealedPreparation": true,
+    "largeGoalTextRemainsStreamed": true,
+    "unknownChangedNativeAndDeletedObservationsRequireReview": true,
+    "clinicalPublication": false
   }
 }

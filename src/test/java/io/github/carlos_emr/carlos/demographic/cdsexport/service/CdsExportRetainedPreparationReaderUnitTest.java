@@ -88,6 +88,28 @@ class CdsExportRetainedPreparationReaderUnitTest {
             assertThatThrownBy(() -> reader.contact(fixture(CdsContactDto.class, JSON.writeValueAsString(invalid), "Demographics_CONTACT"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
         }
     }
+    @Test void shouldReadOnlyTheOriginalSealedCareChildPreparation() throws Exception {
+        var value = careValue(); var source = fixture(CdsCareElementDto.class, JSON.writeValueAsString(value), "CareElements_CARE");
+        assertThat(reader.care(source, run + ":" + unit).value()).isEqualTo(value);
+        assertThatThrownBy(() -> reader.care(fixture(CdsCareElementDto.class, JSON.writeValueAsString(value), "CareElements"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        assertThatThrownBy(() -> reader.care(fixture(CdsContactDto.class, JSON.writeValueAsString(value), "CareElements_CARE"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        assertThatThrownBy(() -> reader.care(fixture(CdsCareElementDto.class, "null", "CareElements_CARE"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
+    @Test void shouldRefuseIncompleteOrCoercedCareFacts_evenWithARecomputedSeal() throws Exception {
+        String payload = JSON.writeValueAsString(careValue());
+        for (String changed : List.of(payload.replace("\"nativeOverflow\":false", "\"nativeOverflow\":\"false\""), payload.replace("\"value\":\"75\"", "\"value\":null"), payload.replace("\"element\":\"Weight\"", "\"element\":null"), payload + " {}"))
+            assertThatThrownBy(() -> reader.care(fixture(CdsCareElementDto.class, changed, "CareElements_CARE"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
+    @Test void shouldRefuseCareWithUnknownOrPartialDate_insteadOfInventingPrecision() throws Exception {
+        var value = careValue();
+        for (var date : List.of(CdsTemporalDto.unknown(), CdsTemporalDto.calendar(CdsTemporalDto.Precision.YEAR, "2020", "Date"))) {
+            var invalid = new CdsCareElementDto(value.element(), value.measurementType(), value.value(), value.unit(), value.code(), date, false, false, null, List.of());
+            assertThatThrownBy(() -> reader.care(fixture(CdsCareElementDto.class, JSON.writeValueAsString(invalid), "CareElements_CARE"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        }
+    }
+    private static CdsCareElementDto careValue() {
+        return new CdsCareElementDto("Weight", "WT", "75", "kg", null, CdsTemporalDto.calendar(CdsTemporalDto.Precision.FULL_DATE, "2020-02-28", "Date"), false, false, null, List.of());
+    }
     private static CdsContactDto contactValue() {
         return new CdsContactDto("Combined first middle 😀", "Fixture", "source@example.test", "private source note", Map.of("R", new CdsContactDto.Phone("613-555-0101", "0012"), "W", new CdsContactDto.Phone("613-555-0102", "AB")), List.of("Multiple source purposes; see imported Contact details"), true, null, List.of());
     }

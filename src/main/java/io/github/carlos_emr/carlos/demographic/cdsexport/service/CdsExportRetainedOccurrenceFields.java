@@ -39,6 +39,7 @@ public final class CdsExportRetainedOccurrenceFields {
             case IMMUNIZATIONS -> "CDS_EXPORT_IMMUNIZATION";
             case LABORATORY_RESULTS -> "CDS_EXPORT_LABORATORY";
             case NEW_CATEGORY -> "CDS_EXPORT_NEW_CATEGORY";
+            case CARE_ELEMENTS -> "CDS_EXPORT_CARE";
             case PERSONAL_HISTORY, FAMILY_HISTORY, PAST_HEALTH, PROBLEM_LIST, RISK_FACTORS,
                     ALERTS_AND_SPECIAL_NEEDS, CLINICAL_NOTES -> "CDS_EXPORT_HISTORY";
             default -> throw new IllegalArgumentException("CDS_EXPORT_RETAINED_OCCURRENCE_CATEGORY_UNSUPPORTED");

@@ -45,6 +45,7 @@ import org.springframework.stereotype.Service;
 public class CdsExportNativeRowReceiptReader {
     @FunctionalInterface public interface Receipts { void accept(CdsExportNativeRowReceiptDto receipt) throws IOException; }
     private static final Map<String, String> KEYS = Map.ofEntries(
+            Map.entry("measurements", "id"), Map.entry("measurementsExt", "id"), Map.entry("measurementsDeleted", "id"), Map.entry("measurementType", "id"),
             Map.entry("cds_laboratory_result", "id"), Map.entry("hl7TextMessage", "lab_id"), Map.entry("hl7TextInfo", "id"), Map.entry("patientLabRouting", "id"),
             Map.entry("cds_import_file", "id"), Map.entry("cds_import_file_reference", "id"),
             Map.entry("Contact", "id"), Map.entry("DemographicContact", "id"),
