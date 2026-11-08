@@ -41,7 +41,7 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                           "DemographicMergeMariaDbIntegrationTest": 8,
                           "Growth0To36FormPersistenceIntegrationTest": 19},
             "flyway": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
-                       "LegacyLabNativeMariaDbIntegrationTest": 4, "ConsultationArchiveDaoIntegrationTest": 1,
+                       "LegacyLabNativeMariaDbIntegrationTest": 7, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
                        "CaseManagementNoteLockMariaDbIntegrationTest": 15,
                        "CaseManagementIssueDAOIntegrationTest": 22,
@@ -50,7 +50,7 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                        "DemographicMergeMariaDbIntegrationTest": 8,
                        "Growth0To36FormPersistenceIntegrationTest": 19},
             "bc-flyway": {"LabRoutingLookupDaoIntegrationTest": 4,
-                           "LegacyLabNativeMariaDbIntegrationTest": 4,
+                           "LegacyLabNativeMariaDbIntegrationTest": 7,
                            "ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15,
@@ -66,6 +66,23 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                            "Growth0To36FormPersistenceIntegrationTest": 19}}
 
 
+INBOX_CASES = (
+    'shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched',
+    'shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting',
+    'shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed',
+)
+INBOX_CLASS = 'io.github.carlos_emr.carlos.commn.dao.LegacyLabNativeMariaDbIntegrationTest'
+BC_PHYSICAL_CASES = {
+    'io.github.carlos_emr.carlos.appointment.service.AppointmentDaySheetServiceIntegrationTest': (
+        'shouldReadPhysicalIdsAndEditVersions_beforeAcknowledgingNativeDaySheetRows',),
+    'io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingNativeMariaDbIntegrationTest': (
+        'shouldRetainNumericTimeRules_fromPhysicalTinyintFlags',
+        'shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState'),
+    'io.github.carlos_emr.carlos.commn.dao.AntenatalReportDaoIntegrationTest': (
+        'shouldRetainPhysicalPlannerTextAndTinyintFlags_whenPatientOwnsTheForm',),
+}
+
+
 def verify(reports: Path, output: Path) -> dict:
     if reports.is_symlink() or not reports.is_dir():
         raise EvidenceError("MariaDB report directory is missing or is a symlink")
@@ -76,6 +93,8 @@ def verify(reports: Path, output: Path) -> dict:
     families = {mode: dict.fromkeys(required, 0) for mode, required in REQUIRED.items()}
     passed_cases = {mode: {family: set() for family in REQUIRED_CASES} for mode in REQUIRED}
     identities = set()
+    inbox_cases = {mode: set() for mode in REQUIRED}
+    bc_physical_cases = set()
     collisions = []
     lines = []
     for report in paths:
@@ -97,6 +116,10 @@ def verify(reports: Path, output: Path) -> dict:
             counts[mode]["tests"] += 1
             if case.outcome != "pass":
                 counts[mode]["failures" if case.outcome == "failure" else "skipped"] += 1
+            if case.classname == INBOX_CLASS and not case.container and case.outcome == 'pass':
+                inbox_cases[mode].add(case.name)
+            if mode == 'bc-flyway' and case.classname == suite and not case.container and case.outcome == 'pass':
+                bc_physical_cases.add((case.classname, case.name))
             if family in families[mode] and case.outcome == "pass":
                 families[mode][family] += 1
                 if family in REQUIRED_CASES and case.classname == suite:
@@ -119,6 +142,11 @@ def verify(reports: Path, output: Path) -> dict:
             missing = names - passed_cases[mode][family]
             if missing:
                 raise EvidenceError(f"Required MariaDB {mode} cases missing: {family}: " + ", ".join(sorted(missing)))
+    for mode in ('flyway', 'bc-flyway'):
+        if not set(INBOX_CASES) <= inbox_cases[mode]:
+            raise EvidenceError(f'Required MariaDB {mode} inbox case identities missing')
+    if not {(family, name) for family, names in BC_PHYSICAL_CASES.items() for name in names} <= bc_physical_cases:
+        raise EvidenceError('Required MariaDB bc-flyway physical-type case identities missing')
     return summary
 
 

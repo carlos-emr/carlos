@@ -51,12 +51,17 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             if selected == "generated":
                 required["MeasurementDaoIntegrationTest"] += 3000 - sum(required.values())
             for family, count in required.items():
-                suite = "example." + family
+                suite = self.suite(family)
                 suffix = "" if selected == "generated" else "-" + selected
                 required_names = sorted(GROWTH_REQUIRED_CASES) if family == "Growth0To36FormPersistenceIntegrationTest" else []
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
                     name = required_names[index] if index < len(required_names) else f"shouldRead_forRow{index}"
+                    if family == 'LegacyLabNativeMariaDbIntegrationTest' and index < len(MODULE.INBOX_CASES):
+                        name = MODULE.INBOX_CASES[index]
+                    physical = MODULE.BC_PHYSICAL_CASES.get(suite, ()) if selected == 'bc-flyway' else ()
+                    if index < len(physical):
+                        name = physical[index]
                     return (f'<testcase classname="{suite}{suffix}" name="{name}">'
                             + fault + '</testcase>')
                 body = "".join(case(i) for i in range(count))
@@ -67,12 +72,74 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     f'<testsuite name="{suite}{suffix}" tests="{count}" failures="0" errors="0" skipped="0">'
                     + body + '</testsuite>')
 
+    @staticmethod
+    def suite(family: str) -> str:
+        if family == 'LegacyLabNativeMariaDbIntegrationTest':
+            return MODULE.INBOX_CLASS
+        return next((name for name in MODULE.BC_PHYSICAL_CASES if name.rsplit('.', 1)[-1] == family), 'example.' + family)
+
+    def test_each_physical_type_case_is_required_even_when_family_counts_are_unchanged(self):
+        self.seed()
+        for family, names in MODULE.BC_PHYSICAL_CASES.items():
+            report = self.reports / ('TEST-' + family + '-bc-flyway.xml')
+            original = report.read_text()
+            for name in names:
+                with self.subTest(case=name):
+                    report.write_text(original.replace('name="' + name + '"', 'name="unrelatedPhysicalCase"'))
+                    try:
+                        self.assert_refused(self.invoke(), 'Required MariaDB bc-flyway physical-type case identities missing')
+                    finally:
+                        report.write_text(original)
+
+    def test_foreign_suite_cannot_supply_physical_case_identities(self):
+        self.seed()
+        for family, names in MODULE.BC_PHYSICAL_CASES.items():
+            with self.subTest(family=family):
+                report = self.reports / ('TEST-' + family + '-bc-flyway.xml')
+                original = report.read_text()
+                substituted = original
+                for index, name in enumerate(names):
+                    substituted = substituted.replace('name="' + name + '"', 'name="unrelatedPhysical' + str(index) + '"')
+                report.write_text(substituted)
+                foreign = self.reports / 'TEST-example.ForeignPhysical-bc-flyway.xml'
+                foreign.write_text('<testsuite name="example.ForeignPhysical-bc-flyway" tests="' + str(len(names)) + '" failures="0" errors="0" skipped="0">'
+                                   + ''.join('<testcase classname="' + family + '-bc-flyway" name="' + name + '"/>' for name in names) + '</testsuite>')
+                try:
+                    for optimized in (False, True):
+                        self.assert_refused(self.invoke(optimized), 'Test case belongs to another suite')
+                finally:
+                    report.write_text(original)
+                    foreign.unlink()
+
     def test_clean_controls_pass_in_both_python_modes(self):
         self.seed()
         for optimized in (False, True):
             with self.subTest(optimized=optimized):
                 result = self.invoke(optimized)
                 self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_another_package_or_nested_class_cannot_supply_required_inbox_cases(self):
+        self.seed()
+        report = self.reports / ('TEST-' + MODULE.INBOX_CLASS + '-flyway.xml')
+        original = report.read_text()
+        for replacement in ('example.LegacyLabNativeMariaDbIntegrationTest', MODULE.INBOX_CLASS + '$Substitute',
+                            'Substitute display container'):
+            with self.subTest(classname=replacement):
+                if replacement.startswith('example.'):
+                    # Keep filename, suite and testcase mutually consistent so
+                    # only the required fully qualified identity can refuse it.
+                    other = self.reports / ('TEST-' + replacement + '-flyway.xml')
+                    report.unlink()
+                    other.write_text(original.replace(MODULE.INBOX_CLASS, replacement))
+                else:
+                    other = report
+                    report.write_text(original.replace('classname="' + MODULE.INBOX_CLASS,
+                                                       'classname="' + replacement))
+                try:
+                    self.assert_refused(self.invoke(), 'Required MariaDB flyway inbox case identities missing')
+                finally:
+                    other.unlink()
+                    report.write_text(original)
 
     def test_empty_reports_fail_with_optimization_and_remove_old_success(self):
         for optimized in (False, True):
@@ -94,7 +161,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             for family in required:
                 with self.subTest(mode=mode, family=family):
                     suffix = "" if mode == "generated" else "-" + mode
-                    path = self.reports / ("TEST-example." + family + suffix + ".xml")
+                    suite = self.suite(family)
+                    path = self.reports / ("TEST-" + suite + suffix + ".xml")
                     original = path.read_bytes()
                     path.unlink()
                     reason = ("Broad MariaDB DAO selection unexpectedly lost coverage"
@@ -167,7 +235,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.seed(duplicate=True)
         self.assert_refused(self.invoke(), "Duplicate test case identity")
         self.seed()
-        path = next(self.reports.glob("*.xml"))
+        path = next(iter(sorted(self.reports.glob("TEST-example.*.xml"))))
         path.write_text(path.read_text().replace('name="example.', 'name="different.', 1))
         self.assert_refused(self.invoke(), "Report filename and suite identity disagree")
 
@@ -204,7 +272,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
 
     def test_junit_display_class_names_bind_to_the_qualified_suite(self):
         self.seed()
-        path = next(self.reports.glob("*.xml"))
+        path = self.reports / 'TEST-example.MeasurementDaoIntegrationTest.xml'
         path.write_text(re.sub(r'classname="[^"]+"', 'classname="Clinical DAO display name"', path.read_text()))
         self.assertEqual(self.invoke().returncode, 0)
         self.assertIn("example.", self.output.read_text())
@@ -266,6 +334,21 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.assertEqual([case.outcome for case in cases], ['failure', 'pass'])
         self.assertEqual(diagnostics[0]['declaredTests'], 1)
         self.assertEqual(diagnostics[0]['executedCases'], 2)
+
+    def test_unrelated_passing_cases_cannot_replace_any_inbox_count_case(self):
+        self.seed()
+        for mode in ('flyway', 'bc-flyway'):
+            path = self.reports / ('TEST-' + MODULE.INBOX_CLASS + '-' + mode + '.xml')
+            original = path.read_bytes()
+            for name in (
+                'shouldCountOnlyTheSelectedPatientLabs_andKeepZeroAndMissingPatientsUnmatched',
+                'shouldCountDistinctPatientDocuments_andSeparateUnmatchedAndAcknowledgedRouting',
+                'shouldCountDistinctHrmReports_byPatientProviderAndSignoffIndependentlyOfViewed',
+            ):
+                path.write_bytes(original.replace(name.encode(), b'unrelatedPassingCase'))
+                for optimized in (False, True):
+                    self.assert_refused(self.invoke(optimized), f'Required MariaDB {mode} inbox case identities missing')
+                path.write_bytes(original)
 
 
 if __name__ == "__main__":
