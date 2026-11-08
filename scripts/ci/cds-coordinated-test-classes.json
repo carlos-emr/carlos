@@ -273,5 +273,11 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMeasurementSourceReaderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMeasurementReadMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCareRetainedSourceUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCareOccurrenceServiceUnitTest"
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCareOccurrenceServiceUnitTest",
+  "CdsExportDocumentReadMariaDbIntegrationTest",
+  "CdsExportDocumentReceiptUnitTest",
+  "CdsExportReportRetainedSourceUnitTest",
+  "CdsExportReportOccurrenceServiceUnitTest",
+  "CdsExportDocumentInputStreamUnitTest",
+  "CdsExportCapturedDocumentFilesUnitTest"
 ]

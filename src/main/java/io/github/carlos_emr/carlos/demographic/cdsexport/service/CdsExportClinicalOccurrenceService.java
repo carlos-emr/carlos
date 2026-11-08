@@ -51,7 +51,13 @@ public class CdsExportClinicalOccurrenceService {
         public Receipt { fields = Map.copyOf(fields); retainedFields = Set.copyOf(retainedFields); replacedFields = Set.copyOf(replacedFields); }
         @Override public String toString() { return "CdsExportClinicalOccurrenceReceipt[protected]"; }
     }
-    @FunctionalInterface public interface Receipts { void accept(Receipt receipt) throws IOException; }
+    @FunctionalInterface public interface Receipts {
+        void accept(Receipt receipt) throws IOException;
+        /** Attachment membership belongs to the same private output transaction as the report and its receipt. */
+        default void attachment(CdsExportIdentityDto report, CdsExportPackageMemberDto member) throws IOException {
+            throw new IOException("CDS_EXPORT_REPORT_ATTACHMENT_SINK_REQUIRED");
+        }
+    }
     public record Result(String sourceManifestSha256, CdsCategory category, long nativeRows, long importedRows, long nativeOnlyRows, long retainedSourceFields) {
         @Override public String toString() { return "CdsExportClinicalOccurrenceResult[protected]"; }
     }

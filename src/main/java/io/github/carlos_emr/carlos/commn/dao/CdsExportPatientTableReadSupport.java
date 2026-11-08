@@ -45,6 +45,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public final class CdsExportPatientTableReadSupport {
     public enum Plan {
+        DOCUMENTS("document", "document_no", null, List.of("abnormal", "appointment_no", "cds_content_precision", "contentdatetime", "contenttype", "docClass", "docSubClass", "doccreator", "docdesc", "docfilename", "doctype", "document_no", "docxml", "number_of_pages", "observationdate", "program_id", "public1", "receivedDate", "report_media", "responsible", "restrictToProgram", "reviewdatetime", "reviewer", "sent_date_time", "source", "sourceFacility", "status", "updatedatetime")),
+        DOCUMENT_LINKS("ctl_document", "document_no", null, List.of("document_no", "module", "module_id", "status")),
         MEASUREMENTS_CURRENT("measurements", "id", "demographicNo", List.of("appointmentNo", "comments", "dataField", "dateEntered", "dateObserved", "demographicNo", "id", "measuringInstruction", "providerNo", "type")),
         MEASUREMENTS_EXT("measurementsExt", "id", null, List.of("id", "keyval", "measurement_id", "val")),
         MEASUREMENTS_DELETED("measurementsDeleted", "id", "demographicNo", List.of("comments", "dataField", "dateDeleted", "dateEntered", "dateObserved", "demographicNo", "id", "measuringInstruction", "originalId", "providerNo", "type")),
@@ -166,6 +168,8 @@ public final class CdsExportPatientTableReadSupport {
             };
         }
         private String patientPredicate() {
+            if (this == DOCUMENT_LINKS) return "d.`module`='demographic' and d.`module_id`=:patient";
+            if (this == DOCUMENTS) return "exists (select 1 from `ctl_document` c where c.`module`='demographic' and c.`module_id`=:patient and c.`document_no`=d.`document_no`)";
             if (this == MEASUREMENTS_EXT) return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient and m.`id`=d.`measurement_id`)";
             if (this == MEASUREMENT_TYPES) return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient"
                     + " and CAST(m.`type` AS BINARY)=CAST(d.`type` AS BINARY) and CAST(m.`measuringInstruction` AS BINARY)=CAST(d.`measuringInstruction` AS BINARY))";
@@ -233,6 +237,38 @@ public final class CdsExportPatientTableReadSupport {
         var selected=requireSelected(plan, patient, ids); if (selected.isEmpty())invalid(); return chunkBound(em, plan, patient, row, column, offset, length, new Bindings(null, selected));
     }
     private CdsExportPatientTableReadSupport() { }
+    /** Whole document associations remain in scope, including inactive/deleted links and rows. */
+    public static void requireLocalDocumentAssociations(EntityManager em, int patient) {
+        patient(patient);
+        var ambiguous = query(em, """
+                select 1,1 from ctl_document own
+                where own.module='demographic' and own.module_id=:patient
+                and (not exists (select 1 from document d where d.document_no=own.document_no)
+                or exists (select 1 from ctl_document other where other.module='demographic'
+                  and other.document_no=own.document_no and other.module_id<>:patient))
+                """).setParameter("patient", patient).setMaxResults(1).getResultList();
+        if (!ambiguous.isEmpty()) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+        var sidecars = query(em, """
+                select 1,1 from document d where exists (select 1 from ctl_document c
+                  where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
+                and (exists (select 1 from document_review r where r.document_no=d.document_no)
+                  or exists (select 1 from DocumentExtraReviewer r where r.documentNo=d.document_no)
+                  or exists (select 1 from document_storage s where s.documentNo=d.document_no))
+                """).setParameter("patient", patient).setMaxResults(1).getResultList();
+        if (!sidecars.isEmpty()) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.UNMAPPED_DATA);
+        // Until document-specific current program authorization is qualified, refuse the whole
+        // selected source before any document metadata/body can enter encrypted capture.
+        var restricted = query(em, """
+                select 1,1 from document d where exists (select 1 from ctl_document c
+                  where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
+                and ((d.restrictToProgram is not null and d.restrictToProgram<>0)
+                  or (d.restrictToProgram is null and d.program_id is not null))
+                """).setParameter("patient", patient).setMaxResults(1).getResultList();
+        if (!restricted.isEmpty()) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.UNMAPPED_DATA);
+    }
     /** Extensions cannot disambiguate a reused measurement identity belonging to another chart's deleted record. */
     public static void requireLocalMeasurementAssociations(EntityManager em, int patient) {
         patient(patient);

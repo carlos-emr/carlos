@@ -32,7 +32,7 @@ import java.util.Set;
 /** Exact finite source-read contracts; unknown columns/types/engines require a reviewed adapter. */
 public final class CdsExportSourceSchemaValidator {
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final Set<String> INSTALLED = Set.of("measurements", "measurementsExt", "measurementsDeleted", "measurementType", "cds_laboratory_result", "hl7TextMessage", "hl7TextInfo", "patientLabRouting", "casemgmt_issue", "issue", "casemgmt_issue_notes", "casemgmt_note_ext", "casemgmt_note", "retained_import_options", "Contact", "DemographicContact", "demographicPharmacy", "pharmacyInfo", "clinical_timezone", "preventionsExt", "prevention_precision", "prevention_configuration", "preventions", "preventions_scope", "CVCImmunization", "CVCMapping", "demographic_merged", "demographicArchive", "drugs", "appointmentArchive", "provider", "appointment_status", "appointment", "demographic", "demographicExt", "demographiccust", "allergies", "partial_date",
+    private static final Set<String> INSTALLED = Set.of("native_document_files", "document", "ctl_document", "measurements", "measurementsExt", "measurementsDeleted", "measurementType", "cds_laboratory_result", "hl7TextMessage", "hl7TextInfo", "patientLabRouting", "casemgmt_issue", "issue", "casemgmt_issue_notes", "casemgmt_note_ext", "casemgmt_note", "retained_import_options", "Contact", "DemographicContact", "demographicPharmacy", "pharmacyInfo", "clinical_timezone", "preventionsExt", "prevention_precision", "prevention_configuration", "preventions", "preventions_scope", "CVCImmunization", "CVCMapping", "demographic_merged", "demographicArchive", "drugs", "appointmentArchive", "provider", "appointment_status", "appointment", "demographic", "demographicExt", "demographiccust", "allergies", "partial_date",
             "cds_import_file", "cds_import_file_reference", "cds_import_field", "cds_import_unit", "cds_import_patient", "cds_import_preparation", "cds_import_dependency", "cds_import_run");
     public String verify(CdsExportTableSchemaDto actual, Set<String> columns) throws IOException {
         return verify(actual == null ? null : actual.table(), actual, columns);
@@ -51,7 +51,7 @@ public final class CdsExportSourceSchemaValidator {
         boolean qualifiedColumns = scope.equals("preventions_scope") ? CdsExportPreventionScopePlanner.COLUMNS.equals(columns)
                 : actual.table().equals("provider") ? io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS.equals(columns)
                 : allColumns.equals(columns) || actual.table().equals("demographiccust") && demographicCust.equals(columns);
-        if (!actual.equals(expected) || !(scope.equals("retained_import_options")?"TRUSTED_IMPORT_PROVENANCE":Set.of("prevention_configuration", "clinical_timezone").contains(scope)?"TRUSTED_CONFIGURATION":"InnoDB").equals(actual.engine()) || !qualifiedColumns) invalid();
+        if (!actual.equals(expected) || !(scope.equals("native_document_files")?"TRUSTED_NATIVE_DOCUMENT_STORAGE":scope.equals("retained_import_options")?"TRUSTED_IMPORT_PROVENANCE":Set.of("prevention_configuration", "clinical_timezone").contains(scope)?"TRUSTED_CONFIGURATION":"InnoDB").equals(actual.engine()) || !qualifiedColumns) invalid();
         try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes)); }
         catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
     }

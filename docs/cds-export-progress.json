@@ -571,7 +571,7 @@
     "exactInstalledSupplementalAssertions": 23
   },
   "careObservationAssembly": {
-    "state": "SOURCE_AND_SEMANTIC_COMPONENT_TESTED_PACKAGE_AND_INSTALLED_PROOF_PENDING",
+    "state": "PACKAGED_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "nativeTables": [
       "measurements",
       "measurementsExt",
@@ -587,6 +587,35 @@
     "allThirteenOriginalCoreKindsBoundToSealedPreparation": true,
     "largeGoalTextRemainsStreamed": true,
     "unknownChangedNativeAndDeletedObservationsRequireReview": true,
+    "clinicalPublication": false,
+    "coordinatedChecks": 4764,
+    "coordinatedRequestedSuites": 360,
+    "fullJavadocPassed": true,
+    "exactInstalledAssertions": 50,
+    "genuineOrdinaryClinicalImportAssertions": 9,
+    "completeOriginalCareParents": 2,
+    "completeOriginalNativeChildren": 15,
+    "originalImportRulesetRetained": true,
+    "componentOverlays": false,
+    "exactWarSha256": "402b06511a23bb3f8c0997be5674365e57440eff90fd96a9b5d1ba99dd4b4734"
+  },
+  "reportOccurrenceAssembly": {
+    "state": "SOURCE_COMPONENT_TESTED_PACKAGE_AND_GENUINE_INSTALLED_PROOF_PENDING",
+    "metadataTables": [
+      "document",
+      "ctl_document"
+    ],
+    "nativeFileCapture": "native_document_files",
+    "originalEmbeddedAndReferencedRepresentationsRemainDistinct": true,
+    "completeEmbeddedContentDigestAndLengthVerified": true,
+    "allSourceDatesIncludingReviewersAndObrObservationsUseOriginalShift": true,
+    "referencedFilesRequireExplicitPrivateAttachmentSink": true,
+    "sourceAndBindingFocusedChecks": 120,
+    "actualMariaDbAndCliChecks": 12,
+    "productionUidRealFilesystemChecks": 21,
+    "countsOverlap": true,
+    "sharedDanglingRestrictedReviewerAndDatabaseFileSidecarsRequireReview": true,
+    "nativeOnlyEditedAndOtherDocumentDomainsRequireReview": true,
     "clinicalPublication": false
   }
 }

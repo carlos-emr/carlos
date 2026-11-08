@@ -45,6 +45,7 @@ import org.springframework.stereotype.Service;
 public class CdsExportNativeRowReceiptReader {
     @FunctionalInterface public interface Receipts { void accept(CdsExportNativeRowReceiptDto receipt) throws IOException; }
     private static final Map<String, String> KEYS = Map.ofEntries(
+            Map.entry("document", "document_no"), Map.entry("ctl_document", "document_no"),
             Map.entry("measurements", "id"), Map.entry("measurementsExt", "id"), Map.entry("measurementsDeleted", "id"), Map.entry("measurementType", "id"),
             Map.entry("cds_laboratory_result", "id"), Map.entry("hl7TextMessage", "lab_id"), Map.entry("hl7TextInfo", "id"), Map.entry("patientLabRouting", "id"),
             Map.entry("cds_import_file", "id"), Map.entry("cds_import_file_reference", "id"),
@@ -102,7 +103,8 @@ public class CdsExportNativeRowReceiptReader {
             if (!KEYS.containsKey(field.table())) return OutputStream.nullOutputStream();
             if (!field.table().equals(table) || !field.recordKey().equals(key)) { finishRow(); table = field.table(); key = field.recordKey(); }
             pending = field;
-            if (KEYS.get(table).equals(field.column()) || table.equals("casemgmt_issue_notes") && field.column().equals("note_id")) {
+            if (KEYS.get(table).equals(field.column()) || table.equals("casemgmt_issue_notes") && field.column().equals("note_id")
+                    || table.equals("ctl_document") && field.column().equals("module_id")) {
                 if (field.kind() != CdsExportCapturedFieldDto.Kind.UTF8 || field.bytes() > 128) scope();
                 identity = new ByteArrayOutputStream((int) field.bytes()); return identity;
             }
@@ -111,7 +113,11 @@ public class CdsExportNativeRowReceiptReader {
         @Override public void verified(CdsExportCapturedFieldDto field) throws IOException {
             if (!KEYS.containsKey(field.table())) return;
             if (closed || pending != field || headers.putIfAbsent(field.column(), field) != null) scope();
-            if (identity != null) { if (table.equals("casemgmt_issue_notes") && field.column().equals("note_id")) noteId = identity.toString(StandardCharsets.UTF_8); else id = identity.toString(StandardCharsets.UTF_8); identity = null; }
+            if (identity != null) {
+                if (table.equals("casemgmt_issue_notes") && field.column().equals("note_id")
+                        || table.equals("ctl_document") && field.column().equals("module_id")) noteId = identity.toString(StandardCharsets.UTF_8);
+                else id = identity.toString(StandardCharsets.UTF_8); identity = null;
+            }
             pending = null;
         }
         private void finishRow() throws IOException {
@@ -121,6 +127,17 @@ public class CdsExportNativeRowReceiptReader {
                 if (!id.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}") || !id.equals(key)) scope();
             } else if (Set.of("cds_laboratory_result", "cds_import_field", "cds_import_file_reference").contains(table)) {
                 if (!id.matches("[0-9a-f]{64}") || !id.equals(key)) scope();
+            } else if (table.equals("ctl_document")) {
+                try {
+                    long patient = Long.parseLong(noteId), document = Long.parseLong(id);
+                    var module = headers.get("module");
+                    String expectedModule = java.util.HexFormat.of().formatHex(io.github.carlos_emr.carlos.utility.CdsImportKeys.digest()
+                            .digest("demographic".getBytes(StandardCharsets.UTF_8)));
+                    if (patient < 1 || document < 1 || !Long.toString(patient).equals(noteId) || !Long.toString(document).equals(id)
+                            || !CdsExportPatientTableSourceReader.key(document).equals(key) || module == null
+                            || module.kind() != CdsExportCapturedFieldDto.Kind.UTF8 || module.bytes() != 11 || !expectedModule.equals(module.sha256())) scope();
+                    id = noteId + "_" + id;
+                } catch (NumberFormatException malformed) { scope(); }
             } else if (table.equals("casemgmt_issue_notes")) {
                 try {
                     long note = Long.parseLong(noteId), issue = Long.parseLong(id);

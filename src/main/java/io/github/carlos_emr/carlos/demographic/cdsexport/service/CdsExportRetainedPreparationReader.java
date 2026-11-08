@@ -99,6 +99,23 @@ public class CdsExportRetainedPreparationReader {
             return new Evidence<>(index.sourceManifestSha256(), address, row.fields().get("digest"), value);
         } catch (IOException | IllegalArgumentException invalid) { throw new IOException("CDS_EXPORT_RETAINED_PREPARATION_INVALID"); }
     }
+    public Evidence<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsReportNativeDto> report(CdsExportRetainedIndexDto index, String address) throws IOException {
+        var type = io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsReportNativeDto.class;
+        var row = verify(index, address, "Reports", type);
+        try {
+            var value = readRequired(row, type);
+            if (value.event() == null || value.received() == null || value.sent() == null
+                    || value.variants().isEmpty() || value.variants().size() > 2) invalid();
+            var names = new java.util.HashSet<String>();
+            for (var variant : value.variants()) {
+                if (variant == null || variant.name() == null || !java.util.Set.of("embedded", "referenced").contains(variant.name())
+                        || !names.add(variant.name()) || variant.digest() == null || !variant.digest().matches("[0-9a-f]{64}")
+                        || variant.length() < 0 || variant.extension() == null || !variant.extension().matches("[a-z0-9]{1,16}")
+                        || variant.mime() == null || variant.mime().isBlank()) invalid();
+            }
+            return new Evidence<>(index.sourceManifestSha256(), address, row.fields().get("digest"), value);
+        } catch (IOException | IllegalArgumentException invalid) { throw new IOException("CDS_EXPORT_RETAINED_PREPARATION_INVALID"); }
+    }
     public Evidence<CdsImmunizationDto> immunization(CdsExportRetainedIndexDto index, String address) throws IOException {
         var type = CdsImmunizationDto.class;
         var row = verify(index, address, "Immunizations", type);

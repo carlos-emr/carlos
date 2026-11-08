@@ -297,6 +297,22 @@ class CdsExportRetainedPreparationReaderUnitTest {
             assertThatThrownBy(() -> reader.history(null, run + ":" + unit, category)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
         assertThatThrownBy(() -> reader.history(null, run + ":" + unit, null)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
     }
+    @Test void shouldReadOriginalSealedReportRepresentations_andRequireTheirExactIdentity() throws Exception {
+        var variant = new CdsReportNativeDto.Variant("embedded", "txt", "text/plain;charset=UTF-8", "a".repeat(64), 17, false, List.of());
+        var value = new CdsReportNativeDto(Map.of("Format", "Text", "Class", "Consultation"), List.of(variant), CdsTemporalDto.unknown(), CdsTemporalDto.unknown(), CdsTemporalDto.unknown());
+        var evidence = reader.report(fixture(CdsReportNativeDto.class, JSON.writeValueAsString(value), "Reports"), run + ":" + unit);
+        assertThat(evidence.value()).isEqualTo(value);
+        assertThatThrownBy(() -> reader.report(fixture(CdsReportNativeDto.class, JSON.writeValueAsString(value), "LaboratoryResults"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        var duplicate = new CdsReportNativeDto(value.values(), List.of(variant, variant), value.event(), value.received(), value.sent());
+        assertThatThrownBy(() -> reader.report(fixture(CdsReportNativeDto.class, JSON.writeValueAsString(duplicate), "Reports"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
+    @Test void shouldRejectMissingReportTemporalDependencies_andInvalidByteEvidence() throws Exception {
+        var variant = new CdsReportNativeDto.Variant("referenced", "txt", "text/plain", "invalid", -1, false, List.of());
+        var value = new CdsReportNativeDto(Map.of(), List.of(variant), CdsTemporalDto.unknown(), CdsTemporalDto.unknown(), CdsTemporalDto.unknown());
+        assertThatThrownBy(() -> reader.report(fixture(CdsReportNativeDto.class, JSON.writeValueAsString(value), "Reports"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        var missing = new CdsReportNativeDto(Map.of(), List.of(variant), null, CdsTemporalDto.unknown(), CdsTemporalDto.unknown());
+        assertThatThrownBy(() -> reader.report(fixture(CdsReportNativeDto.class, JSON.writeValueAsString(missing), "Reports"), run + ":" + unit)).hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+    }
     private CdsExportRetainedIndexDto fixture(Class<?> type, String payload, String category) {
         String identity=CdsImportKeys.hash(run, unit), source="c".repeat(64), options="d".repeat(64), ruleset="e".repeat(64);
         var prepared = new LinkedHashMap<String, String>(Map.of("id", identity, "run_id", run, "unit_key", unit, "payload_type", type.getName(), "payload", payload,
