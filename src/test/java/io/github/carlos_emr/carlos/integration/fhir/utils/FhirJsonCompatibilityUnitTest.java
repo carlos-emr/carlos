@@ -127,6 +127,7 @@ class FhirJsonCompatibilityUnitTest {
     }
 
     @Test
+    @SuppressWarnings("java:S5838") // Boolean assertions keep a failed check from logging the 20M-character payload.
     void shouldPreserveLargeAttachments_whenNormalizingAnotherPrimitive() {
         // Base64 crosses Jackson's default 20M-character reader limit, although
         // HAPI can encode the existing outbound attachment without that limit.

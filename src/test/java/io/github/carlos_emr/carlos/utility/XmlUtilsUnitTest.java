@@ -67,6 +67,8 @@ class XmlUtilsUnitTest {
     }
 
     @Test
+    // Keep explicit escapes and String equality: every indentation space and final newline is contractual.
+    @SuppressWarnings({"java:S5838", "java:S6126"})
     void shouldSerializeIdentityTransform_withSaxonIndentation() throws Exception {
         var transformer = XmlUtils.createSecureTransformerFactory().newTransformer();
         transformer.setOutputProperty(javax.xml.transform.OutputKeys.INDENT, "yes");
