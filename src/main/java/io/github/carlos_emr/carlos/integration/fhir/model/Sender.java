@@ -29,7 +29,6 @@ package io.github.carlos_emr.carlos.integration.fhir.model;
  */
 
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.hl7.fhir.dstu3.model.MessageHeader.MessageSourceComponent;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 
@@ -198,6 +197,6 @@ public class Sender {
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

@@ -63,6 +63,19 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 @Repository
 @SuppressWarnings("unchecked")
 public class DxresearchDAOImpl extends AbstractDaoImpl<Dxresearch> implements DxresearchDAO {
+
+    @Override
+    public List<CdmPatientRow> findActiveCdmPatients(List<String> codes) {
+        if (codes.isEmpty()) throw new IllegalArgumentException("At least one diagnosis code is required");
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("SELECT de.demographic_no,de.provider_no,d.dxresearch_code"
+                        + " FROM dxresearch d,demographic de WHERE de.demographic_no=d.demographic_no"
+                        + " AND d.dxresearch_code IN (:codes) AND d.status='A' AND de.patient_status='AC' ORDER BY de.demographic_no", Object[].class)
+                .setParameter("codes", codes).getResultList();
+        return rows.stream().map(row -> new CdmPatientRow(String.valueOf(row[0]),
+                org.apache.commons.lang3.StringUtils.trimToEmpty((String) row[1]),
+                org.apache.commons.lang3.StringUtils.trimToEmpty((String) row[2]))).toList();
+    }
     private static final Logger logger = MiscUtils.getLogger();
 
     public DxresearchDAOImpl() {

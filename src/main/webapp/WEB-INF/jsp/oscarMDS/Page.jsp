@@ -403,7 +403,7 @@
                             <carlos:encode value='<%= result.getRequestingClient() %>' context="html"/>
                         </td>
                         <td>
-                            <carlos:encode value='<%= result.isDocument() ? result.description == null ? "" : result.description : result.getDisciplineDisplayString() %>' context="html"/>
+                            <carlos:encode value='<%= result.isDocument() ? result.getDiscipline() : result.getDisciplineDisplayString() %>' context="html"/>
                         </td>
                         <td>
                             <carlos:encode value='<%= result.getReportStatus() %>' context="html"/>

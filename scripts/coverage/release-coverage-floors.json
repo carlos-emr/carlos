@@ -1265,6 +1265,17 @@
       "instructions": 100.0,
       "branches": 93.75
     },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ImportZipInputStream.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "requiredRefusalLines": [
+        58,
+        59,
+        75,
+        103
+      ]
+    },
     "src/main/java/io/github/carlos_emr/carlos/utility/IsoDates.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -1329,6 +1340,11 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapter.java": {
       "lines": 100.0,
@@ -1496,6 +1512,72 @@
       "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java"
+      ]
+    }
+  },
+  "supplementalBaselines": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/ImportZipInputStream.java": {
+      "sourceCommit": "c7ef9f705dc2b07456a7ce6450bf4edd924957b3",
+      "sourceSha256": "00a6a1526ef30975f8f34e20b5e605033a20cd6b0d7f782a2b6775b712420658",
+      "classSha256": "99143e4e9e5508f0251dd89f436eae3e55ba33e0a562fc3713dcfc9c1659eed2",
+      "reportSha256": "048931ac88ecc9edbbfa9775275791cd91fa950d0d33f84fdb3b9f6af46c5797",
+      "executionDataSha256": "480db89aed435943b69dd783a1a233444728d087188668c25d25c38d6cb4a270",
+      "scope": "Supplemental development baseline from a fresh 83-case focused run on frozen source; final required-lane union qualification remains separate.",
+      "testReports": {
+        "io.github.carlos_emr.carlos.utility.ImportZipInputStreamUnitTest": {
+          "cases": 23,
+          "sha256": "b4ec38dd9e9bda82b3418aa15f4208763445538a3257a14928b35a6d13ad9abc"
+        }
+      },
+      "counters": {
+        "LINE": {
+          "covered": 24,
+          "missed": 0
+        },
+        "INSTRUCTION": {
+          "covered": 137,
+          "missed": 0
+        },
+        "BRANCH": {
+          "covered": 18,
+          "missed": 0
+        }
+      },
+      "uncoveredBranchLines": []
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapter.java": {
+      "sourceCommit": "c7ef9f705dc2b07456a7ce6450bf4edd924957b3",
+      "sourceSha256": "f6db1a57c08b16872286a94c3d6210bb2d37f613f888c1cdedeada932dc141d1",
+      "classSha256": "0c842a9e140e578b5329e7824cf102dbf0a797934920b8e327ea214bf9eec25a",
+      "reportSha256": "048931ac88ecc9edbbfa9775275791cd91fa950d0d33f84fdb3b9f6af46c5797",
+      "executionDataSha256": "480db89aed435943b69dd783a1a233444728d087188668c25d25c38d6cb4a270",
+      "scope": "Supplemental development baseline from a fresh 83-case focused run on frozen source; final required-lane union qualification remains separate.",
+      "testReports": {
+        "io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapterUnitTest": {
+          "cases": 12,
+          "sha256": "1f8ec1238578f4e18d7477b7e728106d6418861f0a0cac5609e69f28fb9d86b1"
+        },
+        "io.github.carlos_emr.carlos.utility.xml.DemographicBirthdayXmlContractUnitTest": {
+          "cases": 9,
+          "sha256": "ef766ee647b60b21e07f76449aab89921d169aef4246c7fa9b4966b054b198ec"
+        }
+      },
+      "counters": {
+        "LINE": {
+          "covered": 13,
+          "missed": 0
+        },
+        "INSTRUCTION": {
+          "covered": 53,
+          "missed": 0
+        },
+        "BRANCH": {
+          "covered": 5,
+          "missed": 1
+        }
+      },
+      "uncoveredBranchLines": [
+        33
       ]
     }
   }

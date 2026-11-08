@@ -55,7 +55,9 @@
         "scope-and-main-disposition",
         "scope-inventory",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -214,12 +216,18 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapterUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransferXmlUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java",
         "scripts/ci/run-public-api-oracle.py",
         "scripts/ci/WarWireCompatibilityProbe.java",
-        "docs/testing/release-2026.08-main-release-browser-findings.json"
+        "docs/testing/release-2026.08-main-release-browser-findings.json",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlStateUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveDateTimeContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java"
       ],
       "implementation": "Extend the existing installed REST check to nonempty XML allergy/prevention date DTOs and every supported precision, plus restricted-user/error and OAuth surfaces. Preserve production mapper and both JAXB provider tests.",
       "cases": "Accept application/xml, application/json and */*; UNKNOWN/YEAR/MONTH/FULL_DATE, leap days, nulls and epoch values in UTC/Toronto/Tokyo; 400/401/403/404; malformed or foreign patient; exact field names and precision shapes; shared provider initialization must not fall back silently.",
@@ -234,7 +242,9 @@
         "java-date-zones",
         "http-client-compatibility",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -503,6 +513,9 @@
       "area": "EBS transport and WS-Security qualification",
       "sources": [
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilderTransportUnitTest.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpi.java",
+        "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/CidPrefixResourceResolver.java",
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtWsSecurityWithoutJasyptUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/CxfHttpTransportUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptorUnitTest.java",
@@ -526,7 +539,9 @@
         "ebs-packaged-staging",
         "ebs-local-payload-privacy",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -585,7 +600,9 @@
         "sql-hook",
         "java-legacy-compat",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -652,7 +669,9 @@
         "packaged-full",
         "image-overwrite-contract",
         "main-release-wire-compatibility",
-        "public-api-oracle"
+        "public-api-oracle",
+        "main-glassfish-release-wire-compatibility",
+        "main-moxy-release-wire-compatibility"
       ]
     },
     {
@@ -722,10 +741,13 @@
       "area": "Forms, eForms and secondary-operation truthfulness",
       "sources": [
         "scripts/forms-timed-autosave.test.js",
-        "src/test/java/io/github/carlos_emr/carlos/email/action/EmailCompose2ActionUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/email/action/EmailCompose2ActionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/eform/EFormExportZipLimitsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/ImportZipInputStreamUnitTest.java",
+        "docs/eform-zip-import-limits.md"
       ],
       "implementation": "Extend real save/reopen/print workflows for every changed form and eForm resource. Keep saved primary state distinct from failed email/PDF/fax/EDoc work and assert visible, retry-safe recovery.",
-      "cases": "Unticked/checked/blank/long/multiline/quoted/Unicode data; autosave pending/error and multiple clicks; form version and refresh; editor toolbar/Bootstrap/jQuery aliases/AP values/calendar/signature; Mac ZIPs, bounded bulk export, path and collision attacks; primary save succeeds then secondary preparation fails; expired email draft.",
+      "cases": "Unticked/checked/blank/long/multiline/quoted/Unicode data; autosave pending/error and multiple clicks; form version and refresh; editor toolbar/Bootstrap/jQuery aliases/AP values/calendar/signature; Mac ZIPs, bounded bulk export, path and collision attacks; actual expanded ZIP bytes/count and properties/retained-HTML budgets, exact-limit acceptance, rejection before publication and owned staging cleanup; primary save succeeds then secondary preparation fails; expired email draft.",
       "acceptance": "All entered values survive reopen and print, no duplicate primary save on retry, and the user sees exactly which operation failed with no clinical diagnostic disclosure.",
       "requiredChecks": [
         "evidence-self-tests",
@@ -1147,7 +1169,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 327,
+      "minimumCases": 330,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -1250,7 +1272,9 @@
         "test_coverage_ratchet.CoverageLaneTest.test_missing_ambiguous_and_failed_lanes_are_refused",
         "test_coverage_ratchet.CoverageLaneTest.test_stale_source_plan_and_changed_or_omitted_inputs_are_refused",
         "test_ebs_payload_privacy.EbsPrivacyTest.test_empty_fabricated_and_untyped_observations_are_refused",
+        "test_ebs_payload_privacy.EbsPrivacyTest.test_logger_negative_control_must_really_disclose_canary_without_mutating_transport",
         "test_ebs_payload_privacy.EbsPrivacyTest.test_payload_canary_is_a_failed_acceptance_not_an_expected_success",
+        "test_ebs_payload_privacy.EbsPrivacyTest.test_stream_consumption_attachment_access_or_missing_direction_is_failed_acceptance",
         "test_generate_path_bindings.PathCandidatesTest.test_deleted_older_scope_is_retained_without_inventing_coverage",
         "test_generate_path_bindings.PathCandidatesTest.test_reviewed_noop_preserves_plan_bytes_and_changed_bindings_are_written",
         "test_generate_path_bindings.PathCandidatesTest.test_writing_candidates_without_review_is_refused",
@@ -1291,9 +1315,12 @@
         "test_lifecycle_baselines.LifecycleBaselineTest.test_distinct_historical_migration_and_cli_predecessor_is_required",
         "test_lifecycle_baselines.LifecycleBaselineTest.test_incomplete_package_province_or_published_identity_cannot_qualify",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_added_abstract_methods_enum_constants_and_overloads_require_client_review",
+        "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_automatic_provider_discovery_retains_both_known_historical_implementations",
+        "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_explicit_xml_provider_requires_the_observed_historical_implementation",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_json_numeric_lexemes_preserve_scale_exponents_and_signed_zero",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_malformed_release_xml_fails_while_a_repaired_main_response_is_reported",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_missing_fields_duplicate_json_keys_and_nonfinite_numbers_are_not_silently_accepted",
+        "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_missing_unknown_or_duplicate_xml_provider_cannot_qualify",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_new_named_concrete_method_and_new_types_are_not_competing_overloads",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_new_payload_exposure_is_a_regression_while_its_removal_is_a_fix",
         "test_main_release_wire_compatibility.BinaryClientComparisonTest.test_omitted_cases_and_identical_errors_cannot_qualify_comparison",
@@ -1541,7 +1568,17 @@
         "premature Content-Length response cannot become a successful download",
         "missing final HTTP chunk cannot become a successful download",
         "unexpected compression is rejected before comparing decoded bytes with a wire Content-Length",
-        "passing Node cases cannot qualify test source modified during execution"
+        "passing Node cases cannot qualify test source modified during execution",
+        "autocomplete type mode requires the selected widget id (bound: true)",
+        "autocomplete type mode requires the selected widget id (bound: false)",
+        "autocomplete fill mode requires the selected widget id (bound: true)",
+        "autocomplete fill mode requires the selected widget id (bound: false)",
+        "the eChart caller enters Safety in exactly one nonempty autocomplete update",
+        "schedule selection captures the response before the provider popup closes",
+        "schedule selection rejects an HTTP error even when the provider popup closes",
+        "schedule selection rejects a missing response after the provider popup closes",
+        "schedule selection rejects a missing CSRF token after the provider popup closes",
+        "schedule selection rejects a response from a different request"
       ],
       "caseManifest": "docs/testing/release-2026.08-node-cases.json"
     },
@@ -1596,7 +1633,19 @@
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "ConsultationListProjectionIntegrationTest": 17,
-        "AddEditDocument2ActionUnitTest": 40
+        "AddEditDocument2ActionUnitTest": 40,
+        "DownloadInInterceptorUnitTest": 10,
+        "AttachmentResolverSpiUnitTest": 18,
+        "CalendarDateTimeXmlAdapterUnitTest": 12,
+        "DemographicBirthdayXmlContractUnitTest": 9,
+        "EFormExportZipLimitsUnitTest": 16,
+        "ImportZipInputStreamUnitTest": 23,
+        "CdsSnapshotServiceUnitTest": 23,
+        "CalendarXmlStateUnitTest": 3,
+        "AppointmentArchiveDateTimeContractUnitTest": 7,
+        "PublishedXmlSchemaContractUnitTest": 28,
+        "JaxbGeneratedSchemaUnitTest": 336,
+        "DemographicBirthDayTimezoneUnitTest": 27
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -1693,15 +1742,24 @@
           "cases": [
             {
               "name": "shouldRenderTestPatternFixture_toPdfWithHeadlessChromium",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
             },
             {
               "name": "shouldNotLoadLocalFileSubresource_referencedByMaliciousEform",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
             },
             {
               "name": "shouldRenderFreeFlowForm_toTextLayerPdfWithNoPageDivs",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChartSmokeIntegrationTest": {
+          "check": "java-browser-pdf",
+          "cases": [
+            {
+              "name": "shouldRenderSeriesRangesAndMedicationIntervals_asPngAndJpeg",
+              "container": ""
             }
           ]
         },
@@ -2570,7 +2628,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2580,7 +2638,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2500,
+      "minimumCases": 2519,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2599,7 +2657,8 @@
         "BillingHistoryDaoIntegrationTest": 1,
         "LookupDaoIntegrationTest": 1,
         "AbstractDaoFindAllOrderingIntegrationTest": 6,
-        "CaseManagementIssueDAOIntegrationTest": 21
+        "CaseManagementIssueDAOIntegrationTest": 21,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2629,7 +2688,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2638,7 +2697,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 88,
+      "minimumCases": 107,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -2655,7 +2714,8 @@
         "LegacyLabUploadDaoIntegrationTest": 6,
         "LabRoutingLookupDaoIntegrationTest": 4,
         "LegacyLabNativeMariaDbIntegrationTest": 4,
-        "ArchiveAuditTimestampIntegrationTest": 2
+        "ArchiveAuditTimestampIntegrationTest": 2,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2685,7 +2745,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2694,17 +2754,23 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 61,
+      "minimumCases": 109,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
-        "BcBillingNativeMariaDbIntegrationTest": 8,
+        "BcBillingNativeMariaDbIntegrationTest": 10,
         "BcBillingDaoTransactionIntegrationTest": 4,
         "DemographicMergeMariaDbIntegrationTest": 8,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
         "ConsultationArchiveDaoIntegrationTest": 1,
         "LabRoutingLookupDaoIntegrationTest": 4,
         "LegacyLabNativeMariaDbIntegrationTest": 4,
-        "ArchiveAuditTimestampIntegrationTest": 2
+        "ArchiveAuditTimestampIntegrationTest": 2,
+        "FormXmlImportServiceIntegrationTest": 7,
+        "EFormApColumnLookupIntegrationTest": 2,
+        "AppointmentDaySheetServiceIntegrationTest": 4,
+        "AntenatalReportDaoIntegrationTest": 5,
+        "EFormGroupDaoIntegrationTest": 9,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -3578,18 +3644,17 @@
         "all"
       ],
       "repetitions": 1,
-      "minimumCases": 3,
+      "minimumCases": 4,
       "command": [
         "mvn",
         "-B",
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest",
+        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
-        "-Dwebdriver.chrome.driver={chromedriver}",
         "-Djacoco.dataFile={run}/jacoco.exec",
         "-Dtest.coverageDirectory={run}/coverage"
       ],
@@ -3598,9 +3663,6 @@
         "CARLOS_SMOKE_CHROMIUM",
         "CARLOS_SMOKE_CHROMEDRIVER"
       ],
-      "environmentInputs": {
-        "chromedriver": "CARLOS_SMOKE_CHROMEDRIVER"
-      },
       "runtimeConstraints": {
         "java": "25"
       },
@@ -4421,7 +4483,11 @@
       "resultContract": {
         "file": "privacy-result.json",
         "assertions": [
-          "payload-free-logging"
+          "payload-free-logging",
+          "message-streams-preserved",
+          "attachments-untouched",
+          "diagnostic-directions-exercised",
+          "logger-negative-control-detected"
         ]
       }
     },
@@ -4838,6 +4904,114 @@
           "fixture-source-unchanged"
         ]
       }
+    },
+    {
+      "id": "main-glassfish-release-wire-compatibility",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "packaged": false,
+      "requiresArtifact": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-main-release-wire-compatibility.py",
+        "--main-package",
+        "{mainPackage}",
+        "--candidate",
+        "{artifact}",
+        "--tomcat-core",
+        "{tomcatCore}",
+        "--tomcat-jsp-api",
+        "{tomcatJspApi}",
+        "--output",
+        "{run}/compatibility-result.json",
+        "--main-xml-provider",
+        "glassfish",
+        "--candidate-xml-provider",
+        "glassfish"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_MAIN_PACKAGE",
+        "CARLOS_TOMCAT_CORE",
+        "CARLOS_TOMCAT_JSP_API"
+      ],
+      "environmentInputs": {
+        "mainPackage": "CARLOS_MAIN_PACKAGE",
+        "tomcatCore": "CARLOS_TOMCAT_CORE",
+        "tomcatJspApi": "CARLOS_TOMCAT_JSP_API"
+      },
+      "requiresExecutables": [
+        "java",
+        "javac",
+        "dpkg-deb"
+      ],
+      "timeoutSeconds": 900,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "resultContract": {
+        "file": "compatibility-result.json",
+        "assertions": [
+          "both-binary-clients-complete",
+          "no-unreviewed-wire-breaks"
+        ]
+      }
+    },
+    {
+      "id": "main-moxy-release-wire-compatibility",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "packaged": false,
+      "requiresArtifact": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-main-release-wire-compatibility.py",
+        "--main-package",
+        "{mainPackage}",
+        "--candidate",
+        "{artifact}",
+        "--tomcat-core",
+        "{tomcatCore}",
+        "--tomcat-jsp-api",
+        "{tomcatJspApi}",
+        "--output",
+        "{run}/compatibility-result.json",
+        "--main-xml-provider",
+        "moxy",
+        "--candidate-xml-provider",
+        "glassfish"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_MAIN_PACKAGE",
+        "CARLOS_TOMCAT_CORE",
+        "CARLOS_TOMCAT_JSP_API"
+      ],
+      "environmentInputs": {
+        "mainPackage": "CARLOS_MAIN_PACKAGE",
+        "tomcatCore": "CARLOS_TOMCAT_CORE",
+        "tomcatJspApi": "CARLOS_TOMCAT_JSP_API"
+      },
+      "requiresExecutables": [
+        "java",
+        "javac",
+        "dpkg-deb"
+      ],
+      "timeoutSeconds": 900,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "resultContract": {
+        "file": "compatibility-result.json",
+        "assertions": [
+          "both-binary-clients-complete",
+          "no-unreviewed-wire-breaks"
+        ]
+      }
     }
   ],
   "requireJavaDiscovery": true,
@@ -4845,24 +5019,33 @@
   "requireManualBrowserCoverage": true,
   "pathBindings": {
     "src/main/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapter.java": {
-      "reason": "Null/empty omission, duplicate keys, Unicode and insertion order are tested directly.",
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapterUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "main-release-wire-compatibility"
       ],
       "workstreams": [
         "T08"
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapter.java": {
-      "reason": "Direct null/container/key/value and ordering wire contracts.",
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
       "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "main-release-wire-compatibility"
       ],
       "workstreams": [
         "T08"
@@ -4905,24 +5088,31 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransfer.java": {
-      "reason": "Default and populated DTO wire forms are compared to independently captured MOXy XML fixtures.",
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransferXmlUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "main-release-wire-compatibility"
       ],
       "workstreams": [
         "T08"
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransfer.java": {
-      "reason": "Default and populated archive fields are compared to independently captured MOXy XML, with explicit Calendar construction.",
+      "reason": "Direct and nested archive responses preserve beta6 date-time offsets across summer, winter, UTC and fractional-hour zones, retain blank/absent and frozen offset-free input, and leave caller state unchanged. The unchanged binary comparison separately checks XML and both production JSON mappers.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveDateTimeContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransferXmlUnitTest.java",
+        "scripts/ci/WarWireCompatibilityProbe.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "main-release-wire-compatibility"
       ],
       "workstreams": [
         "T08"
@@ -4952,6 +5142,19 @@
         "T16"
       ]
     },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapter.java": {
+      "reason": "Direct adapter regressions prove published date-time/offset output, unchanged calendar field state, fractional seconds and legacy/absent input; patient contract regressions independently prove direct/nested birthday XML, legacy date-only input, absence and unchanged JSON on both production REST mappings.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
       "reason": "Owned replay closes once and attachment thread-local is cleared on normal and fault chains.",
       "tests": [
@@ -4964,8 +5167,32 @@
         "T19"
       ]
     },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpi.java": {
+      "reason": "Real resolver regressions prove unread exact attachment bytes, literal-plus/percent-escaped Content-ID handling, fresh response/thread ownership for reused resolvers, and payload-free success/failure/URI diagnostics.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/mcedt/mailbox/CidPrefixResourceResolver.java": {
+      "reason": "The shared parameterized resolver regressions execute this MCEDT implementation independently for exact bytes, literal-plus/percent-escaped Content-IDs, fresh response/thread ownership and private fault diagnostics.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentResolverSpiUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T19"
+      ]
+    },
     "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptor.java": {
-      "reason": "Default transport excludes opt-in payload logging and replay read failure propagates. Opt-in privacy remains an explicit finding, not covered by default-only proof.",
+      "reason": "The bare configuration bean defaults diagnostics off; HCV/MCEDT callers enable them when their logging.skip flag is absent. Enabled inbound/outbound diagnostics and inherited fault callbacks omit SOAP, credentials, headers and attachment IDs without accessing or replacing transport streams; an independent logger canary proves disclosure detection and retains stream/attachment ownership observations.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptorUnitTest.java",
         "scripts/ci/EbsPayloadPrivacyProbe.java"
@@ -5202,6 +5429,30 @@
         "T31"
       ]
     },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormExportZip.java": {
+      "reason": "Real importer regressions prove exact default byte/count/text limit acceptance, over-limit rejection before form/asset publication, accounting for skipped metadata/properties and referenced HTML, input closure and owned staging cleanup.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/eform/EFormExportZipLimitsUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T27"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ImportZipInputStream.java": {
+      "reason": "Direct ZIP stream regressions exercise read, skip, closeEntry and next-entry accounting with exact limits, unknown/false-small entry descriptors, aggregate bytes and excess empty-entry refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/ImportZipInputStreamUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T27"
+      ]
+    },
     "scripts/signal-cleanup-audit.js": {
       "reason": "Actual AST call inventory, OS versus handler delivery, signal-specific exit codes, and independent credential/file snapshots are required.",
       "tests": [
@@ -5213,6 +5464,116 @@
       ],
       "workstreams": [
         "T31"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapter.java": {
+      "reason": "Direct regressions prove that legacy date-only, field-set date-time and lenient normalized output preserve the caller calendar state across repeated writes; existing adapter tests retain production appointment and schedule shapes and strict legacy input handling.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlStateUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapterUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/model/LookupCodeValue.java": {
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentTransfer.java": {
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/CalendarScheduleCodePairTransfer.java": {
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/AppointmentExtTo.java": {
+      "reason": "Issue 5721 native-object tests validate the applicable declared date-time, required empty-map or sequence contract against immutable beta6 Glassfish schemas; the full context sweep rejects new generated-schema compilation failures. Frozen MOXy reader and both production JSON mapper checks remain required. Character-policy acceptance is separate and remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/SearchConfigTo1.java": {
+      "reason": "A present empty appointment-duration map must retain its beta6 required container without choosing a numeric or literal character protocol. Published-schema validation and strict round-trip checks cover the empty case; absent maps remain absent and populated character-policy acceptance remains blocking.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbCharacterJsonCompatibilityUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapterUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": {
+      "reason": "Reviewed main/release changes retain schema-bound birthday XML and physical pronoun/gender length guards. Focused tests cover those bounds, date-only birthday construction and serialization, and formatting after a shared formatter caches another timezone; the required provider and supported-client acceptance remains separate.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicBirthDayTimezoneUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicBirthDayPropertyUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/model/DemographicFieldLengthUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "main-release-wire-compatibility"
+      ],
+      "workstreams": [
+        "T08"
       ]
     }
   },

@@ -35,6 +35,34 @@ public class AntenatalReportDao {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    public record PlannerRow(String edb, String patientName, String weight, String height, java.util.Set<String> checked) { }
+
+    // The physical tinyint columns define the legacy checkbox set across installed schemas.
+    // This row read returns only four text fields and checked flags, with both IDs bound.
+    @SuppressWarnings("java:S6905")
+    public PlannerRow findPlanner(int id, int patient) {
+        @SuppressWarnings("unchecked")
+        List<String> flags = entityManager.createNativeQuery("SELECT COLUMN_NAME FROM information_schema.COLUMNS"
+                        + " WHERE TABLE_SCHEMA=SCHEMA() AND TABLE_NAME='formAR' AND DATA_TYPE='tinyint'", String.class).getResultList();
+        // Legacy form installations can store these values as dates, numbers or text.
+        // Keep the driver's getString representation, including scale, whitespace and NULL.
+        return entityManager.unwrap(org.hibernate.Session.class).doReturningWork(connection -> {
+            try (var statement = connection.prepareStatement("SELECT * FROM formAR WHERE ID=? AND demographic_no=?")) {
+                statement.setInt(1, id);
+                statement.setInt(2, patient);
+                try (var row = statement.executeQuery()) {
+                    if (!row.next()) return null;
+                    java.util.Set<String> checked = new java.util.HashSet<>();
+                    for (String flag : flags) {
+                        if (row.getInt(flag) == 1) checked.add(flag);
+                    }
+                    return new PlannerRow(row.getString("c_finalEDB"), row.getString("c_pName"),
+                            row.getString("pg1_wt"), row.getString("pg1_ht"), java.util.Set.copyOf(checked));
+                }
+            }
+        });
+    }
+
     /**
      * Distinct demographic identifiers, retaining JDBC's historical NULL-to-zero integer conversion.
      *

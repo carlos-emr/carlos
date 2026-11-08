@@ -245,7 +245,7 @@ public class RecordUxService extends AbstractServiceImpl {
     @Produces("application/json")
     public List<SummaryTo1> getSummary(@PathParam("demographicNo") Integer demographicNo, @PathParam("summaryName") String summaryName) {
         LoggedInInfo loggedInInfo = getLoggedInInfo(); // LoggedInInfo.loggedInInfo.get();
-        logger.debug("getting summary:" + summaryName + " for demo " + demographicNo + "  loggedInInfo " + loggedInInfo);
+        logger.debug("Getting record summary");
         List<SummaryTo1> summaryList = null;
         int count = 0;
 
@@ -361,7 +361,7 @@ public class RecordUxService extends AbstractServiceImpl {
         Summary summaryInterface = (Summary) SpringUtils.getBean(MY_MAP.get(summaryCode));
         summary = summaryInterface.getSummary(loggedInInfo, demographicNo, summaryCode);
 
-        logger.debug("outgoing summary object:" + summary);
+        logger.debug("Record summary prepared");
         return summary;
     }
 

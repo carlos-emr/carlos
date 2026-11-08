@@ -144,18 +144,6 @@
       "finding": 332,
       "step": "cancelled informed-consent confirmation leaves the banner and stored consent unchanged",
       "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "document-clinical-followup",
-      "finding": 348,
-      "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
-      "check": "echart-forms-list-paging",
-      "finding": 335,
-      "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them",
-      "disposition": "required installed retake; blocks release readiness"
     }
   ],
   "retiredNodeTodos": [
@@ -186,6 +174,12 @@
     }
   ],
   "retiredBrowserExpectations": [
+    {
+      "check": "echart-forms-list-paging",
+      "finding": 335,
+      "step": "Forms heading paginates ten records, Next changes the rows and Previous restores them",
+      "disposition": "Source fix is in #5691 (issue #5684): the Forms list pages across all form types. Manifest pin retired; the check is retained as an active regression. A fresh installed PASS is still required."
+    },
     {
       "check": "rx-save-failure-retry-only-lost",
       "finding": 334,
@@ -227,6 +221,18 @@
       "finding": 217,
       "step": "Add of a one-character name is not answered with a server error",
       "disposition": "Manifest pin retired by the implementation base; retained as an active regression. A fresh installed PASS is still required."
+    },
+    {
+      "check": "document-clinical-followup",
+      "finding": 348,
+      "step": "the forwarded Inbox row displays its exact seeded description and patient identity",
+      "disposition": "Source fix in #5689 for #5685: every Inbox view shows a document's type in its Discipline column, as chosen in clinical review on #5689; the step now asserts the seeded type. Manifest pin retired; retained as an active regression. A fresh installed PASS of the whole check, including its review, comment and acknowledgement steps, is still required."
+    },
+    {
+      "check": "dialog-confirmations-tickler",
+      "finding": 337,
+      "step": "dismissing task Delete confirms once and preserves every task and status history",
+      "disposition": "Source fix in #5687 for #5683: Delete on the patient and main task lists asks for one localized confirmation, and Cancel leaves the selection, tasks and status history unchanged. Manifest pin retired; retained as an active regression. A fresh installed PASS is still required."
     }
   ]
 }

@@ -10,6 +10,10 @@ already migrated the indexed `MSPReconcile` reads and retired `dbExtract` for
 [#5508](https://github.com/carlos-emr/carlos/issues/5508). It does not claim that
 all application SQL has been converted to JPA.
 
+The encounter/eForm/demographic follow-up is recorded in
+[encounter-query-migration.md](encounter-query-migration.md), including the XML
+import transaction boundary and the retained Jasper label compatibility contracts.
+
 ## Completed in this change
 
 | Operation | Previous SQL/resource boundary | Current typed boundary and preserved behavior |

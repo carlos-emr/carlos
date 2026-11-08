@@ -1,5 +1,21 @@
 # CARLOS 2026.08 release notes
 
+## Patient birthday XML compatibility
+
+Patient birthday XML retains the published `xs:dateTime` form, including midnight
+and the application zone's offset. The provider migration briefly emitted only
+the date for this property, which could break existing schema-validating clients.
+The correction applies to patient records and nested appointment/consultation
+responses. Existing date-only input remains accepted; REST JSON is unchanged.
+
+## HCV and MCEDT transport diagnostics
+
+The existing transport logging switches now record fixed request/response events
+and numeric HTTP status instead of SOAP bodies, headers or attachment contents.
+HCV and MCEDT callers enable these diagnostics when their respective
+`hcv.logging.skip` or `mcedt.logging.skip` setting is absent. Transport diagnostics
+leave message and attachment streams for their normal consumers.
+
 ## REST appointment update compatibility
 
 Existing schedule integrations can continue updating appointments without sending
@@ -11,6 +27,19 @@ HTTP 409 if another writer has changed the appointment. Both paths preserve
 transactional archiving and server-managed audit fields. This applies to full appointment updates and the status, type and
 urgency update routes. See the [REST appointment contract](api-collections-index.md#rest-appointment-edit-compatibility-and-conflict-detection)
 and [#5663](https://github.com/carlos-emr/carlos/issues/5663).
+
+## Inbox document types
+
+Document rows in the Inbox now always show the document's type (for example `others`)
+in the Discipline column, so they sort and group the same way in every view. The Inbox
+Hub's first, unfiltered list and its documents-only view, and the legacy Inbox page's
+documents view, previously showed the document's saved description there instead.
+Views that mix labs and documents, the patient and name searches, and the REST inbox
+(`/ws/rs/inbox/mine` and `/ws/services/inbox/mine`, whose document items carry the type
+in `discipline`) already showed the type and are unchanged, except that a document saved
+with no type is now listed with an empty value. Previously such a document ended the
+list, hiding every document after it. See
+[#5685](https://github.com/carlos-emr/carlos/issues/5685).
 
 ## Startup configuration compatibility
 

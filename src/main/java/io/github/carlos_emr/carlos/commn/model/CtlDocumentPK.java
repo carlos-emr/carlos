@@ -33,9 +33,7 @@ import java.io.Serializable;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
+import java.util.Objects;
 
 @Embeddable
 public class CtlDocumentPK implements Serializable {
@@ -89,17 +87,22 @@ public class CtlDocumentPK implements Serializable {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 
     @Override
     public int hashCode() {
-        return HashCodeBuilder.reflectionHashCode(this);
+        return Objects.hash(module, moduleId, documentNo);
     }
 
     @Override
     public boolean equals(Object obj) {
-        return EqualsBuilder.reflectionEquals(this, obj);
+        if (this == obj) return true;
+        if (obj == null || getClass() != obj.getClass()) return false;
+        CtlDocumentPK other = (CtlDocumentPK) obj;
+        return Objects.equals(module, other.module)
+                && Objects.equals(moduleId, other.moduleId)
+                && Objects.equals(documentNo, other.documentNo);
     }
 
 }

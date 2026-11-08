@@ -15,6 +15,18 @@ CRITICAL = {
     "ProviderLabRoutingDaoIntegrationTest": 1,
     "BillingONCHeader1DaoIntegrationTest": 1,
 }
+# Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
+# alone cannot prove archive-failure or demographic-audit regressions executed.
+REQUIRED_CASES = {
+    "Growth0To36FormPersistenceIntegrationTest": {
+        f"{method}(boolean)[{index}]"
+        for method in (
+            "shouldRetainCommittedFormAndLogSafely_whenArchiveReadOrWriteFails",
+            "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp",
+        )
+        for index in (1, 2)
+    },
+}
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
@@ -26,7 +38,8 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                           "ConsultationListProjectionIntegrationTest": 17,
                           "BCAR2020FormSaveTransactionIntegrationTest": 15,
                           "RxCorrectionSaveRollbackIntegrationTest": 2,
-                          "DemographicMergeMariaDbIntegrationTest": 8},
+                          "DemographicMergeMariaDbIntegrationTest": 8,
+                          "Growth0To36FormPersistenceIntegrationTest": 19},
             "flyway": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
                        "LegacyLabNativeMariaDbIntegrationTest": 4, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
@@ -34,16 +47,23 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                        "CaseManagementIssueDAOIntegrationTest": 22,
                        "ConsultationListProjectionIntegrationTest": 17,
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
-                       "DemographicMergeMariaDbIntegrationTest": 8},
+                       "DemographicMergeMariaDbIntegrationTest": 8,
+                       "Growth0To36FormPersistenceIntegrationTest": 19},
             "bc-flyway": {"LabRoutingLookupDaoIntegrationTest": 4,
                            "LegacyLabNativeMariaDbIntegrationTest": 4,
                            "ConsultationArchiveDaoIntegrationTest": 1,
                            "ArchiveAuditTimestampIntegrationTest": 2,
                            "CaseManagementNoteLockMariaDbIntegrationTest": 15,
-                           "BcBillingNativeMariaDbIntegrationTest": 8,
+                           "BcBillingNativeMariaDbIntegrationTest": 10,
+                           "FormXmlImportServiceIntegrationTest": 7,
+                           "EFormApColumnLookupIntegrationTest": 2,
+                           "AppointmentDaySheetServiceIntegrationTest": 4,
+                           "AntenatalReportDaoIntegrationTest": 5,
+                           "EFormGroupDaoIntegrationTest": 9,
                            "BcBillingDaoTransactionIntegrationTest": 4,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
-                           "DemographicMergeMariaDbIntegrationTest": 8}}
+                           "DemographicMergeMariaDbIntegrationTest": 8,
+                           "Growth0To36FormPersistenceIntegrationTest": 19}}
 
 
 def verify(reports: Path, output: Path) -> dict:
@@ -54,6 +74,7 @@ def verify(reports: Path, output: Path) -> dict:
         raise EvidenceError("No MariaDB DAO reports found")
     counts = {mode: dict(tests=0, failures=0, skipped=0) for mode in REQUIRED}
     families = {mode: dict.fromkeys(required, 0) for mode, required in REQUIRED.items()}
+    passed_cases = {mode: {family: set() for family in REQUIRED_CASES} for mode in REQUIRED}
     identities = set()
     collisions = []
     lines = []
@@ -78,6 +99,8 @@ def verify(reports: Path, output: Path) -> dict:
                 counts[mode]["failures" if case.outcome == "failure" else "skipped"] += 1
             if family in families[mode] and case.outcome == "pass":
                 families[mode][family] += 1
+                if family in REQUIRED_CASES and case.classname == suite:
+                    passed_cases[mode][family].add(case.name)
             label = f" [{case.container}]" if case.container else ""
             lines.append(f"{mode} {case.outcome}: {case.classname}{label}::{case.name}")
     summary = {"counts": counts, "families": families, "counterCollisions": collisions}
@@ -92,6 +115,10 @@ def verify(reports: Path, output: Path) -> dict:
         for family, minimum in required.items():
             if families[mode][family] < minimum:
                 raise EvidenceError(f"Required MariaDB {mode} coverage missing: {family}")
+        for family, names in REQUIRED_CASES.items():
+            missing = names - passed_cases[mode][family]
+            if missing:
+                raise EvidenceError(f"Required MariaDB {mode} cases missing: {family}: " + ", ".join(sorted(missing)))
     return summary
 
 

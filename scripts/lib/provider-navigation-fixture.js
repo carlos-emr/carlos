@@ -13,7 +13,10 @@ const DEFAULTS = Object.freeze({
   encounterWindowMaximize: 'no', dashboard_share: 'no',
   prevention_sso_warning: 'false', prevention_ispa_warning: 'false', prevention_non_ispa_warning: 'false',
 });
-const AFFECTED = new Set(['application-health', 'document-upload', 'schedule-links','document-metadata-controls','document-clinical-followup','responsive-hit-test','accessibility-smoke','i18n-locale-walk','dialog-confirmations-tickler','tickler-demo-main-status','tickler-patient-erase','inbox-preview-boundary-resync','waf-clinical-text-corpus','incoming-docs-delete-pdf-mrp','incoming-docs-quick-pick-filing']);
+const AFFECTED = new Set(['application-health', 'document-upload', 'schedule-links','document-metadata-controls','document-clinical-followup','responsive-hit-test','accessibility-smoke','i18n-locale-walk','dialog-confirmations-tickler','tickler-demo-main-status','tickler-patient-erase','inbox-preview-boundary-resync','waf-clinical-text-corpus','incoming-docs-delete-pdf-mrp','incoming-docs-quick-pick-filing',
+  // Inboxhub and document-viewer navigation can persist the default queue on first use.
+  'inboxhub-filters', 'inbox-document-dates', 'xss-poison-documents-inbox',
+  'inbox-file-forward', 'inbox-acknowledge-per-provider', 'document-viewer-review-actions']);
 const quote = name => {
   assert(/^[A-Za-z_][A-Za-z0-9_]*$/.test(name), 'Invalid navigation fixture column');
   return `\`${name}\``;
