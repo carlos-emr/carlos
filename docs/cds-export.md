@@ -32,7 +32,23 @@ replacing existing files. Browser delivery uses POST/CSRF, fixed attachment name
 headers and the same service. Bounded diagnostic reports contain lifecycle metadata only and
 remain available for failed/review jobs. Cleanup retires only its exclusively leased old attempt,
 including crash fragments, without reading keys or traversing native/import/configuration paths.
-These changes passed 117 focused checks and 168 MariaDB-ledger/admission/reporting checks. Their clean packaged/runtime verification is pending.
+These changes passed 117 focused checks and 168 MariaDB-ledger/admission/reporting checks.
+The clean package then passed 748 checks across 46 suites plus full Javadoc. Its exact WAR passed
+67 genuine-chart/artifact assertions, 4 independent recipient-decryption assertions and 11 actual
+retention assertions. Recipient decryption reproduced the exact validated ZIP. Unknown files,
+symlinks and hard links are refused before unlinking; complete and incomplete owned staging
+members are retired without key access. The unqualified publication gate was explicitly refused.
+
+The concrete `CdsExportClinicalJobService` now coordinates binding, selection, cohort sealing,
+clinical packaging, evidence retention, recipient encryption and guarded publication. It uses
+server-owned policy/storage, a direction-specific hash of actual application/source-contract and
+cryptographic dependency bytes, and the explicit clinic zone/rules identity. Active budgets are
+parsed lazily; metadata recovery does not depend on them. Selection's read snapshot uses its
+independent cancellation/lease probe, while ordinary I/O uses the outside-transaction probe.
+An empty selection requires review, runtime changes refuse work, and uncertain publication keeps
+retained files for reconciliation. A returned package cannot substitute for a complete published
+result. Forty-three focused checks passed. A profile adapter remains unregistered until full
+source-catalogue, independent clinical-fact and complete CLI/browser qualification pass.
 
 A complete clinical engine and installed qualification of artifact publication remain unfinished. The separate `carlos-ctl`
 worktree includes its export command adapter and shared import/export process transport;

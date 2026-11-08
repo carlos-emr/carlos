@@ -25,7 +25,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.support;
 public final class CdsExportReviewException extends RuntimeException {
     public enum Reason {
         UNMAPPED_DATA, PREVENTION_PROGRAM_SCOPE, MERGED_PATIENT_SCOPE, SOURCE_CHANGED, AMBIGUOUS_SOURCE, INCOMPLETE_RENDER, MISSING_ATTACHMENT,
-        AUDIT_ACCESS_UNAVAILABLE, RECIPIENT_UNAVAILABLE, RESOURCE_LIMIT, CLINICAL_VALIDATION_FAILED;
+        AUDIT_ACCESS_UNAVAILABLE, RECIPIENT_UNAVAILABLE, RESOURCE_LIMIT, CLINICAL_VALIDATION_FAILED, RUNTIME_CHANGED, NO_PATIENTS_SELECTED;
         public String code() { return "CDS_EXPORT_" + name(); }
     }
     private final Reason reason;

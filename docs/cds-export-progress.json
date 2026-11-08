@@ -41,8 +41,8 @@
     "Complete native-only, merged and unresolved demographic/archive cases and supporting native projections for unrepresented care attributes",
     "Complete native-only history, changed date/author/issue mappings and the prior-revision audit carrier; current imported history now has complete captured context and coordinated occurrence assembly",
     "Complete source catalogue and all selected clinical domain mappings, attachments and merged-chart ownership",
-    "Connect a concrete clinical export engine and independent expected-fact inventory to coverage validation",
-    "Qualify the implemented publication, recipient encryption, diagnostic report, download and retention lifecycle in the exact packaged runtime",
+    "Finish the independent full source catalogue and expected-fact qualification, then register the concrete shared job pipeline as a qualified engine",
+    "Finish successful clinical publication/retrieval and whole-workflow qualification in the exact packaged runtime; the current artifact services have installed component verification",
     "Run end-to-end clinical exports through both CLI and asynchronous browser jobs"
   ],
   "integration": {
@@ -687,7 +687,7 @@
     "clinicalPublication": false
   },
   "artifactLifecycle": {
-    "state": "FOCUSED_VERIFIED_PACKAGED_RUNTIME_PENDING",
+    "state": "PACKAGED_AND_INSTALLED_COMPONENT_VERIFIED",
     "focusedChecks": 117,
     "focusedFailures": 0,
     "focusedErrors": 0,
@@ -712,6 +712,36 @@
     "fullPhysicalContractTables": {
       "on": 463,
       "bc": 496
-    }
+    },
+    "packageHead": "5458d9ff4d68eabb20590c8c0c24269cd9a3d8af",
+    "packageChecks": 748,
+    "packageSuites": 46,
+    "fullJavadocPassed": true,
+    "warSha256": "bff474c0e4d3241d7d8f45bda1925b17b978e31781dfa1a1c5c4338eeeea3fda",
+    "genuineChartAndArtifactAssertions": 67,
+    "independentRecipientDecryptAssertions": 4,
+    "actualRetentionAssertions": 11,
+    "genuineImportAssertions": 9,
+    "privateKeysCopied": false,
+    "clinicalBytesPrinted": false,
+    "unqualifiedPublicationExplicitlyRefused": true
+  },
+  "clinicalJobOrchestration": {
+    "state": "FOCUSED_VERIFIED_PACKAGED_RUNTIME_PENDING",
+    "checks": 43,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "concreteSharedJobPipeline": true,
+    "adapterRegistered": false,
+    "qualifiedProfilesRemainEmpty": true,
+    "runtimeAndSourceContractByteIdentity": true,
+    "semanticZoneIdentity": true,
+    "metadataDoesNotParseActiveSettings": true,
+    "correctSelectionSnapshotControlProbe": true,
+    "emptySelectionRequiresReview": true,
+    "unknownPublicationPreservesOwnedFiles": true,
+    "ambientTransactionsRefusedBeforeWork": true,
+    "publishedResultMustBeCompleteAndMatchLease": true
   }
 }

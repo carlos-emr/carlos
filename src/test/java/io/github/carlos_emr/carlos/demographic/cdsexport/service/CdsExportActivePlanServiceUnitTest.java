@@ -1,0 +1,58 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.*;
+import java.util.Properties;
+import org.junit.jupiter.api.*;
+
+@Tag("unit") @Tag("cds-export")
+class CdsExportActivePlanServiceUnitTest {
+    private Properties settings() { var properties = new Properties(); properties.setProperty("cds.export.clinicalZone", "America/Toronto"); return properties; }
+    @Test void shouldResolveFiniteBudgetsAndTheExactClinicZone_fromServerOwnedSettings() throws Exception {
+        var plan = new CdsExportActivePlanService(settings(), () -> "2026.09.0-test").resolve();
+        assertThat(plan.clinicalZone().getId()).isEqualTo("America/Toronto"); assertThat(plan.archive().patients()).isEqualTo(100_000);
+        assertThat(plan.source().nativeRows()).isEqualTo(8192); assertThat(plan.ciphertextBytes()).isEqualTo(128L << 30); assertThat(plan.retentionSeconds()).isEqualTo(604800);
+        assertThat(plan.zoneSha256()).matches("[0-9a-f]{64}");
+    }
+    @Test void shouldDeferActiveConfigurationParsing_untilClinicalWorkActuallyRequiresIt() {
+        var settings = settings(); settings.setProperty("cds.export.maxCapturedBytes", "invalid");
+        var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");
+        assertThatThrownBy(service::resolve).hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
+    }
+    @Test void shouldRefuseAnUnboundedOrOverflowingBudget_insteadOfClampingIt() {
+        for (String value : new String[] {"0", "-1", "2000001", "999999999999999999999", "1.5"}) {
+            var settings = settings(); settings.setProperty("cds.export.maxPatients", value);
+            assertThatThrownBy(() -> new CdsExportActivePlanService(settings, () -> "2026.09.0-test").resolve()).hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
+        }
+    }
+    @Test void shouldRefuseAMissingOrUnfilteredBuildIdentity_insteadOfInventingOne() {
+        for (String version : new String[] {"", "${project.version}", "version\nINJECTED"}) assertThatThrownBy(() -> new CdsExportActivePlanService(settings(), () -> version).resolve()).hasMessage("CDS_EXPORT_BUILD_VERSION_UNAVAILABLE");
+    }
+    @Test void shouldRefuseAMissingExplicitClinicZone_withoutAdoptingTheJvmDefault() {
+        assertThatThrownBy(() -> new CdsExportActivePlanService(new Properties(), () -> "2026.09.0-test").resolve()).hasMessage("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
+    }
+    @Test void shouldFreezeTheProvidedConfiguration_withoutFollowingLaterCallerMutation() throws Exception {
+        var settings = settings(); var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test"); settings.setProperty("cds.export.maxPatients", "0");
+        assertThat(service.resolve().archive().patients()).isEqualTo(100_000);
+    }
+}
