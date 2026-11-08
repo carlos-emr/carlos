@@ -128,7 +128,8 @@
 - Tomcat 11 supplies Servlet 6.1, Pages 4.0, Expression Language 6.0 and Annotations 3.0 and
   always loads those packages from its own `lib/`, so `pom.xml` keeps them `provided`, even when a
   library asks for one at compile scope (#5416: EL 5.0.1 shipped beside Tomcat's EL 6.0). JSTL is
-  the exception: Tomcat has none, so its API and the Glassfish implementation stay `compile`.
+  the exception: Tomcat has none, so the directly declared `jakarta.servlet.jsp.jstl-api`
+  and Glassfish implementation stay `compile`.
 - `ContainerApiPackagingUnitTest` (dependency graph) and `scripts/check-war-container-apis.py`
   (the built WAR, run by `debian/rules`) enforce this from
   `scripts/fixtures/tomcat-container-packages.json`. The `jspc` profile compiles with Tomcat 11's
