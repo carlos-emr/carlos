@@ -80,6 +80,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class PatientEndYearStatementService {
+    private static final org.apache.logging.log4j.Logger LOG =
+            org.apache.logging.log4j.LogManager.getLogger(PatientEndYearStatementService.class);
 
     // These are bundled classpath resources, not configurable external filesystem locations.
     @SuppressWarnings("java:S1075")
@@ -171,6 +173,9 @@ public class PatientEndYearStatementService {
                 BigDecimal paid = header.paid();
                 BigDecimal invoiced = header.total();
                 if (invoiced == null || paid == null) {
+                    LOG.error("Incomplete statement invoice amounts: invoiceId={}, missingTotal={}, missingPaid={}",
+                            io.github.carlos_emr.carlos.utility.LogSafe.sanitize(String.valueOf(header.id())),
+                            invoiced == null, paid == null);
                     throw new IllegalStateException("Statement invoice has an incomplete amount");
                 }
 

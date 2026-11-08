@@ -76,7 +76,7 @@ public class printLabDaySheet2Action extends ActionSupport {
             else logger.warn("Invalid xmlStyle parameter rejected: {}", LogSafe.sanitize(requested));
         }
         try {
-            reportService.writePdf(response, request.getParameter("input_date"), style.filename());
+            reportService.writePdf(response, request.getParameter("input_date"), style);
         } catch (io.github.carlos_emr.carlos.report.FixedDaySheetReportService.InvalidDateException _) {
             sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (Exception ex) {

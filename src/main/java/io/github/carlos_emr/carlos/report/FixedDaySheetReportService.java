@@ -36,9 +36,6 @@ public class FixedDaySheetReportService {
         private final String path;
         Style(String filename, String path) { this.filename = filename; this.path = path; }
 
-        /** @return String trusted filename passed to the report service */
-        public String filename() { return filename; }
-
         /**
          * @param filename String requested template basename
          * @return Style matching the exact allowlisted name, or null if rejected
@@ -58,14 +55,14 @@ public class FixedDaySheetReportService {
      *
      * @param response HttpServletResponse receiving the validated PDF or no-content status
      * @param date String strict ISO appointment date for bundled reports; overrides retain null compatibility
-     * @param style String allowlisted bundled template filename
+     * @param style Style trusted bundled template selection
      * @throws InvalidDateException if a bundled-report date is blank or malformed
      * @throws IOException if template access, export, response I/O, or cleanup fails
      * @throws JRException if Jasper compilation or filling fails
      * @throws SQLException if the configured override query fails
      * @throws SecurityException if the configured override is not a permitted regular file
      */
-    public void writePdf(HttpServletResponse response, String date, String style) throws IOException, JRException, SQLException {
+    public void writePdf(HttpServletResponse response, String date, Style style) throws IOException, JRException, SQLException {
         // Keep the historical configured override and its SQL on the managed JDBC boundary.
         File override = PathValidationUtils.resolveConfiguredFile(
                 new File(System.getProperty("user.home"), "Addresslabel.xml").getPath(), "day sheet override");
@@ -79,13 +76,11 @@ public class FixedDaySheetReportService {
             }
         } else {
             if (date == null || date.isBlank()) throw new InvalidDateException();
-            Style selectedStyle = Style.find(style);
-            if (selectedStyle == null) throw new IllegalArgumentException("Unsupported day sheet template");
             LocalDate selected;
             try { selected = LocalDate.parse(date); }
             catch (java.time.DateTimeException | IllegalArgumentException _) { throw new InvalidDateException(); }
             var rows = reports.daySheet(selected);
-            try (InputStream input = getClass().getResourceAsStream(selectedStyle.path)) {
+            try (InputStream input = getClass().getResourceAsStream(style.path)) {
                 if (input == null) throw new IOException("Missing day sheet template");
                 print = JasperFillManager.fillReport(JasperCompileManager.compileReport(input),
                         new java.util.HashMap<>(Map.<String, Object>of("input_date", date)), FixedJasperDataSources.daySheet(rows));

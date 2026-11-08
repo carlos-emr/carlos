@@ -24,7 +24,7 @@ class FixedDaySheetReportServiceUnitTest {
             var reports = mock(FixedJasperReportDao.class);
             when(reports.daySheet(java.time.LocalDate.parse("2025-01-01"))).thenReturn(java.util.List.of());
             var response = new MockHttpServletResponse();
-            new FixedDaySheetReportService(reports).writePdf(response, "2025-01-01", "labDaySheet.xml");
+            new FixedDaySheetReportService(reports).writePdf(response, "2025-01-01", FixedDaySheetReportService.Style.LAB);
             assertThat(response.getStatus()).isEqualTo(204);
             assertThat(response.getContentType()).isNull();
             assertThat(response.getContentAsByteArray()).isEmpty();
@@ -40,7 +40,7 @@ class FixedDaySheetReportServiceUnitTest {
             when(reports.daySheet(any())).thenThrow(new IllegalStateException("synthetic query failure"));
             var response = new MockHttpServletResponse();
             var service = new FixedDaySheetReportService(reports);
-            assertThatThrownBy(() -> service.writePdf(response, "2025-01-01", "labDaySheet.xml"))
+            assertThatThrownBy(() -> service.writePdf(response, "2025-01-01", FixedDaySheetReportService.Style.LAB))
                     .isInstanceOf(IllegalStateException.class);
             assertThat(response.getContentType()).isNull();
             assertThat(response.getContentAsByteArray()).isEmpty();
@@ -65,7 +65,7 @@ class FixedDaySheetReportServiceUnitTest {
             jdbc.when(io.github.carlos_emr.carlos.db.LegacyJdbcQuery::getConnection).thenReturn(connection);
             var reports = mock(FixedJasperReportDao.class);
             var response = new MockHttpServletResponse();
-            new FixedDaySheetReportService(reports).writePdf(response, null, "labDaySheet.xml");
+            new FixedDaySheetReportService(reports).writePdf(response, null, FixedDaySheetReportService.Style.LAB);
             assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store, no-cache, must-revalidate");
             assertThat(response.getHeader("Pragma")).isEqualTo("no-cache");
             assertThat(connection.isClosed()).isTrue();
@@ -88,7 +88,7 @@ class FixedDaySheetReportServiceUnitTest {
             System.setProperty("user.home", directory.toString());
             var reports = mock(FixedJasperReportDao.class);
             var response = new MockHttpServletResponse();
-            assertThatThrownBy(() -> new FixedDaySheetReportService(reports).writePdf(response, date, "labDaySheet.xml"))
+            assertThatThrownBy(() -> new FixedDaySheetReportService(reports).writePdf(response, date, FixedDaySheetReportService.Style.LAB))
                     .isInstanceOf(FixedDaySheetReportService.InvalidDateException.class);
             verifyNoInteractions(reports);
             assertThat(response.getContentAsByteArray()).isEmpty();
@@ -104,7 +104,7 @@ class FixedDaySheetReportServiceUnitTest {
             java.nio.file.Files.createDirectory(directory.resolve("Addresslabel.xml"));
             var reports = mock(FixedJasperReportDao.class);
             var response = new MockHttpServletResponse();
-            assertThatThrownBy(() -> new FixedDaySheetReportService(reports).writePdf(response, "2025-01-01", "labDaySheet.xml"))
+            assertThatThrownBy(() -> new FixedDaySheetReportService(reports).writePdf(response, "2025-01-01", FixedDaySheetReportService.Style.LAB))
                     .isInstanceOf(SecurityException.class);
             verifyNoInteractions(reports);
             assertThat(response.getContentAsByteArray()).isEmpty();

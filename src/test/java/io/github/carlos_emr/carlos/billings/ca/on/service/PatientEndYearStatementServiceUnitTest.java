@@ -145,20 +145,29 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({"true,false", "false,true", "true,true"})
+    @org.junit.jupiter.api.parallel.ResourceLock("PatientEndYearStatementService.logging")
     void shouldRejectIncompleteAmounts_withoutReturningFabricatedTotals(boolean missingTotal, boolean missingPaid) {
         var dao = mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class);
         var service = new PatientEndYearStatementService(dao, mock(DemographicManager.class));
         var patient = new Demographic(); patient.setDemographicNo(123);
+        patient.setFirstName("SensitiveGivenName"); patient.setLastName("SensitiveFamilyName");
+        patient.setHin("SensitiveSyntheticHin");
         var row = new io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.InvoiceRow(101,
                 java.sql.Date.valueOf("2025-01-01"), missingTotal ? null : BigDecimal.TEN,
                 missingPaid ? null : BigDecimal.ZERO, List.of());
         when(dao.statement(123, null, null)).thenReturn(List.of(row));
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.aggregateInvoices(patient, null, null))
-                .isInstanceOfSatisfying(PatientEndYearStatementService.Failure.class, failure -> {
-                    assertThat(failure.reason()).isEqualTo(PatientEndYearStatementService.Reason.DATABASE_ERROR);
-                    assertThat(failure.getCause()).isInstanceOf(IllegalStateException.class)
-                            .hasMessage("Statement invoice has an incomplete amount");
-                });
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PatientEndYearStatementService.class)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.aggregateInvoices(patient, null, null))
+                    .isInstanceOfSatisfying(PatientEndYearStatementService.Failure.class, failure -> {
+                        assertThat(failure.reason()).isEqualTo(PatientEndYearStatementService.Reason.DATABASE_ERROR);
+                        assertThat(failure.getCause()).isInstanceOf(IllegalStateException.class)
+                                .hasMessage("Statement invoice has an incomplete amount");
+                    });
+            assertThat(logs.messages()).singleElement().asString()
+                    .contains("invoiceId=101", "missingTotal=" + missingTotal, "missingPaid=" + missingPaid)
+                    .doesNotContain("SensitiveGivenName", "SensitiveFamilyName", "SensitiveSyntheticHin");
+            assertThat(logs.events().getFirst().getThrown()).isNull();
+        }
     }
 
     @Test

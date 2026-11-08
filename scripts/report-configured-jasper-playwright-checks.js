@@ -7,6 +7,6 @@ const { overrideWorkflow, preflight } = require('./report-fixed-jasper-playwrigh
 if (require.main === module) runWorkflow('report-configured-jasper', overrideWorkflow, {
   openPatient: false,
   openMaster: false,
-  preflight: () => preflight('override'),
+  preflightConfig: () => preflight('override'),
 });
 module.exports = { workflow: overrideWorkflow };

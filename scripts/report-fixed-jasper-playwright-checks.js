@@ -6,16 +6,21 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
+const { requirePoppler } = require('./lib/export-content-helpers');
 
-function preflight(mode = 'bundled') {
-  execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 });
-  const home = process.env.CARLOS_REPORT_SERVER_HOME;
-  h.assert(home && fs.statSync(home).isDirectory(),
+function preflight(mode = 'bundled', env = process.env) {
+  requirePoppler('pdftotext');
+  const home = env.CARLOS_REPORT_SERVER_HOME;
+  if (!home) throw new h.SkipCheck(
     'Set CARLOS_REPORT_SERVER_HOME to the running server user.home directory (mounted locally if remote)');
+  h.assert(fs.statSync(home, { throwIfNoEntry: false })?.isDirectory(),
+    'CARLOS_REPORT_SERVER_HOME must identify an accessible server user.home directory');
   const override = path.join(home, 'Addresslabel.xml');
   if (mode === 'override') {
-    h.assert(fs.statSync(override).isFile(), 'Override qualification requires an installed Addresslabel.xml');
-    h.assert(process.env.CARLOS_FIXED_JASPER_OVERRIDE_TEXT?.trim(),
+    const entry = fs.statSync(override, { throwIfNoEntry: false });
+    if (!entry) throw new h.SkipCheck('Override qualification requires an installed Addresslabel.xml');
+    h.assert(entry.isFile(), 'Override qualification requires Addresslabel.xml to be a regular file');
+    if (!env.CARLOS_FIXED_JASPER_OVERRIDE_TEXT?.trim()) throw new h.SkipCheck(
       'Set CARLOS_FIXED_JASPER_OVERRIDE_TEXT to the installed override output marker');
   } else {
     h.assert(!fs.existsSync(override),
@@ -90,6 +95,6 @@ async function workflow(s) {
 }
 if (require.main === module) runWorkflow('report-fixed-jasper', workflow, {
   openMaster: false,
-  preflight: () => preflight(),
+  preflightConfig: () => preflight(),
 });
 module.exports = { workflow, overrideWorkflow, preflight };

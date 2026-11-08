@@ -3109,7 +3109,8 @@
       "packaged": true,
       "requiresEnvironment": [
         "BASE_URL",
-        "MYSQL_HOST"
+        "MYSQL_HOST",
+        "CARLOS_REPORT_SERVER_HOME"
       ],
       "timeoutSeconds": 43200,
       "runtimeConstraints": {

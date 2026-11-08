@@ -86,7 +86,7 @@ class PrintFixedDaySheetActionUnitTest extends CarlosUnitTestBase {
                 verifyNoInteractions(service);
             } else {
                 assertThat(action.execute()).isEqualTo("none");
-                verify(service).writePdf(response, "2025-01-01", "labDaySheet.xml");
+                verify(service).writePdf(response, "2025-01-01", FixedDaySheetReportService.Style.LAB);
                 assertThat(response.getStatus()).isEqualTo(fails ? 500 : 200);
                 if (fails) {
                     assertThat(response.getContentAsByteArray()).isEmpty();

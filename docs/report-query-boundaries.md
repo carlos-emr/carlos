@@ -104,6 +104,13 @@ Override checks do not satisfy bundled-template qualification; remove the owned
 override and run the bundled check separately. The check never replaces or removes
 administrator configuration.
 
+Environment prerequisites run before SQL setup. Missing server-home, override
+fixture/marker or Poppler prerequisites produce SKIP in ordinary runs; strict
+release qualification rejects skipped checks. Invalid configured paths and a
+conflicting override in bundled mode fail with explicit guidance. The
+`packaged-full` lane declares the server-home requirement, and installed lifecycle
+clients supply the standard `/var/lib/carlos-emr` home automatically.
+
 Test-only baseline templates in `src/test/resources/jasper-5692-baseline/` are copied
 from release commit `e0601ced004c38040e6ef293e4b3f24fc43826d3` (trailing whitespace normalized) solely for synthetic
 JDBC-versus-typed rendered-output comparisons; they are not packaged in the WAR.
