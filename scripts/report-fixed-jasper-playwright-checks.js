@@ -7,6 +7,49 @@ const { execFileSync } = require('node:child_process');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
+function preflight(mode = 'bundled') {
+  execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 });
+  const home = process.env.CARLOS_REPORT_SERVER_HOME;
+  h.assert(home && fs.statSync(home).isDirectory(),
+    'Set CARLOS_REPORT_SERVER_HOME to the running server user.home directory (mounted locally if remote)');
+  const override = path.join(home, 'Addresslabel.xml');
+  if (mode === 'override') {
+    h.assert(fs.statSync(override).isFile(), 'Override qualification requires an installed Addresslabel.xml');
+    h.assert(process.env.CARLOS_FIXED_JASPER_OVERRIDE_TEXT?.trim(),
+      'Set CARLOS_FIXED_JASPER_OVERRIDE_TEXT to the installed override output marker');
+  } else {
+    h.assert(!fs.existsSync(override),
+      'Bundled template qualification requires no Addresslabel.xml; qualify configured output in override mode');
+  }
+}
+
+function assertPdf(response, bytes, expectedText) {
+  h.assert(response.status() === 200, `Jasper report returned HTTP ${response.status()}`);
+  h.assert((response.headers()['content-type'] || '').startsWith('application/pdf'), 'Jasper content type is not PDF');
+  h.assert((response.headers()['cache-control'] || '').split(',').map(v => v.trim()).includes('no-store'),
+    'Jasper PDF permits storage in caches');
+  h.assert(bytes.subarray(0, 5).toString('ascii') === '%PDF-', 'Jasper report has no PDF signature');
+  h.assert(/%%EOF\s*$/.test(bytes.subarray(-64).toString('ascii')), 'Jasper PDF has trailing or incomplete output');
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-fixed-jasper-'));
+  try {
+    const file = path.join(directory, 'report.pdf');
+    fs.writeFileSync(file, bytes, { mode: 0o600 });
+    const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', timeout: 15000 });
+    h.assert(text.includes(expectedText), 'Jasper PDF omitted the expected template output');
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+}
+
+async function overrideWorkflow(s) {
+  for (const style of ['labDaySheet.xml', 'billDaySheet.xml']) {
+    await s.step(`configured override takes precedence over ${style} with a missing date`, async () => {
+      const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
+        `/report/printLabDaySheetAction?xmlStyle=${style}`));
+      try { assertPdf(response, await response.body(), process.env.CARLOS_FIXED_JASPER_OVERRIDE_TEXT); }
+      finally { await response.dispose(); }
+    });
+  }
+}
+
 async function workflow(s) {
   const q = h.sqlString;
   const date = '2091-02-28';
@@ -28,19 +71,8 @@ async function workflow(s) {
     await s.step(`${style} downloads the owned appointment through the fixed PDF route`, async () => {
       const response = await s.context.request.get(h.appUrl(s.config.baseUrl,
         `/report/printLabDaySheetAction?input_date=${date}&xmlStyle=${style}`));
-      h.assert(response.status() === 200, `Jasper report returned HTTP ${response.status()}`);
-      h.assert((response.headers()['content-type'] || '').startsWith('application/pdf'), 'Jasper content type is not PDF');
-      const bytes = await response.body();
-      h.assert(bytes.subarray(0, 5).toString('ascii') === '%PDF-', 'Jasper report has no PDF signature');
-      h.assert(/%%EOF\s*$/.test(bytes.subarray(-64).toString('ascii')), 'Jasper PDF has trailing or incomplete output');
-      const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-fixed-jasper-'));
-      try {
-        const file = path.join(directory, 'report.pdf');
-        fs.writeFileSync(file, bytes, { mode: 0o600 });
-        const text = execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8', timeout: 15000 });
-        h.assert(text.includes(s.marker), 'Jasper PDF omitted the owned appointment');
-      } finally { fs.rmSync(directory, { recursive: true, force: true }); }
-      await response.dispose();
+      try { assertPdf(response, await response.body(), s.marker); }
+      finally { await response.dispose(); }
     });
   }
   await s.step('no appointments returns explicit no-content and malformed dates return an error', async () => {
@@ -58,6 +90,6 @@ async function workflow(s) {
 }
 if (require.main === module) runWorkflow('report-fixed-jasper', workflow, {
   openMaster: false,
-  preflight() { execFileSync('pdftotext', ['-v'], { stdio: 'pipe', timeout: 5000 }); },
+  preflight: () => preflight(),
 });
-module.exports = { workflow };
+module.exports = { workflow, overrideWorkflow, preflight };

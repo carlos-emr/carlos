@@ -204,6 +204,8 @@ class PatientEndYearStatementIntegrationTest extends CarlosTestBase {
         assertThat(response.getContentType()).isEqualTo("application/pdf");
         assertThat(response.getContentLength()).isEqualTo(bytes.length);
         assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment;filename=statement.pdf");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store, no-cache, must-revalidate");
+        assertThat(response.getHeader("Pragma")).isEqualTo("no-cache");
         assertThat(new String(bytes, 0, 5, java.nio.charset.StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
         try (var document = Loader.loadPDF(bytes)) {
             assertThat(document.getNumberOfPages()).isPositive();

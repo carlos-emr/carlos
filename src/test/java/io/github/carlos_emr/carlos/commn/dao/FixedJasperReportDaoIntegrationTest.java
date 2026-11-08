@@ -17,7 +17,9 @@ import net.sf.jasperreports.engine.JasperFillManager;
 import net.sf.jasperreports.engine.JasperExportManager;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Compares detached day-sheet projections with the JDBC templates in jasper-5692-baseline. */
 @Tag("integration")
+@Tag("dao")
 @Tag("mariadb-native")
 class FixedJasperReportDaoIntegrationTest extends CarlosTestBase {
     @Autowired private FixedJasperReportDao reports;
@@ -30,7 +32,7 @@ class FixedJasperReportDaoIntegrationTest extends CarlosTestBase {
         appointment("5692-other-day", "A", "2025-03-02");
         entityManager.flush();
         entityManager.clear();
-        var rows = reports.daySheet(Date.valueOf("2025-03-01"));
+        var rows = reports.daySheet(java.time.LocalDate.parse("2025-03-01"));
         assertThat(rows).extracting(FixedJasperReportDao.DaySheetRow::appointmentNo)
                 .containsExactlyInAnyOrder(first.getId(), cancelled.getId());
         assertThat(rows.getFirst().startTime()).isInstanceOf(Time.class);
@@ -56,7 +58,7 @@ class FixedJasperReportDaoIntegrationTest extends CarlosTestBase {
     @Test
     @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
     void shouldKeepNoPages_forAnEmptyDay() throws Exception {
-        var rows = reports.daySheet(Date.valueOf("1901-01-01"));
+        var rows = reports.daySheet(java.time.LocalDate.parse("1901-01-01"));
         assertThat(rows).isEmpty();
         try (var template = getClass().getResourceAsStream("/oscar/oscarReport/pageUtil/labDaySheet.xml")) {
             var print = JasperFillManager.fillReport(JasperCompileManager.compileReport(template),

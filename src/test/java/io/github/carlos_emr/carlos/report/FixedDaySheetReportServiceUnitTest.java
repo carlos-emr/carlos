@@ -22,7 +22,7 @@ class FixedDaySheetReportServiceUnitTest {
         try {
             System.setProperty("user.home", directory.toString());
             var reports = mock(FixedJasperReportDao.class);
-            when(reports.daySheet(java.sql.Date.valueOf("2025-01-01"))).thenReturn(java.util.List.of());
+            when(reports.daySheet(java.time.LocalDate.parse("2025-01-01"))).thenReturn(java.util.List.of());
             var response = new MockHttpServletResponse();
             new FixedDaySheetReportService(reports).writePdf(response, "2025-01-01", "labDaySheet.xml");
             assertThat(response.getStatus()).isEqualTo(204);
@@ -66,6 +66,8 @@ class FixedDaySheetReportServiceUnitTest {
             var reports = mock(FixedJasperReportDao.class);
             var response = new MockHttpServletResponse();
             new FixedDaySheetReportService(reports).writePdf(response, null, "labDaySheet.xml");
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store, no-cache, must-revalidate");
+            assertThat(response.getHeader("Pragma")).isEqualTo("no-cache");
             assertThat(connection.isClosed()).isTrue();
             verifyNoInteractions(reports);
             try (var pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
@@ -77,4 +79,36 @@ class FixedDaySheetReportServiceUnitTest {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"2025-02-31", "2025-3-1", "garbage"})
+    void shouldRejectMalformedBundledDates_beforeQuerying(String date) {
+        String previous = System.getProperty("user.home");
+        try {
+            System.setProperty("user.home", directory.toString());
+            var reports = mock(FixedJasperReportDao.class);
+            var response = new MockHttpServletResponse();
+            assertThatThrownBy(() -> new FixedDaySheetReportService(reports).writePdf(response, date, "labDaySheet.xml"))
+                    .isInstanceOf(FixedDaySheetReportService.InvalidDateException.class);
+            verifyNoInteractions(reports);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(response.getContentType()).isNull();
+        } finally { System.setProperty("user.home", previous); }
+    }
+
+    @Test
+    void shouldRejectANonFileOverride_withoutFallingBackToBundledData() throws Exception {
+        String previous = System.getProperty("user.home");
+        try {
+            System.setProperty("user.home", directory.toString());
+            java.nio.file.Files.createDirectory(directory.resolve("Addresslabel.xml"));
+            var reports = mock(FixedJasperReportDao.class);
+            var response = new MockHttpServletResponse();
+            assertThatThrownBy(() -> new FixedDaySheetReportService(reports).writePdf(response, "2025-01-01", "labDaySheet.xml"))
+                    .isInstanceOf(SecurityException.class);
+            verifyNoInteractions(reports);
+            assertThat(response.getContentAsByteArray()).isEmpty();
+            assertThat(response.getContentType()).isNull();
+        } finally { System.setProperty("user.home", previous); }
+    }
 }

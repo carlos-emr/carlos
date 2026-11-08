@@ -28,10 +28,6 @@
 
 package io.github.carlos_emr.carlos.report.pageUtil;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -45,31 +41,23 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.report.FixedDaySheetReportService;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
 public class printLabDaySheet2Action extends ActionSupport {
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    private final SecurityInfoManager securityInfoManager;
+    private final FixedDaySheetReportService reportService;
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger logger = MiscUtils.getLogger();
 
-    // Allowlist of permitted XML style filenames mapped to their exact classpath resource names.
-    // Using a Map (key=user input, value=trusted constant) ensures the value used for resource
-    // loading is never derived from user input, which breaks CodeQL's taint chain.
-    // Keys and values are intentionally identical; the Map lookup is what matters for security.
-    private static final Map<String, String> ALLOWED_XML_STYLE_FILES;
-    static {
-        Map<String, String> m = new HashMap<>();
-        m.put("labDaySheet.xml", "labDaySheet.xml");
-        m.put("billDaySheet.xml", "billDaySheet.xml");
-        ALLOWED_XML_STYLE_FILES = Collections.unmodifiableMap(m);
-    }
-
-    public printLabDaySheet2Action() {
+    public printLabDaySheet2Action(SecurityInfoManager securityInfoManager, FixedDaySheetReportService reportService) {
+        this.securityInfoManager = securityInfoManager;
+        this.reportService = reportService;
     }
 
     @Override
@@ -80,15 +68,15 @@ public class printLabDaySheet2Action extends ActionSupport {
         }
 
 
-        String style = "labDaySheet.xml";
+        var style = FixedDaySheetReportService.Style.LAB;
         String requested = request.getParameter("xmlStyle");
         if (requested != null && !requested.isEmpty()) {
-            String resolved = ALLOWED_XML_STYLE_FILES.get(FilenameUtils.getName(requested));
+            var resolved = FixedDaySheetReportService.Style.find(FilenameUtils.getName(requested));
             if (resolved != null) style = resolved;
+            else logger.warn("Invalid xmlStyle parameter rejected: {}", LogSafe.sanitize(requested));
         }
         try {
-            SpringUtils.getBean(io.github.carlos_emr.carlos.report.FixedDaySheetReportService.class)
-                    .writePdf(response, request.getParameter("input_date"), style);
+            reportService.writePdf(response, request.getParameter("input_date"), style.filename());
         } catch (io.github.carlos_emr.carlos.report.FixedDaySheetReportService.InvalidDateException _) {
             sendError(HttpServletResponse.SC_BAD_REQUEST);
         } catch (Exception ex) {
@@ -103,6 +91,7 @@ public class printLabDaySheet2Action extends ActionSupport {
 
     }
 
+    /** Leaves an already committed response unchanged. */
     private void sendError(int status) {
         if (!response.isCommitted()) {
             response.reset();

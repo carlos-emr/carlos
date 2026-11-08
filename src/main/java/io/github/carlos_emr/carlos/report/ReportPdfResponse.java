@@ -8,12 +8,40 @@ import java.nio.file.Files;
 import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 
-/** Render completely to an owner-only temporary file before committing a PDF response. */
+/**
+ * Renders to an owner-only temporary file, validates the PDF signature and trailer,
+ * then streams the complete document with headers that prohibit caching.
+ * Temporary files are deleted on normal and exceptional exits.
+ */
 public final class ReportPdfResponse {
     private ReportPdfResponse() { }
-    @FunctionalInterface
-    public interface Renderer { void render(OutputStream output) throws IOException; }
 
+    /** Writes the complete PDF, propagating generation and output failures. */
+    @FunctionalInterface
+    public interface Renderer {
+        /**
+         * @param output OutputStream owned and closed by the response helper
+         * @throws IOException if rendering or writing fails
+         */
+        void render(OutputStream output) throws IOException;
+    }
+
+    /** Invalid renderer output, distinct from filesystem and servlet I/O failures. */
+    public static final class InvalidPdfException extends IOException {
+        private static final long serialVersionUID = 1L;
+        private InvalidPdfException(String message) { super(message); }
+    }
+
+    /**
+     * Sets download headers only after the renderer produces a PDF with a
+     * {@code %PDF-} signature and {@code %%EOF} trailer.
+     *
+     * @param response HttpServletResponse receiving the complete PDF
+     * @param disposition String trusted Content-Disposition header value
+     * @param renderer Renderer producing the document into an owned temporary file
+     * @throws InvalidPdfException if the rendered signature or trailer is invalid
+     * @throws IOException if rendering, validation I/O, streaming, or cleanup fails
+     */
     public static void write(HttpServletResponse response, String disposition, Renderer renderer) throws IOException {
         try (TemporaryPdf temp = new TemporaryPdf()) {
             try (OutputStream output = Files.newOutputStream(temp.path)) {
@@ -21,7 +49,7 @@ public final class ReportPdfResponse {
             }
             try (var input = Files.newInputStream(temp.path)) {
                 if (!"%PDF-".equals(new String(input.readNBytes(5), StandardCharsets.US_ASCII))) {
-                    throw new IOException("Report renderer returned invalid PDF data");
+                    throw new InvalidPdfException("Report renderer returned invalid PDF data");
                 }
             }
             try (var channel = java.nio.channels.FileChannel.open(temp.path, java.nio.file.StandardOpenOption.READ)) {
@@ -30,12 +58,13 @@ public final class ReportPdfResponse {
                 channel.position(channel.size() - length);
                 while (tail.hasRemaining() && channel.read(tail) >= 0) { /* read the bounded trailer */ }
                 if (!new String(tail.array(), StandardCharsets.US_ASCII).matches("(?s).*%%EOF\\s*")) {
-                    throw new IOException("Report renderer returned incomplete PDF data");
+                    throw new InvalidPdfException("Report renderer returned incomplete PDF data");
                 }
             }
             response.setContentType("application/pdf");
             response.setHeader("Content-Disposition", disposition);
-            response.setHeader("Cache-Control", "max-age=0");
+            response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            response.setHeader("Pragma", "no-cache");
             response.setDateHeader("Expires", 0);
             response.setContentLengthLong(Files.size(temp.path));
             try (var input = Files.newInputStream(temp.path)) {

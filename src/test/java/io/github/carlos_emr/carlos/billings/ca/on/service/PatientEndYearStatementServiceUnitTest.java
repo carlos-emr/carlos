@@ -64,6 +64,8 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
         }
         org.mockito.Mockito.verifyNoMoreInteractions(dao);
         assertThat(response.getContentType()).isEqualTo("application/pdf");
+        assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store, no-cache, must-revalidate");
+        assertThat(response.getHeader("Pragma")).isEqualTo("no-cache");
         try (var pdf = org.apache.pdfbox.Loader.loadPDF(response.getContentAsByteArray())) {
             assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf))
                     .contains("A001A", "30.00", "-5.00");
@@ -110,7 +112,8 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
                         throw new net.sf.jasperreports.engine.JRException("Synthetic export failure");
                     });
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", result, null, null))
-                    .isInstanceOf(PatientEndYearStatementService.Failure.class);
+                    .isInstanceOfSatisfying(PatientEndYearStatementService.Failure.class,
+                            failure -> assertThat(failure.reason()).isEqualTo(PatientEndYearStatementService.Reason.PDF_ERROR));
         }
         assertThat(response.getContentAsByteArray()).isEmpty();
         assertThat(response.getContentType()).isNull();
@@ -133,10 +136,50 @@ class PatientEndYearStatementServiceUnitTest extends io.github.carlos_emr.carlos
                         return null;
                     });
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", result, null, null))
-                    .isInstanceOf(PatientEndYearStatementService.Failure.class);
+                    .isInstanceOfSatisfying(PatientEndYearStatementService.Failure.class,
+                            failure -> assertThat(failure.reason()).isEqualTo(PatientEndYearStatementService.Reason.PDF_ERROR));
         }
         assertThat(response.getContentAsByteArray()).isEmpty();
         assertThat(response.getContentType()).isNull();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"true,false", "false,true", "true,true"})
+    void shouldRejectIncompleteAmounts_withoutReturningFabricatedTotals(boolean missingTotal, boolean missingPaid) {
+        var dao = mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class);
+        var service = new PatientEndYearStatementService(dao, mock(DemographicManager.class));
+        var patient = new Demographic(); patient.setDemographicNo(123);
+        var row = new io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.InvoiceRow(101,
+                java.sql.Date.valueOf("2025-01-01"), missingTotal ? null : BigDecimal.TEN,
+                missingPaid ? null : BigDecimal.ZERO, List.of());
+        when(dao.statement(123, null, null)).thenReturn(List.of(row));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.aggregateInvoices(patient, null, null))
+                .isInstanceOfSatisfying(PatientEndYearStatementService.Failure.class, failure -> {
+                    assertThat(failure.reason()).isEqualTo(PatientEndYearStatementService.Reason.DATABASE_ERROR);
+                    assertThat(failure.getCause()).isInstanceOf(IllegalStateException.class)
+                            .hasMessage("Statement invoice has an incomplete amount");
+                });
+    }
+
+    @Test
+    void shouldDistinguishClientIoFailure_fromInvalidPdfOutput() {
+        var service = new PatientEndYearStatementService(
+                mock(io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.class), mock(DemographicManager.class));
+        var patient = new Demographic(); patient.setDemographicNo(123);
+        var result = service.aggregateInvoices(patient, null, null);
+        var response = new org.springframework.mock.web.MockHttpServletResponse() {
+            @Override public jakarta.servlet.ServletOutputStream getOutputStream() {
+                return new jakarta.servlet.ServletOutputStream() {
+                    @Override public boolean isReady() { return true; }
+                    @Override public void setWriteListener(jakarta.servlet.WriteListener listener) { }
+                    @Override public void write(int value) throws java.io.IOException {
+                        throw new java.io.IOException("Synthetic client disconnect");
+                    }
+                };
+            }
+        };
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.writePdfResponse(response, "statement", result, null, null))
+                .isInstanceOfSatisfying(PatientEndYearStatementService.Failure.class,
+                        failure -> assertThat(failure.reason()).isEqualTo(PatientEndYearStatementService.Reason.IO_ERROR));
+    }
 }

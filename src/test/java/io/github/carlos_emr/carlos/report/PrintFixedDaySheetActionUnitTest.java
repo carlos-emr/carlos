@@ -16,6 +16,26 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class PrintFixedDaySheetActionUnitTest extends CarlosUnitTestBase {
     @Test
+    void shouldConstructAnInjectedAction_throughTheConfiguredStrutsSpringFactory() throws Exception {
+        var security = mock(SecurityInfoManager.class);
+        var service = mock(FixedDaySheetReportService.class);
+        try (var application = new org.springframework.context.annotation.AnnotationConfigApplicationContext();
+             var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(new MockHttpServletRequest());
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            application.registerBean(SecurityInfoManager.class, () -> security);
+            application.registerBean(FixedDaySheetReportService.class, () -> service);
+            application.refresh();
+            var factory = new org.apache.struts2.spring.StrutsSpringObjectFactory();
+            factory.setApplicationContext(application);
+            var action = (printLabDaySheet2Action) factory.buildBean(printLabDaySheet2Action.class, java.util.Map.of());
+            assertThat(action).isNotNull();
+            assertThat(org.springframework.test.util.ReflectionTestUtils.getField(action, "reportService")).isSameAs(service);
+            assertThat(org.springframework.test.util.ReflectionTestUtils.getField(action, "securityInfoManager")).isSameAs(security);
+        }
+    }
+
+    @Test
     void shouldAuthorizeBeforeLoading_forTheFixedPdfRoute() throws Exception {
         exercise(false, false);
     }
@@ -30,11 +50,27 @@ class PrintFixedDaySheetActionUnitTest extends CarlosUnitTestBase {
         exercise(true, false);
     }
 
+    @Test
+    void shouldMapInvalidBundledDates_toAnExplicitBadRequest() throws Exception {
+        var security = mock(SecurityInfoManager.class);
+        var service = mock(FixedDaySheetReportService.class);
+        when(security.hasPrivilege(any(), eq("_report"), eq("r"), isNull())).thenReturn(true);
+        doThrow(FixedDaySheetReportService.InvalidDateException.class).when(service).writePdf(any(), any(), any());
+        var request = new MockHttpServletRequest();
+        var response = new MockHttpServletResponse();
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            assertThat(new printLabDaySheet2Action(security, service).execute()).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(400);
+            assertThat(response.getContentType()).isNull();
+            assertThat(response.getContentAsByteArray()).isEmpty();
+        }
+    }
+
     private void exercise(boolean allowed, boolean fails) throws Exception {
         var security = mock(SecurityInfoManager.class);
         var service = mock(FixedDaySheetReportService.class);
-        registerMock(SecurityInfoManager.class, security);
-        registerMock(FixedDaySheetReportService.class, service);
         var request = new MockHttpServletRequest();
         var response = new MockHttpServletResponse();
         request.setParameter("input_date", "2025-01-01");
@@ -44,7 +80,7 @@ class PrintFixedDaySheetActionUnitTest extends CarlosUnitTestBase {
         try (var context = mockStatic(ServletActionContext.class)) {
             context.when(ServletActionContext::getRequest).thenReturn(request);
             context.when(ServletActionContext::getResponse).thenReturn(response);
-            var action = new printLabDaySheet2Action();
+            var action = new printLabDaySheet2Action(security, service);
             if (!allowed) {
                 assertThatThrownBy(action::execute).isInstanceOf(SecurityException.class);
                 verifyNoInteractions(service);

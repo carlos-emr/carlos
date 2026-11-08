@@ -69,7 +69,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *   <li>{@link #aggregateInvoices} — for the resolved patient, iterate the
  *       non-deleted PAT billings in the date range, walk their items, and tally
  *       invoiced/paid totals into a {@link PatientEndYearStatementSummary}.</li>
- *   <li>{@link #writePdfTo} — render the JasperReports PDF to the response
+ *   <li>{@link #writePdfResponse} — render the JasperReports PDF to the response
  *       output stream. This is the path that previously held a
  *       JDBC call inside
  *       {@code PatientEndYearStatement2Action}; the renderer now consumes detached rows.</li>
@@ -153,7 +153,9 @@ public class PatientEndYearStatementService {
      * is the per-invoice list rendered into the JSP table body.</p>
      *
      * @throws Failure with {@link Reason#DATABASE_ERROR} if any DAO call
-     *                 throws — wraps the cause for logging on the action.
+     *                 throws or an invoice has a missing total/paid amount.
+     *                 Incomplete amounts cannot produce reliable totals; the report
+     *                 fails explicitly rather than substituting zero or omitting invoices.
      */
     @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public Result aggregateInvoices(Demographic demographic, Date fromDate, Date toDate) {
@@ -168,6 +170,9 @@ public class PatientEndYearStatementService {
             for (InvoiceRow header : rows) {
                 BigDecimal paid = header.paid();
                 BigDecimal invoiced = header.total();
+                if (invoiced == null || paid == null) {
+                    throw new IllegalStateException("Statement invoice has an incomplete amount");
+                }
 
                 List<PatientEndYearStatementServiceLine> services = new ArrayList<>();
                 for (var item : header.items()) {
@@ -205,14 +210,7 @@ public class PatientEndYearStatementService {
         return new Result(summary, invoices, rows);
     }
 
-    /** Render only detached data. Suspending an ambient transaction keeps JDBC out of PDF generation. */
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void writePdfTo(OutputStream out, Result result,
-                           String fromDateParam, String toDateParam) {
-        renderPdfTo(out, result, fromDateParam, toDateParam);
-    }
-
-    // Both public entry points suspend transactions before calling this detached renderer.
+    // The public response entry point suspends transactions before calling this detached renderer.
     private void renderPdfTo(OutputStream out, Result result, String fromDateParam, String toDateParam) {
         HashMap<String, Object> reportParams = buildReportParams(result.summary(), fromDateParam, toDateParam);
         try {
@@ -257,6 +255,8 @@ public class PatientEndYearStatementService {
             io.github.carlos_emr.carlos.report.ReportPdfResponse.write(response,
                     "attachment;filename=" + filenameWithoutExt + ".pdf",
                     output -> renderPdfTo(output, result, fromDateParam, toDateParam));
+        } catch (io.github.carlos_emr.carlos.report.ReportPdfResponse.InvalidPdfException e) {
+            throw new Failure(Reason.PDF_ERROR, e);
         } catch (IOException e) {
             throw new Failure(Reason.IO_ERROR, e);
         }

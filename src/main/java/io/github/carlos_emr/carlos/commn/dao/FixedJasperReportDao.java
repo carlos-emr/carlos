@@ -16,9 +16,40 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
 public class FixedJasperReportDao {
+    // Both queries use the same header eligibility rule within the same snapshot.
+    private static final String STATEMENT_ELIGIBILITY = """
+            where h.demographic_no = :patient and h.pay_program = 'PAT'
+              and (h.status is null or h.status <> 'D')
+              and (:fromDate is null or h.billing_date >= :fromDate)
+              and (:toDate is null or h.billing_date <= :toDate)
+            """;
+
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    /**
+     * Detached appointment projection with defensive copies of mutable JDBC dates and times.
+     *
+     * @param appointmentNo Integer appointment identifier
+     * @param providerNo String provider identifier
+     * @param appointmentDate java.sql.Date appointment day
+     * @param startTime java.sql.Time start time
+     * @param endTime java.sql.Time end time
+     * @param name String appointment name
+     * @param demographicNo Integer patient identifier
+     * @param notes String nullable notes
+     * @param reason String nullable reason
+     * @param location String nullable location
+     * @param resources String nullable resources
+     * @param type String nullable type
+     * @param style String nullable style
+     * @param billing String nullable billing marker
+     * @param status String nullable status, including cancelled appointments
+     * @param createdAt java.sql.Timestamp nullable creation time
+     * @param updatedAt java.sql.Timestamp nullable update time
+     * @param creator String nullable creator identifier
+     * @param remarks String nullable remarks
+     */
     public record DaySheetRow(Integer appointmentNo,
                               String providerNo,
                               java.sql.Date appointmentDate,
@@ -62,7 +93,23 @@ public class FixedJasperReportDao {
         }
     }
 
+    /**
+     * Detached statement item; values retain SQL NULLs and legacy fee formatting.
+     * @param invoiceId Integer owning invoice identifier
+     * @param serviceCode String nullable service code
+     * @param fee String nullable fee as stored by the billing system
+     */
     public record ItemRow(Integer invoiceId, String serviceCode, String fee) { }
+
+    /**
+     * Detached invoice and immutable, ordered items. SQL NULL amounts are preserved;
+     * the statement service explicitly rejects incomplete monetary totals.
+     * @param id Integer invoice identifier
+     * @param billingDate java.sql.Date nullable billing date, defensively copied
+     * @param total BigDecimal nullable invoice total
+     * @param paid BigDecimal nullable paid amount
+     * @param items List of ItemRow ordered by service code then item identifier
+     */
     public record InvoiceRow(Integer id, Date billingDate, BigDecimal total, BigDecimal paid,
                              List<ItemRow> items) {
         public InvoiceRow {
@@ -74,8 +121,13 @@ public class FixedJasperReportDao {
         }
     }
 
-    /** Retains the legacy date-only selection, across all providers/statuses, with no added ordering. */
-    public List<DaySheetRow> daySheet(Date date) {
+    /**
+     * Retains the legacy date-only selection across all providers and statuses.
+     * @param date java.time.LocalDate appointment date to select
+     * @return List of DaySheetRow detached rows with no guaranteed order
+     * @throws org.springframework.dao.DataAccessException if the database query fails
+     */
+    public List<DaySheetRow> daySheet(java.time.LocalDate date) {
         NativeQuery<?> query = entityManager.createNativeQuery("""
                 select appointment_no, provider_no, appointment_date, start_time, end_time, name,
                        demographic_no, notes, reason, location, resources, type, style, billing,
@@ -109,17 +161,19 @@ public class FixedJasperReportDao {
         }).toList();
     }
 
-    /** Both reads share one repeatable-read transaction; summary and PDF consume these exact rows. */
+    /**
+     * Loads headers and items in one repeatable-read transaction for HTML and PDF consumers.
+     * @param patient Integer demographic number
+     * @param from java.sql.Date inclusive lower bound, or null for no lower bound
+     * @param to java.sql.Date inclusive upper bound, or null for no upper bound
+     * @return List of InvoiceRow invoices ordered by id, with their ordered items
+     * @throws org.springframework.dao.DataAccessException if either database query fails
+     */
     public List<InvoiceRow> statement(Integer patient, Date from, Date to) {
         NativeQuery<?> headers = entityManager.createNativeQuery("""
                 select h.id, h.billing_date, h.total, h.paid
                 from billing_on_cheader1 h join demographic d on d.demographic_no = h.demographic_no
-                where h.demographic_no = :patient and h.pay_program = 'PAT'
-                  and (h.status is null or h.status <> 'D')
-                  and (:fromDate is null or h.billing_date >= :fromDate)
-                  and (:toDate is null or h.billing_date <= :toDate)
-                order by h.id
-                """).unwrap(NativeQuery.class);
+                """ + STATEMENT_ELIGIBILITY + " order by h.id").unwrap(NativeQuery.class);
         headers.addScalar("id", Integer.class).addScalar("billing_date", Date.class)
                 .addScalar("total", BigDecimal.class).addScalar("paid", BigDecimal.class);
         bind(headers, patient, from, to);
@@ -130,10 +184,7 @@ public class FixedJasperReportDao {
                 select bi.ch1_id, bi.service_code, bi.fee
                 from billing_on_item bi join billing_on_cheader1 h on h.id = bi.ch1_id
                 join demographic d on d.demographic_no = h.demographic_no
-                where h.demographic_no = :patient and h.pay_program = 'PAT'
-                  and (h.status is null or h.status <> 'D')
-                  and (:fromDate is null or h.billing_date >= :fromDate)
-                  and (:toDate is null or h.billing_date <= :toDate)
+                """ + STATEMENT_ELIGIBILITY + """
                   and (bi.status is null or bi.status <> 'D')
                 order by bi.ch1_id, bi.service_code, bi.id
                 """)

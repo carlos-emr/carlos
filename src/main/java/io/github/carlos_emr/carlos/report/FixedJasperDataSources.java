@@ -13,6 +13,14 @@ import io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.ItemRow;
 public final class FixedJasperDataSources {
     private FixedJasperDataSources() { }
 
+    /**
+     * Exposes the appointment_no, provider_no, appointment_date, start_time, end_time,
+     * name, demographic_no, notes, reason, location, resources, type, style, billing,
+     * status, createdatetime, updatedatetime, creator and remarks template fields.
+     * Unknown or incompatible fields throw JRException when read.
+     * @param rows List of DaySheetRow detached appointment rows
+     * @return JRDataSource rewindable cursor retaining the supplied row order and SQL NULLs
+     */
     public static JRDataSource daySheet(List<DaySheetRow> rows) {
         return source(rows, (row, name) -> switch (name) {
             case "appointment_no" -> row.appointmentNo();
@@ -38,6 +46,13 @@ public final class FixedJasperDataSources {
         });
     }
 
+    /**
+     * Exposes id, billing_date, total, paid and items. Each items read creates an
+     * independent rewindable cursor over service_code and fee. Unknown or incompatible
+     * fields throw JRException when read.
+     * @param rows List of InvoiceRow detached invoices with their items
+     * @return JRDataSource rewindable invoice cursor preserving SQL NULLs and row order
+     */
     public static JRDataSource invoices(List<InvoiceRow> rows) {
         return source(rows, (row, name) -> switch (name) {
             case "id" -> row.id();

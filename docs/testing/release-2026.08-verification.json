@@ -830,7 +830,8 @@
         "java-all",
         "build",
         "packaged-full",
-        "installed-package-reinstall"
+        "installed-package-reinstall",
+        "manual-report-configured-jasper"
       ]
     },
     {
@@ -2638,7 +2639,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2519,
+      "minimumCases": 2528,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2700,7 +2701,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 107,
+      "minimumCases": 116,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -2760,7 +2761,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 109,
+      "minimumCases": 113,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 10,
@@ -4321,6 +4322,43 @@
       ],
       "requireLockedChromium": true,
       "reason": "User-directed blocker: SRFax vendor qualification remains blocked pending authorized staging access. Owner: release maintainer. Retained browser command/selection/province requirements describe the work to resume after access; no vendor call is authorized by this receipt."
+    },
+    {
+      "id": "manual-report-configured-jasper",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "report-configured-jasper"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "CARLOS_REPORT_SERVER_HOME",
+        "CARLOS_FIXED_JASPER_OVERRIDE_TEXT"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 420,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "report-configured-jasper",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
     },
     {
       "id": "manual-legacy-encounter-editor-isolation",

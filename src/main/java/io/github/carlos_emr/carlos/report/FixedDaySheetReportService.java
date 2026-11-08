@@ -5,8 +5,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
-import java.sql.Date;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.util.Map;
 import jakarta.servlet.http.HttpServletResponse;
 import net.sf.jasperreports.engine.JRException;
@@ -27,6 +27,44 @@ public class FixedDaySheetReportService {
     private final FixedJasperReportDao reports;
     public FixedDaySheetReportService(FixedJasperReportDao reports) { this.reports = reports; }
 
+    /** The single allowlist for bundled template names and their trusted resource paths. */
+    public enum Style {
+        LAB("labDaySheet.xml", "/oscar/oscarReport/pageUtil/labDaySheet.xml"),
+        BILLING("billDaySheet.xml", "/oscar/oscarReport/pageUtil/billDaySheet.xml");
+
+        private final String filename;
+        private final String path;
+        Style(String filename, String path) { this.filename = filename; this.path = path; }
+
+        /** @return String trusted filename passed to the report service */
+        public String filename() { return filename; }
+
+        /**
+         * @param filename String requested template basename
+         * @return Style matching the exact allowlisted name, or null if rejected
+         */
+        public static Style find(String filename) {
+            for (Style style : values()) {
+                if (style.filename.equals(filename)) return style;
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Uses the configured Addresslabel.xml override when present; otherwise loads
+     * detached rows for an allowlisted bundled template. Empty prints return HTTP 204.
+     * An unusable override fails explicitly, without falling back to a different report.
+     *
+     * @param response HttpServletResponse receiving the validated PDF or no-content status
+     * @param date String strict ISO appointment date for bundled reports; overrides retain null compatibility
+     * @param style String allowlisted bundled template filename
+     * @throws InvalidDateException if a bundled-report date is blank or malformed
+     * @throws IOException if template access, export, response I/O, or cleanup fails
+     * @throws JRException if Jasper compilation or filling fails
+     * @throws SQLException if the configured override query fails
+     * @throws SecurityException if the configured override is not a permitted regular file
+     */
     public void writePdf(HttpServletResponse response, String date, String style) throws IOException, JRException, SQLException {
         // Keep the historical configured override and its SQL on the managed JDBC boundary.
         File override = PathValidationUtils.resolveConfiguredFile(
@@ -41,16 +79,13 @@ public class FixedDaySheetReportService {
             }
         } else {
             if (date == null || date.isBlank()) throw new InvalidDateException();
-            String path = switch (style) {
-                case "billDaySheet.xml" -> "/oscar/oscarReport/pageUtil/billDaySheet.xml";
-                case "labDaySheet.xml" -> "/oscar/oscarReport/pageUtil/labDaySheet.xml";
-                default -> throw new IllegalArgumentException("Unsupported day sheet template");
-            };
-            Date selected;
-            try { selected = Date.valueOf(java.time.LocalDate.parse(date)); }
+            Style selectedStyle = Style.find(style);
+            if (selectedStyle == null) throw new IllegalArgumentException("Unsupported day sheet template");
+            LocalDate selected;
+            try { selected = LocalDate.parse(date); }
             catch (java.time.DateTimeException | IllegalArgumentException _) { throw new InvalidDateException(); }
             var rows = reports.daySheet(selected);
-            try (InputStream input = getClass().getResourceAsStream(path)) {
+            try (InputStream input = getClass().getResourceAsStream(selectedStyle.path)) {
                 if (input == null) throw new IOException("Missing day sheet template");
                 print = JasperFillManager.fillReport(JasperCompileManager.compileReport(input),
                         new java.util.HashMap<>(Map.<String, Object>of("input_date", date)), FixedJasperDataSources.daySheet(rows));
@@ -67,6 +102,7 @@ public class FixedDaySheetReportService {
         });
     }
 
+    /** A blank or malformed bundled-report date; the action maps this to HTTP 400. */
     public static final class InvalidDateException extends IllegalArgumentException {
         private static final long serialVersionUID = 1L;
         private InvalidDateException() { super("Invalid day sheet date"); }
