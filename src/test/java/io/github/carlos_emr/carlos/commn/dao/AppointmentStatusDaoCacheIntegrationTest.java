@@ -139,6 +139,9 @@ class AppointmentStatusDaoCacheIntegrationTest extends CarlosTestBase {
     @Test
     @DisplayName("should retain independent status edits when another transaction commits first")
     void shouldRetainIndependentEdits_whenAnotherTransactionCommitsFirst() {
+        // This scenario verifies independent dirty columns against the latest committed row.
+        // Strict repeatable-read snapshot conflicts are exercised separately below.
+        transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         AppointmentStatus seeded = persistSeed("W", "original");
 
         transactionTemplate.executeWithoutResult(outer -> {
@@ -150,6 +153,51 @@ class AppointmentStatusDaoCacheIntegrationTest extends CarlosTestBase {
                 appointmentStatusDao.changeStatus(seeded.getId(), 0);
             });
         });
+
+        AppointmentStatus saved = transactionTemplate.execute(status -> appointmentStatusDao.find(seeded.getId()));
+        assertThat(saved.getDescription()).isEqualTo("new description");
+        assertThat(saved.getColor()).isEqualTo("#abcdef");
+        assertThat(saved.getIcon()).isEqualTo("here.gif");
+        assertThat(saved.getActive()).isZero();
+        assertThat(appointmentStatusDao.findAll()).anySatisfy(status -> {
+            assertThat(status.getId()).isEqualTo(seeded.getId());
+            assertThat(status.getDescription()).isEqualTo("new description");
+            assertThat(status.getColor()).isEqualTo("#abcdef");
+            assertThat(status.getIcon()).isEqualTo("here.gif");
+            assertThat(status.getActive()).isZero();
+        });
+    }
+
+    @Test
+    @DisplayName("should preserve independent edits when a changed snapshot requires a fresh transaction")
+    void shouldPreserveIndependentEdits_whenAChangedSnapshotRequiresRetry() {
+        transactionTemplate.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        AppointmentStatus seeded = persistSeed("W", "original");
+
+        Throwable conflict = org.assertj.core.api.Assertions.catchThrowable(() -> transactionTemplate.executeWithoutResult(outer -> {
+            assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), "new description", null, null)).isTrue();
+            // REQUIRES_NEW suspends the first persistence context, reproducing two requests that
+            // read the same status before either commits without relying on thread timing.
+            transactionTemplate.executeWithoutResult(inner -> {
+                assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), null, "#abcdef", "here.gif")).isTrue();
+                appointmentStatusDao.changeStatus(seeded.getId(), 0);
+            });
+        }));
+        if (conflict != null) {
+            Throwable cause = conflict;
+            while (cause != null && !(cause instanceof java.sql.SQLException)) cause = cause.getCause();
+            assertThat(cause).as("only a database snapshot conflict permits retry").isInstanceOf(java.sql.SQLException.class);
+            java.sql.SQLException sql = (java.sql.SQLException) cause;
+            assertThat(sql.getErrorCode() == 1020 || sql.getSQLState() != null && sql.getSQLState().startsWith("40"))
+                    .as("unexpected database error must not be hidden by retry").isTrue();
+            AppointmentStatus committed = transactionTemplate.execute(status -> appointmentStatusDao.find(seeded.getId()));
+            assertThat(committed.getDescription()).isEqualTo("original");
+            assertThat(committed.getColor()).isEqualTo("#abcdef");
+            assertThat(committed.getIcon()).isEqualTo("here.gif");
+            assertThat(committed.getActive()).isZero();
+            transactionTemplate.executeWithoutResult(status ->
+                    assertThat(appointmentStatusDao.modifyStyle(seeded.getId(), "new description", null, null)).isTrue());
+        }
 
         AppointmentStatus saved = transactionTemplate.execute(status -> appointmentStatusDao.find(seeded.getId()));
         assertThat(saved.getDescription()).isEqualTo("new description");

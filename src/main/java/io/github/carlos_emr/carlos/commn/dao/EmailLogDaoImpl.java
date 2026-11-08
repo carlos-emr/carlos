@@ -68,17 +68,15 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * conditional update test the same rule atomically in one statement.
      */
     private static final String SETTLED = "(e.status IN :settledStatuses OR (e.status = :failed "
-            + "AND EXISTS (SELECT d.id FROM PatientPortalInviteDelivery d WHERE d.emailLogId = e.id "
-            + "AND d.state = :refusedState AND d.outcome = :refusedOutcome) "
-            + "AND NOT EXISTS (SELECT o.id FROM PatientPortalInviteDelivery o WHERE o.emailLogId = e.id "
-            + "AND o.state <> :refusedState)) "
-            // Staff confirmed the email never arrived once the portal showed its code dead (NOT_ARRIVED),
-            // which resolves the email row. Every attempt naming the email must have ended so.
+            + "AND e.id IN (SELECT d.emailLogId FROM PatientPortalInviteDelivery d "
+            + "WHERE d.state = :refusedState AND d.outcome = :refusedOutcome) "
+            + "AND e.id NOT IN (SELECT o.emailLogId FROM PatientPortalInviteDelivery o "
+            + "WHERE o.emailLogId IS NOT NULL AND o.state <> :refusedState)) "
             + "OR (e.status = :resolved "
-            + "AND EXISTS (SELECT n.id FROM PatientPortalInviteDelivery n WHERE n.emailLogId = e.id "
-            + "AND n.state = :notArrivedState) "
-            + "AND NOT EXISTS (SELECT m.id FROM PatientPortalInviteDelivery m WHERE m.emailLogId = e.id "
-            + "AND m.state <> :notArrivedState)))";
+            + "AND e.id IN (SELECT n.emailLogId FROM PatientPortalInviteDelivery n "
+            + "WHERE n.state = :notArrivedState) "
+            + "AND e.id NOT IN (SELECT m.emailLogId FROM PatientPortalInviteDelivery m "
+            + "WHERE m.emailLogId IS NOT NULL AND m.state <> :notArrivedState)))";
 
     /**
      * Whether the email's invitation code is past its life plus a margin, whatever the email's status
@@ -88,12 +86,14 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
      * status changes and later after that, so the cutoff it gives can only come later, never earlier. The
      * caller sets both cutoffs (see {@code PortalInviteCodeSweeper}).
      */
-    private static final String CODE_AGED = "((EXISTS (SELECT x.id FROM PatientPortalInviteDelivery x "
-            + "WHERE x.emailLogId = e.id AND x.expiresAt IS NOT NULL) "
-            + "AND NOT EXISTS (SELECT y.id FROM PatientPortalInviteDelivery y WHERE y.emailLogId = e.id "
-            + "AND (y.expiresAt IS NULL OR y.expiresAt >= :expiredBefore))) "
-            + "OR (NOT EXISTS (SELECT z.id FROM PatientPortalInviteDelivery z WHERE z.emailLogId = e.id "
-            + "AND z.expiresAt IS NOT NULL) AND e.timestamp < :agedBefore))";
+    // Uncorrelated membership keeps Hibernate's derived UPDATE subqueries valid on MariaDB.
+    // NULL email links must never poison NOT IN or acquire authority over another email.
+    private static final String CODE_AGED = "((e.id IN (SELECT x.emailLogId FROM PatientPortalInviteDelivery x "
+            + "WHERE x.expiresAt IS NOT NULL) "
+            + "AND e.id NOT IN (SELECT y.emailLogId FROM PatientPortalInviteDelivery y "
+            + "WHERE y.emailLogId IS NOT NULL AND (y.expiresAt IS NULL OR y.expiresAt >= :expiredBefore))) "
+            + "OR (e.id NOT IN (SELECT z.emailLogId FROM PatientPortalInviteDelivery z "
+            + "WHERE z.emailLogId IS NOT NULL AND z.expiresAt IS NOT NULL) AND e.timestamp < :agedBefore))";
 
     /** Settled and idle, or aged: the rule the selection and the conditional update share. */
     private static final String CODE_NOT_NEEDED = "((" + SETTLED + " AND e.timestamp < :changedBefore) OR "

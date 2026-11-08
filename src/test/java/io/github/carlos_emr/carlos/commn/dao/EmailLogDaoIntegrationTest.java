@@ -519,6 +519,34 @@ class EmailLogDaoIntegrationTest extends CarlosTestBase {
                 .doesNotContain(revoked, recent);
     }
 
+    @Test
+    @DisplayName("should ignore unrelated deliveries without email links in selection and conditional cleanup")
+    void shouldIgnoreUnlinkedDeliveries_whenSelectingAndClearingEligibleEmails() {
+        long now = System.currentTimeMillis() / 1000 * 1000;
+        Date old = new Date(now - 60L * 60 * 1000);
+        Date cutoff = new Date(now - 15L * 60 * 1000);
+        Date expiredBefore = new Date(now - DAY);
+        Date agedBefore = new Date(now - 8L * DAY);
+        Integer refused = failed(old, null);
+        attempt(refused, State.SEND_FAILED, Outcome.SEND_REFUSED);
+        Integer aged = withStatus(new Date(now - 10L * DAY), EmailLog.EmailStatus.PENDING);
+        // An open, unlinked attempt must neither veto a settled email nor extend another code's life.
+        attempt(null, State.COMMITTED, null);
+        attempt(null, State.COMMITTED, null, new Date(now + DAY));
+        assertThat(emailLogDao.findIdsByTransactionTypeChangedBeforeWithOtherBody(
+                EmailLog.TransactionType.PORTAL_INVITE, cutoff, expiredBefore, agedBefore, "code removed", 0, 200))
+                .contains(refused, aged);
+        EmailLogDaoImpl target = (EmailLogDaoImpl) org.springframework.test.util.AopTestUtils
+                .getUltimateTargetObject(emailLogDao);
+        for (Integer id : List.of(refused, aged)) {
+            assertThat(target.replaceBodyIfUnchangedBefore(id, EmailLog.TransactionType.PORTAL_INVITE,
+                    cutoff, expiredBefore, agedBefore, "code removed")).isOne();
+        }
+        entityManager.clear();
+        assertThat(entityManager.find(EmailLog.class, refused).getBody()).isEqualTo("code removed");
+        assertThat(entityManager.find(EmailLog.class, aged).getBody()).isEqualTo("code removed");
+    }
+
     private Integer withStatus(Date timestamp, EmailLog.EmailStatus status) {
         Integer id = persisted(EmailLog.TransactionType.PORTAL_INVITE, timestamp);
         entityManager.find(EmailLog.class, id).setStatus(status);
