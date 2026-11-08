@@ -261,5 +261,10 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryCurrentContextUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryFieldReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkReceiptUnitTest",
-  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryOccurrenceServiceUnitTest"
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryOccurrenceServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratorySourceReaderUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryReadMariaDbIntegrationTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryReceiptUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryRetainedSourceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryOccurrenceServiceUnitTest"
 ]

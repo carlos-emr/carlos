@@ -30,6 +30,7 @@ import org.hibernate.Session;
 /** Value-free actual-driver receipt metadata, read by the owning DAO within the patient snapshot. */
 public final class CdsExportNativeMetadataReadSupport {
     public enum Table {
+        LABORATORY_RESULTS("cds_laboratory_result"), LABORATORY_MESSAGES("hl7TextMessage"), LABORATORY_INFORMATION("hl7TextInfo"), LABORATORY_ROUTING("patientLabRouting"),
         CASE_ISSUES("casemgmt_issue"), ISSUE_CATALOGUE("issue"),
         RETAINED_FILES("cds_import_file"), RETAINED_FILE_REFERENCES("cds_import_file_reference"),
         CONTACT("Contact"), DEMOGRAPHIC_CONTACT("DemographicContact"), PHARMACY_LINK("demographicPharmacy"), PHARMACY("pharmacyInfo"),

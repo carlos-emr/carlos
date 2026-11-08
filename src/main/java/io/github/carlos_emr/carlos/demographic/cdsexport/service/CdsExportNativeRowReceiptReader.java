@@ -45,6 +45,7 @@ import org.springframework.stereotype.Service;
 public class CdsExportNativeRowReceiptReader {
     @FunctionalInterface public interface Receipts { void accept(CdsExportNativeRowReceiptDto receipt) throws IOException; }
     private static final Map<String, String> KEYS = Map.ofEntries(
+            Map.entry("cds_laboratory_result", "id"), Map.entry("hl7TextMessage", "lab_id"), Map.entry("hl7TextInfo", "id"), Map.entry("patientLabRouting", "id"),
             Map.entry("cds_import_file", "id"), Map.entry("cds_import_file_reference", "id"),
             Map.entry("Contact", "id"), Map.entry("DemographicContact", "id"),
             Map.entry("demographicPharmacy", "id"), Map.entry("pharmacyInfo", "recordID"),
@@ -117,7 +118,7 @@ public class CdsExportNativeRowReceiptReader {
             var plan = scopes.get(table); if (plan == null || !headers.keySet().equals(plan.columns()) || id == null || !id.matches("[A-Za-z0-9_-]{1,64}")) scope();
             if (table.equals("cds_import_file")) {
                 if (!id.matches("[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}") || !id.equals(key)) scope();
-            } else if (Set.of("cds_import_field", "cds_import_file_reference").contains(table)) {
+            } else if (Set.of("cds_laboratory_result", "cds_import_field", "cds_import_file_reference").contains(table)) {
                 if (!id.matches("[0-9a-f]{64}") || !id.equals(key)) scope();
             } else if (table.equals("casemgmt_issue_notes")) {
                 try {

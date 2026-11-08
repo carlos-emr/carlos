@@ -476,5 +476,27 @@
     "fullBaselineTests": 4592,
     "fullBaselineSuites": 348,
     "clinicalPublication": false
+  },
+  "laboratoryOccurrenceAssembly": {
+    "state": "FOCUSED_COMPONENT_VERIFIED_FINAL_PACKAGE_PENDING",
+    "focusedChecks": 156,
+    "actualMariaDbAndCliBootstrapChecks": 13,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "structuredNativeColumns": 26,
+    "captureTables": [
+      "cds_laboratory_result",
+      "hl7TextMessage",
+      "hl7TextInfo",
+      "patientLabRouting"
+    ],
+    "completeDigestKeyAndLargeTextPaging": true,
+    "blockedResultsRequireSensitiveRead": true,
+    "sharedDanglingOrDuplicateHl7OwnershipRequiresReview": true,
+    "sealedOriginalDatesAndReviewerDatesReconciled": true,
+    "nativeOnlyOrChangedHl7RequiresReview": true,
+    "concreteClinicalEngineComplete": false,
+    "clinicalPublication": false
   }
 }

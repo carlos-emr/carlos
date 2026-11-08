@@ -1,0 +1,217 @@
+{
+  "table": "cds_laboratory_result",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "abnormalFlag",
+      "type": "varchar(50)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "accessionNumber",
+      "type": "varchar(120)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "collectionDate",
+      "type": "varchar(128)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "collectionPrecision",
+      "type": "varchar(32)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "demographicNo",
+      "type": "int(11)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "highLimit",
+      "type": "varchar(1024)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "id",
+      "type": "char(64)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "importedBy",
+      "type": "varchar(16)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "informationFromLab",
+      "type": "mediumtext",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "laboratoryName",
+      "type": "varchar(120)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "lowLimit",
+      "type": "varchar(1024)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "nativeLabNo",
+      "type": "int(11)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "notesFromLab",
+      "type": "mediumtext",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "physiciansNotes",
+      "type": "mediumtext",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "referenceRange",
+      "type": "varchar(1024)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "reportedTestName",
+      "type": "varchar(120)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "requisitionDate",
+      "type": "varchar(128)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "requisitionPrecision",
+      "type": "varchar(32)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "resultStatus",
+      "type": "varchar(20)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "resultValue",
+      "type": "varchar(120)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "runId",
+      "type": "char(36)",
+      "nullable": "NO",
+      "charset": "ascii",
+      "collation": "ascii_bin",
+      "expression": null
+    },
+    {
+      "name": "sourceBlocked",
+      "type": "char(1)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "sourcePath",
+      "type": "varchar(2048)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "testCode",
+      "type": "varchar(50)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "testName",
+      "type": "varchar(120)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    },
+    {
+      "name": "unitOfMeasure",
+      "type": "varchar(120)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_unicode_ci",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

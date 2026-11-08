@@ -1223,3 +1223,15 @@ current-develop import fixture; no component class overlays or historical metada
 rewrites were used. This is a focused verification after the preserved 4,592-check
 full current-develop baseline, not an additional full-suite count. Clinical publication
 and complete engine qualification remain outstanding.
+
+The laboratory component now captures all 26 structured result columns together with
+the complete patient HL7 message, information and routing projections. The owning
+DAOs reject duplicate, dangling, missing or shared chart associations before payload
+reads. SHA-256 result IDs remain strings through keyset paging and large-value reads.
+The shared occurrence service binds unchanged native receipts to the sealed preparation
+and complete retained fields, preserves blocked results under sensitive-lab authority,
+and applies original shifts to collection, requisition and every reviewer date.
+Native-only or changed HL7 requires explicit review. Focused verification passed
+156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine
+installed laboratory import/export qualification are pending. This component does
+not qualify the remaining native laboratory catalogue or clinical publication.

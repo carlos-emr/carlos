@@ -45,6 +45,15 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  */
 public final class CdsExportPatientTableReadSupport {
     public enum Plan {
+        LABORATORY_RESULTS("cds_laboratory_result", "id", "demographicNo", List.of(
+                "abnormalFlag", "accessionNumber", "collectionDate", "collectionPrecision", "demographicNo", "highLimit", "id", "importedBy",
+                "informationFromLab", "laboratoryName", "lowLimit", "nativeLabNo", "notesFromLab", "physiciansNotes", "referenceRange",
+                "reportedTestName", "requisitionDate", "requisitionPrecision", "resultStatus", "resultValue", "runId", "sourceBlocked",
+                "sourcePath", "testCode", "testName", "unitOfMeasure")),
+        LABORATORY_MESSAGES("hl7TextMessage", "lab_id", null, List.of("created", "fileUploadCheck_id", "lab_id", "message", "serviceName", "type")),
+        LABORATORY_INFORMATION("hl7TextInfo", "id", null, List.of("accessionNum", "discipline", "filler_order_num", "final_result_count", "first_name",
+                "health_no", "id", "lab_no", "label", "last_name", "obr_date", "priority", "report_status", "requesting_client", "result_status", "sending_facility", "sex")),
+        LABORATORY_ROUTING("patientLabRouting", "id", "demographic_no", List.of("created", "dateModified", "demographic_no", "id", "lab_no", "lab_type")),
         CASE_ISSUES("casemgmt_issue", "id", "demographic_no", List.of("acute", "certain", "demographic_no", "id", "issue_id", "major", "program_id", "resolved", "type", "update_date")),
         ISSUE_CATALOGUE("issue", "issue_id", null, List.of("code", "description", "issue_id", "priority", "role", "sortOrderId", "type", "update_date")),
         CASE_NOTE_ISSUE_LINK("casemgmt_issue_notes", "note_id", null, List.of("id", "note_id")),
@@ -153,6 +162,12 @@ public final class CdsExportPatientTableReadSupport {
             };
         }
         private String patientPredicate() {
+            if (this == LABORATORY_ROUTING) return "d.`demographic_no`=:patient and d.`lab_type`='HL7'";
+            if (this == LABORATORY_MESSAGES || this == LABORATORY_INFORMATION) {
+                String lab = this == LABORATORY_MESSAGES ? "d.`lab_id`" : "d.`lab_no`";
+                return "(exists (select 1 from `patientLabRouting` r where r.`lab_type`='HL7' and r.`demographic_no`=:patient and r.`lab_no`=" + lab + ")"
+                        + " or exists (select 1 from `cds_laboratory_result` l where l.`demographicNo`=:patient and l.`nativeLabNo`=" + lab + "))";
+            }
             if (this == ISSUE_CATALOGUE) return "exists (select 1 from `casemgmt_issue` i where i.`issue_id`=d.`issue_id` and i.`demographic_no`=:patient)";
             if (this == CASE_NOTE_EXT) return "exists (select 1 from `casemgmt_note` n where n.`note_id`=d.`note_id` and n.`demographic_no`=:patient)";
             // No activity/deletion filtering: historical associations remain captured and require an explicit disposition.
@@ -211,6 +226,41 @@ public final class CdsExportPatientTableReadSupport {
         var selected=requireSelected(plan, patient, ids); if (selected.isEmpty())invalid(); return chunkBound(em, plan, patient, row, column, offset, length, new Bindings(null, selected));
     }
     private CdsExportPatientTableReadSupport() { }
+    /** Exact string-key paging for the structured result's SHA-256 identity, never a numeric conversion. */
+    public static List<CdsExportRawKeyRowDto> laboratoryPage(EntityManager em, int patient, String after, int limit) {
+        if (after != null && !after.matches("[0-9a-f]{64}")) invalid();
+        return pageBound(em, Plan.LABORATORY_RESULTS, patient, after, limit, new Bindings(null, null));
+    }
+    public static byte[] laboratoryChunk(EntityManager em, int patient, String rowId, String column, long offset, int length) {
+        if (rowId == null || !rowId.matches("[0-9a-f]{64}")) invalid();
+        return chunkBound(em, Plan.LABORATORY_RESULTS, patient, rowId, column, offset, length, new Bindings(null, null));
+    }
+    /** Refuse shared, dangling or duplicated HL7 ownership before any result body is read. */
+    public static void requireLocalLaboratoryAssociations(EntityManager em, int patient) {
+        patient(patient);
+        String selected = "(exists (select 1 from patientLabRouting p where p.lab_type='HL7' and p.demographic_no=:patient and p.lab_no=r.lab_no)"
+                + " or exists (select 1 from cds_laboratory_result l where l.demographicNo=:patient and l.nativeLabNo=r.lab_no))";
+        var shared = query(em, "select 1,1 from patientLabRouting r where r.lab_type='HL7' and r.demographic_no<>:patient and " + selected)
+                .setParameter("patient", patient).setMaxResults(1).getResultList();
+        var dangling = query(em, """
+                select 1,1 from patientLabRouting r where r.demographic_no=:patient and r.lab_type='HL7'
+                and (not exists (select 1 from hl7TextMessage m where m.lab_id=r.lab_no)
+                or (select count(*) from hl7TextInfo i where i.lab_no=r.lab_no)<>1)
+                """).setParameter("patient", patient).setMaxResults(1).getResultList();
+        var duplicate = query(em, "select 1,1 from patientLabRouting r where r.demographic_no=:patient and r.lab_type='HL7' group by r.lab_no having count(*)<>1")
+                .setParameter("patient", patient).setMaxResults(1).getResultList();
+        var broken = query(em, """
+                select 1,1 from cds_laboratory_result l where l.demographicNo=:patient
+                and ((l.nativeLabNo is null and coalesce(l.sourceBlocked,'')<>'Y') or (l.nativeLabNo is not null
+                and (l.sourceBlocked='Y' or not exists (select 1 from hl7TextMessage m where m.lab_id=l.nativeLabNo)
+                or (select count(*) from hl7TextInfo i where i.lab_no=l.nativeLabNo)<>1
+                or (select count(*) from patientLabRouting r where r.lab_type='HL7' and r.demographic_no=:patient and r.lab_no=l.nativeLabNo)<>1
+                or exists (select 1 from cds_laboratory_result other where other.nativeLabNo=l.nativeLabNo and other.id<>l.id))))
+                """).setParameter("patient", patient).setMaxResults(1).getResultList();
+        if (!shared.isEmpty() || !dangling.isEmpty() || !duplicate.isEmpty() || !broken.isEmpty())
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                    io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+    }
     public static CdsExportTableSchemaDto schema(EntityManager em, Plan plan) {
         // Verify whole-table column visibility, including invisible columns, before trusting
         // the privilege-filtered information_schema catalogue. No source values are returned.
@@ -309,7 +359,7 @@ public final class CdsExportPatientTableReadSupport {
         if (found.size() != 1) invalid(); long count = number(found.getFirst()[0]); if (count < 0) invalid(); return count;
     }
     public static List<CdsExportRawRowDto> page(EntityManager em, Plan plan, int patient, Long after, int limit) {
-        if (plan.retained() || plan == Plan.CASE_NOTE_ISSUE_LINK || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid();
+        if (plan == Plan.LABORATORY_RESULTS || plan.retained() || plan == Plan.CASE_NOTE_ISSUE_LINK || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid();
         return page(em, plan, patient, after, limit, null).stream()
                 .map(row -> new CdsExportRawRowDto(Long.parseLong(row.id()), row.cells())).toList();
     }
@@ -338,8 +388,10 @@ public final class CdsExportPatientTableReadSupport {
         for (var row : rows(query, plan, bindings)) {
             if (row.length != 1 + 4 * plan.columns.size()) invalid();
             String id;
-            if (plan.retained()) {
-                if (!(row[0] instanceof String)) invalid(); id = (String) row[0]; retainedKey(plan, id);
+            if (plan.retained() || plan == Plan.LABORATORY_RESULTS) {
+                if (!(row[0] instanceof String)) invalid(); id = (String) row[0];
+                if (plan == Plan.LABORATORY_RESULTS) { if (!id.matches("[0-9a-f]{64}")) invalid(); }
+                else retainedKey(plan, id);
                 if (previous != null && id.compareTo((String) previous) <= 0) invalid(); previous = id;
             } else {
                 long number = number(row[0]); if (previous != null && number <= (Long) previous) invalid();
@@ -360,7 +412,7 @@ public final class CdsExportPatientTableReadSupport {
         return List.copyOf(result);
     }
     public static byte[] chunk(EntityManager em, Plan plan, int patient, long rowId, String column, long offset, int length) {
-        if (plan.retained() || plan == Plan.CASE_NOTE_ISSUE_LINK || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid(); return chunk(em, plan, patient, rowId, column, offset, length, null);
+        if (plan == Plan.LABORATORY_RESULTS || plan.retained() || plan == Plan.CASE_NOTE_ISSUE_LINK || plan == Plan.PUBLIC_PROVIDERS || selectedPreventions(plan)) invalid(); return chunk(em, plan, patient, rowId, column, offset, length, null);
     }
     public static byte[] retainedChunk(EntityManager em, Plan plan, int patient, Set<String> categories, String rowId, String column, long offset, int length) {
         requireRetained(plan, categories); retainedKey(plan, rowId); return chunk(em, plan, patient, rowId, column, offset, length, categories);
@@ -375,7 +427,7 @@ public final class CdsExportPatientTableReadSupport {
                 + "` AS BINARY),:position,:length) from `" + plan.table + "` d where " + plan.patientPredicate() + " and d.`" + plan.key + "`=:row")
                 .setParameter("position", offset + 1).setParameter("length", length).setParameter("patient", patient)
                 .setParameter("row", rowId).setMaxResults(2), plan, bindings);
-        if (found.size() != 1 || (plan.retained() ? !rowId.equals(found.getFirst()[0]) : number(found.getFirst()[0]) != (Long) rowId)
+        if (found.size() != 1 || (plan.retained() || plan == Plan.LABORATORY_RESULTS ? !rowId.equals(found.getFirst()[0]) : number(found.getFirst()[0]) != (Long) rowId)
                 || !(found.getFirst()[1] instanceof byte[] data) || data.length > length) invalid();
         return ((byte[]) found.getFirst()[1]).clone();
     }

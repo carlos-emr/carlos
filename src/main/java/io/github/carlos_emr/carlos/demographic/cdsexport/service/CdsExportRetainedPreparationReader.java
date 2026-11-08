@@ -80,6 +80,15 @@ public class CdsExportRetainedPreparationReader {
             return new Evidence<>(index.sourceManifestSha256(), address, row.fields().get("digest"), value);
         } catch (IOException | IllegalArgumentException invalid) { throw new IOException("CDS_EXPORT_RETAINED_PREPARATION_INVALID"); }
     }
+    public Evidence<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsLaboratoryNativeDto> laboratory(CdsExportRetainedIndexDto index, String address) throws IOException {
+        var type = io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsLaboratoryNativeDto.class;
+        var row = verify(index, address, "LaboratoryResults", type);
+        try {
+            var value = readRequired(row, type);
+            if (value.collection() == null || value.requisition() == null) invalid();
+            return new Evidence<>(index.sourceManifestSha256(), address, row.fields().get("digest"), value);
+        } catch (IOException | IllegalArgumentException invalid) { throw new IOException("CDS_EXPORT_RETAINED_PREPARATION_INVALID"); }
+    }
     public Evidence<CdsImmunizationDto> immunization(CdsExportRetainedIndexDto index, String address) throws IOException {
         var type = CdsImmunizationDto.class;
         var row = verify(index, address, "Immunizations", type);
