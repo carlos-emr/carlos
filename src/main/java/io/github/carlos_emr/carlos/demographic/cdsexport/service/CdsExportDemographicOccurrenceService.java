@@ -34,9 +34,9 @@ import org.springframework.stereotype.Service;
 /**
  * Scoped demographic occurrence assembly from one authenticated patient capture. The XML
  * emitter consumes retained values synchronously within their verified scope. Missing native
- * or retained closure refuses output. Native-only, multiple applied demographic parents,
+ * or retained closure refuses output. Multiple applied demographic parents,
  * active merges and unresolved associated fields require their explicit future reconciliation;
- * none falls back to an incomplete demographic. This service does not qualify a profile.
+ * native charts use the same typed components with exact independent field closure. This service does not qualify a profile.
  */
 @Service
 public class CdsExportDemographicOccurrenceService {
@@ -119,6 +119,26 @@ public class CdsExportDemographicOccurrenceService {
             var checked = verification.verify(lease, patient, tables, source, index, bounds.fields(), bounds.bytes(), 1_000_000, control);
             var parents = index.tables().get("cds_import_unit").values().stream().filter(row -> "Demographics".equals(row.fields().get("category")))
                     .map(row -> row.fields().get("run_id") + ":" + row.fields().get("unit_key")).filter(index.appliedUnits()::contains).toList();
+            if (parents.isEmpty()) {
+                if (retained.stream().anyMatch(field -> field.category() == CdsCategory.DEMOGRAPHICS)) scope();
+                streams.requireActive(); requireNativeWitnesses(collected, receipts, lease.document().command().categories(), control::checkpoint);
+                var nativeResult = new CdsExportNativeDemographicAssembler().assemble(patient.patient(), lease.document().command().categories(),
+                        index.sourceManifestSha256(), collected, bounds.nativeRows(), Math.min(bounds.indexBytes(), 64L << 20), control::checkpoint);
+                var identity = new CdsExportIdentityDto(patientKey, CdsCategory.DEMOGRAPHICS,
+                        CdsImportKeys.hash("carlos-native-occurrence-v1", "demographic", Integer.toString(patient.patient())));
+                String senderId = new CdsExportPatientIdentityReconciler().identity(lease.document().senderNamespace(), patient.patient()).senderPatientId();
+                var nativeFields = new LinkedHashMap<>(nativeResult.fields());
+                nativeFields.put(new CdsExportNativeFieldKeyDto("demographic", collected.get("demographic").getFirst().recordKey(), "demographic_no"),
+                        new CdsExportFieldAssessmentDto(CdsExportFieldAssessmentDto.Presence.VALUE, CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                                "UniqueVendorIdSequence", "EXACT_REGISTERED_NATIVE_PATIENT_IDENTITY"));
+                emitter.emit(new CdsExportXmlComposer.Section(identity, writer -> new CdsExportDemographicXmlWriter().writeWithRelated(
+                        nativeResult.demographic(), nativeResult.pharmacy(), nativeResult.contacts(), senderId, writer)));
+                output.accept(new CdsExportClinicalOccurrenceService.Receipt(identity, index.sourceManifestSha256(), "demographic",
+                        Integer.toString(patient.patient()), null, nativeFields, Set.of(), Set.of()));
+                captures.authorizeSources(lease, patient, tables, control); streams.requireActive(); patient.require(lease); control.checkpoint();
+                completed[0] = new CdsExportClinicalOccurrenceService.Result(index.sourceManifestSha256(), CdsCategory.DEMOGRAPHICS, 1, 0, 1, 0);
+                return;
+            }
             if (parents.size() != 1) throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PARENT_RECONCILIATION_REQUIRED");
             var providers = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
             for (var provider : collected.get("provider")) if (providers.putIfAbsent(provider.fields().get("provider_no"), provider) != null) scope();
@@ -149,6 +169,23 @@ public class CdsExportDemographicOccurrenceService {
         return Objects.requireNonNull(completed[0]);
     }
 
+    /** Exact selected projections and independently captured witnesses; no native occurrence can borrow a retained receipt. */
+    static void requireNativeWitnesses(Map<String, List<CdsExportCapturedTextRowDto>> rows,
+            Map<String, List<CdsExportNativeRowReceiptDto>> witnesses, Set<CdsCategory> selected, Runnable checkpoint) throws IOException {
+        var primary = Map.of("demographic", "demographic_no", "demographicExt", "id", "demographiccust", "demographic_no",
+                "demographicArchive", "id", "provider", "provider_no", "Contact", "id", "DemographicContact", "id", "pharmacyInfo", "recordID", "demographicPharmacy", "id");
+        if (!rows.keySet().equals(TABLES) || !witnesses.keySet().equals(TABLES)) scope();
+        for (String table : TABLES) {
+            var byKey = new HashMap<String, CdsExportNativeRowReceiptDto>();
+            for (var witness : witnesses.get(table)) if (!table.equals(witness.table()) || byKey.putIfAbsent(witness.recordKey(), witness) != null) scope();
+            for (var row : rows.get(table)) {
+                checkpoint.run(); var witness = byKey.remove(row.recordKey()); if (witness == null || !table.equals(row.table())) scope();
+                boolean partial = table.equals("demographiccust") && !selected.contains(CdsCategory.ALERTS_AND_SPECIAL_NEEDS);
+                CdsExportCapturedTextWitness.require(row, witness, primary.get(table), partial, checkpoint);
+            }
+            if (!byKey.isEmpty()) scope();
+        }
+    }
     private static <T> List<T> concat(List<T> first, List<T> second) { var result = new ArrayList<>(first); result.addAll(second); return List.copyOf(result); }
     private static void scope() throws IOException { throw new IOException("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID"); }
     private static void limit() throws IOException { throw new IOException("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_RESOURCE_LIMIT"); }

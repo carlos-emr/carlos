@@ -773,5 +773,15 @@
     "otherPatientsLinksExcluded": true,
     "repeatableReadAbsenceVerified": true,
     "packagedQualificationPending": true
+  },
+  "nativeDemographicCurrentAssembly": {
+    "state": "FOCUSED_COMPONENT_VERIFIED",
+    "affectedChecks": 69,
+    "newAssemblyAndBoundaryChecks": 12,
+    "sameTypedMappersAsRetainedWorkflow": true,
+    "exactSourceWitnessAndNativeFieldClosure": true,
+    "registeredPatientIdentityVerified": true,
+    "nativeDemographicArchivesStillRequireReview": true,
+    "packagedAndInstalledQualificationPending": true
   }
 }

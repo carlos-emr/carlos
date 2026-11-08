@@ -64,6 +64,12 @@ public final class CdsExportDemographicXmlWriter {
     public void writeWithRelated(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicEnrolmentProjectionDto value,
             CdsExportPharmacyProjectionService.Result pharmacy, CdsExportPersonalContactProjectionService.Result contacts,
             CdsExportXmlComposer.ContentWriter xml) throws IOException {
+        writeWithRelated(value, pharmacy, contacts, null, xml);
+    }
+    /** The coordinator supplies the registered native patient identity; existing component callers retain their numeric identity. */
+    public void writeWithRelated(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicEnrolmentProjectionDto value,
+            CdsExportPharmacyProjectionService.Result pharmacy, CdsExportPersonalContactProjectionService.Result contacts,
+            String senderPatientId, CdsExportXmlComposer.ContentWriter xml) throws IOException {
         java.util.Objects.requireNonNull(xml).content(guarded -> {
             if (value == null || !value.representable() || pharmacy == null || !pharmacy.mapping().nativeRepresentable()
                     || contacts == null || !contacts.mapping().nativeRepresentable()
@@ -72,12 +78,19 @@ public final class CdsExportDemographicXmlWriter {
                 throw new IOException("CDS_EXPORT_DEMOGRAPHIC_RELATIONS_REQUIRES_REVIEW");
             if (value.note() != null && value.note().text() != null && !CdsExportNativeFieldAssessments.legal(value.note().text(), 64000))
                 throw new IOException("CDS_EXPORT_PATIENT_NOTE_MAPPING_REQUIRES_REVIEW");
-            writeValue(value.demographic(), guarded, value.note() == null ? null : value.note().text(), value.events(), pharmacy.mapping(), contacts.mapping());
+            if (senderPatientId != null && !senderPatientId.equals("C" + value.demographic().patient()))
+                throw new IOException("CDS_EXPORT_NATIVE_PATIENT_IDENTITY_INVALID");
+            writeValue(value.demographic(), guarded, value.note() == null ? null : value.note().text(), value.events(), pharmacy.mapping(), contacts.mapping(), senderPatientId);
         });
     }
     private void writeValue(CdsExportDemographicMappingDto patient, CdsExportXmlComposer.ContentWriter xml, String patientNote,
             java.util.List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportEnrolmentEventDto> enrolment,
             CdsExportPharmacyMapper.Result pharmacy, CdsExportPersonalContactMapper.Result contacts) throws IOException {
+        writeValue(patient, xml, patientNote, enrolment, pharmacy, contacts, null);
+    }
+    private void writeValue(CdsExportDemographicMappingDto patient, CdsExportXmlComposer.ContentWriter xml, String patientNote,
+            java.util.List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportEnrolmentEventDto> enrolment,
+            CdsExportPharmacyMapper.Result pharmacy, CdsExportPersonalContactMapper.Result contacts, String senderPatientId) throws IOException {
         if (patient == null || !patient.baseRowRepresentable()) throw new IOException("CDS_EXPORT_DEMOGRAPHIC_MAPPING_REQUIRES_REVIEW");
         xml.start("cds", "Names"); optional(xml, "cds_dt", "NamePrefix", patient.names().prefix());
         xml.start("cds_dt", "LegalName"); xml.attribute("", "namePurpose", "L");
@@ -91,7 +104,7 @@ public final class CdsExportDemographicXmlWriter {
             xml.element("cds_dt", "ProvinceCode", card.province()); xml.end();
         }
         optional(xml, "cds", "ChartNumber", patient.chartNumber()); xml.element("cds", "Gender", patient.administrativeGender());
-        xml.element("cds", "UniqueVendorIdSequence", Integer.toString(patient.patient()));
+        xml.element("cds", "UniqueVendorIdSequence", senderPatientId == null ? Integer.toString(patient.patient()) : senderPatientId);
         for (var address : patient.addresses()) {
             xml.start("cds", "Address"); xml.attribute("", "addressType", address.type()); xml.start("cds_dt", "Structured");
             optional(xml, "cds_dt", "Line1", address.line1()); optional(xml, "cds_dt", "City", address.city());

@@ -1368,3 +1368,18 @@ other patients' links stay outside that scope. Twenty-five affected real MariaDB
 CLI-startup and source-recipe checks passed. The initial incremental CLI run found
 a stale derived V84 SQL resource; refreshing that build output from the committed
 SQL restored validation without changing source migrations or database history.
+
+
+A native chart without an applied demographic import parent now uses the existing
+typed demographic, phone, patient-note, current-enrolment, personal-contact and
+pharmacy mappers through the same coordinated occurrence service. Every selected
+row is matched to its independent captured witness before assembly. Native field
+closure covers the entire captured row universe, and the registered patient ID
+is used in actual XML. A retained demographic field without a proven parent,
+extra/unaccounted providers, populated unsupported carriers, multiple parents or
+unrepresented demographic archives still require explicit review. The retained
+source path and its strict source-field closure are unchanged. Sixty-nine affected
+checks passed, including twelve native assembly/boundary cases, schema readback,
+selected-note witness scope, substituted fields, registered-ID mismatch and shared
+primary/enrolment physician uses. Clean packaging and genuine installed native
+chart verification remain required for this addition.

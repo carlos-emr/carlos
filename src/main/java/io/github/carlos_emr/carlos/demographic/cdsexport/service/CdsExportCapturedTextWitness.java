@@ -35,8 +35,13 @@ final class CdsExportCapturedTextWitness {
     }
     /** Non-id primary keys must be selected explicitly by the owning table reader. */
     static void require(CdsExportCapturedTextRowDto row, CdsExportNativeRowReceiptDto witness, String identityColumn, Runnable checkpoint)throws IOException{
+        require(row, witness, identityColumn, false, checkpoint);
+    }
+    /** The selected demographic note projection omits the unselected alert column explicitly. */
+    static void require(CdsExportCapturedTextRowDto row, CdsExportNativeRowReceiptDto witness, String identityColumn,
+            boolean partial, Runnable checkpoint)throws IOException {
         Objects.requireNonNull(checkpoint); checkpoint.run();
-        if (identityColumn==null||row==null||witness==null||witness.state()==null||witness.partial()||!row.table().equals(witness.table())||!row.recordKey().equals(witness.recordKey())||!witness.id().equals(row.fields().get(identityColumn))||!row.exactNumbers().isEmpty()||!row.fields().keySet().equals(Set.copyOf(witness.state().columns().stream().map(column-> column.name()).toList())))throw new IOException("CDS_EXPORT_CAPTURED_TEXT_WITNESS_SCOPE_INVALID");
+        if (identityColumn==null||row==null||witness==null||witness.state()==null||witness.partial()!=partial||!row.table().equals(witness.table())||!row.recordKey().equals(witness.recordKey())||!witness.id().equals(row.fields().get(identityColumn))||!row.exactNumbers().isEmpty()||!row.fields().keySet().equals(Set.copyOf(witness.state().columns().stream().map(column-> column.name()).toList())))throw new IOException("CDS_EXPORT_CAPTURED_TEXT_WITNESS_SCOPE_INVALID");
         for (var column:witness.state().columns()){checkpoint.run(); if (!matches(witness.state(), column.name(), row.fields().get(column.name())))throw new IOException("CDS_EXPORT_CAPTURED_TEXT_WITNESS_SCOPE_INVALID"); }
     }
     static boolean matches(CdsNativeRowState state, String column, String value)throws IOException{
