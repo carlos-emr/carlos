@@ -144,8 +144,10 @@ async function workflow(s) {
         const candidates=new Map();
         for(let index=0;index<await links.count();index++){
           const entry=links.nth(index),target=(await entry.getAttribute('onclick'))||(await entry.getAttribute('href'));
-          const sourceId=[...known.keys()].find(id=>new RegExp('segmentID='+id+'(?:&|[\'\"])').test(target));
-          if(!sourceId)continue;
+          const matches=[...(target||'').matchAll(/[?&]segmentID=([1-9]\d*)(?=&|['"]|$)/g)];
+          h.assert(matches.length<=1,'Native chart link has ambiguous lab source parameters');
+          const sourceId=matches[0]?.[1];
+          if(!known.has(sourceId))continue;
           const item=await entry.evaluate(node=>Array.from(document.querySelectorAll('#leftNavBar li,#rightNavBar li')).indexOf(node.closest('li')));
           h.assert(item>=0,'Native lab link has no list-item identity');
           const previous=candidates.get(item);h.assert(!previous||previous.sourceId===sourceId,'One chart entry links to different clinical versions');

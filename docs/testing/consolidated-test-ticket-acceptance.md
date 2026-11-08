@@ -53,8 +53,8 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5806](https://github.com/carlos-emr/carlos/issues/5806) | test(playwright): cover OAuth 1.0a registered web callbacks and denial | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5807](https://github.com/carlos-emr/carlos/issues/5807) | test(playwright): cover email consent states and changes after composition opens | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5808](https://github.com/carlos-emr/carlos/issues/5808) | test(playwright): round-trip image-backed eForms through ZIP export and import | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
-| [#5809](https://github.com/carlos-emr/carlos/issues/5809) | test(playwright): verify eForm page exclusion in deployed PDF output | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
-| [#5810](https://github.com/carlos-emr/carlos/issues/5810) | test(playwright): cover stale tickler selections during filtering and pagination | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5809](https://github.com/carlos-emr/carlos/issues/5809) | test(playwright): verify eForm page exclusion in deployed PDF output | Native ON/BC clean, form-wrapped and body-direct layouts each pass new and saved-instance PDF output, actual renderer receipts, independently checked page/text/geometry/ink and strict clinical bounds. Native interstitial approval preserves its exact saved revision without an extra save. Exact SQL/download/server-PDF cleanup and refusal controls pass; final full qualification remains pending. |
+| [#5810](https://github.com/carlos-emr/carlos/issues/5810) | test(playwright): cover stale tickler selections during filtering and pagination | Native ON/BC preselected search/status/assignee/page changes, held real list responses, inert pending controls, Clear All, out-of-order completion, exact Complete/Delete POST IDs and task/history/control isolation all pass. Barrier delivery/disposal/route-removal failures are independently exercised. Exact owned cleanup passes; final full qualification remains pending. |
 | [#5811](https://github.com/carlos-emr/carlos/issues/5811) | test(playwright): cover Query-by-Example result limits, timeout and recovery | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5812](https://github.com/carlos-emr/carlos/issues/5812) | test(playwright): verify MRP tickler preference routes newly created tasks | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 
@@ -458,3 +458,53 @@ control isolation, exact replay and teardown, with only the four #5819/#5820
 comparisons failing. These failures remain release blockers, not waiver pins.
 Review-thread replies/resolutions and CI for the next committed head follow
 this verified source checkpoint.
+
+Published checkpoint `2f91cab8f35` has now passed **all thirteen GitHub workflows**.
+All 31 CodeRabbit inline threads from the four completed full reviews were
+individually reconciled. A later Semgrep inline finding identified a dynamic
+HL7 link regex; the next checkpoint replaces it with fixed, exact parameter
+parsing rather than suppressing the finding. Its reply/resolution remains pending
+publication and validation. The PR description reflects the committed checkpoint;
+it continues to declare pending coverage and product failures explicitly.
+
+Additional native coverage for #5809 and #5810 passes all reached stages on both
+installed snapshot30 provinces. The eForm check retains the standalone check and
+uses six actual deployed PDFs, not local browser printing. Initial fixture
+attempts exposed content-extent sizing, native named-window reuse, save-as-new-
+revision semantics, and the required informed interstitial approval. Those attempts
+remain failed/unreached evidence, not product findings or successful runs. The
+qualified fixture has a visible full-page extent and asserts the actual topology,
+exact revision/approval behavior, independent geometry and visible ink. It also
+recovers generated PDFs by marker title after writes drain. The earlier unmarked
+development PDFs were separately identified by exact synthetic title/content,
+creation window and immutable hashes, then retired: 14 ON and 11 BC, with zero
+renderer files remaining at that recovery checkpoint. No unrelated file was
+removed. See [the deployed eForm inventory](eform-deployed-page-exclusion-inventory.md).
+
+The stale tickler check holds real successful server responses without fabricated
+rows, covers four result-set transitions and late old responses, and verifies
+exact selected POST IDs and one status-history record per intended mutation.
+The first installed attempt reached all four race phases but failed on a harness
+NULL representation assumption; the corrected repetition completes both provinces
+with no unexpected browser diagnostics and clean teardown. The new eForm, renderer
+file-ownership and response-barrier controls pass **22 focused tests**. A complete
+Ubuntu Node checkpoint passed **7,432 cases in 524 files** before the six extra
+renderer-file refusal controls were added; the new full 525-file run is pending.
+Sixteen other requested workflow additions, umbrella acceptance, native database
+scope, vendor prerequisites and full repeated final-head qualification remain open.
+
+The next full qualified Ubuntu 26.04/Node 22.22.1 execution passes **7,438/7,438
+cases in 525 files**, zero failures/skips/cancellations/TODO and unchanged test
+source digests; the inventory is regenerated from that complete report. All 68
+manifest controls and the 22 focused new controls pass. The fixed HL7 parameter
+parser retakes reach all stages on both provinces, including exact replay and
+teardown; only the same four #5819/#5820 product comparisons fail, with no new
+browser diagnostic or cleanup failure. No dynamic-regex suppression was added.
+
+Final fixture review also strengthens numeric allocation across legacy fdid
+references (including numeric text), refuses changed tickler ownership before
+cleanup, checks unexpected eForm children on the owned patient, and verifies that
+late tickler AJAX processing has actually completed before inspecting the DOM.
+The latter observes the native xhr event and the following browser task; response
+headers alone are insufficient evidence of a completed stale draw. The installed
+retake and temporary INFO-logging restoration follow this source checkpoint.

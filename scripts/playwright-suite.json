@@ -18782,6 +18782,43 @@
       ],
       "fixtures": "Owned patients and CML accessions created through the native HL7 uploader, with original/corrected/older timestamps and values, initial native acknowledgment, raw history and independent control snapshots. Shared upload fixture owns SQL/checksum/measurement/archive cleanup and restores original lock presence. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5726: changed same-accession messages are actually ingested; assert per-version routing/review and current/history chart/Inbox surfaces, out-of-order correction safety and byte-identical correction replay without extra effects. Final count/status ordering is recorded separately from clinical expectations; missing and unreached steps cannot pass."
+    },
+    {
+      "name": "eform-deployed-page-exclusion",
+      "script": "scripts/eform-deployed-page-exclusion-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 1200,
+      "assertsDatabase": true,
+      "env": [
+        "EXCLUSIVE",
+        "LAB_UPLOAD_JOURNAL_UNIT",
+        "LAB_UPLOAD_SERVER_LOG",
+        "EFORM_RENDER_TEMP_DIR"
+      ],
+      "mutates": [
+        "eform"
+      ],
+      "fixtures": "Three marker-owned eForm library templates and a synthetic patient; native new/saved downloads each save one owned revision per template. Reserves past existing legacy fdid references without deleting them. Verifies and removes only owned template/instance/value and downloaded-file fixtures. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5809: clean, form-wrapped and body-direct two-page layouts through native new and saved-instance PDF downloads. Poppler count/text/bounds and rendered ink enforce complete lower/right content, order and zero interstitial/blank pages; geometry is compared with the clean control. Requires the actual saved-eForm browser renderer and a readable server log with EFormBrowserPdfService INFO completion receipts; missing or disabled rendering cannot pass. The two log-source environment variables are alternatives."
+    },
+    {
+      "name": "tickler-stale-selection",
+      "script": "scripts/tickler-stale-selection-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "assertsDatabase": true,
+      "fixtures": "One synthetic patient, 59 marker-owned tasks across assignees/statuses and two default-size pages, exact child-row cleanup. Holds/disposes actual ListTicklers responses in the owned browser context; no shared preferences or fabricated successful responses.",
+      "notes": "#5810: preselected search/status/assignee/page changes, inert pending controls, current-page selection clearing, Clear All, out-of-order real list responses, and exact native Complete/Delete POST IDs, task rows/history and hidden/out-of-page sentinel preservation. Existing Deleted restrictions remain asserted."
     }
   ]
 }
