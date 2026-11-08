@@ -11,10 +11,14 @@ import org.hl7.fhir.dstu3.model.Patient;
 import org.hl7.fhir.dstu3.model.StringType;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Expectations established with HAPI 8.4.3 before the dependency upgrade. */
+/** Pins legacy omissions and safe clinical decimal/primitive metadata handling. */
 @Tag("unit")
 @Tag("fhir")
 class FhirJsonCompatibilityUnitTest {
@@ -86,5 +90,38 @@ class FhirJsonCompatibilityUnitTest {
         patient.addName().setFamily(" Synthetic ").addGiven("Élodie 李");
         assertThat(FhirJsonCompatibility.encode(FHIR, patient))
                 .isEqualTo(FHIR.newJsonParser().setPrettyPrint(true).encodeResourceToString(patient));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0.123456789012345678901", "2.500", "123456789012345678901234567890.125"})
+    void shouldPreserveExactClinicalDecimals_whenAnotherFieldIsOmitted(String amount) {
+        Immunization dose = new Immunization();
+        dose.setLotNumber(" ");
+        dose.getDoseQuantity().setValue(new BigDecimal(amount));
+
+        assertThat(FhirJsonCompatibility.encode(FHIR, dose)).contains(amount);
+        assertThat(dose.getDoseQuantity().getValue()).isEqualTo(new BigDecimal(amount));
+    }
+
+    @Test
+    void shouldKeepMetadataAligned_whenAnEarlierBlankValueHasNoExtension() throws Exception {
+        Patient patient = new Patient();
+        var name = patient.addName();
+        name.addGiven(" ");
+        name.addGivenElement().setValue("Kept")
+                .addExtension(new Extension("https://example.invalid/origin", new StringType("source")));
+
+        JsonNode encoded = JSON.readTree(FhirJsonCompatibility.encode(FHIR, patient)).path("name").get(0);
+
+        assertThat(encoded.path("given")).isEqualTo(JSON.readTree("[null,\"Kept\"]"));
+        assertThat(encoded.path("_given").get(0).isNull()).isTrue();
+        assertThat(encoded.path("_given").get(1).path("extension").get(0).path("valueString").asText())
+                .isEqualTo("source");
+        Patient decoded = FHIR.newJsonParser().parseResource(Patient.class,
+                FhirJsonCompatibility.encode(FHIR, patient));
+        assertThat(decoded.getNameFirstRep().getGiven().stream()
+                .filter(value -> "Kept".equals(value.getValue())).findFirst().orElseThrow()
+                .getExtensionFirstRep().getValue().primitiveValue())
+                .isEqualTo("source");
     }
 }
