@@ -18852,6 +18852,38 @@
       ],
       "fixtures": "One marker-owned patient and 1201 demographicExt rows; successful query history scoped to provider/marker. Genuine bounded reporting-account cross-join timeout observed in MariaDB processlist, with no shared grants or configuration changed by the check. Cleanup refuses active queries or changed ownership and verifies exact SQL removal.",
       "notes": "#5811: 999/1000/1001 row boundaries, independent encoded result-table character budget, real database timeout and same-composer recovery, exact successful-history semantics and private application audit metadata. Requires CARLOS_DISPOSABLE_VM=1, actual read-only reporting account (QBE_REPORTING_USER defaults to carlos_report), and a readable application INFO audit source via either log-source variable. Missing execution/receipts cannot pass."
+    },
+    {
+      "name": "appointment-slot-expiry",
+      "script": "scripts/appointment-slot-expiry-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "profile": "appointment-lock-expiry",
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "#5737: 20-second supported lock profile; pauses the owned renderer JavaScript without unload, independently times the last accepted heartbeat, checks overlap/non-overlap, live renewals, stale-owner refusal/release and a real non-admin booking. Profile supervisor restores exact configuration bytes.",
+      "fixtures": "Three owned logins, owned patient and isolated owner schedule; exact owned monitor/booking/group cleanup, unchanged unrelated schedule. No SQL expiration or service restart during the scenario."
+    },
+    {
+      "name": "appointment-cut-recovery",
+      "script": "scripts/appointment-cut-recovery-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "env": [],
+      "notes": "#5738: native Cut immediate full archive/audit, cancelled destination, invalid duration and corrected retry, repeated Paste without autosave, browser/session interruption, and Copy snapshot semantics across source edit/delete. Archive-only abandoned Cut is reported as an incomplete move; no undo policy is invented.",
+      "fixtures": "Owned patient/login/schedule, three source bookings and an unchanged control. Guards identities and dependent rows, removes only owned appointment/archive/monitor/group rows and verifies unrelated appointments unchanged.",
+      "profile": "appointment-lock-expiry"
     }
   ]
 }

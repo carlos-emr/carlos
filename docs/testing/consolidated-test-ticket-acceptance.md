@@ -35,8 +35,8 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5734](https://github.com/carlos-emr/carlos/issues/5734) | Test: preserve multiple same-severity Rx interaction partners when one is removed | Installed ON/BC native current/staged moderate partners, exact JSON/marker/tooltip identities, staged removal/re-add, current-medication discontinuation/staged re-add, threshold 1/2/3/4 and patient overrides all pass. DrugRef pairs are read-only and independently validated; metformin is a noninteracting control, with no unexpected prescription writes and clean owned cleanup. |
 | [#5735](https://github.com/carlos-emr/carlos/issues/5735) | Test: cover Schedule of Benefits imports that update existing codes and multiple rows | Installed ON native multi-row preview/apply, malformed-file refusal/retry, abandonment, GET/CSRF refusals, exact appended periods, historical claim preservation, duplicate upload and code-admin reopening pass. Error feedback is file-level; per-line diagnostics are absent. |
 | [#5736](https://github.com/carlos-emr/carlos/issues/5736) | Test: cover BC payment amount boundaries, overpayments and supported refunds | Installed BC refusals, exact-cent partial/overpayment, receipt/list/accounting reconciliation and control-invoice preservation pass. No native refund control exists; negative amounts are refused. |
-| [#5737](https://github.com/carlos-emr/carlos/issues/5737) | Test: verify appointment-slot lock expiry and recovery after an abandoned browser | Implementation and installed acceptance pending. |
-| [#5738](https://github.com/carlos-emr/carlos/issues/5738) | Test: cover abandoned appointment cut/paste and stale clipboard recovery | Implementation and installed acceptance pending. |
+| [#5737](https://github.com/carlos-emr/carlos/issues/5737) | Test: verify appointment-slot lock expiry and recovery after an abandoned browser | Implemented; [expiry inventory](appointment-slot-expiry-inventory.md). All native stages pass on snapshot31 in ON/BC; exact configuration restoration and post-run audits follow below. |
+| [#5738](https://github.com/carlos-emr/carlos/issues/5738) | Test: cover abandoned appointment cut/paste and stale clipboard recovery | Implemented; [recovery inventory](appointment-cut-recovery-inventory.md). All native stages pass on snapshot31 in ON/BC; the observed archive-only interrupted-Cut outcome remains explicit, without inventing automatic undo. |
 | [#5771](https://github.com/carlos-emr/carlos/issues/5771) | Test: Tomcat shutdown leak smoke check doesn't match MariaDB Connector/J thread names | Matcher and delayed-output CLI controls pass; actual installed ON stop/start log contains zero target leak warnings. Full lifecycle repetitions remain pending. |
 | [#5779](https://github.com/carlos-emr/carlos/issues/5779) | Test: #5548 inbox counts are only partly exercised on physical MariaDB | Seven cases pass on both physical ON and BC Flyway schemas with zero skips at 239cd330e1a. CI at fb0401df0c1 passes both native lanes including expanded normal/abnormal assertions; final-head evidence still required after further edits. |
 | [#5793](https://github.com/carlos-emr/carlos/issues/5793) | Test: Release adds 11 expected-failure pins, including security and audit checks | All release-added pins reconciled to open ownership below; retired 335 distinguished. No release waiver or product fix claimed. |
@@ -582,3 +582,47 @@ Both include the complete pinned renderer/DrugRef inputs; no release component i
 skipped. Installation and new package-qualified retakes follow. Independent
 post-QBE audits show zero owned patients, extension/history rows or active
 reporting queries in both containers. All 68 manifest controls pass too.
+
+Snapshot31 upgrades complete in both Ubuntu 26.04 provincial containers. Exact
+configuration hashes are preserved; installed health, package byte verification
+and `NRestarts=0` pass. Temporary QBE INFO overrides are absent from the running
+process environments. These are installation checks, not a claim of full native
+acceptance on the new package.
+
+The CodeQL diagnostic-assertion finding is addressed in `7be3aed6c4c` using an
+exact expected redacted message; all five callback controls pass. All 33 current
+inline threads are resolved. A sixth CodeRabbit full review requested at 04:46
+UTC stopped when that fix changed the head; it is not counted as complete. Five
+full reviews remain complete, and a fresh final-scope review is still required.
+
+The new appointment recovery profile and workflows are being qualified. Initial
+lifecycle-freeze attempts did not stop the owner's heartbeat, and the independent
+unchanged-heartbeat assertion correctly failed. Those failed/unreached receipts
+are retained. The replacement observes a real DevTools JavaScript pause and
+uses rendered duration controls for native refreshes rather than relying on
+background-tab timer cadence. Seven expiry-oracle controls and the affected
+manifest/profile controls pass (87 total focused cases); successful final native
+outcomes remain required.
+
+The replacement Ubuntu Node execution passes **7,488/7,488 cases in 528
+files**, with no failures, skips, cancellations or TODOs and unchanged test-file
+digests. Its case inventory is regenerated. All 68 manifest controls pass; the
+seven expiry-oracle and five OAuth callback controls also pass.
+
+The final appointment workflows pass every native stage in both snapshot31
+containers: abandoned overlap expires after about 20.6 seconds, the live control
+keeps its identity and renews, the stale owner cannot steal/release the successor,
+and the non-admin successor books the correct patient/slot. A monitor left by
+form submission is retired by the supported native expiry, not an invented
+immediate-release contract. Cut recovery passes exact archive/audit, cancellation,
+invalid duration/no write, corrected single retry, repeated Paste without
+autosave, browser interruption and Copy snapshots after edit/delete. The
+interrupted Cut remains explicitly incomplete with its archive; no recovery
+policy or automatic undo is invented. Source SHA-256 values are
+`cc8296b59678a92d2a3037d09c7f12cb86010a7e2c8d402b3185438708f17d8a`
+(expiry) and `827f92c20843937757491c1079a92ae54f104e8e0019b8b2f744dd67207fd5d9`
+(cut recovery). Both profile supervisors finish successfully, restore exact original property
+bytes, and pass installed health/package verification with `NRestarts=0`.
+Independent post-run audits find zero owned patients, providers, appointments,
+archives, groups or monitor names. Twelve further requested workflow implementations, plus umbrella,
+native-database/vendor and repeated full acceptance, remain open.
