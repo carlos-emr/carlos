@@ -65,7 +65,7 @@ jobs:
           target/cds-browser-tools/node_modules/.bin/playwright install --with-deps chromium
       - name: Verify harness syntax and bounded WAR evidence tools
         run: |
-          python3 -m py_compile scripts/ci/run-cds-export-installed-ci.py scripts/ci/setup-cds-export-installed-tomcat.py scripts/ci/run-cds-export-installed-oracle.py
+          python3 -m py_compile scripts/ci/run-cds-export-installed-ci.py scripts/ci/setup-cds-export-installed-tomcat.py scripts/ci/run-cds-export-installed-oracle.py scripts/ci/collect-cds-export-installed-diagnostics.py
           node --check scripts/ci/run-cds-export-installed-browser.js
           python3 scripts/ci/test_cds_war_manifest.py
       - name: Start Java25 build container

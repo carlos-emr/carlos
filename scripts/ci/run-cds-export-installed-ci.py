@@ -194,9 +194,13 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
             run(["install", "-d", "-m", "0700", "/run/cds-ci"])
             execute(docker + ["cp", str(private / "jdbc.properties"), runtime + ":/run/cds-ci/jdbc.properties"])
             run(["chmod", "0600", "/run/cds-ci/jdbc.properties"])
+            mappings = execute(docker + ["port", runtime, "8443/tcp"], capture=True).stdout.strip()
+            if not re.fullmatch(r"127\.0\.0\.1:[0-9]+", mappings):
+                raise RuntimeError("Loopback-only test TLS listener required")
+            base_url = "https://" + mappings + "/carlos"
             fixture_command = ["java", "-Xmx256m", "-cp", runtime_cp, FIXTURE]
             stage("ORDINARY_NATIVE_CHART_AND_GUARDED_FRESH_KEYS")
-            prepared = json_result(run(fixture_command + ["prepare", "/run/cds-ci/jdbc.properties"], capture=True))
+            prepared = json_result(run(fixture_command + ["prepare", "/run/cds-ci/jdbc.properties", base_url], capture=True))
             if prepared.get("prepared") is not True or prepared.get("guardedFreshKeys") is not True:
                 raise RuntimeError("Native fixture preparation incomplete")
             fixture = read_json(PRIVATE + "/fixture.json")
@@ -248,6 +252,9 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
                             break
                 except (OSError, urllib.error.URLError):
                     pass
+                probe = run(["python3", "scripts/ci/collect-cds-export-installed-diagnostics.py"], capture=True)
+                if json.loads(probe.stdout).get("fatalStartup") is True:
+                    raise RuntimeError("Full web application startup explicitly failed")
                 if time.monotonic() > deadline:
                     raise RuntimeError("Full authenticated application startup did not become ready")
                 time.sleep(2)
@@ -301,14 +308,19 @@ print(json.dumps({'verified':True,'files':len(expected),'warSha256':manifest['wa
         # Fixtures and keys exist only in these newly created, exclusively owned containers.
         # No existing install/database is accepted; public evidence omits all secret/source bytes.
         if owned_runtime:
-            diagnostic = subprocess.run(docker + ["exec", "--user", "0", runtime, "python3", "-c",
-                "import json,pathlib,re;p=pathlib.Path('/opt/cds-tomcat-ci/logs/catalina.log');s=p.read_text(errors='replace')[-2000000:] if p.is_file() else '';"
-                "print(json.dumps({'exceptionClasses':list(dict.fromkeys(re.findall(r'\\b(?:[a-zA-Z_$][a-zA-Z0-9_$]*\\.)*[a-zA-Z_$][a-zA-Z0-9_$]*(?:Exception|Error)\\b',s)))[-100:],"
-                "'applicationFrames':list(dict.fromkeys(re.findall(r'\\bat (?:io\\.github\\.carlos_emr\\.[A-Za-z0-9_.$]+)\\([A-Za-z0-9_.]+:\\d+\\)',s)))[-100:]}))"],
-                text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30)
-            if diagnostic.returncode == 0:
-                (public / "application-startup-codes.json").write_text(diagnostic.stdout)
-                print("CDS_EXPORT_TOMCAT_DIAGNOSTICS=" + diagnostic.stdout.strip())
+            try:
+                diagnostic = subprocess.run(docker + ["exec", "--user", "0", runtime, "python3",
+                    "/workspace/scripts/ci/collect-cds-export-installed-diagnostics.py"],
+                    text=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=30)
+                if diagnostic.returncode == 0:
+                    (public / "application-startup-codes.json").write_text(diagnostic.stdout)
+                    print("CDS_EXPORT_TOMCAT_DIAGNOSTICS=" + diagnostic.stdout.strip())
+                else:
+                    status["startupDiagnosticsUnavailable"] = True
+                    save()
+            except (OSError, subprocess.TimeoutExpired):
+                status["startupDiagnosticsUnavailable"] = True
+                save()
         cleanup = []
         with (private / "cleanup.log").open("w") as out:
             for owned, command in (

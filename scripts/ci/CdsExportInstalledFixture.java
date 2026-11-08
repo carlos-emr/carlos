@@ -59,7 +59,7 @@ public final class CdsExportInstalledFixture {
             try (Connection db = DriverManager.getConnection(url, jdbc.getProperty("jdbcUser"), jdbc.getProperty("jdbcPassword"))) {
                 if (!"carlos_cds_test".equals(text(db, "SELECT DATABASE()"))) throw new IllegalStateException("Database mismatch");
                 switch (args[0]) {
-                    case "prepare" -> prepare(db, jdbc, url);
+                    case "prepare" -> prepare(db, jdbc, url, args[2]);
                     case "verify" -> verify(db, args[2], args[3]);
                     case "decrypt" -> decrypt(Path.of(args[2]), Path.of(args[3]));
                     default -> throw new IllegalArgumentException("Unknown fixture operation");
@@ -75,7 +75,8 @@ public final class CdsExportInstalledFixture {
         }
     }
 
-    private static void prepare(Connection db, Properties jdbc, String url) throws Exception {
+    private static void prepare(Connection db, Properties jdbc, String url, String publicBase) throws Exception {
+        if (!publicBase.matches("https://127\\.0\\.0\\.1:[0-9]+/carlos")) throw new IllegalStateException("Owned loopback front door required");
         if (Files.exists(CONFIG, LinkOption.NOFOLLOW_LINKS) || Files.exists(ROOT, LinkOption.NOFOLLOW_LINKS)
                 || Files.exists(PRIVATE, LinkOption.NOFOLLOW_LINKS)
                 || count(db, "SELECT COUNT(*) FROM cds_import_run") != 0
@@ -85,9 +86,11 @@ public final class CdsExportInstalledFixture {
         }
         directory(PRIVATE, false, false);
         directory(ROOT, false, true);
-        for (String child : List.of("store", "import", "documents", "delivery")) directory(ROOT.resolve(child), true, false);
+        for (String child : List.of("store", "import", "documents", "delivery", "data")) directory(ROOT.resolve(child), true, false);
         for (String child : List.of("selection", "policy", "keys")) directory(ROOT.resolve(child), false, true);
         for (String child : List.of("recipients", "certificates", "audit")) directory(ROOT.resolve("policy").resolve(child), false, true);
+        for (String child : List.of("carlos", "carlos/incomingdocs", "carlos/billing", "carlos/billing/invoices",
+                "carlos/fax-incoming")) directory(ROOT.resolve("data").resolve(child), true, false);
         String username = "cdsnative" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
         String password = UUID.randomUUID() + "PublicSynthetic!";
         String pin = Integer.toString(1000 + new SecureRandom().nextInt(9000));
@@ -125,6 +128,7 @@ public final class CdsExportInstalledFixture {
         Properties config = new Properties();
         int slash = url.indexOf('/', "jdbc:mysql://".length());
         config.setProperty("db_uri", url.substring(0, slash + 1)); config.setProperty("db_name", url.substring(slash + 1));
+        config.setProperty("db_type", "mysql");
         config.setProperty("db_driver", "com.mysql.cj.jdbc.Driver"); config.setProperty("db_username", jdbc.getProperty("jdbcUser"));
         config.setProperty("db_password", jdbc.getProperty("jdbcPassword"));
         config.setProperty("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect");
@@ -140,7 +144,17 @@ public final class CdsExportInstalledFixture {
         config.setProperty("cds.export.store.native.root", ROOT.resolve("store").toString());
         config.setProperty("cds.export.selectionRoot", ROOT.resolve("selection").toString());
         config.setProperty("cds.import.stagingRoot", ROOT.resolve("import").toString());
+        // Same deployment keys initialized by the actual paired CLI package.
+        config.setProperty("BASE_DOCUMENT_DIR", ROOT.resolve("data") + "/");
         config.setProperty("DOCUMENT_DIR", ROOT.resolve("documents") + "/");
+        config.setProperty("INCOMINGDOCUMENT_DIR", ROOT.resolve("data/carlos/incomingdocs").toString());
+        config.setProperty("INVOICE_DIR", ROOT.resolve("data/carlos/billing/invoices").toString());
+        config.setProperty("FAX_INCOMING_DIR", ROOT.resolve("data/carlos/fax-incoming").toString());
+        config.setProperty("log.purge.outputdir", ROOT.resolve("documents") + "/");
+        config.setProperty("project_home", "carlos");
+        config.setProperty("tomcat_path", "/opt/cds-tomcat-ci/");
+        config.setProperty("ws_endpoint_url_base", publicBase);
+        config.setProperty("carlos.flyway.locations", "classpath:db/migration/common,classpath:db/migration/on");
         config.setProperty("email.archive.keyring.file", ROOT.resolve("documents/email-keyring.json").toString());
         Files.createDirectories(CONFIG.getParent());
         try (var out = Files.newOutputStream(CONFIG, StandardOpenOption.CREATE_NEW)) { config.store(out, "Owned ordinary native CDS export CI"); }
