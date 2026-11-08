@@ -93,7 +93,8 @@ class FhirJsonCompatibilityUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"0.123456789012345678901", "2.500", "123456789012345678901234567890.125"})
+    @ValueSource(strings = {"0.123456789012345678901", "2.500", "123456789012345678901234567890.125",
+            "0.0000001", "0.0000001000"})
     void shouldPreserveExactClinicalDecimals_whenAnotherFieldIsOmitted(String amount) {
         Immunization dose = new Immunization();
         dose.setLotNumber(" ");

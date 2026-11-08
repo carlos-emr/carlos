@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.StreamReadConstraints;
+import com.fasterxml.jackson.core.StreamWriteFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -24,7 +25,9 @@ public final class FhirJsonCompatibility {
     // encoding. Relax that cap here only; inbound FHIR parsers keep their own limits.
     private static final ObjectMapper JSON = JsonMapper.builder(JsonFactory.builder()
                     .streamReadConstraints(StreamReadConstraints.builder()
-                            .maxStringLength(Integer.MAX_VALUE).build()).build())
+                            .maxStringLength(Integer.MAX_VALUE).build())
+                    // Match HAPI's plain decimal spelling, including tiny quantities.
+                    .enable(StreamWriteFeature.WRITE_BIGDECIMAL_AS_PLAIN).build())
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .disable(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
             .build();
