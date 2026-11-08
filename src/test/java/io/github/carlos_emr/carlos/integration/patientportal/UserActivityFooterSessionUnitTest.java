@@ -122,25 +122,31 @@ class UserActivityFooterSessionUnitTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/provider/ViewAppointmentAdminDay", "/ws/portal/email-footer/",
-            "/ws/portal/email-footer-extra", "/ws/portal/email-footer/extra", "/ws/rs/other"})
-    void shouldPreserveBrowserActivity_forEveryOtherRoute(String path) throws Exception {
+    @CsvSource({"/provider/ViewAppointmentAdminDay, true", "/ws/portal/email-footer/, false",
+            "/ws/portal/email-footer-extra, false", "/ws/portal/email-footer/extra, false", "/ws/rs/other, false"})
+    void shouldPreserveExistingBrowserAndApiActivityPolicy_forEveryOtherRoute(String path, boolean recordsActivity) throws Exception {
         var request = browserRequest(path, System.currentTimeMillis() - 10000);
         long previous = (Long) request.getSession(false).getAttribute(LAST_ACTIVITY);
         var response = new MockHttpServletResponse();
         var chain = mock(FilterChain.class);
         new UserActivityFilter().doFilter(request, response, chain);
-        assertThat((Long) request.getSession(false).getAttribute(LAST_ACTIVITY)).isGreaterThan(previous);
+        long current = (Long) request.getSession(false).getAttribute(LAST_ACTIVITY);
+        if (recordsActivity) assertThat(current).isGreaterThan(previous);
+        else assertThat(current).isEqualTo(previous);
         verify(chain).doFilter(request, response);
     }
 
     @Test
     void shouldNotTreatExtraPathInfo_asTheExactFooterServlet() throws Exception {
-        var request = browserRequest(FOOTER_PATH, System.currentTimeMillis() - 10000);
+        var request = browserRequest(FOOTER_PATH, System.currentTimeMillis() - 120000);
         request.setPathInfo("/extra");
-        long previous = (Long) request.getSession(false).getAttribute(LAST_ACTIVITY);
-        new UserActivityFilter().doFilter(request, new MockHttpServletResponse(), mock(FilterChain.class));
-        assertThat((Long) request.getSession(false).getAttribute(LAST_ACTIVITY)).isGreaterThan(previous);
+        var response = new MockHttpServletResponse();
+        var chain = mock(FilterChain.class);
+        try (var logging = mockStatic(LogAction.class)) {
+            new UserActivityFilter().doFilter(request, response, chain);
+        }
+        assertThat(response.getRedirectedUrl()).startsWith("/carlos/logoutPage?autoLogout=true");
+        verifyNoInteractions(chain);
     }
 
     @ParameterizedTest

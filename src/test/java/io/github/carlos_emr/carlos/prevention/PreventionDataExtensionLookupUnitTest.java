@@ -68,6 +68,7 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
 
         // This is the reflection-based text the previous implementation passed into Integer.valueOf.
         assertThat(injection.toString()).contains(CLINICAL_MARKER);
+        injection.setPreventionExts(new org.hibernate.collection.spi.PersistentBag<>());
         try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class);
                 LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
             assertThat(PreventionData.getPreventionDataFromExt("workflowId", "17"))

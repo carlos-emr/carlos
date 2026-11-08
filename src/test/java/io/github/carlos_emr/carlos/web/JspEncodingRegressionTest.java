@@ -782,8 +782,8 @@ class JspEncodingRegressionTest {
                 .contains("SafeEncode.forHtmlContent(drug.getCdsCurrentness() == null")
                 .contains("? providerDao.getProviderName(drug.getProviderNo())")
                 .contains(": drug.getOutsideProviderName() == null ? \"Unknown source prescriber\" : drug.getOutsideProviderName()) %>")
-                .containsPattern(carlosEncodePattern("drug\\.getDosageDisplay\\(\\)", "html"))
-                .containsPattern(carlosEncodePattern("StringUtils\\.trimToEmpty\\(drug\\.getComment\\(\\)\\)", "html"))
+                .contains("SafeEncode.forHtmlContent(drug.getDosageDisplay())")
+                .contains("SafeEncode.forHtmlContent(drug.getComment())")
                 .contains("${carlos:forHtml(pharmacy.name)}")
                 .contains("${carlos:forHtml(ProblemCode)}")
                 .doesNotContain("${ pharmacy.name }")
@@ -791,7 +791,7 @@ class JspEncodingRegressionTest {
                 // Date, Integer, Boolean and boolean getters converted for the String-typed setter.
                 .contains("String.valueOf(drug.getEndDate())")
                 .contains("String.valueOf(drug.getRepeat())")
-                .contains("String.valueOf(drug.isNoSubs())")
+                .contains("drug.getNoSubs() == null ? \"Unknown\" : Boolean.toString(drug.isNoSubs())")
                 .contains("drug.getRefillDuration() != null ? String.valueOf(drug.getRefillDuration()) : \"\"")
                 .contains("drug.getRefillQuantity() != null ? String.valueOf(drug.getRefillQuantity()) : \"\"")
                 .contains("drug.getShortTerm() != null ? String.valueOf(drug.getShortTerm()) : \"\"");

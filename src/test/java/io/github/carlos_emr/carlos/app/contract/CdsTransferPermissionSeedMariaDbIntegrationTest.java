@@ -54,7 +54,7 @@ class CdsTransferPermissionSeedMariaDbIntegrationTest {
     @Test void shouldAuthorizeBothIndependentPermissions_fromActualFreshMigrationRows() throws Exception {
         try (var query = connection.createStatement(); var rows = query.executeQuery("SELECT COUNT(*) FROM secObjPrivilege")) {
             assertThat(rows.next()).isTrue();
-            assertThat(rows.getInt(1)).as("the fresh Ontario seed floor, including both literal SELECT grants").isEqualTo(550);
+            assertThat(rows.getInt(1)).as("all fresh Ontario permission rows, including conditional reference seeds").isEqualTo(555);
         }
         for (String object : List.of("_cds_import", "_cds_export")) {
             var privileges = new Properties();

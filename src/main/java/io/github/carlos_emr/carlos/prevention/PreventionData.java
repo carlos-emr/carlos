@@ -561,6 +561,8 @@ public class PreventionData {
             Prevention prevention = preventionDao.find(preventionId);
             if (prevention != null) {
                 Map<String, String> ext = getPreventionKeyValues(prevention.getId().toString());
+                // Use the complete projection already loaded, without touching a detached lazy collection.
+                boolean imported = ext.containsKey("cdsDatePrecision");
 
                 h = new HashMap<String, Object>();
                 String providerName = null;
@@ -584,9 +586,9 @@ public class PreventionData {
                 addToHashIfNotNull(h, "providerName", providerName);
                 addToHashIfNotNull(h, "creationDate", UtilDateUtilities.DateToString(prevention.getCreationDate(), "yyyy-MM-dd"));
                 addToHashIfNotNull(h, "preventionDate", preventionDate);
-                addToHashIfNotNull(h, "prevention_date_asDate", !prevention.isCdsImported() || date.isExact() ? prevention.getPreventionDate() : null);
+                addToHashIfNotNull(h, "prevention_date_asDate", !imported || date.isExact() ? prevention.getPreventionDate() : null);
                 h.put("prevention_date_info", date);
-                h.put("cds_imported", prevention.isCdsImported());
+                h.put("cds_imported", imported);
                 addToHashIfNotNull(h, "preventionType", prevention.getPreventionType());
                 addToHashIfNotNull(h, "deleted", prevention.isDeleted() ? "1" : "0");
                 addToHashIfNotNull(h, "refused", prevention.isRefused() ? "1" : prevention.isIneligible() ? "2" : prevention.isCompletedExternally() ? "3" : "0");

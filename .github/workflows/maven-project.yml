@@ -165,6 +165,7 @@ jobs:
               'OscarFhirResourceManagerImmunizationUnitTest', 'UserActivityFooterSessionUnitTest',
               'ConsultationManagerUnitTest', 'EmailComposeAttachmentCompletenessUnitTest',
               'PreventionPageDataUnitTest', 'PreventionPrintLoaderIntegrationTest',
+              'PreventionDataExtensionLookupUnitTest',
               'ProviderPropertyActionDocumentGroupingTest', 'ScheduleAvailabilityViewJspRegressionTest',
               'JdkEncodingCompatibilityUnitTest', 'SonarPathTraversalExclusionPolicyUnitTest',
               'JspEncodingRegressionTest', 'AbstractWsPrivilegeUnitTest', 'AllergyWsSecurityUnitTest',

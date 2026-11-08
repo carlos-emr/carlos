@@ -11,8 +11,7 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -22,9 +21,9 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 class ProviderPropertyActionDocumentGroupingTest {
     @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {"true", "false"})
-    void shouldSaveDocumentGroupingForViewer_whenPreferenceSubmitted(String submitted) {
+    @CsvSource(value = {"<null>, <null>", "'', <null>", "true, true", "false, false",
+            "invalid, <null>", "TRUE, <null>", "' true ', true"}, nullValues = "<null>")
+    void shouldSaveDocumentGroupingForViewer_whenPreferenceSubmitted(String submitted, String expected) {
         UserPropertyDAO dao = mock(UserPropertyDAO.class);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         LoggedInInfo viewer = mock(LoggedInInfo.class);
@@ -32,7 +31,7 @@ class ProviderPropertyActionDocumentGroupingTest {
         when(security.hasPrivilege(viewer, "_pref", "w", null)).thenReturn(true);
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.getSession().setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", viewer);
-        if (submitted != null) request.setParameter(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE, submitted);
+        if (submitted != null) request.setParameter(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE, expected);
         try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(SecurityInfoManager.class)).thenReturn(security);
             spring.when(() -> SpringUtils.getBean(UserPropertyDAO.class)).thenReturn(dao);
@@ -41,10 +40,10 @@ class ProviderPropertyActionDocumentGroupingTest {
 
             ProviderPropertyAction.updateOrCreateProviderProperties(request);
 
-            if (submitted == null) {
+            if (expected == null) {
                 verify(dao, never()).saveProp(eq("viewer"), eq(UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE), anyString());
             } else {
-                verify(dao).saveProp("viewer", UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE, submitted);
+                verify(dao).saveProp("viewer", UserProperty.ECHART_GROUP_DOCUMENTS_BY_TYPE, expected);
             }
         }
     }

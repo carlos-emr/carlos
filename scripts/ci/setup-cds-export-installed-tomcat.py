@@ -108,7 +108,10 @@ def main() -> int:
     if installed_context.read_bytes() != context_bytes:
         raise RuntimeError("Packaged context bytes changed during installation")
     context_sha256 = hashlib.sha256(context_bytes).hexdigest()
-    command = ["java", "-Xmx1536m", "-Duser.timezone=America/Toronto",
+    # Share the container JVM default with the actual installed CLI. The explicit
+    # clinical zone remains America/Toronto in both application configurations.
+    # The shared runtime fingerprint deliberately binds the JVM default zone too.
+    command = ["java", "-Xmx1536m",
                "-Dcarlos_override_properties=/etc/carlos-emr/carlos.properties",
                "-Dcatalina.home=/usr/share/tomcat11", "-Dcatalina.base=" + str(BASE),
                "-Djava.io.tmpdir=" + str(BASE / "temp"),

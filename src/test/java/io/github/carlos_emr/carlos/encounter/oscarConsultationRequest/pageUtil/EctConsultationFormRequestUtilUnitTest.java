@@ -221,7 +221,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
 
         when(mockConsultRequestDao.findWithAssociations(456)).thenReturn(request);
         when(mockDemographicManager.getDemographic(mockLoggedInInfo, 123)).thenReturn(demographic);
-        when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
+        when(mockFaxClientLogDao.findConsultationFaxRows(456)).thenReturn(Collections.emptyList());
 
         boolean requestFound = consultationFormRequestUtil.estRequestFromId(mockLoggedInInfo, "456");
 
@@ -285,7 +285,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         demographic.setLastName("Patient");
         when(mockConsultRequestDao.findWithAssociations(456)).thenReturn(request);
         org.mockito.Mockito.lenient().when(mockDemographicManager.getDemographic(mockLoggedInInfo, 123)).thenReturn(demographic);
-        org.mockito.Mockito.lenient().when(mockFaxClientLogDao.findClientLogbyRequestId(456)).thenReturn(Collections.emptyList());
+        org.mockito.Mockito.lenient().when(mockFaxClientLogDao.findConsultationFaxRows(456)).thenReturn(Collections.emptyList());
         return request;
     }
 
@@ -322,7 +322,7 @@ class EctConsultationFormRequestUtilUnitTest extends CarlosUnitTestBase {
         var copy = new io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow(
                 "5557654321", "Copy", io.github.carlos_emr.carlos.commn.model.FaxJob.STATUS.ERROR, new java.util.Date(500L));
         org.mockito.Mockito.when(logDao.findConsultationFaxRows(42)).thenReturn(java.util.List.of(main, copy));
-        org.springframework.test.util.ReflectionTestUtils.invokeMethod(util, "getFaxLogs", "42");
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(util, "getFaxLogs", 42);
         org.assertj.core.api.Assertions.assertThat(util.getSpecialistFaxLog().getStatus()).isEqualTo(main.status());
         org.assertj.core.api.Assertions.assertThat(util.getSpecialistFaxLog().getSent()).isEqualTo(main.sent());
         org.assertj.core.api.Assertions.assertThat(util.getCopyToFaxLog()).hasSize(1);
