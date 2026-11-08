@@ -124,4 +124,23 @@ class FhirJsonCompatibilityUnitTest {
                 .getExtensionFirstRep().getValue().primitiveValue())
                 .isEqualTo("source");
     }
+
+    @Test
+    void shouldPreserveLargeAttachments_whenNormalizingAnotherPrimitive() {
+        // Base64 crosses Jackson's default 20M-character reader limit, although
+        // HAPI can encode the existing outbound attachment without that limit.
+        byte[] content = new byte[15_000_001];
+        content[0] = 14;
+        content[content.length - 1] = 127;
+        var request = new org.hl7.fhir.dstu3.model.CommunicationRequest();
+        request.addPayload().setContent(new org.hl7.fhir.dstu3.model.Attachment()
+                .setTitle(" ").setData(content));
+
+        String encoded = FhirJsonCompatibility.encode(FHIR, request);
+
+        // A boolean assertion avoids printing the entire attachment on failure.
+        assertThat(encoded.contains(java.util.Base64.getEncoder().encodeToString(content))).isTrue();
+        assertThat(encoded.contains("\"title\"")).isFalse();
+        assertThat(request.getPayloadFirstRep().getContentAttachment().getTitle()).isEqualTo(" ");
+    }
 }

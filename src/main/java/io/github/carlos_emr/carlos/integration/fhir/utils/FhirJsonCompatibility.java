@@ -2,6 +2,8 @@ package io.github.carlos_emr.carlos.integration.fhir.utils;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -17,7 +19,12 @@ import java.util.ArrayList;
 public final class FhirJsonCompatibility {
     // A blank field elsewhere in a bundle must never round a clinical quantity or
     // discard its declared decimal precision when the encoded tree is rewritten.
-    private static final ObjectMapper JSON = JsonMapper.builder()
+    // This reader only consumes our own already-materialized HAPI output. Its default
+    // 20M-character string cap would newly reject existing PDF attachments after Base64
+    // encoding. Relax that cap here only; inbound FHIR parsers keep their own limits.
+    private static final ObjectMapper JSON = JsonMapper.builder(JsonFactory.builder()
+                    .streamReadConstraints(StreamReadConstraints.builder()
+                            .maxStringLength(Integer.MAX_VALUE).build()).build())
             .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
             .disable(JsonNodeFeature.STRIP_TRAILING_BIGDECIMAL_ZEROES)
             .build();
