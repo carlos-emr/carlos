@@ -53,7 +53,7 @@ public class CdsExportImplementationIdentityService {
         try {
             URL anchor = loader.getResource(ANCHOR); if (anchor == null) unavailable(); String address = anchor.toExternalForm(); int offset = address.lastIndexOf(ANCHOR);
             if (offset < 0 || !(address.startsWith("file:") || address.startsWith("jar:file:") || address.startsWith("war:file:") || address.startsWith("jar:war:file:"))) unavailable();
-            String origin = address.substring(0, offset); var resolver = new PathMatchingResourcePatternResolver(loader); var entries = new TreeMap<String,String>();
+            String origin = address.substring(0, offset); var resolver = new PathMatchingResourcePatternResolver(loader); var entries = new TreeMap<String, String>();
             byte[] buffer = new byte[64 * 1024]; long[] total = {0};
             for (String pattern : List.of(BASE + "**/*.class", "cds-export/**/*.json", "db/migration/**/*.sql")) {
                 var resources = resolver.getResources("classpath*:" + pattern); if (resources.length > 32_768) unavailable(); int included = 0;
@@ -84,7 +84,7 @@ public class CdsExportImplementationIdentityService {
             return HexFormat.of().formatHex(digest.digest());
         } catch (IOException | java.net.URISyntaxException failed) { throw new IllegalStateException("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE"); }
     }
-    private static void add(Map<String,String> entries, String name, URL resource, byte[] buffer, long[] total) throws IOException {
+    private static void add(Map<String, String> entries, String name, URL resource, byte[] buffer, long[] total) throws IOException {
         if (entries.size() >= 65_536 || name.length() > 4096) unavailable(); var digest = CdsImportKeys.digest();
         try (var input = resource.openStream()) {
             for (int n; (n = input.read(buffer)) != -1;) { if (n == 0) throw new IOException("CDS_EXPORT_IDENTITY_READ_STALLED"); total[0] = Math.addExact(total[0], n); if (total[0] > MAXIMUM_BYTES) unavailable(); digest.update(buffer, 0, n); }
