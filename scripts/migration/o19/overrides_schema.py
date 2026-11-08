@@ -42,7 +42,13 @@ archive-by-default).
 
 # Consent value expressions now retire undecided records and duplicate history.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-6"
+SCHEMA_MAP_VERSION = "o19map-7"
+
+# Reviewed CLI billing helpers preserve every original name and audit ambiguous files.
+BILLING_FILENAME_RULES = {
+    "billing_on_diskname": "o19-billing-v1",
+    "billing_on_filename": "o19-billing-v1",
+}
 
 #: Provinces the import verb will actually RUN, as opposed to provinces
 #: the package carries a profile for (generate_manifests.PROVINCES).
@@ -334,6 +340,8 @@ CLAIM_HEADER_TABLE = {
 #   where the CARLOS schema has no such table and the clinic's rows must
 #   be preserved.
 PROVINCE_SCOPED = {
+    "billing_on_diskname": "on",
+    "billing_on_filename": "on",
     # live in the CARLOS BC schema; removed from the Ontario one
     "formBCAR2007": "on",
     # Ontario billing and lab stacks: no BC install carries them
@@ -832,6 +840,12 @@ CARLOSDOC_SEED_DELETES = [
 # synthesizes for them (SQL over the staging row alias `s`). The ETL
 # pre-check aborts naming any such column that lacks an entry here.
 VALUE_EXPRS = {
+    "billing_on_diskname": {
+        "ohipfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_diskname__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
+    "billing_on_filename": {
+        "htmlfilename": "(SELECT f.`imported_filename` FROM {archive}.`billing_on_filename__filenames` f WHERE f.`row_id` = s.`id`)",
+    },
     # uid groups pharmacy record revisions in CARLOS; each imported O19
     # pharmacy heads its own group.
     "pharmacyInfo": {"uid": "s.`recordID`"},

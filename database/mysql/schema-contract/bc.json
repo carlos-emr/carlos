@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "5c5185b607ca9ee16bf414437ff22a03f67e132e7481c18809679e6789bafcca",
+ "migration_sha256": "31a166d99cead19e0fa9aba2b262ad7ae518552b450effe3db6261dd6199eef5",
  "province": "bc",
  "schema": {
   "checks": [
@@ -8,6 +8,21 @@
     "OceanSetting",
     "chk_ocean_setting_singleton",
     "`id` = 1"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_file_status",
+    "`file_status` in ('unchanged','ambiguous','reconciled')"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_group_size",
+    "`group_size` >= 1"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_reason",
+    "`reason` in ('unchanged','collision')"
    ],
    [
     "cds_import_preparation",
@@ -9488,6 +9503,150 @@
     "utf8mb4_general_ci",
     null,
     3
+   ],
+   [
+    "billing_filename_import",
+    "file_sha256",
+    "char(64)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    8
+   ],
+   [
+    "billing_filename_import",
+    "file_status",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    7
+   ],
+   [
+    "billing_filename_import",
+    "group_size",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    11
+   ],
+   [
+    "billing_filename_import",
+    "original_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "billing_filename_import",
+    "reason",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_at",
+    "datetime",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_by",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
+   ],
+   [
+    "billing_filename_import",
+    "source_id",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "billing_filename_import",
+    "source_table",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
    ],
    [
     "billing_history",
@@ -184106,6 +184265,50 @@
     "NO"
    ],
    [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    1,
+    "source_table",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    2,
+    "source_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename_lookup",
+    1,
+    1,
+    "imported_filename",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "original_filename_lookup",
+    1,
+    1,
+    "original_filename",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "billing_history",
     "PRIMARY",
     0,
@@ -195165,6 +195368,24 @@
     null
    ],
    [
+    "billing_filename_import",
+    "PRIMARY",
+    1,
+    "source_table",
+    null,
+    null,
+    null
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    2,
+    "source_id",
+    null,
+    null,
+    null
+   ],
+   [
     "billing_history",
     "PRIMARY",
     1,
@@ -200686,6 +200907,12 @@
    ],
    [
     "billing_cdm_service_codes",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "billing_filename_import",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

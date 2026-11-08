@@ -2,10 +2,10 @@
   "format": 1,
   "profiles": {
     "on": {
-      "physicalContractSha256": "d3e138c2dfcbadf39fd96eb8d800640162f8b0a2970c935c5e3cfaeb6d1764a7"
+      "physicalContractSha256": "50bb83c45d477b31c46f946cbf756e1a4bd04a4044c899c293b94023146d5e7f"
     },
     "bc": {
-      "physicalContractSha256": "7de735937547e42a7774804d474a7922f585df77726761eabf6696b41223f612"
+      "physicalContractSha256": "95f7a7cc10c2bda7b21cc98e91f9f47a58afd9e6615209b23c3ffea50e2f634e"
     }
   },
   "tables": {
@@ -104,6 +104,7 @@
     "billcenter": "REFERENCE",
     "billing": "REQUIRE_EMPTY",
     "billing_cdm_service_codes": "REQUIRE_EMPTY",
+    "billing_filename_import": "OPERATIONAL",
     "billing_history": "REQUIRE_EMPTY",
     "billing_msp_servicecode_times": "REQUIRE_EMPTY",
     "billing_on_3rdPartyAddress": "REQUIRE_EMPTY",

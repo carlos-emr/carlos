@@ -54,9 +54,9 @@ exposed duplicate legacy case-note/issue DAO bean types; the readers now bind to
 the canonical existing names, with a constructor-wiring regression that includes
 both historical names. The installed workspace became unavailable before that
 browser run could be completed. Successful component checks, CLI completion or a
-workflow declaration do not establish browser completion. The current companion
-CLI base also requires reconciliation with its newly published manifest-format-2
-release before both PRs can be marked ready. The adapter is
+workflow declaration do not establish browser completion. The paired candidate now incorporates the published
+manifest-format-2/ETL-4 billing import contract and retains its filename/audit
+safeguards; the new integration still requires its CI and installed qualification. The adapter is
 [carlos-emr/carlos-ctl#20](https://github.com/carlos-emr/carlos-ctl/pull/20).
 
 The complete reviewed inventory runs in the import/export/shared jobs of
@@ -64,6 +64,17 @@ The complete reviewed inventory runs in the import/export/shared jobs of
 Missing, duplicated, ambiguous or skipped suite evidence fails the gate. Only
 sanitized reports are uploaded. Older checkpoint narratives below are retained as
 historical component evidence, not statements of the current readiness state.
+
+The current pair forward-integrates the released billing compatibility change from
+application commit `d40d2939afde9bea460b232fe78976b2820698ca` and CLI main
+`84adfc5c237d4a536300a9d7e74e19599df23dcc`. It preserves native billing
+creator authorization, original filenames, cross-table reservations, audit
+provenance and guarded download/regeneration. Schema manifests use format 2;
+properties and preflight retain format 1. The candidate requires CLI 1.3.3.
+The new `billing_filename_import` table is operational financial audit metadata,
+matching the existing billing-table disposition. All previous 516 source rulings
+remain unchanged; the current catalogue has 517 rulings (464 ON and 497 BC tables).
+No original CDS import metadata is rebound or rewritten.
 
 ## Baseline and integration
 

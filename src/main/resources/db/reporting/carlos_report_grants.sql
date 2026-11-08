@@ -78,6 +78,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('billcenter', 'reportable', NULL, NULL),
 ('billing', 'reportable', NULL, NULL),
 ('billing_cdm_service_codes', 'reportable', NULL, NULL),
+('billing_filename_import', 'reportable', NULL, NULL),
 ('billing_history', 'reportable', NULL, NULL),
 ('billing_msp_servicecode_times', 'reportable', NULL, NULL),
 ('billing_on_3rdPartyAddress', 'reportable', NULL, NULL),
