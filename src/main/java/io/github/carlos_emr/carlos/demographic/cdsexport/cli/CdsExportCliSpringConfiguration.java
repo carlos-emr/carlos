@@ -64,6 +64,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
         ProviderDaoImpl.class, SecObjPrivilegeDaoImpl.class, SecobjprivilegeDaoImpl.class, SecuserroleDaoImpl.class, SecurityInfoManagerImpl.class,
         CdsExportNoteExtensionSourceReader.class, CdsExportHistoryOccurrenceService.class, CdsExportNoteRevisionInventoryService.class, CdsExportNoteIssueLinkSourceReader.class, CdsExportCaseIssueSourceReader.class, CdsExportIssueCatalogueSourceReader.class, io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAOImpl.class, io.github.carlos_emr.carlos.casemgmt.dao.IssueDAOImpl.class, io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAOImpl.class, CdsExportNoteSourceReader.class, CdsExportNoteScopeProjectionService.class, io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAOImpl.class,
         CdsExportConfigurationService.class, CdsExportAccessService.class, io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class, CdsExportLedgerService.class,
+        io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportClinicalEngine.class,
         CdsExportEngineRegistry.class, CdsExportExecutionService.class, CdsExportService.class, CdsExportStagingFactory.class,
         CdsExportSelectionFileService.class, CdsExportSelectionService.class, CdsExportNativeCaptureService.class, CdsExportDemographicSourceReader.class, CdsExportCohortService.class,
         io.github.carlos_emr.carlos.commn.dao.DemographicMergedDaoImpl.class, CdsExportDemographicMergeSourceReader.class,

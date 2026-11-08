@@ -31,16 +31,21 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.Objects;
 import java.util.Set;
+import org.springframework.stereotype.Service;
 
-/** Clinical adapter; registration follows the installed publication and transport qualification. */
+/** OntarioMD clinical adapter shared by the durable online worker and trusted foreground CLI. */
+@Service
 public final class CdsExportClinicalEngine implements CdsExportEngine {
+    private static final Set<CdsLogicalProfile> PROFILES = Set.of(CdsLogicalProfile.ONTARIO_MD_5_2);
     private final CdsExportClinicalJobService jobs;
     public CdsExportClinicalEngine(CdsExportClinicalJobService jobs) { this.jobs = Objects.requireNonNull(jobs); }
     @Override public String compatibilityDigest() {
         try { return jobs.compatibilityDigest(); }
         catch (IOException failed) { throw new UncheckedIOException("CDS_EXPORT_ENGINE_IDENTITY_UNAVAILABLE", failed); }
     }
-    @Override public Set<CdsLogicalProfile> qualifiedProfiles() { return Set.of(CdsLogicalProfile.ONTARIO_MD_5_2); }
+    /** Code-owned capability inventory; probing it never starts Spring or parses active-work settings. */
+    public static Set<CdsLogicalProfile> installedProfiles() { return PROFILES; }
+    @Override public Set<CdsLogicalProfile> qualifiedProfiles() { return PROFILES; }
     @Override public CdsExportJobDocumentDto bind(CdsExportActorDto actor, CdsExportCommand command) throws IOException {
         requireProfile(command); return jobs.bind(actor, command);
     }

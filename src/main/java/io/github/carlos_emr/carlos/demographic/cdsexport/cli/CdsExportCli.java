@@ -53,10 +53,12 @@ public final class CdsExportCli {
             try {
                 var configuration = CdsProcessConfiguration.load(environment, CdsProcessScope.EXPORT);
                 if (Runtime.version().feature() != 25) throw new IOException("CDS_JAVA25_REQUIRED");
-                // No clinical implementation has passed the complete installed export gates yet.
-                // Profile recognition and the importer direction never supply export qualification.
+                // The capability belongs to this installed export implementation. Admission,
+                // source completeness and current authorization remain separate runtime gates.
                 line(out, Map.of("engine", "cds-export", "protocol", 1, "java", 25, "cliHeapMiB", configuration.heapMiB(),
-                        "submissionLookup", true, "detachedSubmission", true, "qualifiedProfiles", List.of(),
+                        "submissionLookup", true, "detachedSubmission", true, "qualifiedProfiles",
+                        io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportClinicalEngine.installedProfiles()
+                                .stream().map(io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile::identifier).sorted().toList(),
                         "operations", CdsExportCliArguments.OPERATIONS.stream().sorted().toList()));
                 return out.checkError() ? 2 : 0;
             } catch (IOException | RuntimeException failure) {

@@ -3,7 +3,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="${carlos:forHtmlAttribute(pageContext.response.locale.language)}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">

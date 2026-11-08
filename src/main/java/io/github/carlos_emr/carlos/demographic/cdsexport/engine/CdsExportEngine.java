@@ -35,7 +35,8 @@ import java.util.Set;
  * coherent file/render capture, independent coverage, actual XML/supporting-file/reference
  * checks, recipient/audit arrangements, atomic publication and installed qualification pass.
  * Recognition of a profile or a passing byte-package test never qualifies it.
- * No default/placeholder clinical implementation is registered by this module.
+ * Unknown or unreconciled native evidence must refuse publication even for an
+ * installed profile; profile recognition never supplies missing clinical evidence.
  */
 public interface CdsExportEngine {
     /** Immutable qualification identity over the installed code/schema/mappings and capture/store contracts. */

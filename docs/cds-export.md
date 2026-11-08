@@ -1,88 +1,52 @@
 # CDS export implementation contract
 
-This document tracks the exporter being built beside the modern CDS importer.
-The current change implements shared bounded wire validation and category read-domain
-selection, export category/profile identities, live export authorization, conservative
-occurrence reconciliation, source-coverage validation, standards-based logical filenames,
-ReadMe/event-log composers, authenticated encrypted staging, bounded patient selection,
-a durable metadata ledger, finished ZIP/ZIP64 byte validation, and recipient encryption.
-Independent OpenSSL decryption and actual importer snapshot/parser tests exercise the
-package and encryption layers. Browser MVC routes, a durable dispatcher, and a Java25
-CLI entry point now share the application facade and ledger. Installed metadata/control
-checks pass through real root delegation, Spring/JPA, Struts, login and CSRFGuard.
-The CLI candidate passed 66 combined import/export/documentation cases without skips;
-actual root/service-user checks verify separate import/export ticket directories,
-service read access, forgery/modification denial and cleanup.
-The coordinated patient/cohort pipeline is now packaged and installed component verified.
-The full patient-pipeline baseline passed 4,914 checks; the later cohort/scope package passed
-485 affected checks plus full Javadoc, followed by 60 exact-WAR assertions against the genuine
-report import. The check reads the actual finished ZIP, XML, supporting files, report attachment,
-retained disclosure scope and ownership manifest. Physician folders come from the same captured
-primary physician and OHIP number. Missing assignments require review. Temporary fixture chart
-and provider changes are restored; original importer metadata is preserved.
+The OntarioMD CDS 5.2 exporter lives beside the modern importer under
+`demographic/cdsexport`, sharing the pinned wire contract and clinical scalar
+semantics while keeping export admission, authorization and delegation independent.
+The registered `CdsExportClinicalEngine` connects the same clinical job service to
+foreground CLI work and durable asynchronous browser work. Export admission remains
+disabled by default. PCON is recognized as a logical identity but is not advertised
+as an implemented export profile.
 
-Artifact publication and retrieval now have focused transaction and boundary verification.
-`cds_export_attempt` retains each epoch's opaque encrypted assets across resume. A private
-publication approval requires a qualified engine, complete retained evidence, fresh scope and
-pinned recipient policy before the sole atomic `READY` transition. A lost commit acknowledgement
-is reconciled under the run lock without deleting possibly published files. A separate download
-lease excludes retention; delivery authenticates the entire ciphertext and rechecks current
-scope. CLI output uses a private, fsynced temporary file and exclusive atomic installation without
-replacing existing files. Browser delivery uses POST/CSRF, fixed attachment names, no-store
-headers and the same service. Bounded diagnostic reports contain lifecycle metadata only and
-remain available for failed/review jobs. Cleanup retires only its exclusively leased old attempt,
-including crash fragments, without reading keys or traversing native/import/configuration paths.
-These changes passed 117 focused checks and 168 MariaDB-ledger/admission/reporting checks.
-The clean package then passed 748 checks across 46 suites plus full Javadoc. Its exact WAR passed
-67 genuine-chart/artifact assertions, 4 independent recipient-decryption assertions and 11 actual
-retention assertions. Recipient decryption reproduced the exact validated ZIP. Unknown files,
-symlinks and hard links are refused before unlinking; complete and incomplete owned staging
-members are retired without key access. The unqualified publication gate was explicitly refused.
+An accepted job fixes its authorized selection, recipient/audit arrangement,
+implementation identity, clinic zone and storage binding. Patient-scoped read-only
+capture, independent source/native field closure, typed clinical assembly and
+finished XML/ZIP/supporting-file checks precede recipient encryption. Only verified
+publication can atomically set `READY`. Download rechecks current authorization,
+authenticates complete ciphertext and holds a separate lease against retention.
+Unknown, changed, ambiguous, deleted, unrepresented or unauthorized clinical facts
+require explicit review; they cannot produce a truncated or partial migration that
+is labelled complete. The source catalogue classifies every physical ON/BC table;
+unreviewed sources must be empty. Native-only history, unsupported historical
+carriers and other unqualified clinical representations remain review cases.
 
-The concrete `CdsExportClinicalJobService` now coordinates binding, selection, cohort sealing,
-clinical packaging, evidence retention, recipient encryption and guarded publication. It uses
-server-owned policy/storage, a direction-specific hash of actual application/source-contract and
-cryptographic dependency bytes, and the explicit clinic zone/rules identity. Active budgets are
-parsed lazily; metadata recovery does not depend on them. Selection's read snapshot uses its
-independent cancellation/lease probe, while ordinary I/O uses the outside-transaction probe.
-An empty selection requires review, runtime changes refuse work, and uncertain publication keeps
-retained files for reconciliation. A returned package cannot substitute for a complete published
-result. Forty-three focused checks passed. A profile adapter remains unregistered until full
-source-catalogue, independent clinical-fact and complete CLI/browser qualification pass.
+The exact source-catalogue WAR passed independent native-chart and genuine
+sixteen-category-import checks without application-class overlays or restamping
+import metadata. The latter detected 18 schema-valid clinical mutants. The concrete
+adapter checkpoint passed a clean WAR/Javadoc build and 1,000 focused checks across
+66 suites, following the preserved 4,914-check coordinated baseline. Its exact WAR
+(`c9e1d8a737f15fdb9b10dba85ee33274dc826a8bf7b66905845520a6a273bad2`)
+published a real native-chart package through `CdsExportPublicationService` and
+retrieved it through `CdsExportArtifactService`. All thirteen independently expected
+clinical facts matched; four schema-valid mutations were rejected. Independent
+recipient decryption reproduced the exact validated ZIP, without copying a private
+key. Temporary chart/provider/grant changes were restored and the test's own
+published attempt was expired and physically retired.
 
-A complete clinical engine and installed qualification of artifact publication remain unfinished. The separate `carlos-ctl`
-worktree includes its export command adapter and shared import/export process transport;
-the adapter requires an installed, qualified Java engine before executing a clinical job.
-Neither logical profile is advertised as supported for export until the complete
-acceptance gates pass.
+Normal engine registration and CLI capability reporting passed 36 affected checks,
+including the real MariaDB/Spring CLI graph with disabled admission, a missing active
+zone and invalid active budgets. Metadata status/control stayed available. The
+registered candidate still requires the actual root-delegated `carlos-ctl` clinical
+export/download and authenticated asynchronous-browser end-to-end checks before this
+PR is ready. A successful component, byte package or workflow declaration alone is
+not completion evidence. The companion adapter is
+[carlos-emr/carlos-ctl#20](https://github.com/carlos-emr/carlos-ctl/pull/20).
 
-The complete delivery requires both the installed command-line workflow and an
-asynchronous browser workflow. Both must call the same authorized application
-service and use the same durable jobs, captured generations, mapping revision,
-dispositions and publication checks. Passing component or metadata/control tests do not establish a complete clinical migration.
-
-The reviewable draft checkpoint is recorded in [`cds-export-progress.json`](cds-export-progress.json). The preserved full integrated baseline passed 3,931 checks across 317 suites. The preserved current-history package at `aadc39050d65a89f145148b568bad4fd82d93082` passed 4,026 checks across 325 suites, with no failures, errors or skips. Its exact WAR passed 107 installed assertions against the genuine seven-category import, including a real edited current narrative, production history-session assembly, unchanged historical composite-link receipts and complete fixture restoration. The later merge of current develop passed 4,592 checks across 348 suites and another 107 exact-WAR installed assertions on a fresh schema and genuine import; the latest nullable legacy-receipt diff has separate focused verification. Earlier exact-WAR checkpoints remain recorded separately. A concrete clinical export engine, full source coverage, current clinical field/issue/revision reconciliation and end-to-end clinical CLI/browser qualification remain unfinished.
-
-Retained enrolment reconciliation now coordinates original source history with witnessed current and archive rows. Exact packaged installed checks passed for both an ordinary import (45 checks) and a shifted training copy (46 checks), including schema-valid XML, a later native termination, and exact restoration of the owned patient and archive changes. The coordinated package check passed; other demographic and archive fields still require coverage.
-
-Primary-physician reconciliation and its coordinated provider uses passed package verification and 127 exact installed checks across ordinary and shifted imports. Public provider lookups carry the authenticated capture identity; primary and enrolment reconciliation reject another generation and handle a SQL NULL reference without guessing a physician. Every use of a provider field is retained when the same physician fills multiple roles. Focused checks cover reassignment, removal, unresolved source details, explicit empty values and all-or-nothing review blockers.
-
-External family/referring-physician reconciliation passed package verification. The importer stores these relationships in the demographic parent receipt; the exporter binds each original relationship by patient, role and contact reference, including when names are identical. Forty-seven focused checks and 44 exact packaged installed checks cover name edits, complete source/field accounting, XML validation and exact restoration. Missing, moved, inactive/deleted or contradictory relationships require review. Additional populated professional-contact attributes still need a supporting native projection before publication.
-Preferred-pharmacy reconciliation and the coordinated demographic care assembler are packaged and installed component verified. The assembler combines personal contacts, family/referring physicians and preferred pharmacy with the demographic core, checks exact native/source field identities, and retains each use of shared physician names. Unchanged source address lines, address type, phone extensions and fax components survive import's flattened native projection. Explicit native edits replace only the corresponding source groups; city edits preserve unchanged street lines, and jurisdiction/postal changes are checked together. Conflicting source-only details, ambiguous preferences, shared personal/professional contact aliases and unsupported populated native attributes require review. All 104 focused checks pass. The exact packaged care run passed 51 checks, including real pharmacy name/city edits, receiving-schema XML validation, and full physical-row/timestamp restoration. Other demographic and archive fields remain deferred, so this is not whole-demographic or clinical-export qualification.
-
-
-Current history occurrence assembly uses one authenticated source session for all seven
-history sections. It binds the current note, extensions, physical note-to-issue links,
-patient issues and referenced catalogue to the same frozen generation. The link receipt
-uses the importer's existing `noteId_issueId` identity and actual ordered JDBC metadata.
-Every retained field and every current native field receives an explicit disposition;
-unchanged source dates keep their original precision, while an edited narrative replaces
-only its corresponding standard field. Missing date hints, changed authors or clinical
-issue flags, native-only notes and revision chains needing an audit carrier require
-review. They cannot silently replay an old source occurrence. Session expiry, duplicate
-or omitted categories, caught failures and final authorization revocation invalidate
-completion. The preserved 4,026-check package and 107-assertion exact-WAR run verify this
-history component. They do not qualify a clinical export profile.
+The complete reviewed inventory runs in the import/export/shared jobs of
+`.github/workflows/cds-transfer.yml`, each with newly migrated owned databases.
+Missing, duplicated, ambiguous or skipped suite evidence fails the gate. Only
+sanitized reports are uploaded. Older checkpoint narratives below are retained as
+historical component evidence, not statements of the current readiness state.
 
 ## Baseline and integration
 

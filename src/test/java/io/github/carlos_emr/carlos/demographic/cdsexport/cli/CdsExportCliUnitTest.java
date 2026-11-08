@@ -116,14 +116,15 @@ class CdsExportCliUnitTest {
         doThrow(new IllegalStateException("cleanup detail")).when(runtime).close();
         assertThat(run(fresh())).isEqualTo(2);
     }
-    @Test void shouldProbeTheExportHeapWithoutSpring_andAdvertiseNoUnqualifiedClinicalProfile() throws Exception {
+    @Test void shouldProbeTheExportHeapWithoutSpring_andAdvertiseOnlyTheInstalledOntarioMdProfile() throws Exception {
         AtomicInteger opened = new AtomicInteger();
         try (var loader = mockStatic(CdsProcessConfiguration.class)) {
             loader.when(() -> CdsProcessConfiguration.load(anyMap(), eq(CdsProcessScope.EXPORT))).thenReturn(configuration);
             int status = CdsExportCli.run(new String[]{"--capabilities"}, Map.of(), out, err,
                     (configured, args, proof) -> { opened.incrementAndGet(); return runtime; });
             assertThat(status).isZero(); assertThat(opened).hasValue(0);
-            assertThat(output.toString(StandardCharsets.UTF_8)).contains("\"engine\":\"cds-export\"", "\"qualifiedProfiles\":[]", "\"cliHeapMiB\":512");
+            assertThat(output.toString(StandardCharsets.UTF_8)).contains("\"engine\":\"cds-export\"", "\"qualifiedProfiles\":[\"omd-5.2\"]", "\"cliHeapMiB\":512")
+                    .doesNotContain("pcon-2024-02");
         }
     }
     private int run(String[] arguments) {

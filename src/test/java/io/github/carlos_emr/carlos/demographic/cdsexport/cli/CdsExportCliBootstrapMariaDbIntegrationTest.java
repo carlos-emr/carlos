@@ -49,7 +49,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/** Full minimal CLI graph, actual legacy privilege reader and physical transactions; no clinical engine or fake grant. */
+/** Full CLI graph including the installed engine, actual privilege reader and physical transactions; no fake grant. */
 @Tag("integration") @Tag("cds-export")
 @EnabledIfSystemProperty(named = "cds.export.test.properties", matches = ".+")
 class CdsExportCliBootstrapMariaDbIntegrationTest {
@@ -65,11 +65,15 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
         settings.setProperty("db_password", jdbc.getProperty("jdbcPassword")); settings.setProperty("billregion", "ON");
         settings.setProperty("cds.export.enabled", "false"); settings.setProperty("cds.export.worker.enabled", "false");
         settings.setProperty("cds.import.worker.enabled", "false"); settings.setProperty("cds.export.operator.bootstrap-fixture.providers", "989876");
+        // Metadata recovery must survive invalid active settings with a registered engine.
+        settings.setProperty("cds.export.maxPatients", "invalid");
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment().setActiveProfiles("cds-export-cli");
             context.getEnvironment().getPropertySources().addFirst(new PropertiesPropertySource("owned-cli-fixture", settings));
             context.registerBean("cdsExportProperties", Properties.class, () -> settings); context.register(CdsExportCliSpringConfiguration.class);
             context.refresh();
+            assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportEngineRegistry.class)
+                    .qualifiedProfiles()).containsExactly(CdsLogicalProfile.ONTARIO_MD_5_2);
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosurePolicyService.class)).isNotNull();
             assertThat(context.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicOccurrenceService.class)).isNotNull();
             assertThat(context.getBean(io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class)).isNotNull();
