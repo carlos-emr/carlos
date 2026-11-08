@@ -33,6 +33,10 @@ import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 
 public interface DxresearchDAO extends AbstractDao<Dxresearch> {
+
+    record CdmPatientRow(String demographicNo, String providerNo, String diagnosisCode) { }
+
+    List<CdmPatientRow> findActiveCdmPatients(List<String> codes);
     List<DxRegistedPTInfo> getPatientRegisted(List<Dxresearch> dList, List<String> doctorList);
 
     List<DxRegistedPTInfo> patientRegistedDistincted(List<dxCodeSearchBean> searchItems, List<String> doctorList);

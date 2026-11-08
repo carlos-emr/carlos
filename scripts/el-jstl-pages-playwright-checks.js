@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 /*
- * Expression Language, JSTL and displaytag on deployed pages (issue #5416).
+ * Expression Language and JSTL on deployed pages (issue #5416).
  *
  * #5416 moved the Jakarta Expression Language API to 6.0 and out of the WAR: Tomcat 11
  * supplies it, and loads it ahead of any copy in WEB-INF/lib (docs/container-provided-apis.md).
@@ -14,9 +14,9 @@
  *      `${ctx}` resolved to the context path, and every <fmt:message> label resolved.
  *   2. Disease Registry (Administration ▸ Disease Registry, in the panel's frame): <c:forEach>
  *      over a bean property lists the coding systems, <c:if test="${radiostatus == '...'}">
- *      checks exactly the status the scriptlet-built search form names, and displaytag
+ *      checks exactly the status the scriptlet-built search form names, and the JSTL code
  *      renders the code table or its empty-list message.
- *   3. Facility management (FacilityManager): displaytag column headers from <fmt:message>
+ *   3. Facility management (FacilityManager): JSTL table column headers from <fmt:message>
  *      keys, and either facility rows with Edit links or the EL-supplied empty message.
  *   4. Add professional contact (demographic/Contact?method=addProContact): the
  *      ${carlos:forJavaScript(param.keyword)} and ${carlos:forHtmlAttribute(param.contactType)}
@@ -173,12 +173,16 @@ async function checkDiseaseRegistry(admin) {
   const status = new URL(formAction, response.url()).searchParams.get('method');
   assert(checked.length === 1 && checked[0] === status,
     `<c:if test="\${radiostatus == ...}"> checked ${JSON.stringify(checked)}; the search form says ${status}`);
-  // displaytag: the code table, or its empty-list message when no code has been added.
-  const codeTable = await frame.locator('table#codeSearch').count();
+  // The JSTL code table is always rendered, with its empty-list message below it when no code has
+  // been added, and the results table follows it: the page reached the end of both <c:forEach> loops.
+  // The JSTL code table renders only with rows; with none, its empty-list message stands alone.
+  // The DataTables results table is always rendered and shows its own empty row.
+  assert(await frame.locator('table#listview').count() === 1, 'the registry did not render its results table (table#listview)');
+  const codeRows = await frame.locator('table#codeSearch tbody tr').count();
   const text = await frame.locator('body').innerText();
-  assert(codeTable === 1 || /Nothing found to display/i.test(text),
-    'displaytag rendered neither the code table nor its empty-list message');
-  console.log(`  ${label}: ${codingSystems.length} coding system(s), "${status}" checked by <c:if>, displaytag rendered`);
+  assert(codeRows > 0 || /Nothing found to display/i.test(text),
+    'the registry rendered neither a code row nor its empty-list message');
+  console.log(`  ${label}: ${codingSystems.length} coding system(s), "${status}" checked by <c:if>, code and results tables rendered`);
 }
 
 async function checkFacilityManager(context, recorder, config, contextPath) {
@@ -186,20 +190,24 @@ async function checkFacilityManager(context, recorder, config, contextPath) {
   const { page, response } = await openPage(context, recorder, config, label, '/FacilityManager');
   await assertRendered(page, response, label);
   const table = page.locator('table#facility');
-  assert(await table.count() === 1, 'displaytag rendered no facility table (table#facility)');
+  // The JSTL table renders only with rows; with none, the empty-list message
+  // (${noFacilitiesMessage}, "No facilities found." in English) stands in its place as plain
+  // text, as displaytag printed it.
+  const tableCount = await table.count();
+  const emptyMessage = tableCount === 0 && /No facilities found\./.test(await page.locator('body').innerText());
+  assert(tableCount === 1 || emptyMessage, 'the facility page rendered neither its table (table#facility) nor an empty-list message');
   const headers = await table.locator('thead th').evaluateAll(ths => ths.map(th => th.innerText.trim()));
-  assert(headers.length >= 2 && headers[0] && headers[1],
-    `displaytag column headers from <fmt:message> keys are blank: ${JSON.stringify(headers)}`);
+  // Zero headers only when the table itself is absent; a rendered table must label its columns.
+  assert(tableCount === 0 || (headers.length >= 2 && headers[0] && headers[1]),
+    `column headers from <fmt:message> keys are blank: ${JSON.stringify(headers)}`);
   const rows = await table.locator('tbody tr').evaluateAll(trs => trs.map(tr => ({
     cells: tr.cells.length,
     text: tr.innerText.trim(),
     edit: (tr.querySelector('a[href*="method=edit"]') || {}).getAttribute?.('href') || '',
   })));
-  assert(rows.length > 0, 'The facility table has no row and no empty-list message');
-  if (rows.length === 1 && rows[0].cells === 1) {
-    // The only row is displaytag's basic.msg.empty_list, set from ${noFacilitiesMessage}.
-    assert(rows[0].text.length > 0, 'The facility list is empty and shows no empty-list message');
-    console.log(`  ${label}: no facility; empty-list message "${rows[0].text}"`);
+  assert(rows.length > 0 || emptyMessage, 'The facility table has no row and no empty-list message');
+  if (rows.length === 0) {
+    console.log(`  ${label}: no facility; empty-list message "${emptyMessage}"`);
   } else {
     for (const row of rows) {
       assert(/\/FacilityManager\?method=edit&id=\d+$/.test(row.edit) && row.edit.startsWith(`${contextPath}/`),

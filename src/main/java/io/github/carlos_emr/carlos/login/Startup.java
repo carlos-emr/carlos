@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -57,6 +58,13 @@ public class Startup implements ServletContextListener {
 	private static final Logger logger = MiscUtils.getLogger();
 	private CarlosProperties p = CarlosProperties.getInstance();
 
+    /**
+     * Initializes configuration, persisted encryption state and application resources.
+     * Required configuration or key failures abort startup before encrypted data is used.
+     *
+     * @param sc ServletContextEvent the application context being initialized
+     * @throws RuntimeException if required startup configuration or initialization fails
+     */
     public void contextInitialized(ServletContextEvent sc) {
         logger.info("Starting OSCAR application ");
 
@@ -143,16 +151,17 @@ public class Startup implements ServletContextListener {
 			String secretKey = p.getProperty(EncryptionUtils.SECRET_KEY_ENV_VAR);
 			if (Objects.isNull(secretKey) || secretKey.isBlank()) {
 				try {
-					secretKey = EncryptionUtils.generateSecretKey();
-					p.saveProperty(propFileName, EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
-					logger.info("New Secret Key generated...");
+					secretKey = p.getOrCreateEncryptionKey();
+					p.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, secretKey);
+					logger.info("Secret Key initialized in persisted configuration...");
 				} catch (IOException | NoSuchAlgorithmException e) {
 					/*
 					 * A usable encryption key is mandatory: it protects stored PHI and provider
 					 * credentials. Fail fast rather than booting with no key, which would defer the
 					 * failure to the first credential save (an opaque runtime error for clinicians).
 					 */
-					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup", e);
+					throw new IllegalStateException("Unable to generate and persist a new encryption key at startup: "
+							+ e.getMessage(), e);
 				}
 			} else {
 				logger.info("Using existing Secret Key...");
@@ -172,6 +181,10 @@ public class Startup implements ServletContextListener {
 				throw new IllegalStateException("Configured encryption key is invalid (" + e.getMessage()
 						+ "); refusing to start. Restore the correct encryption key, or remove it to have a new one generated.", e);
 			}
+
+            // Modern saves no longer mirror to eChart. A rollback binary must keep reading
+            // modern data, so require the same durable flag before startup can complete.
+            p.ensureModernChartRollbackSafety();
 
 			// CHECK FOR DEFAULT PROPERTIES
 			String baseDocumentDir = p.getProperty("BASE_DOCUMENT_DIR");

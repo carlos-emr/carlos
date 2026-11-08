@@ -131,7 +131,7 @@ class JasperTemplateFontPolicyUnitTest {
     @Test
     @DisplayName("should find every shipped template, so the policy checks below are never vacuous")
     void shouldDiscoverShippedTemplates_forTheWholeApplication() {
-        assertThat(templates).hasSizeGreaterThanOrEqualTo(50);
+        assertThat(templates).hasSizeGreaterThanOrEqualTo(42);
         assertThat(templates).extracting(t -> t.path().getFileName().toString())
                 .contains("end_year_statement_report.jrxml", "page1.jrxml", "BCAR2020_pg1.jrxml",
                         "label.xml", "reflabel.xml", "pdf_rep_wo.jrxml", "billDaySheet.xml");

@@ -55,8 +55,8 @@
     }
 %>
 
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
+
+
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 
 <input type="hidden" name="cpp.reminders" value="${carlos:forHtmlAttribute(requestScope.cpp.reminders)}"/>

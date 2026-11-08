@@ -2,10 +2,10 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn}=require('node:child_process');
-async function run(t,{signal,result}={}) {
+async function run(t,{signal,result,selfSignal}={}) {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-legacy-check-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const child=spawn(process.execPath,[path.join(__dirname,'fixtures/legacy-check/worker.cjs')],
-    {env:{...process.env,LEGACY_CHECK_FIXTURE_DIR:dir,RESULT_JSON:path.join(dir,'result.json'),LEGACY_CHECK_RESULT:result===undefined?'':String(result)},stdio:['ignore','pipe','pipe']});
+    {env:{...process.env,LEGACY_CHECK_FIXTURE_DIR:dir,RESULT_JSON:path.join(dir,'result.json'),...(selfSignal?{LEGACY_CHECK_OS_CHECKPOINTS:'true',CARLOS_DISPOSABLE_HOST:'true',CARLOS_INTERRUPT_AFTER_CHECKPOINT:'1',CARLOS_INTERRUPT_SIGNAL:selfSignal}:{}),LEGACY_CHECK_RESULT:result===undefined?'':String(result)},stdio:['ignore','pipe','pipe']});
   let output='';child.stdout.on('data',data=>output+=data);child.stderr.on('data',data=>output+=data);
   const closed=new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(code,killed)=>resolve({code,killed}));});
   t.after(()=>{if(child.exitCode===null)child.kill('SIGKILL');});
@@ -33,4 +33,24 @@ test('legacy failures cannot reintroduce original query strings through structur
  const safe=sanitizedError(original);assert.notEqual(safe,original);
  assert.equal(safe.message,'failed at "https://host/carlos/chart"');assert.equal(safe.failedStep,'open /carlos/chart');
  assert(!/123|456|must not/.test(JSON.stringify(safe)));assert.equal(safe.cause,undefined);
+});
+
+
+test('cleanup attempts later restorations after a failure and preserves both failures in order',async()=>{
+ const {finishLegacyCleanup}=require('./lib/legacy-check');
+ const actions=[],first=new Error('close failed'),second=new Error('row restore failed');
+ await assert.rejects(finishLegacyCleanup([
+  async()=>{actions.push('close');throw first;},
+  ()=>{actions.push('restore');throw second;},
+  ()=>{actions.push('remove credential file');},
+ ]),error=>error instanceof AggregateError&&error.errors[0]===first&&error.errors[1]===second);
+ assert.deepEqual(actions,['close','restore','remove credential file']);
+});
+
+for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`${signal} delivered by the OS at an awaited checkpoint cannot start the next operation`,async t=>{
+ const result=await run(t,{selfSignal:signal});assert.equal(result.code,code,result.output());
+ assert(fs.existsSync(path.join(result.dir,'settled')));assert(fs.existsSync(path.join(result.dir,'cleaned')));
+ assert(!fs.existsSync(path.join(result.dir,'continued')));
+ const record=JSON.parse(fs.readFileSync(path.join(result.dir,'result.json'),'utf8'));
+ assert.equal(record.outcome,'FAIL');assert.equal(record.detail,'interrupted');
 });

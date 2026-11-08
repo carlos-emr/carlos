@@ -193,6 +193,7 @@
         </action>
         <action name="tickler/EditTickler" class="io.github.carlos_emr.carlos.tickler.pageUtil.EditTickler2Action">
             <result name="close">/WEB-INF/jsp/tickler/ticklerEditSuccess.jsp</result>
+            <result name="attachmentsRefused">/WEB-INF/jsp/tickler/ticklerEditAttachmentsRefused.jsp</result>
             <result name="failure">/WEB-INF/jsp/error/failure.jsp</result>
             <result name="error">/WEB-INF/jsp/error/errorpage.jsp</result>
         </action>

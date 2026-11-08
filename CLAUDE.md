@@ -676,6 +676,10 @@ DAO method names can be misleading. For example, `getProviders(boolean active)` 
 
 ## Code Quality Standards
 
+**Library choices for new code**: Follow [Library conventions](docs/architecture/library-conventions.md)
+for common JDK and library APIs, including the HTTP-client decision and legacy compatibility
+exceptions. These conventions do not authorize rewriting existing call sites.
+
 **Security (CodeQL Integration)**:
 - Null-safe CARLOS encoder for all JSP outputs — prefer `<carlos:encode>` tag or `${carlos:forXxx()}` EL functions (see [OWASP Encoding](#owasp-encoding--xss-prevention))
 - Parameterized SQL queries (never concatenation)

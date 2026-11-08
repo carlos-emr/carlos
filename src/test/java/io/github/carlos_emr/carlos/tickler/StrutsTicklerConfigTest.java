@@ -66,6 +66,7 @@ class StrutsTicklerConfigTest {
             "ticklerAdd.jsp",
             "ticklerDemoMain.jsp",
             "ticklerEdit.jsp",
+            "ticklerEditAttachmentsRefused.jsp",
             "ticklerEditSuccess.jsp",
             "ticklerMain.jsp",
             "ticklerSuggestedText.jsp"

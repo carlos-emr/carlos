@@ -13,6 +13,7 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import zipfile
+from urllib.parse import urlsplit
 
 SPEC = importlib.util.spec_from_file_location("cds_performance",Path(__file__).with_name("run-cds-performance.py"))
 GATE = importlib.util.module_from_spec(SPEC)
@@ -20,6 +21,17 @@ SPEC.loader.exec_module(GATE)
 
 
 class PerformanceEvidenceTest(unittest.TestCase):
+    def test_both_connector_schemes_retain_disposable_database_and_plain_endpoint_guards(self):
+        for scheme in ('mysql', 'mariadb'):
+            with self.subTest(scheme=scheme):
+                self.assertTrue(GATE.is_synthetic_database_endpoint(
+                    urlsplit(scheme + '://owned-db:3306/carlos_cds_test')))
+                for suffix in ('/clinic', '/carlos_cds_test?option=value', '/carlos_cds_test#fragment'):
+                    self.assertFalse(GATE.is_synthetic_database_endpoint(urlsplit(scheme + '://owned-db' + suffix)))
+                self.assertFalse(GATE.is_synthetic_database_endpoint(
+                    urlsplit(scheme + '://user:password@owned-db/carlos_cds_test')))
+        self.assertFalse(GATE.is_synthetic_database_endpoint(urlsplit('postgresql://owned-db/carlos_cds_test')))
+
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -87,27 +99,37 @@ class PerformanceEvidenceTest(unittest.TestCase):
             with self.subTest(observed=observed,kernel=kernel):
                 with self.assertRaises(RuntimeError):GATE.enforce_rss_budget(observed,kernel,budget)
 
-    def test_process_parent_scan_ignores_exited_entries_but_not_unreadable_live_processes(self):
-        entries=[Path('/proc/123456'),Path('/proc/self'),Path('/proc/234567')]
-        for vanished in (FileNotFoundError(),ProcessLookupError()):
-            with self.subTest(vanished=type(vanished).__name__):
-                with patch.object(Path,'iterdir',return_value=entries), \
-                     patch.object(Path,'read_text',side_effect=[vanished,'234567 (java worker) S 17 0 0']):
-                    self.assertEqual(GATE.process_parent_map(),{234567:17})
-        with patch.object(Path,'iterdir',return_value=entries), \
-             patch.object(Path,'read_text',side_effect=PermissionError):
-            with self.assertRaises(PermissionError):GATE.process_parent_map()
+    def test_candidate_scan_retains_live_jvm_when_another_descendant_exits(self):
+        command=[b'java',b'io.github.carlos_emr.carlos.demographic.cdsimport.CdsImport',
+                 b'--operation',b'import',b'--input',b'/owned/source',b'--provider',b'999998']
+        for missing_file in ('stat','cmdline','status'):
+            for error in (FileNotFoundError,ProcessLookupError,PermissionError):
+                with self.subTest(missing_file=missing_file,error=error):
+                    def read(path, *args, **kwargs):
+                        pid=int(path.parent.name)
+                        if pid==101 and path.name==missing_file:
+                            raise error()
+                        if path.name=='stat':
+                            return f'{pid} (java) S 100 0'
+                        if path.name=='status':
+                            return 'Uid:\t999\n'
+                        return b'\0'.join(command) if pid!=100 else b'supervisor\0'
+                    with patch.object(Path,'iterdir',return_value=iter([Path('/proc')/str(pid) for pid in (100,101,102)])), \
+                            patch.object(Path,'read_text',autospec=True,side_effect=read), \
+                            patch.object(Path,'read_bytes',autospec=True,side_effect=read):
+                        if error is PermissionError:
+                            with self.assertRaises(PermissionError):
+                                GATE.import_candidates(100,'/owned/source','999998',999)
+                        else:
+                            self.assertEqual(GATE.import_candidates(100,'/owned/source','999998',999),[(102,command)])
 
     def test_normal_process_disappearance_is_distinct_from_an_unreadable_live_process(self):
-        stat='123456 (java) Z '+' '.join('0' for _ in range(20))
-        for vanished in (FileNotFoundError,ProcessLookupError):
-            with self.subTest(vanished=vanished.__name__):
-                with patch.object(Path,'read_text',side_effect=vanished):
-                    self.assertIsNone(GATE.service_sample(123456))
-                with patch.object(Path,'read_text',side_effect=[stat,vanished()]):
-                    self.assertIsNone(GATE.service_sample(123456))
+        for error in (FileNotFoundError,ProcessLookupError):
+            with self.subTest(error=error), patch.object(Path,'read_text',side_effect=error):
+                self.assertIsNone(GATE.service_sample(123456))
         with patch.object(Path,'read_text',side_effect=PermissionError):
             with self.assertRaises(PermissionError):GATE.service_sample(123456)
+        stat='123456 (java) Z '+' '.join('0' for _ in range(20))
         with patch.object(Path,'read_text',side_effect=[stat,'State:\tZ (zombie)\nUid:\t999\n']):
             self.assertIsNone(GATE.service_sample(123456))
 

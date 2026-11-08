@@ -56,6 +56,11 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 public interface DemographicDao {
 
+    record LabPatientChoice(String id, String firstName, String lastName, String rosterStatus,
+            String patientStatus, String sex, String chartNo, String year, String month, String day, String providerNo) { }
+
+    List<LabPatientChoice> findLabPatientChoices(String mode, String keyword, String sort, int offset, int limit);
+
     /** Maximum number of patient search results returned in one request. */
     int MAX_SEARCH_RESULT_SIZE = 500;
 
@@ -388,6 +393,19 @@ public interface DemographicDao {
      * @since 2026-10-15
      */
     public Demographic findForUpdate(Integer demographicNo);
+
+    /**
+     * Locks an existing participant row for a merge inside the caller's transaction.
+     * The core implementation uses a scalar primary-key query to avoid eager relationship
+     * locks. The compatibility default may also lock eager relationships; extension DAOs
+     * should override it with a scalar lock when using concurrent merge operations.
+     *
+     * @param demographicNo patient number
+     * @return whether the patient exists and is locked
+     */
+    default boolean lockForMerge(Integer demographicNo) {
+        return findForUpdate(demographicNo) != null;
+    }
 
     public String getOrderField(String orderBy, boolean nativeQuery);
 

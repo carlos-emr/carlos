@@ -43,6 +43,17 @@ public class AppointmentTo1 implements Serializable {
 
     private Integer id;
 
+    private String editVersion;
+
+    /** Echo the last read token to detect conflicts; null or blank retains legacy last-writer-wins updates. */
+    public String getEditVersion() {
+        return editVersion;
+    }
+
+    public void setEditVersion(String editVersion) {
+        this.editVersion = editVersion;
+    }
+
     private String providerNo;
 
     private Date appointmentDate;

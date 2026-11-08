@@ -678,12 +678,21 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
     @DisplayName("Facility selection boundary")
     class FacilitySelectionBoundary {
 
-        @Test
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "/provider/providercontrol",
+                "/encounter/IncomingEncounter",
+                "/css/encounter.css",
+                "/js/other.js",
+                "/css/caisi_css.css.bak",
+                "/js/global.js.bak",
+                "/js/global.js/extra"
+        })
         @DisplayName("should redirect protected route when facility selection pending")
-        void shouldRedirectProtectedRoute_whenFacilitySelectionPending()
+        void shouldRedirectProtectedRoute_whenFacilitySelectionPending(String path)
                 throws ServletException, IOException {
             MockHttpServletRequest request = authenticatedRequest();
-            request.setRequestURI(CONTEXT_PATH + "/provider/providercontrol");
+            request.setRequestURI(CONTEXT_PATH + path);
             request.getSession(false).setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
             MockHttpServletResponse response = new MockHttpServletResponse();
             MockFilterChain chain = new MockFilterChain();
@@ -737,6 +746,8 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
         @ValueSource(strings = {
                 "/library/bootstrap/5.3.8/css/bootstrap.min.css",
                 "/share/css/global.css",
+                "/css/caisi_css.css",
+                "/js/global.js",
                 "/csrfguard",
                 "/status/SessionHeartbeat"
         })

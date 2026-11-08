@@ -36,8 +36,8 @@
  * provider_facility and audit rows by key and asserts each gone; the teardown step does it while the run is still going.
  * The facility cache (FacilityDaoImpl.findAll) is evicted by DAO writes, not by the SQL these fixtures use; the step after the
  * teardown reads Administration > Facilities to prove no run facility is left listed (when the cache was cold during the run).
- * The last step is the one pinned to finding 265 (the chooser page's own stylesheet and script are turned back by the
- * pending-facility gate); it only judges evidence gathered earlier, so every step before it has run when it fails.
+ * The last step guards finding 265: the chooser's own assets must be served before selection, with their correct MIME
+ * types. Every step also checks browser signals without excusing stylesheet or script failures.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
@@ -46,7 +46,7 @@ const { submitLoginForm } = require('./lib/throwaway-login-fixture');
 const { probeAuthenticationState: probe } = require('./lib/authz-read-probe');
 const { settleOperations } = require('./graceful-signal-cancellation');
 
-/** The step the manifest pins to finding 265; one place, so the script and the manifest agree. */
+/** Regression assertion for finding 265. */
 const CHOOSER_ASSETS_STEP = 'the chooser page\'s own stylesheet and script are served to a login that has not chosen a facility';
 const CHOOSER_HEADING = /Please select which facility you would like to currently work in/i;
 const SCHEDULE_PATH = '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1';
@@ -57,22 +57,6 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const pathOf = rawUrl => new URL(rawUrl).pathname;
 const endsWith = (rawUrl, tail) => pathOf(rawUrl).endsWith(tail);
 
-/**
- * The recorder minus what the chooser page's blocked stylesheet and script produce: the response of the pending-facility
- * redirect to /select_facility read as a script (text/html), the browser's two refusals of it, and the aborted
- * stylesheet request. Nothing else is removed, so any other problem on any of the pages still fails the step.
- */
-function withoutChooserAssetDefect(recorder) {
-  const chooser = rawUrl => { try { return pathOf(rawUrl).endsWith('/select_facility'); } catch (error) { return false; } };
-  const refusal = /^Refused to (?:apply style|execute script) from '([^']*)' because its MIME type \('text\/html'\)/;
-  return {
-    ...recorder,
-    badResponses: recorder.badResponses.filter(entry => !(entry.status === 200 && entry.reason === 'script served as text/html' && chooser(entry.url))),
-    consoleIssues: recorder.consoleIssues.filter(entry => !(refusal.test(entry.text) && chooser(refusal.exec(entry.text)[1]))),
-    requestFailures: recorder.requestFailures.filter(entry => !(entry.resourceType === 'stylesheet' && chooser(entry.url))),
-  };
-}
-
 async function workflow(s) {
   const { sql, config, marker, provider } = s;
   const q = h.sqlString;
@@ -81,15 +65,12 @@ async function workflow(s) {
   const credentials = login => ({ username: login.username, password: config.testPassword, pin: config.testPin });
   const url = appPath => h.appUrl(config.baseUrl, appPath);
   const browser = s.context.browser();
-  // The pages of the throwaway logins report to a recorder of their own. The chooser page's stylesheet and script are
-  // turned back by the pending-facility gate (the pinned last step judges that), so the session recorder that every
-  // s.step() asserts would fail the first step that opens the chooser. The wrapper below asserts this recorder in
-  // every step except the pinned one, minus exactly the entries that defect produces and nothing else.
+  // Each throwaway login has its own pages; include all of their browser signals in every step's strict checks.
   const pages = h.createRecorder();
-  async function step(label, body, { pinned = false } = {}) {
+  async function step(label, body) {
     await s.step(label, async () => {
       await body();
-      if (!pinned) h.assertStrictPage(withoutChooserAssetDefect(pages));
+      h.assertStrictPage(pages);
     });
   }
 
@@ -210,7 +191,7 @@ async function workflow(s) {
     const state = await pageState(first.page);
     h.assert(state.heading, 'The facility chooser page did not render its "select which facility" heading');
     h.assert(!state.schedule, 'The Schedule is showing for a login that has not chosen a facility');
-    // Evidence for the pinned last step, gathered while the pending session is alive: what the chooser page's own head
+    // Evidence for the asset regression step, gathered while the pending session is alive: what the chooser page's own head
     // links (stylesheets, scripts, icon) answer to the same session. Nothing is asserted here.
     const wanted = await first.page.evaluate(() => [
       ...document.querySelectorAll('link[rel~="stylesheet"][href], link[rel~="icon"][href]'),
@@ -404,7 +385,7 @@ async function workflow(s) {
     h.assert(!list.body.includes(marker), 'Administration > Facilities still lists a facility of this run after its rows were removed (stale facility cache)');
   });
 
-  // ---- pinned (finding 265) ---------------------------------------------------------------------------------------
+  // ---- chooser assets (finding 265) --------------------------------------------------------------------------------
   // LAST, so that a script that stops at its first failing step has judged everything above first. It holds only the
   // defect's assertion, over the evidence the chooser step gathered: the chooser page links a stylesheet and a script
   // of the application, and a login that has not chosen a facility must be served both, or the page renders unstyled.
@@ -416,7 +397,7 @@ async function workflow(s) {
       || (asset.kind === 'script' && !/javascript|ecmascript/i.test(asset.type)));
     h.assert(wrong.length === 0, `The facility chooser's own ${wrong.map(asset => asset.kind).join(' and ')} are not served to a login that has `
       + `not chosen a facility: ${wrong.map(asset => `${asset.path} -> HTTP ${asset.status}${asset.to ? ` to ${asset.to}` : ''} (${asset.type || 'no type'})`).join('; ')}`);
-  }, { pinned: true });
+  });
 }
 
 if (require.main === module) runWorkflow('login-facility-chooser', workflow, { openMaster: false });

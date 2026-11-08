@@ -53,7 +53,7 @@ public class ReportConfig extends AbstractModel<Integer> {
     private String caption;
 
     @Column(name = "order_no")
-    private int orderNo;
+    private Integer orderNo = 0;
 
     @Column(name = "table_name")
     private String tableName;
@@ -93,7 +93,8 @@ public class ReportConfig extends AbstractModel<Integer> {
     }
 
     public int getOrderNo() {
-        return orderNo;
+        // Legacy JDBC readers exposed nullable order numbers through ResultSet.getInt().
+        return orderNo == null ? 0 : orderNo;
     }
 
     public void setOrderNo(int orderNo) {

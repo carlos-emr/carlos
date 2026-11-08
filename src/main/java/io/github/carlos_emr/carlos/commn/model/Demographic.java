@@ -70,6 +70,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     public static final int FIRST_NAME_MAX_LENGTH = 50;
     public static final int MIDDLE_NAMES_MAX_LENGTH = 100;
     public static final int ALIAS_MAX_LENGTH = 70;
+    public static final int PRONOUN_MAX_LENGTH = 25;
+    public static final int GENDER_MAX_LENGTH = 25;
     /** The pref_name column ({@code varchar(30) NOT NULL}); see {@link #prefNameForNameUsed(String)}. */
     public static final int PREF_NAME_MAX_LENGTH = 30;
     public static final int ADDRESS_MAX_LENGTH = 60;
@@ -335,6 +337,8 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         addFieldLengthError(errors, "First name", firstName, FIRST_NAME_MAX_LENGTH);
         addFieldLengthError(errors, "Middle names", middleNames, MIDDLE_NAMES_MAX_LENGTH);
         addFieldLengthError(errors, "Preferred name", alias, ALIAS_MAX_LENGTH);
+        addFieldLengthError(errors, "Pronouns", pronoun, PRONOUN_MAX_LENGTH);
+        addFieldLengthError(errors, "Gender", gender, GENDER_MAX_LENGTH);
         addFieldLengthError(errors, "Address", address, ADDRESS_MAX_LENGTH);
         addFieldLengthError(errors, "City", city, CITY_MAX_LENGTH);
         addFieldLengthError(errors, "Province", province, PROVINCE_MAX_LENGTH);
@@ -1476,11 +1480,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
         }
         return extraValue;
     }
+    /** Returns the recorded birth date in its calendar's zone, independent of cached formatter defaults. */
     @jakarta.persistence.Transient
-
     public String getFormattedDob() {
         Calendar cal = getBirthDay();
-        if (cal != null) return (DateFormatUtils.ISO_DATE_FORMAT.format(cal));
+        if (cal != null) return DateFormatUtils.format(cal, "yyyy-MM-dd", cal.getTimeZone());
         else return ("");
     }
 
@@ -1637,6 +1641,11 @@ public class Demographic extends AbstractModel<Integer> implements Serializable 
     // and fail when it was absent. Live-caught as EclipseLink MOXy aborting the
     // whole JAXB context ("No JAXB context can be created") on any deployment
     // that exercised it. The instance returned is still a GregorianCalendar.
+    // Published main uses Glassfish and emits midnight with an offset for this xs:dateTime,
+    // even though the date-only calendar below has no explicitly assigned time/zone fields.
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(
+            io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Calendar getBirthDay() {
         GregorianCalendar cal = null;
         String day = getDateOfBirth();

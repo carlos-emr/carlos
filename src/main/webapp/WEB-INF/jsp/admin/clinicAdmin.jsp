@@ -46,11 +46,11 @@
     }
 %>
 
-<%@ page import="java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Clinic" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%

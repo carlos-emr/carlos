@@ -30,12 +30,9 @@ their printed content or make PDF/UA claims.
 
 ## Other consumers
 
-Displaytag 3.8.0 contains optional export implementations that reference
-`com.lowagie`, but CARLOS does not select them. Displaytag's bundled defaults
-disable PDF export (`export.pdf=false`) and name `FopExportView`; no CARLOS
-override enables its legacy OpenPDF export views. Its OpenPDF 2.4.0
-dependency is optional and does not bring another OpenPDF jar into the WAR.
-Do not enable those legacy views with the unified OpenPDF 3 classpath.
+The displaytag runtime, including its optional legacy `com.lowagie` export views,
+is removed by #5472. The replacement JSTL tables do not expose those adapters.
+Do not reintroduce legacy OpenPDF export views into the unified OpenPDF 3 classpath.
 
 ## Regression evidence
 
@@ -51,8 +48,10 @@ The repository also checks the export contracts directly:
 - `DemographicLabelPdfUnitTest` reads the label's auto-print JavaScript
   back from the generated PDF.
 - `JasperExporterCompatibilityUnitTest` checks `OscarDocumentCreator`
-  auto-print JavaScript, Unicode PDF text, embedded DejaVu fonts and Excel
-  cell values with the application's POI version.
+  auto-print JavaScript, Unicode PDF text and embedded DejaVu fonts, plus
+  direct `DxResearchExcel` cell values with the application's POI version.
+  Spreadsheet exports use Commons CSV and POI directly after #5438; see
+  [spreadsheet output contracts](spreadsheet-exports.md).
 - `AppointmentReceiptTemplateUnitTest` exports the actual receipt template
   with its `force.linebreak.policy` property, checking wrapped Unicode names,
   all booking details, embedded fonts and every glyph's page bounds in

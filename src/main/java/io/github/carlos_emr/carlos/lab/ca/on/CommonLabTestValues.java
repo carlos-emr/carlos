@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import java.io.Serializable;
-import java.sql.Connection;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -243,8 +242,18 @@ public class CommonLabTestValues {
         return labList;
     }
 
-    //WITH MORE DATA MERGE WITH 1 AFTER April 09
-    public static ArrayList<Map<String, Serializable>> findValuesByLoinc2(String demographicNo, String loincCode, Connection conn) {
+    /**
+     * Reads measurement values matching the patient's LOINC/location identifier.
+     * Each map contains {@code lab_no}, {@code result}, {@code date}, {@code abn},
+     * {@code collDateDate} and {@code units}. Values are strings produced by
+     * {@link String#valueOf(Object)}, including the string {@code "null"} for null columns;
+     * {@code date} and {@code collDateDate} contain the same observed-date string.
+     *
+     * @param demographicNo String patient identifier converted to an integer for the DAO
+     * @param loincCode String LOINC/location code passed to the measurement DAO
+     * @return {@code List<Map<String, Serializable>>} in DAO result order, empty when no values match
+     */
+    public static List<Map<String, Serializable>> findValuesByLoinc2(String demographicNo, String loincCode) {
         ArrayList<Map<String, Serializable>> labList = new ArrayList<Map<String, Serializable>>();
 
         MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);

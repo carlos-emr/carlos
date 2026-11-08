@@ -48,7 +48,7 @@
     String curUser_no = (String) request.getAttribute("curUser_no");
 %>
 <%@ page import="java.util.*, io.github.carlos_emr.carlos.commn.model.EncounterTemplate" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

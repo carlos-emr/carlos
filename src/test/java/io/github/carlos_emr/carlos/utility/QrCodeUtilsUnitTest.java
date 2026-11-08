@@ -9,6 +9,8 @@ package io.github.carlos_emr.carlos.utility;
 
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import org.junit.jupiter.api.*;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
+import org.apache.logging.log4j.Level;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -73,5 +75,27 @@ class QrCodeUtilsUnitTest {
         assertThatIllegalArgumentException()
                 .isThrownBy(() -> QrCodeUtils.toSingleQrCodePng("", ErrorCorrectionLevel.M, 4))
                 .withMessageContaining("empty contents");
+    }
+
+    @Test
+    void shouldPreserveMultipleChunks_withoutLoggingTheirContents() throws Exception {
+        String payload = "SYNTHETIC5322PATIENT" + "X".repeat(80) + "SYNTHETIC5322MEDICATION";
+        try (LogCapture logs = LogCapture.forLogger(QrCodeUtils.class)) {
+            byte[] png = QrCodeUtils.toMultipleQrCodePngs(payload, ErrorCorrectionLevel.M,
+                    QrCodeUtils.QrCodesOrientation.VERTICAL, 20, 50, 4);
+            BufferedImage image = ImageIO.read(new ByteArrayInputStream(png));
+            int[] pixels = image.getRGB(0, 0, image.getWidth(), image.getHeight(), null, 0, image.getWidth());
+            var source = new com.google.zxing.RGBLuminanceSource(image.getWidth(), image.getHeight(), pixels);
+            var bitmap = new com.google.zxing.BinaryBitmap(new com.google.zxing.common.HybridBinarizer(source));
+            var codes = new com.google.zxing.multi.qrcode.QRCodeMultiReader().decodeMultiple(bitmap);
+            String restored = java.util.Arrays.stream(codes)
+                    .sorted(java.util.Comparator.comparingDouble(code -> code.getResultPoints()[0].getY()))
+                    .map(com.google.zxing.Result::getText).collect(java.util.stream.Collectors.joining());
+            assertThat(restored).isEqualTo(payload);
+            assertThat(logs.events()).anyMatch(event -> event.getLevel() == Level.DEBUG);
+            assertThat(String.join("\n", logs.messages()))
+                    .contains("chunkIndex=0", "chunkIndex=1", "chunkIndex=2")
+                    .doesNotContain("SYNTHETIC5322PATIENT", "SYNTHETIC5322MEDICATION", payload, "XXXXX");
+        }
     }
 }

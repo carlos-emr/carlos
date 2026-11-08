@@ -1,0 +1,1584 @@
+{
+  "schemaVersion": 1,
+  "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+  "baselineCommit": "2a38f30f5a7f492cc6c8f3b14b6a3ad1066a279a",
+  "baselineReportSha256": "6d460718ff68418555b0b20a9962d6e0ea7043c66ead553c60a8af7b978bb690",
+  "baselineLane": "H2 development baseline; 33467 cases, 130 inapplicable/prerequisite skips retained",
+  "files": {
+    "src/main/java/io/github/carlos_emr/CarlosProperties.java": {
+      "lines": 95.1219512195122,
+      "instructions": 95.12893982808023,
+      "branches": 88.88888888888889
+    },
+    "src/main/java/io/github/carlos_emr/OscarDocumentCreator.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/dao/ProgramAccessDAOImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/dao/ProgramProviderDAOImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/app/CsrfGuardScriptInjectionFilter.java": {
+      "lines": 80.55555555555556,
+      "instructions": 85.71428571428571,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/app/HttpMethodGuardFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/app/LogoutBroadcastFilter.java": {
+      "lines": 90.47619047619048,
+      "instructions": 92.51700680272108,
+      "branches": 75.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/appointment/search/SearchConfig.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/appointment/search/filters/OpenAccessFilter.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/MSP/CheckBillingData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/MSP/ExtractBean.java": {
+      "lines": 93.22033898305085,
+      "instructions": 90.8957415565345,
+      "branches": 59.375
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/BcRemittanceDataSource.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/CreateBillingReport2Action.java": {
+      "lines": 44.23076923076923,
+      "instructions": 29.28348909657321,
+      "branches": 12.5
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/ExtractBean.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/MSPReconcile.java": {
+      "lines": 73.79679144385027,
+      "instructions": 73.17813765182186,
+      "branches": 69.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/TeleplanSubmission.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/data/BcBillingRows.java": {
+      "lines": 31.25,
+      "instructions": 45.72490706319702,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/data/BillingFormData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/data/BillingmasterDAO.java": {
+      "lines": 14.642857142857142,
+      "instructions": 19.379194630872483,
+      "branches": 16.176470588235293
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/data/DxReference.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcBillingRequestGuards.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BillingReProcessBill2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/ViewPrivateBillingStatement2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/ViewWCB2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/ViewWcbForms2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/BcBillingService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 75.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/BillingDiagnosisService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingCorrectionRecordService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingCorrectionService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementIssueDAO.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/CaseManagementIssueDAOImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/dao/ClientImageDAOImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/CaseManagementNote.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/model/ClientImage.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CppTextLoader.java": {
+      "lines": 78.57142857142857,
+      "instructions": 76.14213197969544,
+      "branches": 85.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementViewAction.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/ClientImage2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/clinical/gate/ViewClinical2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/DemographicSearchResultTransformer.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AntenatalReportDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/BilledProviderReportDao.java": {
+      "lines": 6.122448979591836,
+      "instructions": 37.58620689655172,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ConsultationRequestDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ConsultationRequestDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ConsultationRequestExtDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ConsultationRequestExtDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ConsultationRequestMergedDemographicDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicDaoImpl.java": {
+      "lines": 72.72727272727273,
+      "instructions": 69.84126984126983,
+      "branches": 33.333333333333336
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicExtDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicExtDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/DemographicMergedDaoImpl.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/EmailLogDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/EmailLogDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/FaxClientLogDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/FaxClientLogDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/Hl7TextInfoDaoImpl.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementsExtDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/MeasurementsExtDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ProfessionalSpecialistDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ProfessionalSpecialistDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/QueueDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/QueueDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportConfigDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportConfigDaoImpl.java": {
+      "lines": 81.81818181818181,
+      "instructions": 83.82352941176471,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportFilterDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportFilterDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportItemDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportItemDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportTableFieldCaptionDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/ReportTableFieldCaptionDaoImpl.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/SiteDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/projection/DemographicName.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/hl7/v2/OmpO09Builder.java": {
+      "lines": 75.0,
+      "instructions": 63.63636363636363,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Appointment.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/BillingONCHeader1.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Demographic.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/EmailLog.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalSpecialist.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 87.5
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/ReportConfig.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/ReportFilter.java": {
+      "lines": 100.0,
+      "instructions": 86.36363636363636,
+      "branches": 75.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/ReportItem.java": {
+      "lines": 100.0,
+      "instructions": 78.57142857142857,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/enumerator/DemographicExtKey.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/printing/PrivacyStatementAppendingFilter.java": {
+      "lines": 92.6829268292683,
+      "instructions": 92.96875,
+      "branches": 86.95652173913044
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/service/FieldNoteManager.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/service/ReportConfigurationService.java": {
+      "lines": 42.5,
+      "instructions": 48.57142857142857,
+      "branches": 38.888888888888886
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/web/DxresearchReport2Action.java": {
+      "lines": 90.0,
+      "instructions": 90.98360655737704,
+      "branches": 83.33333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/web/PopulationReport2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 75.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/consultation/dto/ConsultationFaxRow.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/consultation/dto/ConsultationListRow.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/consultation/dto/SpecialistListRow.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dao/ProviderDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/daos/LookupDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/daos/LookupDaoImpl.java": {
+      "lines": 46.15384615384615,
+      "instructions": 36.93181818181818,
+      "branches": 70.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dashboard/handler/ExportQueryHandler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/db/LegacyJdbcQuery.java": {
+      "lines": 97.77777777777777,
+      "instructions": 97.58454106280193,
+      "branches": 87.5
+    },
+    "src/main/java/io/github/carlos_emr/carlos/db/ReportQueryDeadline.java": {
+      "lines": 92.1875,
+      "instructions": 92.5,
+      "branches": 80.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/DemographicLabelPdf.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalNativeDateDto.java": {
+      "lines": 100.0,
+      "instructions": 95.65217391304348,
+      "branches": 75.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java": {
+      "lines": 100.0,
+      "instructions": 97.61904761904762,
+      "branches": 83.33333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsRulesetFingerprint.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsRuntimeIdentity.java": {
+      "lines": 40.0,
+      "instructions": 71.42857142857143,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaModel.java": {
+      "lines": 95.74468085106383,
+      "instructions": 95.49702633814783,
+      "branches": 75.67567567567568
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaTypeCursor.java": {
+      "lines": 100.0,
+      "instructions": 97.2027972027972,
+      "branches": 93.33333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaValidator.java": {
+      "lines": 71.42857142857143,
+      "instructions": 80.3921568627451,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSnapshotService.java": {
+      "lines": 86.71875,
+      "instructions": 86.87727825030376,
+      "branches": 63.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java": {
+      "lines": 96.7741935483871,
+      "instructions": 91.77489177489177,
+      "branches": 89.58333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/support/CdsJdbcAdmissionGuard.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/data/DemographicMerged.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicMergeRecord2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 93.75
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/DocumentAttach.java": {
+      "lines": 100.0,
+      "instructions": 99.53703703703704,
+      "branches": 92.10526315789474
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/DocumentAttachmentManagerImpl.java": {
+      "lines": 83.33333333333333,
+      "instructions": 86.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/EDocUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/AddEditDocument2Action.java": {
+      "lines": 100.0,
+      "instructions": 96.0,
+      "branches": 91.66666666666667
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DmsInboxManage2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DocumentPreview2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DocumentUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/ManageDocument2Action.java": {
+      "lines": 66.66666666666667,
+      "instructions": 69.23076923076923,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/annotation/AnnotatedDocumentService.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/htmlpdf/engine/ImageDecoding.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/drools/RuleBaseFactory.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/dxresearch/pageUtil/dxResearchLoadQuickList2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/EFormExportZip.java": {
+      "lines": 92.3076923076923,
+      "instructions": 90.78947368421052,
+      "branches": 83.33333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/actions/DisplayImage2Action.java": {
+      "lines": 75.0,
+      "instructions": 72.72727272727273,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/actions/HtmlEdit2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormImageViewForPdfGenerationServlet.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/email/action/EmailCompose2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/email/admin/ManageEmails2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 92.85714285714286
+    },
+    "src/main/java/io/github/carlos_emr/carlos/email/helpers/APISendGridEmailSender.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/config/pageUtil/EctConDisplayServiceUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationAttachmentsNotIncluded.java": {
+      "lines": 100.0,
+      "instructions": 93.33333333333333,
+      "branches": 75.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/ConsultationLabsNotIncluded.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequest2Action.java": {
+      "lines": 62.5,
+      "instructions": 59.64912280701754,
+      "branches": 25.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestPrintAction22Action.java": {
+      "lines": 75.75757575757575,
+      "instructions": 70.5521472392638,
+      "branches": 80.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestUtil.java": {
+      "lines": 41.666666666666664,
+      "instructions": 37.5,
+      "branches": 20.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctViewConsultationRequestsUtil.java": {
+      "lines": 94.02985074626865,
+      "instructions": 92.87305122494432,
+      "branches": 81.81818181818181
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/MeasurementFlowSheet.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/MeasurementInfo.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/bean/EctMeasurementsDataBean.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/bean/EctMeasurementsDataBeanHandler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 92.85714285714286
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/MeasurementGraphAction22Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAction.java": {
+      "lines": 93.75,
+      "instructions": 95.55555555555556,
+      "branches": 90.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayAllergy2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayConsult2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDecisionSupportAlerts2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDocs2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDx2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayDxAction.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayEForm2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayEconsult2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayEpisode2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayForm2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayHRM2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayIssues2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayLabAction2.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayLabAction22Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayMeasurements2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayMsg2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayPregnancy2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayPrevention2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayResolvedIssues2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayRx2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctDisplayTickler2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctSaveEncounter2Action.java": {
+      "lines": 21.428571428571427,
+      "instructions": 13.72549019607843,
+      "branches": 27.272727272727273
+    },
+    "src/main/java/io/github/carlos_emr/carlos/encounter/pageUtil/EctSessionBean.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxImporter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/fax/core/FaxPollBackoff.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/flowsheet/Flowsheet2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/BCAR2020FormSaveService.java": {
+      "lines": 91.11111111111111,
+      "instructions": 95.30332681017613,
+      "branches": 64.44444444444444
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FrmBCAR20202Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/FrmBCAR2020Record.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/model/FormBCAR2020Text.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pageUtil/FrmSetupForm2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 78.57142857142857
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pdfservlet/PrescriptionPdfServlet.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pharmaForms/formBPMH/bean/BpmhForm2Bean.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/util/FormTransportContainer.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/AttachmentCleanupInterceptor.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DownloadInInterceptor.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/DynamicWSS4JInInterceptor.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/EdtClientBuilder.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/integration/ebs/client/ng/PlaintextCryptoPasswordEncryptor.java": {
+      "lines": 75.0,
+      "instructions": 73.6842105263158,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/FileUploadCheck.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/MessageUploader.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/handlers/IHAPOIHandler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/util/KeyPairGen.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/util/LabVersionComparator.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/web/LabDisplayHelper.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/CommonLabTestValues.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/HRMResultsData.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/Login2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/Startup.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/login/TotpGenerator.java": {
+      "lines": 84.61538461538461,
+      "instructions": 89.70588235294117,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentUpdateException.java": {
+      "lines": 88.88888888888889,
+      "instructions": 95.1219512195122,
+      "branches": 66.66666666666667
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ConsultationManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ConsultationManagerImpl.java": {
+      "lines": 84.61538461538461,
+      "instructions": 92.85714285714286,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
+      "lines": 94.11764705882354,
+      "instructions": 94.6524064171123,
+      "branches": 71.42857142857143
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/EmailManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManagerImpl.java": {
+      "lines": 90.0,
+      "instructions": 90.47619047619048,
+      "branches": 92.85714285714286
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManager.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/SecurityInfoManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/SecurityManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/TicklerManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/WaitListManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/messenger/docxfer/util/MsgCommxml.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgAttachPDF2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgPdfAttachmentResolver.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 91.66666666666667
+    },
+    "src/main/java/io/github/carlos_emr/carlos/model/LookupCodeValue.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/pageUtil/RxWriteScript2Action.java": {
+      "lines": 62.5,
+      "instructions": 60.78431372549019,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RenalDosingInput.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prescript/util/RxUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDisplayConfig.java": {
+      "lines": 98.33333333333333,
+      "instructions": 99.28057553956835,
+      "branches": 95.23809523809524
+    },
+    "src/main/java/io/github/carlos_emr/carlos/prevention/dto/PreventionDateDTO.java": {
+      "lines": 100.0,
+      "instructions": 95.65217391304348,
+      "branches": 75.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/provider/model/PreventionManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/provider/web/ProviderProperty2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/provider/web/ProviderSignatureImage2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/provider/web/ProviderSignatureStamp2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/PageUtil/RunClinicalReport2Action.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluator.java": {
+      "lines": 0.0,
+      "instructions": 0.0,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/SQLDenominator.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/SQLNumerator.java": {
+      "lines": 69.23076923076923,
+      "instructions": 67.3913043478261,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/ConfiguredReportQuery.java": {
+      "lines": 99.04761904761905,
+      "instructions": 95.85585585585585,
+      "branches": 89.0625
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/ReportingConnectionService.java": {
+      "lines": 50.0,
+      "instructions": 30.0,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptByExampleData.java": {
+      "lines": 100.0,
+      "instructions": 71.42857142857143,
+      "branches": 50.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptReportConfigData.java": {
+      "lines": 33.333333333333336,
+      "instructions": 29.59641255605381,
+      "branches": 21.428571428571427
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptReportCreator.java": {
+      "lines": 26.31578947368421,
+      "instructions": 24.528301886792452,
+      "branches": 27.77777777777778
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptReportFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptReportItem.java": {
+      "lines": 42.857142857142854,
+      "instructions": 35.18518518518518,
+      "branches": 25.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/data/RptTableFieldNameCaption.java": {
+      "lines": 38.46153846153846,
+      "instructions": 26.923076923076923,
+      "branches": 0.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/export/BcBillingCsv.java": {
+      "lines": 97.70114942528735,
+      "instructions": 98.21428571428571,
+      "branches": 87.5
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/export/BcRemittanceExportDao.java": {
+      "lines": 100.0,
+      "instructions": 98.61386138613861,
+      "branches": 87.5
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/export/DxResearchExcel.java": {
+      "lines": 95.45454545454545,
+      "instructions": 96.41025641025641,
+      "branches": 80.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/export/TabularExport.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/export/TeleplanAmount.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDownloadCSVServlet.java": {
+      "lines": 96.81818181818181,
+      "instructions": 96.88365650969529,
+      "branches": 80.12820512820512
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportObjectGeneric.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportResultBudget.java": {
+      "lines": 96.90721649484536,
+      "instructions": 94.4055944055944,
+      "branches": 86.36363636363636
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/SQLReporter.java": {
+      "lines": 81.25,
+      "instructions": 83.4319526627219,
+      "branches": 90.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/sec/LoginFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/tickler/pageUtil/EditTickler2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/DateUtils.java": {
+      "lines": 25.0,
+      "instructions": 30.76923076923077,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/Doc2PDF.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/OscarRoleObjectPrivilege.java": {
+      "lines": 100.0,
+      "instructions": 98.4375,
+      "branches": 87.5
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/StringUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/util/UtilMisc.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/CdsJdbcConnectionTimeouts.java": {
+      "lines": 98.11320754716981,
+      "instructions": 94.78527607361963,
+      "branches": 75.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ContentDigests.java": {
+      "lines": 83.33333333333333,
+      "instructions": 88.67924528301887,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DbConnectionFilter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DeferredContentLength.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 93.75
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ImportZipInputStream.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "requiredRefusalLines": [
+        58,
+        59,
+        75,
+        103
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/IsoDates.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbCompatibilityDriver.java": {
+      "lines": 3.2934131736526946,
+      "instructions": 2.4664647338814367,
+      "branches": 1.2468827930174564
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbJdbcCompatibility.java": {
+      "lines": 95.36082474226804,
+      "instructions": 96.24122263527468,
+      "branches": 88.33746898263027
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/MariaDbPreferredTlsPlugin.java": {
+      "lines": 92.7536231884058,
+      "instructions": 94.0,
+      "branches": 91.37931034482759
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OntarioMD.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/OscarTrackingBasicDataSource.java": {
+      "lines": 80.0,
+      "instructions": 88.46153846153847,
+      "branches": 90.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/QrCodeUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/RequestNegotiation.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/ResponseSanitizationFilter.java": {
+      "lines": 90.0,
+      "instructions": 78.37837837837837,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/SafeEncode.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/SpreadsheetCsv.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/WebappShutdownResources.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/XmlUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 78.57142857142857
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CharacterIntegerMapXmlAdapter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CharacterXmlAdapter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 87.5
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/StringMapXmlAdapter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/XmlCompatibilityAdapter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListNameUtil.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/web/Cds4ReportUIBean.java": {
+      "lines": 18.75,
+      "instructions": 16.872427983539094,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/web/PrescriptionQrCodeUIBean.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/web/admin/ProviderPreferencesUIBean.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DemographicService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/PharmacyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ProgramService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleService.java": {
+      "lines": 78.04878048780488,
+      "instructions": 84.15841584158416,
+      "branches": 72.72727272727273
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/AppointmentExtTo.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/AppointmentTo1.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/ConsultationRequestTo1.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/DemographicSearchResult.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/FilterDefinitionTransfer.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/SearchConfigTo1.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospector.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveTransfer.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentTransfer.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/CalendarScheduleCodePairTransfer.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/DrugTransfer.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/ProviderTransfer.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0
+    }
+  },
+  "exclusions": {
+    "src/main/java/io/github/carlos_emr/carlos/PMmodule/model/package-info.java": {
+      "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/package-info.java": {
+      "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/model/package-info.java": {
+      "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/model/package-info.java": {
+      "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/to/package-info.java": {
+      "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/transfer_objects/package-info.java": {
+      "reason": "Package-level XML/model annotations have no executable Java bytecode; preserved through JAXB/ORM contract tests.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbImplementationCompatibilityUnitTest.java"
+      ]
+    }
+  },
+  "supplementalBaselines": {
+    "src/main/java/io/github/carlos_emr/carlos/utility/ImportZipInputStream.java": {
+      "sourceCommit": "c7ef9f705dc2b07456a7ce6450bf4edd924957b3",
+      "sourceSha256": "00a6a1526ef30975f8f34e20b5e605033a20cd6b0d7f782a2b6775b712420658",
+      "classSha256": "99143e4e9e5508f0251dd89f436eae3e55ba33e0a562fc3713dcfc9c1659eed2",
+      "reportSha256": "048931ac88ecc9edbbfa9775275791cd91fa950d0d33f84fdb3b9f6af46c5797",
+      "executionDataSha256": "480db89aed435943b69dd783a1a233444728d087188668c25d25c38d6cb4a270",
+      "scope": "Supplemental development baseline from a fresh 83-case focused run on frozen source; final required-lane union qualification remains separate.",
+      "testReports": {
+        "io.github.carlos_emr.carlos.utility.ImportZipInputStreamUnitTest": {
+          "cases": 23,
+          "sha256": "b4ec38dd9e9bda82b3418aa15f4208763445538a3257a14928b35a6d13ad9abc"
+        }
+      },
+      "counters": {
+        "LINE": {
+          "covered": 24,
+          "missed": 0
+        },
+        "INSTRUCTION": {
+          "covered": 137,
+          "missed": 0
+        },
+        "BRANCH": {
+          "covered": 18,
+          "missed": 0
+        }
+      },
+      "uncoveredBranchLines": []
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/CalendarDateTimeXmlAdapter.java": {
+      "sourceCommit": "c7ef9f705dc2b07456a7ce6450bf4edd924957b3",
+      "sourceSha256": "f6db1a57c08b16872286a94c3d6210bb2d37f613f888c1cdedeada932dc141d1",
+      "classSha256": "0c842a9e140e578b5329e7824cf102dbf0a797934920b8e327ea214bf9eec25a",
+      "reportSha256": "048931ac88ecc9edbbfa9775275791cd91fa950d0d33f84fdb3b9f6af46c5797",
+      "executionDataSha256": "480db89aed435943b69dd783a1a233444728d087188668c25d25c38d6cb4a270",
+      "scope": "Supplemental development baseline from a fresh 83-case focused run on frozen source; final required-lane union qualification remains separate.",
+      "testReports": {
+        "io.github.carlos_emr.carlos.utility.xml.CalendarDateTimeXmlAdapterUnitTest": {
+          "cases": 12,
+          "sha256": "1f8ec1238578f4e18d7477b7e728106d6418861f0a0cac5609e69f28fb9d86b1"
+        },
+        "io.github.carlos_emr.carlos.utility.xml.DemographicBirthdayXmlContractUnitTest": {
+          "cases": 9,
+          "sha256": "ef766ee647b60b21e07f76449aab89921d169aef4246c7fa9b4966b054b198ec"
+        }
+      },
+      "counters": {
+        "LINE": {
+          "covered": 13,
+          "missed": 0
+        },
+        "INSTRUCTION": {
+          "covered": 53,
+          "missed": 0
+        },
+        "BRANCH": {
+          "covered": 5,
+          "missed": 1
+        }
+      },
+      "uncoveredBranchLines": [
+        33
+      ]
+    }
+  }
+}

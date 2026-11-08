@@ -1,5 +1,8 @@
 # Deb Install Validation Runbook
 
+See [modern chart cutover and rollback](../modern-chart-cutover.md) before upgrading
+or rolling back a deployment with historical chart data.
+
 This runbook builds the CARLOS Debian packages from source, installs them into a
 disposable Ubuntu 26.04 VM with the demo dataset, and drives the full
 `scripts/*-playwright-checks.js` suite against the packaged deployment — through
@@ -9,6 +12,85 @@ bare Tomcat.
 The 2026-10-15 focused validation for issue #4699, including blocking-WAF
 positive/negative controls and pending encounter-issue preservation, is recorded
 in [PR #4701 validation](pr4701-validation.md).
+
+The facility-chooser asset fix for #4621 (PR #5615) was validated from `62b8e13`.
+Both WARs and the full `2026.09.0~snapshot27` debs were built inside Ubuntu 26.04
+with OpenJDK 25.0.4.1 and installed fresh into an Ubuntu 26.04 systemd container
+with the Ontario demo dataset. DrugRef used the pinned `0d240f0` revision;
+`carlos-ctl` 1.3.0 came from its published release with its SHA-256 verified.
+The packaged Chromium revision 1685886 was fetched from the canonical
+`storage.googleapis.com` bucket using `CHROMIUM_BASE_URL`, with both pinned
+checksums verified. `carlos-ctl check` passed, and the first-login reset completed.
+Through `https://127.0.0.1/carlos` with `EXPECT_FRONT_DOOR=true`,
+`login-facility-chooser` passed all 18 steps without its expected-failure pin or
+asset-error suppression. `facility-selection`, `login` and
+`anonymous-access-refused` also passed; `--residue-audit` found no residue.
+Restoring the pre-fix `LoginFilter` on the same install made the chooser check
+fail on its stylesheet/script MIME errors, again with no residue. Restoring the
+fixed filter made all 18 chooser steps pass again and left the service checks clean. The focused
+login, facility-selection and forced-reset Java suites passed 217 tests; before
+the fix, the filter suite failed exactly its two chooser-asset cases.
+
+Issue #5627 ([PR #5631](https://github.com/carlos-emr/carlos/pull/5631)) was validated
+on 2026-11-03 in an Ubuntu 26.04 systemd container with Ontario demonstration data.
+CARLOS was compiled and tested with the distribution's JDK 25, and pinned DrugRef
+source was built against `debian/drugref-dependencies-lock.json`. The complete
+`2026.09.0~snapshot27` debs were built with `dpkg-buildpackage -us -uc -b`, including
+Chromium revision 1685886 and chromedriver, both checked against their committed
+SHA-256 values. The documented allowed
+`CHROMIUM_BASE_URL=https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64`
+was used through the session proxy. The pinned `carlos-ctl` 1.3.0 tag was built
+with its release changelog stamp in an isolated worktree. The complete packages
+were reinstalled before the final run; `carlos-ctl check` passed before and after.
+
+Through nginx/ModSecurity HTTPS with shipped Chromium 154.0.8025.0, all four
+`rx-save-failure-retry` new/mixed × Save Only/Save And Print modes pass. Each owned
+second-INSERT fault is observed, the complete clinical snapshot is unchanged,
+entered cards survive, retry writes exactly one prescription, and the reopened
+profile and prescription agree with storage. Save And Print waits for its native
+preview to settle before deliberately reloading, retaining strict browser-error
+checks. The lost-response controls preserve committed rows without a second
+prescription and still report the existing finding 334 warning defect; its two
+expected-failure pins remain. After the runbook's dictionary initialization, the
+final six-mode run reports **4 passes, 0 failures, 0 skips and 2 known failures**,
+no residue and no application restart (`NRestarts` 0 → 0). Finding 333 is fixed
+and its four expected-failure pins are removed.
+
+After merging the current release branch, the Ubuntu build passed 2,445 Rx
+tests; the review-specific run passed 139
+focused cases, including audit-after-commit ordering and real-H2 partial-date
+rollback/retry. The H2 check observes a first-card partial-date row before a real
+second-drug INSERT fails, verifies that all three tables roll back, and checks
+exactly one partial-date row after retry. Both Save And Print modes also pass
+again after bounding the best-effort network-settling wait, with no residue or
+service restart. Pinned DrugRef passed 74
+tests. Locked Node regressions passed 7,082 tests with one existing TODO; the
+updated manifest/Rx harness checks passed 71 tests. The CDS crosswalk check and
+its 25 Python tests pass with the reviewed reader bytes preserved. Source lints
+and `lintian --fail-on error` on the complete debs pass.
+
+Issue #5572 (Browse Notes document Delete), [PR #5586](https://github.com/carlos-emr/carlos/pull/5586),
+was validated on 2026-11-03 in an Ubuntu 26.04 systemd container with Ontario demo data.
+CARLOS and the pinned DrugRef source were built with Maven inside Ubuntu 26.04;
+`dpkg-buildpackage -us -uc -b` built the complete `2026.09.0~snapshot27` packages,
+including the checksum-verified pinned Chromium renderer. They were installed with
+`carlos-ctl` 1.3.0; `carlos-ctl check` passed. The default Chromium download host was
+unavailable in this environment, so `CHROMIUM_BASE_URL` used the configured allowed
+`https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64` endpoint,
+with the committed revision and SHA-256 checks unchanged.
+
+The original release JSP, substituted into that install, fails
+`dialog-confirmations-document` at its exact cancellation step with zero dialogs
+and no SQL residue. Restoring the byte-identical packaged fixed JSP passes that
+check, `note-browser-documents` and `note-browser-controls`: 3/3 checks, 41 steps,
+no skips and no SQL residue, through `:443` with `EXPECT_FRONT_DOOR=true` and
+Chromium 154.0.8025.0. Cancel preserves the form and both document rows without a
+request; OK deletes only the selected document, and refile/undelete still work.
+A focused Polish-browser probe also passed: the confirmation displays `Czy na pewno chcesz usunąć`
+with the selected description, and Cancel preserves the document; the final deployment
+health check passed. The focused Java regression run passed 219 tests. Locked Node regressions passed
+6,983 tests (zero failures, one existing TODO); the final chart-context and JSP
+inline-script checks passed 28 and 13 tests respectively.
 
 It is the procedure that first surfaced the WAF false positives on note-saving
 and eForm saves, the add-patient validation regression, the nullable-column
@@ -924,11 +1006,32 @@ by #4407.
 
 ## 5. Install the Playwright harness in the VM
 
+The Docker wrapper installs these same pinned dependencies. `accessibility-smoke`
+requires axe-core; if it is absent, the check reports SKIP before creating fixtures.
+On a fresh install, `annotate-document` reports SKIP when the Save and fax handoff
+finds no active fax account available to the test provider, provided no earlier
+annotation findings were collected and fixture cleanup succeeds. Earlier findings,
+browser/server errors and cleanup failures still report FAIL. Supply an owned UI-only
+fax account to exercise that handoff. `demographic-cds-import` and
+`audit-log-demographic-import` report SKIP when the import feature or approved
+source/profile is unavailable; see [CDS import configuration](../cds-import-configuration.md)
+to configure an approved synthetic source. These skips leave those paths unvalidated.
+
+The wrapper already exports `EXCLUSIVE=1` and `CARLOS_DISPOSABLE_VM=true` for its
+single-session disposable install. Outside the wrapper, `session-heartbeat-timeout`
+reports SKIP unless both are set. Schedule Setting owns and removes a throwaway
+provider and its schedule rows; leave `TEST_SCHEDULE_PROVIDER` unset.
+Its picker can wait up to five and a half minutes for the active-provider cache
+to expire after SQL creates the fixture. It fails if the owned provider never
+appears, and never falls back to editing a shared provider's schedule.
+Use a schedule administrator allowed to select other providers; a login restricted
+by `_admin.schedule.curprovider_only` cannot operate on this owned fixture.
+
 ```bash
 lxc exec carlos-test -- bash -c '
   export DEBIAN_FRONTEND=noninteractive
   apt-get install -y nodejs npm poppler-utils fonts-liberation
-  cd /root && npm init -y && npm install --save-exact playwright@1.60.0
+  cd /root && npm init -y && npm install --save-exact playwright@1.60.0 axe-core@4.14.0 entities@4.5.0
   /usr/lib/carlos-emr/chromium/chrome --version'
 ```
 
@@ -1043,6 +1146,24 @@ export LAB_ROLLBACK_FAULT_ARTIFACT_DIR=/tmp/carlos-lab-rollback-faults
 
 Keep rollback fault receipts private and retain them when fault removal cannot be
 proved. The helper skips when `LAB_ROLLBACK_FAULT_ARTIFACT_DIR` is unset.
+
+Since #4793, `AbandonOldChart` is forced to `true` in the application, whether the
+property is absent or explicitly set to `false`. Devcontainer and Debian installs
+therefore both use the modern chart and do not mirror modern notes/CPP into `eChart`.
+Existing legacy records are retained as historical snapshots. Non-Exit legacy editor
+save requests return HTTP 410 before changing clinical data or layout; Exit retains
+its layout-only behavior. Authorized report readers can open Historical chart from
+the modern chart header and view or print patient-owned historical revisions. These
+prints are labeled historical and do not include subsequent modern notes or CPP;
+use the modern chart print workflow for current care. Messaging offers historical
+encounter PDFs only when a retained row contains clinical text. A loaded `false`,
+`no` or `off` value is reported once at startup as ignored (`AbandonOldChart=... is
+ignored` at WARN) before the cutover appends `AbandonOldChart=true` to the external
+configuration. Permanent removal
+of the legacy routes and further migration decisions are tracked in #5599.
+The manual `legacy-encounter-editor-isolation` check's legacy-content expectations
+are historical and cannot be qualified on this forced-modern release. Its entrypoint
+reports SKIP before database/browser setup, including on CAISI-enabled deployments.
 
 The CAISI-only `encounter-legacy-note-soft-wrap` check was removed from the suite,
 npm commands and its wrapper at the maintainer's request (#5368). Its prerequisite
@@ -1654,18 +1775,33 @@ Notes on the contract:
   It shrinks the notes wrapper in the browser before watching the poll: the
   pagination only fires when that pane overflows and sits at the top, which a
   tall headless window never reproduces on its own.
-- **`error-sanitization-playwright-checks.js` provokes two real 500s on
-  purpose**, and must also run through `:443`. It is the only check that
-  exercises `ResponseSanitizationFilter`'s error-replacement path — every other
-  script drives success paths, so a filter that stopped sanitizing entirely
-  would leave the suite green. While it runs, `journalctl -u carlos-emr` will
-  show `Uncaught exception escaped filter chain` and `Sanitizing ... error
-  response body` at ERROR: that is the check working, not a failure. It creates
-  and deletes nothing (one append-only `OscarLog` audit row from the `/ws`
-  probe). To confirm it can still fail — worth doing after any change to the
-  filter — set `response.sanitization.enabled=false` in
-  `/etc/carlos-emr/carlos.properties`, `carlos-ctl restart`, and re-run: it
-  must FAIL. Restore the property and restart afterwards.
+- **`error-sanitization-playwright-checks.js` validates the former error probes as
+  controlled 400 responses**, through `:443`. Missing/malformed satellite-clinic
+  addresses and invalid schedule-count dates must return 400 without reflecting
+  input, leaking stack traces, or producing a download. A redirect, 401/403, or
+  sanitized 500 is a failure. These routes no longer provide reliable 5xx probes.
+  Deterministic 5xx replacement is covered by
+  `ResponseSanitizationFilterTomcatIntegrationTest` using test-only servlets under
+  real embedded Tomcat: HTML exceptions/stack traces, clean partial JSON/XML
+  `/ws` errors, exact success/400 controls, and disabled-filter negative controls.
+  These fixtures are not packaged in the application. Run the Java test alongside
+  the browser smoke check; a browser pass alone does not prove 5xx replacement.
+
+### Missing validation prerequisites
+
+The validation image pins `axe-core@4.14.0` with Playwright. Without axe the
+accessibility check skips before SQL/browser setup. The wrapper exports
+`CARLOS_DISPOSABLE_VM=true EXCLUSIVE=1` for its disposable single-session run;
+without those gates the clinic-wide heartbeat check skips before fixture writes.
+Schedule Setting owns its provider fixture and requires no `TEST_SCHEDULE_PROVIDER`.
+
+Annotation's fax handoff requires an active account available to the provider;
+without one it reports SKIP, never PASS. Earlier annotation failures and cleanup
+failures remain fatal. Prepare an owned UI-only account to exercise that handoff;
+the check does not send a fax. CDS import checks similarly report SKIP when the
+approved import feature/source is not registered (or `xmllint` is absent), while
+transport, import, schema-validation and cleanup errors remain failures. A full
+coverage run must provide these prerequisites; SKIP is not runtime acceptance.
 
 ### TLS verification for the browser checks (issue #3598)
 
@@ -1706,8 +1842,7 @@ Message text is never printed unless `--show-messages` is given, because log
 messages can carry patient data. The baseline explains three kinds of event,
 each entry citing the check, the issue or the findings-log row behind it:
 
-- errors the suite provokes on purpose (the 500s of `error-sanitization`, the
-  malformed lab uploads, the refusal and rollback probes, the tokenless CSRF
+- errors the suite provokes on purpose (the malformed lab uploads, the refusal and rollback probes, the tokenless CSRF
   replays);
 - the validation environment (no internet, a page closed mid-download, a fixture
   patient deleted while the chart is still loading, a service restart);
@@ -3842,3 +3977,48 @@ The local Ubuntu 26.04 package provenance, per-ticket runtime results, profile
 runs and published-beta2 upgrade validation are recorded in
 [harness-coverage-5456.md](harness-coverage-5456.md). That record distinguishes
 passing workflows from product findings and unavailable fixture prerequisites.
+
+### eForm post-save failure and consumed-token replay (2026-11-03, issue #4424)
+
+The application fix already merged in #5042 was revalidated from `release/2026.08`
+at `eba0178bdd2`, with the browser-check extension in `87c3de1486e`. No application
+code, version metadata or migrations changed in this follow-up.
+
+CARLOS and the DrugRef revision in `debian/drugref.pin` (`0d240f07ee5c`) were compiled
+from source with OpenJDK 25 in an Ubuntu 26.04 container. Their WARs were packaged
+with `dpkg-buildpackage -us -uc -b -nc` through the supported `CARLOS_WAR` and
+`DRUGREF_WAR` inputs. The resulting `carlos-emr` and `carlos-emr-drugref`
+`2026.09.0~snapshot27` debs were installed with the pinned, checksum-verified
+`carlos-ctl` 1.3.0 in a fresh Ubuntu 26.04.1 systemd container, using bridge
+networking and the Ontario demonstration dataset. The renderer was included:
+Chromium revision 1685886 and its driver passed the committed SHA-256 checks.
+`CHROMIUM_BASE_URL=https://storage.googleapis.com/chromium-browser-snapshots/Linux_x64`
+selected the permitted official storage endpoint; the default hostname was denied
+by the environment's egress policy. TLS verification remained enabled.
+
+- `lintian --fail-on error`: passed, with no findings. `carlos-ctl check`: all
+  checks passed. The harness completed the mandatory first-login reset.
+- Focused Java action, submission guard, transaction and resource-bundle tests:
+  **186 passed**, no failures, errors or skips. Node manifest/findings checks:
+  **76 passed**.
+- Installed `double-submit-eform`: **PASS** through nginx/ModSecurity on `:443`,
+  including every rapid-submit mode, the post-save document refusal and a direct
+  replay of that failed POST as the same restricted login. The first 409 names
+  Add to Documents; the second 409 is the replay refusal. Both retain "patient's"
+  and return `no-store`, `nosniff`, UTF-8 plain text. Exactly one eForm and note
+  field remain, with no document filed. The PDF-rendering prerequisite passed.
+- Related installed checks: **6 passed, none failed or skipped**:
+  `application-health`, `eform-toolbar-fax-recipient` (no active fax account),
+  `eform-email-two-windows`, `eform-template-outputs`, `eform-template-consult` and
+  `eform-template-document-provider`. Both suite runs reported `no residue`.
+- The installed log contained the confirmed-save `ADD_TO_DOCUMENTS` failure and
+  stack frames, without the permission exception's message or synthetic PHI.
+
+The first installed runs exposed two harness issues. The deliberately restricted
+login cannot open the schedule reached after sign-in; the check now uses
+`signIn(..., { allowForbiddenSchedule: true })`, which proves that exact 403 is
+an authenticated application refusal. A deliberate POST reload also intermittently
+aborted the result page's spinner image (#5217). The check now waits for that
+image to decode before reloading; missing or broken images still fail. The failed
+attempts also reported no fixture residue. These corrections change the browser
+harness only; none of the application's failure responses were suppressed.

@@ -39,6 +39,17 @@ function audit(t, lines, { baseline = '# none\n', args = [] } = {}) {
   return { status: result.status, out: result.stdout, err: result.stderr };
 }
 
+test('qualification explicitly audits unbaselined warnings without publishing payload text', t => {
+  const lines = ['2026-11-06 04:40:11,612 WARN example.Fake (Fake.java:17) - FAKE_PRIVATE_WARNING'];
+  assert.equal(audit(t, lines).status, 0, 'ordinary error-only audit preserves its contract');
+  const result = audit(t, lines, {args: ['--include-warn']});
+  assert.equal(result.status, 1);
+  assert.match(result.out, /WARN example.Fake/);
+  assert.doesNotMatch(result.out + result.err, /FAKE_PRIVATE_WARNING/);
+  assert.equal(audit(t, lines, {args: ['--include-warn'],
+    baseline: '^WARN example\\.Fake \\(Fake\\.java:17\\)\tReviewed synthetic warning: docs/testing/release-2026.08-verification.md\n'}).status, 0);
+});
+
 // Fictitious content shaped like the packaged log4j layout.
 const NPE_EVENT = [
   '2026-10-08 04:40:11,612 ERROR utility.DbConnectionFilter (DbConnectionFilter.java:96) - Unexpected error for FAKE-Doe, FAKE-Jane HIN 9876543210',
@@ -53,6 +64,23 @@ test('should reduce an ERROR event to logger, location, first non-filter CARLOS 
   assert.equal(r.status, 1, r.out + r.err);
   assert.match(r.out, /UNKNOWN +1 +ERROR utility\.DbConnectionFilter \(DbConnectionFilter\.java:96\) @FrmCustomedPDFServlet\.parseSCAddress :: java\.lang\.NullPointerException\n/);
   assert.match(r.out, /^FAIL server log audit: 1 unexplained signature\(s\), 0 known, 1 event\(s\)/m);
+});
+
+test('only the exact synthetic renderer probe is baselined at the AP lookup log site', (t) => {
+  const prefix = '2026-11-04 03:00:00,000 ERROR eform.efmformapconfig_005flookup_jsp (efmformapconfig_005flookup_jsp.java:353) - ';
+  const message = 'AP config lookup requested an unconfigured key=';
+  const baseline = fs.readFileSync(BASELINE, 'utf8');
+  const probe = audit(t, [prefix + message + 'renderer_missing_ap_1793762614845 fid=1'], {baseline});
+  assert.equal(probe.status, 0, probe.out);
+  assert.match(probe.out, /apcache-key=renderer_missing_ap_\{n\}/);
+  for (const key of ['letterhead', '_ClosingSalutation', '_age', 'gender', 'ageGender', 'unknown',
+    'renderer_missing_ap_1', 'renderer_missing_ap_123456', 'renderer_missing_ap_179376261484',
+    'renderer_missing_ap_17937626148450', 'renderer_missing_ap_1793762614845suffix']) {
+    const real = audit(t, [prefix + message + key + ' fid=1'], {baseline});
+    assert.equal(real.status, 1, real.out);
+    assert.doesNotMatch(real.out, /^KNOWN /m);
+  }
+  assert.equal(audit(t, [prefix + 'Some other error renderer_missing_ap_123 fid=1'], {baseline}).status, 1);
 });
 
 test('should keep message text out of the report by default', (t) => {
@@ -156,15 +184,6 @@ test('should match each shipped baseline entry against the event it was written 
   // PHI-free reconstructions of the events each entry explains, so a regex
   // that silently stopped matching (a typo, an escaped space) fails here.
   const lines = [
-    '2026-10-08 04:40:11,662 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) - Uncaught exception escaped filter chain [uri=/carlos/form/createcustomedpdf correlationId=x]',
-    'jakarta.servlet.ServletException: java.lang.NullPointerException: x',
-    '\tat io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServlet.parseSCAddress(FrmCustomedPDFServlet.java:981)',
-    'Caused by: java.lang.NullPointerException: x',
-    ...NPE_EVENT,
-    '2026-10-08 04:40:11,913 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - Sanitizing output-stream error response body [status=500 uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date]',
-    '2026-10-08 04:40:11,881 ERROR rest.ScheduleService (ScheduleService.java:657) - ScheduleService.listProviderAppointmentCounts error',
-    'jakarta.ws.rs.WebApplicationException: HTTP 400 Bad Request',
-    '\tat io.github.carlos_emr.carlos.managers.ScheduleManagerImpl.listProviderAppointmentCounts(ScheduleManagerImpl.java:351)',
     '2026-10-08 04:41:40,319 ERROR action.Log (Log.java:73) - CSRF violation: (user:<anonymous>, ip:127.0.0.1, method:POST, error:Required Token is missing from the Request)',
     '2026-10-08 04:37:51,825 ERROR pageUtil.PrintAppointmentReceipt2Action (PrintAppointmentReceipt2Action.java:173) - user home: /var/lib/carlos-emr',
     '2026-10-08 04:43:26,812 ERROR dao.DemographicPharmacyDaoImpl (DemographicPharmacyDaoImpl.java:149) - UNKNOWN PHARMACY TO UNLINK',
@@ -172,7 +191,33 @@ test('should match each shipped baseline entry against the event it was written 
   const r = audit(t, lines, { baseline: fs.readFileSync(BASELINE, 'utf8') });
   assert.equal(r.status, 0, r.out);
   assert.doesNotMatch(r.out, /^UNKNOWN /m);
-  assert.equal((r.out.match(/^KNOWN /gm) || []).length, 7, 'each reconstructed event should be its own KNOWN signature');
+  assert.equal((r.out.match(/^KNOWN /gm) || []).length, 3, 'each reconstructed event should be its own KNOWN signature');
+});
+
+test('fixed schedule validation errors are no longer allowlisted as deliberate server failures',t=>{
+  const result=audit(t,[
+    '2026-11-03 04:40:11,913 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:393) - Sanitizing output-stream error response body [status=500 uri=/carlos/ws/rs/schedule/fetchProvidersApptsCount/not-a-date/not-a-date]',
+    '2026-11-03 04:40:11,881 ERROR rest.ScheduleService (ScheduleService.java:657) - ScheduleService.listProviderAppointmentCounts error',
+    'jakarta.ws.rs.WebApplicationException: HTTP 400 Bad Request',
+    '\tat io.github.carlos_emr.carlos.managers.ScheduleManagerImpl.listProviderAppointmentCounts(ScheduleManagerImpl.java:351)',
+  ],{baseline:fs.readFileSync(BASELINE,'utf8')});
+  assert.equal(result.status,1,result.out);
+  assert.equal((result.out.match(/^UNKNOWN /gm)||[]).length,2);
+  assert.match(result.out, /@ScheduleManagerImpl\.listProviderAppointmentCounts/);
+  assert.doesNotMatch(result.out,/^KNOWN /m);
+});
+
+test('should fail if the fixed satellite-address crash recurs', (t) => {
+  const r = audit(t, [
+    '2026-10-08 04:40:11,662 ERROR utility.ResponseSanitizationFilter (ResponseSanitizationFilter.java:341) - Uncaught exception escaped filter chain [uri=/carlos/form/createcustomedpdf correlationId=x]',
+    'jakarta.servlet.ServletException: java.lang.NullPointerException: x',
+    '\tat io.github.carlos_emr.carlos.form.pdfservlet.FrmCustomedPDFServlet.parseSCAddress(FrmCustomedPDFServlet.java:981)',
+    'Caused by: java.lang.NullPointerException: x',
+    ...NPE_EVENT,
+  ], { baseline: fs.readFileSync(BASELINE, 'utf8') });
+  assert.equal(r.status, 1, r.out);
+  assert.equal((r.out.match(/^UNKNOWN /gm) || []).length, 2);
+  assert.doesNotMatch(r.out, /^KNOWN /m);
 });
 
 test('should match every shipped baseline entry against a signature a packaged install produced', () => {
@@ -187,6 +232,7 @@ test('should match every shipped baseline entry against a signature a packaged i
   // Still unexplained on that run, recorded or not (the flowsheet one is finding
   // 176): the baseline must not grow to swallow them (report, don't encode).
   for (const open of [
+    'ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) @MeasurementTemplateFlowSheetConfig.getExportFlowsheet :: org.apache.jasper.JasperException java.lang.NullPointerException',
     'ERROR app.CarlosExceptionMappingInterceptor (CarlosExceptionMappingInterceptor.java:197) :: org.hibernate.exception.ConstraintViolationException java.sql.SQLIntegrityConstraintViolationException',
     'ERROR oscarMeasurements.HealthTrackerPage_jspf (HealthTrackerPage_jspf.java:652) @MeasurementFlowSheet.getMessages :: java.lang.IllegalStateException',
     'ERROR utility.ErrorPageLogger (ErrorPageLogger.java:135) uri=/carlos/eform/addEForm status=500 @CarlosExceptionMappingInterceptor.intercept :: org.apache.jasper.JasperException java.lang.NullPointerException',

@@ -26,9 +26,9 @@
   for dynamic output rendered by the page.
 --%>
 <%@page import="java.util.*,io.github.carlos_emr.carlos.eform.*" %>
-<%@page import="io.github.carlos_emr.carlos.web.eform.EfmPatientFormList" %>
+
 <%@ page import="io.github.carlos_emr.carlos.eform.EFormUtil" %>
-<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+
 <%
     String demographic_no = request.getParameter("demographic_no");
     String deepColor = "#CCCCFF", weakColor = "#EEEEFF";
@@ -49,7 +49,7 @@
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 

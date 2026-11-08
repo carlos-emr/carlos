@@ -46,8 +46,8 @@ final class CdsResumeHandoffTestFixture {
     private CdsResumeHandoffTestFixture() { }
 
     static void unsealed(Properties jdbc) throws Exception {
-        String url = jdbc.getProperty("jdbcUrl", "").replace("jdbc:mariadb:", "jdbc:mysql:");
-        if (!url.matches("jdbc:mysql://[^/]+/cds_ledger_test(?:\\?.*)?")) {
+        String url = jdbc.getProperty("jdbcUrl", "");
+        if (!url.matches("jdbc:mariadb://[^/]+/cds_ledger_test(?:\\?.*)?")) {
             throw new IllegalArgumentException("Dedicated disposable ledger schema required");
         }
         Properties policy = new Properties();
@@ -55,7 +55,7 @@ final class CdsResumeHandoffTestFixture {
         policy.setProperty("cds.import.maintenanceMode", "true");
         var config = new CdsImportConfigurationService(policy);
         var physical = new OscarTrackingBasicDataSource();
-        physical.setDriverClassName("com.mysql.cj.jdbc.Driver"); physical.setUrl(url);
+        physical.setDriverClassName("org.mariadb.jdbc.Driver"); physical.setUrl(url);
         physical.setUsername(jdbc.getProperty("jdbcUser")); physical.setPassword(jdbc.getProperty("jdbcPassword"));
         physical.setDefaultAutoCommit(true);
         try (physical) {
