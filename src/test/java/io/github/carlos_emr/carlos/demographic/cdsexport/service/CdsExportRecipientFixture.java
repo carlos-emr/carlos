@@ -44,11 +44,12 @@ final class CdsExportRecipientFixture {
     final KeyPair keys;
     final X509Certificate certificate;
     final String fingerprint;
-    CdsExportRecipientFixture() throws Exception {
+    CdsExportRecipientFixture() throws Exception { this(NOW); }
+    CdsExportRecipientFixture(Instant now) throws Exception {
         KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA"); generator.initialize(2048); keys = generator.generateKeyPair();
         X500Name name = new X500Name("CN=SYNTHETIC CDS TEST RECIPIENT, O=example.invalid");
         var builder = new JcaX509v3CertificateBuilder(name, BigInteger.valueOf(27),
-                Date.from(NOW.minusSeconds(86400)), Date.from(NOW.plusSeconds(86400)), name, keys.getPublic());
+                Date.from(now.minusSeconds(86400)), Date.from(now.plusSeconds(86400)), name, keys.getPublic());
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyEncipherment));
         certificate = new JcaX509CertificateConverter().setProvider(new BouncyCastleProvider())
