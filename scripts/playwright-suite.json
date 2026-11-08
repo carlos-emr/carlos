@@ -18815,6 +18815,23 @@
       "assertsDatabase": true,
       "fixtures": "One synthetic patient, 59 marker-owned tasks across assignees/statuses and two default-size pages, exact child-row cleanup. Holds/disposes actual ListTicklers responses in the owned browser context; no shared preferences or fabricated successful responses.",
       "notes": "#5810: preselected search/status/assignee/page changes, inert pending controls, current-page selection clearing, Clear All, out-of-order real list responses, and exact native Complete/Delete POST IDs, task rows/history and hidden/out-of-page sentinel preservation. Existing Deleted restrictions remain asserted."
+    },
+    {
+      "name": "oauth-web-callback",
+      "script": "scripts/oauth-web-callback-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 600,
+      "assertsDatabase": true,
+      "env": [
+        "EXPECT_OAUTH_MODE"
+      ],
+      "fixtures": "Owned registered OAuth client, request/access tokens/nonces and synthetic patient; actual ephemeral loopback callback receiver in the deployed browser namespace, with drained/verified shutdown. No receiver response reflects credentials. Exact owned SQL cleanup and immutable clinical controls.",
+      "notes": "#5806: native consent/303 redirects for exact and extended callbacks, preserved query data and verifier exchange, provider/scope-bound signed reads and configured access mode; native Deny and denied exchange; application-origin host/scheme/lookalike-path refusals. Encoded query callback failure #5823 stays fatal, with refused authorization/exchange stages explicitly unreached. Existing oob and token-lifecycle checks remain registered."
     }
   ]
 }

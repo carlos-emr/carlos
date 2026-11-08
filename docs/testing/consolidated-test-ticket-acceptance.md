@@ -50,7 +50,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5803](https://github.com/carlos-emr/carlos/issues/5803) | Test: preserve qualified and nonnumeric laboratory results across views and PDF output | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5804](https://github.com/carlos-emr/carlos/issues/5804) | test(playwright): cover end-to-end lab recall message delivery to delegates | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5805](https://github.com/carlos-emr/carlos/issues/5805) | test(playwright): cover Ontario payments allocated across multiple invoice items | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
-| [#5806](https://github.com/carlos-emr/carlos/issues/5806) | test(playwright): cover OAuth 1.0a registered web callbacks and denial | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
+| [#5806](https://github.com/carlos-emr/carlos/issues/5806) | test(playwright): cover OAuth 1.0a registered web callbacks and denial | Native ON/BC exact and plain-query registered callbacks complete actual consent/303 receiver delivery, verifier exchange and signed provider/patient/scope checks. Native Deny, denied exchange and host/scheme/lookalike-path application refusals pass. Encoded-query initiation fails on #5823 and its later stages remain explicitly unreached; independent cases continue. Owned token/client/nonce/patient/receiver cleanup passes, with no new waiver pin. |
 | [#5807](https://github.com/carlos-emr/carlos/issues/5807) | test(playwright): cover email consent states and changes after composition opens | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5808](https://github.com/carlos-emr/carlos/issues/5808) | test(playwright): round-trip image-backed eForms through ZIP export and import | Newly identified in the 8 November open-ticket refresh; implementation and installed acceptance pending. |
 | [#5809](https://github.com/carlos-emr/carlos/issues/5809) | test(playwright): verify eForm page exclusion in deployed PDF output | Native ON/BC clean, form-wrapped and body-direct layouts each pass new and saved-instance PDF output, actual renderer receipts, independently checked page/text/geometry/ink and strict clinical bounds. Native interstitial approval preserves its exact saved revision without an extra save. Exact SQL/download/server-PDF cleanup and refusal controls pass; final full qualification remains pending. |
@@ -508,3 +508,40 @@ late tickler AJAX processing has actually completed before inspecting the DOM.
 The latter observes the native xhr event and the following browser task; response
 headers alone are insufficient evidence of a completed stale draw. The installed
 retake and temporary INFO-logging restoration follow this source checkpoint.
+
+The settled stale-tickler retake completes both provinces after the native xhr
+handler and following task have run. Independent SQL/files audits show zero owned
+patients, tasks, eForms or renderer PDFs; package byte verification is clean and
+`NRestarts=0`. Both temporary INFO overrides are removed, their process environments
+are verified restored, and installed health checks pass after restart. Checkpoint
+`78c0617d3f4` publishes this work. All 32 then-existing review threads (31 CodeRabbit
+plus the Semgrep finding) are resolved. A fifth full CodeRabbit review was
+requested at 03:36 UTC and accepted; completion remains pending.
+
+The OAuth web-callback addition reaches native exact/plain-query redirects,
+provider/scope-bound access, Deny and all three callback-boundary refusals on ON
+and BC. The encoded query variant reproducibly returns 500 (#5823); it remains
+fatal with later stages explicitly unreached. Ten focused receiver, collision,
+redaction and independent RFC-signing controls pass. A 7,442-case/526-file Ubuntu
+Node checkpoint passed before the additional collision control and target merge;
+its full replacement is pending. See [the callback inventory](oauth-web-callback-inventory.md).
+
+The latest release target `e0601ced004c38040e6ef293e4b3f24fc43826d3`
+(Inbox document description/type, #5689) is merged as `41efe5a113eee492f169b3704666dd91330ed80b`.
+Its navigation fixtures, stored-document type constant and legitimate retirement
+of finding 348 are preserved. New full Node/CI and installed-package qualification
+must bind to that target; existing installed snapshot30 evidence above remains
+bound to source `52b5b9c80752ea3d3732ee9e92bb98c6a3cd69ed` through target
+`d9f0a9551784`. No newer package receipt is claimed. Fifteen other workflow
+requests, native database scope, umbrella/vendor acceptance and full repeated
+qualification remain open.
+
+The replacement qualified Ubuntu Node execution after the target merge passes
+**7,461/7,461 cases in 526 files**, with zero failures/skips/cancellations/TODO
+and unchanged test-source digests; its inventory is regenerated from that report.
+The added namespace-collision control proves an existing OAuth client is neither
+adopted nor deleted. Final ON/BC callback retakes reach all independent cases and
+clean teardown, with only #5823's encoded-query initiation failing. Their exact
+source digest is retained; the refused encoding variant's later stages remain
+unreached. QBE audit testing next uses a separately owned temporary INFO override;
+its restoration and full latest-target installed qualification remain pending.

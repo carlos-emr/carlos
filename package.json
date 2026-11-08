@@ -1002,7 +1002,8 @@
     "test:document-format-matrix-playwright": "node scripts/document-format-matrix-playwright-checks.js",
     "test:lab-version-ingestion-playwright": "node scripts/lab-version-ingestion-playwright-checks.js",
     "test:eform-deployed-page-exclusion-playwright": "node scripts/eform-deployed-page-exclusion-playwright-checks.js",
-    "test:tickler-stale-selection-playwright": "node scripts/tickler-stale-selection-playwright-checks.js"
+    "test:tickler-stale-selection-playwright": "node scripts/tickler-stale-selection-playwright-checks.js",
+    "test:oauth-web-callback-playwright": "node scripts/oauth-web-callback-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
