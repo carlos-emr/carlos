@@ -33,6 +33,8 @@ import java.util.Set;
  * Readers alone do not qualify an export profile or establish the complete source catalogue.
  */
 public interface CdsExportNativeSourceReader {
+    /** Categories this registered reader can serve before its immutable request projection is made. */
+    default Set<CdsCategory> supportedCategories() { return categories(); }
     /** Immutable request-specific projection. Unselected category payloads must not enter source capture. */
     default CdsExportNativeSourceReader forRequest(io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) { return this; }
     /**

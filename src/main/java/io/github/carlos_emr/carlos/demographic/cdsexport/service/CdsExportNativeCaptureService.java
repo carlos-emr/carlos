@@ -88,6 +88,31 @@ public class CdsExportNativeCaptureService {
         read = new TransactionTemplate(transactions); read.setReadOnly(true);
         read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ); read.setTimeout(120);
     }
+    /**
+     * Resolves the registered request projections without reading clinical values. Dependencies
+     * must belong to the same selected category scope; an incomplete installation or a partial
+     * history selection is refused before any source/file capture. This is a reader recipe,
+     * not an assertion that all native clinical domains have been qualified.
+     */
+    public Set<String> requiredTables(io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        Objects.requireNonNull(command);
+        var selected = new TreeMap<String, CdsExportNativeSourceReader>();
+        for (var entry : new TreeMap<>(readers).entrySet()) {
+            if (java.util.Collections.disjoint(entry.getValue().supportedCategories(), command.categories())) continue;
+            var reader = entry.getValue().forRequest(command);
+            if (reader == null || !entry.getKey().equals(reader.table()) || reader.categories().isEmpty()
+                    || !command.categories().containsAll(reader.categories())) {
+                throw new IllegalStateException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
+            }
+            selected.put(entry.getKey(), reader);
+        }
+        if (selected.isEmpty() || selected.size() > 256) throw new IllegalStateException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
+        for (var reader : selected.values()) if (!selected.keySet().containsAll(reader.requiredTables())) {
+            throw new IllegalStateException("CDS_EXPORT_CAPTURE_DEPENDENCY_MISSING");
+        }
+        return Set.copyOf(selected.keySet());
+    }
+
     public CdsExportPatientCaptureDto capture(CdsExportLeaseDto lease, CdsExportCohortService.Patient patientScope, Set<String> selectedTables,
             long maximumFields, long maximumValueBytes, CdsExportRunControl control) throws IOException {
         Objects.requireNonNull(lease); Objects.requireNonNull(patientScope); patientScope.require(lease); int patient = patientScope.patient();
@@ -239,7 +264,9 @@ public class CdsExportNativeCaptureService {
     }
     private List<CdsExportNativeSourceReader> selected(CdsExportLeaseDto lease, Set<String> tables) {
         return tables.stream().sorted().map(table -> {
-            var reader = readers.get(table).forRequest(lease.document().command());
+            var registered = readers.get(table);
+            if (registered == null) throw new IllegalStateException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
+            var reader = registered.forRequest(lease.document().command());
             if (reader == null || !table.equals(reader.table()) || reader.categories().isEmpty()
                     || !lease.document().command().categories().containsAll(reader.categories()) || !tables.containsAll(reader.requiredTables())) {
                 throw new IllegalStateException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");

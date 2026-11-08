@@ -48,6 +48,9 @@ public class CdsExportPartialDateSourceReader extends CdsExportPatientTableSourc
         if (selected.isEmpty()) throw new IllegalStateException("CDS_EXPORT_CAPTURE_SCOPE_INVALID");
         return new CdsExportPartialDateSourceReader(source, selected);
     }
+    @Override public Set<CdsCategory> supportedCategories() {
+        return Set.of(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS, CdsCategory.MEDICATIONS_AND_TREATMENTS);
+    }
     @Override public long count(int patient) { return source.countCdsExportScopedRows(patient, domains); }
     @Override protected java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> page(int patient, Long after, int limit) {
         return source.findCdsExportScopedRowsAfter(patient, domains, after, limit);
