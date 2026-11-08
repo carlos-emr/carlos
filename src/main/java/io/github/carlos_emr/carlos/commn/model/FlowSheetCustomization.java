@@ -76,7 +76,7 @@ public class FlowSheetCustomization extends AbstractModel<Integer> {
 
 
     public String toString() {
-        return " id:" + id + " flowsheet:" + flowsheet + " measurement:" + measurement + " payload:" + payload + " action:" + action + " providerNo:" + providerNo + " demographicNo:" + demographicNo + " createDate:" + createDate + " archived:" + archived;
+        return super.toString();
 
     }
 

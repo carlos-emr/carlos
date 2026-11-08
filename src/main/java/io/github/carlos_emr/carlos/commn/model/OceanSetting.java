@@ -83,7 +83,7 @@ public class OceanSetting extends AbstractModel<Integer> {
 
     @Override
     public String toString() {
-        // Do not inherit AbstractModel's reflective dump of this credential-bearing blob.
+        // Keep credential-bearing configuration out of diagnostic text.
         return "OceanSetting{id=" + id + "}";
     }
 }

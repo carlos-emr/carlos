@@ -30,7 +30,6 @@ package io.github.carlos_emr.carlos.dashboard.display.beans;
 
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 
 public class DrilldownBean extends AbstractDataDisplayBean {
@@ -56,6 +55,6 @@ public class DrilldownBean extends AbstractDataDisplayBean {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }

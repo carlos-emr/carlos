@@ -41,7 +41,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Temporal;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 import io.github.carlos_emr.carlos.util.StringUtils;
 
@@ -606,7 +605,7 @@ public class WCB {
     }
 
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
     public List verify() {

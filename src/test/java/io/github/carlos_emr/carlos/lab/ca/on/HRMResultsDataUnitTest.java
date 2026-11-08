@@ -6,6 +6,7 @@ import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProvid
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.hospitalReportManager.HRMReport;
@@ -103,6 +104,20 @@ class HRMResultsDataUnitTest extends CarlosUnitTestBase {
         LabResultData result = loadReport(null, name, true);
         assertThat(Boolean.TRUE.equals(result.isMatchedToPatient)).isFalse();
         assertThat(result.patientName).isEqualTo(name);
+    }
+
+    @Test
+    void shouldReturnPatientDetails_withoutWritingThemToDebugLogs() {
+        Demographic patient = new Demographic();
+        patient.setFirstName("SyntheticPrivateFirst");
+        patient.setLastName("SyntheticPrivateLast");
+        patient.setHin("FAKE-PRIVATE-HIN");
+        try (var logs = LogCapture.forLogger(HRMResultsData.class)) {
+            LabResultData result = loadReport(patient, "SyntheticPrivateLast,SyntheticPrivateFirst");
+            assertThat(result.patientName).isEqualTo("SyntheticPrivateLast,SyntheticPrivateFirst");
+            assertThat(result.healthNumber).isEqualTo("FAKE-PRIVATE-HIN");
+            assertThat(logs.messages()).containsExactly("HRM result count: 1");
+        }
     }
 
     private LabResultData loadReport(Demographic patient, String reportName) {

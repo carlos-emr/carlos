@@ -30,7 +30,6 @@
 
 package io.github.carlos_emr.carlos.webserv.transfer_objects;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
@@ -653,7 +652,7 @@ public final class DemographicTransfer2 {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 
     public DemographicTransfer2 filter(String[] fields) {

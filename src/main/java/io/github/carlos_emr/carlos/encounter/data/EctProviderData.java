@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.encounter.data;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -130,7 +129,7 @@ public class EctProviderData {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }

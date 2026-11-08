@@ -30,7 +30,6 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 public class PrintRxTo1 {
     private Integer demographic;
@@ -109,7 +108,7 @@ public class PrintRxTo1 {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }

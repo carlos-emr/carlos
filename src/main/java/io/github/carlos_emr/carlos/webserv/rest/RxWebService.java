@@ -496,7 +496,7 @@ public class RxWebService extends AbstractServiceImpl {
 
         } else {
 
-            logger.error("Failed to prescribe drugs: " + drugs.toString());
+            logger.error("Failed to prescribe drugs");
             resp.setMessage("Failed to prescribe drugs");
             resp.setSuccess(false);
             return resp;

@@ -28,29 +28,54 @@
 package io.github.carlos_emr.carlos.model;
 
 import java.io.Serializable;
+import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.proxy.LazyInitializer;
 
-import org.apache.commons.lang3.builder.EqualsBuilder;
-import org.apache.commons.lang3.builder.HashCodeBuilder;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
 
 /**
- * deprecated this super class should not be used, both the equal hash code methods here
- * are fairly inefficient and the equals method most like doesn't do what you want it to do
- * as it checks all fields, not the ID of this model object, nor pointer reference.
+ * Legacy model base. New entities should use the current model hierarchy.
+ * Equality uses an explicitly supplied persistent key, with reference identity for
+ * unsaved objects. Neither diagnostics nor equality traverses patient records or associations.
+ * Entities opting into this contract must expose final forwarding overrides for these
+ * object methods: otherwise Hibernate intercepts the call and loads the target before
+ * this implementation can inspect the proxy. Legacy subclass contracts remain separate.
  */
 public class BaseObject implements Serializable {
+    /** Returns a type-only diagnostic without reading fields or associations. */
+    @Override
     public String toString() {
-        return ToStringBuilder.reflectionToString(this,
-                ToStringStyle.MULTI_LINE_STYLE);
+        return persistentType(this).getSimpleName() + "[protected]";
     }
 
+    /** Subclasses with persistent keys opt into identifier equality. */
+    protected Object equalityId() {
+        return null;
+    }
+
+    /** Compares persistent types and non-null keys; unsaved instances use reference identity. */
+    @Override
     public boolean equals(Object o) {
-        return EqualsBuilder.reflectionEquals(this, o);
+        if (this == o) return true;
+        if (!(o instanceof BaseObject other) || persistentType(this) != persistentType(other)) return false;
+        Object id = persistentId(this);
+        return id != null && id.equals(persistentId(other));
     }
 
+    /** Uses the persistent type so assigning an ID does not change collection membership. */
+    @Override
     public int hashCode() {
-        return HashCodeBuilder.reflectionHashCode(this);
+        // Stable when an unsaved entity receives its ID; never touches a lazy association.
+        return persistentType(this).hashCode();
+    }
+
+    private static Class<?> persistentType(BaseObject value) {
+        LazyInitializer proxy = HibernateProxy.extractLazyInitializer(value);
+        return proxy == null ? value.getClass() : proxy.getPersistentClass();
+    }
+
+    private static Object persistentId(BaseObject value) {
+        LazyInitializer proxy = HibernateProxy.extractLazyInitializer(value);
+        return proxy == null ? value.equalityId() : proxy.getInternalIdentifier();
     }
 }

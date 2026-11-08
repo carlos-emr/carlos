@@ -195,4 +195,32 @@ public class CaseManagementCPP extends BaseObject {
         this.otherSupportSystems = otherSupportSystems;
     }
 
+    // Final forwarding methods prevent Hibernate from loading the entity before
+    // BaseObject can read the proxy's persistent type/key. Keep other legacy
+    // BaseObject subclasses' existing equality contracts unchanged.
+    /** Compares persistent type and key without initializing a Hibernate proxy. */
+    @Override
+    @SuppressWarnings("java:S8947") // Hibernate Object-method exception; see BaseObjectProxyIntegrationTest.
+    public final boolean equals(Object other) {
+        return super.equals(other);
+    }
+
+    /** Keeps hashing stable across persistence without initializing a Hibernate proxy. */
+    @Override
+    @SuppressWarnings("java:S8947") // Hibernate Object-method exception; see BaseObjectProxyIntegrationTest.
+    public final int hashCode() {
+        return super.hashCode();
+    }
+
+    /** Returns a protected type marker without loading patient fields. */
+    @Override
+    @SuppressWarnings("java:S8947") // Hibernate Object-method exception; see BaseObjectProxyIntegrationTest.
+    public final String toString() {
+        return super.toString();
+    }
+
+    @Override
+    protected Object equalityId() {
+        return getId();
+    }
 }

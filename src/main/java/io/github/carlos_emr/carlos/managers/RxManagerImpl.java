@@ -155,7 +155,7 @@ public class RxManagerImpl implements RxManager {
             throw new UnsupportedOperationException("drug not found: " + drugId);
         }
         //(LoggedInInfo loggedInInfo, String action, String content, String contentId, String demographicNo, String data)
-        LogAction.addLog(info, "RxManager.getDrug", "drugs", "" + drugId, "" + drug.getDemographicId(), drug.toString());
+        LogAction.addLog(info, "RxManager.getDrug", "drugs", "" + drugId, "" + drug.getDemographicId(), "Retrieved prescription");
 
         // Access control check.
         readCheck(info, drug.getDemographicId());

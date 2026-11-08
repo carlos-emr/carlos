@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.dashboard.handler;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.dashboard.query.Column;
 import io.github.carlos_emr.carlos.dashboard.query.Parameter;
@@ -700,7 +699,7 @@ public class IndicatorTemplateXML {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 
 }

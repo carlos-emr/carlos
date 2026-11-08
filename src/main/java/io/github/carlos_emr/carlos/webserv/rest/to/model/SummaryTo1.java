@@ -35,7 +35,6 @@ import java.util.List;
 //import jakarta.xml.bind.annotation.XmlElement;
 import jakarta.xml.bind.annotation.XmlRootElement;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 /**
  * title: "Ongoing Concerns",displaySize: 5,
@@ -137,7 +136,7 @@ public class SummaryTo1 {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 
 

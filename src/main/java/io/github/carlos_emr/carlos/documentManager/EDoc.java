@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.CtlDocumentPK;
@@ -643,6 +642,6 @@ public class EDoc extends TagObject implements Comparable<EDoc> {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 }

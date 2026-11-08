@@ -31,7 +31,6 @@ package io.github.carlos_emr.carlos.webserv.transfer_objects;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 
 public final class ProgramProviderTransfer {
@@ -98,6 +97,6 @@ public final class ProgramProviderTransfer {
 
     @Override
     public String toString() {
-        return (ReflectionToStringBuilder.toString(this));
+        return getClass().getSimpleName() + "[protected]";
     }
 }
