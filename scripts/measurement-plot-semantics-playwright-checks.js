@@ -127,7 +127,5 @@ async function workflow(s) {
     assertPatientStateUnchanged(controlBefore,readPatientState(sql,control),'Final control');
   });
 }
-if(require.main===module)runWorkflow('measurement-plot-semantics',workflow,{preflight:()=>{
-  require('node:child_process').execFileSync('tesseract',['--version'],{timeout:10000,stdio:'pipe'});
-}});
+if(require.main===module)runWorkflow('measurement-plot-semantics',workflow,{preflight:()=>require('./lib/ocr-preflight').requireEnglishOcr()});
 module.exports={workflow,OBSERVATIONS};

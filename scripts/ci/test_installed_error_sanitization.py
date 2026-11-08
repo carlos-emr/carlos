@@ -3,6 +3,9 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+import os
+import signal
 
 SPEC = importlib.util.spec_from_file_location('installed_fault', Path(__file__).with_name('run-installed-error-sanitization.py'))
 GATE = importlib.util.module_from_spec(SPEC)
@@ -24,6 +27,48 @@ class InstalledErrorFixtureTest(unittest.TestCase):
         self.descriptor.write_bytes(self.original)
         self.compiled = self.root / 'ErrorSanitizationFaultServlet.class'
         self.compiled.write_bytes(b'fixture-class')
+
+    def test_repeated_real_signals_during_setup_restoration_and_restart_are_deferred(self):
+        for phase in ('setup', 'restore', 'restart'):
+            with self.subTest(phase=phase):
+                before_handlers = {number: signal.getsignal(number) for number in (signal.SIGINT, signal.SIGTERM)}
+                real_copy, real_replace = GATE.shutil.copyfile, GATE.replace_descriptor
+                restarted = []
+                def cancel():
+                    for number in (signal.SIGTERM, signal.SIGINT, signal.SIGTERM, signal.SIGINT):
+                        os.kill(os.getpid(), number)
+                def copy(*args):
+                    result = real_copy(*args)
+                    if phase == 'setup':
+                        cancel()
+                    return result
+                def replace(path, data, metadata):
+                    if data == self.original and phase == 'restore':
+                        cancel()
+                    return real_replace(path, data, metadata)
+                def restart():
+                    if phase == 'restart':
+                        cancel()
+                    self.assertEqual(self.descriptor.read_bytes(), self.original)
+                    self.assertFalse((self.webapp / 'WEB-INF/classes/carlostest5794').exists())
+                    restarted.append(True)
+                with patch.object(GATE.shutil, 'copyfile', side_effect=copy), patch.object(GATE, 'replace_descriptor', side_effect=replace):
+                    with self.assertRaisesRegex(InterruptedError, 'interrupted'):
+                        with GATE.interruption_watch() as check:
+                            try:
+                                with GATE.fault_routes(self.webapp, 'a' * 32, self.compiled):
+                                    check()
+                            finally:
+                                restart()
+                self.assertEqual(restarted, [True])
+                self.assertEqual({number: signal.getsignal(number) for number in before_handlers}, before_handlers)
+
+    def test_setup_failure_after_directory_creation_restores_package_tree(self):
+        with patch.object(GATE.shutil, 'copyfile', side_effect=OSError('synthetic copy failure')):
+            with self.assertRaisesRegex(OSError, 'copy failure'), GATE.fault_routes(self.webapp, 'a' * 32, self.compiled):
+                self.fail('copy failure must not enter the browser phase')
+        self.assertEqual(self.descriptor.read_bytes(), self.original)
+        self.assertFalse((self.webapp / 'WEB-INF/classes/carlostest5794').exists())
 
     def test_failure_and_interruption_restore_the_exact_descriptor_and_remove_owned_classes(self):
         for failure in (RuntimeError, KeyboardInterrupt, InterruptedError):

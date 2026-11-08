@@ -26,6 +26,30 @@ ROOT = Path(__file__).resolve().parents[2]
 WEBAPP = Path('/usr/share/carlos-emr/webapp/carlos')
 
 
+@contextmanager
+def interruption_watch():
+    """Record cancellation through bounded setup/restoration; never tear it in half.
+
+    The supervised browser owns its own immediate cancellation handlers. Outside
+    that process, subprocesses already have finite timeouts. Check at safe phase
+    boundaries and again after the final restart, preserving a nonzero result.
+    """
+    pending = []
+    def record(number, _frame):
+        pending.append(number)
+    def check():
+        if pending:
+            raise InterruptedError('Installed fault test interrupted')
+    previous = {number: signal.signal(number, record)
+                for number in (signal.SIGTERM, signal.SIGINT)}
+    try:
+        yield check
+        check()
+    finally:
+        for number, handler in previous.items():
+            signal.signal(number, handler)
+
+
 def replace_descriptor(path, data, metadata):
     """Publish a whole descriptor atomically while preserving package ownership/mode."""
     descriptor, name = tempfile.mkstemp(prefix='.carlos-test-webxml-', dir=path.parent)
@@ -75,8 +99,10 @@ def fault_routes(webapp, token, compiled):
 <error-page><error-code>500</error-code><location>/__test-error-{token}.jsp</location></error-page>
 '''.encode()
     installed = before.replace(b'</web-app>', addition + b'</web-app>')
-    classes.mkdir(mode=0o755)
+    created = False
     try:
+        classes.mkdir(mode=0o755)
+        created = True
         shutil.copyfile(compiled, classes / compiled.name)
         (classes / compiled.name).chmod(0o644)
         replace_descriptor(descriptor, installed, metadata)
@@ -89,8 +115,9 @@ def fault_routes(webapp, token, compiled):
             raise RuntimeError('Concurrent descriptor drift; fixture retained for explicit recovery')
         replace_descriptor(descriptor, before, metadata)
         os.utime(descriptor, ns=(metadata.st_atime_ns, metadata.st_mtime_ns))
-        (classes / compiled.name).unlink(missing_ok=True)
-        classes.rmdir()
+        if created:
+            (classes / compiled.name).unlink(missing_ok=True)
+            classes.rmdir()
         if descriptor.read_bytes() != before or drift:
             raise RuntimeError('Installed descriptor restoration failed or concurrent drift occurred')
 
@@ -117,22 +144,21 @@ def main():
     token = secrets.token_hex(16)
     descriptor = WEBAPP / 'WEB-INF/web.xml'
     original_hash = hashlib.sha256(descriptor.read_bytes()).hexdigest()
-    # Termination must pass through finally, restoring the package tree.
-    def interrupted(_number, _frame):
-        raise InterruptedError('Installed fault test interrupted')
-    previous = signal.signal(signal.SIGTERM, interrupted)
-    try:
+    with interruption_watch() as check_interrupted:
         with tempfile.TemporaryDirectory(prefix='carlos-error-5794-') as temporary:
             classes = Path(temporary)
             subprocess.run(['javac', '-cp', '/usr/share/java/tomcat11-servlet-api.jar', '-d', str(classes),
                             str(ROOT / 'scripts/fixtures/ErrorSanitizationFaultServlet.java')], check=True, timeout=60)
+            check_interrupted()
             try:
                 with fault_routes(WEBAPP, token, classes / 'carlostest5794/ErrorSanitizationFaultServlet.class'):
                     restart()
+                    check_interrupted()
                     before_restarts = subprocess.check_output(['systemctl', 'show', 'carlos-emr', '-p', 'NRestarts', '--value'], timeout=20)
                     from process_group import run_process_group
                     result = run_process_group(command, cwd=ROOT,
                         env={**os.environ, 'ERROR_SANITIZATION_FAULT_TOKEN': token}, timeout=36000, grace=10, track_descendants=True)
+                    check_interrupted()
                     after_restarts = subprocess.check_output(['systemctl', 'show', 'carlos-emr', '-p', 'NRestarts', '--value'], timeout=20)
                     if before_restarts != after_restarts:
                         raise RuntimeError('Installed application restarted during fault qualification')
@@ -140,12 +166,11 @@ def main():
                         raise RuntimeError('Installed front-door error check failed')
             finally:
                 restart()
+            check_interrupted()
             if hashlib.sha256(descriptor.read_bytes()).hexdigest() != original_hash:
                 raise RuntimeError('Installed descriptor differs after fixture removal')
             print(json.dumps({'wrappedCommandPassed': True, 'installedDescriptorRestored': True,
                               'faultFixtureRemoved': not (WEBAPP / 'WEB-INF/classes/carlostest5794').exists()}))
-    finally:
-        signal.signal(signal.SIGTERM, previous)
 
 
 if __name__ == '__main__':

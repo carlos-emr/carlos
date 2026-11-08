@@ -12,6 +12,22 @@ const q=h.sqlString,NAME='billing-on-multi-item-payments',ROUTE='/billing/CA/ON/
 const money=cents=>Math.floor(cents/100)+'.'+String(cents%100).padStart(2,'0');
 const FEES=[1123,2457,3809],STAGES=[[321,543,0],[802,400,0],[0,1514,3809]];
 
+/** Exact displayed decimal fields, with literal regexes and bounded currency syntax. */
+function paymentRowAmounts(text) {
+  const matches=[...text.matchAll(/\bPaid:\s*(?:[A-Z]{2,3}\s*)?\p{Sc}?\s*(\d+\.\d{2})\s+Balance:\s*(?:[A-Z]{2,3}\s*)?\p{Sc}?\s*(\d+\.\d{2})(?=\s|$)/gu)];
+  h.assert(matches.length===1,'Payment row has missing, ambiguous or malformed paid/balance fields');
+  return matches[0].slice(1);
+}
+
+/** Capture each real printed total once; expected money is compared as data. */
+function printedInvoiceTotals(text) {
+  return [/\bTotal:\s*\$?\s*(\d+\.\d{2})(?=\s|$)/g,
+    /\bPayments:\s*\$?\s*(\d+\.\d{2})(?=\s|$)/g,
+    /\bBalance Due:\s*\$?\s*(\d+\.\d{2})(?=\s|$)/g].map(pattern=>{
+    const matches=[...text.matchAll(pattern)];h.assert(matches.length===1,'Printed invoice has missing, ambiguous or malformed totals');return matches[0][1];
+  });
+}
+
 /** Independently authored cent allocations, actual native saves and per-line reconciliation. */
 async function workflow(s) {
   const {sql,patient,marker,provider}=s,physician=createOwnedBillingPhysician(s),billingContext=await captureNativeInvoiceContext(s,physician);
@@ -76,8 +92,8 @@ async function workflow(s) {
       h.assert(/^itemId\d+$/.test(index),'Native payment row has no stable item identity');
       const row=page.locator(`input[name="${index}"]`).locator('xpath=ancestor::tr[1]');
       const text=(await row.innerText()).replace(/\s+/g,' ');
-      h.assert(text.includes(codes[i])&&text.includes('$'+money(FEES[i]))&&new RegExp('Paid:\\s*[^\\d]*'+money(paid[i]).replace('.','\\.')).test(text)
-        &&new RegExp('Balance:\\s*[^\\d]*'+money(FEES[i]-paid[i]).replace('.','\\.')).test(text),'Native row has wrong code, fee, paid or balance: item '+i);
+      const [actualPaid,actualBalance]=paymentRowAmounts(text);
+      h.assert(text.includes(codes[i])&&text.includes('$'+money(FEES[i]))&&actualPaid===money(paid[i])&&actualBalance===money(FEES[i]-paid[i]),'Native row has wrong code, fee, paid or balance: item '+i);
     }
     h.assert(await page.locator('a',{hasText:'view'}).count()===payments.length,'Payment history has extra/missing entries');
   }
@@ -93,8 +109,7 @@ async function workflow(s) {
     const pdf=await x.saveDownload(invoice,scratch,()=>invoice.locator('input[name="printInvoice"]').click(),{timeout:60000});
     const content=graph.pageText(pdf.bytes,1).replace(/\s+/g,' ');
     h.assert(graph.pageCount(pdf.bytes)===1&&content.includes(bill.headerId)&&codes.every(code=>content.includes(code)),'Printed invoice loses invoice/line identity');
-    for(const [label,value] of [['Total:','73.89'],['Payments:',money(totalPaid)],['Balance Due:',money(7389-totalPaid)]])
-      h.assert(new RegExp(label+'\\s*\\$?\\s*'+value.replace('.','\\.')+'(?:\\s|$)').test(content),'Printed invoice has wrong '+label+' at stage '+stage);
+    h.assert(JSON.stringify(printedInvoiceTotals(content))===JSON.stringify(['73.89',money(totalPaid),money(7389-totalPaid)]),'Printed invoice has wrong total/payments/balance at stage '+stage);
     await invoice.close();unchanged();
   }
   for(let stage=0;stage<STAGES.length;stage++)await s.step('allocation '+(stage+1)+': exact per-line payments, balances, details, history, invoice and PDF',async()=>{
@@ -142,4 +157,4 @@ if(require.main===module)runWorkflow(NAME,workflow,{preflightConfig:()=>{
   if(process.env.CARLOS_DISPOSABLE_HOST!=='true'||process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Private invoice allocation requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1');
   requirePoppler('pdfinfo','pdftotext');
 }});
-module.exports={workflow};
+module.exports={workflow,paymentRowAmounts,printedInvoiceTotals};

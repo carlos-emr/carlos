@@ -1998,7 +1998,9 @@
       "timeoutSec": 300,
       "env": [
         "LAB_PDF_ARTIFACT_DIR",
-        "LAB_PDF_EXPECTED_NOTICE"
+        "LAB_PDF_EXPECTED_NOTICE",
+        "CARLOS_INSTALLED_WEBAPP_DIR",
+        "CARLOS_INSTALLED_PROPERTIES_FILE"
       ],
       "notes": "#5733: sixty independently enumerated clinical rows with long unique comments, a separate control report, native Inbox/Print, exact-once order/values/units/ranges/flags, per-page identity/legal/footer/margins, word overlap and actual rendered ink. Offline controls reject dropped/duplicated rows and invisible text.",
       "fixtures": "Two owned SQL-seeded received PATHL7 reports for one owned patient; this does not claim native upload coverage. Exact message/service ownership and routing/info cleanup are verified independently per report. Optional LAB_PDF_ARTIFACT_DIR retains synthetic PDF/expected-data/page images as intentional evidence; working files are removed."
@@ -19018,6 +19020,30 @@
       ],
       "fixtures": "Three independently priced owned invoice items, an unchanged control invoice, owned billing physician/clinic context and private downloaded PDFs; guarded exact supporting/financial cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5805: native Receive Payment allocations in three stages, leave a line untouched, complete one while another remains partial, then finish all; exact cent allocations, payment/header/extension/audit reconciliation, per-line form/details/history and actual displayed/printed totals. No claim that paid automatically changes status."
+    },
+    {
+      "name": "billing-on-ra-replay",
+      "script": "scripts/billing-on-ra-replay-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "provinces": [
+        "ON"
+      ],
+      "timeoutSec": 900,
+      "assertsDatabase": true,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE",
+        "RA_DOCUMENT_DIR",
+        "RA_EDT_INBOX"
+      ],
+      "mutates": [
+        "provider",
+        "providersite"
+      ],
+      "fixtures": "Owned mixed submitted claims, untouched control, original and signed adjustment RA/header/detail files, exact guarded cleanup. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5719: retains existing native initial RA/report/error-report/reimport/settlement workflow, then same-RA replay, protected actual-settlement POST replay, subsequent -5.00 recovery with zero new invoiced fee, independent net balance/reports and adjustment settlement/reimport. OHIP RA statuses/accounting are verified separately from private payment tables; no external MOH/MCEDT calls."
     }
   ]
 }

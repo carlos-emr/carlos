@@ -21,7 +21,7 @@ missing cases, failed cleanup and incomplete receipts cannot become release pass
 | [#5716](https://github.com/carlos-emr/carlos/issues/5716) | Test: verify measurement graph dates, values and plotted positions | Installed ON/BC five-point irregular-date geometry, independent rendered-axis calibration, three-pixel tolerance, native selected/multi-delete, clinical isolation and four sensitivity controls pass. Empty history hides Plot; single-point PNG output is observed, with its invisible point/indistinguishable ticks separately tracked as #5814. No date-range controls exist. |
 | [#5717](https://github.com/carlos-emr/carlos/issues/5717) | Test: validate growth-chart point placement and reference curves independently | Implementation and installed acceptance pending. |
 | [#5718](https://github.com/carlos-emr/carlos/issues/5718) | Test: broaden decision-support guideline condition and operator coverage | 41 independently specified rules reach all 205 ON chart/list/detail observations, including expanded warnings, native diagnosis resolution, alternating patients, provider scope and unchanged clinical snapshots. Exactly 40 mismatches remain: sex all/notall across four surfaces on five visits (#5817). Other selected operator cases and zero-residue cleanup pass; no pin. Inventory records unsupported/dynamic-context families and missing actual-value readers. |
-| [#5719](https://github.com/carlos-emr/carlos/issues/5719) | Test: cover Ontario RA re-import, settlement replay and subsequent adjustments | Implementation and installed acceptance pending. |
+| [#5719](https://github.com/carlos-emr/carlos/issues/5719) | Test: cover Ontario RA re-import, settlement replay and subsequent adjustments | Implemented; [replay inventory](billing-on-ra-replay-inventory.md). Installed ON original/duplicate import, protected settlement replay and subsequent signed -5.00 recovery/settlement/reimport pass. Exact original/rejected/control financial state and net balance remain correct. SQL NULL/foreign ownership and captured-header drift refuse cleanup; unacknowledged writes retain fixtures. Final full qualification remains pending. |
 | [#5724](https://github.com/carlos-emr/carlos/issues/5724) | Test: cover OAuth access-token expiry and deletion of a client with issued tokens | Native consent, exact expiry-second semantics, client deletion and independent token/session controls pass on installed ON and BC with no clinical writes or residue. |
 | [#5725](https://github.com/carlos-emr/carlos/issues/5725) | Test: verify Report-by-Template results and exports remain isolated across tabs | Installed ON/BC four-tab, shared-login native runs, exact CSV/XLS schemas/values/types, empty results, Back beacons and tab closure pass with clean residue. List parameters used; separate empty-text-parameter defect tracked as #5813. |
 | [#5726](https://github.com/carlos-emr/carlos/issues/5726) | Test: ingest original, corrected and out-of-order HL7 results for one accession | Native original/correction/older CML ingestion, original acknowledgment, per-version routing/review, explicit/history/clinical-chart reads, independent control and exact replay implemented. ON/BC reach all stages and fail on chart-current ranking (#5819) and stale active Measurements (#5820); cleanup is clean. Stronger row-set/read-isolation retakes reach completion on both provinces; one failed BC navigation attempt is retained, with the settled-handoff retake completing without unexpected diagnostics. |
@@ -763,3 +763,59 @@ in both provinces. All 184 original email-log row digests still match in each
 database. The source release target remains e0601ced004c. Seven workflows plus
 umbrella/native-database/vendor and repeated full qualification remain open.
 No new expected-failure pin or full-release pass is introduced.
+
+## RA replay and seventh-review reconciliation
+
+The workspace is recovered. The documentation-only `2b0d556dc46` checkpoint
+passes all 13 CI workflows. The target remains `e0601ced004c`; both provincial
+containers still use the actual snapshot31 application/DrugRef Debian packages
+on Ubuntu 26.04.1, Java 25, MariaDB 11.8.6 and locked Chromium 149.0.7827.55.
+
+#5719 now exercises original RA reimport, replay of the actual protected
+settlement POST, and a subsequent signed -5.00 recovery with zero new invoicing,
+its settlement and reimport. Complete original/rejected/control financial
+snapshots, source details/files, report totals and the independent net balance
+are checked; private payment tables are not confused with OHIP remittance state.
+Captured IDs remain guarded when filenames change; real row-query controls
+reject NULL/foreign claim/provider ownership. Unacknowledged dispatched writes
+retain fixtures, while failed session/CSRF preflights do not falsely mark a write.
+
+The six outstanding code findings from CodeRabbit review 5817084151 are
+addressed: literal payment parsers, deferred repeated SIGTERM/SIGINT handling
+through descriptor/class restoration and the final restart, installed/effective
+Java-properties notice parsing, an exact English OCR-data preflight and a
+deterministic virtual-clock late-audit control. The properties parser agrees
+with actual JDK 25 Properties.load(InputStream) on five independent vectors.
+Both installed error-adapter runs pass and report exact descriptor restoration,
+test-class removal and a final service restart. Lab pagination and measurement
+geometry retakes pass in ON/BC; all three payment stages pass in ON.
+
+The complete replacement Node run passes **7,568/7,568 cases in 536 files**, with
+zero failures/skips/cancellations/TODO and unchanged test-source digests. The
+inventory is regenerated from that exact report. All **356 Ubuntu Python tests**
+pass, including real repeated cancellation signals during setup/restoration/
+restart and setup-copy failure. All 43 final focused RA/payment/probe controls
+pass after the last navigation change.
+
+An installed RA repetition fails correctly on aborted script/style requests;
+another fails on aborted fetch/font requests. Financial assertions alone do not
+qualify either attempt. The harness now waits for new iframe navigation, complete
+upload documents and summary/report assets before submission/closure. No browser
+diagnostic is filtered or waived. Final repeated native results and independent
+publication audits accompany this source checkpoint.
+
+Six workflow implementations remain: #5715, #5717, #5731, #5801, #5802 and #5803.
+SMS-feature availability, umbrella/native-database/vendor acceptance and repeated
+full qualification remain open. Existing product findings stay fatal; no new
+expected-failure pin or full-release pass is introduced.
+
+The final navigation version passes **two consecutive installed repetitions** of
+both `billing-on-ra-import` and `billing-on-ra-replay`, with zero failures/skips
+or unexpected browser diagnostics. Final replay source SHA-256 is
+`38caa81f437e33c73e5b9098cb99bbf033cc3d329ab0984f701083fcec68100d`;
+the shared import source is
+`f11cf801dcb2818ac9b530e2d3876eea85741cd45047a824ce1e515333ae5c36`.
+Independent ON/BC publication audits pass original configuration hashes,
+installed health and package verification, NRestarts=0, zero owned patient/
+provider/archive/message/task/lab rows and the empty Messenger coordinator.
+All 184 original email-log rows retain every column digest in both provinces.

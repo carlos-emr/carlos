@@ -61,11 +61,11 @@ test('a changed shared-contact patient cannot prevent cleanup of independently o
 
 
 test('secondary patient audit cleanup drains a late write and preserves unrelated audits',async()=>{
-  let owned=1,foreign=1,removed=0;
+  let owned=1,removed=0,clock=0,inserted=false;
   const sql={value(query){assert.match(query,/WHERE demographic_no=2$/);return String(owned);},execute(query){assert.equal(query,'DELETE FROM log WHERE demographic_no=2');owned=0;removed++;}};
-  const late=setTimeout(()=>owned++,15);
-  try{await removePatientAudit(sql,'2',{quietMs:30,timeoutMs:2000,intervalMs:5});}finally{clearTimeout(late);}
-  assert.equal(owned,0);assert.equal(foreign,1);assert.equal(removed,2);
+  await removePatientAudit(sql,'2',{quietMs:30,timeoutMs:2000,intervalMs:5,now:()=>clock,
+    pause:async ms=>{clock+=ms;if(clock===15){owned++;inserted=true;}}});
+  assert.equal(inserted,true);assert.equal(owned,0);assert.equal(removed,2);
 });
 
 test('secondary patient audit cleanup refuses persistent asynchronous residue',async()=>{

@@ -10,19 +10,19 @@ const {openMasterRecord}=require('./master-record-tabs-playwright-checks');
 const {workflow:createDirectory}=require('./contact-editor-playwright-checks');
 const q=h.sqlString;
 /** Drain asynchronous audit writes for a verified owned patient after browser shutdown. */
-async function removePatientAudit(sql,patient,{quietMs=1000,timeoutMs=10000,intervalMs=100}={}) {
+async function removePatientAudit(sql,patient,{quietMs=1000,timeoutMs=10000,intervalMs=100,now=Date.now,pause=ms=>new Promise(resolve=>setTimeout(resolve,ms))}={}) {
   h.assert(/^[1-9]\d*$/.test(patient),'Invalid patient audit cleanup identity');
-  const deadline=Date.now()+timeoutMs;let quietSince;
-  while(Date.now()<=deadline) {
+  const deadline=now()+timeoutMs;let quietSince;
+  while(now()<=deadline) {
     const before=sql.value(`SELECT COUNT(*) FROM log WHERE demographic_no=${patient}`);
     h.assert(/^\d+$/.test(before),'Owned patient audit count is unreadable');
     if(before!=='0'){sql.execute(`DELETE FROM log WHERE demographic_no=${patient}`);quietSince=undefined;}
     const after=sql.value(`SELECT COUNT(*) FROM log WHERE demographic_no=${patient}`);
     h.assert(/^\d+$/.test(after),'Owned patient audit count is unreadable');
     if(before==='0'&&after==='0'){
-      quietSince??=Date.now();if(Date.now()-quietSince>=quietMs)return;
+      quietSince??=now();if(now()-quietSince>=quietMs)return;
     } else quietSince=undefined;
-    await new Promise(resolve=>setTimeout(resolve,intervalMs));
+    await pause(intervalMs);
   }
   throw new Error('Owned patient audit writes did not settle; retain patient for recovery');
 }

@@ -14,6 +14,21 @@ const graph=require('./lib/pdf-graph');
 const q=h.sqlString;
 const SERVICE='CARLOS5800PAGES';
 
+/** Read the installed defaults and operator override in the application's order. */
+function expectedNotice(env=process.env) {
+  let notice=env.LAB_PDF_EXPECTED_NOTICE;
+  if(notice===undefined) {
+    const {parseProperties}=require('./lib/java-properties');
+    const root=env.CARLOS_INSTALLED_WEBAPP_DIR||'/usr/share/carlos-emr/webapp/carlos';
+    const properties=parseProperties(fs.readFileSync(path.join(root,'WEB-INF/classes/carlos.properties')));
+    const overrides=parseProperties(fs.readFileSync(env.CARLOS_INSTALLED_PROPERTIES_FILE||'/etc/carlos-emr/carlos.properties'));
+    for(const [key,value] of overrides)properties.set(key,value);
+    notice=properties.get('confidentiality_statement.v1');
+  }
+  h.assert(typeof notice==='string'&&notice.trim(),'Expected installed confidentiality notice is not configured');
+  return notice.trim().replace(/\s+/g,' ');
+}
+
 /** Strict Poppler P5 raster, at 72 dpi so PDF points and pixels correspond. */
 function raster(bytes,page) {
   const image=execFileSync('pdftoppm',['-gray','-r','72','-f',String(page),'-l',String(page),'-singlefile','-'],
@@ -83,6 +98,7 @@ function verify(pages,expected,notice,marker,images) {
 }
 
 async function workflow(s) {
+  const notice=expectedNotice();
   const {sql,patient,provider,marker}=s;
   const scratch=x.scratchDir();s.cleanup(()=>fs.rmSync(scratch,{recursive:true,force:true}));
   const expected=Array.from({length:60},(_,index)=>{
@@ -149,9 +165,6 @@ async function workflow(s) {
       console.log('  Retained synthetic pagination evidence in '+process.env.LAB_PDF_ARTIFACT_DIR);
     }
   });
-  const properties=fs.readFileSync(path.join(__dirname,'../src/main/resources/carlos.properties'),'utf8');
-  const notice=(process.env.LAB_PDF_EXPECTED_NOTICE||properties.match(/^confidentiality_statement\.v1\s*=\s*(.*)$/m)?.[1]||'').trim().replace(/\s+/g,' ');
-  h.assert(notice,'Expected confidentiality notice is not configured');
   await s.step('all results, flags and complete wrapped comments appear exactly once in order with visible ink and clear printable bounds',async()=>{
     verify(pages,expected,notice,marker,images);
     const text=x.squash(x.pdfTextBuffer(bytes,{raw:true}));
@@ -171,4 +184,4 @@ async function workflow(s) {
   });
 }
 if(require.main===module)runWorkflow('lab-report-pagination',workflow,{openMaster:false,preflight:()=>x.requirePoppler('pdftotext','pdffonts','pdfinfo','pdftoppm')});
-module.exports={workflow,verify};
+module.exports={workflow,verify,expectedNotice};
