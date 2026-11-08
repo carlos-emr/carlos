@@ -1742,15 +1742,24 @@
           "cases": [
             {
               "name": "shouldRenderTestPatternFixture_toPdfWithHeadlessChromium",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
             },
             {
               "name": "shouldNotLoadLocalFileSubresource_referencedByMaliciousEform",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
             },
             {
               "name": "shouldRenderFreeFlowForm_toTextLayerPdfWithNoPageDivs",
-              "container": "EFormBrowserPdfService Selenium smoke test"
+              "container": "EFormBrowserPdfService browser smoke test"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.MeasurementChartSmokeIntegrationTest": {
+          "check": "java-browser-pdf",
+          "cases": [
+            {
+              "name": "shouldRenderSeriesRangesAndMedicationIntervals_asPngAndJpeg",
+              "container": ""
             }
           ]
         },
@@ -2657,7 +2666,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2667,7 +2676,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2500,
+      "minimumCases": 2519,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2686,7 +2695,8 @@
         "BillingHistoryDaoIntegrationTest": 1,
         "LookupDaoIntegrationTest": 1,
         "AbstractDaoFindAllOrderingIntegrationTest": 6,
-        "CaseManagementIssueDAOIntegrationTest": 21
+        "CaseManagementIssueDAOIntegrationTest": 21,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2716,7 +2726,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2725,7 +2735,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 88,
+      "minimumCases": 107,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -2742,7 +2752,8 @@
         "LegacyLabUploadDaoIntegrationTest": 6,
         "LabRoutingLookupDaoIntegrationTest": 4,
         "LegacyLabNativeMariaDbIntegrationTest": 7,
-        "ArchiveAuditTimestampIntegrationTest": 2
+        "ArchiveAuditTimestampIntegrationTest": 2,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2772,7 +2783,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2781,7 +2792,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 90,
+      "minimumCases": 109,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 10,
@@ -2796,7 +2807,8 @@
         "EFormApColumnLookupIntegrationTest": 2,
         "AppointmentDaySheetServiceIntegrationTest": 4,
         "AntenatalReportDaoIntegrationTest": 5,
-        "EFormGroupDaoIntegrationTest": 9
+        "EFormGroupDaoIntegrationTest": 9,
+        "Growth0To36FormPersistenceIntegrationTest": 19
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -3670,18 +3682,17 @@
         "all"
       ],
       "repetitions": 1,
-      "minimumCases": 3,
+      "minimumCases": 4,
       "command": [
         "mvn",
         "-B",
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest",
+        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
-        "-Dwebdriver.chrome.driver={chromedriver}",
         "-Djacoco.dataFile={run}/jacoco.exec",
         "-Dtest.coverageDirectory={run}/coverage"
       ],
@@ -3690,9 +3701,6 @@
         "CARLOS_SMOKE_CHROMIUM",
         "CARLOS_SMOKE_CHROMEDRIVER"
       ],
-      "environmentInputs": {
-        "chromedriver": "CARLOS_SMOKE_CHROMEDRIVER"
-      },
       "runtimeConstraints": {
         "java": "25"
       },

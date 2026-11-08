@@ -16,6 +16,15 @@ SPEC = importlib.util.spec_from_file_location("mariadb_reports", Path(__file__).
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
+# Keep these fixture identities independent of the verifier's requirements: a
+# deleted requirement must break the negative control, not delete the test too.
+GROWTH_REQUIRED_CASES = {
+    "shouldRetainCommittedFormAndLogSafely_whenArchiveReadOrWriteFails(boolean)[1]",
+    "shouldRetainCommittedFormAndLogSafely_whenArchiveReadOrWriteFails(boolean)[2]",
+    "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[1]",
+    "shouldCommitDemographicAudit_whenLoadingWithoutAnMrp(boolean)[2]",
+}
+
 
 class MariaDbReportEvidenceTest(unittest.TestCase):
     def setUp(self):
@@ -44,10 +53,12 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             for family, count in required.items():
                 suite = self.suite(family)
                 suffix = "" if selected == "generated" else "-" + selected
+                required_names = sorted(GROWTH_REQUIRED_CASES) if family == "Growth0To36FormPersistenceIntegrationTest" else []
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
-                    name = (MODULE.INBOX_CASES[index] if family == 'LegacyLabNativeMariaDbIntegrationTest'
-                            and index < len(MODULE.INBOX_CASES) else f'shouldRead_forRow{index}')
+                    name = required_names[index] if index < len(required_names) else f"shouldRead_forRow{index}"
+                    if family == 'LegacyLabNativeMariaDbIntegrationTest' and index < len(MODULE.INBOX_CASES):
+                        name = MODULE.INBOX_CASES[index]
                     physical = MODULE.BC_PHYSICAL_CASES.get(suite, ()) if selected == 'bc-flyway' else ()
                     if index < len(physical):
                         name = physical[index]
@@ -158,6 +169,45 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 try:
                     self.assert_refused(self.invoke(),
                                         f"Required MariaDB {mode} coverage missing: LegacyLabUploadDaoIntegrationTest")
+                finally:
+                    path.write_bytes(original)
+
+    def test_growth_required_cases_cannot_be_replaced_by_unrelated_cases_in_any_lane(self):
+        self.seed()
+        for mode in MODULE.REQUIRED:
+            for missing in sorted(GROWTH_REQUIRED_CASES):
+                with self.subTest(mode=mode, missing=missing):
+                    suffix = "" if mode == "generated" else "-" + mode
+                    path = self.reports / ("TEST-example.Growth0To36FormPersistenceIntegrationTest" + suffix + ".xml")
+                    original = path.read_bytes()
+                    root = ET.fromstring(original)
+                    for case in root:
+                        if case.get("name") == missing:
+                            case.set("name", "shouldPass_forUnrelatedScenario")
+                    path.write_bytes(ET.tostring(root))
+                    try:
+                        for optimized in (False, True):
+                            self.assert_refused(self.invoke(optimized),
+                                                f"Required MariaDB {mode} cases missing: Growth0To36FormPersistenceIntegrationTest: {missing}")
+                    finally:
+                        path.write_bytes(original)
+
+    def test_growth_archive_failure_cases_cannot_be_removed_in_any_lane(self):
+        self.seed()
+        for mode in MODULE.REQUIRED:
+            with self.subTest(mode=mode):
+                suffix = "" if mode == "generated" else "-" + mode
+                path = self.reports / ("TEST-example.Growth0To36FormPersistenceIntegrationTest" + suffix + ".xml")
+                original = path.read_bytes()
+                root = ET.fromstring(original)
+                for case in list(root):
+                    if case.get("name", "").startswith("shouldRetainCommittedFormAndLogSafely_whenArchiveReadOrWriteFails"):
+                        root.remove(case)
+                root.set("tests", str(len(root)))
+                path.write_bytes(ET.tostring(root))
+                try:
+                    self.assert_refused(self.invoke(),
+                                        f"Required MariaDB {mode} coverage missing: Growth0To36FormPersistenceIntegrationTest")
                 finally:
                     path.write_bytes(original)
 

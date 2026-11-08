@@ -22,6 +22,7 @@
  * Ontario, Canada
  
  * <p>
+ * Modifications by CARLOS Contributors, 2026.
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
@@ -125,6 +126,13 @@ public class FrmData {
     public PatientForm[] getPatientForms(String demoNo, String table) throws SQLException {
         ArrayList<PatientForm> forms = new ArrayList<PatientForm>();
 
+        if (EctFormData.GROWTH_FORM_TABLE.equals(table)) {
+            for (EctFormData.PatientForm version : EctFormData.getPatientForms(demoNo, table)) {
+                forms.add(growthPatientForm(version));
+            }
+            return forms.toArray(new PatientForm[0]);
+        }
+
         // Validate table name: must be an alphanumeric identifier (no SQL-special characters)
         if (table == null || !table.matches(FORM_TABLE_IDENTIFIER_PATTERN)) {
             throw new IllegalArgumentException("Invalid form table name");
@@ -145,6 +153,11 @@ public class FrmData {
 
         String table = StringUtils.trimToEmpty(SpringUtils.getBean(StudyDao.class).findFormTable(studyNo));
         if (table.isEmpty()) return null;
+        // Growth versions come from the patient-bound JPA DAO, as in getPatientForms.
+        if (EctFormData.GROWTH_FORM_TABLE.equals(table)) {
+            EctFormData.PatientForm[] versions = EctFormData.getPatientForms(demoNo, table);
+            return versions.length == 0 ? null : growthPatientForm(versions[0]);
+        }
         EncounterFormDao.HistoryRow row = encounterFormDao().findNewestPatientHistory(table, demoNo);
         if (row != null) {
             frm = new PatientForm(Integer.toString(row.id()), Integer.toString(row.demographicNo()),
@@ -240,12 +253,21 @@ public class FrmData {
 
         } else if ("".equals(table)) {
             ret[1] = "0";
+        } else if (EctFormData.GROWTH_FORM_TABLE.equals(table)) {
+            EctFormData.PatientForm latest = EctFormData.getShortcutLatestPatientForm(demoNo, table);
+            if (latest != null) ret[1] = latest.getFormId();
         } else {
             ret[1] = encounterFormDao().findLatestPatientFormId(table, demoNo, null, true);
         }
 
         _log.debug("RETURNING " + ret[0] + " = " + ret[1]);
         return ret;
+    }
+
+    private PatientForm growthPatientForm(EctFormData.PatientForm version) {
+        return new PatientForm(version.getFormId(), version.getDemoNo(),
+                UtilDateUtilities.DateToString(version.created, "yy/MM/dd"),
+                UtilDateUtilities.DateToString(version.edited, "yy/MM/dd"));
     }
 
     public String getResource() throws java.sql.SQLException {

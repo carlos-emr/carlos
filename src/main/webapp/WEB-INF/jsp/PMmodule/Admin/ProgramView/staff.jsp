@@ -37,12 +37,18 @@
 	</tr>
 </table>
 </div>
-<display:table class="simple" defaultsort="3" cellspacing="2"
-	cellpadding="3" id="provider" name="providers" export="false"
-	pagesize="0" requestURI="/PMmodule/ProgramManagerView">
-	<display:setProperty name="paging.banner.placement" value="bottom" />
-	<display:column headerClass="non_sorted_header" sortable="false"
-		title="Team(s)">
+<c:if test="${not empty providers}">
+<table class="carlos-table-spaced simple" id="provider" data-carlos-table data-page-size="0" data-default-sort="3" data-default-order="ascending">
+<thead><tr>
+
+    <th scope="col" class="non_sorted_header">Team(s)</th>
+    <th scope="col"><span data-table-sort>Name</span></th>
+    <th scope="col"><span data-table-sort>Phone</span></th>
+    <th scope="col"><span data-table-sort>Role</span></th>
+</tr></thead>
+<tbody><c:forEach var="provider" items="${providers}" varStatus="tableRowStatus"><tr class="${tableRowStatus.count % 2 == 0 ? 'even' : 'odd'}">
+
+    <td>
 		<table width="100%" cellspacing="2" cellpadding="2">
 			<c:forEach var="team" items="${provider.teams}">
 				<tr>
@@ -50,9 +56,11 @@
 				</tr>
 			</c:forEach>
 		</table>
-	</display:column>
-	<display:column property="provider.formattedName" sortable="true"
-		title="Name" />
-	<display:column property="provider.phone" sortable="true" title="Phone" />
-	<display:column property="role.name" sortable="true" title="Role" />
-</display:table>
+    </td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.formattedName))}" data-sort-type="${carlos:tableSortType(provider.provider.formattedName)}">${carlos:forHtml(provider.provider.formattedName)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.provider.phone))}" data-sort-type="${carlos:tableSortType(provider.provider.phone)}">${carlos:forHtml(provider.provider.phone)}</td>
+    <td data-sort-value="${carlos:forHtmlAttribute(carlos:tableSortValue(provider.role.name))}" data-sort-type="${carlos:tableSortType(provider.role.name)}">${carlos:forHtml(provider.role.name)}</td>
+</tr></c:forEach></tbody>
+</table>
+</c:if>
+<c:if test="${empty providers}">Nothing found to display.</c:if>

@@ -88,7 +88,8 @@ class FrmRecordFactoryUnitTest {
             // ALPHA was offered by the Forms menu with no FrmAlphaRecord behind it, so its page threw for
             // every patient (issue #4590). An allowed name with no class is the same defect.
             for (String allowed : FrmRecordFactory.ALLOWED_FORM_CLASSES) {
-                String className = "io.github.carlos_emr.carlos.form.Frm" + allowed + "Record";
+                String className = "Growth0_36".equals(allowed) ? Growth0To36Form.class.getName()
+                        : "io.github.carlos_emr.carlos.form.Frm" + allowed + "Record";
                 assertThatCode(() -> Class.forName(className, false, getClass().getClassLoader()))
                         .as(className)
                         .doesNotThrowAnyException();

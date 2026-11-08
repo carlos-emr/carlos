@@ -31,7 +31,6 @@ package io.github.carlos_emr.carlos.dashboard.display.beans;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 
 public class DashboardBean {
 
@@ -122,6 +121,6 @@ public class DashboardBean {
 
     @Override
     public String toString() {
-        return ReflectionToStringBuilder.toString(this);
+        return getClass().getSimpleName() + "[protected]";
     }
 }
