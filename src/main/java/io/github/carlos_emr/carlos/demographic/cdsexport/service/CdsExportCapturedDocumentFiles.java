@@ -58,7 +58,7 @@ final class CdsExportCapturedDocumentFiles {
             if (fields.containsKey(field.column()) || field.exactNumeric() != null) invalid(); pending = field;
             if (field.column().equals("content")) { if (field.kind() != CdsExportCapturedFieldDto.Kind.BINARY) invalid(); return OutputStream.nullOutputStream(); }
             if (!Set.of("filename", "document_no").contains(field.column()) || field.kind() != CdsExportCapturedFieldDto.Kind.UTF8 || field.bytes() > 4096) invalid();
-            value = new ByteArrayOutputStream((int)field.bytes()); return value;
+            value = new ByteArrayOutputStream((int) field.bytes()); return value;
         }
         @Override public void verified(CdsExportCapturedFieldDto field) throws IOException {
             if (!CdsExportDocumentFileSourceReader.TABLE.equals(field.table())) return;

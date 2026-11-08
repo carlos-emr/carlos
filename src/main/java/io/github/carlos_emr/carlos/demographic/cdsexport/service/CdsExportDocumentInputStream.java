@@ -102,7 +102,7 @@ final class CdsExportDocumentInputStream extends InputStream {
                 if (!verified) { if (channel.read(ByteBuffer.allocate(1)) != -1) invalid(); stable(); checkpoint.run(); verified = true; }
                 return -1;
             }
-            int count = channel.read(ByteBuffer.wrap(bytes, offset, (int)Math.min(Math.min(length, 65536), fileIdentity.size() - delivered)));
+            int count = channel.read(ByteBuffer.wrap(bytes, offset, (int) Math.min(Math.min(length, 65536), fileIdentity.size() - delivered)));
             if (count < 1) invalid(); delivered += count; return count;
         } catch (IOException failure) { failed = true; throw new IOException("CDS_EXPORT_DOCUMENT_SOURCE_CHANGED_OR_UNSAFE"); }
         catch (RuntimeException | Error failure) { failed = true; throw failure; }
@@ -112,7 +112,7 @@ final class CdsExportDocumentInputStream extends InputStream {
         if (closed) return; Throwable primary = null;
         try {
             if (!failed) {
-                requireActive(); if (!verified) { byte[] buffer = new byte[65536]; try { while (read(buffer) != -1) { } } finally { Arrays.fill(buffer, (byte)0); } }
+                requireActive(); if (!verified) { byte[] buffer = new byte[65536]; try { while (read(buffer) != -1) { } } finally { Arrays.fill(buffer, (byte) 0); } }
                 stable(); checkpoint.run();
             }
         } catch (IOException | RuntimeException | Error failure) { primary = failure; throw failure; }

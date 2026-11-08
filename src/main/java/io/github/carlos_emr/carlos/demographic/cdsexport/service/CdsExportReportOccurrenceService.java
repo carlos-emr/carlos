@@ -202,7 +202,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         return Set.copyOf(switch (table) { case "document" -> CdsExportPatientTableReadSupport.Plan.DOCUMENTS.columns(); case "ctl_document" -> CdsExportPatientTableReadSupport.Plan.DOCUMENT_LINKS.columns(); default -> throw new IOException("CDS_EXPORT_REPORT_OCCURRENCE_INVALID"); });
     }
     private static void transfer(InputStream input, OutputStream output, Runnable checkpoint) throws IOException {
-        byte[] buffer = new byte[65536]; try { for (int n; (n = input.read(buffer)) != -1;) { checkpoint.run(); if (n == 0) invalid(); output.write(buffer, 0, n); } } finally { Arrays.fill(buffer, (byte)0); }
+        byte[] buffer = new byte[65536]; try { for (int n; (n = input.read(buffer)) != -1;) { checkpoint.run(); if (n == 0) invalid(); output.write(buffer, 0, n); } } finally { Arrays.fill(buffer, (byte) 0); }
     }
     private static boolean empty(String value) { return value == null || value.isEmpty(); }
     private static String key(String table, String id) { return table + ":" + id; }
