@@ -600,7 +600,7 @@
     "exactWarSha256": "402b06511a23bb3f8c0997be5674365e57440eff90fd96a9b5d1ba99dd4b4734"
   },
   "reportOccurrenceAssembly": {
-    "state": "SOURCE_COMPONENT_TESTED_PACKAGE_AND_GENUINE_INSTALLED_PROOF_PENDING",
+    "state": "PACKAGED_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "metadataTables": [
       "document",
       "ctl_document"
@@ -627,8 +627,22 @@
     "genuineRetainedScalarFields": 35,
     "durablePublicationReferenceClosureFixPendingExactInstalledRerun": true,
     "metadataRecoveryDoesNotRequireValidActiveFileBounds": true,
-    "retainedPublicationIndexIntegration": "IMPLEMENTED_FOCUSED_VERIFIED_PACKAGE_AND_EXACT_PROOF_PENDING",
+    "retainedPublicationIndexIntegration": "PACKAGED_AND_EXACT_INSTALLED_COMPONENT_VERIFIED",
     "publicationIndexAndBindingFocusedChecks": 169,
-    "verifiedRepublishedGenerationsAllowed": true
+    "verifiedRepublishedGenerationsAllowed": true,
+    "completeReportSourceNativeAndFileFieldClosure": true,
+    "retainedReportFields": 35,
+    "nativeDocumentLinkAndFileFields": 105,
+    "originalReports": 2,
+    "nativeRepresentations": 3,
+    "exactInstalledAssertions": 44,
+    "genuineOrdinaryClinicalImportAssertions": 9,
+    "exactWarSha256": "eba42c36451d91bccacc8d189ba446989af8efc024d2dd72c2586e372f12c77f",
+    "componentOverlays": false,
+    "originalImportRulesetRetained": true,
+    "focusedAffectedPackageChecks": 317,
+    "focusedAffectedRequestedSuites": 20,
+    "fullCoordinatedBaselineChecks": 4848,
+    "fullCoordinatedBaselineRequestedSuites": 365
   }
 }
