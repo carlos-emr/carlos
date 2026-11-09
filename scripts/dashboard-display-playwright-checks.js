@@ -431,6 +431,43 @@ async function workflow(s) {
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no IN (${controlIds}) ORDER BY tickler_no`))===control,'Supported time saves changed the original control tasks');
   });
 
+  if (ticklerForm && process.env.TICKLER_DST_GAP_ZONE) await s.step('the configured daylight-saving gap is refused without writes and correction saves the retained draft', async () => {
+    const zone=process.env.TICKLER_DST_GAP_ZONE;
+    h.assert(['America/Toronto','America/Vancouver'].includes(zone),'Unsupported DST qualification zone');
+    const config=fs.readFileSync('/etc/carlos-emr/carlos-emr.env','utf8');
+    h.assert(config.split('\n').filter(line=>line===`CARLOS_TZ="${zone}"`).length===1,'The installed clinic is not configured for the requested DST gap');
+    await dashboard.locator('#actionMenuLink').click();await dashboard.locator('#assignTicklerChecked').click();
+    const modal=dashboard.locator('#assignTickler'),form=modal.locator('#ticklerAddForm');await form.waitFor({state:'visible'});
+    await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
+    await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
+    await form.locator('select[name="priority"]').selectOption('High');
+    await form.locator('input[name="serviceDate"]').fill('2030-03-10');
+    const time=form.locator('input[name="serviceTime"]');await time.fill('02:30 AM');await time.press('Tab');await modal.locator('.modal-header').click();
+    const stamp=`${marker} DST recovered`;await form.locator('textarea[name="messageAppend"]').fill(stamp);
+    const snapshot=()=>JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${alpha},${bravo},${charlie}) ORDER BY tickler_no`));
+    const initial=snapshot(),mark=failureMark(recorder);
+    const dialogs=await h.withExpectedDialogs(dashboard,async()=>{
+      const [response]=await Promise.all([
+        dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+        dashboard.waitForEvent('dialog'),dashboard.locator('#saveTicklerBtn').click(),
+      ]);
+      const body=await response.json();
+      h.assert(response.status()===400&&body.success==='false'&&/daylight saving/i.test(body.message),'The nonexistent clinic time was not explicitly refused');
+    });
+    h.assert(dialogs.length===1&&dialogs[0].type==='alert'&&/Nothing was saved.*daylight saving/i.test(dialogs[0].text),'DST refusal was not shown to the user');
+    h.assert(await modal.isVisible()&&await form.locator('textarea[name="messageAppend"]').inputValue()===stamp&&await time.inputValue()==='2:30 AM'&&snapshot()===initial,'DST refusal changed tasks or discarded the draft');
+    consumeExpectedFailure(recorder,mark,{status:400,path:/\/web\/dashboard\/display\/AssignTickler$/});
+    await time.fill('03:30 AM');await time.press('Tab');await modal.locator('.modal-header').click();
+    const [saved]=await Promise.all([
+      dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+      dashboard.locator('#saveTicklerBtn').click(),
+    ]);
+    h.assert(saved.status()===200&&(await saved.json()).success==='true','Correcting the refused time did not save');await modal.waitFor({state:'hidden'});
+    for(const id of [alpha,bravo])h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${id} AND message=${h.sqlString(' '+stamp)}
+      AND DATE_FORMAT(service_date,'%Y-%m-%d %H:%i')='2030-03-10 03:30' AND creator=${P} AND task_assigned_to=${P}`)==='1','Corrected DST time was not saved exactly once for the intended recipient and patient');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`)==='0','DST recovery changed the unchecked patient');
+  });
+
   const dxRows = id => `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${id} AND dxresearch_code='${DX_CODE}'
     AND coding_system='icd9' AND status='A' AND providerNo=${P}`;
   await s.step('Add To Disease Registry confirms ICD9 250 and its stored description; the unchecked patient stays unregistered', async () => {
