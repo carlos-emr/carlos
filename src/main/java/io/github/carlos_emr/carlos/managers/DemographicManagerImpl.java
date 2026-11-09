@@ -947,6 +947,7 @@ public class DemographicManagerImpl implements DemographicManager {
                 DemographicSearchResult::getDemographicNo);
 
         for (DemographicSearchResult demographic : results) {
+            demographic.setHin(null);
             LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchPatients result",
                     "demographicId=" + demographic.getDemographicNo());
         }

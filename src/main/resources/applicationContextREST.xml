@@ -214,6 +214,7 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.IllegalArgumentExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.ConversionExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfileResponseFilter"/>
             <!-- OAuthInterceptor rejections must retain their OAuth status and reason (#4438). -->
             <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper"/>
         </jaxrs:providers>

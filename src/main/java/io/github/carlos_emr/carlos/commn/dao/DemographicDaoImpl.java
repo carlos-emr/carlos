@@ -1786,6 +1786,15 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     @Override
     @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public Demographic findFreshForUpdate(Integer demographicNo) {
+        if (demographicNo == null) return null;
+        Demographic patient = entityManager().find(Demographic.class, demographicNo, LockModeType.PESSIMISTIC_WRITE);
+        if (patient != null) entityManager().refresh(patient, LockModeType.PESSIMISTIC_WRITE);
+        return patient;
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public boolean lockForMerge(Integer demographicNo) {
         if (demographicNo == null) return false;
         // A hydrated PESSIMISTIC_WRITE also locks the eager demographic_merged join.

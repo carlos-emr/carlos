@@ -199,10 +199,17 @@ public class DemographicService extends AbstractServiceImpl {
     private SecurityInfoManager securityInfoManager;
 
     private final CdsLegacyProjectionService projections;
+    private final DemographicDao updateRecords;
+
+    /** Retained for Java callers constructing the existing projection-aware resource. */
+    public DemographicService(CdsLegacyProjectionService projections) {
+        this(projections, null);
+    }
 
     @Autowired
-    public DemographicService(CdsLegacyProjectionService projections) {
+    public DemographicService(CdsLegacyProjectionService projections, DemographicDao updateRecords) {
         this.projections = java.util.Objects.requireNonNull(projections);
+        this.updateRecords = updateRecords;
     }
 
     private DemographicConverter demoConverter = new DemographicConverter();
@@ -274,7 +281,7 @@ public class DemographicService extends AbstractServiceImpl {
         result.setTotal(demographicManager.getActiveDemographicCount(loggedInInfo).intValue());
 
         for (Demographic demo : demographicManager.getActiveDemographics(loggedInInfo, offset, limit)) {
-            result.getContent().add(demoConverter.getAsTransferObject(loggedInInfo, demo));
+            result.getContent().add(demoConverter.getAsListTransferObject(loggedInInfo, demo));
         }
 
         return result;
@@ -655,6 +662,7 @@ public class DemographicService extends AbstractServiceImpl {
     @PUT
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.APPLICATION_JSON, MediaType.APPLICATION_XML})
+    @org.springframework.transaction.annotation.Transactional
     public DemographicTo1 updateDemographicData(DemographicTo1 data) {
         if (data == null || data.getDemographicNo() == null) {
             requireDemographicPrivilege("u");
@@ -664,6 +672,7 @@ public class DemographicService extends AbstractServiceImpl {
         Demographic demographic = demoConverter.getAsDomainObject(loggedInInfo, data);
         // Reject the whole request before custom fields or waiting-list entries can be changed.
         validateFieldLengths(demographic);
+        applyIdentifierWritePolicy(data, demographic);
         //update demographiccust
         if (data.getNurse() != null || data.getResident() != null || data.getAlert() != null || data.getMidwife() != null || data.getNotes() != null) {
             DemographicCust demoCust = demographicManager.getDemographicCust(loggedInInfo, data.getDemographicNo());
@@ -687,6 +696,30 @@ public class DemographicService extends AbstractServiceImpl {
         demographicManager.updateDemographic(loggedInInfo, demographic);
 
         return demoConverter.getAsTransferObject(loggedInInfo, demographic);
+    }
+
+    /** Resolve omitted identifiers under the row lock before related records are changed. */
+    private void applyIdentifierWritePolicy(DemographicTo1 data, Demographic demographic) {
+        var profile = io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfile.current();
+        DemographicDao records = updateRecords != null ? updateRecords
+                : io.github.carlos_emr.carlos.utility.SpringUtils.getBean(DemographicDao.class);
+        // Hold the existing row while preserving identifiers absent from a minimized response.
+        Demographic previous;
+        try {
+            previous = profile == io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfile.PRESERVE_HIDDEN_IDENTIFIERS
+                    ? records.findFreshForUpdate(data.getDemographicNo()) : records.findForUpdate(data.getDemographicNo());
+        } catch (RuntimeException failure) {
+            if (io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteConflict.isConflict(failure)) {
+                throw new WebApplicationException(Response.status(Response.Status.CONFLICT)
+                        .entity("Patient record changed; reload before retrying").build());
+            }
+            throw failure;
+        }
+        if (previous == null) throw new WebApplicationException(Response.Status.NOT_FOUND);
+        if (profile == io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfile.PRESERVE_HIDDEN_IDENTIFIERS) {
+            if (data.getSin() == null) demographic.setSin(previous.getSin());
+            if (data.getHin() == null) demographic.setHin(previous.getHin());
+        }
     }
 
     private static void validateFieldLengths(Demographic demographic) {

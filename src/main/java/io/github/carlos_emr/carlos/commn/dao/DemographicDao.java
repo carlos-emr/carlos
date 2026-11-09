@@ -400,6 +400,15 @@ public interface DemographicDao {
     public Demographic findForUpdate(Integer demographicNo);
 
     /**
+     * Fresh current row under a write lock, including when this context already cached it.
+     * Existing extension DAOs remain binary compatible and refuse an unsupported safety guarantee.
+     */
+    default Demographic findFreshForUpdate(Integer demographicNo) {
+        throw new UnsupportedOperationException("Fresh locked patient reads are not supported by this DAO");
+    }
+
+
+    /**
      * Locks an existing participant row for a merge inside the caller's transaction.
      * The core implementation uses a scalar primary-key query to avoid eager relationship
      * locks. The compatibility default may also lock eager relationships; extension DAOs

@@ -38,6 +38,14 @@ TOKEN_REQUIRED_CASES = {
 }
 MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
 
+IDENTIFIER_REQUIRED_CASES = {
+    "shouldStartItsOwnJpaTransaction_andPreserveUndisclosedIdentifiers",
+    "shouldRefreshPreviouslyCachedIdentifiers_afterTakingTheWriteLock",
+    "shouldRollbackTheNativeWrite_whenALaterFailureOccurs",
+    "shouldRetainExplicitEmptyStringClears_inTheNativeTransaction",
+    "shouldReportConflict_withoutOverwritingAnOlderTransactionSnapshot",
+}
+
 
 class MariaDbReportEvidenceTest(unittest.TestCase):
     def setUp(self):
@@ -70,6 +78,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "Growth0To36FormPersistenceIntegrationTest": GROWTH_REQUIRED_CASES,
                     "SoapTokenHousekeepingDaoIntegrationTest": TOKEN_REQUIRED_CASES,
                     "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
+                    "DemographicIdentifierPreservationMariaDbIntegrationTest": IDENTIFIER_REQUIRED_CASES,
                 }.get(family, set()))
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
@@ -128,12 +137,13 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     report.write_text(original)
                     foreign.unlink()
 
-    def test_cleanup_and_chart_denial_cases_are_required_without_changing_family_counts(self):
+    def test_named_native_regressions_are_required_without_changing_family_counts(self):
         self.seed()
         for mode in MODULE.REQUIRED:
             suffix = "" if mode == "generated" else "-" + mode
             for family, names in (("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
-                                  ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES)):
+                                  ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
+                                  ("DemographicIdentifierPreservationMariaDbIntegrationTest", IDENTIFIER_REQUIRED_CASES)):
                 report = self.reports / ("TEST-" + self.suite(family) + suffix + ".xml")
                 original = report.read_text()
                 for name in names:

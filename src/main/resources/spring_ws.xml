@@ -225,6 +225,7 @@
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.IllegalArgumentExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.ConversionExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfileResponseFilter"/>
 		</jaxrs:providers>
 		
 	

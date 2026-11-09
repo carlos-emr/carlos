@@ -585,7 +585,7 @@ public final class DemographicTransfer {
 
         DemographicTransfer demographicTransfer = new DemographicTransfer();
 
-        BeanUtils.copyProperties(demographic, demographicTransfer);
+        BeanUtils.copyProperties(demographic, demographicTransfer, "sin");
 
         return (demographicTransfer);
     }

@@ -175,4 +175,20 @@ class DemographicSearchAuthorizationUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> manager.searchDemographic(actor, "Synthetic")).isInstanceOf(IllegalStateException.class);
     }
 
+    @Test
+    void shouldKeepSearchIdentityAndCounts_withoutReturningHealthCards() {
+        var row = new DemographicSearchResult(); row.setDemographicNo(42); row.setHin("FAKE-HIN");
+        row.setFirstName("Synthetic"); row.setLastName("Patient"); readable.add(42);
+        var query = new DemographicSearchRequest();
+        when(dao.searchPatients(eq(actor), eq(query), anyInt(), anyInt())).thenReturn(List.of(row));
+        var result = manager.searchPatients(actor, query, 0, 10);
+        assertThat(result).singleElement().satisfies(value -> {
+            assertThat(value.getDemographicNo()).isEqualTo(42);
+            assertThat(value.getFirstName()).isEqualTo("Synthetic");
+            assertThat(value.getLastName()).isEqualTo("Patient");
+            assertThat(value.getHin()).isNull();
+        });
+        assertThat(manager.searchPatientsCount(actor, query)).isEqualTo(1);
+    }
+
 }
