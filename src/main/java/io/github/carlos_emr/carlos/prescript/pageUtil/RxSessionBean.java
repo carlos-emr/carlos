@@ -67,6 +67,17 @@ public class RxSessionBean implements java.io.Serializable {
         listMedHistory = l;
     }
 
+    /** Retires only cards acknowledged by this receipt, under the workspace's existing monitor. */
+    public synchronized void retirePendingCards(String token) {
+        for (int index = getStashSize() - 1; index >= 0; index--) {
+            var card = getStashItem(index);
+            if (token.equals(card.getPendingSubmission())) {
+                getRandomIdDrugIdPair().remove(card.getRandomId());
+                removeStashItem(index);
+            }
+        }
+    }
+
     public HashMap getRandomIdDrugIdPair() {
         return randomIdDrugIdPair;
     }

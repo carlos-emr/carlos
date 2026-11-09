@@ -273,7 +273,7 @@ if (rx_enhance!=null && rx_enhance.equals("true")) {
         <fmt:message key="SearchDrug.js.saveWarning"               var="msg_saveWarning"/>
         <fmt:message key="SearchDrug.js.savePrompt"                var="msg_savePrompt"/>
         <fmt:message key="SearchDrug.js.saveRefused"               var="msg_saveRefused"/>
-        <fmt:message key="oscarRx.sourceChanged" var="msg_sourceChanged"/>
+        <fmt:message key="oscarRx.stagedSourceChanged" var="msg_sourceChanged"/>
         <fmt:message key="oscarRx.saveAlreadySaved" var="msg_saveAlreadySaved"/>
 <fmt:message key="SearchDrug.js.saveIncomplete"            var="msg_saveIncomplete"/>
         <fmt:message key="SearchDrug.js.saveUncertain"             var="msg_saveUncertain"/>

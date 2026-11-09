@@ -11,7 +11,7 @@ assert.ok(start >= 0 && end > start);
 const controlsStart = source.indexOf('function updateHalfLetterPrintControls()');
 const controlsEnd = source.indexOf('function associateSavedSignature(', controlsStart);
 assert.ok(controlsStart >= 0 && controlsEnd > controlsStart);
-const onload = source.match(/<iframe id='preview'[^>]*onload="([^"]+)"/);
+const onload = source.match(/getElementById\('preview'\)\.addEventListener\('load', function \(\) \{([\s\S]*?)\n\s*\}\);/);
 assert.ok(onload, 'the preview must apply the current note after each load');
 
 for (const value of ['A new note & "quotes"\nsecond line', '']) {

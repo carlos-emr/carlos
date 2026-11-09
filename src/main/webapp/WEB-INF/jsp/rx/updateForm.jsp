@@ -95,9 +95,9 @@
         <h3>Current form is: <b><carlos:encode value='<%= drugForm %>'/>
         </b></h3>
         <br/>
-        <b>Select new drug form :</b>
+        <label for="drugForm"><b>Select new drug form :</b></label>
 
-        <select name="drugForm" required>
+        <select id="drugForm" name="drugForm" required>
         <option value=""></option>
             <option value="Aerosol metered-dose">Aerosol metered-dose</option>
             <option value="Aerosol with propellants">Aerosol with propellants</option>

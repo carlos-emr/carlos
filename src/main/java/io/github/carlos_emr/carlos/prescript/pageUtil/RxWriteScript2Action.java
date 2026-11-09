@@ -212,7 +212,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                 if (receipt != null) {
                     if ("SAVED".equals(receipt.outcome())) {
                         var savedBean = RxSessionBeanResolver.resolve(request);
-                        if (savedBean != null && savedBean.getDemographicNo() == patient) retirePendingCards(savedBean, token);
+                        if (savedBean != null && savedBean.getDemographicNo() == patient) savedBean.retirePendingCards(token);
                     }
                     return reportReceipt(receipt);
                 }
@@ -1428,7 +1428,7 @@ public final class RxWriteScript2Action extends ActionSupport {
             if (saved != null) {
                 if ("SAVED".equals(saved.outcome())) {
                     RxSessionBean savedBean = RxSessionBeanResolver.resolve(request);
-                    if (savedBean != null && savedBean.getDemographicNo() == receiptPatient) retirePendingCards(savedBean, receiptToken);
+                    if (savedBean != null && savedBean.getDemographicNo() == receiptPatient) savedBean.retirePendingCards(receiptToken);
                 }
                 return reportReceipt(saved);
             }
@@ -1872,18 +1872,6 @@ public final class RxWriteScript2Action extends ActionSupport {
         return NONE;
     }
 
-    private static void retirePendingCards(RxSessionBean bean, String token) {
-        synchronized (bean) {
-            for (int index = bean.getStashSize() - 1; index >= 0; index--) {
-                var card = bean.getStashItem(index);
-                if (token.equals(card.getPendingSubmission())) {
-                    bean.getRandomIdDrugIdPair().remove(card.getRandomId());
-                    bean.removeStashItem(index);
-                }
-            }
-        }
-    }
-
     /** Validates the complete workspace rendered by a legacy save or preview form. Call under its lock. */
     boolean validateRenderedStash(RxSessionBean bean) throws IOException {
         List<String> keys = new ArrayList<>();
@@ -1914,7 +1902,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                     .find(info.getLoggedInProviderNo(), bean.getDemographicNo(), pending);
             if (receipt != null && "SAVED".equals(receipt.outcome())) {
                 // Retire consumed cards permanently, preserving another window's new drafts.
-                retirePendingCards(bean, pending);
+                bean.retirePendingCards(pending);
                 response.setStatus(HttpServletResponse.SC_CONFLICT);
                 if ("updateAndPrint".equals(getAction())) { reportLegacyRecovery("oscarRx.draftReviewRequired"); return false; }
                 response.setContentType("application/json");

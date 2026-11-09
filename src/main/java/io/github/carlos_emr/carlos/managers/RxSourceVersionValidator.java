@@ -54,16 +54,18 @@ public class RxSourceVersionValidator {
 
     /** Exact no-op retries are idempotent; changed notes require the original displayed version. */
     public long updateComment(String provider, int patient, int script, Long original, String originalComment, boolean hasOriginalComment, String comment) {
-        return updateCommentLocked(provider, patient, script, original, originalComment, hasOriginalComment, null, comment);
+        return updateCommentLocked(provider, patient, script, original,
+                current -> !hasOriginalComment || Objects.equals(originalComment, current), comment);
     }
 
     public long updateCommentDigest(String provider, int patient, int script, Long original, String digest, String comment) {
         if (digest == null || !digest.matches("[a-f0-9]{64}")) throw new IllegalArgumentException("Invalid note digest");
-        return updateCommentLocked(provider, patient, script, original, null, false, digest, comment);
+        return updateCommentLocked(provider, patient, script, original,
+                current -> digest.equals(commentDigest(current)), comment);
     }
 
-    private long updateCommentLocked(String provider, int patient, int script, Long original, String originalComment,
-            boolean hasOriginalComment, String digest, String comment) {
+    private long updateCommentLocked(String provider, int patient, int script, Long original,
+            java.util.function.Predicate<String> originalCommentMatches, String comment) {
         var rows = jdbc.query("SELECT row_version,rx_comments FROM prescription WHERE script_no=? "
                 + "AND demographic_no=? FOR UPDATE", (rs, row) -> new Object[]{rs.getLong(1), rs.getString(2)}, script, patient);
         if (rows.size() != 1) throw new Conflict();
@@ -73,8 +75,7 @@ public class RxSourceVersionValidator {
         String displayedComment = rows.getFirst()[1] == null ? "" : (String) rows.getFirst()[1];
         if (Objects.equals(comment, displayedComment)) return version;
         if (original != null && original.longValue() != version
-                || hasOriginalComment && !Objects.equals(originalComment, displayedComment)
-                || digest != null && !digest.equals(commentDigest(displayedComment))) throw new Conflict();
+                || !originalCommentMatches.test(displayedComment)) throw new Conflict();
         if (jdbc.update("UPDATE prescription SET rx_comments=?,row_version=row_version+1,lastUpdateDate=? "
                 + "WHERE script_no=? AND demographic_no=? AND row_version=?", comment, new java.sql.Timestamp(System.currentTimeMillis()), script, patient, version) != 1) throw new Conflict();
         LogAction.addLogStrict(provider, "update", LogConst.CON_PRESCRIPTION, Integer.toString(script), "", Integer.toString(patient), "comments");

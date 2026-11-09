@@ -62,7 +62,12 @@ async function workflow(s) {
     await group.locator('summary').click(); h.assert(await group.getAttribute('open')===null,'The sidebar group did not collapse');
     await page.locator('a[href*="/rx/favoriteGroups?"]').first().click();
     for(const id of [first,second]) {
-      await page.locator('details').filter({has:page.locator(`input[name="groupId"][value="${id}"]`)}).getByRole('button',{name:'Delete group',exact:true}).click();
+      const button=page.locator('details').filter({has:page.locator(`input[name="groupId"][value="${id}"]`)}).getByRole('button',{name:'Delete group',exact:true});
+      const canceled=await h.withExpectedDialogs(page,()=>button.click(),{accept:false});
+      h.assert(canceled.length===1&&canceled[0].type==='confirm','Delete did not ask for confirmation');
+      h.assert(sql.value(`SELECT COUNT(*) FROM rx_favorite_group WHERE id=${id}`)==='1','Cancel deleted the group');
+      const accepted=await h.withExpectedDialogs(page,()=>button.click());
+      h.assert(accepted.length===1&&accepted[0].type==='confirm','The confirmed delete did not use the native prompt');
       await page.waitForLoadState('networkidle');
     }
     h.assert(sql.value(`SELECT COUNT(*) FROM favorites WHERE favoriteid=${favorite}`)==='1','Deleting groups deleted the favourite');

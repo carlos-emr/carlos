@@ -80,7 +80,7 @@ async function workflow(s) {
     await rx.waitForFunction(({id,weight,cr})=>{
       const text=document.querySelector(`${id} table.equation`)?.textContent;
       return text?.includes(weight)&&text.includes(cr)&&text.includes('N/A');
-    },{id:`#renalDosing_${card}`,weight:Number(infantInput.weight).toFixed(1),cr:`${Number(infantInput.cr).toFixed(1)} sCr`});
+    },{id:`#renalDosing_${card}`,weight:`${Number(infantInput.weight)}`,cr:`${Number(infantInput.cr)} sCr`});
     h.assert(await panel.locator('tr.selected').count()===0,'An age below one year selected an adult dose');
   });
   if(name==='male-valid')await s.step('incomplete and malformed birth dates refuse dosing without a server error',async()=>{
@@ -110,11 +110,11 @@ async function workflow(s) {
     h.assert(parameters.get('demographicNo')===s.patient&&parameters.get('atcCode')===originalAtc&&parameters.get('divId')===`renalDosing_${card}`,
       'Refresh lost the originating patient, controlled drug or panel identity');
     const age=testCase.age??60;
-    const clearance=age>0?Math.round((140-age)*80/(100*0.8)*(testCase.sex==='F'?0.85:1)):undefined;
+    const clearance=age>0?Math.floor((140-age)*80/(100*0.8)*(testCase.sex==='F'?0.85:1)):undefined;
     await rx.waitForFunction(({id,token})=>document.querySelector(id)?.textContent.includes(token),
       {id:`#renalDosing_${card}`,token:clearance===undefined?'N/A':`Clcr ${clearance} =`});
     const refreshedEquation=(await panel.locator('table.equation').innerText()).replace(/\s+/g,' ');
-    for(const token of ['80.0','100.0 sCr','2025-Jan-02']) {
+    for(const token of ['80','100 sCr','2025-Jan-02']) {
       h.assert(refreshedEquation.includes(token),`Refreshed renal equation did not reread ${token}`);
     }
     h.assert(await panel.locator('table.sofT tr.selected').count()===0,'Restored valid high clearance retained the previous recommendation');

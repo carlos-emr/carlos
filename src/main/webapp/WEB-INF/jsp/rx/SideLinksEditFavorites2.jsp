@@ -175,7 +175,7 @@
     %>
     <details open class="rx-favorite-group"><summary><carlos:encode value='<%= favoriteGroup.name() %>'/></summary>
     <% for (RxFavoriteGroupService.Favorite favorite : favoriteView.favorites()) { if (favorite.groupIds().contains(favoriteGroup.id())) { %>
-    <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);" onclick="useFav2('<%= favorite.id() %>');"
+    <p class="PropSheetMenuItemLevel1"><a href="${pageContext.request.contextPath}/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&amp;usefav=true&amp;favid=<%= favorite.id() %>"
             title="<carlos:encode value='<%= favorite.name() %>' context="htmlAttribute"/>"><carlos:encode value='<%= favorite.name() != null && favorite.name().length() > 13 ? favorite.name().substring(0, 10) + "..." : favorite.name() %>'/></a></p>
     <% } } %>
     </details>
@@ -184,7 +184,7 @@
     <details open class="rx-favorite-group"><summary><fmt:message key="oscarRx.groups.ungrouped"/></summary>
     <% } %>
     <% for (RxFavoriteGroupService.Favorite favorite : favoriteView.favorites()) { if (favorite.groupIds().isEmpty()) { %>
-    <p class="PropSheetMenuItemLevel1"><a href="javascript:void(0);" onclick="useFav2('<%= favorite.id() %>');"
+    <p class="PropSheetMenuItemLevel1"><a href="${pageContext.request.contextPath}/rx/choosePatient?demographicNo=<%= bean2.getDemographicNo() %>&amp;usefav=true&amp;favid=<%= favorite.id() %>"
             title="<carlos:encode value='<%= favorite.name() %>' context="htmlAttribute"/>"><carlos:encode value='<%= favorite.name() != null && favorite.name().length() > 13 ? favorite.name().substring(0, 10) + "..." : favorite.name() %>'/></a></p>
     <% } } %>
     <% if (!favoriteView.groups().isEmpty()) { %></details><% } %>

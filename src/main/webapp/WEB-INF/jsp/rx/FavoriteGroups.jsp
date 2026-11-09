@@ -59,7 +59,7 @@
 <input type="hidden" name="demographicNo" value="<%= patient %>"><input type="hidden" name="command" value="assign">
 <input type="hidden" name="favoriteId" value="<%= favorite.id() %>">
 <% for (RxFavoriteGroupService.Group group : view.groups()) { %>
-<label><input type="checkbox" name="groupIds" value="<%= group.id() %>" <%= favorite.groupIds().contains(group.id()) ? "checked" : "" %>><carlos:encode value='<%= group.name() %>' context="html"/></label>
+<input type="checkbox" id="favorite-<%= favorite.id() %>-group-<%= group.id() %>" name="groupIds" value="<%= group.id() %>" <%= favorite.groupIds().contains(group.id()) ? "checked" : "" %>><label for="favorite-<%= favorite.id() %>-group-<%= group.id() %>"><carlos:encode value='<%= group.name() %>' context="html"/></label>
 <% } %>
 <button type="submit"><fmt:message key="oscarRx.groups.save"/></button>
 </fieldset></form>

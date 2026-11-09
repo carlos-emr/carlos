@@ -1547,9 +1547,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 				<td>
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
-                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment(); updateHalfLetterPrintControls(); var notice = document.getElementById('rxPreviewLoading'); if (notice) notice.hidden = true"
+                                        <iframe id='preview' name='preview' width=420px height=890px title="<fmt:message key="RxPreview.title"/>"
 							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
-							align=center border=0 frameborder=0></iframe></div>
+							align=center border=0 frameborder=0></iframe>
+                                        <script type="text/javascript">
+                                            document.getElementById('preview').addEventListener('load', function () {
+                                                setComment(); updateHalfLetterPrintControls(); var notice = document.getElementById('rxPreviewLoading'); if (notice) notice.hidden = true;
+                                            });
+                                        </script></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
                                 </td>
@@ -1776,7 +1781,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                           aria-label="<fmt:message key="ViewScript.msgFaxRecoveryText"/>"></textarea>
                                             </td>
                                         </tr>
-                                        <tr id="rxPreviewLoading" hidden><td colspan="4" role="status"><fmt:message key="oscarRx.previewLoading"/></td></tr>
+                                        <tr id="rxPreviewLoading" hidden><td colspan="4"><p role="status"><fmt:message key="oscarRx.previewLoading"/></p></td></tr>
                                         <tr id="faxPreviewChanged" hidden>
                                             <td><p role="alert"><fmt:message key="ViewScript.msgFaxPreviewChanged"/></p></td>
                                         </tr>

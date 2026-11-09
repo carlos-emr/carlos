@@ -88,7 +88,7 @@ test('preview reload reflects the pending signature save and unlocks after confi
   const button = { disabled: false, style: {} };
   s.context.frames.preview = { document: { getElementById: () => button } };
   s.context.setComment = () => {};
-  const onload = jsp.match(/<iframe id='preview'[^>]*onload="([^"]+)"/)[1];
+  const onload = jsp.match(/getElementById\('preview'\)\.addEventListener\('load', function \(\) \{([\s\S]*?)\n\s*\}\);/)[1];
   vm.runInContext(onload, s.context);
   assert.equal(button.disabled, true);
   assert.equal(button.style.cursor, 'wait');
