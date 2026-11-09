@@ -20,7 +20,7 @@ jobs:
           from urllib.request import Request, urlopen
           from urllib.error import HTTPError
           repo = "carlos-emr/carlos"
-          head = "a42feca06c96dea82776900f66481e98780526dd"
+          head = "ce2aa735d2f3fb84045cdd69dbcec88e8ce2eb31"
           token = os.environ["GITHUB_TOKEN"]
           headers = {"Authorization": "Bearer " + token, "Accept": "application/vnd.github+json",
                      "X-GitHub-Api-Version": "2022-11-28"}
@@ -53,6 +53,12 @@ jobs:
           if len(matches) != 1 or type(matches[0].get("id")) is not int:
               raise RuntimeError("One exact-head original-app CodeFactor check is required")
           check = matches[0]
-          request("/check-runs/" + str(check["id"]) + "/rerequest", post=True)
-          print(json.dumps({"requested": True, "headSha": head, "checkId": check["id"], "creator": "codefactor-io"}))
+          suite = check.get("check_suite", {}).get("id")
+          if type(suite) is not int:
+              raise RuntimeError("Original-app check suite identity is required")
+          details = request("/check-suites/" + str(suite))
+          if details.get("head_sha") != head or details.get("app", {}).get("slug") != "codefactor-io":
+              raise RuntimeError("Original-app suite and exact head must match")
+          request("/check-suites/" + str(suite) + "/rerequest", post=True)
+          print(json.dumps({"requested": True, "headSha": head, "checkSuiteId": suite, "creator": "codefactor-io"}))
           PY
