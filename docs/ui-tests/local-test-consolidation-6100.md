@@ -53,14 +53,15 @@ refusal cases. The generated-schema MariaDB lane passed 3,128 cases without skip
 177 selected lookup-guard/mutator/render cases pass. Native MRP fixture cleanup
 now reserves and removes owned provider billing-centre rows; the failing run is
 retained and its three synthetic orphan rows were recovered without changing
-unrelated rows. The strict Node inventory now has 7,740 passing cases in 547 files. Rebuilt
+unrelated rows. The strict Node inventory now has 7,742 passing cases in 547 files. Rebuilt
 ON/BC package retakes for the lookup guard and visible MRP guidance passed
 without residue. The required multisite lane now includes a dedicated MRP
 variant, which requires the real clinic selector and drives the native Change
 control for manual reassignment. Both ON and BC passed, including profile restoration.
 The complete `b8f89793c5d7` package candidate matched 6,197 production-class/changed-JSP
 entries through the WAR, Debian payload and both installations. Later commits change
-test/CI infrastructure, not product bytes. Current ON/BC document, OAuth and eForm
+test/CI infrastructure and rename an unused OAuth exception parameter; final-head
+package build/install CI qualifies its own rebuilt artifacts separately. Current ON/BC document, OAuth and eForm
 widget/PDF bundles passed with no skips or residue; the ON guideline and forwarding
 retakes and BC billing selector retakes also passed. These focused passes do not
 substitute for the remaining full profiles, repetitions and lifecycle acceptance.

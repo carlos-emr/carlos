@@ -114,7 +114,7 @@ public class OscarRequestTokenService {
         cfg.setApplicationURI(req.getRequestURL().toString());
         try {
             verifier.verifySignature(req, cfg);
-        } catch (IllegalArgumentException invalidSignature) {
+        } catch (IllegalArgumentException _) {
             throw new OAuth1Exception(401, "invalid_signature");
         }
 

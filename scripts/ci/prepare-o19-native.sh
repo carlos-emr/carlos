@@ -4,13 +4,13 @@
 set -euo pipefail
 : "${RUNNER_TEMP:?RUNNER_TEMP is required}"
 : "${GITHUB_ENV:?GITHUB_ENV is required}"
-work="$RUNNER_TEMP/carlos-o19-native"
-mkdir -m 700 "$work"
-mkdir "$work/socket"
 if docker container inspect carlos-o19-ci >/dev/null 2>&1; then
   echo 'Refusing an existing carlos-o19-ci container' >&2
   exit 1
 fi
+# A rerun gets a fresh private workspace; never reuse or delete an old socket.
+work=$(mktemp -d "$RUNNER_TEMP/carlos-o19-native.XXXXXXXX")
+mkdir "$work/socket"
 version=13.12.0
 curl -fsSL --retry 3 "https://github.com/flyway/flyway/releases/download/flyway-$version/flyway-commandline-$version-linux-x64.tar.gz" -o "$work/flyway.tgz"
 echo "e332704f4bbb16baba4ac565a822ccb24354003a284deaa11668c1be77013c34  $work/flyway.tgz" | sha256sum -c -

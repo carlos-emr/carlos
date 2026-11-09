@@ -76,3 +76,19 @@ for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`legacy observe
  observer.dispose();assert.deepEqual(signalProcess.listeners(signal),[existing]);
  assert.equal(signalProcess.listenerCount(signal==='SIGINT'?'SIGTERM':'SIGINT'),0);
 });
+
+for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`legacy observer records ${signal} delivered after the operation returns and disposes only its own handlers`,async()=>{
+ const {EventEmitter}=require('node:events');
+ const {runLegacyCheck}=require('./lib/legacy-check');
+ const processRef=new EventEmitter();processRef.env={};
+ let returned=false,cleaned=false,existingCalls=0;
+ const existing=()=>{existingCalls++;};processRef.on(signal,existing);
+ const result=await runLegacyCheck('late-observer-signal',()=>{
+   queueMicrotask(()=>{assert.equal(returned,true);processRef.emit(signal);});
+   returned=true;
+ },{existingSignalHandlers:true,processRef,cleanup:()=>{cleaned=true;}});
+ assert.equal(result.outcome,'FAIL');assert.equal(result.detail,'interrupted');
+ assert.equal(processRef.exitCode,code);assert.equal(cleaned,true);assert.equal(existingCalls,1);
+ assert.deepEqual(processRef.listeners(signal),[existing]);
+ assert.equal(processRef.listenerCount(signal==='SIGINT'?'SIGTERM':'SIGINT'),0);
+});
