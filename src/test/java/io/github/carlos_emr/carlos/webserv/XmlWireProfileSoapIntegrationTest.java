@@ -24,6 +24,12 @@ class XmlWireProfileSoapIntegrationTest {
     @WebService(targetNamespace = "urn:test:xmlprofiles")
     public static class EchoService {
         @WebMethod
+        public io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer[] drugs() {
+            var drug = new io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer();
+            drug.seteTreatmentType("é<&"); drug.setUnitName("mg");
+            return new io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer[]{drug, drug};
+        }
+        @WebMethod
         public ScheduleTemplateCodeTransfer echo(ScheduleTemplateCodeTransfer arg0) {
             return arg0;
         }
@@ -35,6 +41,7 @@ class XmlWireProfileSoapIntegrationTest {
         bus.setProperty("jaxb-reader-validation-event-handler", new StrictXmlValidationHandler());
         bus.getInInterceptors().add(new XmlProfileInInterceptor());
         bus.getOutInterceptors().add(new XmlProfileOutInterceptor());
+        bus.getOutInterceptors().add(new LegacyDrugOrderOutInterceptor());
         bus.getOutFaultInterceptors().add(new XmlProfileOutInterceptor());
         var factory = new JaxWsServerFactoryBean();
         factory.setBus(bus);
@@ -52,6 +59,11 @@ class XmlWireProfileSoapIntegrationTest {
     private record Result(int status, String body, String profile) {}
 
     private static Result call(String profile, String code) throws Exception {
+        return invoke(profile, "<p:echo xmlns:p=\"urn:test:xmlprofiles\"><arg0><code>" + code
+                + "</code></arg0></p:echo>");
+    }
+
+    private static Result invoke(String profile, String body) throws Exception {
         Bus previous = BusFactory.getThreadDefaultBus(false);
         jakarta.xml.ws.Dispatch<javax.xml.transform.Source> dispatch;
         try {
@@ -67,8 +79,7 @@ class XmlWireProfileSoapIntegrationTest {
             if (profile != null) dispatch.getRequestContext().put(org.apache.cxf.message.Message.PROTOCOL_HEADERS,
                     java.util.Map.of(XmlWireProfile.HEADER, java.util.List.of(profile)));
             String input = "<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"><soap:Body>"
-                    + "<p:echo xmlns:p=\"urn:test:xmlprofiles\"><arg0><code>" + code
-                    + "</code></arg0></p:echo></soap:Body></soap:Envelope>";
+                    + body + "</soap:Body></soap:Envelope>";
             javax.xml.transform.Source output;
             int status;
             try {
@@ -103,6 +114,22 @@ class XmlWireProfileSoapIntegrationTest {
         Result published = call(null, "A");
         assertThat(published.status).isEqualTo(200);
         assertThat(published.body).contains("<code>A</code>");
+    }
+
+    @Test
+    void shouldPreserveBulkDrugSequence_onTheActualSoapWriter() throws Exception {
+        String request = "<p:drugs xmlns:p=\"urn:test:xmlprofiles\"/>";
+        Result legacy = invoke("glassfish-legacy", request);
+        assertThat(legacy.status).isEqualTo(200);
+        assertThat(legacy.profile).isEqualTo("glassfish-legacy");
+        for (String drug : legacy.body.split("<return>")) {
+            if (!drug.contains("<eTreatmentType>")) continue;
+            assertThat(drug.indexOf("<eTreatmentType>")).isGreaterThan(drug.indexOf("<unitName>"));
+        }
+        assertThat(legacy.body).contains("é&lt;&amp;");
+        Result published = invoke(null, request);
+        assertThat(published.status).isEqualTo(200);
+        assertThat(published.body.indexOf("<eTreatmentType>")).isLessThan(published.body.indexOf("<unitName>"));
     }
 
     @Test

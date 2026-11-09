@@ -38,6 +38,7 @@ class XmlWireProfileIntegrationTest {
         public ScheduleTemplateCodeTransfer scalar;
         public AllowedAppointmentTypeTransfer array;
         public SearchConfigTo1 map;
+        public io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer[] drugs;
     }
 
     @Path("/xml")
@@ -55,6 +56,13 @@ class XmlWireProfileIntegrationTest {
             payload.codePoint = (int) payload.scalar.getCode();
             payload.array = new AllowedAppointmentTypeTransfer();
             payload.array.setCodes(new Character[]{'A', '0', '7', '\0', null, 'é'});
+            payload.drugs = new io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer[2];
+            for (int i = 0; i < payload.drugs.length; i++) {
+                var drug = new io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer();
+                drug.seteTreatmentType("treatment-" + i + "é<&");
+                drug.setDuration("7"); drug.setUnitName("mg");
+                payload.drugs[i] = drug;
+            }
             payload.map = new SearchConfigTo1();
             payload.map.setAppointmentCodeDurations(Map.of('A', 3));
             return payload;
@@ -133,6 +141,26 @@ class XmlWireProfileIntegrationTest {
         assertThat(echoed.body).isEqualTo(legacy.body);
         Result normal = call(null, null);
         assertThat(normal.body).contains("<code>A</code>", "<codes>0</codes>", "<codes>7</codes>");
+    }
+
+    @Test
+    void shouldPreserveLegacyDrugSequenceAndNumericCodes_onlyForTheExplicitLegacyProfile() {
+        Result legacy = call("glassfish-legacy", null);
+        assertThat(legacy.status).isEqualTo(200);
+        assertThat(legacy.profile).isEqualTo("glassfish-legacy");
+        assertThat(legacy.body).contains("<code>65</code>", "treatment-0é&lt;&amp;", "treatment-1é&lt;&amp;");
+        for (String drug : legacy.body.split("<drugs>")) {
+            if (!drug.contains("<eTreatmentType>")) continue;
+            assertThat(drug.indexOf("<eTreatmentType>")).isGreaterThan(drug.indexOf("<unitName>"));
+        }
+        Result echo = call("glassfish-legacy", legacy.body);
+        assertThat(echo.status).isEqualTo(200);
+        assertThat(echo.body).isEqualTo(legacy.body);
+        for (String profile : java.util.Arrays.asList(null, "published", "glassfish-numeric-characters")) {
+            Result ordinary = call(profile, null);
+            assertThat(ordinary.status).isEqualTo(200);
+            assertThat(ordinary.body.indexOf("<eTreatmentType>")).isLessThan(ordinary.body.indexOf("<unitName>"));
+        }
     }
 
     @Test

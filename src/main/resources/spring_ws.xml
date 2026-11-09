@@ -50,10 +50,11 @@
     <bean id="strictXmlValidationHandler" class="io.github.carlos_emr.carlos.utility.xml.StrictXmlValidationHandler"/>
     <bean id="xmlProfileInInterceptor" class="io.github.carlos_emr.carlos.webserv.XmlProfileInInterceptor"/>
     <bean id="xmlProfileOutInterceptor" class="io.github.carlos_emr.carlos.webserv.XmlProfileOutInterceptor"/>
+    <bean id="legacyDrugOrderOutInterceptor" class="io.github.carlos_emr.carlos.webserv.LegacyDrugOrderOutInterceptor"/>
     <cxf:bus>
         <cxf:inInterceptors><ref bean="xmlProfileInInterceptor"/></cxf:inInterceptors>
-        <cxf:outInterceptors><ref bean="xmlProfileOutInterceptor"/></cxf:outInterceptors>
-        <cxf:outFaultInterceptors><ref bean="xmlProfileOutInterceptor"/></cxf:outFaultInterceptors>
+        <cxf:outInterceptors><ref bean="xmlProfileOutInterceptor"/><ref bean="legacyDrugOrderOutInterceptor"/></cxf:outInterceptors>
+        <cxf:outFaultInterceptors><ref bean="xmlProfileOutInterceptor"/><ref bean="legacyDrugOrderOutInterceptor"/></cxf:outFaultInterceptors>
 		<cxf:properties>
 			<entry key="jaxb-reader-validation-event-handler" value-ref="strictXmlValidationHandler"/>
 			<entry key="ws-security.ut.validator" value-ref="oscarUsernameTokenValidator" />

@@ -8,7 +8,8 @@ import org.apache.cxf.phase.PhaseInterceptorChain;
 public enum XmlWireProfile {
     PUBLISHED("published"),
     MOXY_DATE_ONLY_BIRTHDAY("moxy-date-only-birthday"),
-    GLASSFISH_NUMERIC_CHARACTERS("glassfish-numeric-characters");
+    GLASSFISH_NUMERIC_CHARACTERS("glassfish-numeric-characters"),
+    GLASSFISH_LEGACY("glassfish-legacy");
 
     public static final String HEADER = "X-Carlos-XML-Profile";
     private static final String EXCHANGE_KEY = XmlWireProfile.class.getName();
@@ -16,6 +17,10 @@ public enum XmlWireProfile {
 
     XmlWireProfile(String wireName) {
         this.wireName = wireName;
+    }
+
+    public boolean numericCharacters() {
+        return this == GLASSFISH_NUMERIC_CHARACTERS || this == GLASSFISH_LEGACY;
     }
 
     public String wireName() {

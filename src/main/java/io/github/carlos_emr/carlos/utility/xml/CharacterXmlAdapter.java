@@ -27,7 +27,7 @@ public final class CharacterXmlAdapter extends XmlCompatibilityAdapter<String, C
     @Override
     public Character unmarshal(String value) {
         if (value == null) return null;
-        if (XmlWireProfile.current() == XmlWireProfile.GLASSFISH_NUMERIC_CHARACTERS) {
+        if (XmlWireProfile.current().numericCharacters()) {
             if (!value.matches("[0-9]{1,5}")) throw new XmlCompatibilityValueException("Expected an unsigned XML character code");
             int code = Integer.parseInt(value);
             if (code > Character.MAX_VALUE) throw new XmlCompatibilityValueException("XML character code is out of range");
@@ -42,7 +42,7 @@ public final class CharacterXmlAdapter extends XmlCompatibilityAdapter<String, C
     public String marshal(Character value) {
         // MOXy omits null but writes the NUL sentinel as an empty element, never a numeric zero.
         if (value == null) return null;
-        if (XmlWireProfile.current() == XmlWireProfile.GLASSFISH_NUMERIC_CHARACTERS) {
+        if (XmlWireProfile.current().numericCharacters()) {
             return Integer.toString(value);
         }
         return value == '\0' ? "" : value.toString();
