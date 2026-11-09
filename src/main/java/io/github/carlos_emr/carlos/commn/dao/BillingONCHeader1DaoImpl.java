@@ -684,23 +684,6 @@ public class BillingONCHeader1DaoImpl extends AbstractDaoImpl<BillingONCHeader1>
     }
 
     @Override
-    public List<Object[]> findBillingsAndDemographicsByDemoIdAndDates(Integer demoNo, String payProgram, Date fromDate,
-                                                                      Date toDate) {
-        ParamAppender app = new ParamAppender("SELECT bch, d FROM BillingONCHeader1 bch, Demographic d");
-        app.and("bch.demographicNo = d.demographicNo");
-        app.and("bch.demographicNo = :demoNo", "demoNo", demoNo);
-        app.and("bch.payProgram = :payProgram", "payProgram", payProgram);
-        app.and("(bch.status IS NULL OR bch.status <> 'D')");
-        app.and("bch.billingDate >= :fromDate", "fromDate", (new SimpleDateFormat("yyyy-MM-dd")).format(fromDate));
-        app.and("bch.billingDate <= :toDate", "toDate", (new SimpleDateFormat("yyyy-MM-dd")).format(toDate));
-        app.addOrder("bch.id");
-
-        Query query = entityManager.createQuery(app.toString());
-        app.setParams(query);
-        return query.getResultList();
-    }
-
-    @Override
     public List<Object[]> findDemographicsAndBillingsByDxAndServiceDates(List<String> dxCodes, Date from, Date to) {
         String sql = "SELECT d, bc, bi FROM Demographic d, BillingONCHeader1 bc, BillingONItem bi WHERE bc.demographicNo = d.demographicNo AND bc.id = bi.ch1Id AND bi.dx in (?1) AND bi.serviceDate >= ?2 and bi.serviceDate <= ?3 GROUP BY d.demographicNo, bi.dx ORDER BY d.demographicNo, bi.serviceDate";
         Query query = entityManager.createQuery(sql);

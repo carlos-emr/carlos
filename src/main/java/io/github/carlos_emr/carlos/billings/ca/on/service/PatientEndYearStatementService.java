@@ -21,21 +21,20 @@
  */
 package io.github.carlos_emr.carlos.billings.ca.on.service;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao;
+import io.github.carlos_emr.carlos.commn.dao.FixedJasperReportDao.InvoiceRow;
+import io.github.carlos_emr.carlos.report.FixedJasperDataSources;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 
 import net.sf.jasperreports.engine.JRException;
 import net.sf.jasperreports.engine.JasperCompileManager;
@@ -46,13 +45,8 @@ import io.github.carlos_emr.carlos.PMmodule.utility.Utility;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementInvoice;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementServiceLine;
-import io.github.carlos_emr.carlos.commn.dao.BillingONCHeader1Dao;
-import io.github.carlos_emr.carlos.commn.dao.BillingONItemDao;
-import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
-import io.github.carlos_emr.carlos.commn.model.BillingONItem;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 // NOTE: tx is writable (not readOnly = true). This service's reads are
 // dominant, but DemographicManager.searchDemographic — called from
@@ -75,11 +69,10 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  *   <li>{@link #aggregateInvoices} — for the resolved patient, iterate the
  *       non-deleted PAT billings in the date range, walk their items, and tally
  *       invoiced/paid totals into a {@link PatientEndYearStatementSummary}.</li>
- *   <li>{@link #writePdfTo} — render the JasperReports PDF to the response
+ *   <li>{@link #writePdfResponse} — render the JasperReports PDF to the response
  *       output stream. This is the path that previously held a
- *       {@code LegacyJdbcQuery.getConnection()} call inside
- *       {@code PatientEndYearStatement2Action}; the connection lifecycle now
- *       lives entirely below the web tier.</li>
+ *       JDBC call inside
+ *       {@code PatientEndYearStatement2Action}; the renderer now consumes detached rows.</li>
  * </ul>
  *
  * @since 2026-04-26
@@ -87,6 +80,8 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 @org.springframework.stereotype.Service
 @org.springframework.transaction.annotation.Transactional
 public class PatientEndYearStatementService {
+    private static final org.apache.logging.log4j.Logger LOG =
+            org.apache.logging.log4j.LogManager.getLogger(PatientEndYearStatementService.class);
 
     // These are bundled classpath resources, not configurable external filesystem locations.
     @SuppressWarnings("java:S1075")
@@ -95,18 +90,14 @@ public class PatientEndYearStatementService {
     @SuppressWarnings("java:S1075")
     private static final String JASPER_SUBREPORT_PATH =
             "/oscar/oscarBilling/ca/on/reports/end_year_statement_subreport.jrxml";
-    private static final String PAT_BILLING_TYPE = "PAT";
     private static final String REPORT_ERROR_KEY = "errors.billing.ca.on.database";
 
-    private final BillingONCHeader1Dao headerDao;
-    private final BillingONItemDao itemDao;
+    private final FixedJasperReportDao reportDao;
     private final DemographicManager demographicManager;
 
-    PatientEndYearStatementService(BillingONCHeader1Dao headerDao,
-                                   BillingONItemDao itemDao,
+    PatientEndYearStatementService(FixedJasperReportDao reportDao,
                                    DemographicManager demographicManager) {
-        this.headerDao = headerDao;
-        this.itemDao = itemDao;
+        this.reportDao = reportDao;
         this.demographicManager = demographicManager;
     }
 
@@ -164,39 +155,38 @@ public class PatientEndYearStatementService {
      * is the per-invoice list rendered into the JSP table body.</p>
      *
      * @throws Failure with {@link Reason#DATABASE_ERROR} if any DAO call
-     *                 throws — wraps the cause for logging on the action.
+     *                 throws or an invoice has a missing total/paid amount.
+     *                 Incomplete amounts cannot produce reliable totals; the report
+     *                 fails explicitly rather than substituting zero or omitting invoices.
      */
+    @Transactional(readOnly = true, isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public Result aggregateInvoices(Demographic demographic, Date fromDate, Date toDate) {
         List<PatientEndYearStatementInvoice> invoices = new ArrayList<>();
         BigDecimal totalInvoiced = BigDecimal.ZERO;
         BigDecimal totalPaid = BigDecimal.ZERO;
         int invoiceCount = 0;
 
+        List<InvoiceRow> rows;
         try {
-            List<Object[]> rows = headerDao.findBillingsAndDemographicsByDemoIdAndDates(
-                    demographic.getDemographicNo(), PAT_BILLING_TYPE, fromDate, toDate);
-            List<BillingONCHeader1> headers = rows.stream()
-                    .map(row -> (BillingONCHeader1) row[0])
-                    .toList();
-            List<Integer> invoiceIds = headers.stream()
-                    .map(BillingONCHeader1::getId)
-                    .toList();
-            Map<Integer, List<BillingONItem>> itemsByInvoice = itemDao.findByCh1IdsExcludingDeleted(invoiceIds)
-                    .stream()
-                    .collect(Collectors.groupingBy(BillingONItem::getCh1Id));
-            for (Object[] row : rows) {
-                BillingONCHeader1 header = (BillingONCHeader1) row[0];
-                BigDecimal paid = header.getPaid();
-                BigDecimal invoiced = header.getTotal();
+            rows = reportDao.statement(demographic.getDemographicNo(), sqlDate(fromDate), sqlDate(toDate));
+            for (InvoiceRow header : rows) {
+                BigDecimal paid = header.paid();
+                BigDecimal invoiced = header.total();
+                if (invoiced == null || paid == null) {
+                    LOG.error("Incomplete statement invoice amounts: invoiceId={}, missingTotal={}, missingPaid={}",
+                            io.github.carlos_emr.carlos.utility.LogSafe.sanitize(String.valueOf(header.id())),
+                            invoiced == null, paid == null);
+                    throw new IllegalStateException("Statement invoice has an incomplete amount");
+                }
 
                 List<PatientEndYearStatementServiceLine> services = new ArrayList<>();
-                for (BillingONItem item : itemsByInvoice.getOrDefault(header.getId(), List.of())) {
+                for (var item : header.items()) {
                     services.add(new PatientEndYearStatementServiceLine(
-                            item.getServiceCode(), Utility.toCurrency(item.getFee())));
+                            item.serviceCode(), Utility.toCurrency(item.fee())));
                 }
 
                 invoices.add(new PatientEndYearStatementInvoice(
-                        header.getId(), header.getBillingDate(),
+                        header.id(), header.billingDate(),
                         formatMoney(invoiced), formatMoney(paid),
                         services));
 
@@ -222,40 +212,25 @@ public class PatientEndYearStatementService {
                 .fromDate(fromDate)
                 .toDate(toDate)
                 .build();
-        return new Result(summary, invoices);
+        return new Result(summary, invoices, rows);
     }
 
-    /**
-     * Render the end-year-statement Jasper PDF for the given (already
-     * aggregated) summary directly to {@code out}. Owns the JDBC connection
-     * lifecycle: obtains the report connection only inside this method
-     * and releases it through the legacy Spring-managed JDBC boundary when the
-     * report has been filled.
-     *
-     * @param fromDateParam ISO date string echoed into the report header
-     * @param toDateParam   ISO date string echoed into the report header
-     * @throws Failure {@link Reason#DATABASE_ERROR} if no JDBC connection can be acquired,
-     *                 or {@link Reason#PDF_ERROR} if compilation, filling or export fails
-     */
-    // JasperReports needs a raw java.sql.Connection to execute the report's
-    // embedded SQL queries; routing through the JPA EntityManager would
-    // require rewriting the report engine's data source, not just the
-    // connection acquisition.
-    public void writePdfTo(OutputStream out, PatientEndYearStatementSummary summary,
-                           String fromDateParam, String toDateParam) {
-        HashMap<String, Object> reportParams = buildReportParams(summary, fromDateParam, toDateParam);
+    // The public response entry point suspends transactions before calling this detached renderer.
+    private void renderPdfTo(OutputStream out, Result result, String fromDateParam, String toDateParam) {
+        HashMap<String, Object> reportParams = buildReportParams(result.summary(), fromDateParam, toDateParam);
         try {
             JasperReport report = compileReport(JASPER_REPORT_PATH);
             reportParams.put("SUBREPORT", compileReport(JASPER_SUBREPORT_PATH));
-            try (Connection dbConn = LegacyJdbcQuery.getConnection()) {
-                var filledReport = JasperFillManager.fillReport(report, reportParams, dbConn);
-                JasperExportManager.exportReportToPdfStream(filledReport, out);
-            }
-        } catch (SQLException ex) {
-            throw new Failure(Reason.DATABASE_ERROR, ex);
+            var filledReport = JasperFillManager.fillReport(report, reportParams,
+                    FixedJasperDataSources.invoices(result.reportRows()));
+            JasperExportManager.exportReportToPdfStream(filledReport, out);
         } catch (JRException | IOException | RuntimeException ex) {
             throw new Failure(Reason.PDF_ERROR, ex);
         }
+    }
+
+    private static java.sql.Date sqlDate(Date value) {
+        return value == null ? null : new java.sql.Date(value.getTime());
     }
 
     private static JasperReport compileReport(String path) throws IOException, JRException {
@@ -275,21 +250,18 @@ public class PatientEndYearStatementService {
      * Render and validate the complete PDF before setting download headers or
      * touching the servlet output stream. Generation failures leave the response clean.
      */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void writePdfResponse(jakarta.servlet.http.HttpServletResponse response,
                                  String filenameWithoutExt,
-                                 PatientEndYearStatementSummary summary,
+                                 Result result,
                                  String fromDateParam,
                                  String toDateParam) {
-        var buffer = new ByteArrayOutputStream();
-        writePdfTo(buffer, summary, fromDateParam, toDateParam);
-        byte[] pdf = buffer.toByteArray();
-        if (pdf.length < 5 || !"%PDF-".equals(new String(pdf, 0, 5, StandardCharsets.US_ASCII))) {
-            throw new Failure(Reason.PDF_ERROR, new IOException("Statement renderer returned invalid PDF data"));
-        }
-        configurePdfResponseHeaders(response, filenameWithoutExt);
-        response.setContentLength(pdf.length);
         try {
-            response.getOutputStream().write(pdf);
+            io.github.carlos_emr.carlos.report.ReportPdfResponse.write(response,
+                    "attachment;filename=" + filenameWithoutExt + ".pdf",
+                    output -> renderPdfTo(output, result, fromDateParam, toDateParam));
+        } catch (io.github.carlos_emr.carlos.report.ReportPdfResponse.InvalidPdfException e) {
+            throw new Failure(Reason.PDF_ERROR, e);
         } catch (IOException e) {
             throw new Failure(Reason.IO_ERROR, e);
         }
@@ -311,22 +283,20 @@ public class PatientEndYearStatementService {
         return p;
     }
 
-    private static void configurePdfResponseHeaders(jakarta.servlet.http.HttpServletResponse response,
-                                                    String filenameWithoutExt) {
-        response.setContentType("application/pdf");
-        response.setHeader("Content-Disposition",
-                "attachment;filename=" + filenameWithoutExt + ".pdf");
-    }
-
     /**
      * Aggregated result of {@link #aggregateInvoices}.
      */
     public record Result(PatientEndYearStatementSummary summary,
-                         List<PatientEndYearStatementInvoice> invoices) {
+                         List<PatientEndYearStatementInvoice> invoices,
+                         List<InvoiceRow> reportRows) {
         /** Defensive copy on the way in — the assembler hands us its live
          *  ArrayList and we must not let a JSP mutate the persisted snapshot. */
         public Result {
-            invoices = invoices == null ? List.of() : List.copyOf(invoices);
+            reportRows = List.copyOf(reportRows);
+            invoices = List.copyOf(invoices);
+            if (invoices.size() != reportRows.size()) {
+                throw new IllegalArgumentException("Statement detail count does not match its snapshot");
+            }
         }
     }
 

@@ -60,10 +60,60 @@ empty-caption fallback for database failures.
 
 ## Jasper and remaining legacy APIs
 
-`printLabDaySheet2Action` and `PatientEndYearStatementService` retain managed
-connections with try-with-resources. Their Jasper templates execute embedded
-queries, so removing the connection requires a separately reviewed template and
-JRDataSource/projection conversion. This change does not replace that contract.
+The bundled lab/billing day sheets and patient end-year statement use
+`FixedJasperReportDao` detached projections and explicit `FixedJasperDataSources`.
+The fixed templates contain no SQL or `REPORT_CONNECTION`. The statement loads
+headers and items in one repeatable-read transaction; HTML totals and PDF details
+use the same result. Blank statement date endpoints use optional bound predicates.
+Patient lookup retains its writable transaction for demographic-access audit writes.
+PDF methods suspend ambient transactions and render without database access.
+
+Both downloads render to owner-only temporary files, validate the PDF signature,
+and set headers only after generation succeeds. Files are removed on every exit;
+output/cleanup failures propagate. Both PDFs prohibit cache storage (`no-store`).
+Invalid renderer output is a PDF error, distinct from disk or response I/O errors.
+Day sheets now return HTTP 204 with no body when no rows match, replacing the old
+HTTP 200 blank PDF. Bundled day sheets require strict `yyyy-MM-dd` dates; missing,
+invalid and non-padded dates now return HTTP 400. The statement retains its
+zero-total header/footer when no invoices match. An invoice with a NULL total or
+paid amount fails the statement explicitly as a database/data error; no partial
+statement, omitted invoice or fabricated zero amount is returned.
+The day-sheet query retains date-only selection across all providers/statuses and
+has no added ORDER BY; its historic row order is not guaranteed by SQL.
+
+The administrator-installed `${user.home}/Addresslabel.xml` override retains its
+original precedence and arbitrary embedded SQL through the package-private
+`ConfiguredJasperTemplateRenderer` managed JDBC boundary. It is explicitly outside
+the fixed query contract: changing its query to a fixed typed selection would
+silently change the report. A present override that is unreadable or not a regular
+file now fails explicitly, as do override compilation/query/export failures;
+there is no automatic fallback after an override fails. Its SQL is never executed
+through the clinical EntityManager. `printLabDaySheet2Action` owns no JDBC resources.
+Other configured-report boundaries and Query by Example's restricted account are
+unchanged.
+
+Installed qualification separates the bundled and configured contracts. Set
+`CARLOS_REPORT_SERVER_HOME` to the running server's `user.home` directory, mounted
+locally when the deployment is remote. The `report-fixed-jasper` check refuses to
+run while `Addresslabel.xml` exists and verifies both bundled styles, empty output,
+invalid dates and cache headers. To qualify an intentionally installed synthetic
+override separately, run `report-configured-jasper` with
+`CARLOS_FIXED_JASPER_OVERRIDE_TEXT` set to its expected output marker. This checks its
+precedence over both styles and null-date compatibility against that marker.
+Override checks do not satisfy bundled-template qualification; remove the owned
+override and run the bundled check separately. The check never replaces or removes
+administrator configuration.
+
+Environment prerequisites run before SQL setup. Missing server-home, override
+fixture/marker or Poppler prerequisites produce SKIP in ordinary runs; strict
+release qualification rejects skipped checks. Invalid configured paths and a
+conflicting override in bundled mode fail with explicit guidance. The
+`packaged-full` lane declares the server-home requirement, and installed lifecycle
+clients supply the standard `/var/lib/carlos-emr` home automatically.
+
+Test-only baseline templates in `src/test/resources/jasper-5692-baseline/` are copied
+from release commit `e0601ced004c38040e6ef293e4b3f24fc43826d3` (trailing whitespace normalized) solely for synthetic
+JDBC-versus-typed rendered-output comparisons; they are not packaged in the WAR.
 
 `LookupDao.runProcedure` had no production callers and is removed rather than
 retaining an untyped routine-name/string-array execution API. A future routine

@@ -45,24 +45,11 @@
 	<parameter name="phone" forPrompting="false" class="java.lang.String">
 		<defaultValueExpression><![CDATA[""]]></defaultValueExpression>
 	</parameter>
-	<query><![CDATA[SELECT bch.id,bch.billing_date,bch.total,bch.paid,bch.demographic_name,
-d.address,d.hin,d.phone,d.phone2 
-FROM billing_on_cheader1 bch JOIN demographic d 
-ON bch.demographic_no=d.demographic_no 
-WHERE bch.demographic_no=$P{patientId}  
-AND bch.pay_program='PAT'
-AND (bch.status IS NULL OR bch.status <> 'D')
-AND bch.billing_date >= $P{fromDate} 
-AND bch.billing_date <= $P{toDate} ORDER BY bch.id]]></query>
 	<field name="id" class="java.lang.Integer" />
 	<field name="billing_date" class="java.sql.Date" />
 	<field name="total" class="java.math.BigDecimal" />
 	<field name="paid" class="java.math.BigDecimal" />
-	<field name="demographic_name" class="java.lang.String" />
-	<field name="address" class="java.lang.String" />
-	<field name="hin" class="java.lang.String" />
-	<field name="phone" class="java.lang.String" />
-	<field name="phone2" class="java.lang.String" />
+	<field name="items" class="net.sf.jasperreports.engine.JRDataSource" />
 	<background height="0">
 			</background>
 	<title height="111">
@@ -200,7 +187,7 @@ AND bch.billing_date <= $P{toDate} ORDER BY bch.id]]></query>
 				<parameter name="invoiceId">
 					<expression><![CDATA[$F{id}]]></expression>
 				</parameter>
-				<connectionExpression><![CDATA[$P{REPORT_CONNECTION}]]></connectionExpression>
+				<dataSourceExpression><![CDATA[$F{items}]]></dataSourceExpression>
 				<expression><![CDATA[$P{SUBREPORT}]]></expression>
 			</element>
 		</band>
