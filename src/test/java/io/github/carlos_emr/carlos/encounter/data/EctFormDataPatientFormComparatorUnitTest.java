@@ -25,12 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Random;
-import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -69,8 +67,8 @@ class EctFormDataPatientFormComparatorUnitTest {
 
     private static List<Integer> idsAfterSort(Comparator<PatientForm> comparator, PatientForm... forms) {
         List<PatientForm> list = new ArrayList<>(List.of(forms));
-        Collections.sort(list, comparator);
-        return list.stream().map(f -> f.formId).collect(Collectors.toList());
+        list.sort(comparator);
+        return list.stream().map(f -> f.formId).toList();
     }
 
     @Nested
@@ -100,7 +98,7 @@ class EctFormDataPatientFormComparatorUnitTest {
             List<PatientForm> forms = new ArrayList<>(List.of(
                     form(1, null, null), form(2, D1, D2), form(3, D3, null)));
 
-            assertThatCode(() -> Collections.sort(forms, PatientForm.EDITED_DATE_COMPARATOR))
+            assertThatCode(() -> forms.sort(PatientForm.EDITED_DATE_COMPARATOR))
                     .doesNotThrowAnyException();
             assertThat(forms).extracting(f -> f.formId).containsExactly(3, 2, 1);
         }
@@ -152,7 +150,7 @@ class EctFormDataPatientFormComparatorUnitTest {
 
             // TimSort throws IllegalArgumentException on an inconsistent comparator; 400 mixed rows
             // are well past its merge threshold, so this also exercises the merge path.
-            assertThatCode(() -> Collections.sort(forms, PatientForm.EDITED_DATE_COMPARATOR))
+            assertThatCode(() -> forms.sort(PatientForm.EDITED_DATE_COMPARATOR))
                     .doesNotThrowAnyException();
             for (int i = 1; i < forms.size(); i++) {
                 assertThat(PatientForm.EDITED_DATE_COMPARATOR.compare(forms.get(i - 1), forms.get(i)))
@@ -188,7 +186,7 @@ class EctFormDataPatientFormComparatorUnitTest {
             List<PatientForm> forms = new ArrayList<>(List.of(
                     form(1, null, null), form(2, D1, null), form(3, null, D3)));
 
-            assertThatCode(() -> Collections.sort(forms, PatientForm.CREATED_DATE_COMPARATOR))
+            assertThatCode(() -> forms.sort(PatientForm.CREATED_DATE_COMPARATOR))
                     .doesNotThrowAnyException();
             assertThat(forms).extracting(f -> f.formId).containsExactly(3, 2, 1);
         }
@@ -203,7 +201,7 @@ class EctFormDataPatientFormComparatorUnitTest {
                 forms.add(form(i, pool[random.nextInt(pool.length)], pool[random.nextInt(pool.length)]));
             }
 
-            assertThatCode(() -> Collections.sort(forms, PatientForm.CREATED_DATE_COMPARATOR))
+            assertThatCode(() -> forms.sort(PatientForm.CREATED_DATE_COMPARATOR))
                     .doesNotThrowAnyException();
             for (int i = 1; i < forms.size(); i++) {
                 assertThat(PatientForm.CREATED_DATE_COMPARATOR.compare(forms.get(i - 1), forms.get(i)))
