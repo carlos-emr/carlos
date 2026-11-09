@@ -352,39 +352,48 @@ public class EctFormData {
         private SimpleDateFormat dateFormat = new SimpleDateFormat(EctFormData.DATE_FORMAT);
 
         /**
-         * This comparator sorts PatientForm descending based on the created date
+         * Newest first, rows with no date last. Compares epoch milliseconds so that a
+         * {@code java.sql.Timestamp} and a plain {@code Date} order symmetrically.
          */
-        public static final Comparator<PatientForm> CREATED_DATE_COMPARATOR = new Comparator<PatientForm>() {
-            public int compare(PatientForm o1, PatientForm o2) {
-                if (o2.created == null && o1.created == null) {
-                    return o2.edited.compareTo(o1.edited);
-                }
-                if (o2.created == null && o1.created != null) {
-                    return o2.edited.compareTo(o1.created);
-                }
-                if (o1.created == null && o2.created != null) {
-                    return o2.created.compareTo(o1.edited);
-                }
+        private static final Comparator<Long> NEWEST_FIRST_UNDATED_LAST =
+                Comparator.nullsLast(Comparator.<Long>reverseOrder());
 
-                return (o2.created.compareTo(o1.created));
-            }
-        };
-        public static final Comparator<PatientForm> EDITED_DATE_COMPARATOR = new Comparator<PatientForm>() {
-            public int compare(PatientForm o1, PatientForm o2) {
-                if (o2.edited == null && o1.edited == null) {
-                    return o2.created.compareTo(o1.created);
-                }
-                if (o2.edited == null && o1.edited != null) {
-                    return o2.created.compareTo(o1.edited);
-                }
-                if (o1.edited == null && o2.edited != null) {
-                    return o2.edited.compareTo(o1.created);
-                }
+        /** Highest ID first, the deterministic tie-break once two rows carry the same effective date. */
+        private static final Comparator<Integer> HIGHEST_ID_FIRST =
+                Comparator.nullsLast(Comparator.<Integer>reverseOrder());
 
+        /**
+         * Sorts PatientForm newest first by creation date, using the edit date for a row that has no
+         * creation date. Rows with neither date sort last, then the highest ID first.
+         *
+         * <p>{@code formCreated} is nullable in every form table and {@code formEdited} in several, so a
+         * row may carry either date, both or neither (issue #5994). The key is derived from one row at
+         * a time, which keeps this a consistent total order; the earlier pairwise version compared one
+         * row's created date with the other's edited date, which is not transitive.</p>
+         */
+        public static final Comparator<PatientForm> CREATED_DATE_COMPARATOR =
+                Comparator.comparing((PatientForm form) -> epochMillis(form.created, form.edited),
+                                NEWEST_FIRST_UNDATED_LAST)
+                        .thenComparing(form -> form.formId, HIGHEST_ID_FIRST);
 
-                return (o2.edited.compareTo(o1.edited));
-            }
-        };
+        /**
+         * Sorts PatientForm newest first by edit date, using the creation date for a row that was
+         * never edited. Rows with neither date sort last, then the highest ID first.
+         *
+         * <p>Used by {@code EmailNoteUtil} to list a sent email's form attachments after the message has
+         * been accepted, so it must never throw on a row with a missing date (issue #5994). See
+         * {@link #CREATED_DATE_COMPARATOR} for why the key is per row.</p>
+         */
+        public static final Comparator<PatientForm> EDITED_DATE_COMPARATOR =
+                Comparator.comparing((PatientForm form) -> epochMillis(form.edited, form.created),
+                                NEWEST_FIRST_UNDATED_LAST)
+                        .thenComparing(form -> form.formId, HIGHEST_ID_FIRST);
+
+        /** The time of {@code preferred}, else of {@code fallback}, else {@code null} when the row has neither. */
+        private static Long epochMillis(Date preferred, Date fallback) {
+            Date effective = preferred != null ? preferred : fallback;
+            return effective == null ? null : effective.getTime();
+        }
 
         /**
          * Orders rows the way {@code FrmData.getShortcutFormValue} resolves {@code formId=latest}:
