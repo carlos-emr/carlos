@@ -101,7 +101,10 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
         DigitalSignature resolved = findUniqueUnassignedOwner(id);
         if (resolved == null || (stored.getModuleType() != null
                 && stored.getModuleType() != resolved.getModuleType())) {
-            return stored;
+            // An imported -1 row is never itself proof of patient ownership.
+            // A caller must not authorize its image with the sentinel or a
+            // module inferred from a conflicting clinical reference.
+            return null;
         }
         resolved.setProviderNo(stored.getProviderNo());
         return resolved;

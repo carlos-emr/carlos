@@ -286,8 +286,37 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
-            assertThat(metadata.getDemographicId()).isEqualTo(-1);
-            assertThat(metadata.getModuleType()).isNull();
+            assertThat(metadata).isNull();
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("unreferenced -1 signatures remain unreadable even with a stored module")
+        void shouldRefuseUnreferencedUnassignedSignature() {
+            DigitalSignature saved = legacySignature(-1);
+            saved.setModuleType(ModuleType.CONSULTATION);
+            digitalSignatureDao.persist(saved);
+            digitalSignatureDao.flush();
+
+            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
+            assertThat(digitalSignatureDao.findMetadataById(saved.getId()).getDemographicId()).isEqualTo(-1);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("a stored module cannot override a conflicting -1 signature reference")
+        void shouldRefuseModuleMismatchForUnassignedSignature() {
+            DigitalSignature saved = legacySignature(-1);
+            saved.setModuleType(ModuleType.PRESCRIPTION);
+            digitalSignatureDao.persist(saved);
+            digitalSignatureDao.flush();
+            ConsultationRequest consult = new ConsultationRequest();
+            consult.setDemographicId(123);
+            consult.setSignatureImg(String.valueOf(saved.getId()));
+            entityManager.persist(consult);
+            entityManager.flush();
+
+            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
         }
 
         private DigitalSignature persistLegacySignature(Integer demographicId) {

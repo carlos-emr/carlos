@@ -21,7 +21,7 @@ test('source Debian build clears stale versioned WARs before selecting its outpu
 for (const [label, body, expected] of [
   ['the shipped manifests', null, 0],
   ['an older schema format', '{"format": 1, "kind": "o19map-schema"}', 1],
-  ['a newer schema format', '{"format": 3, "kind": "o19map-schema"}', 1],
+  ['a newer schema format', '{"format": 4, "kind": "o19map-schema"}', 1],
   ['a props manifest with schema format', '{"format": 2, "kind": "o19map-props"}', 1],
   ['a preflight manifest with schema format', '{"format": 2, "kind": "o19-preflight"}', 1],
   ['an unknown kind', '{"format": 1, "kind": "unknown"}', 1],
@@ -41,6 +41,15 @@ for (const [label, body, expected] of [
       const shipped = path.join(__dirname, '..', 'debian', 'assets', 'o19-manifest');
       for (const name of fs.readdirSync(shipped).filter((n) => n.endsWith('.json'))) {
         fs.copyFileSync(path.join(shipped, name), path.join(dir, name));
+      }
+      // The package's manifest gate also hashes the stock collision assets.
+      // Stage those exact source bytes in this isolated recipe fixture.
+      const stock = JSON.parse(fs.readFileSync(path.join(shipped, 'stock-eform-assets.json'), 'utf8'));
+      const sourceAssets = path.join(__dirname, '..', 'src', 'main', 'webapp', 'WEB-INF', 'eform-assets');
+      const fixtureAssets = path.join(root, 'src', 'main', 'webapp', 'WEB-INF', 'eform-assets');
+      fs.mkdirSync(fixtureAssets, { recursive: true });
+      for (const name of Object.keys(stock.assets)) {
+        fs.copyFileSync(path.join(sourceAssets, name), path.join(fixtureAssets, name));
       }
       if (body !== null) fs.writeFileSync(path.join(dir, 'zz_bad.json'), body);
       const result = spawnSync('sh', ['-c', recipe], { cwd: root, encoding: 'utf8' });
