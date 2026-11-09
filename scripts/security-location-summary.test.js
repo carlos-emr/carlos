@@ -99,6 +99,35 @@ test('notification shape and private locations fail before printing any partial 
     }
 });
 
+test('real Semgrep parser labels retain only verified repository coordinates from their message', () => {
+    const value = { descriptor: { id: 'Syntax error' }, level: 'warning',
+        message: { text: 'Syntax error at line scripts/summarize_security_locations.py:7:\n `' + poison + '` was unexpected' } };
+    const document = { runs: [{ invocations: [{ executionSuccessful: true,
+        toolExecutionNotifications: [value] }] }] };
+    const result = run([document]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal((result.stdout + result.stderr).includes(poison), false);
+    assert.deepEqual(result.stdout.trim().split('\n').map(JSON.parse)[1], {
+        kind: 'scannerNotification', runIndex: 0, invocationIndex: 0,
+        ruleId: 'Semgrep.Syntax_error', level: 'warning',
+        path: 'scripts/summarize_security_locations.py', startLine: 7, endLine: 7,
+    });
+});
+
+test('parser prose cannot turn a private or unverified path into a published location', () => {
+    for (const target of ['/private/' + poison, 'src/../' + poison, 'scripts/' + poison + '.py']) {
+        const document = { runs: [{ invocations: [{ executionSuccessful: true,
+            toolExecutionNotifications: [{ descriptor: { id: 'Syntax error' }, level: 'warning',
+                message: { text: `Syntax error at line ${target}:7:\n ${poison}` } }] }] }] };
+        const result = run([document]);
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal((result.stdout + result.stderr).includes(poison), false);
+        const notice = result.stdout.trim().split('\n').map(JSON.parse)[1];
+        assert.equal(notice.ruleId, 'Semgrep.Syntax_error');
+        assert.equal(Object.hasOwn(notice, 'path'), false);
+    }
+});
+
 for (const uri of ['../outside.java', '/private/outside.java', 'https://example.invalid/token?secret=' + poison,
     'src/%2e%2e/%2e%2e/outside.java', 'src/main/java/Example.java?secret=' + poison]) {
     test(`summary refuses non-repository location ${uri.split('?')[0]}`, () => {

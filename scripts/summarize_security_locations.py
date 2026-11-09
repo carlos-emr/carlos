@@ -7,6 +7,32 @@ import re
 import sys
 from urllib.parse import unquote, urlsplit
 
+REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
+
+
+def syntax_error_locations(notice):
+    """Semgrep puts parse coordinates in prose; retain only verified repository coordinates."""
+    message = notice.get("message", {})
+    text = message.get("text") if isinstance(message, dict) else None
+    if not isinstance(text, str):
+        return []
+    match = re.match(r"\ASyntax error at line ([^:\r\n]{1,4096}):([1-9][0-9]{0,9}):", text)
+    if not match:
+        return []
+    path = PurePosixPath(match.group(1))
+    if path.is_absolute():
+        try:
+            path = path.relative_to(REPOSITORY_ROOT)
+        except ValueError:
+            return []
+    if (".." in path.parts or "\\" in str(path)
+            or not (REPOSITORY_ROOT / path).resolve().is_relative_to(REPOSITORY_ROOT)
+            or not (REPOSITORY_ROOT / path).is_file()
+            or (REPOSITORY_ROOT / path).is_symlink()):
+        return []
+    return [{"physicalLocation": {"artifactLocation": {"uri": path.as_posix()},
+                                  "region": {"startLine": int(match.group(2))}}}]
+
 
 def location_records(report):
     records = []
@@ -71,16 +97,23 @@ def execution_records(report):
                 raise ValueError("Invalid execution notifications")
             for notice in notifications:
                 descriptor = notice.get("descriptor", {}).get("id", "SEMGREP_TOOL_NOTIFICATION")
+                if not isinstance(descriptor, str) or not re.fullmatch(r"[A-Za-z0-9_.:/ -]{1,512}", descriptor):
+                    raise ValueError("Invalid notification descriptor")
+                # SARIF notification descriptors are human labels, unlike rule identifiers.
+                # Semgrep's real parser reports "Syntax error", with no locations array.
+                rule = "Semgrep." + descriptor.replace(" ", "_") if " " in descriptor else descriptor
                 level = notice.get("level", "warning")
                 # Reuse the same strict identifier/coordinate validation as finding summaries.
-                selected = {"ruleId": descriptor, "level": level,
-                            "locations": notice.get("locations", [])}
+                locations = notice.get("locations", [])
+                if descriptor == "Syntax error" and not locations:
+                    locations = syntax_error_locations(notice)
+                selected = {"ruleId": rule, "level": level, "locations": locations}
                 locations = location_records({"runs": [{"results": [selected]}]})
                 base = {"kind": "scannerNotification", **identity}
                 if locations:
                     records.extend({**base, **location} for location in locations)
                 else:
-                    records.append({**base, "ruleId": descriptor, "level": level})
+                    records.append({**base, "ruleId": rule, "level": level})
     return records
 
 
