@@ -253,14 +253,10 @@
 
         function reviewed(ths) {
             var thisForm = ths.form;
-            if (thisForm.reviewerId.value === '' || thisForm.reviewerId.value === 'null') {
-                // The action assigns the authenticated reviewer and writes the review audit event.
-                thisForm.reviewerId.value = '';
-                thisForm.reviewDoc.value = true;
-            } else {
-                thisForm.extraReviewerId.value = <%=user_no%>;
-                thisForm.extraReviewDoc.value = true;
-            }
+            // Ask for a review by the signed-in provider. The action decides from the stored
+            // document, under its row lock, whether this is the first review or an additional one,
+            // because the reviewer shown on this page can be out of date (issue #6081).
+            thisForm.reviewDoc.value = true;
             thisForm.submit();
         }
 
@@ -287,9 +283,6 @@
     <input type="hidden" name="reviewerId" value="<carlos:encode value='<%= formdata.getReviewerId() %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="reviewDateTime" value="<carlos:encode value='<%= formdata.getReviewDateTime() %>' context="htmlAttribute"/>"/>
     <input type="hidden" name="reviewDoc" value="false"/>
-
-    <input type="hidden" name="extraReviewerId" value=""/>
-    <input type="hidden" name="extraReviewDoc" value="false"/>
 
     <table class="layouttable">
         <tr>
