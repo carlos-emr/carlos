@@ -345,6 +345,9 @@ async function workflow(s) {
       }
       // Correct the date through the actual picker and the time by typing; assert
       // their submitted AND stored values below. Keep the calendar walk bounded.
+      await dateInput.fill('31/12/2030');
+      await form.locator('textarea[name="messageAppend"]').click();
+      h.assert(await dateInput.inputValue() === '31/12/2030', 'Calendar correction lost the refused date before selection');
       await ui.pickDate(dashboard, dateInput, '2030-12-31',
         { timeout: TIMEOUT, maxMonthSteps: 120 });
       await timeInput.fill('');

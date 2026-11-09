@@ -87,8 +87,8 @@
         "scripts/dashboard-tickler-picker-browser-check.js"
       ],
       "source": "scripts/dashboard-tickler-picker-browser-check.js",
-      "sourceSha256": "2c79b7f5e8e812ff075fed8e0dfd78f5cb0d6f0ecf2660f9187a0115fa172396",
-      "minimumAssertions": 242
+      "sourceSha256": "de2dc855f2337fa4bb5434b8c069e4cc058f91ccb2b06e5006fd307a52a89e85",
+      "minimumAssertions": 314
     },
     {
       "id": "calendar-eform-browser-check",
