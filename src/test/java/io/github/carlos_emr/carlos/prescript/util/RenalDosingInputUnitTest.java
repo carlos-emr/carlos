@@ -16,6 +16,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("Renal dosing observation validation")
 class RenalDosingInputUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
+    @CsvSource({"100,umol/L,100", "100,µmol/L,100", "100,μmol/L,100", "1,mg/dL,88.4"})
+    void shouldNormalizeCreatinine_whenUnitsAreExplicit(String value, String units, double expected) {
+        assertThat(RenalDosingInput.creatinineMicromoles(value, units)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"unknown", "mg/L", "null", "mmol/L"})
+    void shouldRefuseCreatinine_whenUnitsAreMissingOrUnsupported(String units) {
+        assertThat(RenalDosingInput.creatinineMicromoles("1", units)).isNaN();
+    }
+
+    @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "not-a-number", "0", "-1", "NaN", "Infinity", "-Infinity", "1e309",
             "0x1p6", "80f", "80d", "80kg", "1,000", "+", "."})

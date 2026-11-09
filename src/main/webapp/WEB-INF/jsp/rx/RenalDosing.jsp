@@ -101,7 +101,8 @@
 
     measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "sCr");
     if (measurementHash != null && measurementHash.get("value") != null) {
-        measurementsCr = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
+        measurementsCr = RenalDosingInput.creatinineMicromoles((String) measurementHash.get("value"),
+                (String) measurementHash.get("measuringInstruction"));
         measurementsCrDate = (Date) measurementHash.get("dateObserved_date");
         // An undated unusable reading cannot safely be ordered against a valid lab.
         invalidInput |= measurementsCrDate == null && !Double.isFinite(measurementsCr);
@@ -118,7 +119,7 @@
         Hashtable hash = (Hashtable) labs.get(0);
         String sCrStr = (String) hash.get("result");
         sCrDate = (Date) hash.get("collDateDate");
-        sCr = RenalDosingInput.positiveNumber(sCrStr);
+        sCr = RenalDosingInput.creatinineMicromoles(sCrStr, (String) hash.get("units"));
     }
 
 
@@ -147,7 +148,9 @@
     ageb = weightb = sCrb = equate = false;
 
 
-    if (age > 0) {
+    // This is adult creatinine-clearance guidance. Unknown sex must not silently use the male factor.
+    if (age >= 18 && age < 140 && ("M".equalsIgnoreCase(demographic.getSex())
+            || "F".equalsIgnoreCase(demographic.getSex()))) {
         ageb = true;
     }
     if (weight > 0) {
@@ -216,6 +219,9 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 <div data-renal-dosing-panel style="float:left; margin-left:10px; margin-right: 10px;">
     <h3>Dosing Information <small><button type="button" class="btn btn-link"
         onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>');">Refresh</button></small></h3>
+    <% if (!equate) { %>
+    <p role="status"><fmt:message key="oscarRx.renal.unusableObservations"/></p>
+    <% } %>
     <details open><summary>Renal dosing details</summary>
     <table class="sofT">
         <tr class="heading">
@@ -255,7 +261,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
                     <a href="javascript: function myFunction() {return false; }"
                        onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements?groupName=Renal Dosing&amp;demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>','dddsfds'); return false;">
                         [kg <carlos:encode value='<%= UtilDateUtilities.DateToString(wtDate, "yyyy-MMM-dd") %>' context="html"/>]
-                    </a> X 1.23
+                    </a> X 1.25
 
                 </td>
                 <% if (female) {%>

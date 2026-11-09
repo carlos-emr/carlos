@@ -185,6 +185,22 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldPreserveRawInstructions_whenSaveFailsAfterComposition() throws Exception {
+        registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions());
+        request.setParameter("drugName_1", "SYNTHETIC DRUG");
+        request.setParameter("draftRevision_1", card.getDraftRevision());
+        request.setParameter("instructions_1", "1 tab PO OD");
+        try (var ignored = mockConstruction(RxPrescriptionData.class,
+                (mock, context) -> when(mock.saveScript(any(), any()))
+                        .thenThrow(new IllegalStateException("Synthetic header failure")))) {
+            action.updateSaveAllDrugs();
+        }
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(card.getSpecial()).isEqualTo("1 tab PO OD");
+        assertThat(card.getSpecial()).doesNotContain("Qty:", "Repeats:");
+    }
+
     @Nested
     @DisplayName("discarded-card calculation callbacks (#5036)")
     class DiscardedCalculation {
@@ -565,8 +581,9 @@ class RxWriteScript2ActionCardCorrectionUnitTest extends CarlosUnitTestBase {
             registerMock(org.springframework.transaction.PlatformTransactionManager.class, new NoDatabaseTransactions() {
                 @Override
                 protected void doCommit(org.springframework.transaction.support.DefaultTransactionStatus status) {
-                    logActionMock.verifyNoInteractions();
-                    committed.set(true);
+                    // Only the clinical commit precedes every audit. Audit fallback
+                    // transactions commit independently after this first invocation.
+                    if (committed.compareAndSet(false, true)) logActionMock.verifyNoInteractions();
                 }
             });
 

@@ -30,6 +30,19 @@ public final class RenalDosingInput {
         }
     }
 
+    /** Normalizes explicitly identified creatinine units; missing or ambiguous units cannot support dosing. */
+    public static double creatinineMicromoles(String observation, String units) {
+        double value = positiveNumber(observation);
+        if (!Double.isFinite(value) || units == null) return Double.NaN;
+        String normalized = units.trim().toLowerCase(java.util.Locale.ROOT)
+                .replace('µ', 'u').replace('μ', 'u').replace(" ", "");
+        return switch (normalized) {
+            case "umol/l", "micromol/l", "micromoles/l" -> value;
+            case "mg/dl" -> Double.isFinite(value * 88.4) ? value * 88.4 : Double.NaN;
+            default -> Double.NaN;
+        };
+    }
+
     /**
      * Validates the complete birth date before the demographic age calculation.
      *

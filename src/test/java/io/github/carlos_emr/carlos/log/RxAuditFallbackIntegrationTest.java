@@ -1,0 +1,100 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+package io.github.carlos_emr.carlos.log;
+
+import javax.sql.DataSource;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceContext;
+import java.util.concurrent.Executors;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl;
+import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action;
+import io.github.carlos_emr.carlos.test.base.IsolatedJpaTestDatabase;
+import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
+import static org.assertj.core.api.Assertions.assertThat;
+
+/** Exercises the real afterCommit fallback against JPA rather than a mocked transaction manager. */
+@ExtendWith(SpringExtension.class)
+@ContextConfiguration(classes = RxAuditFallbackIntegrationTest.Config.class)
+@Tag("integration")
+@Tag("mariadb-native")
+class RxAuditFallbackIntegrationTest extends CarlosUnitTestBase {
+    @Autowired private OscarLogDao logDao;
+    @Autowired private PlatformTransactionManager transactions;
+    @PersistenceContext private EntityManager entityManager;
+
+    @AfterEach
+    void restoreAuditDependencies() {
+        LogAction.resetExecutorServiceForTesting();
+        LogAction.setOscarLogDaoForTesting(null);
+    }
+
+    @Test
+    void shouldCommitAudit_whenExecutorRejectsAfterClinicalCommit() throws Exception {
+        // The unit base deliberately silences audits; this regression must execute
+        // the real logger and verify the physical row instead.
+        logActionMock.close();
+        logActionMock = null;
+        registerMock(PlatformTransactionManager.class, transactions);
+        registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class));
+        LogAction.setOscarLogDaoForTesting(logDao);
+        var rejecting = Executors.newSingleThreadExecutor();
+        rejecting.shutdown();
+        LogAction.setExecutorServiceForTesting(rejecting);
+        var callback = RxWriteScript2Action.class.getDeclaredMethod("afterSaveCommit", Runnable.class);
+        callback.setAccessible(true);
+        var transaction = new TransactionTemplate(transactions);
+        transaction.executeWithoutResult(status -> {
+            try {
+                callback.invoke(null, (Runnable) () -> LogAction.addLog("999998", "add", "prescription",
+                        "synthetic-commit", "127.0.0.1", "1001", "synthetic"));
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalStateException(failure);
+            }
+        });
+        Long count = transaction.execute(status -> entityManager.createQuery(
+                "select count(l) from OscarLog l where l.contentId = :id", Long.class)
+                .setParameter("id", "synthetic-commit").getSingleResult());
+        assertThat(count).isEqualTo(1L);
+    }
+
+    @Configuration
+    @EnableTransactionManagement(proxyTargetClass = true)
+    static class Config {
+        @Bean(destroyMethod = "close") IsolatedJpaTestDatabase database() throws Exception {
+            return new IsolatedJpaTestDatabase("rx_audit_fallback");
+        }
+        @Bean DataSource dataSource(IsolatedJpaTestDatabase database) { return database.dataSource(); }
+        @Bean LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource,
+                IsolatedJpaTestDatabase database) {
+            var factory = new LocalContainerEntityManagerFactoryBean();
+            factory.setDataSource(dataSource);
+            factory.setManagedTypes(PersistenceManagedTypes.of(OscarLog.class.getName()));
+            factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+            factory.setJpaPropertyMap(database.jpaProperties());
+            return factory;
+        }
+        @Bean PlatformTransactionManager transactionManager(EntityManagerFactory factory) {
+            return new JpaTransactionManager(factory);
+        }
+        @Bean OscarLogDao oscarLogDao() { return new OscarLogDaoImpl(); }
+    }
+}

@@ -398,8 +398,8 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @Test
-        @DisplayName("should attempt to add drug when it does not exist in DB")
-        void shouldAttemptAdd_whenDrugNotInDb() {
+        @DisplayName("should reject a missing update source without inserting a replacement")
+        void shouldRejectMissingUpdate_withoutInsertingReplacement() {
             List<Drug> drugs = new ArrayList<>();
             Drug drug = createTestDrug();
             drug.setId(3); // not in MockDrugDao
@@ -413,8 +413,8 @@ class RxManagerUnitTest extends RxManagerImpl {
         }
 
         @Test
-        @DisplayName("should return null when adding new drug fails")
-        void shouldReturnNull_whenAddingNewDrugFails() {
+        @DisplayName("should throw when adding a new prescription drug fails")
+        void shouldThrow_whenAddingNewDrugFails() {
             List<Drug> drugs = new ArrayList<>();
             Drug drug = createTestDrug();
             drug.setId(3); // not in MockDrugDao

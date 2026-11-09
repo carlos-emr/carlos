@@ -1454,6 +1454,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of internal domain values")
     private String updateSaveAllDrugsLocked(RxSessionBean bean, LoggedInInfo loggedInInfo) throws IOException {
+        Map<RxPrescriptionData.Prescription, String> draftInstructions = new java.util.IdentityHashMap<>();
         Enumeration em = request.getParameterNames();
         List<String> randNum = new ArrayList<String>();
         while (em.hasMoreElements()) {
@@ -1773,18 +1774,27 @@ public final class RxWriteScript2Action extends ActionSupport {
                         special = special.replace("Qty", "Mitte");
                     }
 
+                    draftInstructions.put(rx, rx.getSpecial());
                     rx.setSpecial(special.trim());
 
                     bean.setStashItem(stashIndex, rx);
                 }
             } catch (Exception e) {
+                draftInstructions.forEach(RxPrescriptionData.Prescription::setSpecial);
                 logger.error("Prescription draft validation failed ({})", e.getClass().getSimpleName());
                 return reportInvalidDraft();
             }
         }
         // The patient and permission were checked before taking the bean monitor. Re-resolving
         // through saveDrug here would acquire the session mutex while holding the bean lock.
-        request.setAttribute("scriptId", persistStash(loggedInInfo, bean));
+        try {
+            request.setAttribute("scriptId", persistStash(loggedInInfo, bean));
+        } catch (RuntimeException failure) {
+            // JPA rollback does not restore session objects. Keep the editable SIG raw
+            // so reopening this retained draft cannot compose Qty/Repeats a second time.
+            draftInstructions.forEach(RxPrescriptionData.Prescription::setSpecial);
+            throw failure;
+        }
         return "refresh";
     }
 
@@ -2131,7 +2141,15 @@ public final class RxWriteScript2Action extends ActionSupport {
                         @Override
                         public void afterCommit() {
                             try {
-                                audit.run();
+                                // JPA resources remain bound during afterCommit. A saturated
+                                // executor falls back to this thread, so it needs a new transaction.
+                                var auditTransaction = new org.springframework.transaction.support.TransactionTemplate(
+                                        SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+                                auditTransaction.setPropagationBehavior(org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+                                auditTransaction.executeWithoutResult(status -> {
+                                    audit.run();
+                                    status.flush();
+                                });
                             } catch (RuntimeException e) {
                                 // The prescription has committed. Do not restore its session IDs as if it rolled back.
                                 logger.error("Committed prescription audit could not be queued ({})", e.getClass().getSimpleName());
