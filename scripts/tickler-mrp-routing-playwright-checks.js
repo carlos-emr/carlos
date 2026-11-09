@@ -338,6 +338,9 @@ async function workflow(s) {
           await ui.clickAndAwaitReload(page,route==='back'?page.locator('#ticklerReturnDraft'):page.locator(`input[name="pick_demographic"][value="${patientB}"]`).first());
           const patientId=route==='back'?patient:patientB;
           h.assert(await field(page).inputValue()===patientId&&await assignee.inputValue()===expected,'Search return changed the intended patient or recipient');
+          if(preferenceValue==='default') {
+            h.assert(await clinic.isVisible()&&!await page.locator('#preferenceLink').isVisible(),'Default restoration hides the actual recipient behind a nonexistent saved preference');
+          }
           h.assert(await page.locator('#ticklerMessage').inputValue()===draft&&await page.locator('input[name="xml_appointment_date"]').inputValue()==='2031-01-31'&&await page.locator('select[name="priority"]').inputValue()==='Low','Search return changed draft controls');
           if(clear) {
             const before=JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${patientSet}) ORDER BY tickler_no`)),requests=[];

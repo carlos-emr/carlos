@@ -930,9 +930,12 @@
                         <% if (prop != null || (request.getParameter("taskTo") != null && !taskTo.isEmpty())) {%>
                         <script>
                             // A deliberate transported recipient also restores when Preferences is Default.
+                            // Only saved preferences use the collapsed name/Preference controls.
+                            <% if (prop != null) { %>
                             document.getElementById("selectWrapper").style.display = "none";
                             document.getElementById("nameWrapper").style.display = "block";
                             document.getElementById("preferenceLink").style.display = "inline-block";
+                            <% } %>
 
                             var taskToValue = document.getElementById("taskToBin").value;
                             var taskToName = document.getElementById('taskToNameBin').value;
