@@ -244,7 +244,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("infers legacy eForm metadata from an HTML-escaped URL reference")
-        void shouldInferLegacyEformMetadataFromEscapedReference() {
+        void shouldInferLegacyEformMetadata_fromEscapedReference() {
             DigitalSignature saved = persistLegacySignature(789);
             EFormValue value = new EFormValue();
             value.setDemographicId(789);
@@ -262,7 +262,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("resolves an unassigned eForm signature from an HTML-escaped URL reference")
-        void shouldResolveUnassignedEformSignatureFromEscapedReference() {
+        void shouldResolveUnassignedEformSignature_fromEscapedReference() {
             DigitalSignature saved = persistLegacySignature(-1);
             EFormValue value = new EFormValue();
             value.setDemographicId(789);
@@ -284,7 +284,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("infers a legacy eForm signature in a double-quoted letter URL")
-        void shouldInferLegacyEformMetadataFromLetterContent() {
+        void shouldInferLegacyEformMetadata_fromLetterContent() {
             DigitalSignature saved = persistLegacySignature(789);
             EFormValue letter = new EFormValue();
             letter.setDemographicId(789);
@@ -302,7 +302,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("infers a legacy eForm signature in a single-quoted letter URL")
-        void shouldInferLegacyEformMetadataFromSingleQuotedLetterContent() {
+        void shouldInferLegacyEformMetadata_fromSingleQuotedLetterContent() {
             DigitalSignature saved = persistLegacySignature(789);
             EFormValue letter = new EFormValue();
             letter.setDemographicId(789);
@@ -320,7 +320,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("infers a legacy eForm signature in encoded letter HTML")
-        void shouldInferLegacyEformMetadataFromEncodedLetterContent() {
+        void shouldInferLegacyEformMetadata_fromEncodedLetterContent() {
             DigitalSignature saved = persistLegacySignature(789);
             EFormValue letter = new EFormValue();
             letter.setDemographicId(789);
@@ -338,7 +338,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("does not match a legacy letter signature ID by numeric prefix")
-        void shouldNotInferLegacyEformMetadataFromLongerLetterId() {
+        void shouldNotInferLegacyEformMetadata_fromLongerLetterId() {
             DigitalSignature saved = persistLegacySignature(789);
             EFormValue letter = new EFormValue();
             letter.setDemographicId(789);
@@ -355,7 +355,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("does not treat editable letter text as ownership of an unassigned signature")
-        void shouldNotInferUnassignedSignatureOwnerFromLetterContent() {
+        void shouldNotInferUnassignedSignatureOwner_fromLetterContent() {
             DigitalSignature saved = persistLegacySignature(-1);
             EFormValue letter = new EFormValue();
             letter.setDemographicId(789);
@@ -383,7 +383,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("resolves an imported -1 signature only for a unique read reference")
-        void shouldResolveUnassignedSignatureOnlyForRead() {
+        void shouldResolveUnassignedSignature_onlyForRead() {
             DigitalSignature saved = persistLegacySignature(-1);
             ConsultationRequest consult = new ConsultationRequest();
             consult.setDemographicId(123);
@@ -404,7 +404,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("ambiguous references cannot assign a -1 signature to a patient")
-        void shouldRefuseAmbiguousUnassignedSignature() {
+        void shouldRefuseUnassignedSignature_whenReferencesAreAmbiguous() {
             DigitalSignature saved = persistLegacySignature(-1);
             for (int patient : new int[] {123, 456}) {
                 ConsultationRequest consult = new ConsultationRequest();
@@ -421,7 +421,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("unreferenced -1 signatures remain unreadable even with a stored module")
-        void shouldRefuseUnreferencedUnassignedSignature() {
+        void shouldRefuseUnassignedSignature_whenUnreferenced() {
             DigitalSignature saved = legacySignature(-1);
             saved.setModuleType(ModuleType.CONSULTATION);
             digitalSignatureDao.persist(saved);
@@ -434,7 +434,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
         @Test
         @Tag("query")
         @DisplayName("a stored module cannot override a conflicting -1 signature reference")
-        void shouldRefuseModuleMismatchForUnassignedSignature() {
+        void shouldRefuseUnassignedSignature_whenModuleMismatches() {
             DigitalSignature saved = legacySignature(-1);
             saved.setModuleType(ModuleType.PRESCRIPTION);
             digitalSignatureDao.persist(saved);

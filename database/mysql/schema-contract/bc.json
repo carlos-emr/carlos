@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "c356fb44e67ad51fe0f17670b4062c53b44562b856cb1cc3d969a778c8fb7ce6",
+ "migration_sha256": "a0600da7060a5f43d3fcf4ef5e180b5a55ecd07ac45c6483d6cf5c848ca098df",
  "province": "bc",
  "schema": {
   "checks": [
@@ -168107,6 +168107,30 @@
     null,
     null,
     2
+   ],
+   [
+    "o19_imported_signature_owner",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "o19_imported_signature_owner",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'o19-import'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    4
    ],
    [
     "o19_imported_signature_owner",

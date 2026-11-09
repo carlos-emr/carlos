@@ -76,6 +76,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class ConsultationPDFCreator extends PdfPageEventHelper {
 
+    /** A stored signature claim that cannot safely be printed as signed. */
+    public static final class SignatureRenderingException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        public SignatureRenderingException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
     private static final float SIGNATURE_IMAGE_SCALE_PERCENT = 40f;
     private static final float SIGNATURE_IMAGE_MAX_WIDTH = 200f;
     private static final float SIGNATURE_IMAGE_MAX_HEIGHT = 60f;
@@ -768,8 +777,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             try {
                 Image image = createScaledSignatureImage(signatureImage);
                 addTable(pdfPTable, createRightAlignedSignatureTable(getResource("msgSignature"), image, font));
-            } catch (BadElementException | IOException e) {
-                throw new IllegalStateException("Referenced consultation signature cannot be rendered", e);
+            } catch (IOException | RuntimeException e) {
+                throw new SignatureRenderingException("Referenced consultation signature cannot be rendered", e);
             }
         }
     }
@@ -862,7 +871,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             parsedId = Integer.parseInt(normalizedSignatureImageId);
         } catch (NumberFormatException e) {
             logger.warn("Consultation signature id {} is not a valid number", LogSafe.sanitize(normalizedSignatureImageId));
-            throw new IllegalStateException("Referenced consultation signature id is invalid", e);
+            throw new SignatureRenderingException("Referenced consultation signature id is invalid", e);
         }
         try {
             int patient = Integer.parseInt(expectedDemographicNo);
@@ -882,7 +891,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
             // is signed. Refuse a PDF whose ownership or bytes cannot be
             // proved; silently omitting the image would misstate its status.
             logger.error("Error loading consultation digital signature {}", parsedId, e);
-            throw new IllegalStateException("Consultation signature could not be rendered", e);
+            throw new SignatureRenderingException("Consultation signature could not be rendered", e);
         }
     }
 

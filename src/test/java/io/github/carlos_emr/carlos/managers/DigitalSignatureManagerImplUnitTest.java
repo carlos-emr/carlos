@@ -62,7 +62,7 @@ class DigitalSignatureManagerImplUnitTest {
 
     @Test
     @DisplayName("metadata reads require the source-verified owner for imported signatures")
-    void shouldUseReadableMetadataForLegacyCallers() {
+    void shouldUseReadableMetadata_forLegacyCallers() {
         DigitalSignatureDao dao = mock(DigitalSignatureDao.class);
         DigitalSignatureManagerImpl manager = new DigitalSignatureManagerImpl(dao);
         DigitalSignature resolved = new DigitalSignature();
@@ -75,7 +75,7 @@ class DigitalSignatureManagerImplUnitTest {
 
     @Test
     @DisplayName("new signatures still require a real patient after the -1 import migration")
-    void shouldRejectUnassignedNewSignature() {
+    void shouldRejectNewSignature_whenPatientIsUnassigned() {
         DigitalSignatureDao dao = mock(DigitalSignatureDao.class);
         DigitalSignatureManagerImpl manager = new DigitalSignatureManagerImpl(dao);
         for (Integer patient : new Integer[] {null, -1, 0}) {

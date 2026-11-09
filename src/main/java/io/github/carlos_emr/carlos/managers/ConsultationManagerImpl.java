@@ -721,7 +721,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
             ConsultationPDFCreator consultationPDFCreator = new ConsultationPDFCreator(request, outputStream);
             consultationPDFCreator.printPdf(loggedInInfo);
             path = nioFileManager.saveTempFile("temporaryPDF" + new Date().getTime(), outputStream);
-        } catch (IOException | DocumentException e) {
+        } catch (IOException | DocumentException | ConsultationPDFCreator.SignatureRenderingException e) {
             throw new PDFGenerationException("An error occurred while creating the pdf of the consultation request", e);
         }
         return path;

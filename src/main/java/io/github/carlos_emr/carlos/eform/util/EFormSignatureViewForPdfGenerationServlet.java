@@ -132,11 +132,15 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
 			DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(digitalSignatureId);
 			if (metadata == null) {
+				logger.warn("Rejected signature fetch: no readable signature metadata for render eForm: fdid={}",
+						LogSafe.sanitize(String.valueOf(grant.fdid())));
 				response.sendError(HttpServletResponse.SC_NOT_FOUND);
 				return;
 			}
 			if (metadata.getModuleType() != io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM
 					|| renderDemographic == null || !renderDemographic.equals(metadata.getDemographicId())) {
+				logger.warn("Rejected signature fetch: signature module or patient does not match render eForm: fdid={}",
+						LogSafe.sanitize(String.valueOf(grant.fdid())));
 				response.sendError(HttpServletResponse.SC_FORBIDDEN);
 				return;
 			}

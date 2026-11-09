@@ -433,7 +433,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
         @Test
         @DisplayName("should refuse a missing or sentinel patient before writing an upload")
-        void shouldRefuseUnassignedNewSignature() throws Exception {
+        void shouldRefuseNewSignature_whenPatientIsUnassigned() throws Exception {
             for (String patient : new String[] {null, "-1", "0"}) {
                 mockRequest = new MockHttpServletRequest();
                 mockResponse = new MockHttpServletResponse();

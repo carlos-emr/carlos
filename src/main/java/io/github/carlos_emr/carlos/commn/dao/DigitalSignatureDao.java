@@ -43,11 +43,12 @@ public interface DigitalSignatureDao extends AbstractDao<DigitalSignature> {
     DigitalSignature findMetadataById(int id);
 
     /**
-     * Read-only ownership resolution for historical signatures whose stored
-     * demographicId is -1. Resolves a patient only when exact clinical
-     * references agree on one patient and one module; returns null when
-     * ownership cannot be proven. Never use this for creating or changing a
-     * signature link.
+     * Read-only metadata for authorization before loading signature bytes.
+     * Positive stored patient IDs remain authoritative. Historical signatures
+     * whose stored demographicId is -1 are readable only when the importer
+     * froze a unique patient and module from the staged source in
+     * {@link ImportedSignatureOwner}. Live clinical references cannot assign
+     * or change that owner. Returns null when ownership cannot be proven.
      */
     DigitalSignature findReadableMetadataById(int id);
 }

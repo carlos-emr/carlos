@@ -1,10 +1,12 @@
 -- Imported signatures with demographicId=-1 have no authoritative patient on
 -- the signature row. The importer writes a unique source-reference decision
 -- here before go-live. Runtime form submissions never update this table.
-CREATE TABLE `o19_imported_signature_owner` (
+CREATE TABLE IF NOT EXISTS `o19_imported_signature_owner` (
   `signature_id` INT(11) NOT NULL,
   `demographic_id` INT(10) NOT NULL,
   `module_type` VARCHAR(24) NOT NULL,
+  `lastUpdateUser` VARCHAR(100) NOT NULL DEFAULT 'o19-import',
+  `lastUpdateDate` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`signature_id`),
   KEY `o19_signature_owner_demographic` (`demographic_id`),
   CONSTRAINT `o19_signature_owner_signature_fk`

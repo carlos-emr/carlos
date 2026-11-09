@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "c043b40863f8a87974e67452e697d91dce3d8fd36d30465bc139cffb9b9cb7e1",
+ "migration_sha256": "8bc344b722a79d90c9ab14be95616aa9ff9b9a35c33bf52949b08cac3c29f9a9",
  "province": "on",
  "schema": {
   "checks": [
@@ -118931,6 +118931,30 @@
     null,
     null,
     2
+   ],
+   [
+    "o19_imported_signature_owner",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "o19_imported_signature_owner",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'o19-import'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    4
    ],
    [
     "o19_imported_signature_owner",
