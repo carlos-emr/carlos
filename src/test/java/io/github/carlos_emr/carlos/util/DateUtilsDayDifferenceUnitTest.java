@@ -204,7 +204,9 @@ class DateUtilsDayDifferenceUnitTest {
         @Test
         @DisplayName("should still fail loudly on a missing date")
         void shouldThrow_whenADateIsMissing() {
-            assertThatThrownBy(() -> DateUtils.getDifDays(null, midnight(2026, 3, 9)))
+            Date lesser = midnight(2026, 3, 9);
+
+            assertThatThrownBy(() -> DateUtils.getDifDays(null, lesser))
                     .isInstanceOf(NullPointerException.class);
         }
     }
@@ -262,7 +264,9 @@ class DateUtilsDayDifferenceUnitTest {
         @Test
         @DisplayName("should fail loudly on a missing date")
         void shouldThrow_whenADateIsMissing() {
-            assertThatThrownBy(() -> DateUtils.isSameLocalDate(null, midnight(2026, 6, 2)))
+            Date second = midnight(2026, 6, 2);
+
+            assertThatThrownBy(() -> DateUtils.isSameLocalDate(null, second))
                     .isInstanceOf(NullPointerException.class);
         }
     }

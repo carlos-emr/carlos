@@ -91,23 +91,24 @@ class ServiceCodeValidationLogicSameDayUnitTest extends CarlosUnitTestBase {
     void shouldNotChargeThePreviousDay_whenItWasTheShortSpringForwardDay() {
         Map<String, Double> available = availableUnitsFor("2026-03-09", claim("20260308", "2"));
 
-        assertThat(available.get(ServiceCodeValidationLogic.DAILY_AVAILABLE_UNITS)).isEqualTo(4.0);
-        assertThat(available.get(ServiceCodeValidationLogic.ANNUAL_AVAILABLE_UNITS)).isEqualTo(4.0);
+        assertThat(available)
+                .containsEntry(ServiceCodeValidationLogic.DAILY_AVAILABLE_UNITS, 4.0)
+                .containsEntry(ServiceCodeValidationLogic.ANNUAL_AVAILABLE_UNITS, 4.0);
     }
 
     @Test
     @DisplayName("should charge a claim on the same service date, including the fall-back day")
     void shouldChargeTheSameDay_includingTheFallBackDay() {
-        assertThat(availableUnitsFor("2026-11-01", claim("20261101", "3"))
-                .get(ServiceCodeValidationLogic.DAILY_AVAILABLE_UNITS)).isEqualTo(1.0);
-        assertThat(availableUnitsFor("2026-06-15", claim("20260615", "1"))
-                .get(ServiceCodeValidationLogic.DAILY_AVAILABLE_UNITS)).isEqualTo(3.0);
+        assertThat(availableUnitsFor("2026-11-01", claim("20261101", "3")))
+                .containsEntry(ServiceCodeValidationLogic.DAILY_AVAILABLE_UNITS, 1.0);
+        assertThat(availableUnitsFor("2026-06-15", claim("20260615", "1")))
+                .containsEntry(ServiceCodeValidationLogic.DAILY_AVAILABLE_UNITS, 3.0);
     }
 
     @Test
     @DisplayName("should not charge a claim from the day after the 25-hour fall-back date")
     void shouldNotChargeTheNextDay_afterTheFallBackDate() {
-        assertThat(availableUnitsFor("2026-11-01", claim("20261102", "2"))
-                .get(ServiceCodeValidationLogic.DAILY_AVAILABLE_UNITS)).isEqualTo(4.0);
+        assertThat(availableUnitsFor("2026-11-01", claim("20261102", "2")))
+                .containsEntry(ServiceCodeValidationLogic.DAILY_AVAILABLE_UNITS, 4.0);
     }
 }
