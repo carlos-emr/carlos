@@ -32,7 +32,7 @@ class Hl7PatientUnlinkWiringUnitTest {
             context.registerBean("oscarLogDaoImpl", OscarLogDao.class, () -> selected);
             context.register(Hl7PatientUnlinkService.class);
             context.refresh();
-            assertThat(ReflectionTestUtils.getField(context.getBean(Hl7PatientUnlinkService.class), "audit"))
+            assertThat((OscarLogDao) ReflectionTestUtils.getField(context.getBean(Hl7PatientUnlinkService.class), "audit"))
                     .isSameAs(selected).isNotSameAs(legacy);
         }
     }

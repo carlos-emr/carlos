@@ -87,12 +87,16 @@ class CdmReportContextsUnitTest {
     }
 
     private static RptMeasurementTypesBeanHandler renderedDefinitions() {
+        return renderedDefinitions("WT", "kg");
+    }
+
+    private static RptMeasurementTypesBeanHandler renderedDefinitions(String type, String instruction) {
         var handler = org.mockito.Mockito.mock(RptMeasurementTypesBeanHandler.class);
         var rows = new java.util.Vector<RptMeasurementTypesBean>();
-        rows.add(new RptMeasurementTypesBean(1, "WT", "Weight", "Weight", "kg", "1"));
+        rows.add(new RptMeasurementTypesBean(1, type, type, type, instruction, "1"));
         var instructions = org.mockito.Mockito.mock(RptMeasuringInstructionBeanHandler.class);
         org.mockito.Mockito.when(instructions.getMeasuringInstrcVector()).thenReturn(
-                new java.util.Vector<>(java.util.List.of(new RptMeasuringInstructionBean("kg"))));
+                new java.util.Vector<>(java.util.List.of(new RptMeasuringInstructionBean(instruction))));
         org.mockito.Mockito.when(handler.getMeasurementTypeVector()).thenReturn(rows);
         org.mockito.Mockito.when(handler.getMeasuringInstrcBeanVector()).thenReturn(
                 new java.util.Vector<>(java.util.List.of(instructions)));
@@ -133,6 +137,52 @@ class CdmReportContextsUnitTest {
         request.setParameter("value(measurementType0)", "WT");
         assertThat(CdmReportContexts.bind(request)).isTrue();
         assertThat(request.getAttribute("CDMGroup")).isEqualTo("Local tab A");
+    }
+
+    @Test
+    void shouldPreserveIndependentForms_whenTheSessionIsSerializedAndRestored() throws Exception {
+        var request = new MockHttpServletRequest();
+        String first = CdmReportContexts.issue(request, java.util.Map.of(
+                "measurementTypes", renderedDefinitions("WT", "kg"), "CDMGroup", "Weight",
+                "today", "2026-11-09", "lastYear", "2025-11-09"));
+        String second = CdmReportContexts.issue(request, java.util.Map.of(
+                "measurementTypes", renderedDefinitions("HT", "cm"), "CDMGroup", "Height"));
+        var bytes = new java.io.ByteArrayOutputStream();
+        try (var output = new java.io.ObjectOutputStream(bytes)) {
+            output.writeObject(request.getSession().getAttribute(CdmReportContexts.class.getName()));
+        }
+        var restoredSession = new org.springframework.mock.web.MockHttpSession();
+        try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+            restoredSession.setAttribute(CdmReportContexts.class.getName(), input.readObject());
+        }
+        var submitted = new MockHttpServletRequest();
+        submitted.setSession(restoredSession);
+        submitted.setParameter(CdmReportContexts.PARAMETER, first);
+        submitted.setParameter("value(measurementType0)", "WT");
+        submitted.setParameter("value(mInstrcsCheckbox00)", "kg");
+        assertThat(CdmReportContexts.bind(submitted)).isTrue();
+        assertThat(submitted.getAttribute("CDMGroup")).isEqualTo("Weight");
+        assertThat(submitted.getAttribute("today")).isEqualTo("2026-11-09");
+        assertThat(submitted.getAttribute("lastYear")).isEqualTo("2025-11-09");
+        var other = new MockHttpServletRequest();
+        other.setSession(restoredSession);
+        other.setParameter(CdmReportContexts.PARAMETER, second);
+        other.setParameter("value(measurementType0)", "HT");
+        other.setParameter("value(mInstrcsCheckbox00)", "cm");
+        assertThat(CdmReportContexts.bind(other)).isTrue();
+        assertThat(other.getAttribute("CDMGroup")).isEqualTo("Height");
+        other.setParameter("value(measurementType0)", "WT");
+        assertThat(CdmReportContexts.bind(other)).isFalse();
+        assertThat(CdmReportContexts.bind(submitted)).isTrue();
+    }
+
+    @Test
+    void shouldRejectNonSerializableAttributes_whenIssuingAForm() {
+        var request = new MockHttpServletRequest();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> CdmReportContexts.issue(request,
+                java.util.Map.of("measurementTypes", renderedDefinitions(), "unexpected", new Object())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unexpected");
     }
 
 }

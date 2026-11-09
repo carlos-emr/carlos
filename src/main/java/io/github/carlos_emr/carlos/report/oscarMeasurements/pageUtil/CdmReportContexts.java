@@ -3,6 +3,8 @@ package io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import java.io.Serial;
+import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -19,7 +21,9 @@ public final class CdmReportContexts {
     private static final String KEY = CdmReportContexts.class.getName();
     private static final long TTL_MILLIS = 60 * 60 * 1000L;
     private static final int CAPACITY = 64;
-    private record Entry(long created, Map<String, Object> attributes) { }
+    private record Entry(long created, LinkedHashMap<String, Serializable> attributes) implements Serializable {
+        @Serial private static final long serialVersionUID = 1L;
+    }
 
     private CdmReportContexts() { }
 
@@ -30,15 +34,22 @@ public final class CdmReportContexts {
     static String issue(HttpServletRequest request, Map<String, Object> attributes, long now) {
         HttpSession session = request.getSession();
         synchronized (session) {
-            Map<String, Entry> entries = entries(session);
+            LinkedHashMap<String, Entry> entries = entries(session);
             entries.values().removeIf(entry -> now - entry.created() >= TTL_MILLIS);
             while (entries.size() >= CAPACITY) entries.remove(entries.keySet().iterator().next());
-            Map<String, Object> snapshot = new LinkedHashMap<>(attributes);
-            if (snapshot.get(MEASUREMENT_TYPES) instanceof RptMeasurementTypesBeanHandler definitions) {
-                snapshot.put(MEASUREMENT_TYPES, RptMeasurementTypesBeanHandler.snapshot(definitions));
-            }
+            LinkedHashMap<String, Serializable> snapshot = new LinkedHashMap<>();
+            attributes.forEach((name, value) -> {
+                Object captured = value;
+                if (MEASUREMENT_TYPES.equals(name) && value instanceof RptMeasurementTypesBeanHandler definitions) {
+                    captured = RptMeasurementTypesBeanHandler.snapshot(definitions);
+                }
+                if (!(captured instanceof Serializable serializable)) {
+                    throw new IllegalArgumentException("CDM form attributes must be serializable: " + name);
+                }
+                snapshot.put(java.util.Objects.requireNonNull(name), serializable);
+            });
             String token = UUID.randomUUID().toString();
-            entries.put(token, new Entry(now, Map.copyOf(snapshot)));
+            entries.put(token, new Entry(now, snapshot));
             restore(request, token, entries.get(token));
             return token;
         }
@@ -102,10 +113,10 @@ public final class CdmReportContexts {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Entry> entries(HttpSession session) {
+    private static LinkedHashMap<String, Entry> entries(HttpSession session) {
         Object stored = session.getAttribute(KEY);
-        if (stored instanceof Map<?, ?>) return (Map<String, Entry>) stored;
-        Map<String, Entry> entries = new LinkedHashMap<>();
+        if (stored instanceof LinkedHashMap<?, ?>) return (LinkedHashMap<String, Entry>) stored;
+        LinkedHashMap<String, Entry> entries = new LinkedHashMap<>();
         session.setAttribute(KEY, entries);
         return entries;
     }

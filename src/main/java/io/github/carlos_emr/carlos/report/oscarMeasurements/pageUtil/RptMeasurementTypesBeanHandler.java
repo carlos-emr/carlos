@@ -46,7 +46,9 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-public class RptMeasurementTypesBeanHandler {
+public class RptMeasurementTypesBeanHandler implements java.io.Serializable {
+
+    @java.io.Serial private static final long serialVersionUID = 1L;
 
     Vector<RptMeasurementTypesBean> measurementTypeVector = new Vector<RptMeasurementTypesBean>();
     Vector<RptMeasuringInstructionBeanHandler> measuringInstrcBeanVector = new Vector<RptMeasuringInstructionBeanHandler>();

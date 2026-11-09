@@ -60,7 +60,9 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
  * <p>Built by {@link RptMeasurementTypesBeanHandler}, which looks up the stored instructions of
  * every listed type in one query and passes the result in.</p>
  */
-public class RptMeasuringInstructionBeanHandler {
+public class RptMeasuringInstructionBeanHandler implements java.io.Serializable {
+
+    @java.io.Serial private static final long serialVersionUID = 1L;
 
     /**
      * Instruction spellings a {@code measurementType} row no longer carries but that readings
