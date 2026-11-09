@@ -1014,19 +1014,19 @@
                                                             <td align="left">
 
                                                                 <select name="aboriginal" <%=getDisabled("aboriginal")%>>
-                                                                    <option value="" ${ pageScope.demoExtended["aboriginal"] eq '' ? 'selected' : '' } >
+                                                                    <option value="" ${ pageScope.demoExt["aboriginal"] eq '' ? 'selected' : '' } >
                                                                         Unknown
                                                                     </option>
-                                                                    <option value="No" ${ pageScope.demoExtended["aboriginal"] eq 'No' ? 'selected' : '' } >
+                                                                    <option value="No" ${ pageScope.demoExt["aboriginal"] eq 'No' ? 'selected' : '' } >
                                                                         No
                                                                     </option>
-                                                                    <option value="Yes" ${ pageScope.demoExtended["aboriginal"] eq 'Yes' ? 'selected' : '' } >
+                                                                    <option value="Yes" ${ pageScope.demoExt["aboriginal"] eq 'Yes' ? 'selected' : '' } >
                                                                         Yes
                                                                     </option>
 
                                                                 </select>
                                                                 <input type="hidden" name="aboriginalOrig"
-                                                                       value="${ pageScope.demoExtended["aboriginal"] }"/>
+                                                                       value="${ pageScope.demoExt["aboriginal"] }"/>
                                                             </td>
                                                         </oscar:oscarPropertiesCheck>
                                                     </tr>

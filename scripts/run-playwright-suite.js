@@ -229,8 +229,12 @@ function selectChecks(checks, options) {
  * BASE_URL whatever is selected, and assertsDatabase only sharpens the message.
  */
 function assertSafeTarget(checks, env) {
-  if (!checks.length) {
+  if (!checks.length || checks.every(check => check.tiers?.length === 1
+    && check.tiers[0] === 'standalone' && !check.assertsDatabase && !mutatesOf([check]).length)) {
     return;
+  }
+  if (env.CARLOS_DISPOSABLE_HOST !== 'true') {
+    throw new Error('CARLOS_DISPOSABLE_HOST=true is required for every live CARLOS suite, including loopback targets');
   }
   // THE DATABASE TARGET IS A SEPARATE QUESTION FROM THE WEB TARGET, and it is
   // the more dangerous one: eleven checks in this suite still read MYSQL_HOST

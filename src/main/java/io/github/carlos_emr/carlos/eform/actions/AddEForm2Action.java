@@ -334,7 +334,8 @@ public class AddEForm2Action extends ActionSupport {
                 continue;
             }
 
-            if (request.getParameter(curField) != null && (!request.getParameter(curField).trim().equals(""))) {
+            // Explicitly submitted empty values clear template defaults; absence remains distinct.
+            if (request.getParameter(curField) != null) {
                 paramNames.add(curField);
                 paramValues.add(request.getParameter(curField));
             }

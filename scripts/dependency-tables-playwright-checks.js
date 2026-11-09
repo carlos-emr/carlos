@@ -12,7 +12,7 @@ async function main() {
         `<tr><td data-sort-value="${number}" data-sort-type="number">${number}</td>` +
         `<td data-sort-value="${code}" data-sort-type="text">${code}</td>` +
         `<td><input type="checkbox" name="records" value="${number}"><input type="radio" name="head" value="${number}">` +
-        `<button type="button" class="edit" data-id="${number}">Edit</button></td></tr>`).join('');
+        `<a href="#" class="edit" data-id="${number}">Edit</a></td></tr>`).join('');
     const html = `<!doctype html><html><body>
         <table id="no-body" data-carlos-table><thead><tr><th>Header only</th></tr></thead></table>
         <table id="no-head" data-carlos-table><tbody><tr><td>Body only</td></tr></tbody></table>
@@ -69,7 +69,8 @@ async function main() {
             document.querySelector('#fixture').addEventListener('submit', event => {
                 event.preventDefault(); window.submits++;
             });
-            document.querySelectorAll('.edit').forEach(button => button.addEventListener('click', () => {
+            document.querySelectorAll('.edit').forEach(button => button.addEventListener('click', event => {
+                event.preventDefault();
                 window.edited = button.dataset.id;
             }));
         });

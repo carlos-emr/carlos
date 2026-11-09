@@ -111,9 +111,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends restic
-          python3 -m unittest discover -s debian/assets/tests
+          python3 scripts/ci/run-python-release-tests.py --start debian/assets/tests --output target/debian-python-ci.json
       - name: Manifest generator and shipped-manifest tests
-        run: python3 -m unittest discover -s scripts/migration/o19/tests -t .
+        run: python3 scripts/ci/run-python-release-tests.py --start scripts/migration/o19/tests --top-level . --output target/o19-python-ci.json
       # Standalone data belongs to carlos-emr and can advance independently
       # of the pinned CLI release. Its supported exporter refreshes only the
       # generated data block in a disposable copy; code and tests stay pinned.

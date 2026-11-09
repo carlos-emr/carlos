@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
+import io.github.carlos_emr.carlos.commn.model.Provider;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,23 @@ class LabRoutingLookupDaoIntegrationTest extends CarlosTestBase {
         em.createNativeQuery("INSERT INTO demographic (demographic_no,hin,year_of_birth,month_of_birth,date_of_birth,"
                 + "last_name,first_name,sex,provider_no) VALUES (1900554801,'5548000000','2000','01','02','Fixture','Alpha','U','554801'),"
                 + "(1900554802,'5548000001','2000','01','02','Other','Beta','F','554802')").executeUpdate();
+    }
+
+    @Test
+    void shouldPreserveBcLikeMatchingAndSpireShortestNameLimit() {
+        Provider shortName = new Provider("954601", "Fixture", "doctor", "F", "", "Al");
+        shortName.setHsoNo("BC9546A");
+        Provider longName = new Provider("954602", "Fixture", "doctor", "F", "", "Alexandra");
+        longName.setHsoNo("BC9546B");
+        em.persist(shortName);
+        em.persist(longName);
+        em.flush();
+        assertThat(lookup.findProviders("hso_no", "BC9546%", false, null, false))
+                .containsExactlyInAnyOrder("954601", "954602");
+        assertThat(lookup.findProviders("hso_no", " BC9546%", false, null, false)).isEmpty();
+        assertThat(lookup.findProviders("hso_no", "BC9546%", false, 1, true))
+                .containsExactly("954601");
+        assertThat(lookup.findProviders("hso_no", "BC9546Z", false, 1, true)).isEmpty();
     }
 
     @Test

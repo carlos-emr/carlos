@@ -51,6 +51,8 @@
 name: Check Carlos EMR
 
 on:
+  push:
+    branches: [main, 'release/**']
   workflow_call:
     inputs:
       ref:
