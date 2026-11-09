@@ -1304,6 +1304,19 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @ParameterizedTest
+        @ValueSource(strings = {"GET", "HEAD"})
+        @DisplayName("should block a key pair creation that is not posted")
+        void shouldBlock_forKeygenCreateKeyName(String httpMethod) throws Exception {
+            // #6055: a cross-site GET naming a service stored a key pair; only the page's form, a POST, may.
+            MockHttpServletResponse res = doFilter(httpMethod, "/admin/ViewKeygenCreateKey",
+                    "name", "FAKE-service", "type", "FAKEPW");
+
+            assertThat(res.getStatus()).isEqualTo(405);
+            assertThat(res.getHeader("Allow")).isEqualTo("POST");
+            verify(chain, never()).doFilter(any(), any());
+        }
+
+        @ParameterizedTest
         @ValueSource(strings = {"view", "modify"})
         @DisplayName("should pass the Statuses tab opened by its menu link or an old bookmark")
         void shouldPassThrough_forAppointmentStatusViewDispatch(String dispatch) throws Exception {
@@ -1349,7 +1362,8 @@ class HttpMethodGuardFilterUnitTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"/admin/ProviderPrivilege", "/admin/ProviderRole", "/messenger/HandleMessages",
-                "/billing/CA/BC/GenerateTeleplanFile", "/appointment/apptLocationSetting"})
+                "/billing/CA/BC/GenerateTeleplanFile", "/appointment/apptLocationSetting",
+                "/admin/ViewKeygenCreateKey"})
         @DisplayName("should pass a bare GET that only opens the page")
         void shouldPassThrough_forBareGet(String route) throws Exception {
             MockHttpServletResponse res = doFilter("GET", route);

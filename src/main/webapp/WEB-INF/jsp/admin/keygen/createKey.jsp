@@ -29,11 +29,20 @@
 
 --%>
 
+<%--
+    Key Pair Creation (admin/ViewKeygenCreateKey; Key Pair Generator > Create New Key).
+
+    This page only renders. ViewKeygenCreateKey2Action creates the key pair: it refuses a GET or
+    HEAD that names a service (405), streams a created service pair as the keyPair.key attachment
+    and renders nothing after it, and otherwise forwards here with the outcome in the request
+    attributes keygenMessage (String) and keygenError (Boolean). The form posts to the action's
+    own route so CSRFGuard adds its token (it skips forms with an empty action) (#6055).
+
+    @since 2026-04-13
+--%>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ page import="java.util.*,java.io.*,io.github.carlos_emr.carlos.lab.ca.all.util.KeyPairGen" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -52,83 +61,9 @@
 %>
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <%
-    String name = request.getParameter("name");
-    String type = request.getParameter("type");
-    if (type != null && type.equals("OTHER"))
-        type = request.getParameter("otherType");
-
-    String message = null;
-    String failDisplay = "none";
-
-    String error = "false";
-
-    if (name != null && !name.matches("^[a-zA-Z0-9._-]+$")) {
-        error = "true";
-        message = "Failed: Service name contains invalid characters. Only letters, numbers, periods, hyphens and underscores are allowed.";
-        name = null;
-    }
-
-    if (name != null) {
-        if (name.equals("oscar")) {
-            if (KeyPairGen.checkName(name)) {
-                message = "Failed: The oscar key pair has already been created";
-                error = "true";
-            } else if (KeyPairGen.createKeys(name, null).equals("success")) {
-                message = "CARLOS key pair created successfully";
-            } else {
-                message = "Failed: Could not create the oscar key pair";
-                error = "true";
-            }
-        } else {
-            if (KeyPairGen.checkName(name)) {
-                message = "Failed: Key pair has already been created for the service '" + name + "'";
-                error = "true";
-            } else {
-                String clientKey = KeyPairGen.createKeys(name, type);
-                String oscarKey = KeyPairGen.getPublic();
-
-                if (clientKey == null) {
-                    message = "Failed: Could not create key pair";
-                    error = "true";
-                } else if (oscarKey == null) {
-                    message = "Failed: Could not retrieve public key from oscar";
-                    error = "true";
-                } else {
-
-                    String keyPairOut = "-------- Service Name --------\n" + name + "\n------------------------------\n" +
-                            "----- Client Private Key -----\n" + clientKey + "\n------------------------------\n" +
-                            "------ Oscar Public Key ------\n" + oscarKey + "\n------------------------------";
-                    response.setContentType("text/plain");
-                    response.setHeader("X-Content-Type-Options", "nosniff");
-                    response.setContentLength(keyPairOut.length());
-                    response.setHeader("Content-Disposition", "attachment; filename=keyPair.key");
-                    ServletOutputStream output = null;
-
-                    try {
-                        output = response.getOutputStream();
-                        output.print(keyPairOut);
-                        output.flush();
-                    } catch (IOException e) {
-                        message = "Failed: Could not save key pair";
-                        error = "true";
-                    } finally {
-                        if (output != null) {
-                            try {
-                                output.close();
-                            } catch (IOException e) {
-                                message = "Failed: Could not close output stream";
-                                error = "true";
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (message != null) {
-        failDisplay = "block";
-    }
+    String message = (String) request.getAttribute("keygenMessage");
+    boolean error = Boolean.TRUE.equals(request.getAttribute("keygenError"));
+    String failDisplay = message != null ? "block" : "none";
 %>
 
 <html>
@@ -161,7 +96,7 @@
     </script>
 </head>
 <body>
-<form method='POST' action=''>
+<form method="post" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/admin/ViewKeygenCreateKey">
     <table align="center" class="MainTable">
         <tr class="MainTableTopRow">
             <td class="MainTableTopRowLeftColumn" width="175">Key Pair
@@ -177,18 +112,16 @@
                             <div id="fail" style="display:<%= failDisplay %>;">
                                 <%
                                     if (message != null) {
-                                        if (error.equals("false")) {
+                                        if (!error) {
                                 %>
-                                        <carlos:encode value='<%= message %>' context="forHtml"/>
+                                        <carlos:encode value='<%= message %>'/>
                                 <%
                                         } else {
                                 %>
-                                    <font color="red"><carlos:encode value='<%= message %>' context="html"/></font>
+                                    <font color="red"><carlos:encode value='<%= message %>'/></font>
                                 <%
                                         }
                                     }
-                                    // reset the message after it has been used
-                                    message = null;
                                 %>
                             </div>
                         </td>
@@ -211,7 +144,7 @@
                     </tr>
                     <tr>
                         <td>Lab type:</td>
-                        <td><select name="type" id="selection" onClick="selectOther()">
+                        <td><select name="type" id="selection" onchange="selectOther()">
                             <option value="ALPHA">ALPHA</option>
                             <option value="CML">CML</option>
                             <option value="EPSILON">EPSILON/MHL</option>

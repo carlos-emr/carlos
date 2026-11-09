@@ -193,7 +193,10 @@ public class HttpMethodGuardFilter implements Filter {
             // Appointment Settings > Locations: every change names its dispatch; the page opens without one
             // (#3982). The Statuses tab is not listed: its menu link and old bookmarks open it with
             // dispatch=view|modify, so AppointmentStatus2Action refuses GET for its writes by value.
-            "/appointment/apptLocationSetting", Set.of("dispatch")
+            "/appointment/apptLocationSetting", Set.of("dispatch"),
+            // Key Pair Creation: a request naming a service (name) stores a key pair; Create New Key
+            // opens the page without one (#6055).
+            "/admin/ViewKeygenCreateKey", Set.of("name")
     );
 
     /** {@link #MUTATION_INTENT_PARAMS_BY_ROUTE} with every path and name lowercased, for lookup. */
