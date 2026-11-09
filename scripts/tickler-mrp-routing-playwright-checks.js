@@ -204,8 +204,19 @@ async function workflow(s) {
     const repeated=one.locator('form[name="titlesearch"]');
     if(!await repeated.locator('input[name="keyword"]').isVisible())await one.locator('#searchPopUpButton').click();
     h.assert(sql.value("SELECT COUNT(*) FROM demographic WHERE last_name LIKE 'FAKE-PW%' ")==='2','Paging namespace contains unexpected patients');
+    // Six owned patients exercise the unmodified five-row pagination controls.
+    // Do not change hidden paging parameters to manufacture another UI mode.
+    for(let index=0;index<4;index++) {
+      const pagingMarker=`FAKE-PW${randomBytes(8).toString('hex')}`;
+      const fixture=createMetadataPatientFixture({sql,marker:pagingMarker,provider:a.fixture.providerNo});
+      s.cleanup(()=>{
+        h.assert(!browser.isConnected(),'Paging patient retained while browser shutdown is unconfirmed');
+        fixture.cleanup({browserClosed:true});
+      });
+      fixture.create();
+    }
+    h.assert(sql.value("SELECT COUNT(*) FROM demographic WHERE last_name LIKE 'FAKE-PW%' ")==='6','Paging fixtures do not form one owned six-patient result set');
     await repeated.locator('input[name="keyword"]').fill('FAKE-PW');
-    await repeated.locator('input[name="limit2"]').evaluate(input=>{input.value='1';});
     const [repeatedResponse]=await Promise.all([
       one.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/demographic/DemographicSearch')),
       ui.clickAndAwaitReload(one,repeated.locator('input[type="submit"]')),
