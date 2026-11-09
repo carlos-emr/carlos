@@ -93,6 +93,7 @@ public class LabPDFCreator extends PdfPageEventHelper {
     private List<MessageHandler> handlers = new ArrayList<MessageHandler>();
 
     private int versionNum;
+    private boolean revisionOrderReview;
     private String[] multiID;
     private String id;
 
@@ -147,14 +148,19 @@ public class LabPDFCreator extends PdfPageEventHelper {
         this.handler = Factory.getHandler(id);
 
         // determine lab version
-        String multiLabId = Hl7textResultsData.getMatchingLabs(id);
+        String multiLabId;
+        try { multiLabId = Hl7textResultsData.getMatchingLabs(id); }
+        catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
+            multiLabId = Hl7textResultsData.getMatchingLabsForHistory(id);
+            revisionOrderReview = true;
+        }
         this.multiID = multiLabId.split(",");
 
         int i = 0;
         while (!multiID[i].equals(id)) {
             i++;
         }
-        this.versionNum = i + 1;
+        this.versionNum = revisionOrderReview ? 0 : i + 1;
     }
 
     //Creates an rtf file for viha rtf labs
@@ -1053,8 +1059,10 @@ public class LabPDFCreator extends PdfPageEventHelper {
         //Create header info table
         float[] tableWidths = {2f, 1f};
         PdfPTable table = new PdfPTable(tableWidths);
-        if (multiID != null && multiID.length > 1) {
-            cell = new PdfPCell(PdfFonts.phrase("Version: " + versionNum + " of " + multiID.length, boldFont));
+        if (revisionOrderReview || multiID != null && multiID.length > 1) {
+            String versionLabel = revisionOrderReview ? java.util.ResourceBundle.getBundle("oscarResources").getString("clinical.cml.review")
+                    : "Version: " + versionNum + " of " + multiID.length;
+            cell = new PdfPCell(PdfFonts.phrase(versionLabel, boldFont));
             cell.setBackgroundColor(new Color(210, 212, 255));
             cell.setPadding(3);
             cell.setColspan(2);

@@ -381,6 +381,10 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
         assertThat(Hl7textResultsData.getMatchingLabsForHistory(Integer.toString(report)).split(","))
                 .containsExactlyInAnyOrder(Integer.toString(original),Integer.toString(report));
         var source=Factory.getHandler(Integer.toString(report));assertThat(source.getOBXResult(0,0)).isEqualTo("12.7");
+        var inbox = new io.github.carlos_emr.carlos.lab.ca.on.LabResultData("HL7");
+        inbox.setSegmentID(Integer.toString(report));assertThat(inbox.getMultipleAckCount()).isZero();
+        assertThatCode(() -> new io.github.carlos_emr.carlos.lab.ca.all.pageUtil.LabPDFCreator(
+                new java.io.ByteArrayOutputStream(), Integer.toString(report), "999998")).doesNotThrowAnyException();
         var unlink=transactional(new Hl7PatientUnlinkService(patients,providers,measurements,deleted,extensions,messages,security,audit));
         unlink.unlink(report,unlink.version(report),"synthetic wrong-patient correction",actor,"127.0.0.1");
         assertThat(active()).isEmpty();

@@ -558,7 +558,10 @@ public class LabResultData implements Comparable<LabResultData> {
 
             // String[] multiId = this.multiLabId.split(",");
             CommonLabResultData data = new CommonLabResultData();
-            String[] multiId = data.getMatchingLabs(this.segmentID, this.labType).split(",");
+            String membership = HL7TEXT.equals(this.labType)
+                    ? io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData.getMatchingLabsForHistory(this.segmentID)
+                    : data.getMatchingLabs(this.segmentID, this.labType);
+            String[] multiId = membership.split(",");
             int count = 0;
             if (multiId.length == 1) {
                 count = -1;
