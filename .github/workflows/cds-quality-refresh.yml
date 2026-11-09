@@ -1,0 +1,46 @@
+# Task-scoped diagnostic branch. It cannot run on the application branches.
+name: Refresh CDS external quality check
+on:
+  push:
+    branches: ['codex/cds-quality-refresh-a42feca0']
+permissions:
+  checks: write
+jobs:
+  refresh:
+    if: github.ref == 'refs/heads/codex/cds-quality-refresh-a42feca0'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Request the original CodeFactor app to recheck the exact PR head
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from urllib.request import Request, urlopen
+          from urllib.error import HTTPError
+          repo = "carlos-emr/carlos"
+          head = "a42feca06c96dea82776900f66481e98780526dd"
+          token = os.environ["GITHUB_TOKEN"]
+          headers = {"Authorization": "Bearer " + token, "Accept": "application/vnd.github+json",
+                     "X-GitHub-Api-Version": "2022-11-28"}
+          def request(path, *, post=False):
+              req = Request("https://api.github.com/repos/" + repo + path, headers=headers,
+                            data=b"{}" if post else None, method="POST" if post else "GET")
+              try:
+                  with urlopen(req, timeout=30) as response:
+                      body = response.read(2 * 1024 * 1024 + 1)
+              except HTTPError as failure:
+                  raise RuntimeError("External check refresh refused: HTTP " + str(failure.code)) from None
+              if len(body) > 2 * 1024 * 1024:
+                  raise RuntimeError("External check response exceeded bound")
+              return json.loads(body) if body.strip() else {}
+          checks = request("/commits/" + head + "/check-runs?check_name=CodeFactor&filter=latest&per_page=100")
+          matches = [check for check in checks.get("check_runs", []) if check.get("name") == "CodeFactor"
+                     and check.get("head_sha") == head and check.get("app", {}).get("slug") == "codefactor-io"]
+          if len(matches) != 1 or type(matches[0].get("id")) is not int:
+              raise RuntimeError("One exact-head original-app CodeFactor check is required")
+          check = matches[0]
+          request("/check-runs/" + str(check["id"]) + "/rerequest", post=True)
+          print(json.dumps({"requested": True, "headSha": head, "checkId": check["id"], "creator": "codefactor-io"}))
+          PY
