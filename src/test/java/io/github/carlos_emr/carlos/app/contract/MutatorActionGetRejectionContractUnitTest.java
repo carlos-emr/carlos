@@ -461,6 +461,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * <p>If you add to this list, also add the corresponding focused test.
      */
     private static final Set<String> CONDITIONAL_MUTATORS = Set.of(
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
         // Demographic report favourites and patient sets (#4225) are POST-only;
         // report display/run/load remain GET-compatible. Focused RptDemographicReport2ActionUnitTest.
         "io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Action",
@@ -736,6 +737,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * manifests above and participates in discovery drift checks.
      */
     private static final Set<String> IN_SCOPE_EXPLICIT_CLASSES = Set.of(
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action",
         "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
         "io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
         // The form package is not in IN_SCOPE_PACKAGE_PREFIXES; its legacy form dispatcher registers here.
@@ -957,6 +959,7 @@ class MutatorActionGetRejectionContractUnitTest {
      * needs an entry here, or {@link #filterListedWriteParameters()} fails.
      */
     private static final Map<String, String[]> FILTER_LISTED_ROUTE_PRIVILEGES = Map.of(
+        "io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action", new String[]{"_rx", "u"},
         "io.github.carlos_emr.carlos.admin.web.ProviderPrivilege2Action", new String[]{"_admin", "w"},
         "io.github.carlos_emr.carlos.admin.web.ProviderRole2Action", new String[]{"_admin", "r"},
         "io.github.carlos_emr.carlos.messenger.pageUtil.MsgHandleMessages2Action", new String[]{"_msg", "r"},

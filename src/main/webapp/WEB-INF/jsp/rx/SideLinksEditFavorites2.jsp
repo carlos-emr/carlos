@@ -161,6 +161,7 @@
     </security:oscarSec>
     <% } %>
 
+<p><a href="<%= request.getContextPath() %>/rx/favoriteGroups?demographicNo=<%= bean2.getDemographicNo() %>"><fmt:message key="oscarRx.groups.title"/></a></p>
     <p class="PropSheetLevel1CurrentItem"><fmt:message key="oscarRx.sideLinks.msgFavorites"/>
         <a href="${pageContext.request.contextPath}/rx/ViewEditFavorites2?demographicNo=<carlos:encode value='<%= String.valueOf(bean2.getDemographicNo()) %>' context="uriComponent"/>"><fmt:message key="oscarRx.sideLinks.EditFavorites"/></a>
         <a href="${pageContext.request.contextPath}/rx/copyFavorite?demographicNo=<carlos:encode value='<%= String.valueOf(bean2.getDemographicNo()) %>' context="uriComponent"/>"><fmt:message key="oscarRx.sideLinks.CopyFavorites"/></a>
