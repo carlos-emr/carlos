@@ -82,6 +82,11 @@ async function workflow(s) {
       }
       const original=capture(VERSIONS.original);
       async function inspect(report,id,label) {
+        // The shared navigation helpers tolerate idle timeouts. This matrix
+        // must finish loading each version before another navigation or close
+        // can cancel its scripts; a stalled resource remains a hard failure.
+        await report.waitForLoadState('load',{timeout:30000});
+        await report.waitForLoadState('networkidle',{timeout:30000});
         const version=known.get(id);h.assert(version,'Native report rendered an unowned version');
         const rendered=await report.locator('form[id^="acknowledgeForm_"]').evaluateAll(forms=>forms.map(form=>form.id.replace('acknowledgeForm_','')));
         h.assert(JSON.stringify(rendered)===JSON.stringify([id]),label+': report mixed or changed source identities');
