@@ -454,9 +454,11 @@
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/TeleplanSubmissionUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/MSP/BcRemittanceDataSourceUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcBillingRequestGuardsUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/MSP/CheckBillingDataUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyTeleplanFilesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/report/export/BcPdfTemplatesUnitTest.java"
       ],
-      "implementation": "Extend native ON/BC qualification for all replaced raw-query consumers, using old-result fixtures as an independent oracle and the existing explicit transaction-boundary tests.",
+      "implementation": "Extend native ON/BC qualification for all replaced raw-query consumers, using old-result fixtures as an independent oracle and the existing explicit transaction-boundary tests. Qualify the live BC generator through its transaction service, private durable file journal and shared database lock; retain native query, monetary, WCB and province-boundary checks. The unreachable legacy MSP copy and its validation-only tests are removed.",
       "cases": "Invoices, payment/refund signs, remittance overpunch and decimals, WCB fees, missing/null lookup rows, exact versus wildcard payee semantics, patient/provider restrictions, date bounds and ordering; extract log/status failure rollback; REQUIRES_NEW semantics; BC-only page refusal on ON.",
       "acceptance": "Amounts, claim state and visible rows match intended behavior without SQL coercion differences, lost precision or unauthorized cross-province access.",
       "requiredChecks": [
@@ -1798,35 +1800,7 @@
           "check": "java-native-bc-flyway",
           "cases": [
             {
-              "name": "shouldPreservePrivatePaymentSignsAndDateBounds_withoutInternalAdjustments",
-              "container": ""
-            },
-            {
-              "name": "shouldReadWcbFeesAndNullableFields_throughTheExistingMapping",
-              "container": ""
-            },
-            {
-              "name": "shouldKeepOverpunchedRefundsAndProviderRestriction_forPayments",
-              "container": ""
-            },
-            {
               "name": "shouldMatchPackagedSqlSettings_forApplicationConnections",
-              "container": ""
-            },
-            {
-              "name": "shouldPreserveProviderStatusDateAndServiceOrder_forInvoiceReads",
-              "container": ""
-            },
-            {
-              "name": "shouldKeepNativeDecimalDifferentialAndNullableFields_forRemittance",
-              "container": ""
-            },
-            {
-              "name": "shouldRetainExtractOhipAndStatusRestriction_withBoundDates",
-              "container": ""
-            },
-            {
-              "name": "shouldKeepSubmissionLikeAndBoundValues_forMatchingRecord",
               "container": ""
             },
             {
@@ -1835,6 +1809,81 @@
             },
             {
               "name": "shouldPreserveCharacterStatusAndCallerWrites_whenReadingCurrentBillState",
+              "container": ""
+            },
+            {
+              "name": "shouldPreserveProviderStatusDateAndServiceOrder_forInvoiceReads",
+              "container": ""
+            },
+            {
+              "name": "shouldPreservePrivatePaymentSignsAndDateBounds_withoutInternalAdjustments",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepOverpunchedRefundsAndProviderRestriction_forPayments",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepNativeMoneyAndNullableFields_forRemittance",
+              "container": ""
+            },
+            {
+              "name": "shouldReadWcbFeesAndNullableFields_throughTheExistingMapping",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainExtractOhipAndStatusRestriction_withBoundDates",
+              "container": ""
+            },
+            {
+              "name": "shouldListInstalledBodyParts_whenSearchIsEmpty",
+              "container": ""
+            },
+            {
+              "name": "shouldReadOnlyReportPhoneFields_forSelectedPatients",
+              "container": ""
+            },
+            {
+              "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[1]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[2]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[3]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[4]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[5]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[6]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[7]"
+                }
+              ]
+            },
+            {
+              "name": "shouldPreserveAllCodeCharacters_whenBodyPartSearchIsWrapped",
+              "container": ""
+            },
+            {
+              "name": "shouldTreatLegacyWcbZeroDatesAsMissing_withoutRewritingThemOnAnUnrelatedEdit",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainPrivatePayments_whenLegacyCreationDateIsZero",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepAllHistoryTotalsConsistent_whenAmountsRequireExactSummationOrAreCorrupt",
               "container": ""
             }
           ]
@@ -2705,6 +2754,136 @@
               "check": "java-unprivileged-permission"
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportMariaDbIntegrationTest": {
+          "check": "java-native-bc-flyway",
+          "cases": [
+            {
+              "name": "shouldCommitCompleteFilesLogsAndStatuses_onceOnRetry",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackLogsAndStatuses_whenAllBatchNamesAreOccupied",
+              "container": ""
+            },
+            {
+              "name": "shouldReleaseDatabaseLock_afterGenerationFails",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseConcurrentGeneration_fromAnotherEntryPoint",
+              "container": ""
+            },
+            {
+              "name": "shouldSeparateBillingGroups_whenAllProvidersAreGenerated",
+              "container": ""
+            },
+            {
+              "name": "shouldUseTheActualClaimIdAndAmount_forWcbExport",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepWcbClaimsPending_whenTheFormAndClaimFeeCodesDisagree",
+              "container": ""
+            },
+            {
+              "name": "shouldNotTreatAnOlderFilenameAsCommitEvidence_whenNewExportRollsBack",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[1]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[2]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[3]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[4]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[5]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[6]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[7]"
+                }
+              ]
+            },
+            {
+              "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[1]"
+                },
+                {
+                  "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[2]"
+                }
+              ]
+            },
+            {
+              "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[1]"
+                },
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[2]"
+                },
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[3]"
+                }
+              ]
+            },
+            {
+              "name": "shouldReadTheSameProductionWcbLink_inBothExportEngines",
+              "container": ""
+            },
+            {
+              "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[1]"
+                },
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[2]"
+                },
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[3]"
+                }
+              ]
+            },
+            {
+              "name": "shouldListWcbLinkProblemsInSimulation_withoutAbortingThePreview",
+              "container": ""
+            },
+            {
+              "name": "shouldExportAnAdditionalWcbFee_fromTheClaimWithoutDuplicatingFormNotes",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainLegacyInvoiceLinkedForms_whenNoClaimSideLinkWasStored",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseAmbiguousLegacyForms_withoutChoosingOneOrMarkingTheClaim",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseBrokenExplicitLinks_withoutFallingBackToAnUnrelatedLegacyForm",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -2916,7 +3095,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,EncounterFormDaoGroupedHistoryIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2925,10 +3104,10 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 113,
+      "minimumCases": 145,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
-        "BcBillingNativeMariaDbIntegrationTest": 10,
+        "BcBillingNativeMariaDbIntegrationTest": 22,
         "BcBillingDaoTransactionIntegrationTest": 4,
         "DemographicMergeMariaDbIntegrationTest": 8,
         "CaseManagementNoteLockMariaDbIntegrationTest": 15,
@@ -2944,7 +3123,8 @@
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "FixedJasperReportDaoIntegrationTest": 2,
-        "PatientEndYearStatementTransactionIntegrationTest": 2
+        "PatientEndYearStatementTransactionIntegrationTest": 2,
+        "LegacyBcTeleplanExportMariaDbIntegrationTest": 29
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5568,18 +5748,6 @@
         "T19"
       ]
     },
-    "src/main/java/io/github/carlos_emr/carlos/billings/MSP/CheckBillingData.java": {
-      "reason": "Typed claim field validation, valid legacy claim, malformed/null amount refusal and HTML escaping.",
-      "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/billings/MSP/CheckBillingDataUnitTest.java"
-      ],
-      "checks": [
-        "java-all"
-      ],
-      "workstreams": [
-        "T16"
-      ]
-    },
     "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluator.java": {
       "reason": "Independent numerator/denominator fixture and typed measurement map-entry compatibility.",
       "tests": [
@@ -6059,6 +6227,34 @@
       "workstreams": [
         "T28",
         "T40"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportService.java": {
+      "reason": "Physical MariaDB covers complete files/logs/status commit, prior-year claim/report collisions and capacity exhaustion, the real WCB form save and claim-side link used by both exporters, additional WCB fees, simulation diagnostics, rollback, retry idempotence and the shared generation lock.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyTeleplanFilesUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrors.java": {
+      "reason": "Both endpoint refusal tests and privacy regressions verify canonical operator messages, HTTP status, retained cause/stack diagnostics and removal of patient/SQL exception text.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrorsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/GenerateTeleplanFile2ActionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcCompatibilityRoutesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T16"
       ]
     }
   },

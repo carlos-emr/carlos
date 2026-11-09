@@ -2,12 +2,6 @@
   "schemaVersion": 1,
   "browserExpectedFailures": [
     {
-      "check": "billing-bc-reprocess-bill-inactive-physician",
-      "finding": 153,
-      "step": "Reprocess Bill on the bill of a physician who has left keeps its provider, payee and practitioner numbers",
-      "disposition": "required installed retake; blocks release readiness"
-    },
-    {
       "check": "admin-messages",
       "finding": 330,
       "step": "a punctuated message with a script literal is listed and stored with a future expiry",
