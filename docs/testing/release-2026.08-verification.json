@@ -5812,7 +5812,6 @@
         "T19"
       ]
     },
-    "src/main/java/io/github/carlos_emr/carlos/billings/MSP/CheckBillingData.java": null,
     "src/main/java/io/github/carlos_emr/carlos/report/ClinicalReports/ReportEvaluator.java": {
       "reason": "Independent numerator/denominator fixture and typed measurement map-entry compatibility.",
       "tests": [
