@@ -364,7 +364,9 @@ const signalHandlers = installCleanupSignalHandlers(() => {
   }
 });
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('tickler-note-dialog', async () => {
+  await (async () => {
   linkIdFloor = readNoteLinkFloor(sql);
 
   const launchOptions = {
@@ -453,5 +455,6 @@ const signalHandlers = installCleanupSignalHandlers(() => {
   signalHandlers.dispose();
   cleanupMysqlDefaultsFile();
   console.error(`FAIL tickler note dialog checks: ${error.stack || error.message}`);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

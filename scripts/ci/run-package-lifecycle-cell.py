@@ -112,8 +112,8 @@ def smoke(environment, phase, selection=None):
     for name in selection or ():
         command += ['--only', name]
     uses_fault_adapter = selection is None or 'error-sanitization' in selection
-    if uses_fault_adapter:
-        command = ['python3', 'scripts/ci/run-installed-error-sanitization.py', '--', *command]
+    # Only the error check provisions its temporary routes. Other clients must
+    # observe the unmodified installed descriptor. Retain its restart budget.
     run(command,
         # Two restarts (120 + 420 seconds each), compilation (60), counters
         # (40), the existing 600-second suite and restoration headroom.

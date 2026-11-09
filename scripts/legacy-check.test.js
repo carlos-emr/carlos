@@ -54,3 +54,16 @@ for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`${signal} deli
  const record=JSON.parse(fs.readFileSync(path.join(result.dir,'result.json'),'utf8'));
  assert.equal(record.outcome,'FAIL');assert.equal(record.detail,'interrupted');
 });
+
+for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]])test(`legacy observer retains ${signal} without replacing existing cleanup handlers`,()=>{
+ const {EventEmitter}=require('node:events');
+ const {observeLegacySignals}=require('./lib/legacy-check');
+ const signalProcess=new EventEmitter();let existingCalls=0;
+ const existing=()=>{existingCalls++;};signalProcess.on(signal,existing);
+ const observer=observeLegacySignals({signalProcess});
+ signalProcess.emit(signal);signalProcess.emit(signal);
+ assert.equal(existingCalls,2);assert.equal(observer.exitCode,code);
+ assert.throws(()=>observer.throwIfCancelled(),error=>observer.isCancellation(error));
+ observer.dispose();assert.deepEqual(signalProcess.listeners(signal),[existing]);
+ assert.equal(signalProcess.listenerCount(signal==='SIGINT'?'SIGTERM':'SIGINT'),0);
+});

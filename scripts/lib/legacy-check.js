@@ -37,14 +37,32 @@ function armInterruption(context,{realSignalCheckpoints=false}={}) {
       context.cancellation.throwIfCancelled=checkpoint;context.throwIfCancelled=checkpoint;
     }
 }
-function runLegacyCheck(name,operation,{cancellationGraceMs,cleanup,realSignalCheckpoints=false}={}) {
-  return h.runCheck({name,cancellationGraceMs,cleanup,async run(context) {
+// Some retained clients already install their own cooperative cancellation or
+// cleanup handlers. Observe their signal without adding a competing deadline or
+// running their cleanup twice; record completion only after their finally ends.
+function observeLegacySignals({signalProcess=process}={}) {
+  let interruption;
+  const handlers=new Map();
+  for(const [signal,code] of [['SIGINT',130],['SIGTERM',143]]) {
+    const handler=()=>{if(!interruption){interruption=new Error('interrupted');interruption.exitCode=code;}};
+    handlers.set(signal,handler);signalProcess.on(signal,handler);
+  }
+  return {
+    throwIfCancelled(){if(interruption)throw interruption;},
+    isCancellation:error=>error===interruption,
+    get exitCode(){return interruption?.exitCode;},
+    dispose(){for(const [signal,handler] of handlers)signalProcess.removeListener(signal,handler);},
+  };
+}
+function runLegacyCheck(name,operation,{cancellationGraceMs,cleanup,realSignalCheckpoints=false,existingSignalHandlers=false,processRef=process}={}) {
+  return h.runCheck({name,cancellationGraceMs,cleanup,processRef,
+    ...(existingSignalHandlers?{createCancellation:observeLegacySignals}:{}),async run(context) {
     armInterruption(context,{realSignalCheckpoints});
     await operation(context);
     await context.throwIfCancelled();
     // Preserve legacy checks which collect failures instead of throwing them.
-    if(process.exitCode===2)throw new h.SkipCheck('Prerequisite unavailable; see the check diagnostics');
-    if(process.exitCode)throw new Error('Legacy check reported a failure; see its diagnostics');
+    if(processRef.exitCode===2)throw new h.SkipCheck('Prerequisite unavailable; see the check diagnostics');
+    if(processRef.exitCode)throw new Error('Legacy check reported a failure; see its diagnostics');
   }});
 }
 async function finishLegacyCleanup(actions) {
@@ -61,4 +79,4 @@ function sanitizedError(error, isCancellation) {
   if(typeof error?.failedStep==='string')safe.failedStep=h.withoutQueryStrings(error.failedStep);
   return safe;
 }
-module.exports={runLegacyCheck,finishLegacyCleanup,armInterruption,sanitizedError,NO_PLAYWRIGHT_SIGNAL_HANDLING:h.NO_PLAYWRIGHT_SIGNAL_HANDLING};
+module.exports={runLegacyCheck,observeLegacySignals,finishLegacyCleanup,armInterruption,sanitizedError,NO_PLAYWRIGHT_SIGNAL_HANDLING:h.NO_PLAYWRIGHT_SIGNAL_HANDLING};

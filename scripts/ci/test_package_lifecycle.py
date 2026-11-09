@@ -27,7 +27,8 @@ class PackageLifecycleTest(unittest.TestCase):
             for selection in (None, ['error-sanitization'], cell.BASELINE_READ_ONLY):
                 cell.smoke({'CARLOS_SUITE_PROVINCE': 'ON'}, 'budget', selection)
         for command, seconds in budgets[:2]:
-            self.assertIn('scripts/ci/run-installed-error-sanitization.py', command)
+            self.assertEqual(command[:2], ['node', 'scripts/run-playwright-suite.js'])
+            self.assertNotIn('scripts/ci/run-installed-error-sanitization.py', command)
             self.assertGreaterEqual(seconds, 2 * (120 + 420) + 60 + 40 + 600)
         self.assertNotIn('scripts/ci/run-installed-error-sanitization.py', budgets[2][0])
         self.assertEqual(budgets[2][1], 600)

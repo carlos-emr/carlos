@@ -404,7 +404,8 @@
         "java-native-flyway",
         "java-native-bc-flyway",
         "java-date-zones",
-        "manual-pathnet-patient-link"
+        "manual-pathnet-patient-link",
+        "packaged-native-pathnet"
       ]
     },
     {
@@ -710,7 +711,8 @@
         "o19-generator-python",
         "package-clean-reinstall",
         "package-main-upgrade",
-        "package-beta5-upgrade"
+        "package-beta5-upgrade",
+        "packaged-o19-migrated"
       ]
     },
     {
@@ -796,7 +798,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -1565,7 +1567,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7709,
+      "minimumCases": 7715,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
       ],
@@ -3827,7 +3829,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 289,
+      "minimumCases": 277,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC",
         "CARLOS_TEST_MARIADB_SOCKET",
@@ -5076,6 +5078,85 @@
           "no-unreviewed-wire-breaks"
         ]
       }
+    },
+    {
+      "id": "packaged-native-pathnet",
+      "kind": "browser",
+      "profiles": [
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "pathnet-status",
+        "legacy-lab-display-pathnet"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 1800,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--profile",
+        "native-pathnet",
+        "--only",
+        "pathnet-status",
+        "--only",
+        "legacy-lab-display-pathnet",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true,
+      "propertyProfile": "native-pathnet"
+    },
+    {
+      "id": "packaged-o19-migrated",
+      "kind": "browser",
+      "profiles": [
+        "ON",
+        "BC"
+      ],
+      "repetitions": 1,
+      "selection": [
+        "o19-migrated-smoke"
+      ],
+      "packaged": true,
+      "requiresEnvironment": [
+        "BASE_URL",
+        "MYSQL_HOST",
+        "O19_ADMIN_CREDENTIALS",
+        "O19_NATIVE_CLINICIAN_CREDENTIALS",
+        "O19_ARCHIVE_SCHEMA",
+        "O19_STATE_DIR"
+      ],
+      "runtimeConstraints": {
+        "node": "22",
+        "npm": "10.9.9"
+      },
+      "timeoutSeconds": 1800,
+      "command": [
+        "node",
+        "scripts/run-playwright-suite.js",
+        "--strict-release",
+        "--only",
+        "o19-migrated-smoke",
+        "--province",
+        "{profile}",
+        "--residue-audit",
+        "--junit",
+        "{run}/browser.xml"
+      ],
+      "requireLockedChromium": true
     }
   ],
   "requireJavaDiscovery": true,

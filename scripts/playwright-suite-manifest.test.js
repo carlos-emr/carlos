@@ -11,6 +11,9 @@ const { NAVIGATION, REQUIRED_SECTIONS } = require('./lib/playwright-ui');
 
 const VALID_TIERS = new Set(['smoke', 'core', 'extended', 'front-door', 'standalone', 'live-external']);
 const checks = loadManifest();
+// Error qualification now owns two bounded restarts inside its check timeout.
+// The former suite-wide wrapper kept these 1300 seconds outside this budget.
+const SMOKE_BUDGET_SECONDS = 3600 + 1300;
 
 test('every database check reaches a shared signal-aware entry point',()=>{
   const {hasSignalEntryPoint}=require('./lib/script-signal-safety');
@@ -114,7 +117,7 @@ test('the smoke tier stays small enough to gate a pull request', () => {
   const smoke = selectChecks(checks, parseArguments(['--tier','smoke']));
   assert.ok(smoke.length > 0, 'there must be a smoke tier for CI to run');
   const budgetSeconds = smoke.reduce((total, check) => total + check.timeoutSec, 0);
-  assert.ok(budgetSeconds <= 3600, `the smoke tier's worst case is ${budgetSeconds}s; it is meant to gate a PR`);
+  assert.ok(budgetSeconds <= SMOKE_BUDGET_SECONDS, `the smoke tier's worst case is ${budgetSeconds}s; it is meant to gate a PR`);
 });
 
 test('exactly one check runs last, and it is the one with the destructive probes', () => {
@@ -219,8 +222,8 @@ test('a check is spawned by absolute path, so the runner works from any director
 test('the smoke tier stays within its configured timeout budget', () => {
   const smoke = selectChecks(checks, parseArguments(['--tier','smoke']));
   const budgetSeconds = smoke.reduce((total, check) => total + check.timeoutSec, 0);
-  assert.ok(budgetSeconds <= 3600,
-    `smoke timeout budget ${budgetSeconds}s exceeds the 3600s ceiling`);
+  assert.ok(budgetSeconds <= SMOKE_BUDGET_SECONDS,
+    `smoke timeout budget ${budgetSeconds}s exceeds the ${SMOKE_BUDGET_SECONDS}s ceiling`);
 });
 
 test('a partially valid selection cannot silently omit an unknown check', () => {
@@ -886,4 +889,26 @@ test('shouldSelectTheDefaultRun_whenOptionsCarryNoProfile', () => {
   assert.equal(profile, '');
   assert.deepEqual(selectChecks([plain, legacy], withoutProfile).map((c) => c.name), ['plain-check']);
   assert.deepEqual(selectChecks([plain, legacy], { ...withoutProfile, only: ['plain-check'] }).map((c) => c.name), ['plain-check']);
+});
+
+test('every automatic browser check reaches a structured result entry point',()=>{
+  const {hasStructuredEntryPoint}=require('./lib/script-signal-safety');
+  const missing=checks.filter(check=>!check.manual&&!hasStructuredEntryPoint(path.resolve(__dirname,'..',check.script))).map(check=>check.name);
+  assert.deepEqual(missing,[], 'A zero exit without a structured result cannot qualify a strict release lane');
+});
+
+test('native-only O19 and BC PathNet checks retain explicit qualification lanes',()=>{
+  const names=options=>selectChecks(checks,parseArguments(options)).map(c=>c.name);
+  for(const province of ['ON','BC']) {
+    const ordinary=names(['--province',province]);
+    for(const name of ['o19-migrated-smoke','pathnet-status','legacy-lab-display-pathnet']) assert(!ordinary.includes(name));
+    assert.deepEqual(names(['--province',province,'--only','o19-migrated-smoke']),['o19-migrated-smoke']);
+  }
+  assert.deepEqual(names(['--province','BC','--profile','native-pathnet']).sort(),['legacy-lab-display-pathnet','pathnet-status']);
+  assert.deepEqual(names(['--province','ON','--profile','native-pathnet']),[]);
+  const matrix=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/testing/release-2026.08-verification.json')));
+  for(const id of ['packaged-native-pathnet','packaged-o19-migrated']) {
+    assert(matrix.checks.some(c=>c.id===id));
+    assert(matrix.workstreams.some(w=>w.requiredChecks.includes(id)),`${id} must remain required`);
+  }
 });

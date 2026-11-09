@@ -8,7 +8,7 @@
         "scripts/chart-draw-playwright-checks.js"
       ],
       "source": "scripts/chart-draw-playwright-checks.js",
-      "sourceSha256": "3b4e29dfe4741e96b26a8120fc8477903388030b2b711795f389887b986b6a9b",
+      "sourceSha256": "9c5ee66bb1b1206cd117962a4aa39d140b45c1b3722998335009f6cbc601340e",
       "minimumAssertions": 1775
     },
     {
@@ -18,7 +18,7 @@
         "scripts/dependency-tables-playwright-checks.js"
       ],
       "source": "scripts/dependency-tables-playwright-checks.js",
-      "sourceSha256": "36f648a2c8ae8a75ff5e57c1b9414641951651d1cc3c053dd35da5b6714d9720",
+      "sourceSha256": "c7b88bd763a2593e8ff6dbcd1421248f2c73d84bc3273153e672d22bdf5699db",
       "minimumAssertions": 47
     },
     {

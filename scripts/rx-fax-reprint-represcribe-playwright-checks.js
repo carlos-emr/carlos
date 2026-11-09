@@ -731,7 +731,9 @@ async function runChecks(context) {
   }
 }
 
-(async () => {
+const legacyHarness = require('./lib/legacy-check');
+legacyHarness.runLegacyCheck('rx-fax-reprint-represcribe', async () => {
+  await (async () => {
   const args = ['--disable-dev-shm-usage'];
   if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') args.unshift('--no-sandbox');
   const launchOptions = { headless: true, args, ...NO_PLAYWRIGHT_SIGNAL_HANDLING };
@@ -767,5 +769,6 @@ async function runChecks(context) {
 })().catch((error) => {
   try { cleanupFixtures(); } finally { removeSecretsDir(); }
   console.error(`FAIL rx-fax-reprint-represcribe: ${checkPhase}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}`);
-  process.exit(1);
+  process.exitCode = 1;
 });
+}, {existingSignalHandlers:true});

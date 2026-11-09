@@ -531,7 +531,7 @@ cmd_suite() {
   quoted=$(printf '%q ' "$@")
   stamp=$(date -u +%Y%m%dT%H%M%SZ)
   before=$(in_container 'systemctl show carlos-emr -p NRestarts --value')
-  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true python3 scripts/ci/run-installed-error-sanitization.py -- node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
+  in_container ". /root/suite-env.sh; CARLOS_DISPOSABLE_HOST=true node scripts/run-playwright-suite.js $quoted --junit /root/suite-$stamp.xml" \
     2>&1 | tee "$LOG_DIR/suite-$stamp.log" || rc=$?
   docker cp "$CONTAINER:/root/suite-$stamp.xml" "$LOG_DIR/" >/dev/null 2>&1 || {
     echo "FAIL required suite JUnit report could not be retained" >&2

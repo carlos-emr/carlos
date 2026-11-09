@@ -5,6 +5,7 @@ const crypto = require('node:crypto');
 const { execFileSync, spawn } = require('node:child_process');
 const PROFILES = Object.freeze({
   'address-lock': {login_lock: 'false',login_max_failed_times:'3',login_max_duration:'10',login_local_ip:'127.0.0.1'},
+  'native-pathnet': {PATHNET_LABS: 'yes'},
   'no-pin': {'mfa.legacy.pin.enable': 'false'},
   multisite: {multisites: 'on', rma_enabled: 'true', moh_file_management_enabled: 'true'},
   'caisi-admin': {caisi: 'on', 'caisi.search.workflow': 'false',ModuleNames:'Caisi'},
