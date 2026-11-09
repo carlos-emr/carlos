@@ -11,8 +11,7 @@ fi
 # A rerun gets a fresh private workspace; never reuse or delete an old socket.
 work=$(mktemp -d "$RUNNER_TEMP/carlos-o19-native.XXXXXXXX")
 mkdir "$work/socket"
-version=$(bash scripts/ci/download-flyway-cli.sh "$work/flyway.tgz")
-tar xzf "$work/flyway.tgz" -C "$work"
+bash "$(dirname "$0")/fetch-flyway.sh" "$work/flyway"
 docker run -d --name carlos-o19-ci -p 127.0.0.1:13308:3306 \
   -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1 \
   --mount "type=bind,src=$work/socket,dst=/run/mysqld" \
@@ -33,7 +32,7 @@ docker exec carlos-o19-ci chmod 0711 /run/mysqld
 for province in on bc; do
   database="carlos_o19_reference_$province"
   docker exec carlos-o19-ci mariadb -uroot -e "CREATE DATABASE $database CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
-  "$work/flyway-$version/flyway" -url="jdbc:mariadb://127.0.0.1:13308/$database" -user=root -password= \
+  "$work/flyway/flyway" -url="jdbc:mariadb://127.0.0.1:13308/$database" -user=root -password= \
     -initSql="SET SESSION sql_mode='', innodb_strict_mode=0" \
     -locations="filesystem:database/mysql/migration/common,filesystem:database/mysql/migration/$province" migrate
 done

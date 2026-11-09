@@ -64,26 +64,29 @@ def check_freshness(floors, base, head='HEAD'):
     if set(files) & set(exclusions):
         raise ValueError('Sources cannot have both a floor and an exclusion')
     baseline = floors.get('baselineCommit')
-    baseline_available = False
     if not isinstance(baseline, str) or not re.fullmatch(r'[0-9a-f]{40}', baseline):
         problems.append('baselineCommit')
     else:
         resolved = subprocess.run(['git', 'rev-parse', '--verify', baseline + ':src/main/java'],
                                   capture_output=True, text=True, check=False)
-        baseline_available = resolved.returncode == 0
-        if baseline_available:
+        if resolved.returncode:
+            # Squash/rebase merges can discard the original commit object. Retain
+            # its measured Java tree explicitly; the candidate tree, comparison
+            # and every source blob above must still match that recorded evidence.
+            if floors.get('baselineSourceTree') != actual['sourceTree']:
+                problems.append('baselineSourceTree')
+        else:
             if resolved.stdout.strip() != actual['sourceTree']:
                 problems.append('baselineSourceTree')
-        # Squash/rebase merges can discard the historical baseline commit. Its
-        # ancestry is not source identity: the exact tree, comparison and every
-        # source blob above remain mandatory even when that commit is absent.
+            if ('baselineSourceTree' in floors
+                    and floors['baselineSourceTree'] != resolved.stdout.strip()):
+                problems.append('baselineSourceTree')
     if not isinstance(floors.get('baselineReportSha256'), str) or not re.fullmatch(
             r'[0-9a-f]{64}', floors['baselineReportSha256']):
         problems.append('baselineReportSha256')
     if not isinstance(floors.get('baselineLane'), str) or not floors['baselineLane'].strip():
         problems.append('baselineLane')
     return {'ready': not problems, 'source': actual, 'problems': problems,
-            'baselineCommitAvailable': baseline_available,
             'unreviewedZeroFloors': sorted(path for path, row in files.items()
                 if row['lines'] == 0 and not reviewed_zero_floor(
                     waivers.get(path), row.get('sourceBlob')))}

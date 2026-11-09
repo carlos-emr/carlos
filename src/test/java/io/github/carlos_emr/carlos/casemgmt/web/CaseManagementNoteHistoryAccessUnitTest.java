@@ -95,7 +95,8 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
         RuntimeException failure = new IllegalStateException("audit unavailable");
         logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(user,
                 "read", "CME note", "501", "101", null)).thenThrow(failure);
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.notehistory()).isSameAs(failure);
+        assertThat(action.notehistory()).isEqualTo("none");
+        assertThat(response.getStatus()).isEqualTo(500);
         assertThat(request.getAttribute("history")).isNull();
         assertThat(request.getAttribute("demoName")).isNull();
     }

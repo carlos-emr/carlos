@@ -442,7 +442,7 @@ function securityfsFixture(t,{enabled='Y',restricted='1',mounted=false,visible=t
   fs.writeFileSync(path.join(box.dir,'bin','mountpoint'),'#!/bin/sh\nexit '+(mounted?'0':'1')+'\n',{mode:0o755});
   fs.writeFileSync(path.join(box.dir,'bin','mount'),`#!/bin/sh
 printf '%s\\n' "$*" >> '${mountCalls}'
-${mountFails?'echo "securityfs fixture mount failed" >&2; exit 1':visible?`mkdir -p '${path.dirname(policy)}'\nprintf '%s\\n' 'carlos-emr-chromium (unconfined)' > '${policy}'`:'exit 0'}
+${mountFails?'exit 1':visible?`mkdir -p '${path.dirname(policy)}'\nprintf '%s\\n' 'carlos-emr-chromium (unconfined)' > '${policy}'`:'exit 0'}
 `,{mode:0o755});
   const source=fs.readFileSync(path.join(__dirname,'ci/prepare-container-securityfs.sh'),'utf8')
     .replace('enabled_path=/sys/module/apparmor/parameters/enabled',`enabled_path='${aa}'`)
@@ -460,9 +460,9 @@ test('visible securityfs requires no second mount',t=>{
 });
 test('an unavailable policy interface or a failed mount blocks qualification',t=>{
   for(const options of [{visible:false},{mounted:true,visible:false},{mountFails:true}]){
-    const {result}=securityfsFixture(t,options),context=JSON.stringify(options);
-    assert.notEqual(result.status,0,context);
-    assert.match(result.stderr,options.mountFails?/securityfs fixture mount failed/:/AppArmor policy interface is unavailable/,context);
+    const context=JSON.stringify(options);
+    const {result}=securityfsFixture(t,options);assert.notEqual(result.status,0,context);
+    assert.match(result.stderr,options.mountFails?/Cannot mount securityfs/:/AppArmor policy interface is unavailable/,context);
   }
 });
 test('unrestricted or disabled AppArmor requires no kernel interface change',t=>{

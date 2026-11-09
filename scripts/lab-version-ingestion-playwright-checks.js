@@ -186,6 +186,67 @@ async function workflow(s) {
         }
       }
       h.assert(known.size===4,'Native version matrix omitted an original, correction, older delivery or same-time late final');
+      await s.step('a missing historical source preserves selected-report and patient-list reads',async()=>{
+        const before=labState(accession),clinical=readPatientState(sql,patient);
+        const stored=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
+        h.assert(stored,'Owned historical source is missing before the refusal probe');
+        let cleared=false,probe,healthy;
+        const macroRows=()=>sql.rows(`SELECT id,value IS NULL,IFNULL(HEX(value),'') FROM property WHERE provider_no=${q(provider)} AND name='labMacroJSON' ORDER BY id`);
+        const macrosBefore=macroRows();h.assert(macrosBefore.length<=1,'Macro preferences are ambiguous before the owned probe');
+        const macroValue=JSON.stringify([{name:marker+' read-only macro',acknowledge:{comment:'SYNTHETIC READ ONLY PROBE'},closeOnSuccess:false}]);
+        const macroHex=Buffer.from(macroValue,'utf8').toString('hex').toUpperCase();
+        let macrosClaimed=false;
+        const restoreMacros=()=>{
+          if(!macrosClaimed)return;
+          const current=macroRows();
+          if(JSON.stringify(current)===JSON.stringify(macrosBefore)){macrosClaimed=false;return;}
+          h.assert(current.length===1&&current[0][2]===macroHex,'Owned macro preferences changed outside the read-only probe');
+          const id=current[0][0];h.assert(/^[1-9]\d*$/.test(id),'Owned macro property has no valid identity');
+          if(macrosBefore.length){
+            h.assert(id===macrosBefore[0][0],'Macro property ownership changed');
+            sql.execute(`UPDATE property SET value=${macrosBefore[0][1]==='1'?'NULL':`UNHEX(${q(macrosBefore[0][2])})`} WHERE id=${id}`);
+          }else sql.execute(`DELETE FROM property WHERE id=${id} AND provider_no=${q(provider)} AND name='labMacroJSON' AND HEX(value)=${q(macroHex)}`);
+          h.assert(JSON.stringify(macroRows())===JSON.stringify(macrosBefore),'Macro preferences were not restored exactly');
+          macrosClaimed=false;
+        };
+        s.cleanup(restoreMacros);
+        const restore=()=>{
+          if(!cleared)return;
+          const current=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
+          h.assert(current==='','Historical source changed outside the owned missing-body probe');
+          sql.execute(`UPDATE hl7TextMessage SET message=${q(stored)} WHERE lab_id=${original} AND type='CML' AND message=''`);
+          h.assert(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`)===stored,'Historical source restoration failed');
+          cleared=false;
+        };
+        s.cleanup(restore);
+        try{
+          macrosClaimed=true;
+          if(macrosBefore.length)sql.execute(`UPDATE property SET value=${q(macroValue)} WHERE id=${macrosBefore[0][0]} AND provider_no=${q(provider)} AND name='labMacroJSON'`);
+          else sql.execute(`INSERT INTO property(provider_no,name,value) VALUES(${q(provider)},'labMacroJSON',${q(macroValue)})`);
+          healthy=await inboxReport(corrected);
+          h.assert(await healthy.report.locator('.macro-dropdown').isVisible()&&await healthy.report.getByRole('link',{name:marker+' read-only macro',exact:true}).count()===1,'Configured macro menu precondition was not established');
+          await retireReports(healthy);healthy=null;
+          cleared=true;
+          sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND type='CML' AND message=${q(stored)}`);
+          h.assert(sql.value(`SELECT LENGTH(message) FROM hl7TextMessage WHERE lab_id=${original}`)==='0','Missing-body probe was not established');
+          probe=await inboxReport(corrected);await inspect(probe.report,corrected,'Incomplete history');
+          const warning=probe.report.locator('[data-carlos-hl7-chain-warning="unavailable"]');
+          h.assert(await warning.isVisible()&&(await warning.innerText()).length>60,'Incomplete history has no visible explanation');
+          h.assert(await probe.report.locator('.macro-dropdown').count()===0,'Incomplete history still exposes configured macro anchors');
+          h.assert(await probe.report.locator('input[onclick*="ackLab"],button[onclick*="ackLab"],input[onclick*="ForwardSelectedRows"],input[onclick*="unlinkDemographic"],a[href*="SearchPatient"],input[onclick*="SearchPatient"]').count()===0,'Incomplete history still offers a chain-dependent mutation');
+          h.assert(await probe.report.locator('input[onclick*="printPDF"]:enabled').count()===0,'Unverified version headers are still printable');
+          const chart=await s.chart();await chart.reload({waitUntil:'domcontentloaded'});await waitForNavbars(chart,30000);
+          const hrefs=await chart.locator('#leftNavBar a,#rightNavBar a').evaluateAll(nodes=>nodes.map(node=>(node.getAttribute('onclick')||'')+' '+(node.getAttribute('href')||'')));
+          const visible=new Set(hrefs.flatMap(text=>[...text.matchAll(/[?&]segmentID=([1-9]\d*)(?=&|['"]|$)/g)].map(match=>match[1])).filter(id=>known.has(id)));
+          h.assert(visible.size===known.size,'Incomplete history lost a visible patient report');
+          assertPatientStateUnchanged(clinical,readPatientState(sql,patient),'Incomplete history read');checkControl();
+        }finally{
+          try{restore();}finally{restoreMacros();}
+          if(healthy)await retireReports(healthy);
+          if(probe)await retireReports(probe);
+        }
+        h.assert(JSON.stringify(labState(accession))===JSON.stringify(before),'Missing-history read or restoration changed lab state');
+      });
       const beforeReplay=labState(accession),clinicalBeforeReplay=readPatientState(sql,patient);
       fs.writeFileSync(filePath,Buffer.from(versionMessage(accession,marker,VERSIONS.corrected),'latin1'));
       h.assert(await uploadThroughPopup(s,filePath,fileName)==='Already uploaded','Repeated correction was not recognized byte-for-byte');
@@ -196,72 +257,7 @@ async function workflow(s) {
       h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${q('%'+fileName+'%')}`)==='4','Correction replay changed checksum identities');
       h.assert(fs.readdirSync(process.env.LAB_UPLOAD_DOCUMENT_STORE).filter(name=>name.startsWith('LabUpload.'+fileName+'.')).length===4,'Correction replay changed archived-upload count');
       console.log('  Observed exact correction replay: no new version, route, clinical or measurement effect; original raw history preserved');
-      await s.step('an incomplete historical CML source retains a warned read-only selected report',async()=>{
-        const originalBody=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`);
-        const before=labState(accession),clinicalBefore=readPatientState(sql,patient);
-        const macroWhere=`provider_no=${q(provider)} AND name='labMacroJSON'`;
-        const macroState=()=>sql.rows(`SELECT id,IF(value IS NULL,'N',CONCAT('S',HEX(value))) FROM property WHERE ${macroWhere} ORDER BY id`);
-        const macrosBefore=macroState();h.assert(macrosBefore.length<=1,'Macro preference ownership is ambiguous');
-        const macroName=marker+' read-only recovery';
-        const macroValue=JSON.stringify([{name:macroName,acknowledge:{comment:'SYNTHETIC READ ONLY PROBE'},closeOnSuccess:false}]);
-        const macroHex=Buffer.from(macroValue,'utf8').toString('hex').toUpperCase();
-        let macroClaimed=false;
-        function restoreMacro(){
-          if(!macroClaimed)return;
-          const current=macroState();
-          if(JSON.stringify(current)!==JSON.stringify(macrosBefore)){
-            h.assert(current.length===1&&current[0][1]==='S'+macroHex,'Macro preference changed outside the owned probe');
-            const id=current[0][0];h.assert(/^[1-9]\d*$/.test(id),'Invalid macro preference identity');
-            if(macrosBefore.length){
-              h.assert(id===macrosBefore[0][0],'Macro preference row ownership changed');
-              const encoded=macrosBefore[0][1];
-              h.assert(encoded==='N'||/^S[0-9A-F]*$/.test(encoded),'Invalid retained macro preference encoding');
-              sql.execute(`UPDATE property SET value=${encoded==='N'?'NULL':`UNHEX(${q(encoded.slice(1))})`} WHERE id=${id} AND ${macroWhere} AND HEX(value)=${q(macroHex)}`);
-            }else sql.execute(`DELETE FROM property WHERE id=${id} AND ${macroWhere} AND HEX(value)=${q(macroHex)}`);
-          }
-          h.assert(JSON.stringify(macroState())===JSON.stringify(macrosBefore),'Macro preference was not restored exactly');
-          macroClaimed=false;
-        }
-        s.cleanup(restoreMacro);
-        macroClaimed=true;
-        if(macrosBefore.length){
-          h.assert(/^[1-9]\d*$/.test(macrosBefore[0][0]),'Invalid original macro preference identity');
-          sql.execute(`UPDATE property SET value=${q(macroValue)} WHERE id=${macrosBefore[0][0]} AND ${macroWhere}`);
-        }else sql.execute(`INSERT INTO property(provider_no,name,value) VALUES(${q(provider)},'labMacroJSON',${q(macroValue)})`);
-        let report;
-        try {
-          const reportUrl=h.appUrl(s.config.baseUrl,`/lab/CA/ALL/ViewLabDisplay?segmentID=${corrected}&providerNo=${encodeURIComponent(provider)}&searchProviderNo=${encodeURIComponent(provider)}&status=N&showLatest=true`);
-          report=await s.context.newPage();h.relabelStrictPage(report,'healthy-cml-macro-control');
-          const healthy=await report.goto(reportUrl,{waitUntil:'networkidle'});
-          h.assert(healthy&&healthy.status()===200,'Healthy macro-control report did not load');
-          h.assert(await report.locator('.macro-dropdown a').filter({hasText:macroName}).count()===1,'Healthy report did not expose the configured macro control');
-          await report.close();report=null;
-          // Only this workflow's owned source is made unreadable, then restored
-          // exactly. Neither the selected correction nor its measurements change.
-          sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND message=${q(originalBody)}`);
-          h.assert(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`)==='','Owned incomplete source was not established');
-          const incomplete=labState(accession);
-          report=await s.context.newPage();h.relabelStrictPage(report,'incomplete-cml-selected-report');
-          const response=await report.goto(reportUrl,{waitUntil:'networkidle'});
-          h.assert(response&&response.status()===200,'Incomplete history prevented selected-report display');
-          await inspect(report,corrected,'Incomplete CML history');
-          h.assert(await report.locator('[data-carlos-cml-chain="unavailable"]').isVisible(),'Incomplete history was silently presented as complete');
-          h.assert(await report.locator('.macro-dropdown').count()===0,'Incomplete history left an acknowledgement macro reachable');
-          const controls=report.locator('form input,form button,form select,form textarea');
-          h.assert(await controls.count()>0,'Read-only recovery has no guarded report controls');
-          for(const control of await controls.all())h.assert(await control.isDisabled(),'Incomplete history left a report control enabled');
-          h.assert(JSON.stringify(labState(accession))===JSON.stringify(incomplete),'Read-only recovery changed lab sources, reviews or measurements');
-          assertPatientStateUnchanged(clinicalBefore,readPatientState(sql,patient),'Incomplete CML history display');checkControl();
-        } finally {
-          try {
-            sql.execute(`UPDATE hl7TextMessage SET message=${q(originalBody)} WHERE lab_id=${original} AND message=''`);
-            h.assert(JSON.stringify(labState(accession))===JSON.stringify(before),'Owned historical source was not restored exactly');
-          } finally {
-            try {restoreMacro();}
-            finally {if(report&&!report.isClosed()){await report.waitForLoadState('networkidle',{timeout:30000});await report.close();}}
-          }
-        }
-      });
+
     }});
     checkControl();
   }});

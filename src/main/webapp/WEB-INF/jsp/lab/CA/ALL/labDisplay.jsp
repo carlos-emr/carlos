@@ -283,7 +283,7 @@
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
-    boolean cmlVersionChainUnavailable = Boolean.TRUE.equals(request.getAttribute("cmlVersionChainUnavailable"));
+    boolean versionChainReliable = !Boolean.TRUE.equals(request.getAttribute("cmlVersionChainUnavailable"));
 
     String duplicateOfLab = null;
     Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
@@ -299,6 +299,15 @@
                 new String[] {segmentID}, "HL7");
         if (showAll) {
             multiLabId = request.getParameter("multiID");
+            LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo,
+                    multiLabId.split(","), "HL7");
+        }
+        Hl7textResultsData.DisplayLabVersions display = Hl7textResultsData.getMatchingLabsForDisplay(segmentID);
+        String resolvedLabIds = display.labIds();
+        versionChainReliable = versionChainReliable && display.reliable();
+        if (!versionChainReliable) showAll = false;
+        if (showAll) {
+            multiLabId = request.getParameter("multiID");
             segmentIDs = multiLabId.split(",");
             LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
             for (int i = 0; i < segmentIDs.length; ++i) {
@@ -307,9 +316,7 @@
 
             handler = handlers.get(0);
         } else {
-            Hl7textResultsData.DisplayLabVersions displayVersions = Hl7textResultsData.getMatchingLabsForDisplay(segmentID);
-            multiLabId = displayVersions.labIds();
-            cmlVersionChainUnavailable |= !displayVersions.reliable();
+            multiLabId = resolvedLabIds;
             segmentIDs = multiLabId.split(",");
             LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
 
@@ -696,7 +703,7 @@ input[id^='acklabel_']{
 
 
         function matchMe() {
-            <% if ( !isLinkedToDemographic) { %>
+            <% if (versionChainReliable && !isLinkedToDemographic) { %>
             popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScript"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow');
             <% } %>
         }
@@ -1051,9 +1058,8 @@ input[id^='acklabel_']{
 </head>
 
 <body onLoad="javascript:matchMe(); loadHL7hx();">
-<% if (cmlVersionChainUnavailable) { %>
-<div class="alert alert-warning" role="alert" data-carlos-cml-chain="unavailable"><fmt:message key="cml.versionChain.unavailable"/></div>
-<fieldset disabled style="border:0;margin:0;padding:0;">
+<% if (!versionChainReliable) { %>
+<div class="alert alert-warning" role="alert" data-carlos-hl7-chain-warning="unavailable"><fmt:message key="cml.versionChain.unavailable"/></div>
 <% } %>
 
 <!-- form forwarding of the lab -->
@@ -1088,7 +1094,7 @@ input[id^='acklabel_']{
         String label = "";
         if (hl7Lab != null && hl7Lab.getLabel() != null) label = hl7Lab.getLabel();
 
-        boolean offerFiling = remoteFacilityIdString == null
+        boolean offerFiling = versionChainReliable && remoteFacilityIdString == null
                 && SpringUtils.getBean(ProviderManager2.class).isHl7OfferFileForOthers(
                         loggedInInfo, loggedInInfo.getLoggedInProviderNo());
         java.util.Set<String> filingProviders = new java.util.HashSet<>();
@@ -1475,6 +1481,7 @@ input[id^='acklabel_']{
     </dialog>
     <% } %>
 
+    <fieldset <%= versionChainReliable ? "" : "disabled" %>>
     <form name="acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
           id="acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
@@ -1496,7 +1503,7 @@ input[id^='acklabel_']{
                                 <input type="hidden" name="comment" value="">
                                 <input type="hidden" name="labType" value="HL7">
                                 <%
-                                    if (!ackFlag) {
+                                    if (!ackFlag && versionChainReliable) {
                                 %>
 
                                 <%
@@ -1506,7 +1513,7 @@ input[id^='acklabel_']{
                                 %>
 <div class="d-flex align-items-center input-group-sm">
                                 <%
-                                    if (!cmlVersionChainUnavailable && up != null && !StringUtils.isEmpty(up.getValue())) {
+                                    if (versionChainReliable && up != null && !StringUtils.isEmpty(up.getValue())) {
 
                                 %>
                                 <div class="dropdown macro-dropdown" style="display:inline-block;position:relative;">
@@ -1543,24 +1550,28 @@ input[id^='acklabel_']{
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-file-for="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
                                         onclick="openLabFilingDialog('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>',false);"><fmt:message key="lab.filing.fileFor"/></button>
                                 <% } %>
+                                <% if (versionChainReliable) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('addComment',<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>);">
                                 <input type="button" class="btn btn-sm btn-outline-secondary"
                                        value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                        onClick="ForwardSelectedRows(<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/> + ':HL7', '', '')">
+                                <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnClose"/> "
                                        onClick="window.close()">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnPrint"/> "
-                                       onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')">
+                                       onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')" <%= versionChainReliable ? "" : "disabled" %>>
 
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Msg"
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','msgLab');">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Tickler"
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','ticklerLab');">
+                                <% if (versionChainReliable) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
                                        onclick="unlinkDemographic(<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>)">
+                                <% } %>
 
-                                <% if (searchProviderNo != null) { // null if we were called from e-chart%>
+                                <% if (versionChainReliable && searchProviderNo != null) { // null if we were called from e-chart%>
                                 <c:set var="__enc_1"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
                                        onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'encounter')">
@@ -1700,7 +1711,7 @@ input[id^='acklabel_']{
                                                                     <c:set var="__enc_6"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
                                                                     <div class=                                                                            
 "FieldData">
-                                                                        <% if (searchProviderNo == null) { // we were called from e-chart%>
+                                                                        <% if (!versionChainReliable || searchProviderNo == null) { // no patient matching with an unverified chain%>
                                                                         <a href="javascript:window.close()">
                                                                                 <% } else { // we were called from lab module%>
                                                                             <a href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&amp;segmentID=<carlos:encode value='${__enc_6}' context="htmlAttribute"/>&amp;name=<carlos:encode value='<%= java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8) %>' context="htmlAttribute"/>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
@@ -2930,18 +2941,20 @@ input[id^='acklabel_']{
         <table style="width:100%" class="MainTableBottomRowRightColumn">
             <tr>
                 <td style="text-align:left; width:50%">
-                    <% if (!ackFlag) { %>
+                    <% if (!ackFlag && versionChainReliable) { %>
                     <input type="button" class="btn btn-sm btn-outline-primary" value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                            onclick="<carlos:encode value='<%= ackLabFunc %>' context="htmlAttribute"/>">
                     <% } %>
+                    <% if (versionChainReliable) { %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                            onclick="return getComment('addComment',<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>);">
                     <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.index.btnForward"/>"
                            onClick="ForwardSelectedRows(<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/> + ':HL7', '', '')">
+                    <% } %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnClose"/> " onClick="window.close()">
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnPrint"/> "
-                           onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')">
-                    <% if (searchProviderNo != null) { // we were called from e-chart %>
+                           onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')" <%= versionChainReliable ? "" : "disabled" %>>
+                    <% if (versionChainReliable && searchProviderNo != null) { // we were called from e-chart %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                            onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScript"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
 
@@ -2994,6 +3007,7 @@ input[id^='acklabel_']{
         </table>
 
     </form>
+    </fieldset>
 
     <%String s = "" + System.currentTimeMillis();%>
     <a style="color:lightgrey;" href="javascript: void(0);" onclick="showHideItem('rawhl7<%=s%>');">show</a>
@@ -3014,7 +3028,6 @@ input[id^='acklabel_']{
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 
-<% if (cmlVersionChainUnavailable) { %></fieldset><% } %>
 </body>
 </html>
 <%!

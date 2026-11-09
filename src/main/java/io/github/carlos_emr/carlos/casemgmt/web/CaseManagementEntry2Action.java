@@ -3317,9 +3317,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                                          List<CaseManagementNote> history, boolean linkedGroupNote) { }
 
     private String prepareNoteHistoryView(AuthorizedNoteHistory access) {
-        LogAction.addLogStrict(LoggedInInfo.getLoggedInInfoFromSession(request),
-                LogConst.READ, LogConst.CON_CME_NOTE,
-                Long.toString(access.noteId()), access.patient(), null);
+        try {
+            LogAction.addLogStrict(LoggedInInfo.getLoggedInInfoFromSession(request),
+                    LogConst.READ, LogConst.CON_CME_NOTE,
+                    Long.toString(access.noteId()), access.patient(), null);
+        } catch (RuntimeException auditFailure) {
+            logger.error("Note history withheld because its read audit could not be persisted");
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            return NONE;
+        }
         request.setAttribute("demoName", getDemoName(access.patient()));
         request.setAttribute("history", access.history());
         request.setAttribute("showStoredNoteHistory", !access.linkedGroupNote());

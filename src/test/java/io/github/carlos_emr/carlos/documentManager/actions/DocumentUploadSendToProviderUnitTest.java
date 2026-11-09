@@ -177,6 +177,14 @@ class DocumentUploadSendToProviderUnitTest extends CarlosUnitTestBase {
                         && "application/pdf".equals(document.getContentType()))));
     }
 
+    @Test
+    void shouldPreserveNonPdfUploads_withoutAttemptingPdfPageCounting() throws Exception {
+        Files.writeString(upload.toPath(), "SYNTHETIC ordinary document");
+        uploadToPendingDocs("999998", "scan.txt");
+        eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(org.mockito.ArgumentMatchers.argThat(
+                document -> document.getNumberOfPages() == 0)));
+    }
+
     /** One upload to pending docs, posted the way the uploader page posts it. */
     private void uploadToPendingDocs(String provider) throws Exception {
         uploadToPendingDocs(provider, "scan.pdf");

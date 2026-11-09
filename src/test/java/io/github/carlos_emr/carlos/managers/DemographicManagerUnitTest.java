@@ -1672,6 +1672,15 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
 
         @Test
+        void shouldPreserveTheEmptyLegacyLookup_whenNoPatientIdentityWasSupplied() {
+            when(mockDemographicDao.getMergedDemographics(null)).thenReturn(List.of());
+            assertThat(manager.getMergedDemographicIds(mockLoggedInInfo, null)).isEmpty();
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                    mockLoggedInInfo, "DemographicManager.getMergedDemographics", null, null,
+                    null, "demographicNo=null"));
+        }
+
+        @Test
         @DisplayName("should do nothing when merging with empty children list")
         void shouldDoNothing_whenMergingWithEmptyChildrenList() {
             // Edge case: empty children list should be handled gracefully

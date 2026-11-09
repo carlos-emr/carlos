@@ -87,6 +87,32 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
         injectDependency(ws, "patientConsentManager", patientConsentManager);
     }
 
+    @Test
+    void shouldReturnNoConsentedPatients_whenTheProviderHasNoConsentType() {
+        when(patientConsentManager.getProviderSpecificConsent(any(LoggedInInfo.class))).thenReturn(null);
+        DemographicWs proxy = createClient(DemographicWs.class);
+        assertThat(proxy.getConsentedDemographicIdsAfter(new java.util.GregorianCalendar(2026, 0, 2)))
+                .isNullOrEmpty();
+        org.mockito.Mockito.verify(patientConsentManager, org.mockito.Mockito.never())
+                .getConsentsByTypeAndEditDate(any(), any(), any());
+    }
+
+    @Test
+    void shouldPreserveConsentedPatientSelection_whenTheProviderHasAConsentType() {
+        var type = new io.github.carlos_emr.carlos.commn.model.ConsentType();
+        type.setId(91);
+        when(patientConsentManager.getProviderSpecificConsent(any(LoggedInInfo.class))).thenReturn(type);
+        var first = new io.github.carlos_emr.carlos.commn.model.Consent();
+        first.setDemographicNo(101);
+        var second = new io.github.carlos_emr.carlos.commn.model.Consent();
+        second.setDemographicNo(202);
+        when(patientConsentManager.getConsentsByTypeAndEditDate(any(), eq(type), any()))
+                .thenReturn(List.of(first, first, second));
+        DemographicWs proxy = createClient(DemographicWs.class);
+        assertThat(proxy.getConsentedDemographicIdsAfter(new java.util.GregorianCalendar(2026, 0, 2)))
+                .containsExactly(101, 202);
+    }
+
     /** Tests for the getDemographic SOAP operation. */
     @Nested
     @DisplayName("getDemographic operation")

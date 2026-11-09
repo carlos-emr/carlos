@@ -28,7 +28,7 @@ on:
       - '.devcontainer/**'
       - '.github/workflows/db-schema-verify.yml'
       - 'scripts/ci/verify-flyway-baseline.sh'
-      - 'scripts/ci/download-flyway-cli.sh'
+      - 'scripts/ci/fetch-flyway.sh'
       - '.claude/**'
 
 # Read-only job: it checks out the repo and talks to a local docker container.
@@ -62,9 +62,8 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update && sudo apt-get install -y mariadb-client
-          FLYWAY_VERSION=$(bash scripts/ci/download-flyway-cli.sh /tmp/flyway.tgz)
-          tar xzf /tmp/flyway.tgz
-          echo "$PWD/flyway-${FLYWAY_VERSION}" >> "$GITHUB_PATH"
+          bash scripts/ci/fetch-flyway.sh "$RUNNER_TEMP/flyway"
+          echo "$RUNNER_TEMP/flyway" >> "$GITHUB_PATH"
 
       - name: Start MariaDB 11.8.8 with the CARLOS server config
         env:

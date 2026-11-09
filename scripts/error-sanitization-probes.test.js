@@ -95,3 +95,18 @@ test('installed fault supervision propagates a failed spawn and removes signal h
   await assert.rejects(outcome, /synthetic missing python/);
   assert.equal(signals.listenerCount('SIGTERM') + signals.listenerCount('SIGINT'), 0);
 });
+
+
+test('a killed installed supervisor reports uncertain restoration and still fails', async t => {
+  const {EventEmitter} = require('node:events');
+  const {superviseInstalledFault} = require('./error-sanitization-playwright-checks');
+  const signals = new EventEmitter();
+  const child = new EventEmitter();
+  const messages = [];
+  t.mock.method(console, 'error', message => messages.push(message));
+  const outcome = superviseInstalledFault({signalProcess:signals, spawn:() => child});
+  child.emit('close', null, 'SIGKILL');
+  assert.equal(await outcome, 1);
+  assert.match(messages.join('\n'), /SIGKILL; verify the installed web\.xml was restored/);
+  assert.equal(signals.listenerCount('SIGTERM') + signals.listenerCount('SIGINT'), 0);
+});

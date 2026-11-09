@@ -227,8 +227,27 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldNotInventPartOfAUnicodeCharacter_whenTheFilterSplitsItsCaseMapping() {
-        assertThat(fileResult("\u0130", "i", "2026-03-10 12:00:00",
-                LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
+        try (LogCapture log = LogCapture.forLogger(Hl7textResultsData.class)) {
+            assertThat(fileResult("\u0130", "i", "2026-03-10 12:00:00",
+                    LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
+            assertThat(log.messages()).anySatisfy(message -> assertThat(message)
+                    .contains("split a Unicode case mapping", "lab 4616", "OBX 0-0")
+                    .doesNotContain("\u0130"));
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("unicodeMatchBoundaries")
+    void shouldRetainOnlyWholeSourceCharacters_whenTheFilterStartsAfterACaseExpansion(
+            String filter, String expected) {
+        Measurement stored = fileResult("\u0130X", filter, "2026-03-10 12:00:00",
+                LocalDateTime.parse("2026-03-10T14:00:00"));
+        if (expected == null) assertThat(stored).isNull();
+        else assertThat(stored.getDataField()).isEqualTo(expected);
+    }
+
+    private static Stream<Arguments> unicodeMatchBoundaries() {
+        return Stream.of(Arguments.of("i", null), Arguments.of("\u0307x", null), Arguments.of("x", "X"));
     }
 
     @Test

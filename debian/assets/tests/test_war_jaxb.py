@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
 import importlib.util
-from contextlib import redirect_stderr
 import io
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
@@ -28,13 +28,17 @@ class JaxbWarTest(unittest.TestCase):
         cases = [
             ([('WEB-INF/lib/jaxb-runtime.jar', valid)], None),
             ([], 'WAR must register exactly one Glassfish JAXB factory'),
-            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/b.jar', valid)], 'WAR must register exactly one Glassfish JAXB factory'),
-            ([('WEB-INF/lib/a.jar', archive([(gate.SERVICE, 'other.Factory')]))], 'JAXB factory class missing'),
-            ([('WEB-INF/lib/a.jar', archive([(gate.SERVICE, 'other.Factory'), ('other/Factory.class', b'factory')]))],
+            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/b.jar', valid)],
              'WAR must register exactly one Glassfish JAXB factory'),
-            ([('WEB-INF/classes/' + gate.SERVICE, gate.FACTORY)], 'loose JAXB override'),
-            ([('WEB-INF/lib/a.jar', archive([('META-INF/versions/25/' + gate.SERVICE, gate.FACTORY)]))], 'versioned JAXB provider registration'),
-            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/shaded.jar', archive([('org/eclipse/persistence/Foo.class', b'x')]))], 'EclipseLink/MOXy runtime'),
+            ([('WEB-INF/lib/a.jar', archive([(gate.SERVICE, 'other.Factory')]))],
+             'JAXB factory class missing from registering JAR'),
+            ([('WEB-INF/lib/a.jar', archive([(gate.SERVICE, 'other.Factory'), ('other/Factory.class', b'x')]))],
+             'WAR must register exactly one Glassfish JAXB factory'),
+            ([('WEB-INF/classes/' + gate.SERVICE, gate.FACTORY)], 'loose JAXB override in WEB-INF/classes'),
+            ([('WEB-INF/lib/a.jar', archive([('META-INF/versions/25/' + gate.SERVICE, gate.FACTORY)]))],
+             'versioned JAXB provider registration'),
+            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/shaded.jar', archive([('org/eclipse/persistence/Foo.class', b'x')]))],
+             'EclipseLink/MOXy runtime in WAR'),
             ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/bad.jar', b'corrupt')], 'File is not a zip file'),
         ]
         with tempfile.TemporaryDirectory() as temp:
@@ -42,10 +46,8 @@ class JaxbWarTest(unittest.TestCase):
             for entries, reason in cases:
                 with self.subTest(entries=[name for name, _ in entries]):
                     war.write_bytes(archive(entries))
-                    stderr = io.StringIO()
-                    with redirect_stderr(stderr):
-                        self.assertEqual(gate.main([str(war)]), 0 if reason is None else 1)
-                    if reason is None:
-                        self.assertEqual(stderr.getvalue(), '')
-                    else:
-                        self.assertIn(reason, stderr.getvalue())
+                    errors = io.StringIO()
+                    with redirect_stderr(errors), redirect_stdout(io.StringIO()):
+                        self.assertEqual(gate.main([str(war)]), 1 if reason else 0)
+                    self.assertEqual(errors.getvalue(),
+                                     f'JAXB WAR provider validation failed: {reason}\n' if reason else '')

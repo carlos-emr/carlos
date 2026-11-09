@@ -62,8 +62,9 @@ public final class ViewLabDisplay2Action extends ActionSupport {
         // The JSP can render supplied versions, the latest version, or comparison data from
         // matching versions. Authorize those actual lab identities before forwarding to it.
         String all = request.getParameter("all");
+        boolean showAll = all != null && !"null".equalsIgnoreCase(all);
         String versions;
-        if (all != null && !"null".equalsIgnoreCase(all)) {
+        if (showAll) {
             versions = request.getParameter("multiID");
         } else {
             Hl7textResultsData.DisplayLabVersions display = Hl7textResultsData.getMatchingLabsForDisplay(segment);
@@ -85,6 +86,11 @@ public final class ViewLabDisplay2Action extends ActionSupport {
             if (checked.add(versionNo)) {
                 LabPatientAccess.requireLab(securityInfoManager, routings, loggedInInfo, versionNo, "HL7");
             }
+        }
+        if (showAll) {
+            // Explicit comparison identities must be authorized before source parsing.
+            Hl7textResultsData.DisplayLabVersions display = Hl7textResultsData.getMatchingLabsForDisplay(segment);
+            request.setAttribute("cmlVersionChainUnavailable", !display.reliable());
         }
 
         return SUCCESS;

@@ -17,6 +17,13 @@ blobs rather than commit ancestry. When the historical commit is available,
 its source tree is also checked; its availability is recorded explicitly.
 An absent commit does not waive any source identity or coverage requirement.
 
+Squash and rebase merges may rewrite the baseline commit without changing its
+Java sources. Freshness therefore checks source identity rather than commit
+ancestry. `baselineSourceTree` retains the measured tree if the original commit
+object becomes unavailable; when that object is present, its tree must also
+match. This does not bypass the comparison fingerprint, individual source blobs,
+report hash, metric floors or review requirements.
+
 Run freshness independently:
 
 ```sh

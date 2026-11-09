@@ -22,7 +22,7 @@ while preserving inactive-type queries. Its complete shipping source build
 and lintian passed, all 6,206 checked package entries matched, and 34,526 actual
 H2 cases passed with 148 explicit prerequisite/routed skips. All 6,192 tested
 production classes match that package. The coverage/document follow-up retains
-this Java source tree. Final-head CI qualifies its own rebuilt artifacts;
+this Java source tree. CI at the final commit qualifies its own rebuilt artifacts;
 historical evidence never substitutes for that qualification.
 
 ## Scope and disposition
@@ -82,7 +82,7 @@ test/CI infrastructure, rename an unused OAuth exception parameter, and repair
 CML versioning, literal views and audit events. The subsequent complete
 `67495a962dc0` candidate and `a040ff73b291` ON/BC installed CI qualify those
 clinical paths; `e2b2c4979a2f` adds the final nullable-input guards and full
-passing Java retake. Final-head build/install CI qualifies its own rebuilt
+passing Java retake. Build/install CI at the final commit qualifies its own rebuilt
 artifacts separately. Earlier ON/BC document, OAuth and eForm
 widget/PDF bundles passed with no skips or residue; the ON guideline and forwarding
 retakes and BC billing selector retakes also passed. These focused passes do not

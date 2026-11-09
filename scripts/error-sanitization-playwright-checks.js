@@ -123,7 +123,7 @@ function superviseInstalledFault({ environment = process.env, signalProcess = pr
     child.once('error', error => { cleanup(); reject(error); });
     child.once('close', (code, signal) => {
       cleanup();
-      if (signal) console.error(`FAIL installed error fixture supervisor terminated by ${signal}; web.xml restoration is unconfirmed`);
+      if (signal) console.error(`FAIL installed error fixture supervisor ended by ${signal}; verify the installed web.xml was restored`);
       resolve(signal || code === null ? 1 : code);
     });
   });

@@ -501,10 +501,8 @@ public class Hl7textResultsData {
         return sb.toString();
     }
 
-    /** A display fallback never certifies the complete chain for a mutation. */
-    public record DisplayLabVersions(String labIds, boolean reliable) { }
-
-    private static final class IncompleteCmlVersionChainException extends IllegalStateException {
+    /** Missing CML source evidence prevents chain-dependent writes, but not viewing the selected report. */
+    public static final class IncompleteCmlVersionChainException extends IllegalStateException {
         private static final long serialVersionUID = 1L;
 
         private IncompleteCmlVersionChainException(String message) {
@@ -512,10 +510,13 @@ public class Hl7textResultsData {
         }
     }
 
+    /** A display fallback never certifies the complete chain for a mutation. */
+    public record DisplayLabVersions(String labIds, boolean reliable) { }
+
     /**
-     * Retains the selected report for read-only display when a related CML source
-     * is missing or unparseable. Callers must show the warning and disable writes.
-     * Database/query failures and invalid identifiers still propagate.
+     * Retains the selected report when a related CML source is unavailable.
+     * Callers must explain the incomplete history and disable mutation controls.
+     * Database failures and invalid source identifiers still propagate.
      */
     public static DisplayLabVersions getMatchingLabsForDisplay(String labNo) {
         try {
@@ -540,6 +541,7 @@ public class Hl7textResultsData {
         java.util.Map<Integer, Integer> completedCounts = new java.util.HashMap<>();
         java.util.Map<Integer, Date> observationDates = new java.util.HashMap<>();
         java.util.Set<Integer> correctedVersions = new java.util.HashSet<>();
+        java.util.Set<Integer> seenVersions = new java.util.HashSet<>();
 
         for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
@@ -566,9 +568,7 @@ public class Hl7textResultsData {
 
             if (monthsBetween < 4) {
                 if (cml) {
-                    // The accession self-join can repeat a lab number. Parse and
-                    // order each source once, so chain indexes remain stable.
-                    if (completedCounts.containsKey(labNo)) continue;
+                    if (!seenVersions.add(labNo)) continue;
                     Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
                             ? hl7Msg : hl7TxtMsgDao.find(labNo);
                     if (version == null) throw new IncompleteCmlVersionChainException("A CML version has no stored source message");

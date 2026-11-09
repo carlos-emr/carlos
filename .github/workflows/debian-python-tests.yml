@@ -27,7 +27,7 @@ on:
       - 'scripts/migration/o19/**'
       - 'scripts/ci/prepare-cli-manifest-test-copy.py'
       - 'scripts/ci/prepare-o19-native.sh'
-      - 'scripts/ci/download-flyway-cli.sh'
+      - 'scripts/ci/fetch-flyway.sh'
       - 'scripts/ci/run-python-release-tests.py'
       # the manifest generator's inputs (schema/overlay parity tests run
       # here; full --check also needs an OSCAR 19 checkout): the Flyway set

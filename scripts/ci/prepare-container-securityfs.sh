@@ -15,7 +15,10 @@ if [ ! -r "$restriction_path" ] || [ "$(cat "$restriction_path")" != 1 ]; then e
 # Expose the policy interface so the package can load its own dedicated userns grant.
 # The kernel restriction and the renderer's sandbox configuration stay enabled.
 if ! mountpoint -q "$security_root"; then
-  mount -t securityfs securityfs "$security_root"
+  if ! mount -t securityfs securityfs "$security_root"; then
+    echo 'Cannot mount securityfs; sandboxed renderer qualification cannot proceed' >&2
+    exit 1
+  fi
 fi
 if [ ! -r "$security_root/apparmor/profiles" ]; then
   echo 'AppArmor policy interface is unavailable; sandboxed renderer qualification cannot proceed' >&2

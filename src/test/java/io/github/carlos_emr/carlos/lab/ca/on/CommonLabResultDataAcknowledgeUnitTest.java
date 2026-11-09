@@ -792,4 +792,33 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldKeepEachVisibleHl7Report_whenCmlSourcesAreIncomplete() {
+        registerStaticInitializerMocks();
+        LabResultData first = visibleLab("HL7", 41);
+        LabResultData second = visibleLab("HL7", 42);
+        var failure = mock(Hl7textResultsData.IncompleteCmlVersionChainException.class);
+        try (var hl7 = mockStatic(Hl7textResultsData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("41")).thenThrow(failure);
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("42")).thenThrow(failure);
+            assertThat(CommonLabResultData.latestVisibleVersions(List.of(first, second)))
+                    .containsExactly(first, second);
+            assertThatThrownBy(() -> new CommonLabResultData().getMatchingLabsForMutation("41", "HL7"))
+                    .isSameAs(failure);
+            assertThatThrownBy(() -> new CommonLabResultData().getMatchingLabs("41", "HL7"))
+                    .isSameAs(failure);
+        }
+    }
+
+    @Test
+    void shouldPropagateOtherLookupFailures_withoutSilentlyQualifyingThePatientList() {
+        registerStaticInitializerMocks();
+        var failure = new IllegalStateException("synthetic unavailable database");
+        try (var hl7 = mockStatic(Hl7textResultsData.class)) {
+            hl7.when(() -> Hl7textResultsData.getMatchingLabs("41")).thenThrow(failure);
+            assertThatThrownBy(() -> CommonLabResultData.latestVisibleVersions(List.of(visibleLab("HL7", 41))))
+                    .isSameAs(failure);
+        }
+    }
+
 }
