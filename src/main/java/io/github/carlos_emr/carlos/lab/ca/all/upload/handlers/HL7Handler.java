@@ -66,10 +66,14 @@ public class HL7Handler implements MessageHandler {
         int i = 0;
         try {
             ArrayList<String> messages = Utilities.separateMessages(fileName);
+            java.util.Set<Integer> createdIds = new java.util.LinkedHashSet<>();
             for (i = 0; i < messages.size(); i++) {
 
                 String msg = messages.get(i);
-                MessageUploader.routeReport(loggedInInfo, "", "HL7", msg, fileId); //Setting serviceName="" for now
+                var result = new io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults();
+                MessageUploader.routeReport(loggedInInfo, "", "HL7", msg, fileId, result);
+                if (result.segmentId <= 0) throw new IllegalStateException("Upload did not return a stored report identity");
+                createdIds.add(result.segmentId);
 
             }
 
@@ -78,7 +82,7 @@ public class HL7Handler implements MessageHandler {
             // by accession number their abnormal status must be updated to
             // reflect the
             // other labs that they are grouped with aswell
-            updateLabStatus(messages.size());
+            updateLabStatus(createdIds);
             logger.info("Parsed OK");
         } catch (Exception e) {
             MessageUploader.clean(fileId);
@@ -89,20 +93,27 @@ public class HL7Handler implements MessageHandler {
 
     }
 
-    // recheck the abnormal status of the last 'n' labs
-    private void updateLabStatus(int n) throws SQLException {
+    // Recheck only identities returned by this upload, never globally recent rows.
+    static void updateLabStatus(java.util.Set<Integer> ids) throws SQLException {
+        if (ids.isEmpty()) return;
         Hl7TextInfoDao dao = SpringUtils.getBean(Hl7TextInfoDao.class);
-        for (Hl7TextInfoDao.LabStatus lab : dao.findRecentLabStatuses(Math.max(n, 0))) {
-            if ("A".equals(lab.resultStatus())) continue;
-            io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler handler =
-                    Factory.getHandler(Integer.toString(lab.labNumber()));
+        var messages = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
+        for (Integer id : ids) {
+            if (id == null || id <= 0) throw new IllegalArgumentException("Invalid uploaded report identity");
+            var lab = dao.find(id);
+            if (lab == null) throw new IllegalStateException("Uploaded lab metadata is missing");
+            if (lab.getResultStatus() != null && "A".equals(lab.getResultStatus().trim())) continue;
+            // Database failures must propagate; the ID-based factory catches retrieval errors.
+            var stored = messages.find(id);
+            io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler handler = Factory.getHandler(stored);
+            if (handler == null) continue;
             boolean abnormal = false;
             for (int obr = 0; !abnormal && obr < handler.getOBRCount(); obr++) {
                 for (int obx = 0; !abnormal && obx < handler.getOBXCount(obr); obx++) {
                     abnormal = handler.isOBXAbnormal(obr, obx);
                 }
             }
-            if (abnormal) dao.updateResultStatusLowPriority(lab.labNumber(), "A");
+            if (abnormal) dao.updateResultStatusLowPriority(id, "A");
         }
     }
 

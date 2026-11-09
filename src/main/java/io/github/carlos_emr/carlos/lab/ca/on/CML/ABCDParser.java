@@ -103,24 +103,19 @@ public class ABCDParser {
     //This method is to enter the lab into the providerLabTable
     private void addToProviderLabTable(String docNum, HashMap<String, String> htable, String labId) throws SQLException {
 
-        String providerNo = htable.get(docNum);
-
-        if (providerNo == null || providerNo.equals("null")) {
-            logger.info("Could not find provider " + docNum + " now trying provider " + docNum.substring(0, (docNum.length() - 1)) + "  for lab: " + labId);
-            providerNo = htable.get(docNum.substring(0, (docNum.length() - 1)));
-
-        }
-
-        if (providerNo == null || providerNo.equals("null")) {
-            logger.info("Could not find provider " + docNum.substring(0, (docNum.length() - 1)) + "either  for lab: " + labId);
-            logger.info("Setting Provider No to 0");
-            providerNo = "0";
-
-        }
-
+        String providerNo = resolveProvider(docNum, htable);
 
         ProviderLabRouting router = new ProviderLabRouting();
         router.route(labId, providerNo, "CML");
+    }
+
+    /** Preserve exact short identifiers; strip a check digit only from longer identifiers. */
+    static String resolveProvider(String doctorNumber, HashMap<String, String> providers) {
+        String provider = doctorNumber == null ? null : providers.get(doctorNumber);
+        if ((provider == null || "null".equals(provider)) && doctorNumber != null && doctorNumber.length() > 1) {
+            provider = providers.get(doctorNumber.substring(0, doctorNumber.length() - 1));
+        }
+        return provider == null || "null".equals(provider) ? "0" : provider;
     }
 
     /////
@@ -133,7 +128,7 @@ public class ABCDParser {
         String dobYear = "%";
         String dobMonth = "%";
         String dobDay = "%";
-        String hinMod = new String(hin);
+        String hinMod = hin == null ? "" : hin;
 
         if (hinMod.length() == 12) {
             hinMod = hinMod.substring(0, 10);
@@ -146,7 +141,8 @@ public class ABCDParser {
         }
 
         int[] countHolder = new int[] { 0 };
-        java.util.List<LabRoutingLookupDao.Patient> matches = SpringUtils.getBean(LabRoutingLookupDao.class)
+        java.util.List<LabRoutingLookupDao.Patient> matches = LabRoutingLookupDao.isMissingCmlHin(hinMod)
+                ? java.util.List.of() : SpringUtils.getBean(LabRoutingLookupDao.class)
                 .findCmlPatients(hinMod, dobYear, dobMonth, dobDay, sex, lastName, firstName,
                         CarlosProperties.getInstance().getBooleanProperty("LAB_NOMATCH_NAMES", "yes"));
         demo = executePatientLookup(matches, countHolder);
@@ -294,7 +290,10 @@ public class ABCDParser {
 
     class Btype { //line: Patient and Physician information
         void populate(ArrayList<String> lst) {
-            if (lst.size() == 22) { // must equal 22
+            if (lst.size() != 22) {
+                throw new IllegalArgumentException("CML B record must contain exactly 22 fields");
+            }
+            {
                 this.accessionNum = lst.get(1);
                 this.physicianAccountNum = lst.get(2);
                 this.serviceDate = lst.get(3);

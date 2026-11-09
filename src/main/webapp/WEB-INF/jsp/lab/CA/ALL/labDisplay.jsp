@@ -803,7 +803,7 @@ input[id^='acklabel_']{
         }
 
         function unlinkDemographic(labNo) {
-            var reason = "Incorrect demographic";
+            var reason = unlinkDemographic.lastReason || "Incorrect demographic";
             reason = prompt('${carlos:forJavaScript(msgUnlink)}', reason);
 
             //must include reason
@@ -811,6 +811,7 @@ input[id^='acklabel_']{
                 return false;
             }
 
+            unlinkDemographic.lastReason = reason;
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic";
             var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
             fetch(urlStr, {
@@ -818,9 +819,17 @@ input[id^='acklabel_']{
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: dataStr
             })
-            .then(function(response) { return response.json(); })
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    if (!response.ok || data.success !== true) {
+                        throw new Error('The lab could not be unlinked. Refresh the report and retry; your reason has been retained.');
+                    }
+                    return data;
+                });
+            })
             .then(function(data) {
                 if (data.success) {
+                    unlinkDemographic.lastReason = null;
                     // refresh the opening page with new results
                     top.opener.location.reload();
                     // refresh the lab display page and offer dialog to rematch.

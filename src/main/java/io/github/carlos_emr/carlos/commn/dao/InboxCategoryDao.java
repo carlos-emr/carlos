@@ -213,12 +213,12 @@ public class InboxCategoryDao {
                     documentDateSql += "AND doc.contentdatetime >= ? ";
                     documentDateParams.add(startDate + " 00:00:00");
                     labDateSql += "AND message.created >= ? ";
-                    labDateParams.add(startDate + " 00:00:00");
+                    labDateParams.add(startDate);
                 } else {
                     documentDateSql += "AND doc.observationdate >= ? ";
                     documentDateParams.add(startDate + " 00:00:00");
                     labDateSql += "AND info.obr_date >= ? ";
-                    labDateParams.add(startDate + " 00:00:00");
+                    labDateParams.add(startDate);
                 }
 
                 hrmDateSql += "AND h.timeReceived >= :hrmStartDate ";
@@ -229,13 +229,13 @@ public class InboxCategoryDao {
                 if (dateSearchType.equals("receivedCreated")) {
                     documentDateSql += "AND doc.contentdatetime <= ? ";
                     documentDateParams.add(endDate + " 23:59:59");
-                    labDateSql += "AND message.created <= ? ";
-                    labDateParams.add(endDate + " 23:59:59");
+                    labDateSql += "AND message.created < ? ";
+                    labDateParams.add(java.time.LocalDate.parse(endDate).plusDays(1).toString());
                 } else {
                     documentDateSql += "AND doc.observationdate <= ? ";
                     documentDateParams.add(endDate + " 23:59:59");
-                    labDateSql += "AND info.obr_date <= ? ";
-                    labDateParams.add(endDate + " 23:59:59");
+                    labDateSql += "AND info.obr_date < ? ";
+                    labDateParams.add(java.time.LocalDate.parse(endDate).plusDays(1).toString());
                 }
 
                 hrmDateSql += "AND h.timeReceived <= :hrmEndDate ";
@@ -291,7 +291,7 @@ public class InboxCategoryDao {
         public int getLabCountForUnmatched()
                 throws SQLException {
             String dateSearchType = getDateSearchType();
-            String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT accessionNum) as count "
+            String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT info.lab_no) as count "
                     + " FROM providerLabRouting plr "
                     + " LEFT JOIN patientLabRouting plr2 ON plr.lab_no = plr2.lab_no AND plr2.lab_type = 'HL7'"
                     + " RIGHT JOIN hl7TextInfo info ON plr.lab_no = info.lab_no"
@@ -376,7 +376,7 @@ public class InboxCategoryDao {
         public int getLabCountForPatientSearch() throws SQLException {
             PatientInfo info;
             String dateSearchType = getDateSearchType();
-            String sql = " SELECT HIGH_PRIORITY d.demographic_no, d.last_name, d.first_name, COUNT(*) as count "
+            String sql = " SELECT HIGH_PRIORITY d.demographic_no, d.last_name, d.first_name, COUNT(DISTINCT info.lab_no) as count "
                     + " FROM patientLabRouting cd"
                     + " LEFT JOIN demographic d ON cd.demographic_no = d.demographic_no"
                     + " LEFT JOIN providerLabRouting plr ON cd.lab_no = plr.lab_no"
@@ -395,7 +395,7 @@ public class InboxCategoryDao {
                     // Qualified: both patientLabRouting (cd) and demographic (d) carry demographic_no.
                     // MariaDB resolves the bare name to the select-list d.demographic_no, but H2 and
                     // stricter SQL engines reject it as ambiguous; d. states the intended column.
-                    + " GROUP BY d.demographic_no, info.accessionNum ";
+                    + " GROUP BY d.demographic_no, d.last_name, d.first_name ";
 
             List<Object> params = new ArrayList<>();
             addPatientSearchParams(params);
@@ -433,7 +433,7 @@ public class InboxCategoryDao {
 
             // Build SQL with placeholders
             StringBuilder sql = new StringBuilder();
-            sql.append(" SELECT HIGH_PRIORITY d.demographic_no, last_name, first_name, COUNT(1) as count ");
+            sql.append(" SELECT HIGH_PRIORITY d.demographic_no, last_name, first_name, COUNT(DISTINCT cd.lab_no) as count ");
             sql.append(" FROM patientLabRouting cd, demographic d, providerLabRouting plr ");
             sql.append(" WHERE d.demographic_no = ? ");
             sql.append(" AND cd.demographic_no = d.demographic_no ");
@@ -452,7 +452,7 @@ public class InboxCategoryDao {
             }
 
             // Qualified for the same reason as getLabCountForPatientSearch: cd and d both have demographic_no.
-            sql.append(" GROUP BY d.demographic_no ");
+            sql.append(" GROUP BY d.demographic_no, d.last_name, d.first_name ");
 
             List<Object> params = new ArrayList<>();
             params.add(demographicNo);

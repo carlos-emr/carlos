@@ -316,7 +316,7 @@ public class ChildImmunizationReport implements PreventionReport {
         if (prd != null) {
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue")) {
                 // Get LAST contact method
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 log.debug("getting followup data for " + prd.demographicNo);
 
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
@@ -412,7 +412,7 @@ public class ChildImmunizationReport implements PreventionReport {
             } else if (prd.state.equals("Refused")) {  //Not sure what to do about refused
                 //prd.lastDate = "-----";
 
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 log.debug("2getting followup data for " + prd.demographicNo);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
 

@@ -84,7 +84,7 @@ public class MeasurementDSHelper {
     public boolean setMeasurement(String measurementType) {
         boolean setM = false;
         log.debug("demo " + this.demographic_no + " type " + measurementType);
-        EctMeasurementsDataBeanHandler mdbh = new EctMeasurementsDataBeanHandler(Integer.valueOf(this.demographic_no), measurementType);
+        EctMeasurementsDataBeanHandler mdbh = new EctMeasurementsDataBeanHandler(Integer.valueOf(this.demographic_no), measurementType, false);
         Collection col = mdbh.getMeasurementsDataVector();
         if (col.size() > 0) {
             this.mdb = (EctMeasurementsDataBean) col.iterator().next();
@@ -98,7 +98,7 @@ public class MeasurementDSHelper {
     public boolean setMeasurement(String measurementType, Date startDate, Date endDate) {
         boolean setM = false;
         log.debug("demo " + this.demographic_no + " type " + measurementType);
-        EctMeasurementsDataBeanHandler mdbh = new EctMeasurementsDataBeanHandler(Integer.valueOf(this.demographic_no), measurementType);
+        EctMeasurementsDataBeanHandler mdbh = new EctMeasurementsDataBeanHandler(Integer.valueOf(this.demographic_no), measurementType, false);
 
         List<EctMeasurementsDataBean> col2 = new ArrayList<EctMeasurementsDataBean>();
         for (Object o : mdbh.getMeasurementsDataVector()) {

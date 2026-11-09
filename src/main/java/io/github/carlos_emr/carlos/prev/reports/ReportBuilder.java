@@ -491,7 +491,7 @@ public class ReportBuilder {
         if (item != null) {
             if (item.getState().equals("No Info") || item.getState().equals("due") || item.getState().equals("Overdue")) {
                 // Get LAST contact method
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType, false);
                 logger.debug("getting followup data for " + item.getDemographicNo());
 
                 Collection<EctMeasurementsDataBean> followupData = measurementDataHandler.getMeasurementsDataCollection();
@@ -572,7 +572,7 @@ public class ReportBuilder {
 
             } else if (item.getState().equals("Refused")) {  //Not sure what to do about refused
                 //prd.lastDate = "-----";
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType, false);
                 logger.debug("getting followup data for " + item.getDemographicNo());
                 Collection followupData = measurementDataHandler.getMeasurementsDataCollection();
                 if (followupData.size() > 0) {
@@ -587,7 +587,7 @@ public class ReportBuilder {
                 item.setNextSuggestedProcedure("----");
             } else if (item.getState().equals("Up to date")) {
                 //Do nothing
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(item.getDemographicNo(), measurementType, false);
                 logger.debug("getting followup data for " + item.getDemographicNo());
                 Collection followupData = measurementDataHandler.getMeasurementsDataCollection();
 

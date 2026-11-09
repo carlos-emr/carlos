@@ -245,11 +245,9 @@ public class CategoryData {
         // The total overall items is the sum of docs and labs.
         totalNumDocs = totalDocs + totalLabs;
 
-        // Retrieving abnormal labs.
-        abnormalCount = getAbnormalCount(true);
+        // Abnormal/normal filters are applied by the count queries. The unused
+        // aggregate getters must not trigger an extra unscoped scan on every inbox load.
 
-        // Cheaper to subtract abnormal from total to find the number of normal docs.
-        normalCount = totalNumDocs - abnormalCount;
     }
 
     public Long getCategoryHash() {

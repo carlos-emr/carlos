@@ -183,7 +183,7 @@ public class FluReport implements PreventionReport {
             if (asofDate.before(endOfYear) && asofDate.after(beginingOfYear)) {
                 letterProcessing(prd, cutoffDate);
             } else {
-                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF");
+                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF", false);
                 Collection<EctMeasurementsDataBean> fluFollowupData = measurementData.getMeasurementsDataVector();
                 if (fluFollowupData.size() > 0) {
                     EctMeasurementsDataBean fluData = fluFollowupData.iterator().next();
@@ -320,7 +320,7 @@ public class FluReport implements PreventionReport {
     private String letterProcessing(PreventionReportDisplay prd, Date cuttoffDate) {
         if (prd != null) {
             if ("No Info".equals(prd.state) || "due".equals(prd.state) || "Overdue".equals(prd.state)) {
-                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF");
+                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF", false);
                 Collection<EctMeasurementsDataBean> fluFollowupData = measurementData.getMeasurementsDataVector();
                 if (fluFollowupData.size() == 0) {
                     prd.nextSuggestedProcedure = LETTER1;
@@ -344,7 +344,7 @@ public class FluReport implements PreventionReport {
                     }
                 }
             } else if ("Refused".equals(prd.state)) {
-                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF");
+                EctMeasurementsDataBeanHandler measurementData = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF", false);
                 Collection<EctMeasurementsDataBean> fluFollowupData = measurementData.getMeasurementsDataVector();
                 if (fluFollowupData.size() > 0) {
                     EctMeasurementsDataBean fluData = fluFollowupData.iterator().next();
@@ -354,7 +354,7 @@ public class FluReport implements PreventionReport {
             } else if ("Ineligible".equals(prd.state)) {
                 // Do nothing
             } else if ("Up to date".equals(prd.state)) {
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF");
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, "FLUF", false);
                 Collection<EctMeasurementsDataBean> followupData = measurementDataHandler.getMeasurementsDataVector();
                 if (followupData.size() > 0) {
                     EctMeasurementsDataBean measurementData = followupData.iterator().next();

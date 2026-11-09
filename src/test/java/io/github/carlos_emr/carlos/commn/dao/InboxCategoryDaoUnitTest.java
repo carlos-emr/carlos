@@ -46,7 +46,7 @@ class InboxCategoryDaoUnitTest extends CarlosUnitTestBase {
         var sql = ArgumentCaptor.forClass(String.class);
         verify(em).createNativeQuery(sql.capture(), eq(Tuple.class));
         assertThat(sql.getValue()).contains("JOIN hl7TextMessage message", "message.created >= ?");
-        verify(query).setParameter(1, "2026-01-01 00:00:00");
+        verify(query).setParameter(1, "2026-01-01");
         verify(preferences, times(1)).findPreferenceByName(SystemPreferences.LAB_DISPLAY_PREFERENCE_KEYS.inboxDateSearchType);
     }
 }

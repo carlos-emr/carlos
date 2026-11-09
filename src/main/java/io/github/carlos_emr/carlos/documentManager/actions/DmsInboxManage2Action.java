@@ -485,7 +485,11 @@ public class DmsInboxManage2Action extends ActionSupport {
             labMap.put(segmentId, result);
             ArrayList<String> labNums = new ArrayList<String>();
 
-            if (result.accessionNumber == null || result.accessionNumber.equals("null") || result.accessionNumber.isEmpty()) {
+            if ("HL7".equals(result.labType)) {
+                // Each HL7 version has its own review state. Keep precisely the selected report.
+                labNums.add(segmentId);
+                accessionMap.put("HL7-report:" + segmentId, labNums);
+            } else if (result.accessionNumber == null || result.accessionNumber.equals("null") || result.accessionNumber.isEmpty()) {
                 labNums.add(segmentId);
                 accessionNumCount++;
                 accessionMap.put("noAccessionNum" + accessionNumCount + result.labType, labNums);
