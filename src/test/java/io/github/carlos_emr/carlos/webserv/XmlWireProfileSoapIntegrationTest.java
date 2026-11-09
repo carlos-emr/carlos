@@ -30,6 +30,12 @@ class XmlWireProfileSoapIntegrationTest {
             return new io.github.carlos_emr.carlos.webserv.transfer_objects.DrugTransfer[]{drug, drug};
         }
         @WebMethod
+        public io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentExtTo appointment() {
+            var row = new io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentExtTo();
+            row.setAppointmentNo(7); row.setDemographicNo(42); row.setLastName("Synthetic"); row.sethPhoneExt("é<&");
+            return row;
+        }
+        @WebMethod
         public ScheduleTemplateCodeTransfer illegalCode() {
             var result = new ScheduleTemplateCodeTransfer(); result.setCode((char) 1); return result;
         }
@@ -107,6 +113,17 @@ class XmlWireProfileSoapIntegrationTest {
         } finally {
             ((AutoCloseable) dispatch).close();
         }
+    }
+
+    @Test
+    void shouldApplyMoxySequence_onlyToTheExplicitSoapProfile() throws Exception {
+        String operation = "<p:appointment xmlns:p=\"urn:test:xmlprofiles\"/>";
+        Result legacy = invoke("moxy-legacy", operation);
+        assertThat(legacy.status).isEqualTo(200);
+        assertThat(legacy.body.indexOf("<hPhoneExt>")).isLessThan(legacy.body.indexOf("<lastName>"));
+        Result normal = invoke(null, operation);
+        assertThat(normal.status).isEqualTo(200);
+        assertThat(normal.body.indexOf("<hPhoneExt>")).isGreaterThan(normal.body.indexOf("<lastName>"));
     }
 
     @Test

@@ -13,7 +13,7 @@ This PR is incomplete until every outstanding requirement below is reconciled wi
 | [#5840](https://github.com/carlos-emr/carlos/issues/5840) | Correct prevention clinical flags and original timestamps | Implemented; 55-case focused suite passed; installed qualification outstanding |
 | [#5873](https://github.com/carlos-emr/carlos/issues/5873) | Safe SOAP updated-after paging for current, archive and filtered queries | Explicit timestamp-ID profile implemented; default timestamp tie cuts fault rather than silently lose rows. Nine native cases pass on generated/ON/BC schemas; late-commit reconciliation is explicit. Final qualification pending |
 | [#5912](https://github.com/carlos-emr/carlos/issues/5912) | Blank optional SOAP Date inputs | All 45 discovered SOAP Date properties implemented; strict blank/malformed readers, generated dateTime schemas under both JAXB providers and all 14 published WSDL contracts pass; final installed qualification pending |
-| [#5721](https://github.com/carlos-emr/carlos/issues/5721) | Remaining XML readers, characters, maps, schemas and ordering contracts | Outstanding |
+| [#5721](https://github.com/carlos-emr/carlos/issues/5721) | Remaining XML readers, characters, maps, schemas and ordering contracts | Implemented; 56 native writes validate, and unchanged pinned Glassfish/MOXy readers preserve their baseline behavior under explicit profiles. Broader strict whole-release comparison remains separate; final-head qualification pending |
 | [#5748](https://github.com/carlos-emr/carlos/issues/5748) | Birthday XML compatibility for historical MOXy clients | Explicit per-request birthday profile implemented; default published dateTime retained; final qualification pending |
 | [#5879](https://github.com/carlos-emr/carlos/issues/5879) | Patient-level authorization of demographic list rows and totals | Implemented; readonly batched policy, permitted paging/count and focused manager/DAO/endpoint tests pass; final qualification pending |
 | [#5774](https://github.com/carlos-emr/carlos/issues/5774) | Unique ordering for active demographic pages | Implemented; physical DAO validation pending |
@@ -47,7 +47,7 @@ This PR is incomplete until every outstanding requirement below is reconciled wi
 - [x] [#2807](https://github.com/carlos-emr/carlos/issues/2807): Base #5512 reconciled: SummaryTo1 returns only a protected type marker; populated-field diagnostics and functional summary values remain covered.
 - [ ] [#2799](https://github.com/carlos-emr/carlos/issues/2799): Random hashed SOAP credentials, absolute expiry, credential/account binding, authenticated revocation and strict audit transactions implemented; bounded expiry housekeeping is qualified on generated/ON/BC MariaDB schemas; operator scheduling, client cutover and installed multi-node qualification remain outstanding.
 - [x] [#2693](https://github.com/carlos-emr/carlos/issues/2693): The direct OneID token/response-body logging was removed in the base. Remaining DHIR exception diagnostics now use payload-free traces; the obsolete email-log comment is removed, and JSP/credential/FHIR regression checks pass.
-- [ ] [#2282](https://github.com/carlos-emr/carlos/issues/2282): Role-only versus patient-specific REST authorization sweep; reconcile current call paths and acceptance.
+- [x] [#2282](https://github.com/carlos-emr/carlos/issues/2282): Role-only call paths reconciled in patient-api-authorization-audit.md, including tickler, notes, admissions, reports and appointment rows/writes. Patient module overrides and chart restrictions precede clinical responses and mutations; selected endpoint and native checks pass. Final candidate and installed policy qualification remain separate gates.
 - [x] [#2403](https://github.com/carlos-emr/carlos/issues/2403): Distinct public inbound/outbound interfaces retained; shared safe XML parsing and caller mapping documented in oauth-configuration-contracts.md; focused round-trip, malformed/DTD/duplicate refusal and signed-request tests pass.
 - [x] [#3007](https://github.com/carlos-emr/carlos/issues/3007): UTF-8 percent decoding and independent real signed-request/replay continuity are implemented and pass the focused/full OAuth suites; ASCII behavior is retained.
 
@@ -55,13 +55,13 @@ This PR is incomplete until every outstanding requirement below is reconciled wi
 
 ## Compatibility requirements
 
-- [ ] Define supported legacy behavior for all three SOAP timestamp-limited query paths, consent filtering, empty pages, same-second ties, late commits and concurrent writes. A new operation alone does not fix existing callers.
-- [ ] Resolve numeric/literal XML character ambiguity, birthday forms and prescription sequence using explicit supported-client contracts; preserve all fourteen published WSDLs.
-- [ ] Preserve appointment clients intentionally using editVersion while avoiding accidental opt-in by legacy echo clients. Identical request bodies cannot reveal intent.
-- [ ] Preserve endpoint-specific date and success-response shapes; changes to faulty input acceptance and error statuses must be documented and tested.
-- [ ] Protect clinical/identifier fields without breaking legitimate privileged consumers; verify detached DTO serialization and bounded document content retrieval.
-- [ ] Define token issue/validation/storage/revocation/cutover and migration recovery. Preserve supported password authentication and never restore deterministic tokens as a fallback.
-- [ ] Verify prescription rollback and unknown-commit/retry behavior independently; atomicity alone is not idempotency.
+- [x] Define supported legacy behavior for all three SOAP timestamp-limited query paths, consent filtering, empty pages, same-second ties, late commits and concurrent writes. A new operation alone does not fix existing callers.
+- [x] Resolve numeric/literal XML character ambiguity, birthday forms and prescription sequence using explicit supported-client contracts; preserve all fourteen published WSDLs.
+- [x] Preserve appointment clients intentionally using editVersion while avoiding accidental opt-in by legacy echo clients. Identical request bodies cannot reveal intent.
+- [x] Preserve endpoint-specific date and success-response shapes; changes to faulty input acceptance and error statuses must be documented and tested.
+- [x] Protect clinical/identifier fields without breaking legitimate privileged consumers; verify detached DTO serialization and bounded document content retrieval.
+- [x] Define token issue/validation/storage/revocation/cutover and migration recovery. Preserve supported password authentication and never restore deterministic tokens as a fallback.
+- [x] Verify prescription rollback and unknown-commit/retry behavior independently; atomicity alone is not idempotency.
 
 ## Final candidate gates
 
@@ -193,3 +193,5 @@ This PR is incomplete until every outstanding requirement below is reconciled wi
 - Appointment patient authorization: 174 focused cases pass with no failures/errors/skips, including all 17 actual MariaDB generated-schema transaction cases. Three new cases prove stored-patient refusal before archival, rollback of a denied replacement patient and preservation of update-only authority. A separate 48-case real REST endpoint retake passes after adding day/period row filtering, denied creation before converter lookups and typed invalid-date checks. This native fixture generates its own schema and does not claim Ontario/BC Flyway coverage. Final clean/full qualification remains required.
 
 - Sonar b7ce checkpoint evidence: the post-analysis artifact identifies one reliability finding, S6218 on the schedule selection byte array. Value-based equals/hashCode/toString now retain defensive copying; the selection and real SOAP/appointment endpoint retake passes 56 cases. This local correction still requires final-head Sonar analysis.
+
+- Native XML binary qualification: the checked-in runner passes all 56 independently inventoried native writer/schema cases and preserves the unchanged published beta6 Glassfish and MOXy reader outcomes under explicit legacy profiles. Baseline reader/context failures remain named per case; no additional failure or bound-state difference is accepted. Both strict schema validation and default reading execute with each old binary’s own classes/libraries. The command evidence adapter validates all three assertions and nine hashed inputs. The 363 release-tooling tests pass, including independent negative controls for missing cases, substituted providers, changed values/order/namespaces/attributes, new reader failures and missing strict schemas. This narrower result does not override the failed whole-release binary/API receipt or establish installed-client acceptance.

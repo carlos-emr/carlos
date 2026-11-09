@@ -26,6 +26,7 @@ public final class CalendarDateTimeXmlAdapter extends XmlCompatibilityAdapter<St
     @Override
     public String marshal(Calendar value) {
         if (value == null) return null;
+        if (XmlWireProfile.current() == XmlWireProfile.MOXY_LEGACY) return LEGACY_READER.marshal(value);
         Calendar copy = (Calendar) value.clone();
         GregorianCalendar calendar = new GregorianCalendar(copy.getTimeZone());
         calendar.setTimeInMillis(copy.getTimeInMillis());

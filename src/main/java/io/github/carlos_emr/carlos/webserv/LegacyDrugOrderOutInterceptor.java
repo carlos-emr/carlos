@@ -9,7 +9,7 @@ import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 
-/** Applies the opt-in historical sequence before SOAP writes its envelope. REST also wraps its JAXB writer. */
+/** Applies explicit historical drug or MOXy appointment ordering before SOAP output. REST wraps its JAXB writer too. */
 public final class LegacyDrugOrderOutInterceptor extends AbstractPhaseInterceptor<Message> {
     public LegacyDrugOrderOutInterceptor() {
         super(Phase.PRE_STREAM);
@@ -17,10 +17,12 @@ public final class LegacyDrugOrderOutInterceptor extends AbstractPhaseIntercepto
     }
     @Override public void handleMessage(Message message) {
         if (org.apache.cxf.message.MessageUtils.isRequestor(message)
-                || XmlWireProfile.selected(message) != XmlWireProfile.GLASSFISH_LEGACY) return;
+                || (XmlWireProfile.selected(message) != XmlWireProfile.GLASSFISH_LEGACY
+                    && XmlWireProfile.selected(message) != XmlWireProfile.MOXY_LEGACY)) return;
         // CXF otherwise lets JAXB write directly to OutputStream, bypassing the selected writer.
         message.put(org.apache.cxf.interceptor.AbstractOutDatabindingInterceptor.DISABLE_OUTPUTSTREAM_OPTIMIZATION, true);
         XMLStreamWriter writer = message.getContent(XMLStreamWriter.class);
-        if (writer != null) message.setContent(XMLStreamWriter.class, LegacyDrugOrderWriter.wrap(writer));
+        if (writer != null) message.setContent(XMLStreamWriter.class, (XmlWireProfile.selected(message) == XmlWireProfile.MOXY_LEGACY
+                ? io.github.carlos_emr.carlos.utility.xml.MoxyAppointmentOrderWriter.wrap(writer) : LegacyDrugOrderWriter.wrap(writer)));
     }
 }

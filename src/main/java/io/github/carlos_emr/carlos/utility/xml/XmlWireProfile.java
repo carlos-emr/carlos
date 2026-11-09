@@ -7,6 +7,7 @@ import org.apache.cxf.phase.PhaseInterceptorChain;
 /** Explicit, request-scoped exceptions to the published XML contract. Never guesses from a value. */
 public enum XmlWireProfile {
     PUBLISHED("published"),
+    MOXY_LEGACY("moxy-legacy"),
     MOXY_DATE_ONLY_BIRTHDAY("moxy-date-only-birthday"),
     GLASSFISH_NUMERIC_CHARACTERS("glassfish-numeric-characters"),
     GLASSFISH_LEGACY("glassfish-legacy");

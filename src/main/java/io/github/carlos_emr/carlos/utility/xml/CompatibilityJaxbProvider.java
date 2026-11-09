@@ -23,15 +23,15 @@ public final class CompatibilityJaxbProvider extends JAXBElementProvider<Object>
     protected void marshalToWriter(jakarta.xml.bind.Marshaller marshaller, Object value,
             javax.xml.stream.XMLStreamWriter writer, java.lang.annotation.Annotation[] annotations,
             jakarta.ws.rs.core.MediaType mediaType) throws Exception {
-        super.marshalToWriter(marshaller, value, XmlWireProfile.current() == XmlWireProfile.GLASSFISH_LEGACY
-                ? LegacyDrugOrderWriter.wrap(writer) : writer, annotations, mediaType);
+        super.marshalToWriter(marshaller, value, compatibilityWriter(writer), annotations, mediaType);
     }
 
     @Override
     protected void marshalToOutputStream(jakarta.xml.bind.Marshaller marshaller, Object value,
             java.io.OutputStream stream, java.lang.annotation.Annotation[] annotations,
             jakarta.ws.rs.core.MediaType mediaType) throws Exception {
-        if (XmlWireProfile.current() != XmlWireProfile.GLASSFISH_LEGACY) {
+        if (XmlWireProfile.current() != XmlWireProfile.GLASSFISH_LEGACY
+                && XmlWireProfile.current() != XmlWireProfile.MOXY_LEGACY) {
             super.marshalToOutputStream(marshaller, value, stream, annotations, mediaType);
             return;
         }
@@ -42,6 +42,14 @@ public final class CompatibilityJaxbProvider extends JAXBElementProvider<Object>
                 : org.apache.cxf.staxutils.StaxUtils.createXMLStreamWriter(stream, encoding);
         marshalToWriter(marshaller, value, writer, annotations, mediaType);
         writer.flush();
+    }
+
+    public static javax.xml.stream.XMLStreamWriter compatibilityWriter(javax.xml.stream.XMLStreamWriter writer) {
+        return switch (XmlWireProfile.current()) {
+            case GLASSFISH_LEGACY -> LegacyDrugOrderWriter.wrap(writer);
+            case MOXY_LEGACY -> MoxyAppointmentOrderWriter.wrap(writer);
+            default -> writer;
+        };
     }
 
     private static boolean isCompatibilityFailure(Throwable failure) {

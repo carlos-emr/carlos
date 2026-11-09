@@ -37,7 +37,7 @@ import io.github.carlos_emr.carlos.commn.model.Appointment.BookingSource;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 
-@jakarta.xml.bind.annotation.XmlType(propOrder={"appointmentDate", "billing", "billingDetail", "bookingSource", "createDateTime", "creator", "creatorSecurityId", "demographicSnapshot", "demographicNo", "editVersion", "endTime", "id", "importedStatus", "lastUpdateUser", "location", "name", "notes", "programId", "providerSnapshot", "providerNo", "reason", "reasonCode", "remarks", "resources", "startTime", "status", "style", "type", "updateDateTime", "urgency"})
+@jakarta.xml.bind.annotation.XmlType(propOrder={"appointmentDate", "billing", "billingDetail", "bookingSource", "createDateTime", "creator", "creatorSecurityId", "demographicSnapshot", "demographicNo", "endTime", "id", "importedStatus", "lastUpdateUser", "location", "name", "notes", "programId", "providerSnapshot", "providerNo", "reason", "reasonCode", "remarks", "resources", "startTime", "status", "style", "type", "updateDateTime", "urgency"})
 public class AppointmentTo1 implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -47,6 +47,8 @@ public class AppointmentTo1 implements Serializable {
     private String editVersion;
 
     /** Echo the last read token to detect conflicts; null or blank retains legacy last-writer-wins updates. */
+    @jakarta.xml.bind.annotation.XmlTransient
+    @com.fasterxml.jackson.annotation.JsonIgnore(false)
     public String getEditVersion() {
         return editVersion;
     }

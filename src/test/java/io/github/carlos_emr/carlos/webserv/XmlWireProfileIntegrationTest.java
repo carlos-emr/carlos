@@ -31,6 +31,7 @@ class XmlWireProfileIntegrationTest {
     @XmlAccessorType(XmlAccessType.FIELD)
     public static class Payload {
         public Demographic patient;
+        public io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentExtTo appointment;
         public Integer codePoint;
         @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.DateXmlAdapter.class)
         @XmlSchemaType(name = "dateTime")
@@ -47,6 +48,9 @@ class XmlWireProfileIntegrationTest {
         @GET
         public Payload get() {
             Payload payload = new Payload();
+            payload.appointment = new io.github.carlos_emr.carlos.webserv.rest.to.model.AppointmentExtTo();
+            payload.appointment.setAppointmentNo(7); payload.appointment.setDemographicNo(42);
+            payload.appointment.setLastName("Synthetic"); payload.appointment.sethPhoneExt("é<&");
             payload.patient = new Demographic();
             payload.patient.setYearOfBirth("1980");
             payload.patient.setMonthOfBirth("07");
@@ -115,6 +119,18 @@ class XmlWireProfileIntegrationTest {
         } finally {
             client.close();
         }
+    }
+
+    @Test
+    void shouldSelectMoxyOrdering_explicitlyWithoutChangingTheDefault() {
+        Result legacy = call("moxy-legacy", null);
+        assertThat(legacy.status).isEqualTo(200);
+        assertThat(legacy.profile).isEqualTo("moxy-legacy");
+        assertThat(legacy.body).contains("<birthDay>1980-07-15</birthDay>");
+        assertThat(legacy.body.indexOf("<hPhoneExt>")).isLessThan(legacy.body.indexOf("<lastName>"));
+        Result normal = call(null, null);
+        assertThat(normal.status).isEqualTo(200);
+        assertThat(normal.body.indexOf("<hPhoneExt>")).isGreaterThan(normal.body.indexOf("<lastName>"));
     }
 
     @Test

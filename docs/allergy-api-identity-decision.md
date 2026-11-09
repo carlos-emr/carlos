@@ -6,7 +6,7 @@ release API shape; SOAP clients generated from the published WSDL and strict
 REST readers are supported defaults. No evidence in this repository identifies
 all deployed consumers or proves that they tolerate an additional field.
 The compatibility profiles documented in [XML profiles](rest-soap-xml-profiles.md)
-change only their named birthday/character behaviors. They do not imply support
+cover only their documented historical XML formatting differences. They do not imply support
 for additional allergy fields.
 
 REST exposes the stored DrugRef identifier, type code and regional identifier;

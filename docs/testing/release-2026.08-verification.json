@@ -229,7 +229,10 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlStateUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/transfer_objects/AppointmentArchiveDateTimeContractUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/PublishedXmlSchemaContractUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/JaxbGeneratedSchemaUnitTest.java",
+        "scripts/ci/NativeXmlContractProbe.java",
+        "scripts/ci/run-native-xml-binary-contracts.py",
+        "docs/testing/issue-5721-native-xml-cases.json"
       ],
       "implementation": "Extend the existing installed REST check to nonempty XML allergy/prevention date DTOs and every supported precision, plus restricted-user/error and OAuth surfaces. Preserve production mapper and both JAXB provider tests.",
       "cases": "Accept application/xml, application/json and */*; UNKNOWN/YEAR/MONTH/FULL_DATE, leap days, nulls and epoch values in UTC/Toronto/Tokyo; 400/401/403/404; malformed or foreign patient; exact field names and precision shapes; shared provider initialization must not fall back silently.",
@@ -246,7 +249,8 @@
         "main-release-wire-compatibility",
         "public-api-oracle",
         "main-glassfish-release-wire-compatibility",
-        "main-moxy-release-wire-compatibility"
+        "main-moxy-release-wire-compatibility",
+        "native-xml-binary-contracts"
       ]
     },
     {
@@ -5333,6 +5337,55 @@
           "no-unreviewed-wire-breaks"
         ]
       }
+    },
+    {
+      "id": "native-xml-binary-contracts",
+      "kind": "command",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "packaged": false,
+      "requiresArtifact": true,
+      "command": [
+        "python3",
+        "scripts/ci/run-native-xml-binary-contracts.py",
+        "--main-package",
+        "{mainPackage}",
+        "--candidate",
+        "{artifact}",
+        "--tomcat-jsp-api",
+        "{tomcatJspApi}",
+        "--output",
+        "{run}/native-xml",
+        "--result",
+        "{run}/native-xml-result.json"
+      ],
+      "requiresEnvironment": [
+        "CARLOS_MAIN_PACKAGE",
+        "CARLOS_TOMCAT_JSP_API"
+      ],
+      "environmentInputs": {
+        "mainPackage": "CARLOS_MAIN_PACKAGE",
+        "tomcatJspApi": "CARLOS_TOMCAT_JSP_API"
+      },
+      "requiresExecutables": [
+        "java",
+        "javac",
+        "dpkg-deb"
+      ],
+      "timeoutSeconds": 900,
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "resultContract": {
+        "file": "native-xml-result.json",
+        "assertions": [
+          "published-56-native-writes-valid",
+          "glassfish-unchanged-readers-no-new-breaks",
+          "moxy-unchanged-readers-no-new-breaks"
+        ]
+      }
     }
   ],
   "requireJavaDiscovery": true,
@@ -5349,7 +5402,8 @@
       ],
       "checks": [
         "java-all",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5366,7 +5420,8 @@
       ],
       "checks": [
         "java-all",
-        "main-release-wire-compatibility"
+        "main-release-wire-compatibility",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5378,7 +5433,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/DateXmlAdapterUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5390,7 +5446,8 @@
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5402,7 +5459,8 @@
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/util/RestXmlAnnotationIntrospectorUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5470,7 +5528,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/DemographicBirthdayXmlContractUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -5794,7 +5853,8 @@
         "src/test/java/io/github/carlos_emr/carlos/utility/xml/CalendarXmlAdapterUnitTest.java"
       ],
       "checks": [
-        "java-all"
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"
@@ -6308,6 +6368,21 @@
       "checks": [
         "java-all",
         "java-native-generated"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/xml/MoxyAppointmentOrderWriter.java": {
+      "reason": "Explicit historical MOXy scalar sequence; native objects are read by the unchanged pinned binary, while default published XML and both JSON surfaces remain independently tested.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/utility/xml/MoxyAppointmentOrderWriterUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/XmlWireProfileIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/XmlWireProfileSoapIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "native-xml-binary-contracts"
       ],
       "workstreams": [
         "T08"

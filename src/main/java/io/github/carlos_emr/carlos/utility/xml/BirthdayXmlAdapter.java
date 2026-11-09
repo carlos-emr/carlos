@@ -15,7 +15,8 @@ public final class BirthdayXmlAdapter extends XmlCompatibilityAdapter<String, Ca
 
     @Override
     public String marshal(Calendar value) {
-        return XmlWireProfile.current() == XmlWireProfile.MOXY_DATE_ONLY_BIRTHDAY
+        return (XmlWireProfile.current() == XmlWireProfile.MOXY_DATE_ONLY_BIRTHDAY
+                || XmlWireProfile.current() == XmlWireProfile.MOXY_LEGACY)
                 ? legacy.marshal(value) : published.marshal(value);
     }
 }

@@ -114,6 +114,33 @@ jobs:
             make install
           "
 
+      - name: Verify native XML objects and unchanged published clients
+        run: |
+          python3 -m pip install --require-hashes --target target/native-xml-python -r scripts/ci/requirements.txt
+          mkdir -p target/native-xml-input
+          curl --fail --location --retry 2 \
+            --output target/native-xml-input/main.deb \
+            https://github.com/carlos-emr/carlos/releases/download/2026.08.0-beta6/carlos-emr_2026.08.0.beta6_amd64.deb
+          docker exec -e PYTHONPATH=/workspace/target/native-xml-python carlos-tomcat-dev bash -euc '
+            shopt -s nullglob
+            wars=(target/*.war)
+            test "${#wars[@]}" -eq 1
+            python3 scripts/ci/run-native-xml-binary-contracts.py \
+              --main-package target/native-xml-input/main.deb \
+              --candidate "${wars[0]}" \
+              --tomcat-jsp-api /root/.m2/repository/org/apache/tomcat/tomcat-jsp-api/11.0.27/tomcat-jsp-api-11.0.27.jar \
+              --output target/native-xml-contracts
+          '
+
+      - name: Preserve native XML compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-xml-compatibility
+          path: target/native-xml-contracts/
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Compile packaged Edit Appointment servlet
         run: |
           docker exec carlos-tomcat-dev bash -c '
