@@ -9,7 +9,6 @@ import java.util.List;
 import org.junit.jupiter.api.*;
 import org.mockito.Mock;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @Tag("integration")
@@ -19,9 +18,7 @@ class SoapTokenResourceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected Object getServiceBean() {
-        var resource = new SoapTokenResource();
-        injectDependency(resource, "tokens", tokens);
-        injectDependency(resource, "configuredRevocationOrigin", "http://localhost");
+        var resource = new SoapTokenResource(tokens, "http://localhost");
         resource.configureRevocationOrigin();
         return resource;
     }
@@ -91,8 +88,7 @@ class SoapTokenResourceEndpointTest extends CarlosRestTestBase {
     @Test
     void shouldRejectMalformedConfiguredOrigins_explicitly() {
         for (String value : List.of("null", "https://localhost/", "https://user@localhost", "https://localhost?x=y")) {
-            SoapTokenResource resource = new SoapTokenResource();
-            injectDependency(resource, "configuredRevocationOrigin", value);
+            SoapTokenResource resource = new SoapTokenResource(tokens, value);
             org.assertj.core.api.Assertions.assertThatThrownBy(resource::configureRevocationOrigin)
                     .isInstanceOf(IllegalStateException.class).hasMessageContaining("soap.token.revoke.origin");
         }
@@ -100,7 +96,7 @@ class SoapTokenResourceEndpointTest extends CarlosRestTestBase {
 
     @Test
     void shouldRefuseBrowserOrigins_whenNoTrustedOriginIsConfigured() {
-        SoapTokenResource resource = new SoapTokenResource();
+        SoapTokenResource resource = new SoapTokenResource(tokens, "");
         resource.configureRevocationOrigin();
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> resource.revoke(null, "revoke", "http://localhost"))
                 .isInstanceOf(jakarta.ws.rs.ForbiddenException.class);

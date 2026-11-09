@@ -15,9 +15,15 @@ import org.springframework.stereotype.Component;
 @jakarta.ws.rs.Consumes("*/*")
 @jakarta.ws.rs.Produces("*/*")
 public class SoapTokenResource extends AbstractServiceImpl {
-    @Autowired private SoapTokenService tokens;
-    @org.springframework.beans.factory.annotation.Value("${soap.token.revoke.origin:}")
-    private String configuredRevocationOrigin = "";
+    private final SoapTokenService tokens;
+    private final String configuredRevocationOrigin;
+
+    @Autowired
+    public SoapTokenResource(SoapTokenService tokens,
+            @org.springframework.beans.factory.annotation.Value("${soap.token.revoke.origin:}") String configuredRevocationOrigin) {
+        this.tokens = tokens;
+        this.configuredRevocationOrigin = configuredRevocationOrigin;
+    }
     private java.net.URI allowedOrigin;
 
     @jakarta.annotation.PostConstruct
@@ -25,7 +31,7 @@ public class SoapTokenResource extends AbstractServiceImpl {
         allowedOrigin = null;
         if (configuredRevocationOrigin == null || configuredRevocationOrigin.isEmpty()) return;
         try { allowedOrigin = parseOrigin(configuredRevocationOrigin); }
-        catch (IllegalArgumentException invalid) {
+        catch (IllegalArgumentException _) {
             throw new IllegalStateException("soap.token.revoke.origin must be one absolute HTTP(S) origin without a path");
         }
     }
@@ -53,7 +59,7 @@ public class SoapTokenResource extends AbstractServiceImpl {
             return io.github.carlos_emr.carlos.utility.AsciiStrings.equalsIgnoreCase(uri.getHost(), allowedOrigin.getHost())
                     && io.github.carlos_emr.carlos.utility.AsciiStrings.equalsIgnoreCase(uri.getScheme(), allowedOrigin.getScheme())
                     && effectivePort(uri) == effectivePort(allowedOrigin);
-        } catch (IllegalArgumentException invalid) { return false; }
+        } catch (IllegalArgumentException _) { return false; }
     }
 
     private static java.net.URI parseOrigin(String value) {
@@ -68,7 +74,7 @@ public class SoapTokenResource extends AbstractServiceImpl {
         return uri;
     }
     private static int effectivePort(java.net.URI uri) {
-        return uri.getPort() == -1 ? (io.github.carlos_emr.carlos.utility.AsciiStrings.equalsIgnoreCase("https", uri.getScheme())
-                ? 443 : 80) : uri.getPort();
+        if (uri.getPort() != -1) return uri.getPort();
+        return io.github.carlos_emr.carlos.utility.AsciiStrings.equalsIgnoreCase("https", uri.getScheme()) ? 443 : 80;
     }
 }

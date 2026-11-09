@@ -66,7 +66,7 @@ class CredentialLoggingRegressionTest {
                 io.github.carlos_emr.carlos.app.AppOAuth1Config.class)) {
             assertThat(io.github.carlos_emr.carlos.app.AppOAuth1Config.getKeySecret(xml))
                     .containsEntry("key", token).containsEntry("secret", secret);
-            assertThat(logs.messages()).allSatisfy(message -> assertThat(message).doesNotContain(token, secret, xml));
+            assertThat(String.join("\n", logs.messages())).doesNotContain(token, secret, xml);
         }
     }
 

@@ -162,8 +162,8 @@ class EDocUtilTempPathLogUnitTest extends CarlosUnitTestBase {
             assertThat(EDocUtil.readContent(pdf.toString())).isEqualTo(Files.readAllBytes(pdf));
             assertNoErrors(paths, documentsLog);
             for (LogCapture capture : new LogCapture[]{paths, documentsLog}) {
-                assertThat(capture.messages()).allSatisfy(message -> assertThat(message)
-                        .doesNotContain("FAKE-PRIVATE-PATIENT", pdf.toString()));
+                assertThat(String.join("\n", capture.messages()))
+                        .doesNotContain("FAKE-PRIVATE-PATIENT", pdf.toString());
             }
         }
     }

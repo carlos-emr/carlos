@@ -484,41 +484,25 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
 
     @Override
     public List<Demographic> searchDemographicByNameString(String searchString, int startIndex, int itemsToReturn) {
-        String sqlCommand = "select x from Demographic x";
+        String[] names = searchString == null ? new String[0] : searchString.split(",", -1);
+        String lastName = names.length > 0 ? names[0].trim() : "";
+        String firstName = names.length > 1 ? names[1].trim() : "";
         EntityManager session = entityManager();
-        String ln = "";
-        String fn = "";
-        String where = "";
-            if (searchString != null && searchString.length() > 0) {
-                String[] sh = searchString.split(",");
-                if (sh.length > 1) {
-                    if (sh[0] != null && sh[0].trim().length() > 0) {
-                        where = " x.lastName like :ln ";
-                        ln = sh[0].trim();
-                    }
-                    if (sh[1] != null && sh[1].trim().length() > 0) {
-                        if (where.length() > 0)
-                            where = where + " and ";
-                        where = where + "( x.firstName like :fn or x.alias like :fn ) ";
-                        fn = sh[1].trim();
-                    }
-                } else {
-                    if (sh[0] != null && sh[0].trim().length() > 0) {
-                        where = " x.lastName like :ln ";
-                        ln = sh[0].trim();
-                    }
-                }
-                if (where.length() > 0)
-                    sqlCommand = sqlCommand + " where " + where;
-            }
-            var q = session.createQuery(sqlCommand + " order by x.demographicNo", Demographic.class);
-            if (ln.length() > 0)
-                q.setParameter("ln", ln + "%");
-            if (fn.length() > 0)
-                q.setParameter("fn", fn + "%");
-            q.setFirstResult(startIndex);
-            q.setMaxResults(itemsToReturn);
-            return q.getResultList();
+        jakarta.persistence.TypedQuery<Demographic> query;
+        if (!lastName.isEmpty() && !firstName.isEmpty()) {
+            query = session.createQuery("select x from Demographic x where x.lastName like :ln and (x.firstName like :fn or x.alias like :fn) order by x.demographicNo", Demographic.class);
+        } else if (!lastName.isEmpty()) {
+            query = session.createQuery("select x from Demographic x where x.lastName like :ln order by x.demographicNo", Demographic.class);
+        } else if (!firstName.isEmpty()) {
+            query = session.createQuery("select x from Demographic x where (x.firstName like :fn or x.alias like :fn) order by x.demographicNo", Demographic.class);
+        } else {
+            query = session.createQuery("select x from Demographic x order by x.demographicNo", Demographic.class);
+        }
+        if (!lastName.isEmpty()) query.setParameter("ln", lastName + "%");
+        if (!firstName.isEmpty()) query.setParameter("fn", firstName + "%");
+        query.setFirstResult(startIndex);
+        query.setMaxResults(itemsToReturn);
+        return query.getResultList();
     }
 
     private static final String PROGRAM_DOMAIN_RESTRICTION = "select distinct a.clientId from ProgramProvider pp,Admission a WHERE pp.programId=a.programId AND pp.providerNo=:providerNo";

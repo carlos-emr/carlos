@@ -126,6 +126,30 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldBindSoapNameSearchValues_forEveryFixedQueryVariant() {
+        String family = uniquePrefix + "Family' OR 1=1 --";
+        String given = uniquePrefix + "Given' OR 1=1 --";
+        demo1.setLastName(family);
+        demo1.setFirstName(given);
+        demo2.setLastName(family);
+        demo2.setAlias(given);
+        demographicDao.save(demo1);
+        demographicDao.save(demo2);
+        hibernateTemplate.flush();
+        var ids = java.util.stream.Stream.of(demo1, demo2).map(Demographic::getDemographicNo).sorted().toList();
+        for (String search : List.of(family, family + ",", "," + given, family + "," + given)) {
+            assertThat(demographicDao.searchDemographicByNameString(search, 0, 100))
+                    .extracting(Demographic::getDemographicNo).containsExactlyElementsOf(ids);
+            assertThat(demographicDao.searchDemographicByNameString(search, 1, 1))
+                    .extracting(Demographic::getDemographicNo).containsExactly(ids.get(1));
+        }
+        // Empty filters preserve the established unfiltered, ID-ordered pagination contract.
+        for (String search : java.util.Arrays.asList(null, "", " ", ",", ",,")) {
+            assertThat(demographicDao.searchDemographicByNameString(search, 0, 1)).hasSize(1);
+        }
+    }
+
+    @Test
     void shouldBindLabSearchTextAndBoundPages_whenSortContainsQuerySyntax() {
         String quotedName = uniquePrefix + "Alpha' OR 1=1 --";
         demo1.setLastName(quotedName);
