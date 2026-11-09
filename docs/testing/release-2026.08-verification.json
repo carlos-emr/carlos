@@ -2783,6 +2783,43 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.managers.TicklerPatientAccessMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldPageAndCountOnlyPermittedRows_afterNativeDeniedBatches",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainUpdateOnlyAuthority_withoutAddingReadPermission",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackEarlierNativeWrites_whenALaterMutationFails",
+              "container": ""
+            },
+            {
+              "name": "shouldDenyTheCurrentStoredPatient_beforeAnyNativeMutation",
+              "container": ""
+            },
+            {
+              "name": "shouldAuthorizeTheStoredAndRequestedPatients_beforeFlushingAManagedEdit",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackManagedFieldChanges_whenValidationReturnsFalse",
+              "container": ""
+            },
+            {
+              "name": "shouldHoldThePhysicalPatientLock_untilTheMutationTransactionCommits",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepDiscoveryRowsAndTotals_inOneNativeReadSnapshot",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -2834,7 +2871,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2844,7 +2881,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2550,
+      "minimumCases": 2558,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2871,7 +2908,8 @@
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
-        "RxPrescribeMariaDbIntegrationTest": 4
+        "RxPrescribeMariaDbIntegrationTest": 4,
+        "TicklerPatientAccessMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2901,7 +2939,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2910,7 +2948,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 138,
+      "minimumCases": 146,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -2935,7 +2973,8 @@
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
-        "RxPrescribeMariaDbIntegrationTest": 4
+        "RxPrescribeMariaDbIntegrationTest": 4,
+        "TicklerPatientAccessMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2965,7 +3004,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2974,7 +3013,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 135,
+      "minimumCases": 143,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 10,
@@ -2996,7 +3035,8 @@
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
-        "RxPrescribeMariaDbIntegrationTest": 4
+        "RxPrescribeMariaDbIntegrationTest": 4,
+        "TicklerPatientAccessMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -6067,6 +6107,108 @@
       ],
       "workstreams": [
         "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/TicklerDao.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/TicklerDaoImpl.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/TicklerManager.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/TicklerManagerImpl.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/TicklerWebService.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/util/PatientApiPages.java": {
+      "reason": "Patient-aware tickler reads and atomic writes require bounded authorized rows/totals, stored identity locking before flush, preserved update-only authority and real native rollback/contending-writer evidence.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/TicklerPatientAccessMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/TicklerPatientMutationEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T04"
       ]
     }
   },

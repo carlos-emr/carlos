@@ -105,6 +105,13 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
     }
 
     @Override
+    public List<Integer> lockPatientForUpdate(Integer id) {
+        return entityManager.createNativeQuery(
+                "SELECT demographic_no FROM tickler WHERE tickler_no = ?1 FOR UPDATE", Integer.class)
+                .setParameter(1, id).setFlushMode(jakarta.persistence.FlushModeType.COMMIT).getResultList();
+    }
+
+    @Override
     public List<Integer> findDemographicNos(Integer ticklerNo) {
         return entityManager.createQuery(
                 "select t.demographicNo from Tickler t where t.id = :id", Integer.class)
@@ -350,6 +357,7 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         ArrayList<Object> paramList = new ArrayList<Object>();
         sql = getTicklerQueryString(sql, paramList, filter);
         sql = addTicklerFetchJoins(sql, includeProvider, includeAssignee);
+        sql += buildOrderByClause(filter);
 
         Query query = entityManager.createQuery(sql);
         for (int x = 0; x < paramList.size(); x++) {

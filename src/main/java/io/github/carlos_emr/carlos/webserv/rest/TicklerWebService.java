@@ -274,6 +274,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/complete")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional
     public RestResponse<String> completeTicklers(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -291,7 +292,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
 
         // Validate every stored patient before the first mutation in a bulk request.
-        for (Integer ticklerNo : ticklerIds) requireStoredTicklerPatient(ticklerNo, "u");
+        for (Integer ticklerNo : new java.util.TreeSet<>(ticklerIds)) requireStoredTicklerPatient(ticklerNo, "u");
         for (Integer ticklerNo : ticklerIds) {
             ticklerManager.completeTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
@@ -303,6 +304,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/delete")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional
     public RestResponse<String> deleteTicklers(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -319,7 +321,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
 
         // Validate every stored patient before the first mutation in a bulk request.
-        for (Integer ticklerNo : ticklerIds) requireStoredTicklerPatient(ticklerNo, "u");
+        for (Integer ticklerNo : new java.util.TreeSet<>(ticklerIds)) requireStoredTicklerPatient(ticklerNo, "u");
         for (Integer ticklerNo : ticklerIds) {
             ticklerManager.deleteTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
@@ -362,6 +364,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/update")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional
     public RestResponse<String> updateTickler(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -414,6 +417,7 @@ public class TicklerWebService extends AbstractServiceImpl {
             return RestResponse.successResponse(null);
         }
 
+        rollbackFailedMutation();
         return RestResponse.errorResponse("Failed to update tickler");
     }
 
@@ -439,6 +443,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/add")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional
     public RestResponse<String> addTickler(Tickler tickler) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
@@ -460,7 +465,14 @@ public class TicklerWebService extends AbstractServiceImpl {
         if (ticklerManager.addTickler(getLoggedInInfo(), tickler)) {
             return RestResponse.successResponse(null);
         }
+        rollbackFailedMutation();
         return RestResponse.errorResponse("Failed to add tickler");
+    }
+
+    private void rollbackFailedMutation() {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        }
     }
 
     private io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.Page<Tickler> authorizedPage(
@@ -473,7 +485,7 @@ public class TicklerWebService extends AbstractServiceImpl {
 
     private Integer requireStoredTicklerPatient(Integer ticklerId, String right) {
         if (ticklerId == null || ticklerId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
-        Integer patient = ticklerManager.getTicklerDemographicNo(getLoggedInInfo(), ticklerId);
+        Integer patient = ticklerManager.getTicklerDemographicNoForUpdate(getLoggedInInfo(), ticklerId);
         if (patient == null) throw new jakarta.ws.rs.NotFoundException();
         io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
                 getLoggedInInfo(), securityInfoManager, "_tickler", right, patient);

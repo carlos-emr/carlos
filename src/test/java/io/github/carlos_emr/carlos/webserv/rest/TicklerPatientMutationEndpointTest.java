@@ -22,8 +22,8 @@ class TicklerPatientMutationEndpointTest extends CarlosRestTestBase {
         when(security.hasPrivilege(eq(mockLoggedInInfo),eq("_tickler"),anyString(),isNull())).thenReturn(true);
         when(security.hasPrivilege(eq(mockLoggedInInfo),eq("_tickler"),anyString(),eq("42"))).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(mockLoggedInInfo,42)).thenReturn(true);
-        when(ticklers.getTicklerDemographicNo(mockLoggedInInfo,7)).thenReturn(42);
-        when(ticklers.getTicklerDemographicNo(mockLoggedInInfo,8)).thenReturn(43);
+        when(ticklers.getTicklerDemographicNoForUpdate(mockLoggedInInfo,7)).thenReturn(42);
+        when(ticklers.getTicklerDemographicNoForUpdate(mockLoggedInInfo,8)).thenReturn(43);
     }
     private int post(String path,String json) {try(var response=request().path("/tickler/"+path).post(Entity.json(json))) {return response.getStatus();}}
     @Test void shouldValidateEveryPatient_beforeCompletingAnyTickler() {
@@ -48,7 +48,7 @@ class TicklerPatientMutationEndpointTest extends CarlosRestTestBase {
         verify(ticklers,never()).getTickler(any(),anyInt()); verify(ticklers,never()).updateTickler(any(),any());
     }
     @Test void shouldRejectMissingTicklers_beforeAnyMutation() {
-        when(ticklers.getTicklerDemographicNo(mockLoggedInInfo,9)).thenReturn(null);
+        when(ticklers.getTicklerDemographicNoForUpdate(mockLoggedInInfo,9)).thenReturn(null);
         assertThat(post("complete","{\"ticklers\":[7,9]}")).isEqualTo(404);
         verify(ticklers,never()).completeTickler(any(),any(),any());
     }
