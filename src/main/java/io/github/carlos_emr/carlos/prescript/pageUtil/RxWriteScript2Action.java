@@ -2396,6 +2396,11 @@ public final class RxWriteScript2Action extends ActionSupport {
      * That includes an unchecked exception from {@link RxManager#archiveDrug} (a demographic-scoped
      * authorization failure, or a row with no demographic).</p>
      *
+     * <p>A source that is already archived (discontinued or deleted from another window between
+     * staging and save) is left as it is: its own archive reason and date stand, and no
+     * re-prescribe or system-discontinue audit entries are written for an archive this save did
+     * not perform (#5987).</p>
+     *
      * <p>A malformed, null, unsaved, or refused entry is skipped individually so one bad id cannot
      * stop the remaining staged drugs from being archived.</p>
      *
@@ -2416,10 +2421,12 @@ public final class RxWriteScript2Action extends ActionSupport {
         // skipped entries are only counted by reason and summarised once below.
         int malformed = 0;
         int notReprescribed = 0;
+        int alreadyArchived = 0;
         int failed = 0;
         int refused = 0;
         for (String item : bean.getReRxDrugIdList()) {
             switch (archiveReRxSource(item, loggedInInfo, bean, savedSourceIds, ip, auditStr)) {
+                case ALREADY_ARCHIVED -> alreadyArchived++;
                 case MALFORMED -> malformed++;
                 case NOT_REPRESCRIBED -> notReprescribed++;
                 case FAILED -> failed++;
@@ -2434,6 +2441,10 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (notReprescribed > 0) {
             logger.info("Skipped re-Rx archival: {} staged source(s) not re-prescribed in this save", notReprescribed);
         }
+        if (alreadyArchived > 0) {
+            logger.info("Left {} re-Rx source(s) as archived elsewhere; original archive reason kept", alreadyArchived);
+        }
+        // An already-archived source is settled, not a failure: the save is complete.
         return malformed + failed + refused == 0;
     }
 
@@ -2495,7 +2506,22 @@ public final class RxWriteScript2Action extends ActionSupport {
     }
 
     /** Why one staged re-Rx source was, or was not, archived by {@link #archiveReRxDrugs}. */
-    private enum ArchiveOutcome { ARCHIVED, MALFORMED, NOT_REPRESCRIBED, FAILED, REFUSED }
+    private enum ArchiveOutcome { ARCHIVED, ALREADY_ARCHIVED, MALFORMED, NOT_REPRESCRIBED, FAILED, REFUSED }
+
+    /**
+     * Whether the re-Rx source is already archived for the Rx patient, so its own archive reason
+     * and date must stand. A missing row, or one owned by another patient, is not "settled": it
+     * falls through to {@link RxManager#archiveDrug}, which refuses both and keeps the REFUSED
+     * accounting. The read-then-archive pair is not atomic; the window is the same one
+     * {@link #archiveSupersededSaves} accepts, and a clinician discontinuing within it is far
+     * narrower than the staging-to-save gap this guards.
+     */
+    private static boolean isSettledArchived(int sourceId, int demographicNo) {
+        // The primitive selects AbstractDao#find(int), the overload the other Rx actions use.
+        Drug source = SpringUtils.getBean(DrugDao.class).find(sourceId);
+        return source != null && source.isArchived()
+                && source.getDemographicId() != null && source.getDemographicId() == demographicNo;
+    }
 
     /**
      * Archives one staged re-Rx source as REPRESCRIBED and writes its audit entries, or says why
@@ -2522,6 +2548,12 @@ public final class RxWriteScript2Action extends ActionSupport {
         }
         boolean archived;
         try {
+            // archiveDrug() overwrites the archive reason and date unconditionally, so a source that
+            // another window discontinued or deleted since staging would lose that reason (#5987).
+            // Same guard as archiveSupersededSaves: only an active row is archived here.
+            if (isSettledArchived(sourceId, bean.getDemographicNo())) {
+                return ArchiveOutcome.ALREADY_ARCHIVED;
+            }
             archived = this.rxManager.archiveDrug(loggedInInfo, sourceId, bean.getDemographicNo(), Drug.REPRESCRIBED);
         } catch (RuntimeException _) {
             return ArchiveOutcome.FAILED;

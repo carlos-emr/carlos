@@ -580,6 +580,117 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         verify(mockDrugDao, never()).merge(any(Drug.class));
     }
 
+    private Drug drugRow(int id, int demographicNo, boolean archived, String reason) {
+        Drug drug = new Drug();
+        drug.setId(id);
+        drug.setDemographicId(demographicNo);
+        drug.setArchived(archived);
+        drug.setArchivedReason(reason);
+        return drug;
+    }
+
+    @Test
+    @DisplayName("should keep the archive reason when the re-Rx source was discontinued in another window (#5987)")
+    void shouldKeepArchiveReason_whenReRxSourceAlreadyArchived() {
+        int demographicNo = 1001;
+        int discontinuedId = 3003;
+        int activeId = 4004;
+
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(discontinuedId));
+        bean.getReRxDrugIdList().add(String.valueOf(activeId));
+        when(mockDrugDao.find(discontinuedId)).thenReturn(drugRow(discontinuedId, demographicNo, true, "discontinued"));
+        when(mockDrugDao.find(activeId)).thenReturn(drugRow(activeId, demographicNo, false, null));
+        when(mockRxManager.archiveDrug(any(), eq(activeId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(true);
+
+        boolean complete;
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            complete = action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(discontinuedId, activeId),
+                    "127.0.0.1", "audit");
+
+            commitAuditTransaction(logAction);
+            // No archive was performed for the settled row, so none is audited for it.
+            verifyNotAudited(logAction, discontinuedId);
+            verifyAudited(logAction, activeId);
+        }
+
+        // Already settled is not a failure, and it must not stop the other source being archived.
+        assertThat(complete).isTrue();
+        verify(mockRxManager, never()).archiveDrug(any(), eq(discontinuedId), anyInt(), any(String.class));
+        verify(mockRxManager).archiveDrug(any(), eq(activeId), eq(demographicNo), eq(Drug.REPRESCRIBED));
+        verify(mockDrugDao, never()).merge(any(Drug.class));
+    }
+
+    @Test
+    @DisplayName("should still archive an active re-Rx source with the represcribed reason")
+    void shouldArchiveReRxSource_whenSourceStillActive() {
+        int demographicNo = 1001;
+        int sourceId = 3003;
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(sourceId));
+        when(mockDrugDao.find(sourceId)).thenReturn(drugRow(sourceId, demographicNo, false, null));
+        when(mockRxManager.archiveDrug(any(), eq(sourceId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(true);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(sourceId), "127.0.0.1", "audit"))
+                    .isTrue();
+            commitAuditTransaction(logAction);
+            verifyAudited(logAction, sourceId);
+        }
+        verify(mockRxManager).archiveDrug(any(), eq(sourceId), eq(demographicNo), eq(Drug.REPRESCRIBED));
+    }
+
+    @Test
+    @DisplayName("should leave an archived row of another patient to archiveDrug's refusal")
+    void shouldReportRefusal_whenArchivedSourceBelongsToAnotherPatient() {
+        int demographicNo = 1001;
+        int foreignId = 4004;
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(foreignId));
+        // Archived, but owned by patient 2002: not this patient's settled row, so the manager decides.
+        when(mockDrugDao.find(foreignId)).thenReturn(drugRow(foreignId, 2002, true, "discontinued"));
+        when(mockRxManager.archiveDrug(any(), eq(foreignId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(false);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(foreignId), "127.0.0.1", "audit"))
+                    .isFalse();
+            commitAuditTransaction(logAction);
+            verifyNotAudited(logAction, foreignId);
+        }
+        verify(mockRxManager).archiveDrug(any(), eq(foreignId), eq(demographicNo), eq(Drug.REPRESCRIBED));
+    }
+
+    @Test
+    @DisplayName("should report failure and keep going when the re-Rx source lookup throws")
+    void shouldContinueArchival_whenSourceLookupThrows() {
+        int demographicNo = 1001;
+        int brokenId = 3003;
+        int activeId = 4004;
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(demographicNo);
+        bean.getReRxDrugIdList().add(String.valueOf(brokenId));
+        bean.getReRxDrugIdList().add(String.valueOf(activeId));
+        when(mockDrugDao.find(brokenId)).thenThrow(new RuntimeException("lookup failed"));
+        when(mockDrugDao.find(activeId)).thenReturn(drugRow(activeId, demographicNo, false, null));
+        when(mockRxManager.archiveDrug(any(), eq(activeId), eq(demographicNo), eq(Drug.REPRESCRIBED)))
+                .thenReturn(true);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(brokenId, activeId),
+                    "127.0.0.1", "audit")).isFalse();
+            commitAuditTransaction(logAction);
+            verifyNotAudited(logAction, brokenId);
+            verifyAudited(logAction, activeId);
+        }
+        verify(mockRxManager, never()).archiveDrug(any(), eq(brokenId), anyInt(), any(String.class));
+    }
+
     @Test
     @DisplayName("should archive staged drugs when all belong to current demographic")
     void shouldArchiveStagedDrugs_whenAllBelongToCurrentDemographic() {
