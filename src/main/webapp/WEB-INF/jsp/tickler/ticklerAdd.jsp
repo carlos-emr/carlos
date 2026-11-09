@@ -727,7 +727,7 @@
             <input type="hidden" name="ticklerOriginalPatient" value="<carlos:encode value='<%= requestDemographicNo %>' context="htmlAttribute"/>">
             <input type="hidden" name="xml_appointment_date" value="">
             <input type="hidden" name="priority" value="">
-            <input type="hidden" name="taskTo" <%= request.getParameter("taskTo") == null ? "disabled" : "" %> value="${carlos:forHtmlAttribute(param.taskTo)}">
+            <input type="hidden" name="taskTo" ${param.taskTo eq null ? 'disabled' : ''} value="${carlos:forHtmlAttribute(param.taskTo)}">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
             <input type="hidden" name="originalpage" value="<carlos:encode value='<%= request.getContextPath() + "/tickler/ViewAddTickler" %>' context="htmlAttribute"/>">
