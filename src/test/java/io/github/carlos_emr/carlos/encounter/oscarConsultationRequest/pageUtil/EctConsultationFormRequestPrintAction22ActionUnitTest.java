@@ -28,7 +28,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -224,8 +224,11 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
     void shouldRefuseDirectPrint_whenStoredSignatureCannotBeVerified() throws Exception {
         consultationPdfCreatorConstruction.close();
         consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class,
-                (mock, context) -> doThrow(new ConsultationPDFCreator.SignatureRenderingException(
-                        "signature ownership cannot be established", null)).when(mock).printPdf(any()));
+                (mock, context) -> doAnswer(invocation -> {
+                    throw ConsultationPDFCreator.reportSignaturePrintFailure(request,
+                            new ConsultationPDFCreator.SignatureRenderingException(
+                                    "signature ownership cannot be established", null));
+                }).when(mock).printPdf(any()));
 
         String result = action.execute();
 

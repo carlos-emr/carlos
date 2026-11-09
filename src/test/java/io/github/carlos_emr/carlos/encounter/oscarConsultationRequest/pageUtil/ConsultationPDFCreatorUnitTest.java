@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -35,10 +37,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import javax.imageio.ImageIO;
 
+import jakarta.servlet.http.HttpServletRequest;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 
+import org.openpdf.text.DocumentException;
 import org.openpdf.text.Image;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -58,6 +62,20 @@ class ConsultationPDFCreatorUnitTest {
     private static final int SIGNATURE_SOURCE_HEIGHT = 150;
     private static final float SIGNATURE_MAX_WIDTH = 200f;
     private static final float SIGNATURE_MAX_HEIGHT = 60f;
+
+    @Test
+    @DisplayName("reports a stored-signature failure through the existing consultation print error path")
+    void shouldReportPrintError_whenStoredSignatureCannotBeRendered() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        ConsultationPDFCreator.SignatureRenderingException failure =
+                new ConsultationPDFCreator.SignatureRenderingException("missing signature image", null);
+
+        DocumentException reported = ConsultationPDFCreator.reportSignaturePrintFailure(request, failure);
+
+        assertThat(reported).hasCause(failure);
+        verify(request).setAttribute(eq("errorMessage"),
+                argThat((String message) -> message.contains("stored signature could not be verified or rendered")));
+    }
 
     @Test
     @DisplayName("prefers the non-mutating override and never loads the stored signature")

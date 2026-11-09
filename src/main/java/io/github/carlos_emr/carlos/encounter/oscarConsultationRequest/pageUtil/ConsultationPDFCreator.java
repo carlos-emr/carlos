@@ -91,8 +91,11 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     private static final float[] SIGNATURE_ROW_WIDTHS = new float[]{1.55f, 1.0f};
     private static final float SIGNATURE_TOP_PADDING = 10f;
     private static final float SIGNATURE_LABEL_BOTTOM_PADDING = 2f;
+    private static final String SIGNATURE_PRINT_ERROR = "The consultation request could not be printed because "
+            + "its stored signature could not be verified or rendered.";
 
     private static Logger logger = MiscUtils.getLogger();
+    private final HttpServletRequest request;
     private OutputStream os;
     private Document document;
     private BaseFont bf;
@@ -119,6 +122,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param os      OutputStream where the generated PDF will be written
      */
     public ConsultationPDFCreator(HttpServletRequest request, OutputStream os) {
+        this.request = request;
 
         try {
             bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
@@ -179,7 +183,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * referring practitioner footer.</p>
      *
      * @param loggedInInfo LoggedInInfo the authenticated session context for the current provider
-     * @throws DocumentException when OpenPDF encounters an error constructing the PDF
+     * @throws DocumentException when PDF construction fails or a stored signature cannot be verified
      */
     public void printPdf(LoggedInInfo loggedInInfo) throws DocumentException {
 
@@ -189,11 +193,21 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         document.setPageSize(PageSize.LETTER);
         document.addTitle(getResource("msgConsReq"));
         document.addCreator("CARLOS EMR");
-        document.open();
-
-        PdfPTable maintable = createConsultationRequest(loggedInInfo);
-        document.add(maintable);
+        try {
+            document.open();
+            PdfPTable maintable = createConsultationRequest(loggedInInfo);
+            document.add(maintable);
+        } catch (SignatureRenderingException e) {
+            // Existing print/fax callers handle DocumentException. Put the reason on the
+            // request for the consultation form's alert before they return an error result.
+            throw reportSignaturePrintFailure(request, e);
+        }
         document.close();
+    }
+
+    static DocumentException reportSignaturePrintFailure(HttpServletRequest request, SignatureRenderingException e) {
+        request.setAttribute("errorMessage", SIGNATURE_PRINT_ERROR);
+        return new DocumentException(e);
     }
 
     /**

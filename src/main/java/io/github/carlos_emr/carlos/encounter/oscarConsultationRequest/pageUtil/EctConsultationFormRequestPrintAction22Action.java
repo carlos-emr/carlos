@@ -346,13 +346,6 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             // of a context-free NullPointerException from Files.newInputStream(null).
             error = "PDFGenerationException";
             exception = pge;
-        } catch (ConsultationPDFCreator.SignatureRenderingException signatureFailure) {
-            // The stored consultation claims to be signed, so a missing or mismatched
-            // signature must stop printing. This result reaches the existing form alert.
-            error = "SignatureRenderingException";
-            exception = signatureFailure;
-            request.setAttribute("errorMessage", "The consultation request could not be printed because "
-                    + "its stored signature could not be verified or rendered.");
         } finally {
             // Cleaning up InputStreams created for concatenation. A close failure here is
             // cleanup-only: the response bytes are already written (or the real failure was
