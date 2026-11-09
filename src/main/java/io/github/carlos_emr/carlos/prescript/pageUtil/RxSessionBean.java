@@ -67,6 +67,17 @@ public class RxSessionBean implements java.io.Serializable {
         listMedHistory = l;
     }
 
+    /** Retires only cards acknowledged by this receipt, under the workspace's existing monitor. */
+    public synchronized void retirePendingCards(String token) {
+        for (int index = getStashSize() - 1; index >= 0; index--) {
+            var card = getStashItem(index);
+            if (token.equals(card.getPendingSubmission())) {
+                getRandomIdDrugIdPair().remove(card.getRandomId());
+                removeStashItem(index);
+            }
+        }
+    }
+
     public HashMap getRandomIdDrugIdPair() {
         return randomIdDrugIdPair;
     }
@@ -363,7 +374,7 @@ public class RxSessionBean implements java.io.Serializable {
     public synchronized void removePersistedStashItems() {
         RxPrescriptionData.Prescription selected =
                 (stashIndex >= 0 && stashIndex < stash.size()) ? stash.get(stashIndex) : null;
-        stash.removeIf(rx -> rx != null && rx.getDrugId() > 0);
+        stash.removeIf(rx -> rx != null && rx.getDrugId() > 0 && rx.getPendingSubmission() == null);
         if (selected != null && stash.contains(selected)) {
             stashIndex = stash.indexOf(selected);
         } else {

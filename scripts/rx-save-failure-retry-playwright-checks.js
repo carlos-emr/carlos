@@ -151,15 +151,13 @@ async function workflow(s) {
         const alert=rx.waitForEvent('dialog',{predicate:dialog=>dialog.type()==='alert',timeout:30000});alert.catch(()=>{});
         [retry]=await Promise.all([rx.waitForResponse(saveMatch),button.click()]);await retry.finished();await alert;
       });
-      // An acknowledged Print keeps cards with advanced revisions (409); Save
-      // Only clears them and intentionally sends the application's HTML 400.
-      const retryStatus=print?409:400,body=await retry.text();
-      h.assert(retry.status()===retryStatus,'Consumed-card retry returned the wrong source contract');
-      if(print)h.assert((await retry.json()).error==='STALE_RX_STASH','Print retry was not a revision conflict');
-      else h.assert(/text\/html/.test(retry.headers()['content-type']||'')&&h.isApplicationErrorPage(body)&&!h.isWafPage(retry.status(),body),
-        'Consumed-card retry did not reach the source-qualified application 400');
-      h.assert(retryDialogs.length===1&&retryDialogs[0].type==='alert','Consumed-card retry did not report its refusal');
-      lostMessages.push(retryDialogs[0].text);consumeRxRefusal(s,retryMark,retryStatus);
+      // Durable receipts precede stale/empty-stash validation for either Save mode.
+      h.assert(retry.status()===409 && (await retry.json()).error==='RX_ALREADY_SAVED',
+        'A committed save retry did not return its durable already-saved receipt');
+      const expectedAlreadySaved=await rx.evaluate(()=>jsMsg.alreadySaved);
+      h.assert(retryDialogs.length===1 && retryDialogs[0].type==='alert'
+        && retryDialogs[0].text===expectedAlreadySaved,'Committed retry did not accurately say already saved');
+      lostMessages.push(retryDialogs[0].text);consumeRxRefusal(s,retryMark,409);
       h.assert(JSON.stringify(snapshot())===JSON.stringify(persisted),'Retry duplicated or changed a committed prescription');
     });
   }

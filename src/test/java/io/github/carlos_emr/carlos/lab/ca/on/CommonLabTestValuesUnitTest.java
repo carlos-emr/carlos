@@ -127,4 +127,24 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
         assertThat(List.of(first, second)).isEqualTo(originals);
     }
 
+    @Test
+    void shouldKeepMissingUnitsAndUndatedCmlResults_visibleWithoutFabricatingDates() {
+        var dao = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
+        var routing = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(); routing.setLabNo(123);
+        var test = new io.github.carlos_emr.carlos.commn.model.LabTestResults();
+        test.setTestName("CREATININE"); test.setResult("80"); test.setUnits(null);
+        var dated = new io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo();
+        dated.setAccessionNum("same-accession"); dated.setCollectionDate("01-Jan-26");
+        var undated = new io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo();
+        undated.setAccessionNum("same-accession"); undated.setCollectionDate(null);
+        when(dao.findRoutingsAndTests(17, "CML", "CREATININE")).thenReturn(List.of(
+                new Object[]{routing, test, undated}, new Object[]{routing, test, dated}));
+        var rows = CommonLabTestValues.findValuesForTest("CML", 17, "CREATININE");
+        assertThat(rows).hasSize(2);
+        assertThat(rows.getFirst().get("collDateDate")).isNull();
+        assertThat(rows.getFirst().get("units")).isNull();
+        assertThat(rows.getFirst().get("result")).isEqualTo("80");
+        assertThat(rows.getLast().get("collDateDate")).isInstanceOf(java.util.Date.class);
+    }
+
 }
