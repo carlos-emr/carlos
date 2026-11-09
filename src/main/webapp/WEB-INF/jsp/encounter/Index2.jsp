@@ -193,79 +193,13 @@
         // the last-entered chart's, and every reader asks for "casemgmt_oscar_bean" + patient.
         String hrefurl = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&chartContext=" + io.github.carlos_emr.carlos.utility.SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8) +
                 (bean.oscarMsgID != null && !bean.oscarMsgID.isEmpty() ? "&msgId=" + SafeEncode.forUriComponent(bean.oscarMsgID) : "");
-        if (request.getParameter("casetoEncounter") == null) {
-            if (!response.isCommitted())
-                response.sendRedirect(hrefurl);
+        // Retired bookmarks must enter the modern chart before accepting typing.
+        if (!response.isCommitted()) {
+            response.sendRedirect(hrefurl);
             return;
         }
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     %>
 </caisi:isModuleLoad>
 
-<html>
-<%@ include file="includes/encounter-head.jspf" %>
-
-    <body topmargin="0" leftmargin="0" bottommargin="0" rightmargin="0" vlink="#0000FF">
-
-    <%-- Action errors display --%>
-    <c:if test="${not empty actionErrors}">
-        <div class="action-errors">
-            <ul>
-                <c:forEach var="error" items="${actionErrors}">
-                    <li>${carlos:forHtml(error)}</li>
-                </c:forEach>
-            </ul>
-        </div>
-    </c:if>
-
-    <div id="templatejs" style="display: none"></div>
-
-    <%-- Header bar with patient info and search --%>
-    <%@ include file="includes/encounter-header-bar.jspf" %>
-
-    <%-- Main content: left nav + encounter form --%>
-    <div class="container-fluid p-0">
-        <div class="row g-0" style="min-height: calc(100vh - 42px);">
-            <%-- Left navigation --%>
-            <div class="col-auto" id="encounter-left-nav" style="width: 22%;">
-                <div id="leftNavbar" style="height: 100%; width: 100%;">
-                    <caisi:isModuleLoad moduleName="caisi">
-                        <%
-                            String hrefurl2 = request.getContextPath() + "/casemgmt/ViewForward?action=view&demographicNo=" + bean.demographicNo + "&providerNo=" + bean.providerNo + "&providerName=" + URLEncoder.encode(bean.userName, StandardCharsets.UTF_8)
-                                    + (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) == null ? "" : "&chartContext=" + SafeEncode.forUriComponent(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)));
-                        %>
-                        <a href="<%=hrefurl2%>">Case Management Encounter</a>
-                    </caisi:isModuleLoad>
-                </div>
-            </div>
-
-            <%-- Right content: encounter form --%>
-            <div class="col" style="background-color: #CCCCFF;">
-                <%-- An absolute route: encounter-head.jspf sets <base href> to the context root, so the
-                     relative "SaveEncounter2" posted to /carlos/SaveEncounter2 (404) (issue #4673). --%>
-                <form name="encForm" action="${pageContext.request.contextPath}/encounter/SaveEncounter2" method="POST">
-                    <% if (io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) != null) { %>
-                    <input type="hidden" name="chartContext" value="<%= SafeEncode.forHtmlAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>">
-                    <% } %>
-                    <input type="hidden" name="demographicNo" value="${carlos:forHtmlAttribute(bean.demographicNo)}">
-                    <%-- The revision this editor shows; the save refuses it once another save has landed. --%>
-                    <input type="hidden" name="eChartId" value="${carlos:forHtmlAttribute(bean.EChartId)}">
-                    <input type="hidden" id="reloadDiv" name="reloadDiv" value="none"
-                           onchange="updateDiv();">
-                    <caisi:isModuleLoad moduleName="caisi">
-                        <input type="hidden" name="casetoEncounter" value="true">
-                    </caisi:isModuleLoad>
-
-                    <%@ include file="includes/encounter-row-one.jspf" %>
-                    <%@ include file="includes/encounter-row-two.jspf" %>
-                    <%@ include file="includes/encounter-rx-allergies.jspf" %>
-                    <%@ include file="includes/encounter-row-three.jspf" %>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <%-- Split chart overlay --%>
-    <%@ include file="includes/encounter-split-chart.jspf" %>
-
-    </body>
-</html>
+<%-- The legacy editor is retired; this view only forwards to the modern chart. --%>

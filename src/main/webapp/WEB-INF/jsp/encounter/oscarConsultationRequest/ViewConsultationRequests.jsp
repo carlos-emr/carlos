@@ -890,7 +890,10 @@
 
                                 if (timeperiod != null) {
                                     try {
-                                        countback = Integer.parseInt(timeperiod);
+                                        if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(timeperiod)) {
+                                            throw new NumberFormatException("Invalid consultation warning period");
+                                        }
+                                        countback = Integer.parseInt(timeperiod.trim());
                                     } catch (NumberFormatException e) {
                                         timeperiod = null; // fall through to default logic below
                                     }

@@ -139,6 +139,12 @@ public class UserPreference2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String providerNo = loggedInInfo.getLoggedInProviderNo();
 
+        String warning = request.getParameter("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
+        if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(warning)) {
+            addActionError(getText("provider.consultationWarning.invalid"));
+            return form();
+        }
+
         //Is there a password change?
         if (!getParameter(request, "new_password").isEmpty()) {
             try {

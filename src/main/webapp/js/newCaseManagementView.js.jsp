@@ -464,7 +464,7 @@
                     }
                 },
                 onFailure: function (request) {
-                    $("notCPP").update("Error: " + request.status + request.responseText);
+                    $("notCPP").textContent = savingNoteError + " " + request.status;
                 }
             }
         );
@@ -1177,7 +1177,7 @@
         var noteIssueUl = "<ul id='issueIdList' style='list-style: none; margin:0;'>";
 
         if (noteIssues.length > 0) {
-            var issueArray = noteIssues.split(";");
+            var issueArray = noteIssues.split(";").map(function (value) { return decodeURIComponent(value); });
             var idx, rows;
             var cppDisplay = "";
             for (idx = 0, rows = 0; idx < issueArray.length; idx += 3, ++rows) {
@@ -1464,7 +1464,7 @@ function updateCPPNote() {
                     refreshed = true;
                 },
                 onFailure: function (request) {
-                    $(div).update("<h3>" + div + "<\/h3>Error: " + request.status + "<br>" + request.responseText);
+                    if ($(div)) $(div).textContent = savingNoteError + " " + request.status;
                 },
                 onComplete: function (request) {
                     if (complete) complete(refreshed && request.status >= 200 && request.status < 300);
@@ -1734,7 +1734,7 @@ function updateCPPNote() {
 
         if (varpage != 'null') {
             var page = ctx + "/encounter/InsertTemplate";
-            var params = "templateName=" + varpage + "&version=2";
+            var params = "templateName=" + encodeURIComponent(varpage) + "&version=2";
             CarlosAjax.request(page, {
                     method: 'post',
                     postBody: params,
@@ -1764,7 +1764,10 @@ function updateCPPNote() {
     function menuAction() {
         var name = document.getElementById('enTemplate').value;
         var func = autoCompleted[name];
-        eval(func); // existing legacy template evaluation - pre-existing pattern, not new code
+        // Templates are closures carrying literal data. Legacy module entries
+        // retain their existing dispatcher until their producers migrate together.
+        if (typeof func === 'function') func();
+        else if (typeof func === 'string') eval(func);
         initTemplateFeatures();
     }
 
@@ -2584,6 +2587,15 @@ function updateCPPNote() {
     }
     var showIssue = false;
     var expandedIssues = new Array();
+    function toggleIssueChecklist(button) {
+        showIssue = !showIssue;
+        ['noteIssues-resolved', 'noteIssues-unresolved'].forEach(function (id) {
+            if ($(id)) $(id).style.display = showIssue ? 'block' : 'none';
+        });
+        if (button) button.setAttribute('aria-expanded', String(showIssue));
+        return false;
+    }
+
     function showIssues(e) {
 
         Event.stop(e);
@@ -3491,15 +3503,24 @@ function updateCPPNote() {
         if ($("newIssueId")) $("newIssueId").value = "";
         if ($("newIssueName")) $("newIssueName").value = "";
 
-        // demographicNo is module state; the form does not always render an element
-        // with that id. Wait for this second refresh before resuming a queued save.
-        if (typeof loadDiv === 'function' && demographicNo) {
-            var reloadUrl = ctx + "/encounter/displayIssues?demographicNo=" + encodeURIComponent(demographicNo) + "&cmd=unresolvedIssues&reloadURL=" + encodeURIComponent(ctx + "/encounter/displayIssues");
-            loadDiv('unresolvedIssueslist', reloadUrl, 0, function (succeeded) {
-                if (!succeeded) alert(updateIssueError);
-                complete(succeeded);
+        // Each response contains a whole module. Optional hidden modules have no
+        // DOM target and require no presentation refresh; clinical issue fields
+        // have already been refreshed by ajaxUpdateIssues before reaching here.
+        var modules = ['unresolvedIssues', 'resolvedIssues'].filter(function (id) { return !!$(id); });
+        if (!demographicNo || !modules.length) { complete(true); return; }
+        var pending = modules.length;
+        var succeeded = true;
+        modules.forEach(function (id) {
+            var action = id === 'resolvedIssues' ? 'displayResolvedIssues' : 'displayIssues';
+            var reloadUrl = ctx + "/encounter/" + action + "?demographicNo=" + encodeURIComponent(demographicNo) + "&cmd=" + id;
+            loadDiv(id, reloadUrl, 0, function (ok) {
+                succeeded = succeeded && ok;
+                if (--pending === 0) {
+                    if (!succeeded) alert(updateIssueError);
+                    complete(succeeded);
+                }
             });
-        } else complete(true);
+        });
     }
 
     function submitIssue(event) {
@@ -4582,7 +4603,7 @@ function autoSave() {
                     }
                 },
                 onFailure: function (request) {
-                    $("notCPP").update("Error: " + request.status + request.responseText);
+                    $("notCPP").textContent = savingNoteError + " " + request.status;
                 }
             }
         );

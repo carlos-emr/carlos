@@ -86,6 +86,28 @@ public final class ViewReportEChartHistory2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", demographicNo)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
+        final int offset;
+        final int size;
+        try {
+            offset = pageNumber(request.getParameter("limit1"), 0);
+            size = pageNumber(request.getParameter("limit2"), 10);
+            if (size < 1 || size > 100) throw new NumberFormatException();
+        } catch (NumberFormatException invalidPage) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid historical chart page");
+            return NONE;
+        }
+        var rows = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.EChartDao.class)
+                .getChartsForDemographic(patient, offset, size + 1);
+        request.setAttribute("historyRows", rows.stream().limit(size).toList());
+        request.setAttribute("historyHasNext", rows.size() > size);
+        request.setAttribute("historyOffset", offset);
+        request.setAttribute("historyPageSize", size);
+        response.setHeader("Cache-Control", "no-store");
         return SUCCESS;
+    }
+    private static int pageNumber(String value, int defaultValue) {
+        if (value == null) return defaultValue;
+        if (!value.matches("[0-9]{1,10}")) throw new NumberFormatException();
+        return Integer.parseInt(value);
     }
 }

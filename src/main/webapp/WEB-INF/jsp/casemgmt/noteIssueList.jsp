@@ -287,6 +287,9 @@
                    onclick="return assignNoteIssue(event);">
         </div>
     </c:if>
+    <button type="button" id="toggleIssue" aria-expanded="false"
+            aria-controls="noteIssues-resolved noteIssues-unresolved"
+            onclick="return toggleIssueChecklist(this);"><fmt:message key="encounter.referenceIssues.title"/></button>
     <div id="noteIssues-resolved" style="margin: 0; background-color: #CCCCFF; display: none;">
         <b><fmt:message key="encounter.referenceResolvedIssues.title"/></b>
         <% int countResolvedIssue = -1; %>

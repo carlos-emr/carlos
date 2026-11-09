@@ -981,6 +981,12 @@ public class ProviderProperty2Action extends ActionSupport {
             drugrefId = UdrugrefId.getValue();
         }
 
+        if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(drugrefId)) {
+            addActionError(getText("provider.consultationWarning.invalid"));
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return viewConsultationRequestCuffOffDate();
+        }
+
         UserProperty prop = this.userPropertyDAO.getProp(providerNo, UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
 
         if (prop == null) {

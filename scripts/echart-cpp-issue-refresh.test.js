@@ -20,7 +20,7 @@ function harness(checked = [true], issueChange = '') {
     issueChange: { get value() { return changeValue; }, set value(value) { changeValue = String(value); } },
     channel: { style: {} }, showEditNote: { style: {} },
     'cpp.socialHistory': { id: 'cpp.socialHistory', update: text => { fields.cppText = text; } },
-    unresolvedIssueslist: { id: 'unresolvedIssueslist', update: text => { fields.issuesText = text; } },
+    unresolvedIssues: { id: 'unresolvedIssues', update: text => { fields.issuesText = text; } },
   };
   const cppForm = {
     action: '/carlos/CaseManagementEntry?method=issueNoteSave',
@@ -202,7 +202,7 @@ for (const phase of ['CPP POST', 'note refresh', 'Unresolved Issues', 'panel ren
           h.updates[0].options.onComplete({ updateSucceeded: true, status: phase === 'note refresh' ? 500 : 200 });
           if (['Unresolved Issues', 'panel rendering'].includes(phase)) {
             if (phase === 'panel rendering') {
-              h.fields.unresolvedIssueslist.update = () => { throw new Error('render failed'); };
+              h.fields.unresolvedIssues.update = () => { throw new Error('render failed'); };
               assert.throws(() => h.requests[1].options.onSuccess({ status: 200, responseText: '' }), /render failed/);
             }
             h.requests[1].options.onComplete({ status: phase === 'Unresolved Issues' ? 500 : 200 });
@@ -308,3 +308,34 @@ for (const rendering of ['success', 'throws', 'missing target']) {
     assert.equal(h.context.queuedNoteSave, null);
   });
 }
+
+
+test('hidden optional issue modules do not block a queued note save', () => {
+  const h = harness();
+  delete h.fields.unresolvedIssues;
+  let completed;
+  h.context.onIssueUpdate(value => { completed = value; });
+  assert.equal(completed, true);
+  assert.equal(h.requests.length, 0);
+  assert.deepEqual(h.alerts, []);
+});
+
+test('issue refresh replaces complete visible modules and refreshes resolved issues', () => {
+  const h = harness();
+  h.fields.resolvedIssues = {};
+  const loaded = [];
+  h.context.loadDiv = (div, url, limit, done) => { loaded.push(div); done(true); };
+  let completed;
+  h.context.onIssueUpdate(value => { completed = value; });
+  assert.deepEqual(loaded, ['unresolvedIssues', 'resolvedIssues']);
+  assert.equal(completed, true);
+});
+
+test('a module failure displays text without inserting response HTML', () => {
+  const h = harness();
+  h.context.loadDiv('unresolvedIssues', '/module', 0);
+  h.requests[0].options.onFailure({status: 500, responseText: '<style>body{display:none}</style><script>bad()</script>'});
+  assert.equal(h.fields.issuesText, undefined);
+  assert.equal(h.fields.unresolvedIssues.textContent.includes('<'), false);
+  assert.match(h.fields.unresolvedIssues.textContent, /500/);
+});

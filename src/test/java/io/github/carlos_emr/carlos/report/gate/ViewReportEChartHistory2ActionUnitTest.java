@@ -72,6 +72,7 @@ class ViewReportEChartHistory2ActionUnitTest extends CarlosUnitTestBase {
 
     @BeforeEach
     void setUp() {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.EChartDao.class);
         security = createAndRegisterMock(SecurityInfoManager.class);
         login = mock(LoggedInInfo.class);
         when(security.hasPrivilege(any(LoggedInInfo.class), eq("_report"), eq("r"), isNull())).thenReturn(true);

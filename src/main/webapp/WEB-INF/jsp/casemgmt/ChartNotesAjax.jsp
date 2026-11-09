@@ -1010,10 +1010,9 @@ EmailComposeManager emailComposeManager = SpringUtils.getBean(EmailComposeManage
     List<String> templateNames = bean.templateNames != null ? bean.templateNames : List.of();
     for (int j = 0; j < templateNames.size(); j++) {
         String encounterTmp = templateNames.get(j);
-        encounterTmp = StringUtils.maxLenString(encounterTmp, MaxLen, TruncLen, ellipses);
         encounterTmp = SafeEncode.forJavaScript(encounterTmp);
 %>
-    autoCompleted["<%=encounterTmp%>"] = "ajaxInsertTemplate('<%=encounterTmp%>')";
+    autoCompleted["<%=encounterTmp%>"] = function () { ajaxInsertTemplate("<%=encounterTmp%>"); };
     autoCompList.push("<%=encounterTmp%>");
     itemColours["<%=encounterTmp%>"] = "99CCCC";
 <%
