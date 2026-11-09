@@ -221,19 +221,7 @@ public final class CdsExportDemographicAddressReconciler {
                                 .filter(path -> path.matches("Structured\\[1\\]/Line[123]\\[1\\]"))
                                 .toList();
                 boolean formatted = original.containsKey("Formatted[1]");
-                boolean sourceOnly =
-                        prepared.address() == null && (formatted || !lines.isEmpty())
-                                || prepared.city() == null
-                                        && original.containsKey("Structured[1]/City[1]")
-                                || prepared.province() == null
-                                        && original.containsKey(
-                                                "Structured[1]/CountrySubdivisionCode[1]")
-                                || prepared.postal() == null
-                                        && original.keySet().stream()
-                                                .anyMatch(
-                                                        path ->
-                                                                path.startsWith(
-                                                                        "Structured[1]/PostalZipCode[1]"));
+                boolean sourceOnly = hasSourceOnlyParts(prepared, original, lines, formatted);
                 boolean absent =
                         kind.columns.stream()
                                 .allMatch(
@@ -291,24 +279,8 @@ public final class CdsExportDemographicAddressReconciler {
                                                         .contains(kind.columns.get(2));
                         if (!changed) continue;
                         checkpoint.run();
-                        String path =
-                                part == 0
-                                        ? lines.size() == 1
-                                                ? lines.getFirst()
-                                                : "Structured[1]/Line1[1]"
-                                        : part == 1
-                                                ? "Structured[1]/City[1]"
-                                                : part == 2
-                                                        ? "Structured[1]/CountrySubdivisionCode[1]"
-                                                        : "Structured[1]/PostalZipCode[1]";
-                        String preparedPart =
-                                switch (part) {
-                                    case 0 -> prepared.address();
-                                    case 1 -> prepared.city();
-                                    case 2 -> prepared.province();
-                                    case 3 -> prepared.postal();
-                                    default -> throw new IllegalStateException();
-                                };
+                        String path = partPath(part, lines);
+                        String preparedPart = preparedPartValue(part, prepared);
                         boolean hadSource =
                                 part == 0
                                         ? !lines.isEmpty()
@@ -318,27 +290,19 @@ public final class CdsExportDemographicAddressReconciler {
                                                                 key.equals(path)
                                                                         || key.startsWith(
                                                                                 path + "/"));
-                        if (preparedPart == null && hadSource
-                                || nativeMapping.fields().get(column).outcome()
-                                        == CdsExportDemographicMappingDto.Outcome.REQUIRES_REVIEW
-                                || part == 0
-                                        && lines.size() > 1
-                                        && current.fields().get(column) != null
-                                        && !current.fields().get(column).isEmpty()) {
+                        if (requiresPartReview(
+                                preparedPart,
+                                hadSource,
+                                part,
+                                lines,
+                                column,
+                                nativeMapping,
+                                current)) {
                             review = true;
                             rule = "EDITED_UNPROJECTED_OR_COMPOUND_ADDRESS_PART_REQUIRES_REVIEW";
                             continue;
                         }
-                        String value =
-                                nativeAddress == null
-                                        ? null
-                                        : switch (part) {
-                                            case 0 -> nativeAddress.line1();
-                                            case 1 -> nativeAddress.city();
-                                            case 2 -> nativeAddress.subdivision();
-                                            case 3 -> nativeAddress.postalCode();
-                                            default -> throw new IllegalStateException();
-                                        };
+                        String value = nativePartValue(part, nativeAddress);
                         if (part == 0 && lines.size() > 1) {
                             for (String line : lines) replace(original, prefix, line, null, local);
                         } else if (part == 3) {
@@ -384,6 +348,71 @@ public final class CdsExportDemographicAddressReconciler {
         values.requireActive();
         checkpoint.run();
         return new Result(index.sourceManifestSha256(), address, ids, fields, changes);
+    }
+
+    private static boolean hasSourceOnlyParts(
+            CdsDemographicNativeDto.Address prepared,
+            Map<String, CdsExportRetainedFieldDto> original,
+            List<String> lines,
+            boolean formatted) {
+        return prepared.address() == null && (formatted || !lines.isEmpty())
+                || prepared.city() == null && original.containsKey("Structured[1]/City[1]")
+                || prepared.province() == null
+                        && original.containsKey("Structured[1]/CountrySubdivisionCode[1]")
+                || prepared.postal() == null
+                        && original.keySet().stream()
+                                .anyMatch(
+                                        path -> path.startsWith("Structured[1]/PostalZipCode[1]"));
+    }
+
+    private static String partPath(int part, List<String> lines) {
+        return part == 0
+                ? lines.size() == 1 ? lines.getFirst() : "Structured[1]/Line1[1]"
+                : part == 1
+                        ? "Structured[1]/City[1]"
+                        : part == 2
+                                ? "Structured[1]/CountrySubdivisionCode[1]"
+                                : "Structured[1]/PostalZipCode[1]";
+    }
+
+    private static String preparedPartValue(int part, CdsDemographicNativeDto.Address prepared) {
+        return switch (part) {
+            case 0 -> prepared.address();
+            case 1 -> prepared.city();
+            case 2 -> prepared.province();
+            case 3 -> prepared.postal();
+            default -> throw new IllegalStateException();
+        };
+    }
+
+    private static boolean requiresPartReview(
+            String preparedPart,
+            boolean hadSource,
+            int part,
+            List<String> lines,
+            String column,
+            CdsExportDemographicMappingDto nativeMapping,
+            CdsExportCapturedTextRowDto current) {
+        return preparedPart == null && hadSource
+                || nativeMapping.fields().get(column).outcome()
+                        == CdsExportDemographicMappingDto.Outcome.REQUIRES_REVIEW
+                || part == 0
+                        && lines.size() > 1
+                        && current.fields().get(column) != null
+                        && !current.fields().get(column).isEmpty();
+    }
+
+    private static String nativePartValue(
+            int part, CdsExportDemographicMappingDto.Address nativeAddress) {
+        return nativeAddress == null
+                ? null
+                : switch (part) {
+                    case 0 -> nativeAddress.line1();
+                    case 1 -> nativeAddress.city();
+                    case 2 -> nativeAddress.subdivision();
+                    case 3 -> nativeAddress.postalCode();
+                    default -> throw new IllegalStateException();
+                };
     }
 
     private static void replace(

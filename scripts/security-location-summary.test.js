@@ -71,6 +71,34 @@ test('empty or absent reports emit no fabricated findings', () => {
     assert.equal(result.stdout, '');
 });
 
+test('scanner failure summaries retain status and coordinates without private diagnostic payloads', () => {
+    const document = { runs: [{ invocations: [{ executionSuccessful: false,
+        commandLine: poison, properties: { secret: poison }, toolExecutionNotifications: [{
+            descriptor: { id: 'SemgrepParseError' }, level: 'warning', message: { text: poison },
+            locations: finding().locations,
+        }] }] }] };
+    const result = run([document]);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal((result.stdout + result.stderr).includes(poison), false);
+    assert.deepEqual(result.stdout.trim().split('\n').map(JSON.parse), [
+        { kind: 'scannerExecution', runIndex: 0, invocationIndex: 0, executionSuccessful: false },
+        { kind: 'scannerNotification', runIndex: 0, invocationIndex: 0, ruleId: 'SemgrepParseError',
+            level: 'warning', path: 'src/main/java/Example.java', startLine: 7, endLine: 9 },
+    ]);
+});
+
+test('notification shape and private locations fail before printing any partial summary', () => {
+    for (const notice of [null, { descriptor: { id: poison + '\n::error::injected' } },
+        { locations: [{ physicalLocation: { artifactLocation: { uri: '/private/' + poison },
+            region: { startLine: 1 } } }] }]) {
+        const result = run([{ runs: [{ invocations: [{ executionSuccessful: true,
+            toolExecutionNotifications: [notice] }] }] }]);
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '');
+        assert.equal(result.stderr.includes(poison), false);
+    }
+});
+
 for (const uri of ['../outside.java', '/private/outside.java', 'https://example.invalid/token?secret=' + poison,
     'src/%2e%2e/%2e%2e/outside.java', 'src/main/java/Example.java?secret=' + poison]) {
     test(`summary refuses non-repository location ${uri.split('?')[0]}`, () => {

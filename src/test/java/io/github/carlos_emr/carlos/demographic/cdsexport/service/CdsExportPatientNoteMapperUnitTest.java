@@ -207,6 +207,7 @@ class CdsExportPatientNoteMapperUnitTest {
                                                 new CdsExportDemographicXmlWriter()
                                                         .writeWithPatientNote(value, xml);
                                             } catch (IOException deliberatelyCaught) {
+                                                /* Deliberately swallow the first refusal to prove the composer stays poisoned. */
                                             }
                                             new CdsExportDemographicXmlWriter().write(base(), xml);
                                         }))

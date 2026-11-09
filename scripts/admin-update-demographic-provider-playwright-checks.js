@@ -184,7 +184,7 @@ async function workflow(s) {
   await s.step('HEAD mutations and tokenless POSTs are refused before reassignment', async () => {
     const endpoint = h.appUrl(config.baseUrl, '/admin/UpdateDemographicProvider');
     const form = { update: 'UpdateMrp', oldcust5: from, newcust5: to, last_name_from: 'F', last_name_to: 'F' };
-    const head = await authenticatedProbe({context, config}, endpoint, {...({ params: form, maxRedirects: 0 }), method: 'HEAD'});
+    const head = await authenticatedProbe({context, config}, endpoint, {params: form, maxRedirects: 0, method: 'HEAD'});
     h.assert(head.status() === 405, `HEAD reassignment answered HTTP ${head.status()}`);
     const post = await context.request.post(endpoint, { form, maxRedirects: 0 });
     h.assert(post.status() === 403 && Object.hasOwn(post.headers(), 'x-permitted-cross-domain-policies'),

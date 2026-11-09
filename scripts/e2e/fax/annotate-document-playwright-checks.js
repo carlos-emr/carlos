@@ -179,11 +179,11 @@ async function login(page) {
 
 async function main({cancellation,fixture}={}) {
   const cleanupReleases=[];
-  const browser = await chromium.launch({...({
+  const browser = await chromium.launch({
     headless: true,
     ...(chromePath ? { executablePath: chromePath } : {}),
     args: ['--no-sandbox', '--disable-dev-shm-usage'],
-  }),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+    ...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
   // Self-signed certificates are normal on a local dev deployment. For a remote one this script
   // sends a real password, so verification stays on unless ALLOW_UNVERIFIED_TLS=true says otherwise.
   let context;
@@ -344,7 +344,7 @@ async function main({cancellation,fixture}={}) {
     const overlay = page.locator('svg.overlay').first();
     const box = await overlay.boundingBox();
     cancellation?.throwIfCancelled();
-    if (box && box.width > 40 && box.height > 40) {
+    const verifyHighlightingAndSave = async () => {
       await page.mouse.move(box.x + 30, box.y + 40);
     cancellation?.throwIfCancelled();
       await page.mouse.down();
@@ -451,7 +451,8 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
       check('the visible status region is announceable as role=status',
         visibleStatusRole >= 1, `${visibleStatusRole} visible elements with role=status`);
-    } else {
+    };
+    if (box && box.width > 40 && box.height > 40) { await verifyHighlightingAndSave(); } else {
       findings.push('FAIL  overlay had no usable geometry to draw on');
     }
 
@@ -497,7 +498,7 @@ async function main({cancellation,fixture}={}) {
     check('a stale source fingerprint refuses filing with an explicit conflict',
       stale.status === 409 && stale.body.error.includes('source document changed'));
 
-    if (pageCount > 1) {
+    const verifyPageSwitchAndStaleResponses = async () => {
       if (!coldDocumentNo) { throw new Error('The last-page regression requires the newly filed document'); }
       const activePageRequests = new Set();
       let peakPageRequests = 0;
@@ -573,7 +574,8 @@ async function main({cancellation,fixture}={}) {
     cancellation?.throwIfCancelled();
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
     cancellation?.throwIfCancelled();
-    }
+    };
+    if (pageCount > 1) { await verifyPageSwitchAndStaleResponses(); }
 
     // A successful save must not suppress warnings for subsequent unsaved edits.
     await mark('draw');

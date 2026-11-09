@@ -102,61 +102,12 @@ public final class CdsExportMedicationMapper {
             List<CdsExportCapturedTextRowDto> precision,
             Map<String, CdsExportCapturedTextRowDto> providers)
             throws IOException {
-        java.util.Objects.requireNonNull(providers);
-        shape(row, "drugs", CdsExportPatientTableReadSupport.Plan.DRUGS);
-        long id = integer(row.fields().get("drugid"));
-        if (patient < 1
-                || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
-                || !CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())
-                || precision.size() > 256) scope();
+        long id = verifiedPatientRow(patient, row, precision, providers);
         var assessments =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var source = new CdsExportNativeFieldAssessments(row, assessments);
         var values = new EnumMap<Field, String>(Field.class);
-        source.operational("drugid", "NATIVE_OCCURRENCE_IDENTITY");
-        source.operational("demographic_no", "SEALED_PATIENT_IDENTITY");
-        for (String field : List.of("lastUpdateDate", "create_date", "position"))
-            source.operational(field, "NATIVE_STORAGE_OR_DISPLAY_METADATA");
-        for (String field :
-                List.of(
-                        "custom_instructions",
-                        "custom_note",
-                        "hide_cpp",
-                        "hide_from_drug_profile",
-                        "dispenseInternal")) {
-            if ("0".equals(source.raw(field)))
-                source.operational(field, "NATIVE_OPTION_NOT_ENABLED");
-        }
-        if ("0".equals(source.raw("GCN_SEQNO")))
-            source.operational("GCN_SEQNO", "NATIVE_CATALOGUE_IDENTIFIER_UNSPECIFIED");
-        if ("0".equals(source.raw("cds_projection_incomplete")))
-            source.operational(
-                    "cds_projection_incomplete", "IMPORT_PROJECTION_FLAG_NOT_A_COMPLETENESS_PROOF");
-        String name = source.text("customName", Field.DrugName.name(), Field.DrugName.maximum());
-        String brand = source.text("BN", Field.DrugName.name(), Field.DrugName.maximum());
-        if (name != null && brand != null && !name.equals(brand)) {
-            source.review(
-                    "customName",
-                    Field.DrugName.name(),
-                    "MULTIPLE_NATIVE_DRUG_NAMES_REQUIRE_RECONCILIATION");
-            source.review(
-                    "BN",
-                    Field.DrugName.name(),
-                    "MULTIPLE_NATIVE_DRUG_NAMES_REQUIRE_RECONCILIATION");
-        }
-        put(values, Field.DrugName, name == null ? brand : name);
-        String din = source.raw("regional_identifier");
-        if (din != null && !din.isEmpty()) {
-            // The physical column carries no authority discriminator. Eight digits do not
-            // prove a Health Canada DIN; a qualified catalogue/preparation must bind it.
-            source.review(
-                    "regional_identifier",
-                    Field.DrugIdentificationNumber.name(),
-                    "REGIONAL_DRUG_IDENTIFIER_AUTHORITY_REQUIRES_REVIEW");
-        }
-        if ((values.get(Field.DrugName) == null || values.get(Field.DrugName).isBlank())
-                && !values.containsKey(Field.DrugIdentificationNumber))
-            source.review("customName", Field.DrugName.name(), "MEDICATION_IDENTITY_REQUIRED");
+        initializeIdentity(source, values);
         text(source, values, "cds_dose_text", Field.Dosage);
         text(source, values, "drug_form", Field.Form);
         text(source, values, "route", Field.Route);
@@ -340,6 +291,71 @@ public final class CdsExportMedicationMapper {
                     "StartDate",
                     "UNKNOWN_START_DATE_REQUIRES_RECONCILIATION");
         return new Candidate(written, start, prescriber, values, assessments);
+    }
+
+    private static void initializeIdentity(
+            CdsExportNativeFieldAssessments source, EnumMap<Field, String> values)
+            throws IOException {
+        source.operational("drugid", "NATIVE_OCCURRENCE_IDENTITY");
+        source.operational("demographic_no", "SEALED_PATIENT_IDENTITY");
+        for (String field : List.of("lastUpdateDate", "create_date", "position"))
+            source.operational(field, "NATIVE_STORAGE_OR_DISPLAY_METADATA");
+        for (String field :
+                List.of(
+                        "custom_instructions",
+                        "custom_note",
+                        "hide_cpp",
+                        "hide_from_drug_profile",
+                        "dispenseInternal")) {
+            if ("0".equals(source.raw(field)))
+                source.operational(field, "NATIVE_OPTION_NOT_ENABLED");
+        }
+        if ("0".equals(source.raw("GCN_SEQNO")))
+            source.operational("GCN_SEQNO", "NATIVE_CATALOGUE_IDENTIFIER_UNSPECIFIED");
+        if ("0".equals(source.raw("cds_projection_incomplete")))
+            source.operational(
+                    "cds_projection_incomplete", "IMPORT_PROJECTION_FLAG_NOT_A_COMPLETENESS_PROOF");
+        String name = source.text("customName", Field.DrugName.name(), Field.DrugName.maximum());
+        String brand = source.text("BN", Field.DrugName.name(), Field.DrugName.maximum());
+        if (name != null && brand != null && !name.equals(brand)) {
+            source.review(
+                    "customName",
+                    Field.DrugName.name(),
+                    "MULTIPLE_NATIVE_DRUG_NAMES_REQUIRE_RECONCILIATION");
+            source.review(
+                    "BN",
+                    Field.DrugName.name(),
+                    "MULTIPLE_NATIVE_DRUG_NAMES_REQUIRE_RECONCILIATION");
+        }
+        put(values, Field.DrugName, name == null ? brand : name);
+        String din = source.raw("regional_identifier");
+        if (din != null && !din.isEmpty()) {
+            // The physical column carries no authority discriminator. Eight digits do not
+            // prove a Health Canada DIN; a qualified catalogue/preparation must bind it.
+            source.review(
+                    "regional_identifier",
+                    Field.DrugIdentificationNumber.name(),
+                    "REGIONAL_DRUG_IDENTIFIER_AUTHORITY_REQUIRES_REVIEW");
+        }
+        if ((values.get(Field.DrugName) == null || values.get(Field.DrugName).isBlank())
+                && !values.containsKey(Field.DrugIdentificationNumber))
+            source.review("customName", Field.DrugName.name(), "MEDICATION_IDENTITY_REQUIRED");
+    }
+
+    private static long verifiedPatientRow(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> precision,
+            Map<String, CdsExportCapturedTextRowDto> providers)
+            throws IOException {
+        java.util.Objects.requireNonNull(providers);
+        shape(row, "drugs", CdsExportPatientTableReadSupport.Plan.DRUGS);
+        long id = integer(row.fields().get("drugid"));
+        if (patient < 1
+                || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
+                || !CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())
+                || precision.size() > 256) scope();
+        return id;
     }
 
     private static void dose(

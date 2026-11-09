@@ -29,33 +29,100 @@ import java.util.*;
 import org.junit.jupiter.api.*;
 
 /** A caught mapper/writer rejection must not be upgraded into a serialized occurrence receipt. */
-@Tag("unit") @Tag("cds-export")
+@Tag("unit")
+@Tag("cds-export")
 class CdsExportTypedWriterFailureFenceUnitTest {
-    @Test void everyTypedWriterPoisonsTheDocumentWhenTheCallerCatchesItsInputFailure() {
-        var writers=List.<CdsExportXmlComposer.Content>of(
-                xml->new CdsExportDemographicXmlWriter().write(null,xml),
-                xml->new CdsExportAllergyXmlWriter().write(null,xml),
-                xml->new CdsExportMedicationXmlWriter().write(null,xml),
-                xml->new CdsExportAppointmentXmlWriter().write(null,xml),
-                xml->new CdsExportPublicProviderXmlWriter().write(null,xml,true));
-        for(var writer:writers) assertThatThrownBy(()->compose(xml->{try{writer.write(xml);}catch(IOException|RuntimeException deliberatelyCaught){}})).isInstanceOf(IOException.class);
+    @Test
+    void everyTypedWriterPoisonsTheDocumentWhenTheCallerCatchesItsInputFailure() {
+        var writers =
+                List.<CdsExportXmlComposer.Content>of(
+                        xml -> new CdsExportDemographicXmlWriter().write(null, xml),
+                        xml -> new CdsExportAllergyXmlWriter().write(null, xml),
+                        xml -> new CdsExportMedicationXmlWriter().write(null, xml),
+                        xml -> new CdsExportAppointmentXmlWriter().write(null, xml),
+                        xml -> new CdsExportPublicProviderXmlWriter().write(null, xml, true));
+        for (var writer : writers)
+            assertThatThrownBy(
+                            () ->
+                                    compose(
+                                            xml -> {
+                                                try {
+                                                    writer.write(xml);
+                                                } catch (IOException
+                                                        | RuntimeException deliberatelyCaught) {
+                                                    /* Deliberately swallow the first refusal to prove the composer stays poisoned. */
+                                                }
+                                            }))
+                    .isInstanceOf(IOException.class);
     }
-    @Test void rejectedAllergyCannotBeReplacedAfterTheCallerCatchesTheFailure() throws Exception {
-        var absent=new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT,null);
-        var rejected=new CdsExportAllergyDto(null,null,null,null,null,absent,null,null,null,absent,null,false);
-        assertThatThrownBy(()->compose(xml->{
-            try{new CdsExportAllergyXmlWriter().write(rejected,xml);}catch(IOException deliberatelyCaught){}
-            xml.element("cds","OffendingAgentDescription","Invented replacement");
-        })).isInstanceOf(IOException.class);
+
+    @Test
+    void rejectedAllergyCannotBeReplacedAfterTheCallerCatchesTheFailure() throws Exception {
+        var absent = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
+        var rejected =
+                new CdsExportAllergyDto(
+                        null, null, null, null, null, absent, null, null, null, absent, null,
+                        false);
+        assertThatThrownBy(
+                        () ->
+                                compose(
+                                        xml -> {
+                                            try {
+                                                new CdsExportAllergyXmlWriter()
+                                                        .write(rejected, xml);
+                                            } catch (IOException deliberatelyCaught) {
+                                                /* Deliberately swallow the first refusal to prove the composer stays poisoned. */
+                                            }
+                                            xml.element(
+                                                    "cds",
+                                                    "OffendingAgentDescription",
+                                                    "Invented replacement");
+                                        }))
+                .isInstanceOf(IOException.class);
     }
-    @Test void rejectedMedicationCannotReturnAnEmissionReceiptAfterCaughtFailure() throws Exception {
-        var absent=new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT,null);
-        var rejected=new CdsExportMedicationDto(absent,absent,null,null,null,Map.of(CdsExportMedicationDto.Field.DrugName,""));
-        assertThatThrownBy(()->compose(xml->{try{new CdsExportMedicationXmlWriter().write(rejected,xml);}catch(IOException deliberatelyCaught){}})).isInstanceOf(IOException.class);
+
+    @Test
+    void rejectedMedicationCannotReturnAnEmissionReceiptAfterCaughtFailure() throws Exception {
+        var absent = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
+        var rejected =
+                new CdsExportMedicationDto(
+                        absent,
+                        absent,
+                        null,
+                        null,
+                        null,
+                        Map.of(CdsExportMedicationDto.Field.DrugName, ""));
+        assertThatThrownBy(
+                        () ->
+                                compose(
+                                        xml -> {
+                                            try {
+                                                new CdsExportMedicationXmlWriter()
+                                                        .write(rejected, xml);
+                                            } catch (IOException deliberatelyCaught) {
+                                                /* Deliberately swallow the first refusal to prove the composer stays poisoned. */
+                                            }
+                                        }))
+                .isInstanceOf(IOException.class);
     }
-    private void compose(CdsExportXmlComposer.Content content)throws IOException {
-        var section=new CdsExportXmlComposer.Section(new CdsExportIdentityDto("a".repeat(64),CdsCategory.DEMOGRAPHICS,"b".repeat(64)),content);
-        new CdsExportXmlComposer().compose(new ByteArrayOutputStream(),"c".repeat(64),"a".repeat(64),"2026.08.0-test",CdsLogicalProfile.ONTARIO_MD_5_2,
-                Set.of(CdsCategory.DEMOGRAPHICS),List.of(section).iterator(),ignored->{},1L<<20,()->{});
+
+    private void compose(CdsExportXmlComposer.Content content) throws IOException {
+        var section =
+                new CdsExportXmlComposer.Section(
+                        new CdsExportIdentityDto(
+                                "a".repeat(64), CdsCategory.DEMOGRAPHICS, "b".repeat(64)),
+                        content);
+        new CdsExportXmlComposer()
+                .compose(
+                        new ByteArrayOutputStream(),
+                        "c".repeat(64),
+                        "a".repeat(64),
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        Set.of(CdsCategory.DEMOGRAPHICS),
+                        List.of(section).iterator(),
+                        ignored -> {},
+                        1L << 20,
+                        () -> {});
     }
 }

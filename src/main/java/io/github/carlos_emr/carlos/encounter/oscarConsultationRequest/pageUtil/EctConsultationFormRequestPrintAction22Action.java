@@ -115,7 +115,7 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
     private static final String ATTACHMENT_TYPE_HRM = "HRM";
     private static final String MISSING_ATTACHMENT_METADATA = "missing attachment metadata";
     private static final String UNREADABLE_ATTACHMENT_FILE = "unreadable attachment file";
-    private transient SecurityInfoManager securityInfoManager =
+    private final transient SecurityInfoManager securityInfoManager =
             SpringUtils.getBean(SecurityInfoManager.class);
 
     private transient ConsultationManager consultationManager =

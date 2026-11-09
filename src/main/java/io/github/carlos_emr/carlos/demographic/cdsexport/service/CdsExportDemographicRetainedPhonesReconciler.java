@@ -97,57 +97,13 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
         var evidence =
                 new CdsExportDemographicProjectionEvidence()
                         .verify(patient, address, index, checked, current, witness, checkpoint);
-        if (propertyRows == null
-                || witnesses == null
-                || maximumRows < 1
-                || maximumRows > 8192
-                || maximumBytes < 1
-                || maximumBytes > (64L << 20)
-                || propertyRows.size() > maximumRows
-                || witnesses.size() != propertyRows.size())
-            throw new IOException("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
-        var proofs = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        for (var proof : witnesses) {
-            checkpoint.run();
-            if (proof == null
-                    || !"demographicExt".equals(proof.table())
-                    || proofs.putIfAbsent(proof.id(), proof) != null) scope();
-        }
-        var rows = new HashMap<String, CdsExportCapturedTextRowDto>();
-        var known = new ArrayList<CdsExportCapturedTextRowDto>();
-        var deferred = new HashSet<String>();
-        long bytes = 0;
-        for (var row : propertyRows) {
-            checkpoint.run();
-            if (row == null
-                    || !"demographicExt".equals(row.table())
-                    || !row.fields().keySet().equals(Set.copyOf(Plan.DEMOGRAPHIC_EXT.columns()))
-                    || !Integer.toString(patient).equals(row.fields().get("demographic_no")))
-                scope();
-            String id = row.fields().get("id");
-            try {
-                long number = Long.parseLong(id);
-                if (number < 1
-                        || !Long.toString(number).equals(id)
-                        || !CdsExportPatientTableSourceReader.key(number).equals(row.recordKey()))
-                    scope();
-            } catch (NumberFormatException | NullPointerException invalid) {
-                scope();
-            }
-            if (rows.putIfAbsent(id, row) != null) scope();
-            requirePropertyWitness(row, proofs.get(id), checkpoint);
-            bytes = Math.addExact(bytes, 2048);
-            for (String value : row.fields().values())
-                if (value != null)
-                    bytes =
-                            Math.addExact(
-                                    bytes, 32L + value.getBytes(StandardCharsets.UTF_8).length);
-            if (bytes > maximumBytes)
-                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
-            if (KEYS.containsValue(row.fields().get("key_val"))) known.add(row);
-            else deferred.add(row.recordKey());
-        }
-        if (!rows.keySet().equals(proofs.keySet())) scope();
+        var capturedProperties =
+                captureProperties(
+                        patient, propertyRows, witnesses, maximumRows, maximumBytes, checkpoint);
+        var proofs = capturedProperties.proofs();
+        var rows = capturedProperties.rows();
+        var known = capturedProperties.known();
+        var deferred = capturedProperties.deferred();
         var nativeRaw = new LinkedHashMap<>(current.fields());
         nativeRaw.remove("demographic_no");
         var demographic = new CdsExportDemographicRowDto(patient, nativeRaw);
@@ -174,33 +130,11 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                                 checked,
                                 allFields,
                                 checkpoint);
-        var sourceGroups = new TreeMap<Long, Map<String, CdsExportRetainedFieldDto>>();
-        var sourceIds = new HashSet<String>();
-        long maximum = 0;
-        for (var field : source)
-            if (field.sourcePath().startsWith(ROOT)) {
-                String relative = field.sourcePath().substring(ROOT.length());
-                var match = PHONE.matcher(relative);
-                if (!match.matches()) continue;
-                long ordinal = Long.parseLong(match.group(1));
-                maximum = Math.max(maximum, ordinal);
-                String prefix = "PhoneNumber[" + ordinal + "]";
-                if (sourceGroups
-                                .computeIfAbsent(ordinal, ignored -> new TreeMap<>())
-                                .putIfAbsent(
-                                        relative.length() == prefix.length()
-                                                ? ""
-                                                : relative.substring(prefix.length() + 1),
-                                        field)
-                        != null) scope();
-                sourceIds.add(field.id());
-            }
-        var byKind = new HashMap<String, List<Long>>();
-        for (var group : sourceGroups.entrySet()) {
-            String kind = read(values, group.getValue().get("@phoneNumberType"), 1, checkpoint);
-            if (!KEYS.containsKey(kind)) scope();
-            byKind.computeIfAbsent(kind, ignored -> new ArrayList<>()).add(group.getKey());
-        }
+        var groupedPhones = groupSourcePhones(source, values, checkpoint);
+        var sourceGroups = groupedPhones.groups();
+        var sourceIds = groupedPhones.ids();
+        long maximum = groupedPhones.maximum();
+        var byKind = groupedPhones.byKind();
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
         for (String kind : List.of("R", "W", "C")) {
             checkpoint.run();
@@ -376,6 +310,125 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
         checkpoint.run();
         return new Result(
                 index.sourceManifestSha256(), address, sourceIds, deferred, fields, changes);
+    }
+
+    private record SourcePhones(
+            Map<Long, Map<String, CdsExportRetainedFieldDto>> groups,
+            Set<String> ids,
+            long maximum,
+            Map<String, List<Long>> byKind) {
+        @Override
+        public String toString() {
+            return "SourcePhones[protected]";
+        }
+    }
+
+    private SourcePhones groupSourcePhones(
+            List<CdsExportRetainedFieldDto> source,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        var sourceGroups = new TreeMap<Long, Map<String, CdsExportRetainedFieldDto>>();
+        var sourceIds = new HashSet<String>();
+        long maximum = 0;
+        for (var field : source)
+            if (field.sourcePath().startsWith(ROOT)) {
+                String relative = field.sourcePath().substring(ROOT.length());
+                var match = PHONE.matcher(relative);
+                if (!match.matches()) continue;
+                long ordinal = Long.parseLong(match.group(1));
+                maximum = Math.max(maximum, ordinal);
+                String prefix = "PhoneNumber[" + ordinal + "]";
+                if (sourceGroups
+                                .computeIfAbsent(ordinal, ignored -> new TreeMap<>())
+                                .putIfAbsent(
+                                        relative.length() == prefix.length()
+                                                ? ""
+                                                : relative.substring(prefix.length() + 1),
+                                        field)
+                        != null) scope();
+                sourceIds.add(field.id());
+            }
+        var byKind = new HashMap<String, List<Long>>();
+        for (var group : sourceGroups.entrySet()) {
+            String kind = read(values, group.getValue().get("@phoneNumberType"), 1, checkpoint);
+            if (!KEYS.containsKey(kind)) scope();
+            byKind.computeIfAbsent(kind, ignored -> new ArrayList<>()).add(group.getKey());
+        }
+        return new SourcePhones(sourceGroups, sourceIds, maximum, byKind);
+    }
+
+    private record CapturedProperties(
+            Map<String, CdsExportNativeRowReceiptDto> proofs,
+            Map<String, CdsExportCapturedTextRowDto> rows,
+            List<CdsExportCapturedTextRowDto> known,
+            Set<String> deferred) {
+        @Override
+        public String toString() {
+            return "CapturedProperties[protected]";
+        }
+    }
+
+    private CapturedProperties captureProperties(
+            int patient,
+            List<CdsExportCapturedTextRowDto> propertyRows,
+            List<CdsExportNativeRowReceiptDto> witnesses,
+            int maximumRows,
+            long maximumBytes,
+            Runnable checkpoint)
+            throws IOException {
+        if (propertyRows == null
+                || witnesses == null
+                || maximumRows < 1
+                || maximumRows > 8192
+                || maximumBytes < 1
+                || maximumBytes > (64L << 20)
+                || propertyRows.size() > maximumRows
+                || witnesses.size() != propertyRows.size())
+            throw new IOException("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
+        var proofs = new HashMap<String, CdsExportNativeRowReceiptDto>();
+        for (var proof : witnesses) {
+            checkpoint.run();
+            if (proof == null
+                    || !"demographicExt".equals(proof.table())
+                    || proofs.putIfAbsent(proof.id(), proof) != null) scope();
+        }
+        var rows = new HashMap<String, CdsExportCapturedTextRowDto>();
+        var known = new ArrayList<CdsExportCapturedTextRowDto>();
+        var deferred = new HashSet<String>();
+        long bytes = 0;
+        for (var row : propertyRows) {
+            checkpoint.run();
+            if (row == null
+                    || !"demographicExt".equals(row.table())
+                    || !row.fields().keySet().equals(Set.copyOf(Plan.DEMOGRAPHIC_EXT.columns()))
+                    || !Integer.toString(patient).equals(row.fields().get("demographic_no")))
+                scope();
+            String id = row.fields().get("id");
+            try {
+                long number = Long.parseLong(id);
+                if (number < 1
+                        || !Long.toString(number).equals(id)
+                        || !CdsExportPatientTableSourceReader.key(number).equals(row.recordKey()))
+                    scope();
+            } catch (NumberFormatException | NullPointerException invalid) {
+                scope();
+            }
+            if (rows.putIfAbsent(id, row) != null) scope();
+            requirePropertyWitness(row, proofs.get(id), checkpoint);
+            bytes = Math.addExact(bytes, 2048);
+            for (String value : row.fields().values())
+                if (value != null)
+                    bytes =
+                            Math.addExact(
+                                    bytes, 32L + value.getBytes(StandardCharsets.UTF_8).length);
+            if (bytes > maximumBytes)
+                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
+            if (KEYS.containsValue(row.fields().get("key_val"))) known.add(row);
+            else deferred.add(row.recordKey());
+        }
+        if (!rows.keySet().equals(proofs.keySet())) scope();
+        return new CapturedProperties(proofs, rows, known, deferred);
     }
 
     private static Map<String, Property> properties(

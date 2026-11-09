@@ -4614,7 +4614,7 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaModel.java": "2ddcce4ab7b2782832e5c602777898ca92c395ad09a937da7467dc70a8b1f973",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsSchemaTypeCursor.java": "4c555744256ff18bc961902317e912ec6f046cc53b3c9a22268ce50693419cd6",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsWireSchema.java": "aa48536ef37c46f109760f028258b2c461ce052f51b6029bfd946cd4d0ebc99d",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java": "31ebff346c3b1911902b1d2019437a012f57639c2bdd3aa493f31ffc67664852",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsXmlReaders.java": "cb4e7eae3307e4389b49369e5fc347296ef60ff0ab198650f790ede491cd2ce5",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/jdbc/CdsBinaryReads.java": "e017aec45efb5ea136de59d6b02d555a72581007d58d5a5feca575161f51399b",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/security/CdsCategoryReadPermission.java": "62ccbb5af5cdaff734a8b254ed80338bbb9d7986a808cb8daa2b924ca7ab5618",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java": "c4fe81c3d7c84f4686cbd1395bda3e762b5c5a9c1fd99e67fef82871626ddad6",

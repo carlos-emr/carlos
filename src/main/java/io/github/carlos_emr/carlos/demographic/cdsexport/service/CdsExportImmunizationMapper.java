@@ -85,17 +85,7 @@ public final class CdsExportImmunizationMapper {
             List<CdsExportCapturedTextRowDto> precision,
             CdsExportPreventionClassifier classifier)
             throws IOException {
-        shape(row, "preventions", CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL);
-        int id = integer(row.fields().get("id"));
-        if (patient < 1
-                || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
-                || !row.recordKey().equals(CdsExportPatientTableSourceReader.key(id))
-                || extensions == null
-                || extensions.size() > 1024
-                || precision == null
-                || precision.size() > 256
-                || classifier == null) scope();
-        classifier.sourceManifestSha256();
+        int id = verifiedPatientRow(patient, row, extensions, precision, classifier);
         var decisions =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var source = new CdsExportNativeFieldAssessments(row, decisions);
@@ -118,42 +108,7 @@ public final class CdsExportImmunizationMapper {
                     "prevention_type",
                     "ImmunizationName",
                     "CAPTURED_TYPE_IS_NOT_PROVEN_IMMUNIZATION");
-        var byKey = new HashMap<String, List<CdsExportNativeFieldAssessments>>();
-        var seen = new HashSet<String>();
-        for (var ext : extensions) {
-            shape(ext, "preventionsExt", CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT);
-            if (!seen.add(ext.recordKey())
-                    || !ext.recordKey()
-                            .equals(
-                                    CdsExportPatientTableSourceReader.key(
-                                            integer(ext.fields().get("id"))))
-                    || integer(ext.fields().get("prevention_id")) != id) scope();
-            var fields = new CdsExportNativeFieldAssessments(ext, decisions);
-            fields.operational("id", "CAPTURED_EXTENSION_ROW_IDENTITY");
-            fields.operational("prevention_id", "VERIFIED_IMMUNIZATION_PARENT");
-            String key = fields.raw("keyval");
-            if (key == null || key.isEmpty()) {
-                fields.review("keyval", "", "UNKNOWN_NATIVE_EXTENSION_KEY");
-                fields.review("val", "", "UNKNOWN_NATIVE_EXTENSION_KEY");
-                continue;
-            }
-            byKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(fields);
-            if (DESTINATIONS.containsKey(key))
-                fields.operational("keyval", "EXPLICIT_NATIVE_IMMUNIZATION_FIELD");
-            else fields.review("keyval", "", "UNMAPPED_NATIVE_EXTENSION_KEY");
-        }
-        for (var entry : byKey.entrySet())
-            if (entry.getValue().size() > 1)
-                for (var fields : entry.getValue()) {
-                    fields.review(
-                            "keyval",
-                            DESTINATIONS.getOrDefault(entry.getKey(), ""),
-                            "DUPLICATE_NATIVE_EXTENSION_REQUIRES_REVIEW");
-                    fields.review(
-                            "val",
-                            DESTINATIONS.getOrDefault(entry.getKey(), ""),
-                            "DUPLICATE_NATIVE_EXTENSION_REQUIRES_REVIEW");
-                }
+        var byKey = extensionFields(id, extensions, decisions);
         String name = oneOf(byKey, List.of("name", "cdsName"), "ImmunizationName", 120);
         if (!byKey.containsKey("name")
                 && !byKey.containsKey("cdsName")
@@ -213,7 +168,7 @@ public final class CdsExportImmunizationMapper {
                     "RefusedFlag",
                     "INELIGIBLE_EXTERNAL_OR_UNKNOWN_STATUS_NEEDS_RECONCILIATION");
         var dateRows = new ArrayList<CdsExportNativeFieldAssessments>();
-        seen.clear();
+        var seen = new HashSet<String>();
         for (var item : precision) {
             shape(
                     item,
@@ -290,6 +245,71 @@ public final class CdsExportImmunizationMapper {
                         oneOf(byKey, List.of("instructions"), "Instructions", 250),
                         oneOf(byKey, List.of("comments"), "Notes", 32000));
         return new Candidate(value, decisions);
+    }
+
+    private static Map<String, List<CdsExportNativeFieldAssessments>> extensionFields(
+            int id,
+            List<CdsExportCapturedTextRowDto> extensions,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions)
+            throws IOException {
+        var byKey = new HashMap<String, List<CdsExportNativeFieldAssessments>>();
+        var seen = new HashSet<String>();
+        for (var ext : extensions) {
+            shape(ext, "preventionsExt", CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT);
+            if (!seen.add(ext.recordKey())
+                    || !ext.recordKey()
+                            .equals(
+                                    CdsExportPatientTableSourceReader.key(
+                                            integer(ext.fields().get("id"))))
+                    || integer(ext.fields().get("prevention_id")) != id) scope();
+            var fields = new CdsExportNativeFieldAssessments(ext, decisions);
+            fields.operational("id", "CAPTURED_EXTENSION_ROW_IDENTITY");
+            fields.operational("prevention_id", "VERIFIED_IMMUNIZATION_PARENT");
+            String key = fields.raw("keyval");
+            if (key == null || key.isEmpty()) {
+                fields.review("keyval", "", "UNKNOWN_NATIVE_EXTENSION_KEY");
+                fields.review("val", "", "UNKNOWN_NATIVE_EXTENSION_KEY");
+                continue;
+            }
+            byKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(fields);
+            if (DESTINATIONS.containsKey(key))
+                fields.operational("keyval", "EXPLICIT_NATIVE_IMMUNIZATION_FIELD");
+            else fields.review("keyval", "", "UNMAPPED_NATIVE_EXTENSION_KEY");
+        }
+        for (var entry : byKey.entrySet())
+            if (entry.getValue().size() > 1)
+                for (var fields : entry.getValue()) {
+                    fields.review(
+                            "keyval",
+                            DESTINATIONS.getOrDefault(entry.getKey(), ""),
+                            "DUPLICATE_NATIVE_EXTENSION_REQUIRES_REVIEW");
+                    fields.review(
+                            "val",
+                            DESTINATIONS.getOrDefault(entry.getKey(), ""),
+                            "DUPLICATE_NATIVE_EXTENSION_REQUIRES_REVIEW");
+                }
+        return byKey;
+    }
+
+    private static int verifiedPatientRow(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> extensions,
+            List<CdsExportCapturedTextRowDto> precision,
+            CdsExportPreventionClassifier classifier)
+            throws IOException {
+        shape(row, "preventions", CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL);
+        int id = integer(row.fields().get("id"));
+        if (patient < 1
+                || !Integer.toString(patient).equals(row.fields().get("demographic_no"))
+                || !row.recordKey().equals(CdsExportPatientTableSourceReader.key(id))
+                || extensions == null
+                || extensions.size() > 1024
+                || precision == null
+                || precision.size() > 256
+                || classifier == null) scope();
+        classifier.sourceManifestSha256();
+        return id;
     }
 
     private static String oneOf(

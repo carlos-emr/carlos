@@ -1793,13 +1793,18 @@ public class ProviderDaoIntegrationTest extends CarlosTestBase {
         void shouldExcludeProviders_withNegativeProviderNumbers() {
             // Given - provider with negative number (system provider)
             Provider sysProvider = persistProvider("-1", "Sys", "Prov", "1", "doctor");
+            Provider activeProvider = persistProvider("614821", "Active", "Prov", "1", "doctor");
             hibernateTemplate.flush();
 
             // When - getActiveProviders() no-arg excludes provider_no LIKE '-%'
             List<Provider> results = providerDao.getActiveProviders();
 
             // Then
-            assertThat(results).extracting(Provider::getProviderNo).doesNotContain("-1");
+            assertThat(results)
+                    .isNotEmpty()
+                    .extracting(Provider::getProviderNo)
+                    .contains(activeProvider.getProviderNo())
+                    .doesNotContain(sysProvider.getProviderNo());
         }
     }
 

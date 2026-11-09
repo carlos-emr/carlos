@@ -91,7 +91,7 @@ def main() -> int:
                           "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"})
         try:
             # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected -- Fixed https://api.github.com host; repository/SHA and all generated endpoint paths are validated above. No external URL is accepted.
-            with urlopen(request, timeout=30) as response:
+            with urlopen(request, timeout=30) as response:  # nosec B310 -- Fixed HTTPS GitHub API host and validated repository/SHA paths.
                 body = response.read(MAX_PAGE_BYTES + 1)
         except HTTPError as error:
             raise RuntimeError(f"GitHub diagnostics request failed: HTTP {error.code}") from None

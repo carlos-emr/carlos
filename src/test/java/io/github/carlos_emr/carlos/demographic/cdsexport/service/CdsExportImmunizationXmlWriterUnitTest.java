@@ -213,6 +213,7 @@ class CdsExportImmunizationXmlWriterUnitTest {
                                                 new CdsExportImmunizationXmlWriter()
                                                         .write(bad, xml);
                                             } catch (IOException deliberatelyCaught) {
+                                                /* Deliberately swallow the first refusal to prove the composer stays poisoned. */
                                             }
                                             new CdsExportImmunizationXmlWriter().write(good, xml);
                                         },

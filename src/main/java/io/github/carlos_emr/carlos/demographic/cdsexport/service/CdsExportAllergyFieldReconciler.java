@@ -108,67 +108,8 @@ public final class CdsExportAllergyFieldReconciler {
                         .map(CdsExportRetainedReceiptVerificationDto.CheckedReference::expected)
                         .toList()
                         .equals(index.references().get(unitAddress))) scope();
-        var allergyRefs =
-                references.stream()
-                        .filter(ref -> ref.expected().table().equals("allergies"))
-                        .toList();
-        if (allergyRefs.size() != 1
-                || references.stream()
-                        .anyMatch(
-                                ref ->
-                                        !Set.of("allergies", "partial_date")
-                                                .contains(ref.expected().table()))) scope();
-        var original = allergyRefs.getFirst();
-        if (original.reason() == Reason.ROW_NOT_IN_CAPTURE)
-            review("CDS_EXPORT_ALLERGY_DELETION_REQUIRES_REVIEW");
-        if (current == null
-                || witness == null
-                || witness.state() == null
-                || original.currentDigest() == null)
-            review("CDS_EXPORT_ALLERGY_NATIVE_WITNESS_REQUIRED");
-        if (!"allergies".equals(witness.table())
-                || !original.expected().id().equals(witness.id())
-                || !witness.id().equals(current.fields().get("allergyid"))
-                || !current.recordKey().equals(witness.recordKey())
-                || !original.currentDigest().equals(witness.digest())
-                || !witness.digest().equals(witness.state().digest())) scope();
-        for (var entry : index.references().entrySet())
-            if (!entry.getKey().equals(unitAddress)
-                    && entry.getValue().stream()
-                            .anyMatch(
-                                    ref ->
-                                            ref.table().equals("allergies")
-                                                    && ref.id().equals(witness.id())))
-                review("CDS_EXPORT_ALLERGY_ALIAS_REQUIRES_REVIEW");
-        if (!witness.id().equals(witness.state().id())
-                || !witness.table().equals(witness.state().table())) scope();
-        verifyCurrent(current, witness.state());
-        String run = unitAddress.substring(0, 36), key = unitAddress.substring(37);
-        var unit = index.tables().get("cds_import_unit").get(CdsImportKeys.hash(run, key));
-        CdsNativeRowState baseline = null;
-        if (unit.fields().get("native_baseline") != null) {
-            try {
-                var document =
-                        CdsNativeBaselineCodec.decode(
-                                unit.fields().get("native_baseline"),
-                                unit.fields().get("target_references"),
-                                unit.fields().get("target_digest"));
-                baseline =
-                        document.rows().stream()
-                                .filter(
-                                        row ->
-                                                row.table().equals("allergies")
-                                                        && row.id().equals(witness.id()))
-                                .findFirst()
-                                .orElse(null);
-            } catch (IllegalArgumentException invalid) {
-                scope();
-            }
-        } else if (original.reason() == Reason.UNCHANGED_ROW) baseline = witness.state();
-        if (baseline == null || !baseline.digest().equals(original.expected().digest()))
-            review("CDS_EXPORT_ALLERGY_FIELD_BASELINE_REQUIRED");
-        if (!matches(baseline, "demographic_no", Integer.toString(patient))
-                || !matches(baseline, "allergyid", witness.id())) scope();
+        var baseline =
+                verifyNativeBaseline(patient, index, unitAddress, references, current, witness);
         var difference = CdsNativeRowComparison.compare(baseline, witness.state());
         if (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty())
             review("CDS_EXPORT_ALLERGY_FIELD_CODEC_REQUIRES_REVIEW");
@@ -287,6 +228,78 @@ public final class CdsExportAllergyFieldReconciler {
                 new CdsExportAllergyMappingDto(blocked ? null : result, decisions),
                 preparedPaths,
                 currentPaths);
+    }
+
+    private CdsNativeRowState verifyNativeBaseline(
+            int patient,
+            CdsExportRetainedIndexDto index,
+            String unitAddress,
+            List<CdsExportRetainedReceiptVerificationDto.CheckedReference> references,
+            CdsExportCapturedTextRowDto current,
+            CdsExportNativeRowReceiptDto witness)
+            throws IOException {
+        var allergyRefs =
+                references.stream()
+                        .filter(ref -> ref.expected().table().equals("allergies"))
+                        .toList();
+        if (allergyRefs.size() != 1
+                || references.stream()
+                        .anyMatch(
+                                ref ->
+                                        !Set.of("allergies", "partial_date")
+                                                .contains(ref.expected().table()))) scope();
+        var original = allergyRefs.getFirst();
+        if (original.reason() == Reason.ROW_NOT_IN_CAPTURE)
+            review("CDS_EXPORT_ALLERGY_DELETION_REQUIRES_REVIEW");
+        if (current == null
+                || witness == null
+                || witness.state() == null
+                || original.currentDigest() == null)
+            review("CDS_EXPORT_ALLERGY_NATIVE_WITNESS_REQUIRED");
+        if (!"allergies".equals(witness.table())
+                || !original.expected().id().equals(witness.id())
+                || !witness.id().equals(current.fields().get("allergyid"))
+                || !current.recordKey().equals(witness.recordKey())
+                || !original.currentDigest().equals(witness.digest())
+                || !witness.digest().equals(witness.state().digest())) scope();
+        for (var entry : index.references().entrySet())
+            if (!entry.getKey().equals(unitAddress)
+                    && entry.getValue().stream()
+                            .anyMatch(
+                                    ref ->
+                                            ref.table().equals("allergies")
+                                                    && ref.id().equals(witness.id())))
+                review("CDS_EXPORT_ALLERGY_ALIAS_REQUIRES_REVIEW");
+        if (!witness.id().equals(witness.state().id())
+                || !witness.table().equals(witness.state().table())) scope();
+        verifyCurrent(current, witness.state());
+        String run = unitAddress.substring(0, 36), key = unitAddress.substring(37);
+        var unit = index.tables().get("cds_import_unit").get(CdsImportKeys.hash(run, key));
+        CdsNativeRowState baseline = null;
+        if (unit.fields().get("native_baseline") != null) {
+            try {
+                var document =
+                        CdsNativeBaselineCodec.decode(
+                                unit.fields().get("native_baseline"),
+                                unit.fields().get("target_references"),
+                                unit.fields().get("target_digest"));
+                baseline =
+                        document.rows().stream()
+                                .filter(
+                                        row ->
+                                                row.table().equals("allergies")
+                                                        && row.id().equals(witness.id()))
+                                .findFirst()
+                                .orElse(null);
+            } catch (IllegalArgumentException invalid) {
+                scope();
+            }
+        } else if (original.reason() == Reason.UNCHANGED_ROW) baseline = witness.state();
+        if (baseline == null || !baseline.digest().equals(original.expected().digest()))
+            review("CDS_EXPORT_ALLERGY_FIELD_BASELINE_REQUIRED");
+        if (!matches(baseline, "demographic_no", Integer.toString(patient))
+                || !matches(baseline, "allergyid", witness.id())) scope();
+        return baseline;
     }
 
     private static Map<String, String> projection(int patient, String id, CdsAllergyDto source) {

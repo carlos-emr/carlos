@@ -53,6 +53,37 @@ def location_records(report):
     return records
 
 
+def execution_records(report):
+    """Retain scanner status and coordinates, excluding diagnostic prose and snippets."""
+    records = []
+    for run_index, run in enumerate(report.get("runs", [])):
+        invocations = run.get("invocations", [])
+        if not isinstance(invocations, list):
+            raise ValueError("Invalid invocation list")
+        for invocation_index, invocation in enumerate(invocations):
+            success = invocation.get("executionSuccessful")
+            if success is not None and type(success) is not bool:
+                raise ValueError("Invalid execution status")
+            identity = {"runIndex": run_index, "invocationIndex": invocation_index}
+            records.append({"kind": "scannerExecution", **identity, "executionSuccessful": success})
+            notifications = invocation.get("toolExecutionNotifications", [])
+            if not isinstance(notifications, list) or len(notifications) > 10000:
+                raise ValueError("Invalid execution notifications")
+            for notice in notifications:
+                descriptor = notice.get("descriptor", {}).get("id", "SEMGREP_TOOL_NOTIFICATION")
+                level = notice.get("level", "warning")
+                # Reuse the same strict identifier/coordinate validation as finding summaries.
+                selected = {"ruleId": descriptor, "level": level,
+                            "locations": notice.get("locations", [])}
+                locations = location_records({"runs": [{"results": [selected]}]})
+                base = {"kind": "scannerNotification", **identity}
+                if locations:
+                    records.extend({**base, **location} for location in locations)
+                else:
+                    records.append({**base, "ruleId": descriptor, "level": level})
+    return records
+
+
 def main(paths):
     records = []
     for path in paths:
@@ -62,7 +93,9 @@ def main(paths):
             continue
         if report.is_symlink() or not report.is_file():
             raise ValueError("Invalid report file")
-        records.extend(location_records(json.loads(report.read_text(encoding="utf-8"))))
+        document = json.loads(report.read_text(encoding="utf-8"))
+        records.extend(location_records(document))
+        records.extend(execution_records(document))
     # Validate every record before printing, so a malformed report cannot leave a partial summary.
     for record in records:
         print(json.dumps(record, ensure_ascii=True, separators=(",", ":")))

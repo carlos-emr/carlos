@@ -311,10 +311,10 @@ async function run({cancellation}={}) {
     check(`${testUser} holds _site_access_privacy (the condition that triggered the bug)`,
       privilege.length > 0, privilege || '(none)');
 
-    browser = await chromium.launch({...({
+    browser = await chromium.launch({
       ...(chromePath ? { executablePath: chromePath } : {}),
       args: ['--no-sandbox', '--disable-dev-shm-usage'],
-    }),...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
+      ...legacyHarness.NO_PLAYWRIGHT_SIGNAL_HANDLING});
     cancellation?.throwIfCancelled();
     const page = await browser.newPage({
       baseURL: playwrightBaseUrl(),

@@ -512,7 +512,7 @@ public class DemographicDaoImpl extends AbstractJpaDao
             Demographic demographic = (Demographic) it.next();
 
             // no dumplicated clients.
-            if (demographic.getDemographicNo() == clientNo) continue;
+            if (java.util.Objects.equals(demographic.getDemographicNo(), clientNo)) continue;
 
             clientNo = demographic.getDemographicNo();
 
@@ -3508,7 +3508,8 @@ public class DemographicDaoImpl extends AbstractJpaDao
                     "PatientStatus",
                     "patientStatus");
 
-    @SuppressWarnings("unchecked")
+    // Field and ordering identifiers come exclusively from FIND_BY_FIELDS; values are bound.
+    @SuppressWarnings({"unchecked", "java:S2077"})
     @Override
     public List<Demographic> findByField(
             String fieldName, Object fieldValue, String orderBy, int offset) {
@@ -3527,13 +3528,9 @@ public class DemographicDaoImpl extends AbstractJpaDao
         }
 
         EntityManager s = entityManager();
-        Query q =
-                s.createQuery(
-                        sql); // nosemgrep:
-                              // java.lang.security.audit.formatted-sql-string.formatted-sql-string,
-                              // java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- field/order
-                              // names are allowlisted above; fieldValue is bound via setParameter
-                              // below
+        // Only FIND_BY_FIELDS identifiers enter HQL; fieldValue remains a bound parameter.
+        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
+        Query q = s.createQuery(sql);
         if (!isFieldValueEmpty) {
             q.setParameter(
                     "fieldValue", byNumber ? Integer.valueOf(fieldValue.toString()) : fieldValue);
@@ -3862,10 +3859,10 @@ public class DemographicDaoImpl extends AbstractJpaDao
                 .debug("demographicQuery: {}", LogSafe.sanitize(demographicQuery, 1000));
 
         EntityManager session = entityManager();
-        Query sqlQuery =
-                session.createNativeQuery(
-                        demographicQuery); // nosemgrep:
-                                           // java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery builds SQL from enum-selected column/order fragments plus a server-owned inactive_statuses config list; all request values flow through bound params (setParameter below)
+        // The query builder selects fixed/enum fragments and server-owned inactive_statuses;
+        // every request value is bound through params below.
+        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+        Query sqlQuery = session.createNativeQuery(demographicQuery);
         for (String key : params.keySet()) {
             sqlQuery.setParameter(key, params.get(key));
             MiscUtils.getLogger()
@@ -3898,12 +3895,10 @@ public class DemographicDaoImpl extends AbstractJpaDao
                                 + "p.first_name as providerFirstName,d.hin,dm.merged_to");
 
         EntityManager session = entityManager();
-        NativeQuery<?> baseQuery =
-                session.createNativeQuery(demographicQuery)
-                        .unwrap(
-                                NativeQuery
-                                        .class); // nosemgrep:
-                                                 // java.lang.security.audit.formatted-sql-string.formatted-sql-string -- generateDemographicSearchQuery builds SQL from enum-selected column/order fragments plus a server-owned inactive_statuses config list; all request values flow through bound params (setParameter below)
+        // Same fixed/enum query builder and server-owned configuration as searchPatientCount;
+        // request values are bound through params below.
+        // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+        NativeQuery<?> baseQuery = session.createNativeQuery(demographicQuery).unwrap(NativeQuery.class);
 
         for (String key : params.keySet()) {
             baseQuery.setParameter(key, params.get(key));

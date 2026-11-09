@@ -138,39 +138,7 @@ public final class CdsExportMedicationFieldReconciler {
                         .map(CdsExportRetainedReceiptVerificationDto.CheckedReference::expected)
                         .toList()
                         .equals(index.references().get(address))) scope();
-        var drugRefs =
-                references.stream().filter(ref -> ref.expected().table().equals("drugs")).toList();
-        if (drugRefs.size() != 1
-                || references.stream()
-                        .anyMatch(
-                                ref ->
-                                        !Set.of("drugs", "partial_date")
-                                                .contains(ref.expected().table()))) scope();
-        var original = drugRefs.getFirst();
-        if (original.reason() == Reason.ROW_NOT_IN_CAPTURE)
-            review("CDS_EXPORT_MEDICATION_DELETION_REQUIRES_REVIEW");
-        if (current == null
-                || witness == null
-                || witness.state() == null
-                || original.currentDigest() == null)
-            review("CDS_EXPORT_MEDICATION_NATIVE_WITNESS_REQUIRED");
-        if (!"drugs".equals(witness.table())
-                || !original.expected().id().equals(witness.id())
-                || !witness.id().equals(current.fields().get("drugid"))
-                || !current.recordKey().equals(witness.recordKey())
-                || !original.currentDigest().equals(witness.digest())
-                || !witness.digest().equals(witness.state().digest())) scope();
-        for (var entry : index.references().entrySet())
-            if (!entry.getKey().equals(address)
-                    && entry.getValue().stream()
-                            .anyMatch(
-                                    ref ->
-                                            ref.table().equals("drugs")
-                                                    && ref.id().equals(witness.id())))
-                review("CDS_EXPORT_MEDICATION_ALIAS_REQUIRES_REVIEW");
-        if (!witness.id().equals(witness.state().id())
-                || !witness.table().equals(witness.state().table())) scope();
-        verifyCurrent(current, witness.state());
+        var original = verifyNativeWitness(index, address, references, current, witness);
         String run = address.substring(0, 36), unitKey = address.substring(37);
         var unit = index.tables().get("cds_import_unit").get(CdsImportKeys.hash(run, unitKey));
         CdsNativeRowState baseline = null;
@@ -346,6 +314,49 @@ public final class CdsExportMedicationFieldReconciler {
                 new CdsExportMedicationMappingDto(result, decisions),
                 preparedPaths,
                 currentPaths);
+    }
+
+    private CdsExportRetainedReceiptVerificationDto.CheckedReference verifyNativeWitness(
+            CdsExportRetainedIndexDto index,
+            String address,
+            List<CdsExportRetainedReceiptVerificationDto.CheckedReference> references,
+            CdsExportCapturedTextRowDto current,
+            CdsExportNativeRowReceiptDto witness)
+            throws IOException {
+        var drugRefs =
+                references.stream().filter(ref -> ref.expected().table().equals("drugs")).toList();
+        if (drugRefs.size() != 1
+                || references.stream()
+                        .anyMatch(
+                                ref ->
+                                        !Set.of("drugs", "partial_date")
+                                                .contains(ref.expected().table()))) scope();
+        var original = drugRefs.getFirst();
+        if (original.reason() == Reason.ROW_NOT_IN_CAPTURE)
+            review("CDS_EXPORT_MEDICATION_DELETION_REQUIRES_REVIEW");
+        if (current == null
+                || witness == null
+                || witness.state() == null
+                || original.currentDigest() == null)
+            review("CDS_EXPORT_MEDICATION_NATIVE_WITNESS_REQUIRED");
+        if (!"drugs".equals(witness.table())
+                || !original.expected().id().equals(witness.id())
+                || !witness.id().equals(current.fields().get("drugid"))
+                || !current.recordKey().equals(witness.recordKey())
+                || !original.currentDigest().equals(witness.digest())
+                || !witness.digest().equals(witness.state().digest())) scope();
+        for (var entry : index.references().entrySet())
+            if (!entry.getKey().equals(address)
+                    && entry.getValue().stream()
+                            .anyMatch(
+                                    ref ->
+                                            ref.table().equals("drugs")
+                                                    && ref.id().equals(witness.id())))
+                review("CDS_EXPORT_MEDICATION_ALIAS_REQUIRES_REVIEW");
+        if (!witness.id().equals(witness.state().id())
+                || !witness.table().equals(witness.state().table())) scope();
+        verifyCurrent(current, witness.state());
+        return original;
     }
 
     private static Map<String, String> projection(

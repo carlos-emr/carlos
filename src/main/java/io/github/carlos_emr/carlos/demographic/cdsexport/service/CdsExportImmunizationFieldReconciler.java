@@ -125,97 +125,19 @@ public final class CdsExportImmunizationFieldReconciler {
                                             ref.table().equals("preventions")
                                                     && ref.id().equals(nativeId)))
                 review("CDS_EXPORT_IMMUNIZATION_ALIAS_REQUIRES_REVIEW");
-        var current = new HashMap<String, CdsExportCapturedTextRowDto>();
-        var actual = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        for (var witness : witnesses)
-            if (Set.of("preventions", "preventionsExt", "partial_date").contains(witness.table())
-                    && actual.putIfAbsent(key(witness.table(), witness.id()), witness) != null)
-                scope();
-        var inputs = new ArrayList<CdsExportCapturedTextRowDto>();
-        inputs.add(parent);
-        inputs.addAll(extensions);
-        inputs.addAll(precision);
-        for (var row : inputs) {
-            String physical = physical(row.table()), id = row.fields().get("id");
-            if (current.putIfAbsent(key(physical, id), row) != null) scope();
-            CdsExportImmunizationProjectionEvidence.verifyCurrent(
-                    row, actual.get(key(physical, id)));
-        }
-        String run = address.substring(0, 36), unitKey = address.substring(37);
-        var unit = index.tables().get("cds_import_unit").get(CdsImportKeys.hash(run, unitKey));
-        var baselines = new HashMap<String, CdsNativeRowState>();
-        if (unit.fields().get("native_baseline") != null)
-            try {
-                for (var state :
-                        CdsNativeBaselineCodec.decode(
-                                        unit.fields().get("native_baseline"),
-                                        unit.fields().get("target_references"),
-                                        unit.fields().get("target_digest"))
-                                .rows())
-                    if (baselines.putIfAbsent(key(state.table(), state.id()), state) != null)
-                        scope();
-            } catch (IllegalArgumentException invalid) {
-                scope();
-            }
-        var prior = new HashMap<String, Row>();
-        for (var reference : references) {
-            var ref = reference.expected();
-            String key = key(ref.table(), ref.id());
-            var row = current.get(key);
-            var witness = actual.get(key);
-            if (reference.reason() == Reason.ROW_NOT_IN_CAPTURE || row == null)
-                review("CDS_EXPORT_IMMUNIZATION_DELETION_REQUIRES_REVIEW");
-            if (witness == null || witness.state() == null || reference.currentDigest() == null)
-                review("CDS_EXPORT_IMMUNIZATION_NATIVE_WITNESS_REQUIRED");
-            if (!witness.digest().equals(reference.currentDigest())) scope();
-            var baseline = baselines.get(key);
-            if (baseline == null && reference.reason() == Reason.UNCHANGED_ROW)
-                baseline = witness.state();
-            if (baseline == null || !baseline.digest().equals(ref.digest()))
-                review("CDS_EXPORT_IMMUNIZATION_FIELD_BASELINE_REQUIRED");
-            var difference = CdsNativeRowComparison.compare(baseline, witness.state());
-            if (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty())
-                review("CDS_EXPORT_IMMUNIZATION_FIELD_CODEC_REQUIRES_REVIEW");
-            if (!CdsExportImmunizationProjectionEvidence.matches(baseline, "id", ref.id())) scope();
-            if (ref.table().equals("preventions")) {
-                if (!CdsExportImmunizationProjectionEvidence.matches(
-                        baseline, "demographic_no", Integer.toString(patient))) scope();
-            } else if (ref.table().equals("preventionsExt")) {
-                if (!CdsExportImmunizationProjectionEvidence.matches(
-                        baseline, "prevention_id", nativeId)) scope();
-            } else if (!CdsExportImmunizationProjectionEvidence.matches(baseline, "table_name", "4")
-                    || !CdsExportImmunizationProjectionEvidence.matches(
-                            baseline, "table_id", nativeId)) scope();
-            if (prior.putIfAbsent(key, new Row(row, baseline, difference)) != null) scope();
-        }
+        var capturedRows = captureRows(index, address, parent, extensions, precision, witnesses);
+        var current = capturedRows.current();
+        var actual = capturedRows.actual();
+        var baselines = capturedRows.baselines();
+        var prior =
+                verifyReferenceBaselines(patient, nativeId, references, current, actual, baselines);
         var candidate =
                 new CdsExportImmunizationMapper()
                         .candidate(patient, parent, extensions, precision, definitions);
         var fields = new LinkedHashMap<>(candidate.fields());
         var old = new CdsExportPreparedImmunizationMapper().map(prepared);
         var expected = CdsExportImmunizationProjectionEvidence.expectedExtensions(prepared);
-        var originalByKey = new HashMap<String, Row>();
-        for (var entry : prior.entrySet())
-            if (entry.getKey().startsWith("preventionsExt/")) {
-                String found = null;
-                for (String name : expected.keySet())
-                    if (CdsExportImmunizationProjectionEvidence.matches(
-                            entry.getValue().baseline(), "keyval", name)) {
-                        found = name;
-                        break;
-                    }
-                if (found == null) {
-                    mark(
-                            entry.getValue().current(),
-                            fields,
-                            Set.of("keyval", "val"),
-                            "",
-                            "UNMAPPED_IMPORTED_EXTENSION_PROJECTION");
-                    continue;
-                }
-                if (originalByKey.putIfAbsent(found, entry.getValue()) != null)
-                    review("CDS_EXPORT_IMMUNIZATION_DUPLICATE_BASELINE_EXTENSION");
-            }
+        var originalByKey = originalExtensions(prior, expected, fields);
         var root = prior.get(key("preventions", nativeId));
         if (root == null) scope();
         var selected = EnumSet.noneOf(Part.class);
@@ -371,6 +293,131 @@ public final class CdsExportImmunizationFieldReconciler {
                 new CdsExportImmunizationMappingDto(blocked ? null : value, fields),
                 preparedPaths,
                 currentPaths);
+    }
+
+    private Map<String, Row> originalExtensions(
+            Map<String, Row> prior,
+            Map<String, String> expected,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields)
+            throws IOException {
+        var originalByKey = new HashMap<String, Row>();
+        for (var entry : prior.entrySet())
+            if (entry.getKey().startsWith("preventionsExt/")) {
+                String found = null;
+                for (String name : expected.keySet())
+                    if (CdsExportImmunizationProjectionEvidence.matches(
+                            entry.getValue().baseline(), "keyval", name)) {
+                        found = name;
+                        break;
+                    }
+                if (found == null) {
+                    mark(
+                            entry.getValue().current(),
+                            fields,
+                            Set.of("keyval", "val"),
+                            "",
+                            "UNMAPPED_IMPORTED_EXTENSION_PROJECTION");
+                    continue;
+                }
+                if (originalByKey.putIfAbsent(found, entry.getValue()) != null)
+                    review("CDS_EXPORT_IMMUNIZATION_DUPLICATE_BASELINE_EXTENSION");
+            }
+        return originalByKey;
+    }
+
+    private Map<String, Row> verifyReferenceBaselines(
+            int patient,
+            String nativeId,
+            List<CdsExportRetainedReceiptVerificationDto.CheckedReference> references,
+            Map<String, CdsExportCapturedTextRowDto> current,
+            Map<String, CdsExportNativeRowReceiptDto> actual,
+            Map<String, CdsNativeRowState> baselines)
+            throws IOException {
+        var prior = new HashMap<String, Row>();
+        for (var reference : references) {
+            var ref = reference.expected();
+            String key = key(ref.table(), ref.id());
+            var row = current.get(key);
+            var witness = actual.get(key);
+            if (reference.reason() == Reason.ROW_NOT_IN_CAPTURE || row == null)
+                review("CDS_EXPORT_IMMUNIZATION_DELETION_REQUIRES_REVIEW");
+            if (witness == null || witness.state() == null || reference.currentDigest() == null)
+                review("CDS_EXPORT_IMMUNIZATION_NATIVE_WITNESS_REQUIRED");
+            if (!witness.digest().equals(reference.currentDigest())) scope();
+            var baseline = baselines.get(key);
+            if (baseline == null && reference.reason() == Reason.UNCHANGED_ROW)
+                baseline = witness.state();
+            if (baseline == null || !baseline.digest().equals(ref.digest()))
+                review("CDS_EXPORT_IMMUNIZATION_FIELD_BASELINE_REQUIRED");
+            var difference = CdsNativeRowComparison.compare(baseline, witness.state());
+            if (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty())
+                review("CDS_EXPORT_IMMUNIZATION_FIELD_CODEC_REQUIRES_REVIEW");
+            if (!CdsExportImmunizationProjectionEvidence.matches(baseline, "id", ref.id())) scope();
+            if (ref.table().equals("preventions")) {
+                if (!CdsExportImmunizationProjectionEvidence.matches(
+                        baseline, "demographic_no", Integer.toString(patient))) scope();
+            } else if (ref.table().equals("preventionsExt")) {
+                if (!CdsExportImmunizationProjectionEvidence.matches(
+                        baseline, "prevention_id", nativeId)) scope();
+            } else if (!CdsExportImmunizationProjectionEvidence.matches(baseline, "table_name", "4")
+                    || !CdsExportImmunizationProjectionEvidence.matches(
+                            baseline, "table_id", nativeId)) scope();
+            if (prior.putIfAbsent(key, new Row(row, baseline, difference)) != null) scope();
+        }
+        return prior;
+    }
+
+    private record CapturedRows(
+            Map<String, CdsExportCapturedTextRowDto> current,
+            Map<String, CdsExportNativeRowReceiptDto> actual,
+            Map<String, CdsNativeRowState> baselines) {
+        @Override
+        public String toString() {
+            return "CapturedRows[protected]";
+        }
+    }
+
+    private CapturedRows captureRows(
+            CdsExportRetainedIndexDto index,
+            String address,
+            CdsExportCapturedTextRowDto parent,
+            List<CdsExportCapturedTextRowDto> extensions,
+            List<CdsExportCapturedTextRowDto> precision,
+            List<CdsExportNativeRowReceiptDto> witnesses)
+            throws IOException {
+        var current = new HashMap<String, CdsExportCapturedTextRowDto>();
+        var actual = new HashMap<String, CdsExportNativeRowReceiptDto>();
+        for (var witness : witnesses)
+            if (Set.of("preventions", "preventionsExt", "partial_date").contains(witness.table())
+                    && actual.putIfAbsent(key(witness.table(), witness.id()), witness) != null)
+                scope();
+        var inputs = new ArrayList<CdsExportCapturedTextRowDto>();
+        inputs.add(parent);
+        inputs.addAll(extensions);
+        inputs.addAll(precision);
+        for (var row : inputs) {
+            String physical = physical(row.table()), id = row.fields().get("id");
+            if (current.putIfAbsent(key(physical, id), row) != null) scope();
+            CdsExportImmunizationProjectionEvidence.verifyCurrent(
+                    row, actual.get(key(physical, id)));
+        }
+        String run = address.substring(0, 36), unitKey = address.substring(37);
+        var unit = index.tables().get("cds_import_unit").get(CdsImportKeys.hash(run, unitKey));
+        var baselines = new HashMap<String, CdsNativeRowState>();
+        if (unit.fields().get("native_baseline") != null)
+            try {
+                for (var state :
+                        CdsNativeBaselineCodec.decode(
+                                        unit.fields().get("native_baseline"),
+                                        unit.fields().get("target_references"),
+                                        unit.fields().get("target_digest"))
+                                .rows())
+                    if (baselines.putIfAbsent(key(state.table(), state.id()), state) != null)
+                        scope();
+            } catch (IllegalArgumentException invalid) {
+                scope();
+            }
+        return new CapturedRows(current, actual, baselines);
     }
 
     private static boolean hasUnprojectedTime(CdsExportDateDto date) {

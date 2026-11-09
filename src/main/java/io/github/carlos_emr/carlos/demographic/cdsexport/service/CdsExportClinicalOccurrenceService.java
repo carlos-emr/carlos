@@ -479,111 +479,12 @@ public class CdsExportClinicalOccurrenceService {
                             if (imported.putIfAbsent(refs.getFirst().id(), address) != null)
                                 ambiguous();
                         }
-                    var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-                    long[] witnessBytes = {0};
-                    var witnessScan =
-                            witnesses.scan(
-                                    lease,
-                                    patient,
-                                    tables,
-                                    source,
-                                    bounds.fields(),
-                                    bounds.bytes(),
-                                    control,
-                                    witness -> {
-                                        if (!witness.table().equals(table)) return;
-                                        if (exact.size() >= bounds.nativeRows()) limit();
-                                        witnessBytes[0] =
-                                                Math.addExact(
-                                                        witnessBytes[0],
-                                                        1024L
-                                                                + (witness.state() == null
-                                                                        ? 0
-                                                                        : witness.state()
-                                                                                        .columns()
-                                                                                        .size()
-                                                                                * 256L));
-                                        if (witnessBytes[0] > bounds.indexBytes()
-                                                || exact.putIfAbsent(witness.id(), witness) != null)
-                                            limit();
-                                    });
-                    if (!witnessScan
-                                    .sourceManifestSha256()
-                                    .equals(source.manifest().plaintextSha256())
-                            || exact.size() != source.capture().tables().get(table).rows()) scope();
-                    var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
-                    var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
-                    long[] lookup = new long[2];
-                    var lookupTables =
-                            table.equals("drugs")
-                                    ? Set.of("partial_date", "provider")
-                                    : Set.of("partial_date");
-                    var first =
-                            rows.forEachTable(
-                                    lease,
-                                    patient,
-                                    tables,
-                                    lookupTables,
-                                    source.manifest(),
-                                    bounds.fields(),
-                                    bounds.bytes(),
-                                    65_536,
-                                    control,
-                                    row -> {
-                                        if (++lookup[0] > bounds.lookupRows()) limit();
-                                        for (var value : row.fields().values())
-                                            if (value != null)
-                                                lookup[1] =
-                                                        Math.addExact(
-                                                                lookup[1],
-                                                                value.getBytes(
-                                                                                        StandardCharsets
-                                                                                                .UTF_8)
-                                                                                .length
-                                                                        + 64L);
-                                        if (lookup[1] > bounds.indexBytes()) limit();
-                                        if (row.table().equals("provider")) {
-                                            String id = row.fields().get("provider_no");
-                                            if (id == null
-                                                    || !row.fields()
-                                                            .keySet()
-                                                            .equals(
-                                                                    io.github.carlos_emr.carlos
-                                                                            .commn.dto
-                                                                            .CdsExportProviderRowDto
-                                                                            .COLUMNS)
-                                                    || !CdsExportPublicProviderSourceReader.key(id)
-                                                            .equals(row.recordKey())
-                                                    || providers.putIfAbsent(id, row) != null)
-                                                scope();
-                                            return;
-                                        }
-                                        String owner = row.fields().get("table_name");
-                                        if (!Set.of("1", "2").contains(owner)) scope();
-                                        if (!owner.equals(table.equals("drugs") ? "2" : "1")) {
-                                            String otherTable =
-                                                    owner.equals("1") ? "allergies" : "drugs";
-                                            var otherCategory =
-                                                    owner.equals("1")
-                                                            ? CdsCategory
-                                                                    .ALLERGIES_AND_ADVERSE_REACTIONS
-                                                            : CdsCategory
-                                                                    .MEDICATIONS_AND_TREATMENTS;
-                                            if (!tables.contains(otherTable)
-                                                    || !lease.document()
-                                                            .command()
-                                                            .categories()
-                                                            .contains(otherCategory)) scope();
-                                            return;
-                                        }
-                                        String parent = row.fields().get("table_id");
-                                        if (parent == null) scope();
-                                        precision
-                                                .computeIfAbsent(
-                                                        parent, ignored -> new ArrayList<>())
-                                                .add(row);
-                                    });
-                    if (!first.equals(source.capture())) scope();
+                    var exact =
+                            scanWitnesses(lease, patient, tables, source, bounds, control, table);
+                    var lookups =
+                            readLookups(lease, patient, tables, source, bounds, control, table);
+                    var precision = lookups.precision();
+                    var providers = lookups.providers();
                     var usedFields = new HashSet<String>();
                     var finished =
                             rows.forEach(
@@ -764,6 +665,127 @@ public class CdsExportClinicalOccurrenceService {
                 counts[1],
                 counts[2],
                 counts[3]);
+    }
+
+    private record Lookups(
+            Map<String, List<CdsExportCapturedTextRowDto>> precision,
+            Map<String, CdsExportCapturedTextRowDto> providers) {
+        @Override
+        public String toString() {
+            return "Lookups[protected]";
+        }
+    }
+
+    private Lookups readLookups(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            Bounds bounds,
+            CdsExportRunControl control,
+            String table)
+            throws IOException {
+        var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+        var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
+        long[] lookup = new long[2];
+        var lookupTables =
+                table.equals("drugs") ? Set.of("partial_date", "provider") : Set.of("partial_date");
+        var first =
+                rows.forEachTable(
+                        lease,
+                        patient,
+                        tables,
+                        lookupTables,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        65_536,
+                        control,
+                        row -> {
+                            if (++lookup[0] > bounds.lookupRows()) limit();
+                            for (var value : row.fields().values())
+                                if (value != null)
+                                    lookup[1] =
+                                            Math.addExact(
+                                                    lookup[1],
+                                                    value.getBytes(StandardCharsets.UTF_8).length
+                                                            + 64L);
+                            if (lookup[1] > bounds.indexBytes()) limit();
+                            if (row.table().equals("provider")) {
+                                String id = row.fields().get("provider_no");
+                                if (id == null
+                                        || !row.fields()
+                                                .keySet()
+                                                .equals(
+                                                        io.github.carlos_emr.carlos.commn.dto
+                                                                .CdsExportProviderRowDto.COLUMNS)
+                                        || !CdsExportPublicProviderSourceReader.key(id)
+                                                .equals(row.recordKey())
+                                        || providers.putIfAbsent(id, row) != null) scope();
+                                return;
+                            }
+                            String owner = row.fields().get("table_name");
+                            if (!Set.of("1", "2").contains(owner)) scope();
+                            if (!owner.equals(table.equals("drugs") ? "2" : "1")) {
+                                String otherTable = owner.equals("1") ? "allergies" : "drugs";
+                                var otherCategory =
+                                        owner.equals("1")
+                                                ? CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS
+                                                : CdsCategory.MEDICATIONS_AND_TREATMENTS;
+                                if (!tables.contains(otherTable)
+                                        || !lease.document()
+                                                .command()
+                                                .categories()
+                                                .contains(otherCategory)) scope();
+                                return;
+                            }
+                            String parent = row.fields().get("table_id");
+                            if (parent == null) scope();
+                            precision
+                                    .computeIfAbsent(parent, ignored -> new ArrayList<>())
+                                    .add(row);
+                        });
+        if (!first.equals(source.capture())) scope();
+        return new Lookups(precision, providers);
+    }
+
+    private Map<String, CdsExportNativeRowReceiptDto> scanWitnesses(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            Bounds bounds,
+            CdsExportRunControl control,
+            String table)
+            throws IOException {
+        var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
+        long[] witnessBytes = {0};
+        var witnessScan =
+                witnesses.scan(
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control,
+                        witness -> {
+                            if (!witness.table().equals(table)) return;
+                            if (exact.size() >= bounds.nativeRows()) limit();
+                            witnessBytes[0] =
+                                    Math.addExact(
+                                            witnessBytes[0],
+                                            1024L
+                                                    + (witness.state() == null
+                                                            ? 0
+                                                            : witness.state().columns().size()
+                                                                    * 256L));
+                            if (witnessBytes[0] > bounds.indexBytes()
+                                    || exact.putIfAbsent(witness.id(), witness) != null) limit();
+                        });
+        if (!witnessScan.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                || exact.size() != source.capture().tables().get(table).rows()) scope();
+        return exact;
     }
 
     private static void scope() throws IOException {

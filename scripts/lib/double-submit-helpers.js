@@ -137,6 +137,7 @@ async function armSlowServer(context, pattern, ms = 1800) {
     let failure;try{await context.unroute(pattern,handler);}catch(error){
       if(!/Target page, context or browser has been closed|Browser has been closed/i.test(error.message))failure=error;
     }
+    // eslint-disable-next-line unicorn/no-useless-spread -- Snapshot the requests owned by this retirement before assimilating promises that can change the set.
     const drained=await Promise.allSettled([...pending]);
     if(unknown)throw unknown;
     if(failure)throw failure;

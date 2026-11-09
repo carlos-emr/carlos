@@ -127,70 +127,9 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
         new CdsExportMergeScopeValidator(captures)
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
-        var current = new TreeMap<String, CdsExportCapturedTextRowDto>();
-        var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        long[] memory = {0};
-        var scanned =
-                rows.forEachTable(
-                        lease,
-                        patient,
-                        tables,
-                        TABLES,
-                        source.manifest(),
-                        bounds.fields(),
-                        bounds.bytes(),
-                        67_108_864,
-                        control,
-                        row -> {
-                            String id = id(row);
-                            if (!row.fields().keySet().equals(columns(row.table()))
-                                    || !row.exactNumbers().isEmpty()) invalid();
-                            memory[0] =
-                                    Math.addExact(memory[0], 1024L + row.fields().size() * 256L);
-                            for (String value : row.fields().values())
-                                if (value != null)
-                                    memory[0] =
-                                            Math.addExact(
-                                                    memory[0],
-                                                    value.getBytes(StandardCharsets.UTF_8).length
-                                                            + 64L);
-                            if (current.size() >= bounds.nativeRows()
-                                    || memory[0] > bounds.indexBytes()) limit();
-                            if (current.putIfAbsent(key(row.table(), id), row) != null) invalid();
-                        });
-        if (!scanned.equals(source.capture())) invalid();
-        var proof =
-                witnesses.scan(
-                        lease,
-                        patient,
-                        tables,
-                        source,
-                        bounds.fields(),
-                        bounds.bytes(),
-                        control,
-                        row -> {
-                            if (!TABLES.contains(row.table())) return;
-                            if (exact.size() >= bounds.nativeRows()) limit();
-                            if (exact.putIfAbsent(key(row.table(), row.id()), row) != null)
-                                invalid();
-                        });
-        if (!proof.sourceManifestSha256().equals(source.manifest().plaintextSha256())
-                || !current.keySet().equals(exact.keySet())) invalid();
-        for (var entry : current.entrySet()) verify(entry.getValue(), exact.get(entry.getKey()));
-        for (String table : TABLES)
-            if (current.values().stream().filter(row -> row.table().equals(table)).count()
-                    != source.capture().tables().get(table).rows()) invalid();
-        var demographic = current.get(key("demographic", Integer.toString(patient.patient())));
-        if (demographic == null || source.capture().tables().get("demographic").rows() != 1)
-            invalid();
-        for (var row : current.values()) {
-            if (row.table().equals("measurements")
-                    && !Integer.toString(patient.patient())
-                            .equals(row.fields().get("demographicNo"))) invalid();
-            if (row.table().equals("measurementsExt")
-                    && !current.containsKey(
-                            key("measurements", row.fields().get("measurement_id")))) invalid();
-        }
+        var captured = captureCareRows(lease, patient, tables, source, bounds, control);
+        var current = captured.current();
+        var exact = captured.exact();
         long[] totals = {0, 0};
         values.withValues(
                 lease,
@@ -217,45 +156,11 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                     bounds.bytes(),
                                     1_000_000,
                                     control);
-                    var units = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
-                    var parents = new TreeMap<String, CdsExportCapturedTextRowDto>();
-                    for (var row :
-                            index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
-                        String address =
-                                row.fields().get("run_id") + ":" + row.fields().get("unit_key");
-                        if (!index.appliedUnits().contains(address)) continue;
-                        if (units.putIfAbsent(address, row) != null) invalid();
-                        if (category().wireName().equals(row.fields().get("category")))
-                            parents.put(address, row);
-                    }
-                    if (parents.size() > bounds.nativeRows()) limit();
-                    var children = new HashMap<String, List<String>>();
-                    for (var edge :
-                            index.tables()
-                                    .getOrDefault("cds_import_dependency", Map.of())
-                                    .values()) {
-                        control.checkpoint();
-                        String run = edge.fields().get("run_id"),
-                                child = run + ":" + edge.fields().get("unit_key"),
-                                parent = run + ":" + edge.fields().get("depends_on_unit_key");
-                        if (!parents.containsKey(parent)
-                                || !units.containsKey(child)
-                                || !"CareElements_CARE"
-                                        .equals(units.get(child).fields().get("category")))
-                            continue;
-                        String expected =
-                                CdsImportKeys.hash(run, child.substring(37), parent.substring(37));
-                        if (!expected.equals(edge.recordKey())
-                                || !expected.equals(edge.fields().get("id"))) invalid();
-                        var linked = children.computeIfAbsent(child, ignored -> new ArrayList<>());
-                        linked.add(parent);
-                        if (linked.size() != 1) review();
-                    }
-                    var expectedChildren = new HashSet<String>();
-                    for (var entry : units.entrySet())
-                        if ("CareElements_CARE".equals(entry.getValue().fields().get("category")))
-                            expectedChildren.add(entry.getKey());
-                    if (!children.keySet().equals(expectedChildren)) review();
+                    var dependencies = retainedDependencies(index, bounds, control);
+                    var units = dependencies.units();
+                    var parents = dependencies.parents();
+                    var children = dependencies.children();
+                    var expectedChildren = dependencies.expectedChildren();
                     var owned = new HashSet<String>();
                     var consumed = new HashSet<String>();
                     var childDone = new HashSet<String>();
@@ -264,28 +169,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                         control.checkpoint();
                         String address = parent.getKey();
                         var metadata = parent.getValue().fields();
-                        var parentRefs = index.references().get(address);
-                        var parentProof = checked.units().get(address);
-                        if (parentRefs == null
-                                || parentRefs.size() != 1
-                                || !"demographic".equals(parentRefs.getFirst().table())
-                                || !Integer.toString(patient.patient())
-                                        .equals(parentRefs.getFirst().id())
-                                || parentProof == null
-                                || parentProof.size() != 1
-                                || !parentRefs.equals(
-                                        parentProof.stream()
-                                                .map(
-                                                        CdsExportRetainedReceiptVerificationDto
-                                                                        .CheckedReference
-                                                                ::expected)
-                                                .toList())
-                                || !exact.get(
-                                                key(
-                                                        "demographic",
-                                                        Integer.toString(patient.patient())))
-                                        .digest()
-                                        .equals(parentProof.getFirst().currentDigest())) invalid();
+                        requireParentEvidence(patient, address, index, checked, exact);
                         var fields =
                                 new CdsExportRetainedOccurrenceFields()
                                         .fieldsFor(
@@ -556,6 +440,167 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
             actual.put(extension.fields().get("keyval"), extension.fields().get("val"));
         }
         if (!expected.equals(actual)) review();
+    }
+
+    private void requireParentEvidence(
+            CdsExportCohortService.Patient patient,
+            String address,
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            Map<String, CdsExportNativeRowReceiptDto> exact)
+            throws IOException {
+        var parentRefs = index.references().get(address);
+        var parentProof = checked.units().get(address);
+        if (parentRefs == null
+                || parentRefs.size() != 1
+                || !"demographic".equals(parentRefs.getFirst().table())
+                || !Integer.toString(patient.patient()).equals(parentRefs.getFirst().id())
+                || parentProof == null
+                || parentProof.size() != 1
+                || !parentRefs.equals(
+                        parentProof.stream()
+                                .map(
+                                        CdsExportRetainedReceiptVerificationDto.CheckedReference
+                                                ::expected)
+                                .toList())
+                || !exact.get(key("demographic", Integer.toString(patient.patient())))
+                        .digest()
+                        .equals(parentProof.getFirst().currentDigest())) invalid();
+    }
+
+    private record Dependencies(
+            Map<String, CdsExportCapturedTextRowDto> units,
+            Map<String, CdsExportCapturedTextRowDto> parents,
+            Map<String, List<String>> children,
+            Set<String> expectedChildren) {
+        @Override
+        public String toString() {
+            return "Dependencies[protected]";
+        }
+    }
+
+    private Dependencies retainedDependencies(
+            CdsExportRetainedIndexDto index,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        var units = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
+        var parents = new TreeMap<String, CdsExportCapturedTextRowDto>();
+        for (var row : index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
+            String address = row.fields().get("run_id") + ":" + row.fields().get("unit_key");
+            if (!index.appliedUnits().contains(address)) continue;
+            if (units.putIfAbsent(address, row) != null) invalid();
+            if (category().wireName().equals(row.fields().get("category")))
+                parents.put(address, row);
+        }
+        if (parents.size() > bounds.nativeRows()) limit();
+        var children = new HashMap<String, List<String>>();
+        for (var edge : index.tables().getOrDefault("cds_import_dependency", Map.of()).values()) {
+            control.checkpoint();
+            String run = edge.fields().get("run_id"),
+                    child = run + ":" + edge.fields().get("unit_key"),
+                    parent = run + ":" + edge.fields().get("depends_on_unit_key");
+            if (!parents.containsKey(parent)
+                    || !units.containsKey(child)
+                    || !"CareElements_CARE".equals(units.get(child).fields().get("category")))
+                continue;
+            String expected = CdsImportKeys.hash(run, child.substring(37), parent.substring(37));
+            if (!expected.equals(edge.recordKey()) || !expected.equals(edge.fields().get("id")))
+                invalid();
+            var linked = children.computeIfAbsent(child, ignored -> new ArrayList<>());
+            linked.add(parent);
+            if (linked.size() != 1) review();
+        }
+        var expectedChildren = new HashSet<String>();
+        for (var entry : units.entrySet())
+            if ("CareElements_CARE".equals(entry.getValue().fields().get("category")))
+                expectedChildren.add(entry.getKey());
+        if (!children.keySet().equals(expectedChildren)) review();
+        return new Dependencies(units, parents, children, expectedChildren);
+    }
+
+    private record CapturedCare(
+            Map<String, CdsExportCapturedTextRowDto> current,
+            Map<String, CdsExportNativeRowReceiptDto> exact) {
+        @Override
+        public String toString() {
+            return "CapturedCare[protected]";
+        }
+    }
+
+    private CapturedCare captureCareRows(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        var current = new TreeMap<String, CdsExportCapturedTextRowDto>();
+        var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
+        long[] memory = {0};
+        var scanned =
+                rows.forEachTable(
+                        lease,
+                        patient,
+                        tables,
+                        TABLES,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        67_108_864,
+                        control,
+                        row -> {
+                            String id = id(row);
+                            if (!row.fields().keySet().equals(columns(row.table()))
+                                    || !row.exactNumbers().isEmpty()) invalid();
+                            memory[0] =
+                                    Math.addExact(memory[0], 1024L + row.fields().size() * 256L);
+                            for (String value : row.fields().values())
+                                if (value != null)
+                                    memory[0] =
+                                            Math.addExact(
+                                                    memory[0],
+                                                    value.getBytes(StandardCharsets.UTF_8).length
+                                                            + 64L);
+                            if (current.size() >= bounds.nativeRows()
+                                    || memory[0] > bounds.indexBytes()) limit();
+                            if (current.putIfAbsent(key(row.table(), id), row) != null) invalid();
+                        });
+        if (!scanned.equals(source.capture())) invalid();
+        var proof =
+                witnesses.scan(
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control,
+                        row -> {
+                            if (!TABLES.contains(row.table())) return;
+                            if (exact.size() >= bounds.nativeRows()) limit();
+                            if (exact.putIfAbsent(key(row.table(), row.id()), row) != null)
+                                invalid();
+                        });
+        if (!proof.sourceManifestSha256().equals(source.manifest().plaintextSha256())
+                || !current.keySet().equals(exact.keySet())) invalid();
+        for (var entry : current.entrySet()) verify(entry.getValue(), exact.get(entry.getKey()));
+        for (String table : TABLES)
+            if (current.values().stream().filter(row -> row.table().equals(table)).count()
+                    != source.capture().tables().get(table).rows()) invalid();
+        var demographic = current.get(key("demographic", Integer.toString(patient.patient())));
+        if (demographic == null || source.capture().tables().get("demographic").rows() != 1)
+            invalid();
+        for (var row : current.values()) {
+            if (row.table().equals("measurements")
+                    && !Integer.toString(patient.patient())
+                            .equals(row.fields().get("demographicNo"))) invalid();
+            if (row.table().equals("measurementsExt")
+                    && !current.containsKey(
+                            key("measurements", row.fields().get("measurement_id")))) invalid();
+        }
+        return new CapturedCare(current, exact);
     }
 
     private static void assess(

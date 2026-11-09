@@ -91,11 +91,12 @@ public final class CdsXmlReaders {
         reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
         reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        // DOCTYPE and external entity features are disabled above; this resolver always refuses.
+        // nosemgrep: java.lang.security.audit.xml-custom-entityresolver.xml-custom-entityresolver
         reader.setEntityResolver(
                 (publicId, systemId) -> {
                     throw new SAXException("CDS_EXTERNAL_ENTITY_BLOCKED");
-                }); // nosemgrep:
-                    // java.lang.security.audit.xml-custom-entityresolver.xml-custom-entityresolver
+                });
         return reader;
     }
 

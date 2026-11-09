@@ -655,6 +655,7 @@ function intentionalCloseFixture({auxiliaryLogin=false,retainedLoginClosed=false
     const selected={url:()=> 'http://localhost/carlos/form/cdsImportStatus?apiVersion=2&runId='+runId,
       method:()=> 'GET',resourceType:()=> 'fetch',frame:()=>frame,...changes};pending.add(selected);page.emit('request',selected);return selected;
   };
+  // eslint-disable-next-line unicorn/no-useless-spread -- Each failure mutates pending; requests created by callbacks belong to the subsequent closure boundary.
   let action=()=>{for(const selected of [...pending])fail(selected);};
   page.close=async()=>{action();closed=true;page.emit('close');};
   const closer=gate.createLifecyclePageCloser(page,recorder,{baseUrl:'http://localhost/carlos',auxiliaryLogin,retainedLoginClosed});
