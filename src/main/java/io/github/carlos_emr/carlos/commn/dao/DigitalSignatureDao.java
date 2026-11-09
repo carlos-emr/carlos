@@ -41,4 +41,12 @@ public interface DigitalSignatureDao extends AbstractDao<DigitalSignature> {
      * to the signature id.
      */
     DigitalSignature findMetadataById(int id);
+
+    /**
+     * Read-only ownership resolution for historical signatures whose stored
+     * demographicId is -1. Resolves a patient only when exact clinical
+     * references agree on one patient and one module. Never use this for
+     * creating or changing a signature link.
+     */
+    DigitalSignature findReadableMetadataById(int id);
 }

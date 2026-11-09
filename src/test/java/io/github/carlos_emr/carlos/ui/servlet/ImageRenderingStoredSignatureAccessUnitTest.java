@@ -140,7 +140,7 @@ class ImageRenderingStoredSignatureAccessUnitTest extends CarlosUnitTestBase {
         DigitalSignature metadata = artifact("unknown-module".equals(boundary) ? ModuleType.getByName("FAKE_UNKNOWN") : module,
                 "no-patient".equals(boundary) ? null : patient, null);
         DigitalSignature stored = artifact(module, patient, expected.clone());
-        when(signatures.getDigitalSignatureMetadata(41)).thenReturn(metadata);
+        when(signatures.getDigitalSignatureMetadataForRead(41)).thenReturn(metadata);
         when(signatures.getDigitalSignature(41)).thenReturn(stored);
         if (boundary.startsWith("posted-") || "no-patient".equals(boundary)) {
             String posted = "posted-excluded-for-open".equals(boundary) ? "101" : "202";
@@ -169,14 +169,14 @@ class ImageRenderingStoredSignatureAccessUnitTest extends CarlosUnitTestBase {
                     () -> assertThat(response.getStatus()).isEqualTo(403),
                     () -> verify(signatures, never()).getDigitalSignature(41));
         }
-        verify(signatures).getDigitalSignatureMetadata(41);
+        verify(signatures).getDigitalSignatureMetadataForRead(41);
         assertThat(metadata.getSignatureImage()).isNull();
         assertThat(stored.getSignatureImage()).containsExactly(expected);
         assertThat(java.util.Collections.list(request.getSession().getAttributeNames())).containsExactlyInAnyOrderElementsOf(sessionBefore.keySet());
         sessionBefore.forEach((name, value) -> assertThat(request.getSession().getAttribute(name)).isSameAs(value));
         if (recordDenied) {
             DigitalSignature other = artifact(module, 202, otherBytes.clone());
-            when(signatures.getDigitalSignatureMetadata(42)).thenReturn(artifact(module, 202, null));
+            when(signatures.getDigitalSignatureMetadataForRead(42)).thenReturn(artifact(module, 202, null));
             when(signatures.getDigitalSignature(42)).thenReturn(other);
             request.setParameter("digitalSignatureId", "42");
             response = new MockHttpServletResponse();
@@ -184,7 +184,7 @@ class ImageRenderingStoredSignatureAccessUnitTest extends CarlosUnitTestBase {
             new ImageRenderingServlet().doGet(request, response);
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(response.getContentAsByteArray()).containsExactly(otherBytes);
-            verify(signatures).getDigitalSignatureMetadata(42);
+            verify(signatures).getDigitalSignatureMetadataForRead(42);
             verify(signatures).getDigitalSignature(42);
         }
     }

@@ -430,6 +430,26 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
         }
 
         @Test
+        @DisplayName("should refuse a missing or sentinel patient before writing an upload")
+        void shouldRefuseUnassignedNewSignature() throws Exception {
+            for (String patient : new String[] {null, "-1", "0"}) {
+                mockRequest = new MockHttpServletRequest();
+                mockResponse = new MockHttpServletResponse();
+                mockRequest.setMethod("POST");
+                servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
+                servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(mockResponse);
+                primeIpadUpload();
+                if (patient != null) {
+                    mockRequest.setParameter("demographicNo", patient);
+                }
+                action.execute();
+                assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+                assertThat(new File(DigitalSignatureUtils.getTempFilePath(signatureKey))).doesNotExist();
+            }
+            verifyNoInteractions(mockDigitalSignatureManager);
+        }
+
+        @Test
         @DisplayName("should return 500 and delete temp file when manager returns null")
         void shouldReturn500_whenManagerReturnsNull() throws Exception {
             primeIpadUpload();

@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "a56815d1ca6ccf107cb2f26624a04ed1f2f532f046176730f96ca091e1047c07",
+ "migration_sha256": "bf8dadf85cd8275419c71ecd4e6a8b81f90a5b034fada4a44bfdfa70bba9001a",
  "province": "on",
  "schema": {
   "checks": [
@@ -1950,6 +1950,18 @@
     null,
     null,
     5
+   ],
+   [
+    "DigitalSignature",
+    "demographicFkId",
+    "int(11)",
+    "YES",
+    "NULL",
+    "STORED GENERATED, INVISIBLE",
+    null,
+    null,
+    "nullif(`demographicId`,-1)",
+    8
    ],
    [
     "DigitalSignature",
@@ -128281,6 +128293,17 @@
    ],
    [
     "DigitalSignature",
+    "DigitalSignature_demographicFkId",
+    1,
+    1,
+    "demographicFkId",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "DigitalSignature",
     "PRIMARY",
     0,
     1,
@@ -138763,6 +138786,15 @@
    ],
    [
     "DigitalSignature",
+    "DigitalSignature_demographicFkId_fk",
+    1,
+    "demographicFkId",
+    "$self",
+    "demographic",
+    "demographic_no"
+   ],
+   [
+    "DigitalSignature",
     "DigitalSignature_ibfk_1",
     1,
     "facilityId",
@@ -138778,15 +138810,6 @@
     "$self",
     "provider",
     "provider_no"
-   ],
-   [
-    "DigitalSignature",
-    "DigitalSignature_ibfk_3",
-    1,
-    "demographicId",
-    "$self",
-    "demographic",
-    "demographic_no"
    ],
    [
     "DigitalSignature",
@@ -143473,6 +143496,13 @@
    ],
    [
     "DigitalSignature",
+    "DigitalSignature_demographicFkId_fk",
+    "demographic",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "DigitalSignature",
     "DigitalSignature_ibfk_1",
     "Facility",
     "RESTRICT",
@@ -143482,13 +143512,6 @@
     "DigitalSignature",
     "DigitalSignature_ibfk_2",
     "provider",
-    "RESTRICT",
-    "RESTRICT"
-   ],
-   [
-    "DigitalSignature",
-    "DigitalSignature_ibfk_3",
-    "demographic",
     "RESTRICT",
     "RESTRICT"
    ],

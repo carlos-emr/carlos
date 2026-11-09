@@ -61,6 +61,9 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      */
     DigitalSignature getDigitalSignatureMetadata(int id);
 
+    /** Read-only metadata for rendering historical unassigned signatures. */
+    DigitalSignature getDigitalSignatureMetadataForRead(int id);
+
     /**
      * Saves a digital signature to the database.
      * <p>

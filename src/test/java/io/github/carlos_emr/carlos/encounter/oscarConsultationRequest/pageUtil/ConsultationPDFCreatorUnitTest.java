@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -63,7 +64,7 @@ class ConsultationPDFCreatorUnitTest {
     void shouldReturnOverrideBytes_whenOverridePresent() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
 
-        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(OVERRIDE_BYTES, "5", mgr);
+        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(OVERRIDE_BYTES, "5", "42", mgr);
 
         assertThat(result).containsExactly(OVERRIDE_BYTES);
         verifyNoInteractions(mgr);
@@ -76,8 +77,12 @@ class ConsultationPDFCreatorUnitTest {
         DigitalSignature stored = new DigitalSignature();
         stored.setSignatureImage(STORED_BYTES);
         when(mgr.getDigitalSignature(5)).thenReturn(stored);
+        DigitalSignature metadata = new DigitalSignature();
+        metadata.setDemographicId(42);
+        metadata.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION);
+        when(mgr.getDigitalSignatureMetadataForRead(5)).thenReturn(metadata);
 
-        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "5", mgr);
+        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "5", "42", mgr);
 
         assertThat(result).containsExactly(STORED_BYTES);
         verify(mgr).getDigitalSignature(5);
@@ -90,8 +95,12 @@ class ConsultationPDFCreatorUnitTest {
         DigitalSignature stored = new DigitalSignature();
         stored.setSignatureImage(STORED_BYTES);
         when(mgr.getDigitalSignature(5)).thenReturn(stored);
+        DigitalSignature metadata = new DigitalSignature();
+        metadata.setDemographicId(42);
+        metadata.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION);
+        when(mgr.getDigitalSignatureMetadataForRead(5)).thenReturn(metadata);
 
-        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, " 5 \n", mgr);
+        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, " 5 \n", "42", mgr);
 
         assertThat(result).containsExactly(STORED_BYTES);
         verify(mgr).getDigitalSignature(5);
@@ -102,7 +111,7 @@ class ConsultationPDFCreatorUnitTest {
     void shouldReturnNull_whenNoOverrideAndBlankId() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
 
-        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(new byte[0], "", mgr);
+        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(new byte[0], "", "42", mgr);
 
         assertThat(result).isNull();
         verify(mgr, never()).getDigitalSignature(anyInt());
@@ -128,20 +137,19 @@ class ConsultationPDFCreatorUnitTest {
     void shouldReturnNull_whenStoredIdWhitespaceOnly() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
 
-        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, " \n\t ", mgr);
+        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, " \n\t ", "42", mgr);
 
         assertThat(result).isNull();
         verify(mgr, never()).getDigitalSignature(anyInt());
     }
 
     @Test
-    @DisplayName("returns null when the stored signature id is not numeric")
-    void shouldReturnNull_whenStoredIdNonNumeric() {
+    @DisplayName("refuses a PDF when the stored signature id is not numeric")
+    void shouldRefuse_whenStoredIdNonNumeric() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
 
-        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "abc", mgr);
-
-        assertThat(result).isNull();
+        assertThatThrownBy(() -> ConsultationPDFCreator.resolveSignatureBytes(null, "abc", "42", mgr))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -150,9 +158,8 @@ class ConsultationPDFCreatorUnitTest {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
 
         try (LogCapture capture = LogCapture.forLogger(ConsultationPDFCreator.class)) {
-            byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "12\r\nforged-id", mgr);
-
-            assertThat(result).isNull();
+            assertThatThrownBy(() -> ConsultationPDFCreator.resolveSignatureBytes(null, "12\r\nforged-id", "42", mgr))
+                    .isInstanceOf(IllegalStateException.class);
             String logged = capture.messages().stream()
                     .filter(message -> message.startsWith("Consultation signature id"))
                     .findFirst()
@@ -163,14 +170,28 @@ class ConsultationPDFCreatorUnitTest {
     }
 
     @Test
-    @DisplayName("returns null when the stored signature cannot be found")
-    void shouldReturnNull_whenStoredSignatureMissing() {
+    @DisplayName("refuses a PDF when the stored signature cannot be found")
+    void shouldRefuse_whenStoredSignatureMissing() {
         DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
-        when(mgr.getDigitalSignature(5)).thenReturn(null);
 
-        byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "5", mgr);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                ConsultationPDFCreator.resolveSignatureBytes(null, "5", "42", mgr))
+                .isInstanceOf(IllegalStateException.class);
+    }
 
-        assertThat(result).isNull();
+    @Test
+    @DisplayName("never renders a signature inferred for another patient")
+    void shouldRefuse_whenHistoricalSignatureBelongsToAnotherPatient() {
+        DigitalSignatureManager mgr = mock(DigitalSignatureManager.class);
+        DigitalSignature metadata = new DigitalSignature();
+        metadata.setDemographicId(77);
+        metadata.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION);
+        when(mgr.getDigitalSignatureMetadataForRead(5)).thenReturn(metadata);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                ConsultationPDFCreator.resolveSignatureBytes(null, "5", "42", mgr))
+                .isInstanceOf(IllegalStateException.class);
+        verify(mgr, never()).getDigitalSignature(anyInt());
     }
 
     @Test

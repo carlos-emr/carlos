@@ -761,14 +761,15 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 signatureImageOverride != null && signatureImageOverride.length > 0
                         ? null
                         : SpringUtils.getBean(DigitalSignatureManager.class);
-        byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(), digitalSignatureManager);
+        byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(),
+                reqFrm.demoNo, digitalSignatureManager);
 
         if (signatureImage != null && signatureImage.length > 0) {
             try {
                 Image image = createScaledSignatureImage(signatureImage);
                 addTable(pdfPTable, createRightAlignedSignatureTable(getResource("msgSignature"), image, font));
             } catch (BadElementException | IOException e) {
-                logger.error("An error occurred while trying to create an image from the signature", e);
+                throw new IllegalStateException("Referenced consultation signature cannot be rendered", e);
             }
         }
     }
@@ -837,11 +838,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param signatureImageOverride non-mutating preview bytes, or {@code null}/empty when none
      * @param signatureImageId       the persisted {@code DigitalSignature} id, or {@code null}/empty
      * @param mgr                    manager used to load the persisted signature when no override is present
-     * @return the chosen signature bytes, or {@code null} when none are available, the id is blank/invalid
-     *         after trimming, or the signature cannot be loaded
+     * @return the chosen signature bytes, or {@code null} when no stored id is present
+     * @throws IllegalStateException when a present stored signature cannot be verified or rendered
      */
     @SuppressWarnings("java:S1168")
-    static byte[] resolveSignatureBytes(byte[] signatureImageOverride, String signatureImageId, DigitalSignatureManager mgr) {
+    static byte[] resolveSignatureBytes(byte[] signatureImageOverride, String signatureImageId,
+                                        String expectedDemographicNo, DigitalSignatureManager mgr) {
         if (signatureImageOverride != null && signatureImageOverride.length > 0) {
             return signatureImageOverride;
         }
@@ -859,18 +861,28 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         try {
             parsedId = Integer.parseInt(normalizedSignatureImageId);
         } catch (NumberFormatException e) {
-            // Malformed id is benign (the field is upstream-validated); render unsigned.
-            logger.debug("Consultation signature id {} is not a valid number", LogSafe.sanitize(normalizedSignatureImageId));
-            return null;
+            logger.warn("Consultation signature id {} is not a valid number", LogSafe.sanitize(normalizedSignatureImageId));
+            throw new IllegalStateException("Referenced consultation signature id is invalid", e);
         }
         try {
+            int patient = Integer.parseInt(expectedDemographicNo);
+            DigitalSignature metadata = mgr.getDigitalSignatureMetadataForRead(parsedId);
+            if (metadata == null || metadata.getModuleType() != io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION
+                    || metadata.getDemographicId() == null || metadata.getDemographicId() != patient) {
+                throw new IllegalStateException("Consultation signature ownership cannot be established");
+            }
             DigitalSignature digitalSignature = mgr.getDigitalSignature(parsedId);
-            return digitalSignature != null ? digitalSignature.getSignatureImage() : null;
+            if (digitalSignature == null || digitalSignature.getSignatureImage() == null
+                    || digitalSignature.getSignatureImage().length == 0) {
+                throw new IllegalStateException("Referenced consultation signature has no readable image");
+            }
+            return digitalSignature.getSignatureImage();
         } catch (RuntimeException e) {
-            // A real lookup fault (DB/infra) - log WITH the stack trace rather than mislabel it
-            // "not found"; stay fail-soft so a transient blip renders unsigned instead of blanking the PDF.
+            // A stored signature id is a claim that the rendered document
+            // is signed. Refuse a PDF whose ownership or bytes cannot be
+            // proved; silently omitting the image would misstate its status.
             logger.error("Error loading consultation digital signature {}", parsedId, e);
-            return null;
+            throw new IllegalStateException("Consultation signature could not be rendered", e);
         }
     }
 

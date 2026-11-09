@@ -122,7 +122,19 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
     }
 
     @Override
+    public DigitalSignature getDigitalSignatureMetadataForRead(int id) {
+        return this.digitalSignatureDao.findReadableMetadataById(id);
+    }
+
+    @Override
     public DigitalSignature saveDigitalSignature(Integer facilityId, String providerNo, Integer demographicNo, byte[] imageData, ModuleType moduleType) {
+        // The import preserves historical OSCAR rows with demographicId=-1,
+        // but that sentinel is not a valid patient for a NEW signature.
+        // Before the compatibility FK migration the database rejected it;
+        // keep that write boundary for every caller of this manager.
+        if (demographicNo == null || demographicNo <= 0) {
+            throw new IllegalArgumentException("A positive patient number is required for a new digital signature");
+        }
         DigitalSignature digitalSignature = new DigitalSignature();
         digitalSignature.setDateSigned(new Date());
         digitalSignature.setDemographicId(demographicNo);

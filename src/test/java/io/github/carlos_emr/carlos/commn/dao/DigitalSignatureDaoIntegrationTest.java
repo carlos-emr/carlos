@@ -252,6 +252,44 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             assertThat(metadata.getModuleType()).isNull();
         }
 
+        @Test
+        @Tag("query")
+        @DisplayName("resolves an imported -1 signature only for a unique read reference")
+        void shouldResolveUnassignedSignatureOnlyForRead() {
+            DigitalSignature saved = persistLegacySignature(-1);
+            ConsultationRequest consult = new ConsultationRequest();
+            consult.setDemographicId(123);
+            consult.setSignatureImg(String.valueOf(saved.getId()));
+            entityManager.persist(consult);
+            entityManager.flush();
+
+            DigitalSignature mutatingMetadata = digitalSignatureDao.findMetadataById(saved.getId());
+            DigitalSignature readableMetadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
+
+            assertThat(mutatingMetadata.getDemographicId()).isEqualTo(-1);
+            assertThat(readableMetadata.getDemographicId()).isEqualTo(123);
+            assertThat(readableMetadata.getModuleType()).isEqualTo(ModuleType.CONSULTATION);
+            assertThat(readableMetadata.getProviderNo()).isEqualTo("999998");
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("ambiguous references cannot assign a -1 signature to a patient")
+        void shouldRefuseAmbiguousUnassignedSignature() {
+            DigitalSignature saved = persistLegacySignature(-1);
+            for (int patient : new int[] {123, 456}) {
+                ConsultationRequest consult = new ConsultationRequest();
+                consult.setDemographicId(patient);
+                consult.setSignatureImg(String.valueOf(saved.getId()));
+                entityManager.persist(consult);
+            }
+            entityManager.flush();
+
+            DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
+            assertThat(metadata.getDemographicId()).isEqualTo(-1);
+            assertThat(metadata.getModuleType()).isNull();
+        }
+
         private DigitalSignature persistLegacySignature(Integer demographicId) {
             DigitalSignature saved = legacySignature(demographicId);
             digitalSignatureDao.persist(saved);

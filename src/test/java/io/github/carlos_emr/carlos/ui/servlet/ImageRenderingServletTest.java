@@ -80,7 +80,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     void shouldRenderConsultSignature_whenConsultReadGrantedForDemographic() throws Exception {
         DigitalSignature metadata = metadata(ModuleType.CONSULTATION, 123);
         DigitalSignature signature = signature();
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42)).thenReturn(metadata);
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42)).thenReturn(metadata);
         when(digitalSignatureManager.getDigitalSignature(42)).thenReturn(signature);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, "123"))
                 .thenReturn(true);
@@ -96,7 +96,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should forbid stored consultation signature when consult read is denied for the demographic")
     void shouldForbidConsultSignature_whenConsultReadDeniedForDemographic() throws Exception {
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42)).thenReturn(metadata(ModuleType.CONSULTATION, 123));
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42)).thenReturn(metadata(ModuleType.CONSULTATION, 123));
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, "123"))
                 .thenReturn(false);
 
@@ -111,7 +111,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should forbid stored consultation signature when demographic context is missing")
     void shouldForbidConsultSignature_whenDemographicContextMissing() throws Exception {
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42)).thenReturn(metadata(ModuleType.CONSULTATION, null));
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42)).thenReturn(metadata(ModuleType.CONSULTATION, null));
 
         servlet.doGet(request, response);
 
@@ -124,7 +124,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @DisplayName("should render stored prescription signature when rx read is granted for the demographic")
     void shouldRenderPrescriptionSignature_whenRxReadGrantedForDemographic() throws Exception {
         DigitalSignature signature = signature();
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42)).thenReturn(metadata(ModuleType.PRESCRIPTION, 123));
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42)).thenReturn(metadata(ModuleType.PRESCRIPTION, 123));
         when(digitalSignatureManager.getDigitalSignature(42)).thenReturn(signature);
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_rx", SecurityInfoManager.READ, "123"))
                 .thenReturn(true);
@@ -139,7 +139,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should forbid stored eForm signature when eForm read is denied for the demographic")
     void shouldForbidEformSignature_whenEformReadDeniedForDemographic() throws Exception {
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42)).thenReturn(metadata(ModuleType.E_FORM, 123));
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42)).thenReturn(metadata(ModuleType.E_FORM, 123));
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_eform", SecurityInfoManager.READ, "123"))
                 .thenReturn(false);
 
@@ -153,7 +153,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should forbid stored signature when module type is missing")
     void shouldForbidStoredSignature_whenModuleTypeMissing() throws Exception {
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42)).thenReturn(metadata(null, 123));
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42)).thenReturn(metadata(null, 123));
 
         servlet.doGet(request, response);
 
@@ -170,7 +170,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
         servlet.doGet(request, response);
 
         assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
-        verify(digitalSignatureManager, never()).getDigitalSignatureMetadata(42);
+        verify(digitalSignatureManager, never()).getDigitalSignatureMetadataForRead(42);
         verify(digitalSignatureManager, never()).getDigitalSignature(42);
     }
 
@@ -178,7 +178,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @DisplayName("should forbid stored signature when logged in info is missing")
     void shouldForbidStoredSignature_whenLoggedInInfoMissing() throws Exception {
         request.getSession().removeAttribute(new LoggedInInfo().LOGGED_IN_INFO_KEY);
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42))
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42))
                 .thenReturn(metadata(ModuleType.CONSULTATION, 123));
 
         servlet.doGet(request, response);
@@ -224,7 +224,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return not found when signature metadata is missing")
     void shouldReturnNotFound_whenSignatureMetadataMissing() throws Exception {
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42)).thenReturn(null);
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42)).thenReturn(null);
 
         servlet.doGet(request, response);
 
@@ -236,7 +236,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return not found when full signature is missing after authorization")
     void shouldReturnNotFound_whenFullSignatureMissingAfterAuthorization() throws Exception {
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42))
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42))
                 .thenReturn(metadata(ModuleType.CONSULTATION, 123));
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, "123"))
                 .thenReturn(true);
@@ -251,7 +251,7 @@ class ImageRenderingServletTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should return not found when signature image is missing after authorization")
     void shouldReturnNotFound_whenSignatureImageMissingAfterAuthorization() throws Exception {
-        when(digitalSignatureManager.getDigitalSignatureMetadata(42))
+        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(42))
                 .thenReturn(metadata(ModuleType.CONSULTATION, 123));
         when(securityInfoManager.hasPrivilege(loggedInInfo, "_con", SecurityInfoManager.READ, "123"))
                 .thenReturn(true);
