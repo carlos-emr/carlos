@@ -286,10 +286,11 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             mockRequest.setParameter("source", "IPAD");
             mockRequest.setParameter("signatureImage", "data:image/png;base64,garbage");
 
-            try (MockedConstruction<Base64> ignored = mockConstruction(Base64.class,
+            try (MockedConstruction<Base64> mockedBase64 = mockConstruction(Base64.class,
                     (mock, context) -> when(mock.decode(any(byte[].class)))
                             .thenThrow(new IllegalArgumentException("bad base64")))) {
                 action.execute();
+                assertThat(mockedBase64.constructed()).hasSize(1);
             }
 
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
@@ -375,6 +376,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
                         @Override
                         public void setReadListener(ReadListener listener) {
+                            // This test exercises blocking reads, so no async listener is used.
                         }
                     };
                 }
