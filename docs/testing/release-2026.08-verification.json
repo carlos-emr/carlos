@@ -2894,7 +2894,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2560,
+      "minimumCases": 2563,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2923,7 +2923,8 @@
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 8,
-        "ProgramAdmissionAuditMariaDbIntegrationTest": 2
+        "ProgramAdmissionAuditMariaDbIntegrationTest": 2,
+        "AppointmentUpdateDaoIntegrationTest": 17
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5956,7 +5957,8 @@
         "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncSelectionUnitTest.java"
       ],
       "checks": [
         "java-all",
@@ -6010,7 +6012,10 @@
         "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
       ],
       "checks": [
         "java-all",
@@ -6258,6 +6263,51 @@
         "java-native-generated",
         "java-native-flyway",
         "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccess.java": {
+      "reason": "Appointment patient rights and chart restrictions precede clinical responses and writes. Native generated-schema cases prove rollback and retain write-only authority.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentManagerImpl.java": {
+      "reason": "Appointment patient rights and chart restrictions precede clinical responses and writes. Native generated-schema cases prove rollback and retain write-only authority.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
+      ],
+      "workstreams": [
+        "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleService.java": {
+      "reason": "Appointment patient rights and chart restrictions precede clinical responses and writes. Native generated-schema cases prove rollback and retain write-only authority.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentPatientAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/commn/dao/AppointmentUpdateDaoIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated"
       ],
       "workstreams": [
         "T08"

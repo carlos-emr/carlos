@@ -104,9 +104,65 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
 
     @BeforeEach
     void setUpSecurityDefaults() {
+        when(mockSecurityInfoManager.hasPrivilegeReadOnly(any(),eq("_appointment"),eq("r"),any())).thenReturn(true);
         when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,42)).thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
+    }
+
+    @Test
+    void shouldOmitAllClinicalFields_whenDayAppointmentPatientIsBlocked() {
+        var allowed=new io.github.carlos_emr.carlos.commn.model.Appointment();
+        allowed.setId(1); allowed.setDemographicNo(42);
+        allowed.setAppointmentDate(java.sql.Date.valueOf("2026-08-12"));
+        allowed.setStartTime(java.sql.Time.valueOf("09:00:00"));
+        allowed.setEndTime(java.sql.Time.valueOf("09:30:00"));
+        var denied=new io.github.carlos_emr.carlos.commn.model.Appointment();
+        denied.setId(2);denied.setDemographicNo(43);denied.setNotes("FAKE-private-notes");
+        when(mockScheduleManager.getDayAppointments(any(),anyString(),any(Date.class))).thenReturn(List.of(denied,allowed));
+        when(mockDemographicManager.getDemographicFormattedNames(any(),eq(List.of(42)))).thenReturn(java.util.Map.of(42,"FAKE-allowed"));
+        Response response=request().path("/schedule/999001/day/2026-08-12").get();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json=responseJson(response);assertThat(json).hasSize(1);
+        assertThat(json.at("/0/demographicNo").intValue()).isEqualTo(42);
+        assertThat(json.toString()).doesNotContain("FAKE-private-notes");
+        verify(mockDemographicManager).getDemographicFormattedNames(any(),eq(List.of(42)));
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"/schedule/fetchDays/2026-02-30/2026-03-01/999001", "/schedule/fetchProviderAppts/999001/2026-02-30/2026-03-01"})
+    void shouldRetainBadRequest_whenPeriodDateIsInvalid(String path) {
+        assertThat(request().path(path).get().getStatus()).isEqualTo(400);
+        verifyNoInteractions(mockScheduleManager);
+    }
+
+    @Test
+    void shouldCheckCreationPatient_beforeConverterReadsClinicalData() {
+        when(mockSecurityInfoManager.hasPrivilege(mockLoggedInInfo,"_appointment","w","43")).thenReturn(false);
+        Response response=request().path("/schedule/add").post(jakarta.ws.rs.client.Entity.json("{\"demographicNo\":43}"));
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(mockAppointmentManager);
+    }
+
+    @Test
+    void shouldFilterStoredPatients_onProviderPeriodDiscovery() {
+        var allowed=new io.github.carlos_emr.carlos.commn.model.Appointment();allowed.setId(1);allowed.setDemographicNo(42);
+        var denied=new io.github.carlos_emr.carlos.commn.model.Appointment();denied.setId(2);denied.setDemographicNo(43);denied.setNotes("FAKE-private");
+        when(mockScheduleManager.getAppointmentsForDateRangeAndProvider(any(),any(),any(),eq("999001"))).thenReturn(List.of(denied,allowed));
+        Response response=request().path("/schedule/fetchProviderAppts/999001/2026-08-12/2026-08-13").get();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json=responseJson(response);assertThat(json.findValuesAsText("demographicNo")).containsExactly("42");
+        assertThat(json.toString()).doesNotContain("FAKE-private");
+    }
+
+    @Test
+    void shouldFilterNativePeriodRows_beforeReadingAnyClinicalColumns() {
+        Object[] denied={2,"999001",null,null,43};
+        Object[] allowed={1,"999001",java.sql.Date.valueOf("2026-08-12"),java.sql.Time.valueOf("09:00:00"),42,"FAKE-allowed","clinic","","t","Allowed","Synthetic","5550100","","","","","",""};
+        when(mockScheduleManager.listAppointmentsByPeriodProvider(any(),any(),any(),eq("999001"))).thenReturn(List.of(denied,allowed));
+        Response response=request().path("/schedule/fetchDays/2026-08-12/2026-08-13/999001").get();
+        assertThat(response.getStatus()).isEqualTo(200);
+        var json=responseJson(response);assertThat(json.findValuesAsText("demographicNo")).containsExactly("42");
     }
 
     /** Exercises legacy JSON payloads through CXF and the real update manager. */
@@ -319,6 +375,7 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should preserve names, blank slots, missing patients and ordering with bulk names")
         void shouldPreserveResponse_whenNamesAreBulkLoaded() {
+            when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,99)).thenReturn(true);
             var appointments = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.model.Appointment>();
             int[] patientIds = {42, 0, 99, 42};
             for (int i = 0; i < patientIds.length; i++) {

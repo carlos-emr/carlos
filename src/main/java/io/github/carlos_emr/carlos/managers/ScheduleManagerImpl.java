@@ -282,6 +282,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         if (current == null) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.NOT_FOUND);
         }
+        AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, current.getDemographicNo(), "w");
         if (hasVersion && !current.getEditVersion().equals(expectedVersion)) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
         }
@@ -293,6 +294,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
         // transaction: a rejected edit or failed flush cannot leave a stray archive behind.
         appointmentArchiveDao.archiveAppointment(current);
         edit.accept(current);
+        AppointmentPatientAccess.require(loggedInInfo, securityInfoManager, current.getDemographicNo(), "w");
         current.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
         oscarAppointmentDao.merge(current);
         // Run the version callback before serializing the response token.

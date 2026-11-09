@@ -28,6 +28,20 @@ public final class ScheduleSyncHeaders {
     public record Selection(boolean keyset, long afterMillis, int afterId, int limit, byte[] context, String originalCursor) {
         public Selection { context = context.clone(); }
         @Override public byte[] context() { return context.clone(); }
+        @Override public boolean equals(Object other) {
+            return other instanceof Selection value && keyset == value.keyset && afterMillis == value.afterMillis
+                    && afterId == value.afterId && limit == value.limit
+                    && java.util.Arrays.equals(context, value.context)
+                    && java.util.Objects.equals(originalCursor, value.originalCursor);
+        }
+        @Override public int hashCode() {
+            return java.util.Objects.hash(keyset, afterMillis, afterId, limit, java.util.Arrays.hashCode(context), originalCursor);
+        }
+        @Override public String toString() {
+            return "Selection[keyset=" + keyset + ", afterMillis=" + afterMillis + ", afterId=" + afterId
+                    + ", limit=" + limit + ", context=" + java.util.Arrays.toString(context)
+                    + ", originalCursor=" + originalCursor + "]";
+        }
         public String wireName() { return keyset ? "timestamp-id" : "legacy-timestamp"; }
     }
     record Result(boolean more, String next) { }

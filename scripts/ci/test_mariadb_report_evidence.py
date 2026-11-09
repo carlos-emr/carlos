@@ -53,6 +53,12 @@ ADMISSION_REQUIRED_CASES = {
     "shouldRollbackEarlierReadAudits_whenLaterPatientPolicyAbortsTheResponse",
 }
 
+APPOINTMENT_REQUIRED_CASES = {
+    "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+    "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+    "shouldAllowAssignedPatientWrite_withoutReadPermission",
+}
+
 RX_REQUIRED_CASES = {
     "shouldCommitPrescriptionAndDrugs_whenNativeWritesSucceed",
     "shouldRequireReconciliation_whenCommitSucceedsButAcknowledgementIsLost",
@@ -117,6 +123,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "ScheduleSyncMariaDbIntegrationTest": SCHEDULE_REQUIRED_CASES,
                     "RxPrescribeMariaDbIntegrationTest": RX_REQUIRED_CASES,
                     "TicklerPatientAccessMariaDbIntegrationTest": TICKLER_REQUIRED_CASES,
+                    "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
                 }.get(family, set()))
                 def case(index):
@@ -180,13 +187,14 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
         self.seed()
         for mode in MODULE.REQUIRED:
             suffix = "" if mode == "generated" else "-" + mode
-            for family, names in (("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
+            families = [("AppointmentUpdateDaoIntegrationTest", APPOINTMENT_REQUIRED_CASES)] if mode == "generated" else []
+            for family, names in families + [("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
                                   ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES),
                                   ("DemographicIdentifierPreservationMariaDbIntegrationTest", IDENTIFIER_REQUIRED_CASES),
                                   ("ScheduleSyncMariaDbIntegrationTest", SCHEDULE_REQUIRED_CASES),
                                   ("RxPrescribeMariaDbIntegrationTest", RX_REQUIRED_CASES),
                                   ("TicklerPatientAccessMariaDbIntegrationTest", TICKLER_REQUIRED_CASES),
-                                  ("ProgramAdmissionAuditMariaDbIntegrationTest", ADMISSION_REQUIRED_CASES)):
+                                  ("ProgramAdmissionAuditMariaDbIntegrationTest", ADMISSION_REQUIRED_CASES)]:
                 report = self.reports / ("TEST-" + self.suite(family) + suffix + ".xml")
                 original = report.read_text()
                 for name in names:

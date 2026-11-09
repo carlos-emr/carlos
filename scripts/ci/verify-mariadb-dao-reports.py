@@ -18,6 +18,11 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "AppointmentUpdateDaoIntegrationTest": {
+        "shouldRefuseStoredPatient_beforeArchivalOrMutation",
+        "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
+        "shouldAllowAssignedPatientWrite_withoutReadPermission",
+    },
     "ProgramAdmissionAuditMariaDbIntegrationTest": {
         "shouldCommitSynchronousAdmissionAudits_withThePatientFilteredResponse",
         "shouldRollbackEarlierReadAudits_whenLaterPatientPolicyAbortsTheResponse",
@@ -80,7 +85,7 @@ REQUIRED_CASES = {
 # AbstractDaoFindAllOrderingIntegrationTest pins issue #5308 where it matters: MariaDB returns an
 # unordered page in secondary-index order, so its paging cases must execute on the physical server.
 # CaseManagementIssueDAO adds one duplicate-link case on the legacy Flyway schema only.
-REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
+REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4, "MeasurementPatientMatchMariaDbIntegrationTest": 10,
                           "JdbcConnectorMariaDbIntegrationTest": 32,
                           "BillingHistoryDaoIntegrationTest": 1, "LookupDaoIntegrationTest": 1,
                           "AbstractDaoFindAllOrderingIntegrationTest": 6,
@@ -207,6 +212,7 @@ def verify(reports: Path, output: Path) -> dict:
             if families[mode][family] < minimum:
                 raise EvidenceError(f"Required MariaDB {mode} coverage missing: {family}")
         for family, names in REQUIRED_CASES.items():
+            if family not in required: continue
             missing = names - passed_cases[mode][family]
             if missing:
                 raise EvidenceError(f"Required MariaDB {mode} cases missing: {family}: " + ", ".join(sorted(missing)))

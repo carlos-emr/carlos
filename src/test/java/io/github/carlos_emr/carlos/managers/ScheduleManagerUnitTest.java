@@ -132,6 +132,7 @@ public class ScheduleManagerUnitTest extends ScheduleUnitTestBase {
      */
     @BeforeEach
     void setUp() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(),eq(TEST_DEMO_NO))).thenReturn(true);
         // Register mocks for SpringUtils
         registerMock(OscarAppointmentDao.class, mockOscarAppointmentDao);
         registerMock(AppointmentArchiveDao.class, mockAppointmentArchiveDao);
