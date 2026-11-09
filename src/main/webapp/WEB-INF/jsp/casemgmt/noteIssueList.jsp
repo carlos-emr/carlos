@@ -314,16 +314,19 @@
                     ${carlos:forHtml(issueCheckList.issueDisplay.description)}
                 </a>
 
-                <c:if test="${issueCheckList.used == false}">
+                <c:if test="${issueCheckList.used == false && writeAccess}">
                     <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                     &nbsp;
                     <a href="#" onclick="${submitDelete}">Delete</a>&nbsp;
                 </c:if>
 
+                <c:if test="${writeAccess}">
                 <!-- change diagnosis button -->
                 <c:set var="submitChange" value="return changeDiagnosisResolved('${status.index}');" />
                 &nbsp;
                 <a href="#" onclick="${submitChange}">Change</a>
+
+                </c:if>
 
                 <div id="${winame}" style="margin-left: 20px; display: none;">
                     <div>
@@ -397,7 +400,7 @@
                 ${carlos:forHtml(issueCheckList.issueDisplay.description)}
             </a>
 
-            <c:if test="${issueCheckList.used == false}">
+            <c:if test="${issueCheckList.used == false && writeAccess}">
                 <c:set var="submitDelete" value="removeIssue('${winame}');document.forms['caseManagementEntryForm'].deleteId.value='${status.index}';return ajaxUpdateIssues('issueDelete', $('noteIssues').up().id);" />
                 &nbsp;
                 <a href="#" onclick="${submitDelete}">Delete</a>
@@ -405,7 +408,9 @@
             </c:if>
 
             &nbsp;
-            <a href="#" onclick="return changeDiagnosisUnresolved('${status.index}');">Change</a>
+            <c:if test="${writeAccess}">
+                <a href="#" onclick="return changeDiagnosisUnresolved('${status.index}');">Change</a>
+            </c:if>
 
             <div id="${winame}" style="margin-left: 20px; display: none;">
                 <div>

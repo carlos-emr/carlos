@@ -7,7 +7,7 @@ This is work in progress. No ticket is claimed closed by this ledger.
 | Ticket | Implementation / outstanding evidence |
 | --- | --- |
 | #5834 | Optional hidden modules skip presentation refresh; focused JS passes; installed browser coverage outstanding. |
-| #5750 | Save-coordinator failure recovery outstanding. |
+| #5750 | A new Save/Sign attempt reconciles an uncertain clinical issue update before proceeding, preserves selections and never revives a dropped intent. Focused recovery tests pass; installed concurrency qualification remains outstanding. |
 | #3423 | Lease, ownership, draft and rollout work outstanding. |
 | #5992 | Reason-specific conflict handling and test correction outstanding. |
 | #5703 | Baseline browser reproduction and selection round-trip outstanding. |
@@ -67,8 +67,9 @@ preserving both sets of localization keys. The following review findings are rep
 
 - Resolved and unresolved checklist changes mark the note dirty, including after
   fragment replacement. All mutation controls respect the rendered issue permission.
-- `issueChange` re-reads the selected patient issue and checks its current program/role
-  write grant before changing the session model or calling persistence.
+- Issue status changes, deletion and both diagnosis replacement routes re-read the
+  selected patient issue and check its current program/role write grant before changing
+  the session model or calling persistence. Read-only issues expose no mutation links.
 - Optional sidebar failures no longer invalidate confirmed clinical issue fields or
   cancel a queued note save. After an uncertain clinical update, a new Save/Sign attempt
   reconciles clinical fields with the server while preserving current issue selections;
@@ -99,3 +100,19 @@ These results qualify the repaired paths, not the entire 17-ticket completion ef
 The lock lease/draft lifecycle, Messenger modern encounter PDF, complete legacy
 retirement, installed navigation/concurrency matrix, package lifecycle qualification
 and final-head CI remain outstanding. This ledger does not authorize issue closure.
+
+### Additional authorization and installed-package verification
+
+- Extended the fresh permission boundary to Delete and both Change Diagnosis routes.
+  Missing replacement diagnoses return HTTP 400 without changing the selected issue.
+- 304 adjacent Java tests passed without failures, errors or skips: 34 issue authorization
+  cases, 60 observation/duration cases, 202 real transaction cases, and eight preference/tag
+  cases. The transaction selection retains stored associations, rollback and draft checks.
+- Native Chromium 154 fixtures passed with actual checkbox handlers after DOM replacement,
+  Save-on-switch serialization, failed full-chart loading, control restoration and retry.
+- Full CARLOS and DrugRef Debian packages, including the pinned Chromium renderer, were
+  built in Ubuntu 26.04.1. A fresh Ontario systemd-container install with carlos-ctl 1.3.1
+  passed every `carlos-ctl check` and the installed `echart` smoke check (one pass, no skips).
+  The last authorization extension still requires installation/qualification of its build.
+- Full Node regressions: 7,803 passed, four existing skips, zero failures. Final-head CI and
+  the remaining installed encounter workflow selection are still running.

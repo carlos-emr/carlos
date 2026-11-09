@@ -312,6 +312,20 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         return true;
     }
 
+    /** Authorize the current stored issue, rather than a rendered/session permission snapshot. */
+    private CaseManagementIssue requireCurrentIssueWriteAccess(CaseManagementIssue selected, String patient) {
+        Long issueId = selected == null ? null : selected.getId();
+        CaseManagementIssue current = issueId == null ? null : caseManagementIssueDao.findById(issueId);
+        String program = ChartProgramContext.resolve(request);
+        int programId = program == null || program.isBlank() ? 0 : Integer.parseInt(program);
+        LoggedInInfo user = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (current == null || !Integer.valueOf(patient).equals(current.getDemographic_no())
+                || !current.isWriteAccess(user.getLoggedInProviderNo(), programId)) {
+            throw new SecurityException("missing required security object (_casemgmt.issues w)");
+        }
+        return current;
+    }
+
     private String dispatchRequest() throws Exception {
         String method = request.getParameter("method") != null ? request.getParameter("method") : (String) request.getAttribute("method");
         
@@ -2960,10 +2974,21 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // get issue we're changing
         String strIndex = request.getParameter("change_diagnosis_id");
-        int index = Integer.parseInt(strIndex);
+        int index;
+        try {
+            index = Integer.parseInt(strIndex);
+        } catch (NumberFormatException invalid) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         // change issue
         List<CheckBoxBean> oldList = this.getIssueCheckList();
+        if (oldList == null || index < 0 || index >= oldList.size()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(oldList.get(index).getIssue(), demono);
 
         CheckIssueBoxBean[] issueList = this.getNewIssueCheckList();
         CheckIssueBoxBean substitution = null;
@@ -2981,12 +3006,17 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             for (int x = 0; x < oldList.size(); x++) {
                 if (x == index) {
 
-                    Issue oldIssue = oldList.get(x).getIssue().getIssue();
+                    Issue oldIssue = currentIssue.getIssue();
                     origIssueDesc = oldIssue.getDescription();
 
                     Issue newIssue = caseManagementMgr.getIssue(String.valueOf(substitution.getIssue().getId().longValue()));
+                    if (newIssue == null) {
+                        response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                        return NONE;
+                    }
                     newIssueDesc = newIssue.getDescription();
 
+                    oldList.get(x).setIssue(currentIssue);
                     oldList.get(x).getIssue().setIssue(newIssue);
                     oldList.get(x).getIssue().setIssue_id(substitution.getIssue().getId().longValue());
                     oldList.get(x).getIssue().setType(newIssue.getType());
@@ -3017,17 +3047,33 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         // get issue we're changing
         String strIndex = request.getParameter("change_diagnosis_id");
-        int idx = Integer.parseInt(strIndex);
+        int idx;
+        try {
+            idx = Integer.parseInt(strIndex);
+        } catch (NumberFormatException invalid) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
 
         String substitution = request.getParameter("newIssueId");
         String sessionFrmName = ChartProgramContext.formKey(request, getDemographicNo(request));
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
-        List<CheckBoxBean> curIssues = sessionFrm.getIssueCheckList();
+        List<CheckBoxBean> curIssues = sessionFrm == null ? null : sessionFrm.getIssueCheckList();
+        if (curIssues == null || idx < 0 || idx >= curIssues.size()) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(curIssues.get(idx).getIssue(), getDemographicNo(request));
 
         if (substitution != null && curIssues != null && idx < curIssues.size()) {
 
             Issue iss = caseManagementMgr.getIssue(substitution);
+            if (iss == null) {
+                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            curIssues.get(idx).setIssue(currentIssue);
             curIssues.get(idx).getIssue().setIssue(iss);
             curIssues.get(idx).getIssue().setIssue_id(iss.getId());
             this.caseManagementMgr.saveCaseIssue(curIssues.get(idx).getIssue());
@@ -3109,7 +3155,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        CaseManagementIssue removedIssue = oldList.get(index).getIssue();
+        CaseManagementIssue removedIssue = requireCurrentIssueWriteAccess(oldList.get(index).getIssue(), demono);
         if (savesNote) {
             CaseManagementEntryFormBean staged = new CaseManagementEntryFormBean();
             org.springframework.beans.BeanUtils.copyProperties(sessionFrm, staged);
@@ -3194,14 +3240,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         List<CheckBoxBean> oldList = sessionFrm.getIssueCheckList();
         // Re-read the issue and its current role/program grants. The rendered
         // IssueDisplay and the session's issue may predate a permission change.
-        Long issueId = oldList.get(ind).getIssue().getId();
-        String program = ChartProgramContext.resolve(request);
-        int programId = program == null || program.isBlank() ? 0 : Integer.parseInt(program);
-        CaseManagementIssue currentIssue = issueId == null ? null : caseManagementIssueDao.findById(issueId);
-        if (currentIssue == null || !Integer.valueOf(demono).equals(currentIssue.getDemographic_no())
-                || !currentIssue.isWriteAccess(providerNo, programId)) {
-            throw new SecurityException("missing required security object (_casemgmt.issues w)");
-        }
+        CaseManagementIssue currentIssue = requireCurrentIssueWriteAccess(oldList.get(ind).getIssue(), demono);
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         request.setAttribute("change_flag", "true");
         request.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep

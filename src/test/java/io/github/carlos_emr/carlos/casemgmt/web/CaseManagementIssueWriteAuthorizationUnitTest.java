@@ -260,8 +260,9 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         assertThat(fixture.action.request.getAttribute("change_flag")).isNull();
     }
 
-    @Test
-    void shouldRefuseIssueChangeWithoutModelMutation_whenFreshIssuePermissionIsDenied() throws Exception {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"issueChange", "issueDelete", "ajaxChangeDiagnosis", "submitChangeDiagnosis"})
+    void shouldRefuseIssueMutationWithoutModelMutation_whenFreshIssuePermissionIsDenied(String operation) throws Exception {
         var fixture = issueFixture(true);
         fixture.action.request.getSession().setAttribute(
                 io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "23");
@@ -274,7 +275,24 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
                 org.springframework.test.util.ReflectionTestUtils.getField(fixture.action, "caseManagementIssueDao");
         when(issues.findById(91L)).thenReturn(fresh);
 
-        assertThatThrownBy(fixture.action::issueChange).isInstanceOf(SecurityException.class);
+        var note = new CaseManagementNote();
+        note.setDemographic_no("101");
+        fixture.form.setCaseNote(note);
+        fixture.action.setDeleteId("0");
+        fixture.action.setIssueCheckList(fixture.form.getIssueCheckList());
+        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", "0");
+        ((MockHttpServletRequest) fixture.action.request).setParameter("newIssueId", "52");
+        doReturn("").when(fixture.action).getDemoName(anyString());
+        doReturn("").when(fixture.action).getDemoAge(anyString());
+        doReturn("").when(fixture.action).getDemoDOB(anyString());
+        assertThatThrownBy(() -> {
+            switch (operation) {
+                case "issueChange" -> fixture.action.issueChange();
+                case "issueDelete" -> fixture.action.issueDelete();
+                case "ajaxChangeDiagnosis" -> fixture.action.ajaxChangeDiagnosis();
+                default -> fixture.action.submitChangeDiagnosis();
+            }
+        }).isInstanceOf(SecurityException.class);
 
         verify(fresh).isWriteAccess("999998", 23);
         verifyNoInteractions(fixture.manager);
@@ -284,6 +302,63 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
     }
 
     record Fixture(CaseManagementEntry2Action action,CaseManagementManager manager,CaseManagementEntryFormBean form) {}
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldPersistDiagnosisReplacement_whenCurrentIssueWriteIsAllowed(boolean ajax) {
+        var fixture = diagnosisFixture();
+        var replacement = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        replacement.setId(52L);
+        replacement.setDescription("Replacement diagnosis");
+        replacement.setCode("R52");
+        when(fixture.manager.getIssue("52")).thenReturn(replacement);
+
+        assertThat(ajax ? fixture.action.ajaxChangeDiagnosis() : fixture.action.submitChangeDiagnosis())
+                .isEqualTo(ajax ? "issueList_ajax" : "view");
+
+        var issue = fixture.form.getIssueCheckList().get(0).getIssue();
+        verify(issue).isWriteAccess("999998", 0);
+        verify(fixture.manager).saveCaseIssue(issue);
+        assertThat(issue.getIssue()).isSameAs(replacement);
+        assertThat(issue.getIssue_id()).isEqualTo(52L);
+        if (ajax) assertThat(fixture.form.getCaseNote().getIssues()).containsExactly(issue);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {true, false})
+    void shouldRetainDiagnosisWithoutWriting_whenReplacementDoesNotExist(boolean ajax) {
+        var fixture = diagnosisFixture();
+        var issue = fixture.form.getIssueCheckList().get(0).getIssue();
+        var original = issue.getIssue();
+
+        assertThat(ajax ? fixture.action.ajaxChangeDiagnosis() : fixture.action.submitChangeDiagnosis()).isEqualTo("none");
+
+        assertThat(fixture.action.response.getStatus()).isEqualTo(400);
+        assertThat(issue.getIssue()).isSameAs(original);
+        verify(fixture.manager, never()).saveCaseIssue(any());
+        verify(fixture.manager, never()).changeIssueInCPP(any(), any(), any());
+    }
+
+    private Fixture diagnosisFixture() {
+        var fixture = issueFixture(true);
+        fixture.form.setCaseNote(new CaseManagementNote());
+        fixture.form.getIssueCheckList().get(0).setChecked("on");
+        var original = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        original.setDescription("Original diagnosis");
+        fixture.form.getIssueCheckList().get(0).getIssue().setIssue(original);
+        fixture.action.setIssueCheckList(fixture.form.getIssueCheckList());
+        var selected = new CheckIssueBoxBean();
+        selected.setChecked(true);
+        selected.getIssue().setId(52L);
+        fixture.action.setNewIssueCheckList(new CheckIssueBoxBean[]{selected});
+        ((MockHttpServletRequest) fixture.action.request).setParameter("change_diagnosis_id", "0");
+        ((MockHttpServletRequest) fixture.action.request).setParameter("newIssueId", "52");
+        doReturn("").when(fixture.action).getDemoName(anyString());
+        doReturn("").when(fixture.action).getDemoAge(anyString());
+        doReturn("").when(fixture.action).getDemoDOB(anyString());
+        return fixture;
+    }
+
     Fixture issueFixture(boolean accessible) {
         var action=mock(CaseManagementEntry2Action.class,CALLS_REAL_METHODS);
         var request=new MockHttpServletRequest("POST","/CaseManagementEntry");action.request=request;
