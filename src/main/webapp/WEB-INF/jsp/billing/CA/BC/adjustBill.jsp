@@ -676,8 +676,17 @@
                // Retrieving Provider
                String proFirst="", proLast="", proOHIP="", proNo="";
                int Count = 0;
-               for(Provider p:providerDao.getActiveProviders()) {
-            	 if(p.getOhipNo() != null && !p.getOhipNo().isEmpty()) {
+               java.util.List<Provider> billingPhysicians = new java.util.ArrayList<>(providerDao.getActiveProviders());
+               boolean storedPhysicianListed = false;
+               for (Provider candidate : billingPhysicians) {
+                   if (Provider.equals(candidate.getProviderNo())) storedPhysicianListed = true;
+               }
+               if (!storedPhysicianListed) {
+                   Provider storedPhysician = providerDao.getProvider(Provider);
+                   if (storedPhysician != null) billingPhysicians.add(storedPhysician);
+               }
+               for(Provider p:billingPhysicians) {
+                 if(Provider.equals(p.getProviderNo()) || (p.getOhipNo() != null && !p.getOhipNo().isEmpty())) {
                     proFirst = p.getFirstName();
                     proLast = p.getLastName();
                     proOHIP = p.getProviderNo();
