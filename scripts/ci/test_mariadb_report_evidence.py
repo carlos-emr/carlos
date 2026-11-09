@@ -53,7 +53,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             for family, count in required.items():
                 suite = self.suite(family)
                 suffix = "" if selected == "generated" else "-" + selected
-                required_names = sorted(GROWTH_REQUIRED_CASES) if family == "Growth0To36FormPersistenceIntegrationTest" else []
+                required_names = sorted(MODULE.REQUIRED_CASES.get(family, set()))
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
                     name = required_names[index] if index < len(required_names) else f"shouldRead_forRow{index}"
@@ -191,6 +191,23 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                                         f"Required MariaDB {mode} coverage missing: LegacyLabUploadDaoIntegrationTest")
                 finally:
                     path.write_bytes(original)
+
+    def test_cml_safety_cases_are_required_in_every_lane(self):
+        self.seed()
+        for mode, families in MODULE.REQUIRED.items():
+            if "LegacyLabUploadDaoIntegrationTest" not in families:
+                continue
+            suffix = "" if mode == "generated" else "-" + mode
+            path = self.reports / ("TEST-example.LegacyLabUploadDaoIntegrationTest" + suffix + ".xml")
+            original = path.read_text()
+            for name in MODULE.REQUIRED_CASES["LegacyLabUploadDaoIntegrationTest"]:
+                with self.subTest(mode=mode, name=name):
+                    path.write_text(original.replace('name="' + name + '"', 'name="unrelatedCase"'))
+                    try:
+                        self.assert_refused(self.invoke(),
+                                            f"Required MariaDB {mode} cases missing: LegacyLabUploadDaoIntegrationTest")
+                    finally:
+                        path.write_text(original)
 
     def test_growth_required_cases_cannot_be_replaced_by_unrelated_cases_in_any_lane(self):
         self.seed()
