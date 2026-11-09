@@ -137,15 +137,20 @@ async function workflow(s) {
   });
 
   await s.step('the discontinued source keeps its own reason and date', async () => {
+    // Evidence first, so a failing run still keeps the profile it asserts on: the All view lists archived
+    // drugs, and a discontinued one shows its archive reason in the Discontinue column.
+    await aRx.reload({ waitUntil: 'domcontentloaded' });
+    await aRx.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    await aRx.locator('a[onclick*="selectDrugProfile(\'all\'"]').click();
+    await aRx.locator('#drugProfile').getByText(raced.name).first().waitFor({ state: 'visible', timeout: 20000 });
+    await aRx.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
+    await shot(aRx, 'after-save-A-profile-all');
     const archivedDate = sql.value(`SELECT archived_date FROM drugs WHERE drugid=${raced.id}`);
     h.assert(state(raced) === '1|doseChange' && archivedDate === discontinuedDate,
       `After the stale re-prescribe the discontinued source is archived as '${state(raced).split('|')[1]}' on ${archivedDate} `
       + `(expected 'doseChange' on ${discontinuedDate}). RxWriteScript2Action.archiveReRxSource must skip an already archived source `
       + 'instead of letting archiveDrug() overwrite its archive reason and date.');
     h.assert(state(control) === '1|represcribed', `The control source is '${state(control)}', expected '1|represcribed'`);
-    await aRx.reload({ waitUntil: 'domcontentloaded' });
-    await aRx.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-    await shot(aRx, 'after-save-A-profile');
   });
 }
 
