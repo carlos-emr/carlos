@@ -55,6 +55,17 @@ public class PatientLabRoutingDaoImpl extends AbstractDaoImpl<PatientLabRouting>
         super(PatientLabRouting.class);
     }
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public List<PatientLabRouting> findForUpdate(int labNo, String labType) {
+        List<PatientLabRouting> rows = entityManager.createQuery(
+                "select p from PatientLabRouting p where p.labNo=?1 and p.labType=?2", PatientLabRouting.class)
+                .setParameter(1, labNo).setParameter(2, labType)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
+        for (PatientLabRouting row : rows) entityManager.refresh(row, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        return rows;
+    }
+
     /**
      * Finds routing record containing reference to the demographic record with the
      * specified lab results reference number of {@link #HL7} lab type.

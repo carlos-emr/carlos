@@ -87,6 +87,10 @@ class MrpRoutingServiceUnitTest extends CarlosUnitTestBase {
         var messages = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
         when(messages.find(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextMessage());
         createAndRegisterMock(ProviderLabRoutingDao.class);
+        var sourceInfo = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        var info = new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo();
+        info.setAccessionNumber("SYNTHETIC-CHAIN");
+        when(sourceInfo.findByLabId(anyInt())).thenReturn(java.util.List.of(info));
         createAndRegisterMock(QueueDocumentLinkDao.class);
         createAndRegisterMock(SecurityInfoManager.class);
         labResults = mockStatic(CommonLabResultData.class);

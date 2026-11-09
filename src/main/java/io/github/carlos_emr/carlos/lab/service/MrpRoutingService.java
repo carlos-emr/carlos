@@ -160,6 +160,7 @@ public class MrpRoutingService {
         if (demographicNo == null || demographicNo <= 0 || demographicDao.getDemographicById(demographicNo) == null) {
             throw new IllegalArgumentException("Patient does not exist");
         }
+        if ("HL7".equals(labType)) Hl7ChainLocks.lockReport(Integer.parseInt(labNo));
         List<Integer> versions = matchingLabIds(labNo, labType);
         ProviderLabRoutingDao dao = SpringUtils.getBean(ProviderLabRoutingDao.class);
         versions.stream().sorted().forEach(dao::lockRoutingReport);

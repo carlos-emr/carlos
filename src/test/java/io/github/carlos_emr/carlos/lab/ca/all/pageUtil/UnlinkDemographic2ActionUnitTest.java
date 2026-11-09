@@ -1,135 +1,80 @@
-/**
- * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
- *
- * This software is published under the GPL GNU General Public License.
- */
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.lab.ca.all.pageUtil;
 
-import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
-import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
-import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.test.logging.LogCapture;
-import io.github.carlos_emr.carlos.test.logging.LoggerLevelOverride;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-
-import jakarta.servlet.http.HttpServletRequest;
-
 import org.apache.struts2.ServletActionContext;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.mockito.MockedStatic;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
-import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
-@DisplayName("UnlinkDemographic2Action debug log sanitization")
 @Tag("unit")
 @Tag("web")
-@Tag("security")
 class UnlinkDemographic2ActionUnitTest extends CarlosUnitTestBase {
-
-    private MockedStatic<ServletActionContext> servletActionContextMock;
-    private MockedStatic<LoggedInInfo> loggedInInfoMock;
-    private SecurityInfoManager securityInfoManager;
-    private PatientLabRoutingDao patientLabRoutingDao;
-    private ProviderLabRoutingDao providerLabRoutingDao;
-    private OscarLogDao oscarLogDao;
-    private LoggedInInfo loggedInInfo;
+    private MockedStatic<ServletActionContext> servlet;
+    private MockedStatic<LoggedInInfo> login;
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
+    private Hl7PatientUnlinkService service;
+    private SecurityInfoManager security;
+    private LoggedInInfo actor;
+    private final String version = "a".repeat(64);
 
     @BeforeEach
     void setUp() {
-        securityInfoManager = mock(SecurityInfoManager.class);
-        patientLabRoutingDao = mock(PatientLabRoutingDao.class);
-        providerLabRoutingDao = mock(ProviderLabRoutingDao.class);
-        oscarLogDao = mock(OscarLogDao.class);
-        loggedInInfo = mock(LoggedInInfo.class);
-
-        registerMock(SecurityInfoManager.class, securityInfoManager);
-        registerMock(PatientLabRoutingDao.class, patientLabRoutingDao);
-        registerMock(ProviderLabRoutingDao.class, providerLabRoutingDao);
-        registerMock(OscarLogDao.class, oscarLogDao);
-
-        request = new MockHttpServletRequest();
-        request.setParameter("labNo", "456");
-        request.setParameter("reason", "incorrect match");
-        request.setRemoteAddr("127.0.0.1");
+        request = new MockHttpServletRequest("POST", "/lab/CA/ALL/UnlinkDemographic");
+        request.setParameter("labNo", "456"); request.setParameter("reason", "incorrect match");
+        request.setParameter("matchVersion", version); request.setRemoteAddr("127.0.0.1");
         response = new MockHttpServletResponse();
-
-        servletActionContextMock = mockStatic(ServletActionContext.class);
-        servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
-        servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
-
-        loggedInInfoMock = mockStatic(LoggedInInfo.class);
-        loggedInInfoMock.when(() -> LoggedInInfo.getLoggedInInfoFromSession(any(HttpServletRequest.class)))
-                .thenReturn(loggedInInfo);
-        when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_lab"), eq("u"), isNull()))
-                .thenReturn(true);
+        service = createAndRegisterMock(Hl7PatientUnlinkService.class);
+        security = createAndRegisterMock(SecurityInfoManager.class);
+        actor = mock(LoggedInInfo.class);
+        when(security.hasPrivilege(actor, "_lab", "u", null)).thenReturn(true);
+        servlet = mockStatic(ServletActionContext.class);
+        servlet.when(ServletActionContext::getRequest).thenReturn(request);
+        servlet.when(ServletActionContext::getResponse).thenReturn(response);
+        login = mockStatic(LoggedInInfo.class);
+        login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(actor);
     }
+    @AfterEach void closeMocks() { login.close(); servlet.close(); }
 
-    @AfterEach
-    void tearDown() {
-        if (loggedInInfoMock != null) {
-            loggedInInfoMock.close();
-        }
-        if (servletActionContextMock != null) {
-            servletActionContextMock.close();
-        }
+    @Test void shouldReturnSuccessOnlyAfterTransactionalUnlinkCompletes() throws Exception {
+        when(service.unlink(456, version, "incorrect match", actor, "127.0.0.1")).thenReturn(123);
+        new UnlinkDemographic2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsString()).contains("\"success\":true", "\"unlinkedDemographicNo\":123");
     }
-
-    @Test
-    @DisplayName("should sanitize lab and demographic identifiers in unlink debug log")
-    void shouldSanitizeIdentifiers_inUnlinkDebugLog() throws Exception {
-        PatientLabRouting routing = new PatientLabRouting(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name(), 123);
-        when(patientLabRoutingDao.findByLabNoAndLabType(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name()))
-                .thenReturn(List.of(routing));
-        when(providerLabRoutingDao.findAllLabRoutingByIdandType(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name()))
-                .thenReturn(List.of());
-
-        try (LogCapture capture = LogCapture.forLogger(UnlinkDemographic2Action.class)) {
-            new UnlinkDemographic2Action().execute();
-
-            assertThat(capture.messages())
-                    .contains("Unlinked lab segmentID=456 from demographic=123");
-        }
-        assertThat(response.getContentAsString()).contains("\"success\":true");
-        verify(patientLabRoutingDao).merge(routing);
+    @Test void shouldRefuseGetWithoutMutation() throws Exception {
+        request.setMethod("GET"); new UnlinkDemographic2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(405); verifyNoInteractions(service);
     }
-
-    @Test
-    @DisplayName("should skip unlink debug log when debug is disabled")
-    void shouldSkipDebugLog_whenDebugIsDisabled() throws Exception {
-        PatientLabRouting routing = new PatientLabRouting(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name(), 123);
-        when(patientLabRoutingDao.findByLabNoAndLabType(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name()))
-                .thenReturn(List.of(routing));
-        when(providerLabRoutingDao.findAllLabRoutingByIdandType(456, ProviderLabRoutingDao.LAB_TYPE.HL7.name()))
-                .thenReturn(List.of());
-
-        try (LogCapture capture = LogCapture.forLogger(UnlinkDemographic2Action.class);
-                LoggerLevelOverride ignored = LoggerLevelOverride.disableDebug(UnlinkDemographic2Action.class)) {
-            new UnlinkDemographic2Action().execute();
-
-            assertThat(capture.messages()).isEmpty();
-        }
-        assertThat(response.getContentAsString()).contains("\"success\":true");
-        verify(patientLabRoutingDao).merge(routing);
+    @Test void shouldRefuseDuplicateSelectorsWithoutMutation() throws Exception {
+        request.setParameter("labNo", "456", "789"); new UnlinkDemographic2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(service);
     }
-
+    @Test void shouldReturnConflictWhenPatientMatchChanged() throws Exception {
+        when(service.unlink(456, version, "incorrect match", actor, "127.0.0.1"))
+                .thenThrow(new Hl7PatientUnlinkService.StaleMatch());
+        new UnlinkDemographic2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentAsString()).doesNotContain("\"success\":true");
+    }
+    @Test void shouldNotClaimSuccessOrExposeClinicalErrorsWhenTransactionFails() throws Exception {
+        when(service.unlink(456, version, "incorrect match", actor, "127.0.0.1"))
+                .thenThrow(new IllegalStateException("PRIVATE-SYNTHETIC-RESULT"));
+        new UnlinkDemographic2Action().execute();
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getErrorMessage()).doesNotContain("PRIVATE-SYNTHETIC-RESULT");
+        assertThat(response.getContentAsString()).doesNotContain("\"success\":true");
+    }
+    @Test void shouldRequireUpdatePrivilegeBeforeMutation() {
+        when(security.hasPrivilege(actor, "_lab", "u", null)).thenReturn(false);
+        assertThatThrownBy(() -> new UnlinkDemographic2Action().execute()).isInstanceOf(SecurityException.class);
+        verifyNoInteractions(service);
+    }
 }

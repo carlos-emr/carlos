@@ -65,6 +65,21 @@
     String highlight = "#E0E0FF";
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    final int patient;
+    try {
+        String[] patients = request.getParameterValues("demo");
+        if (patients == null || patients.length != 1 || !patients[0].matches("[0-9]+")) {
+            throw new IllegalArgumentException("Invalid patient");
+        }
+        patient = Integer.parseInt(patients[0]);
+        if (patient <= 0) throw new IllegalArgumentException("Invalid patient");
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+    io.github.carlos_emr.carlos.demographic.PatientReadAccess.requirePatient(
+            SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class),
+            loggedInInfo, patient, "_lab", "r");
 
     DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
     Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicNo);

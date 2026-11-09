@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 final class RenderAdmission {
     enum Kind { CHART, PDF }
     private final Semaphore slots;
+    private final Object monitor = new Object();
     private final EnumMap<Kind, ArrayDeque<Object>> queues = new EnumMap<>(Kind.class);
     private final EnumMap<Kind, Integer> active = new EnumMap<>(Kind.class);
 
@@ -22,31 +23,33 @@ final class RenderAdmission {
         }
     }
 
-    synchronized Lease acquire(Kind kind, Duration timeout) throws InterruptedException {
-        var queue = queues.get(kind);
-        if (queue.size() >= (kind == Kind.CHART ? 16 : 4)) return null;
-        Object ticket = new Object();
-        queue.addLast(ticket);
-        long deadline = System.nanoTime() + timeout.toNanos();
-        Kind other = kind == Kind.CHART ? Kind.PDF : Kind.CHART;
-        try {
-            while (true) {
-                // A running render cannot be preempted. Once the other class queues,
-                // this class cannot borrow another slot while already holding one.
-                boolean eligible = queue.peekFirst() == ticket
-                        && (active.get(kind) == 0 || queues.get(other).isEmpty());
-                if (eligible && slots.tryAcquire()) {
-                    active.put(kind, active.get(kind) + 1);
-                    return new Lease(kind);
+    Lease acquire(Kind kind, Duration timeout) throws InterruptedException {
+        synchronized (monitor) {
+            var queue = queues.get(kind);
+            if (queue.size() >= (kind == Kind.CHART ? 16 : 4)) return null;
+            Object ticket = new Object();
+            queue.addLast(ticket);
+            long deadline = System.nanoTime() + timeout.toNanos();
+            Kind other = kind == Kind.CHART ? Kind.PDF : Kind.CHART;
+            try {
+                while (true) {
+                    // A running render cannot be preempted. Once the other class queues,
+                    // this class cannot borrow another slot while already holding one.
+                    boolean eligible = queue.peekFirst() == ticket
+                            && (active.get(kind) == 0 || queues.get(other).isEmpty());
+                    if (eligible && slots.tryAcquire()) {
+                        active.put(kind, active.get(kind) + 1);
+                        return new Lease(kind);
+                    }
+                    long remaining = deadline - System.nanoTime();
+                    if (remaining <= 0) return null;
+                    // Also observe releases from legacy callers holding the same semaphore.
+                    TimeUnit.NANOSECONDS.timedWait(monitor, Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(20)));
                 }
-                long remaining = deadline - System.nanoTime();
-                if (remaining <= 0) return null;
-                // Also observe releases from legacy callers holding the same semaphore.
-                TimeUnit.NANOSECONDS.timedWait(this, Math.min(remaining, TimeUnit.MILLISECONDS.toNanos(20)));
+            } finally {
+                queue.remove(ticket);
+                monitor.notifyAll();
             }
-        } finally {
-            queue.remove(ticket);
-            notifyAll();
         }
     }
 
@@ -56,12 +59,12 @@ final class RenderAdmission {
         private Lease(Kind kind) { this.kind = kind; }
         @Override
         public void close() {
-            synchronized (RenderAdmission.this) {
+            synchronized (monitor) {
                 if (closed) return;
                 closed = true;
                 active.put(kind, active.get(kind) - 1);
                 slots.release();
-                RenderAdmission.this.notifyAll();
+                monitor.notifyAll();
             }
         }
     }

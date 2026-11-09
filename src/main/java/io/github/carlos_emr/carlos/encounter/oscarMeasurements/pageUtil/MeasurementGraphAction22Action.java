@@ -315,20 +315,73 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         // A bound, titre, date or qualitative grade is not an exact observation.
         String numeric = result.trim();
         // Raw lab text is not constrained by measurements.dataField. Bound work
-        // before matching/parsing; excluded source text remains available in history.
+        // before parsing; excluded source text remains available in history.
         if (numeric.length() > 512) return null;
-        if (numeric.matches("[+-]?[1-9][0-9]{0,2}(?:,[0-9]{3})++(?:\\.[0-9]++)?")) numeric = numeric.replace(",", "");
-        if (!numeric.matches("[+-]?(?:[0-9]++(?:\\.[0-9]*+)?|\\.[0-9]++)(?:[eE][+-]?[0-9]++)?")) {
-            return null;
+        if (numeric.indexOf(',') >= 0) {
+            if (!hasThousandsGrouping(numeric)) return null;
+            numeric = numeric.replace(",", "");
         }
+        if (!hasExactNumberSyntax(numeric)) return null;
         try {
             double value = Double.parseDouble(numeric);
             if (!Double.isFinite(value)) return null;
-            if (value == 0 && new java.math.BigDecimal(numeric).signum() != 0) return null;
+            if (value == 0) {
+                for (int i = 0; i < numeric.length() && numeric.charAt(i) != 'e' && numeric.charAt(i) != 'E'; i++) {
+                    if (numeric.charAt(i) >= '1' && numeric.charAt(i) <= '9') return null;
+                }
+            }
             return numeric;
         } catch (NumberFormatException invalid) {
             return null;
         }
+    }
+
+    private static boolean asciiDigit(char value) { return value >= '0' && value <= '9'; }
+
+    /** Bounded, linear grammar validation without regex backtracking or stack growth. */
+    private static boolean hasExactNumberSyntax(String value) {
+        int length = value.length(), index = 0;
+        if (length == 0) return false;
+        if (value.charAt(index) == '+' || value.charAt(index) == '-') index++;
+        int start = index;
+        while (index < length && asciiDigit(value.charAt(index))) index++;
+        boolean digits = index > start;
+        if (index < length && value.charAt(index) == '.') {
+            index++; start = index;
+            while (index < length && asciiDigit(value.charAt(index))) index++;
+            digits |= index > start;
+        }
+        if (!digits) return false;
+        if (index < length && (value.charAt(index) == 'e' || value.charAt(index) == 'E')) {
+            index++;
+            if (index < length && (value.charAt(index) == '+' || value.charAt(index) == '-')) index++;
+            start = index;
+            while (index < length && asciiDigit(value.charAt(index))) index++;
+            if (index == start) return false;
+        }
+        return index == length;
+    }
+
+    private static boolean hasThousandsGrouping(String value) {
+        int length = value.length(), index = 0;
+        if (length == 0) return false;
+        if (value.charAt(index) == '+' || value.charAt(index) == '-') index++;
+        if (index == length || value.charAt(index) < '1' || value.charAt(index) > '9') return false;
+        int start = index;
+        while (index < length && asciiDigit(value.charAt(index))) index++;
+        if (index - start > 3) return false;
+        boolean comma = false;
+        while (index < length && value.charAt(index) == ',') {
+            comma = true; index++; start = index;
+            while (index < length && asciiDigit(value.charAt(index))) index++;
+            if (index - start != 3) return false;
+        }
+        if (index < length && value.charAt(index) == '.') {
+            index++; start = index;
+            while (index < length && asciiDigit(value.charAt(index))) index++;
+            if (index == start) return false;
+        }
+        return comma && index == length;
     }
 
     private List<ReferenceRange> measurementReferenceRanges(List<EctMeasurementsDataBean> measurements, String typeIdName) {

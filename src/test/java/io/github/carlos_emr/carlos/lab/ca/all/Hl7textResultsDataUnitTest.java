@@ -310,6 +310,8 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "++ (moderate)| ++",
                 "2026-10-09   | 2026-10-09",
                 "negative     | negative",
+                "Negative     | Negative",
+                "NEGATIVE     | NEGATIVE",
                 "112.5<br />  | 112.5",
                 // A leading break marker is stripped before the filter runs, and so is the space it leaves.
                 "<br /> -5.2  | -5.2",
@@ -326,7 +328,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest(name = "[{0}] is not filed")
-        @CsvSource(delimiter = '|', value = {"see report", "Comment to follow", "(see below)"})
+        @CsvSource(delimiter = '|', value = {"see report", "Comment to follow", "(see below)", "Pending"})
         void shouldNotFileMeasurement_whenShippedFilterRejectsResult(String result) throws IOException {
             assertThat(fileResult(result, shippedFilter(), OBSERVED, ENTERED)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));

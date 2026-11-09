@@ -459,45 +459,16 @@ public class CommonLabTestValues {
             labList.addAll(labMap.values());
 
         } else if (labType != null && labType.equals("HL7")) {
-            MeasurementDao dao = SpringUtils.getBean(MeasurementDao.class);
-
-            for (Object lNo : dao.findLabNumbers(demographicNo == null ? 0 : demographicNo, identCode)) {
-                String lab_no = String.valueOf(lNo);
-
-                MessageHandler handler = Factory.getHandler(lab_no);
-                HashMap<String, Serializable> h = new HashMap<String, Serializable>();
-                int i = 0;
-                while (i < handler.getOBRCount() && h.get("testName") == null) {
-                    for (int j = 0; j < handler.getOBXCount(i); j++) {
-                        if (handler.getOBXIdentifier(i, j).equals(identCode)) {
-
-                            String result = handler.getOBXResult(i, j);
-
-                            // only add measurements with actual results
-                            if (!result.equals("")) {
-                                h.put("testName", testName);
-                                h.put("abn", handler.getOBXAbnormalFlag(i, j));
-                                h.put("result", result);
-                                h.put("range", handler.getOBXReferenceRange(i, j));
-                                h.put("units", handler.getOBXUnits(i, j));
-                                h.put("lab_no", lab_no);
-
-                                String collDate = handler.getServiceDate();
-                                if (collDate == null || collDate.isEmpty()) {
-                                    collDate = handler.getTimeStamp(i, j);
-                                }
-                                h.put("collDate", collDate);
-                                labList.add(h);
-                                break;
-                            }
-
-                        }
-                    }
-                    i++;
+            for (Map<String, Serializable> row : Hl7SourceResults.read(demographicNo)) {
+                if (Objects.equals(identCode, row.get("identifier"))) {
+                    labList.add(row);
                 }
             }
-
-
+            // Handler-formatted source times are ISO ordered. Unknown dates stay unknown;
+            // never use the time of this read as an invented observation time.
+            labList.sort(Comparator.comparing((Map<String, Serializable> row) ->
+                    Objects.toString(row.get("collDate"), "")).reversed());
+            return labList;
         }
         // sort the lab list
         Collections.sort(labList, new Comparator<Map<String, Serializable>>() {
@@ -518,6 +489,53 @@ public class CommonLabTestValues {
         });
 
         return labList;
+    }
+
+    /**
+     * Grid-only source overlay: preserve report literals without changing active measurements.
+     * The caller loads source observations once for the whole grid. Missing projections are
+     * marked explicitly; no clinical filter is widened and no archived value is reactivated.
+     */
+    public static ArrayList<Hashtable<String, Serializable>> findDisplayValuesByLoinc(
+            String patient, String loinc, List<Map<String, Serializable>> source) {
+        var mappings = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.MeasurementMapDao.class)
+                .findByLoincCode(loinc);
+        Set<String> identifiers = new HashSet<>();
+        identifiers.add(loinc);
+        for (var mapping : mappings) identifiers.add(mapping.getIdentCode());
+        return overlaySourceValues(findValuesByLoinc(patient, loinc), source, identifiers);
+    }
+
+    static ArrayList<Hashtable<String, Serializable>> overlaySourceValues(
+            List<Hashtable<String, Serializable>> measurements, List<Map<String, Serializable>> source,
+            Set<String> identifiers) {
+        Map<String, Hashtable<String, Serializable>> rows = new LinkedHashMap<>();
+        for (var measurement : measurements) rows.put((String) measurement.get("lab_no"), measurement);
+        Set<String> overlaid = new HashSet<>();
+        for (var observation : source) {
+            if (!identifiers.contains(observation.get("identifier"))) continue;
+            String id = (String) observation.get("lab_no");
+            if (overlaid.contains(id)) {
+                // A source may report the same mapped analyte more than once. Keep every
+                // literal visible together; never choose an arbitrary last numeric result.
+                var row = rows.get(id);
+                row.put("result", row.get("result") + "; " + observation.get("result"));
+                row.put("multipleSourceResults", Boolean.TRUE);
+                continue;
+            }
+            Hashtable<String, Serializable> row = new Hashtable<>();
+            row.put("lab_no", id);
+            row.put("result", Objects.toString(observation.get("result"), ""));
+            row.put("date", Objects.toString(observation.get("collDate"), ""));
+            row.put("collDateDate", Objects.toString(observation.get("collDate"), ""));
+            row.put("abn", Objects.toString(observation.get("abn"), "N"));
+            row.put("sourceOnly", !rows.containsKey(id));
+            rows.put(id, row);
+            overlaid.add(id);
+        }
+        ArrayList<Hashtable<String, Serializable>> result = new ArrayList<>(rows.values());
+        result.sort(Comparator.comparing((Hashtable<String, Serializable> row) -> (String) row.get("date")).reversed());
+        return result;
     }
 
     private static String parseObservationId(String id) {

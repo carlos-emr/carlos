@@ -43,6 +43,11 @@
 <%@ page import="java.io.InputStream" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.PatientRecordAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
 
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -74,13 +79,29 @@
 <%-- ========== BUSINESS LOGIC ========== --%>
 <%
     String demographic_no = request.getParameter("demographic_no");
+    final Integer patient;
+    try {
+        patient = Integer.valueOf(demographic_no);
+        if (patient <= 0) throw new IllegalArgumentException("Invalid patient");
+    } catch (IllegalArgumentException invalidPatient) {
+        response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+        return;
+    }
+    SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
+    LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    PatientRecordAccess.require(security, loggedInInfo, demographic_no, "_lab", "r");
+    PatientReadAccess.requirePatient(security, loggedInInfo, patient, "_lab", SecurityInfoManager.READ);
 
     LinkedHashMap<String, String> nameMap = new LinkedHashMap<>();
     List<String> idList = new ArrayList<>();
     Map<String, LinkedHashMap<String, Hashtable>> measIdMap = new HashMap<>();
     List<Hashtable<String, String>> dateList = new ArrayList<>();
+    boolean sourceOnlyResults = false;
+    boolean sourceLoadFailed = false;
 
     try {
+        List<Map<String, java.io.Serializable>> sourceResults =
+                io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.read(patient);
         InputStream is = application.getResource("/WEB-INF/measurements.xml").openStream();
         SAXBuilder saxParser = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder();
         Document doc = saxParser.build(is);
@@ -96,9 +117,11 @@
 
             if (!loinc_code.equalsIgnoreCase("NULL")) {
                 LinkedHashMap<String, Hashtable> idMap = new LinkedHashMap<>();
-                ArrayList labList = CommonLabTestValues.findValuesByLoinc(demographic_no, loinc_code);
+                ArrayList labList = CommonLabTestValues.findDisplayValuesByLoinc(demographic_no, loinc_code, sourceResults);
                 for (int j = 0; j < labList.size(); j++) {
                     Hashtable h  = (Hashtable) labList.get(j);
+                    sourceOnlyResults |= Boolean.TRUE.equals(h.get("sourceOnly"))
+                            || Boolean.TRUE.equals(h.get("multipleSourceResults"));
                     String date  = (String) h.get("date");
                     String id    = (String) h.get("lab_no");
                     idMap.put(id, h);
@@ -141,6 +164,8 @@
 
     } catch (Exception ex) {
         MiscUtils.getLogger().error("Error loading cumulative lab values", ex);
+        sourceLoadFailed = true;
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
 
     CumulativeLabValuesComparator comp = new CumulativeLabValuesComparator();
@@ -210,6 +235,8 @@
     pageContext.setAttribute("tableRows",     tableRows);
     pageContext.setAttribute("ctx",           request.getContextPath());
     pageContext.setAttribute("providerNo",    session.getAttribute("user"));
+    pageContext.setAttribute("sourceOnlyResults", sourceOnlyResults);
+    pageContext.setAttribute("sourceLoadFailed", sourceLoadFailed);
 %>
 
 <%-- ========== BUNDLE (single, pre-DOCTYPE) ========== --%>
@@ -243,6 +270,12 @@
     </style>
 </head>
 <body>
+<c:if test="${sourceLoadFailed}">
+    <p class="alert alert-danger" role="alert"><fmt:message key="lab.cumulativeLab3.sourceUnavailable"/></p>
+</c:if>
+<c:if test="${sourceOnlyResults}">
+    <p class="alert alert-info" role="status"><fmt:message key="lab.cumulativeLab3.sourceResults"/></p>
+</c:if>
 
 <div class="d-flex align-items-center justify-content-between mb-2 pb-2 border-bottom">
     <span class="fw-semibold small">

@@ -75,7 +75,6 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class Hl7textResultsData {
 
@@ -130,8 +129,6 @@ public class Hl7textResultsData {
         return null;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -173,7 +170,9 @@ public class Hl7textResultsData {
          * table.  No more entire PDF documents written into measurements.
          */
         String patternstring = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
-        Pattern pattern = Pattern.compile(patternstring);
+        // The filter selects/extracts without rewriting the clinical literal (#5828).
+        // Matching the original text also avoids offsets changing during Unicode lowercasing.
+        Pattern pattern = Pattern.compile(patternstring, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
 
         /*
          * Setting in OSCAR properties that toggles if a code
@@ -266,7 +265,7 @@ public class Hl7textResultsData {
                 // <br />) would otherwise reach the filter with a leading space and be filed with it, or, for a word
                 // result such as "<br />negative", not at all.
                 trimmed = StringUtils.trimToEmpty(trimmed.replaceAll("\\<br\\s?/?\\>", ""));
-                Matcher matcher = pattern.matcher(trimmed.toLowerCase());
+                Matcher matcher = pattern.matcher(trimmed);
                 Measurement m = new Measurement();
 
                 if (matcher.find()) {

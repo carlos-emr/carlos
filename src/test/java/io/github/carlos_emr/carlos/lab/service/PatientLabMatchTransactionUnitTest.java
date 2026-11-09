@@ -50,6 +50,10 @@ class PatientLabMatchTransactionUnitTest extends CarlosUnitTestBase {
         createAndRegisterMock(PatientLabRoutingDao.class);
         var messages = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextMessageDao.class);
         when(messages.find(anyInt())).thenReturn(new io.github.carlos_emr.carlos.commn.model.Hl7TextMessage());
+        var sourceInfo = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.Hl7TextInfoDao.class);
+        var info = new io.github.carlos_emr.carlos.commn.model.Hl7TextInfo();
+        info.setAccessionNumber("SYNTHETIC-CHAIN");
+        when(sourceInfo.findByLabId(anyInt())).thenReturn(java.util.List.of(info));
         createAndRegisterMock(QueueDocumentLinkDao.class);
         createAndRegisterMock(SecurityInfoManager.class);
         routes = createAndRegisterMock(ProviderLabRoutingDao.class);
@@ -156,7 +160,8 @@ class PatientLabMatchTransactionUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(() -> service.matchPatientLab("555", "HL7", 42, "actor"))
                 .isInstanceOf(IllegalStateException.class);
         matching.verifyNoInteractions();
-        verifyNoInteractions(routes);
+        verify(routes).lockRoutingReport(Hl7ChainLocks.key(null, "SYNTHETIC-CHAIN"));
+        verifyNoMoreInteractions(routes);
     }
 
 }

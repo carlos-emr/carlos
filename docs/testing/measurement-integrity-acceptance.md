@@ -13,8 +13,8 @@ used for retained browser/database evidence.
 | #6092 | Server locale/date/number conventions preserved | Locale metadata and localized labels implemented; full locale parity qualification pending |
 | #3935 | Session-private, bounded, expiring per-form definitions; explicit invalid/stale outcome | Per-form contexts and regressions implemented; native two-tab workflow pending |
 | #5820, #5819 | Source-aware current selection and atomic active-measurement projection | Not implemented |
-| #5835 | Atomic complete-chain unlink, provider reconciliation, stale retry protection | Not implemented |
-| #5828 | Literal preservation and visible filter-excluded source results | Not implemented |
+| #5835 | Atomic complete-chain unlink, provider reconciliation, stale retry protection | Transactional archive/routing/audit, optimistic match version, shared ingestion lock and later-delivery unmatch fence implemented; physical/native concurrency qualification pending |
+| #5828 | Literal preservation and visible filter-excluded source results | Case-preserving extraction and read-only source history/grid overlay implemented; installed ON/BC qualification pending |
 | #5853 | Fair bounded renderer admission, typed failures, all consumers show failures | Shared two-browser admission, safe reason codes, error responses and embedded-image recovery implemented; installed load/fault qualification pending |
 | #5472 | Verify existing #5518 replacements, packaging and documented differences | Existing implementation landed; final acceptance audit pending |
 
@@ -67,3 +67,34 @@ used for retained browser/database evidence.
   actual browser version, synthetic fixtures and the deliberately limited renderer scope.
 - Raw numeric parsing is bounded before regex work, uses possessive numeric
   components, and excludes nonzero results that underflow to zero.
+
+## Subsequent lab integrity changes (qualification in progress)
+
+- All 226 focused cases pass with no skips, including strict numeric syntax,
+  actual existing HL7 upload/duplicate/rollback regressions and the new unlink
+  transaction tests. Injected failures in archival, extensions, measurement
+  removal, patient routing, provider reconciliation and audit all roll back the
+  transaction. These fault tests use real H2 transaction advice and instrumented
+  DAO writes; they do not substitute for physical clinical-row/native qualification.
+- Numeric syntax now uses a bounded linear character parser (no regex), and
+  browser admission uses a private monitor, addressing the subsequent security
+  scan findings without suppressing them.
+- The measurement filter remains unchanged. Case-insensitive matching extracts
+  the original literal. Read-only lab history discovers reports through patient
+  routing; the grid overlays exact source literals and visibly explains results
+  without active measurements or multiple source observations. It never writes
+  clinical projections. Unreadable source data produces an explicit failure.
+- Unlink now requires the displayed `matchVersion` on its existing POST endpoint.
+  Missing/duplicate fields are refused; a stale fingerprint returns 409. Existing
+  open pages from before an upgrade must reload before unlinking. The browser
+  handles every non-success outcome explicitly. Patient and record locks are
+  checked before clinical writes. Archive extensions retain the original source
+  references and carry a `lab_projection_archive=UNLINK` marker.
+- Source/accession coordination uses negative ids in the existing signed
+  `providerLabRoutingLock` table, before positive report locks. Hash collisions
+  only serialize unrelated chains; they never establish clinical membership.
+  CLS uses a source-wide key because its legacy glucose-tolerance chain can
+  span accessions. An explicit unmatch fence prevents later deliveries from
+  automatically restoring that wrong-patient match. Ambiguous current clinical
+  ordering, feed correction contracts and historical repair remain separate,
+  unchecked requirements above.

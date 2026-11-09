@@ -380,6 +380,16 @@
 
 request.setAttribute("duplicateOfLab", duplicateOfLab);
 request.setAttribute("missingTests", missingTests);
+String unlinkMatchVersion = "";
+if (StringUtils.isNumeric(segmentID) && Integer.parseInt(segmentID) > 0) {
+    try {
+        unlinkMatchVersion = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.class)
+                .version(Integer.parseInt(segmentID));
+    } catch (RuntimeException unavailableMatch) {
+        // Reads stay read-only. An ambiguous chain can be viewed but cannot be unlinked.
+        MiscUtils.getLogger().warn("HL7 unlink context unavailable: {}", unavailableMatch.getClass().getSimpleName());
+    }
+}
 
 /********************** Converted to this sport *****************************/
 
@@ -448,6 +458,8 @@ if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && is
         <fmt:message key="oscarMDS.index.msgConfirmAcknowledge" var="msgAck"/>
         <fmt:message key="oscarMDS.index.msgConfirmAcknowledgeUnmatched" var="msgAckUnmatched"/>
         <fmt:message key="oscarMDS.segmentDisplay.msgUnlink" var="msgUnlink"/>
+        <fmt:message key="lab.unlink.refreshRequired" var="msgUnlinkRefreshRequired"/>
+        <fmt:message key="lab.unlink.notConfirmed" var="msgUnlinkNotConfirmed"/>
 
     </script>
 
@@ -803,6 +815,11 @@ input[id^='acklabel_']{
         }
 
         function unlinkDemographic(labNo) {
+            var matchVersion = '<carlos:encode value='<%= unlinkMatchVersion %>' context="javaScriptBlock"/>';
+            if (!matchVersion) {
+                alert('${carlos:forJavaScript(msgUnlinkRefreshRequired)}');
+                return false;
+            }
             var reason = "Incorrect demographic";
             reason = prompt('${carlos:forJavaScript(msgUnlink)}', reason);
 
@@ -812,24 +829,28 @@ input[id^='acklabel_']{
             }
 
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic";
-            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
+            var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo)
+                + "&matchVersion=" + encodeURIComponent(matchVersion) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
             fetch(urlStr, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: dataStr
             })
-            .then(function(response) { return response.json(); })
+            .then(function(response) {
+                if (!response.ok) throw new Error(response.status === 409 ? 'stale' : 'failed');
+                return response.json();
+            })
             .then(function(data) {
                 if (data.success) {
                     // refresh the opening page with new results
-                    top.opener.location.reload();
+                    if (top.opener && !top.opener.closed) top.opener.location.reload();
                     // refresh the lab display page and offer dialog to rematch.
                     window.location.reload();
-                }
+                } else throw new Error('failed');
             })
             .catch(function(error) {
-                console.error('Failed to unlink demographic:', error);
-                alert('An error occurred while unlinking the demographic. Please refresh and try again.');
+                alert(error.message === 'stale' ? '${carlos:forJavaScript(msgUnlinkRefreshRequired)}'
+                    : '${carlos:forJavaScript(msgUnlinkNotConfirmed)}');
             });
         }
 
