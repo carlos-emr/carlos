@@ -34,6 +34,12 @@ Patient selection transports the message only through existing POST bodies, with
 context encoding. It does not introduce browser/session draft storage. Automatic
 MRP defaults follow the selected patient; an explicit or deliberate assignee
 selection takes precedence. Unavailable recipients require an active replacement.
+In multisite mode, changing clinics deliberately clears the transported recipient;
+search/result and search/Back must retain that clear and refuse saving until an
+active recipient is chosen. A deliberate recipient must also survive both routes
+when Preferences is Default (no saved property). The native MRP routing workflow
+covers these eight combinations under MRP and Default preferences, comparing
+displayed, submitted and stored recipients and preserving an unrelated control.
 Dates keep Add's cumulative base and Edit's today-based behavior; only invalid
 month-day overflow is corrected. Dashboard accepted values preserve their time.
 

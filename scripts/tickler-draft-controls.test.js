@@ -44,3 +44,43 @@ for(const [kind,names] of [['source',fieldNames],['destination',hiddenNames]])fo
   assert.deepEqual(f.messages,['Keep the draft before reloading']);
  });
 }
+
+function recipientForm({value='100',disabled=true}={}) {
+ const taskTo={value,disabled},listeners={};
+ const assignee={value:'100',set innerHTML(html){this.html=html;this.value='';}};
+ const form={task_assigned_to:assignee,addEventListener:(name,listener)=>{listeners[name]=listener;}};
+ const context={document:{ADDAPPT:{keyword:{focus(){},select(){}},elements:{taskTo}},serviceform:form},
+  _providers:{Alpha:'<option value="100">A</option>',Beta:'<option value="200">B</option>'},
+  focus(){},addQuickPick(){}};
+ vm.createContext(context);
+ for(const name of ['rememberTicklerRecipient','initTicklerAdd','changeSite']) {
+  const match=add.match(new RegExp('(^[ \\t]*)function '+name+'\\([^)]*\\) \\{[\\s\\S]*?^\\1\\}', 'm'));
+  // Keep the behavioral regression runnable against the preceding JSP as a negative control.
+  if(!match&&name==='rememberTicklerRecipient')continue;
+  assert.ok(match,`Missing complete ${name} function`);vm.runInContext(match[0],context);
+ }
+ context.initTicklerAdd();
+ const clinic={value:'Beta',form,style:{},options:[{style:{backgroundColor:'white'}}],selectedIndex:0};
+ return {taskTo,assignee,change:userInitiated=>context.changeSite(clinic,userInitiated),
+  choose:value=>{assignee.value=value;listeners.change({target:{name:'task_assigned_to',value}});}};
+}
+
+test('initial clinic rendering leaves automatic MRP transport disabled',()=>{
+ const f=recipientForm();f.change();assert.equal(f.taskTo.disabled,true);
+});
+
+test('a user clinic change transports the cleared recipient instead of a stale deliberate provider',()=>{
+ const f=recipientForm();f.choose('100');f.change(true);
+ assert.equal(f.assignee.value,'');assert.deepEqual(f.taskTo,{value:'',disabled:false});
+ assert.match(add,/onchange="changeSite\(this, true\)"/);
+});
+
+test('a deliberate recipient after changing clinics replaces the transported clear',()=>{
+ const f=recipientForm();f.choose('100');f.change(true);f.choose('200');
+ assert.deepEqual(f.taskTo,{value:'200',disabled:false});
+});
+
+test('rendering a restored deliberate recipient does not clear its transport',()=>{
+ const f=recipientForm({value:'200',disabled:false});f.change();
+ assert.deepEqual(f.taskTo,{value:'200',disabled:false});
+});

@@ -90,16 +90,22 @@ async function workflow(s) {
     owner();h.assert(sql.value(`SELECT COUNT(*) FROM property WHERE ${preference} AND (value<>'mrp' OR value IS NULL)`)==='0','MRP preference ownership changed');
     sql.execute(`DELETE FROM property WHERE ${preference} AND value='mrp'`);
   });
-  await s.step('native provider registration refreshes fixture caches and Preferences selects MRP',async()=>{
-    cached=true;await saveOwnedProviderProfile(authorSession,author);
+  /** Set the owned author's assignee preference through the native Preferences form. */
+  async function setPreference(value) {
     const prefs=await popup(author.schedule,author.schedule.getByTitle(/Edit your personal setting/i).first(),'MRP-preferences');
     const link=prefs.locator('a[href*="method=viewTicklerTaskAssignee"]').first();await revealAuditLink(prefs,link,20000);
-    const form=await popup(prefs,link,'MRP-default-assignee');await form.locator('#taskAssigneeMRP').check();
+    const form=await popup(prefs,link,'MRP-default-assignee');
+    await form.locator(value==='mrp'?'#taskAssigneeMRP':'#taskAssigneeDefault').check();
     await ui.clickAndAwaitReload(form,form.locator('form input[type="submit"]'));await form.locator('#AlertBanner').waitFor();
-    h.assert(sql.value(`SELECT COUNT(*) FROM property WHERE ${preference} AND value='mrp'`)==='1','Native MRP preference was not saved');
+    h.assert(sql.value(`SELECT COUNT(*) FROM property WHERE ${preference}`)===(value==='mrp'?'1':'0'),'Native assignee preference was not saved');
+    if(value==='mrp')h.assert(sql.value(`SELECT value FROM property WHERE ${preference}`)==='mrp','Native MRP preference has another value');
     await form.close();await prefs.close();
+  }
+  await s.step('native provider registration refreshes fixture caches and Preferences selects MRP',async()=>{
+    cached=true;await saveOwnedProviderProfile(authorSession,author);await setPreference('mrp');
   });
   const views=new WeakMap();
+  let multisite=false;
   async function master(id,needle) {
     const scheduleUrl=author.schedule.url();
     const result=await openMasterRecord(author.context,author.schedule,recorder,{searchTerm:needle,preferredDemographicNo:id,timeout:25000});
@@ -113,6 +119,7 @@ async function workflow(s) {
     const chart=await master(id,needle);
     const list=await popup(chart,masterRecordLink(chart,'/tickler/ViewTicklerMain').first(),'MRP-patient-task-list');
     const page=await popup(list,list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(),'MRP-task-composer');
+    multisite=await page.locator('select#site').count()>0;
     views.set(page,{chart,list});return page;
   }
   const field=page=>page.locator('form[name="serviceform"] input[name="demographic_no"]').last();
@@ -292,6 +299,64 @@ async function workflow(s) {
     await save(page,patientB,control,'MRP-MANUAL',{message:draft,preserveDraft:true});
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'Manual assignment changed the control task');
   });
+  if(multisite) {
+    const clinicIds=[],clinicNames=[marker+' Alpha',marker+' Beta'];
+    s.cleanup(()=>{
+      if(!clinicIds.length)return;
+      const ids=clinicIds.join(',');
+      h.assert(sql.value(`SELECT COUNT(*) FROM site WHERE site_id IN (${ids}) AND name IN (${clinicNames.map(q).join(',')})`)===String(clinicIds.length),'Owned recipient clinic identity changed');
+      sql.execute(`DELETE FROM providersite WHERE site_id IN (${ids}); DELETE FROM site WHERE site_id IN (${ids})`);
+      h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM site WHERE site_id IN (${ids}))+(SELECT COUNT(*) FROM providersite WHERE site_id IN (${ids}))`)==='0','Owned recipient clinics remain');
+    });
+    for(const [index,actor] of [control,b].entries()) {
+      const id=h.insertId(sql,`INSERT INTO site(name,short_name,status) VALUES(${q(clinicNames[index])},${q(marker.slice(-8)+index)},1)`,'recipient clinic');
+      h.assert(/^[1-9]\d*$/.test(id),'Owned recipient clinic key is invalid');clinicIds.push(id);
+      sql.execute(`INSERT INTO providersite(provider_no,site_id) VALUES(${q(author.fixture.providerNo)},${id}),(${q(actor.fixture.providerNo)},${id})`);
+    }
+    for(const preferenceValue of ['mrp','default']) {
+      await s.step('native Preferences selects '+preferenceValue+' for multisite draft round trips',()=>setPreference(preferenceValue));
+      for(const route of ['patient','back'])for(const clear of [false,true]) {
+        const label=`${preferenceValue} ${clear?'clinic-clear':'deliberate-recipient'} ${route}`;
+        await s.step(label+' preserves the displayed, submitted and stored recipient',async()=>{
+          const page=await composer(patient,marker),draft=marker+' '+label+' draft\n"quoted" & café';
+          await page.locator('#ticklerMessage').fill(draft);
+          await page.locator('input[name="xml_appointment_date"]').fill('2031-01-31');
+          await page.locator('select[name="priority"]').selectOption('Low');
+          const clinic=page.locator('select#site'),assignee=page.locator('select[name="task_assigned_to"]');
+          if(!await clinic.isVisible())await page.locator('#nameWrapper a[onclick*="toggleWrappers"]').click();
+          await clinic.selectOption(clinicNames[0]);await assignee.selectOption(control.fixture.providerNo);
+          if(clear)await clinic.selectOption(clinicNames[1]);
+          const expected=clear?'':control.fixture.providerNo;
+          h.assert(await assignee.inputValue()===expected,'Clinic change retained the old visible recipient');
+          h.assert(await page.locator('form[name="ADDAPPT"] input[name="taskTo"]').inputValue()===expected,'Transport retained a stale recipient');
+          const search=page.locator('form[name="ADDAPPT"]');await search.locator('input[name="keyword"]').fill(bMarker);
+          const [response]=await Promise.all([
+            page.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/demographic/DemographicSearch')),
+            ui.clickAndAwaitReload(page,search.locator('input[type="submit"][name="Submit"]')),
+          ]);
+          h.assert(new URLSearchParams(response.request().postData()).get('taskTo')===expected,'Patient search submitted another recipient');
+          await ui.clickAndAwaitReload(page,route==='back'?page.locator('#ticklerReturnDraft'):page.locator(`input[name="pick_demographic"][value="${patientB}"]`).first());
+          const patientId=route==='back'?patient:patientB;
+          h.assert(await field(page).inputValue()===patientId&&await assignee.inputValue()===expected,'Search return changed the intended patient or recipient');
+          h.assert(await page.locator('#ticklerMessage').inputValue()===draft&&await page.locator('input[name="xml_appointment_date"]').inputValue()==='2031-01-31'&&await page.locator('select[name="priority"]').inputValue()==='Low','Search return changed draft controls');
+          if(clear) {
+            const before=JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${patientSet}) ORDER BY tickler_no`)),requests=[];
+            const observe=request=>{if(new URL(request.url()).pathname.endsWith('/tickler/DbTicklerAdd'))requests.push(request);};
+            page.on('request',observe);
+            try {
+              await page.locator('form[name="serviceform"] input.btn-primary[name="Button"]').first().click();
+              await page.locator('#error .tickler-validation-message').first().waitFor({state:'visible'});
+              h.assert(requests.length===0&&JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${patientSet}) ORDER BY tickler_no`))===before,'Cleared recipient allowed a save');
+            } finally {page.off('request',observe);}
+            await selectTicklerAssignee(page,b.fixture.providerNo);
+          }
+          await save(page,patientId,clear?b:control,label,{message:draft,preserveDraft:true});
+          h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'Recipient round trip changed the control task');
+        });
+      }
+    }
+    await s.step('native Preferences restores MRP after multisite draft round trips',()=>setPreference('mrp'));
+  }
   /** Exercise an unavailable MRP with owned patients, require guidance, and save only after deliberate manual assignment. */
   async function unavailable(label,mrp) {
     sql.execute(`UPDATE demographic SET provider_no=${q(mrp)} WHERE demographic_no=${patient} AND last_name=${q(marker)}`);

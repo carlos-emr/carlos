@@ -453,10 +453,15 @@
             addQuickPick();
             document.serviceform.addEventListener('change', function(event) {
                 if (event.target.name === 'task_assigned_to') {
-                    document.ADDAPPT.elements.taskTo.disabled = false;
-                    document.ADDAPPT.elements.taskTo.value = event.target.value;
+                    rememberTicklerRecipient(event.target.value);
                 }
             });
+        }
+
+        /** Transport deliberate recipient choices, including a clinic change that clears the choice. */
+        function rememberTicklerRecipient(value) {
+            document.ADDAPPT.elements.taskTo.disabled = false;
+            document.ADDAPPT.elements.taskTo.value = value;
         }
 
         /** Copy the whole visible draft before search; refuse incomplete forms without partial updates. */
@@ -884,14 +889,16 @@
                             <%
                                 } %>
 
-                            function changeSite(sel) {
+                            function changeSite(sel, userInitiated) {
                                 sel.form.task_assigned_to.innerHTML = '<option value=""></option>' + (sel.value == "none" ? "" : _providers[sel.value]);
                                 sel.style.backgroundColor = sel.options[sel.selectedIndex].style.backgroundColor;
+                                // Initial rendering must leave an automatic MRP untransported.
+                                if (userInitiated) rememberTicklerRecipient(sel.form.task_assigned_to.value);
                             }
                         </script>
 
                         <div id="selectWrapper">
-                            <select id="site" class="form-select" name="site" onchange="changeSite(this)">
+                            <select id="site" class="form-select" name="site" onchange="changeSite(this, true)">
                                 <option value="none" style="background-color: white"><fmt:message key="tickler.ticklerAdd.selectClinic"/></option>
                                 <%
                                     for (int i = 0; i < sites.size(); i++) {
@@ -919,9 +926,9 @@
                             changeSite(document.getElementById("site"));
                         </script>
 
-                        <% if (prop != null) {%>
+                        <% if (prop != null || (request.getParameter("taskTo") != null && !taskTo.isEmpty())) {%>
                         <script>
-                            //prop exists so hide selectWrapper
+                            // A deliberate transported recipient also restores when Preferences is Default.
                             document.getElementById("selectWrapper").style.display = "none";
                             document.getElementById("nameWrapper").style.display = "block";
                             document.getElementById("preferenceLink").style.display = "inline-block";
