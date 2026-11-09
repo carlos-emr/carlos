@@ -172,7 +172,7 @@ public class NotesService extends AbstractServiceImpl {
         NoteSelectionTo1 returnResult = new NoteSelectionTo1();
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         if (logger.isDebugEnabled()) {
-            logger.debug("The config {}", jsonobject);
+            logger.debug("Note selection configuration received");
         }
 
         // Get user role and username - support both session-based and OAuth authentication
@@ -242,13 +242,13 @@ public class NotesService extends AbstractServiceImpl {
         processJsonArray(jsonobject, "filterIssues", criteria.getIssues());
 
         if (logger.isDebugEnabled()) {
-            logger.debug("SEARCHING FOR NOTES WITH CRITERIA: {}", criteria);
+            logger.debug("Searching notes");
         }
 
         NoteSelectionResult result = noteService.findNotes(loggedInInfo, criteria);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("FOUND: {}", result);
+            logger.debug("Note search returned {} records", result.getNotes().size());
             for (NoteDisplay nd : result.getNotes()) {
                 // PHI: do not log note content; log only type, id, and length
                 String noteText = nd.getNote();
@@ -354,7 +354,7 @@ public class NotesService extends AbstractServiceImpl {
             // must keep its dirty in-memory copy to retry. The manager rolls back replacement of
             // the previous draft. (Narrowed from
             // Throwable so JVM Errors are not swallowed.)
-            logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy", e);
+            logger.error("AutoSave failed for the draft note; returning an error so the client retains its unsaved copy: {}", LogSafe.exceptionTrace(e));
             throw new WebApplicationException("Autosave failed", Response.Status.INTERNAL_SERVER_ERROR);
         }
 
@@ -447,11 +447,11 @@ public class NotesService extends AbstractServiceImpl {
             cpp = new CaseManagementCPP();
             cpp.setDemographic_no(demo);
         }
-        logger.debug("enc TYPE {}", note.getEncounterType());
+        logger.debug("Encounter type supplied");
         caseMangementNote.setEncounter_type(note.getEncounterType());
 
         //caseMangementNote.setHourOfEncounterTime(note.getEncounterTime());
-        logger.debug("this is what the encounter time was {}", note.getEncounterTime());
+        logger.debug("Encounter duration supplied");
 		/*String hourOfEncounterTime = request.getParameter("hourOfEncounterTime");
 		if (hourOfEncounterTime != null && !"".equals(hourOfEncounterTime)) {
 			note.setHourOfEncounterTime(Integer.valueOf(hourOfEncounterTime));
@@ -462,7 +462,7 @@ public class NotesService extends AbstractServiceImpl {
 			note.setMinuteOfEncounterTime(Integer.valueOf(minuteOfEncounterTime));
 		}*/
 
-        logger.debug("this is what the encounter time was {}", note.getEncounterTransportationTime());
+        logger.debug("Encounter transport duration supplied");
 		/*
 		String hourOfEncTransportationTime = request.getParameter("hourOfEncTransportationTime");
 		if (hourOfEncTransportationTime != null && !"".equals(hourOfEncTransportationTime)) {
@@ -492,7 +492,7 @@ public class NotesService extends AbstractServiceImpl {
         try {
             programId = Integer.parseInt(programIdString);
         } catch (Exception e) {
-            logger.warn("Error parsing programId:" + programIdString, e);
+            logger.warn("Invalid note program ID: {}", LogSafe.exceptionTrace(e));
         }
         caseMangementNote.setProgram_no(programIdString);
 
@@ -632,46 +632,10 @@ public class NotesService extends AbstractServiceImpl {
         return note;
 		
 		
-		/*
-		//update lock to new note id
-		casemgmtNoteLockSession.setNoteId(note.getId());
-		logger.info("UPDATING NOTE ID in LOCK");
-		casemgmtNoteLockDao.merge(casemgmtNoteLockSession);
-		session.setAttribute("casemgmtNoteLock"+demo, casemgmtNoteLockSession);	
-		*/
 
 
-		/*
-		String sessionFrmName = "caseManagementEntryForm" + demo;
-		CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName);
-		
-		CasemgmtNoteLock casemgmtNoteLockSession = (CasemgmtNoteLock)session.getAttribute("casemgmtNoteLock"+demo);				
-		
-		try {
-			
-			if (casemgmtNoteLockSession == null) {
-				throw new Exception("SESSION CASEMANAGEMENT NOTE LOCK OBJECT IS NULL");
-			}
-			
-			CasemgmtNoteLock casemgmtNoteLock = casemgmtNoteLockDao.find(casemgmtNoteLockSession.getId());
-			//if other window has acquired lock we reject save									
-			if ( !casemgmtNoteLock.getSessionId().equals(casemgmtNoteLockSession.getSessionId()) || !request.getSession().getId().equals(casemgmtNoteLockSession.getSessionId()) ) {
-				logger.info("DO NOT HAVE LOCK FOR " + demo + " PROVIDER " + providerNo + " CONTINUE SAVING LOCAL SESSION " + request.getSession().getId() + " LOCAL IP " + request.getRemoteAddr() + " LOCK SESSION " + casemgmtNoteLockSession.getSessionId() + " LOCK IP " + casemgmtNoteLockSession.getIpAddress());
-				return -1L;
-			}
-		}
-		catch (Exception e ) {
-			//Exception thrown if other window has saved and exited so lock is gone
-			logger.error("Lock not found for " + demo + " providers " + providerNo + " IP " + request.getRemoteAddr(), e);
-			return -1L;
-		}
-		String lastSavedNoteString = (String) session.getAttribute("lastSavedNoteString");
-		
-		String strBeanName = "casemgmt_oscar_bean" + demo;
-		EctSessionBean sessionBean = (EctSessionBean) session.getAttribute(strBeanName);
 
-		return note.getId();
-		*/
+
 
 
     }
@@ -751,7 +715,7 @@ public class NotesService extends AbstractServiceImpl {
         try {
             role = String.valueOf((programManager.getProgramProvider(providerNo, programId)).getRole().getId());
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Note operation failed: {}", LogSafe.exceptionTrace(e));
             role = "0";
         }
 
@@ -760,7 +724,7 @@ public class NotesService extends AbstractServiceImpl {
         try {
             team = String.valueOf((admissionManager.getAdmission(programId, demographicNo)).getTeamId());
         } catch (Exception e) {
-            logger.error("Error", e);
+            logger.error("Note operation failed: {}", LogSafe.exceptionTrace(e));
             team = "0";
         }
         caseMangementNote.setReporter_program_team(team);
@@ -1005,7 +969,7 @@ public class NotesService extends AbstractServiceImpl {
         CaseManagementIssueNotesDao cmeIssueNotesDao = (CaseManagementIssueNotesDao) SpringUtils.getBean(CaseManagementIssueNotesDao.class);
         List<CaseManagementIssue> issuesList = cmeIssueNotesDao.getNoteIssues(note.getNoteId());
         for (CaseManagementIssue issueItem : issuesList) {
-            logger.debug("ISSUES LIST {} for note {}", issueItem, newNoteId);
+            logger.debug("Preparing issue for note {}", newNoteId);
         }
 
         if (note.getNoteId() != 0) {
@@ -1214,7 +1178,7 @@ public class NotesService extends AbstractServiceImpl {
         try {
             programId = Integer.parseInt(programIdString);
         } catch (Exception e) {
-            logger.warn("Error parsing programId:" + programIdString, e);
+            logger.warn("Invalid note program ID: {}", LogSafe.exceptionTrace(e));
         }
 
 ///////Not sure what this is about??		
@@ -1247,7 +1211,7 @@ public class NotesService extends AbstractServiceImpl {
                 : EncounterPatientContext.findEncounter(getHttpServletRequest(), String.valueOf(demographicNo));
         String encType = getString(jsonobject, "encType");
 
-        logger.debug("Encounter Type : {}", encType);
+        logger.debug("Encounter type selected");
 
 
         // create a new note
@@ -1365,7 +1329,7 @@ public class NotesService extends AbstractServiceImpl {
         // assume the manager lookups returned a non-null note (behaviour unchanged here).
         if (logger.isDebugEnabled()) {
             logger.debug("note id={}", note.getId());
-            logger.debug("Set Encounter Type: {}", note.getEncounter_type());
+            logger.debug("Encounter type prepared");
             logger.debug("Fetched Note {}", note.getId());
             logger.debug("Populate Note with editors");
         }
@@ -1521,7 +1485,7 @@ public class NotesService extends AbstractServiceImpl {
         for (CaseManagementNoteExt l : lcme) {
             // PHI: do not log note content; log only the key and value length.
             if (logger.isDebugEnabled()) {
-                logger.debug("NOTE EXT key={} valueLength={}", l.getKeyVal(),
+                logger.debug("Note extension valueLength={}",
                         l.getValue() != null ? l.getValue().length() : 0);
             }
 
@@ -1597,7 +1561,7 @@ public class NotesService extends AbstractServiceImpl {
         for (CaseManagementNoteExt l : lcme) {
             // PHI: do not log note content; log only the key and value length.
             if (logger.isDebugEnabled()) {
-                logger.debug("NOTE EXT key={} valueLength={}", l.getKeyVal(),
+                logger.debug("Note extension valueLength={}",
                         l.getValue() != null ? l.getValue().length() : 0);
             }
 

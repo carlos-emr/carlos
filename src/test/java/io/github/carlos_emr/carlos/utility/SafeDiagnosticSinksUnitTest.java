@@ -178,17 +178,73 @@ class SafeDiagnosticSinksUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    private NotesService noteService(CaseManagementManager manager) {
-        var info = new LoggedInInfo();
+    @Test
+    void shouldReturnSelectedNoteContent_withoutFormattingSelectionPayloadsOrResultObjects() {
+        var manager = mock(CaseManagementManager.class);
+        var session = mock(jakarta.servlet.http.HttpSession.class);
+        when(session.getAttribute("userrole")).thenReturn("doctor");
+        when(session.getAttribute("user")).thenReturn("999998");
+        when(manager.isClientInProgramDomain("999998", "23")).thenReturn(true);
+        var service = noteService(manager, session);
+        var selection = mock(io.github.carlos_emr.carlos.casemgmt.service.NoteService.class);
+        injectDependency(service, "noteService", selection);
+        var display = mock(io.github.carlos_emr.carlos.casemgmt.web.NoteDisplay.class);
+        when(display.getNoteId()).thenReturn(73);
+        when(display.getNote()).thenReturn(PRIVATE);
+        when(display.toString()).thenReturn(PRIVATE);
+        var result = new io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionResult();
+        result.setMoreNotes(true); result.setNotes(List.of(display));
+        when(selection.findNotes(any(), any())).thenReturn(result);
+        var body = JSON.createObjectNode().put("unusedPrivatePayload", PRIVATE);
+        body.putArray("filterIssues").add(PRIVATE);
+        try (var logs = LogCapture.forLogger(NotesService.class)) {
+            var returned = service.getNotesWithFilter(23, 10, 0, body);
+            assertThat(returned.getNotelist()).hasSize(1);
+            assertThat(returned.getNotelist().getFirst().getNote()).isEqualTo(PRIVATE);
+            assertThat(returned.getNotelist().getFirst().getNoteId()).isEqualTo(73);
+            var criteria = ArgumentCaptor.forClass(io.github.carlos_emr.carlos.casemgmt.service.NoteSelectionCriteria.class);
+            verify(selection).findNotes(any(), criteria.capture());
+            assertThat(criteria.getValue().getIssues()).contains(PRIVATE);
+            assertThat(logs.messages()).contains("Note search returned 1 records")
+                    .allSatisfy(message -> assertThat(message).doesNotContain(PRIVATE, body.toString()));
+        }
+    }
+
+    @Test
+    void shouldKeepFailedAutosavesExplicit_withoutLoggingPrivateExceptionPayloads() {
+        var manager = mock(CaseManagementManager.class);
+        var service = noteService(manager);
+        doThrow(new IllegalStateException(PRIVATE, new java.io.IOException(PRIVATE)))
+                .when(manager).replaceTmpSave(anyString(), anyString(), anyString(), anyString(), anyString());
+        var note = new io.github.carlos_emr.carlos.webserv.rest.to.model.NoteTo1(); note.setNote(PRIVATE);
+        try (var logs = LogCapture.forLogger(NotesService.class)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.tmpSaveNote(23, note))
+                    .isInstanceOf(jakarta.ws.rs.WebApplicationException.class)
+                    .satisfies(failure -> {
+                        assertThat(((jakarta.ws.rs.WebApplicationException) failure).getResponse().getStatus()).isEqualTo(500);
+                        assertThat(failure.getMessage()).doesNotContain(PRIVATE);
+                        assertThat(failure.getCause()).isNull();
+                    });
+            verify(manager).replaceTmpSave("999998", "23", "7", "0", PRIVATE);
+            assertThat(logs.messages()).anyMatch(message -> message.contains("AutoSave failed"))
+                    .allSatisfy(message -> assertThat(message).doesNotContain(PRIVATE));
+            assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
+        }
+    }
+
+    private NotesService noteService(CaseManagementManager manager) { return noteService(manager, null); }
+
+    private NotesService noteService(CaseManagementManager manager, jakarta.servlet.http.HttpSession session) {
         var provider = new Provider();
         provider.setProviderNo("999998");
-        info.setLoggedInProvider(provider);
+        var info = new LoggedInInfo(session, null, provider, null, Locale.CANADA);
         var service = new NotesService() {
             @Override protected LoggedInInfo getLoggedInInfo() { return info; }
             @Override protected Locale getLocale() { return Locale.CANADA; }
         };
         var security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(), anyString(), anyString(), any())).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(info, 23)).thenReturn(true);
         injectDependency(service, "securityInfoManager", security);
         injectDependency(service, "caseManagementMgr", manager);
         var program = new ProgramProvider();
