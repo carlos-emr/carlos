@@ -116,6 +116,7 @@ jobs:
 
       - name: Verify native XML objects and unchanged published clients
         run: |
+          sudo chown -R "$(id -u):$(id -g)" target
           python3 -m pip install --require-hashes --target target/native-xml-python -r scripts/ci/requirements.txt
           mkdir -p target/native-xml-input
           curl --fail --location --retry 2 \

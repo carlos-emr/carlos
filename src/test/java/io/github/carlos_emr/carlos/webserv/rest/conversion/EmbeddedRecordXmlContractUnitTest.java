@@ -137,6 +137,14 @@ class EmbeddedRecordXmlContractUnitTest {
                 }
             }
             var expected = new ArrayList<String>(); entry.getValue().forEach(value -> expected.add(value.asText()));
+            if (owner == AppointmentTo1.class) {
+                // This branch-local snapshot included the later JSON editing token in XML.
+                // The independently pinned beta6 schemas/old readers reject that extra element;
+                // keep the frozen input intact while enforcing the published default contract.
+                assertThat(expected).contains("editVersion");
+                expected.remove("editVersion");
+                assertThat(actual).doesNotContain("editVersion");
+            }
             assertThat(actual).as(provider+" "+owner.getSimpleName()).containsExactlyElementsOf(expected);
         }
     }
