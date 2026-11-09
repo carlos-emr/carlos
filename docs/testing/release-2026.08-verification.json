@@ -2719,7 +2719,7 @@
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
         "RxSaveReceiptCommitIntegrationTest": 4,
-        "RxConcurrencyIntegrationTest": 3,
+        "RxConcurrencyIntegrationTest": 4,
         "RxFavoriteGroupIntegrationTest": 4,
         "RxFavoriteCopyIntegrationTest": 1,
         "RxRestPrescriptionRollbackIntegrationTest": 1

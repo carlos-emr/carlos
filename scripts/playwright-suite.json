@@ -19254,6 +19254,20 @@
       "timeoutSec": 240,
       "env": [],
       "fixtures": "Requires root access to the disposable packaged ModSecurity audit log; emits only Boolean evidence, never audit payloads. Verifies routine renal N/A returns200 with no audit and a real injection is blocked and audited."
+    },
+    {
+      "name": "rx-preview-loading-notes",
+      "script": "scripts/rx-preview-loading-notes-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 240,
+      "env": [],
+      "fixtures": "Creates and removes an owned prescription; holds its preview response while checking early fax refusal and saving initial notes. No fax is transmitted."
     }
   ]
 }

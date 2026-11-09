@@ -73,4 +73,20 @@ class RxConcurrencyIntegrationTest extends CarlosUnitTestBase {
         String actualComment = tx().execute(status -> em.find(Prescription.class, saved.getId()).getComments());
         assertThat(actualComment).isEqualTo("First edit");
     }
+    @Test void shouldAcceptFirstNotes_whenTheDisplayedBlankWasStoredAsNull() {
+        Prescription saved = tx().execute(status -> {
+            var header = new Prescription(); header.setDemographicId(1001); header.setProviderNo("999998");
+            header.setComments(null); em.persist(header); return header;
+        });
+        assertThat(concurrency.updateComment("999998", 1001, saved.getId(), null, "", true, ""))
+                .isEqualTo(saved.getRowVersion());
+        long updated = concurrency.updateComment("999998", 1001, saved.getId(), null, "", true, "First notes");
+        assertThat(updated).isGreaterThan(saved.getRowVersion());
+        assertThatThrownBy(() -> concurrency.updateComment("999998", 1001, saved.getId(), null, "", true, "Stale notes"))
+                .isInstanceOf(RxConcurrencyManager.Conflict.class);
+        assertThat(concurrency.updateComment("999998", 1001, saved.getId(), null, "", true, "First notes")).isEqualTo(updated);
+        String stored = tx().execute(status -> em.find(Prescription.class, saved.getId()).getComments());
+        assertThat(stored).isEqualTo("First notes");
+    }
+
 }

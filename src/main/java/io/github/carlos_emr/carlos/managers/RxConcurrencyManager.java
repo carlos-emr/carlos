@@ -49,9 +49,12 @@ public class RxConcurrencyManager {
                 + "AND demographic_no=? FOR UPDATE", (rs, row) -> new Object[]{rs.getLong(1), rs.getString(2)}, script, patient);
         if (rows.size() != 1) throw new Conflict();
         long version = (Long) rows.getFirst()[0];
-        if (Objects.equals(comment, rows.getFirst()[1])) return version;
+        // The editor renders a SQL NULL as an empty textarea. Compare the original display,
+        // otherwise the first notes edit on a newly saved prescription always conflicts.
+        String displayedComment = rows.getFirst()[1] == null ? "" : (String) rows.getFirst()[1];
+        if (Objects.equals(comment, displayedComment)) return version;
         if (original != null && original.longValue() != version
-                || hasOriginalComment && !Objects.equals(originalComment, rows.getFirst()[1])) throw new Conflict();
+                || hasOriginalComment && !Objects.equals(originalComment, displayedComment)) throw new Conflict();
         if (jdbc.update("UPDATE prescription SET rx_comments=?,row_version=row_version+1,lastUpdateDate=CURRENT_TIMESTAMP "
                 + "WHERE script_no=? AND demographic_no=? AND row_version=?", comment, script, patient, version) != 1) throw new Conflict();
         LogAction.addLogStrict(provider, "update", LogConst.CON_PRESCRIPTION, Integer.toString(script), "", Integer.toString(patient), "comments");
