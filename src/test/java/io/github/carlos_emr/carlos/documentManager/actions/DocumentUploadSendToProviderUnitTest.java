@@ -178,6 +178,23 @@ class DocumentUploadSendToProviderUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReportPersistenceFailure_withoutRoutingOrClaimingAStoredDocument() throws Exception {
+        eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class)))
+                .thenThrow(new IllegalStateException("SYNTHETIC_PRIVATE_STORAGE_DETAIL"));
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(DocumentUpload2Action.class)) {
+            uploadToPendingDocs("999998");
+            var response = (MockHttpServletResponse) ServletActionContext.getResponse();
+            assertThat(response.getContentAsString())
+                    .contains(java.util.ResourceBundle.getBundle("oscarResources").getString("dms.addDocument.errorNoWrite"))
+                    .doesNotContain("\"size\"", "SYNTHETIC_PRIVATE_STORAGE_DETAIL");
+            org.mockito.Mockito.verifyNoInteractions(routingDao, queueLinkDao);
+            assertThat(upload).doesNotExist();
+            assertThat(logs.messages().toString()).contains("Failed to store uploaded document")
+                    .doesNotContain("SYNTHETIC_PRIVATE_STORAGE_DETAIL", documentDir.toString());
+        }
+    }
+
+    @Test
     void shouldPreserveNonPdfUploads_withoutAttemptingPdfPageCounting() throws Exception {
         Files.writeString(upload.toPath(), "SYNTHETIC ordinary document");
         uploadToPendingDocs("999998", "scan.txt");

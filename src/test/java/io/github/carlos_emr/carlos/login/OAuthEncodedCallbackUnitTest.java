@@ -17,6 +17,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -72,6 +73,30 @@ class OAuthEncodedCallbackUnitTest {
     }
 
     private static MockHttpServletRequest signedRequest(String transport, boolean tamper, String consumerSecret) throws Exception {
+        return signedRequest(transport, tamper, consumerSecret, null, null);
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {"%|%", "%A|%A", "%G0|%G0", "%0G|%0G", "%41%G0|A%G0", "%41%0G|A%0G",
+            "%C3%A9|é", "%C3%A9%20test|é test"}, delimiter = '|')
+    void shouldNormalizeRawQueryEscapes_beforeVerifyingIndependentSignatures(String raw, String decoded) throws Exception {
+        var provider = mock(OscarOAuthDataProvider.class);
+        var client = new Client("consumer", consumerSecret, "Fixture", "https://app.example");
+        client.setCallbackUri("https://app.example/callback?fixture=owned");
+        when(provider.getClient("consumer")).thenReturn(client);
+        when(provider.createRequestToken(any())).thenReturn(new RequestToken(client, "token", "token-secret"));
+        var service = new OscarRequestTokenService(provider, new OAuth1ParamParser());
+        ReflectionTestUtils.setField(service, "verifier", new OAuth1SignatureVerifierImplementation(provider));
+        assertThat(service.initiatePost(signedRequest("header", false, consumerSecret, raw, decoded)).getStatus())
+                .isEqualTo(200);
+        assertThatThrownBy(() -> service.initiatePost(signedRequest("header", true, consumerSecret, raw, decoded)))
+                .isInstanceOfSatisfying(OAuth1Exception.class, error -> assertThat(error.getHttpCode()).isEqualTo(401));
+        verify(provider, times(1)).createRequestToken(any());
+        verify(provider, times(1)).consumeNonce(eq("consumer"), isNull(), eq("nonce%20literal+é"), anyLong(), eq(600L));
+    }
+
+    private static MockHttpServletRequest signedRequest(String transport, boolean tamper, String consumerSecret,
+            String rawProbe, String decodedProbe) throws Exception {
         var request = new MockHttpServletRequest("POST", "/ws/oauth/initiate");
         request.setScheme("https");
         request.setServerName("clinic.example");
@@ -81,6 +106,7 @@ class OAuthEncodedCallbackUnitTest {
                 "oauth_signature_method", "HMAC-SHA1", "oauth_nonce", "nonce%20literal+é",
                 "oauth_timestamp", Long.toString(System.currentTimeMillis() / 1000)));
         parameters.put("scope", "demographic.read");
+        if (rawProbe != null) parameters.put("probe", decodedProbe);
         String normalized = parameters.entrySet().stream().map(e -> encode(e.getKey()) + "=" + encode(e.getValue()))
                 .collect(java.util.stream.Collectors.joining("&"));
         String base = "POST&" + encode("https://clinic.example/ws/oauth/initiate") + "&" + encode(normalized);
@@ -88,7 +114,7 @@ class OAuthEncodedCallbackUnitTest {
         mac.init(new SecretKeySpec((encode(consumerSecret) + "&").getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
         parameters.put("oauth_signature", tamper ? "invalid" : Base64.getEncoder().encodeToString(mac.doFinal(base.getBytes(StandardCharsets.UTF_8))));
         if ("header".equals(transport)) {
-            request.setQueryString("scope=demographic.read");
+            request.setQueryString("scope=demographic.read" + (rawProbe == null ? "" : "&probe=" + rawProbe));
             request.addHeader("Authorization", "OAuth " + parameters.entrySet().stream()
                     .filter(e -> e.getKey().startsWith("oauth_"))
                     .map(e -> e.getKey() + "=\"" + encode(e.getValue()) + "\"")

@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.webserv;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -87,6 +88,42 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
         registerMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class, visibility);
         injectDependency(ws, "demographicManager", demographicManager);
         injectDependency(ws, "patientConsentManager", patientConsentManager);
+    }
+
+    @Test
+    void shouldRefuseConsentDiscovery_withoutAnAuthenticatedPrincipal() {
+        var unauthenticated = new DemographicWs() {
+            @Override protected LoggedInInfo getLoggedInInfo() { return null; }
+        };
+        assertThatThrownBy(() -> unauthenticated.getConsentedDemographicIdsAfter(java.util.Calendar.getInstance()))
+                .isInstanceOf(SecurityException.class).hasMessage("Patient discovery is not authorized");
+        org.mockito.Mockito.verifyNoInteractions(patientConsentManager, visibility);
+    }
+
+    @Test
+    void shouldRefuseMissingConsentDiscoveryDate_beforeReadingConsentRecords() {
+        when(visibility.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        var proxy = createClient(DemographicWs.class);
+        assertThatThrownBy(() -> proxy.getConsentedDemographicIdsAfter(null))
+                .isInstanceOf(jakarta.xml.ws.soap.SOAPFaultException.class).hasMessageContaining("lastUpdate is required");
+        org.mockito.Mockito.verifyNoInteractions(patientConsentManager);
+    }
+
+    @Test
+    void shouldRefuseMalformedConsentPatientIds_beforeReturningAnyPatient() {
+        when(visibility.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq("r"),
+                org.mockito.ArgumentMatchers.isNull())).thenReturn(true);
+        var type = new io.github.carlos_emr.carlos.commn.model.ConsentType();
+        when(patientConsentManager.getProviderSpecificConsent(any(LoggedInInfo.class))).thenReturn(type);
+        var first = new io.github.carlos_emr.carlos.commn.model.Consent(); first.setDemographicNo(101);
+        var missing = new io.github.carlos_emr.carlos.commn.model.Consent();
+        when(patientConsentManager.getConsentsByTypeAndEditDate(any(), eq(type), any()))
+                .thenReturn(List.of(first, missing));
+        var proxy = createClient(DemographicWs.class);
+        assertThatThrownBy(() -> proxy.getConsentedDemographicIdsAfter(java.util.Calendar.getInstance()))
+                .isInstanceOf(jakarta.xml.ws.soap.SOAPFaultException.class).hasMessageContaining("without a patient ID");
+        org.mockito.Mockito.verify(visibility, org.mockito.Mockito.never()).getReadableDemographicIds(any(), any());
     }
 
     @Test
