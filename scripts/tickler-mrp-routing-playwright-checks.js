@@ -131,7 +131,7 @@ async function workflow(s) {
     h.assert(response.status()===200,'MRP task save failed');
     const submitted=new URLSearchParams(response.request().postData());
     h.assert(submitted.get('task_assigned_to')===actor.fixture.providerNo&&submitted.get('demographic_no')===id,'Native request submitted another patient/assignee');
-    const rows=sql.rows(`SELECT tickler_no,demographic_no,task_assigned_to,creator,status FROM tickler WHERE message=${q(message)}`);
+    const rows=sql.rows(`SELECT tickler_no,demographic_no,task_assigned_to,creator,status FROM tickler WHERE message=${q(submitted.get('ticklerMessage'))}`);
     h.assert(rows.length===1&&JSON.stringify(rows[0].slice(1))===JSON.stringify([id,actor.fixture.providerNo,author.fixture.providerNo,'A']),'Saved MRP task has wrong identity, assignee or creator');
     h.assert(sql.value(`SELECT HEX(message) FROM tickler WHERE tickler_no=${rows[0][0]}`) === Buffer.from(submitted.get('ticklerMessage'), 'utf8').toString('hex').toUpperCase(), 'Stored task text differs from the submitted draft');
     if(!page.isClosed())await page.close();
@@ -178,6 +178,21 @@ async function workflow(s) {
     }
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'MRP task reads changed the control');
   });
+  await s.step('independent composers retain their own unsaved drafts',async()=>{
+    const one=await composer(patient,marker),two=await composer(patientB,bMarker);
+    await one.locator('#ticklerMessage').fill(marker+' first draft');
+    await two.locator('#ticklerMessage').fill(marker+' second draft');
+    const search=one.locator('form[name="ADDAPPT"]');
+    await search.locator('input[name="keyword"]').fill(marker);
+    await ui.clickAndAwaitReload(one,search.locator('input[type="submit"][name="Submit"]'));
+    await ui.clickAndAwaitReload(one,one.locator('#ticklerReturnDraft'));
+    h.assert(await one.locator('#ticklerMessage').inputValue()===marker+' first draft','First composer lost its own draft');
+    h.assert(await two.locator('#ticklerMessage').inputValue()===marker+' second draft','Another composer substituted the draft');
+    h.assert(await field(one).inputValue()===patient&&await field(two).inputValue()===patientB,'Returning a draft changed another patient association');
+    for(const page of [one,two]) {
+      const view=views.get(page);await page.close();await view.list.close();await view.chart.close();
+    }
+  });
   const findings=[];
   function finding(label,message) {
     const error=h.markFailedStep(new Error(message),label);findings.push(error);console.error('  FAIL '+NAME+': '+label+' -- '+message);
@@ -196,7 +211,13 @@ async function workflow(s) {
     const page=await popup(list,list.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(),'MRP-patient-free-composer');
     views.set(page,{list,scheduleUrl});
     h.assert(['','0'].includes(await field(page).inputValue()),'Patient-free entry unexpectedly inherited another patient');
-    const draft=marker+' late-attachment draft';await page.locator('#ticklerMessage').fill(draft);
+    const draft=marker+' late-attachment draft\nline two: "quoted" & café';await page.locator('#ticklerMessage').fill(draft);
+    const search=page.locator('form[name="ADDAPPT"]');
+    await search.locator('input[name="keyword"]').fill(bMarker);
+    await ui.clickAndAwaitReload(page,search.locator('input[type="submit"][name="Submit"]'));
+    await ui.clickAndAwaitReload(page,page.locator('#ticklerReturnDraft'));
+    h.assert(await page.locator('#ticklerMessage').inputValue()===draft,'Returning from patient search lost the draft');
+    h.assert(['','0'].includes(await field(page).inputValue()),'Cancelled search attached a patient');
     await attach(page,patientB,bMarker,draft);await assertAssignee(page,b);
     await page.locator('#ticklerMessage').fill(draft);
     await attach(page,patient,marker,draft);await assertAssignee(page,a);

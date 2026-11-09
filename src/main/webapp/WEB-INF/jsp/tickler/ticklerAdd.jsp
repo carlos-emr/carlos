@@ -724,6 +724,7 @@
         %>
         <form name="ADDAPPT" onsubmit="this.elements.ticklerMessage.value = document.serviceform.ticklerMessage.value; this.elements.xml_appointment_date.value = document.serviceform.xml_appointment_date.value; this.elements.priority.value = document.serviceform.priority.value;" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
             <input type="hidden" name="ticklerMessage" value="<carlos:encode value='<%= suggestedMessage %>' context="htmlAttribute"/>">
+            <input type="hidden" name="ticklerOriginalPatient" value="<carlos:encode value='<%= requestDemographicNo %>' context="htmlAttribute"/>">
             <input type="hidden" name="xml_appointment_date" value="">
             <input type="hidden" name="priority" value="">
             <input type="hidden" name="taskTo" <%= request.getParameter("taskTo") == null ? "disabled" : "" %> value="${carlos:forHtmlAttribute(param.taskTo)}">
