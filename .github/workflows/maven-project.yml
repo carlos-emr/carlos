@@ -268,10 +268,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Require the successful Java run's coverage counters
+      - name: Generate and require the successful Java run's coverage counters
+        # make install packages before running tests; the prepare-package report
+        # goal therefore runs before any execution data exists on a clean CI tree.
+        # Render the counters explicitly after the successful tests and retakes.
         run: |
-          test -s target/site/jacoco/jacoco.xml
-          test -s target/jacoco.exec
+          docker exec carlos-tomcat-dev test -s target/jacoco.exec
+          docker exec carlos-tomcat-dev rm -f target/site/jacoco/jacoco.xml
+          docker exec carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:report
+          docker exec carlos-tomcat-dev test -s target/site/jacoco/jacoco.xml
 
       - name: Preserve Java coverage counters
         # JaCoCo contains source/probe counters, not configuration or clinical output.

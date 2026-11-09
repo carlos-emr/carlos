@@ -114,6 +114,27 @@ readiness.
 
 ## Additional local qualification and remaining gates
 
+The complete `ca2bd8bf4836` source-built candidate passed lintian and matched
+all 6,206 checked payload entries in both installed provinces. Its 6,192
+production classes are byte-identical to the full `e2b2c4979a2f` Java retake.
+Each province passed all seven installed Playwright checks and all nine actual
+same-candidate APT reinstall assertions, including complete clinical-cell,
+document, encryption-key and application-byte preservation. Private transition
+and recovery evidence is retained. This is equal-version reinstall evidence;
+it does not establish published-predecessor upgrade acceptance.
+
+At `ca2bd8bf4836`, all nineteen Actions workflows completed: eighteen passed,
+including source-built Debian/ON/BC installs, Sonar and all five CDS resource
+profiles. The Java workflow passed its full tests, permission, compatibility,
+timezone and font retakes, but failed the newly added coverage-artifact step:
+`make install --run-tests` packages before running tests, so the lifecycle's
+report goal precedes execution data on a clean runner. The follow-up explicitly
+runs `jacoco:report` after successful tests and requires both XML and execution
+data inside that same container before publishing them. The failed workflow
+remains failed; its replacement must pass independently. The retained sanitized
+reports contain 34,526 H2 cases (148 routed/prerequisite skips), five passing
+permission cases and four passing legacy compatibility cases.
+
 The complete `67495a962dc0` installation passed all 16 backup-core assertions
 on both ON and BC: actual restic backup/drill, SQL/file/config/key restoration,
 application read denial, encryption/canary checks, missing-repository refusal,
