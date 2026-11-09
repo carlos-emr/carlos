@@ -71,3 +71,16 @@ unreviewed zero floors and misses 33 line, 41 instruction and 29 branch floors.
 No waiver or lower threshold is added; the complete native-lane union remains
 required. This metadata establishes freshness and does not qualify release
 coverage.
+
+The `0c95d9e7cfd1` checkpoint also includes release `ef69eea17a4c` and
+preserves both concurrent inbox selection guards and the upload, consent and
+OAuth failure-path regressions. Its fresh Ubuntu 26.04/JDK 25 H2 run records
+35,817 cases: 35,606 passes, 211 explicit routed/prerequisite skips and zero
+failures/errors. The exact five-case permission lane passes separately without skips;
+all 6,289 production class hashes remain identical across these executions.
+The baseline now binds 704 floors and six nonexecutable exclusions to that
+source and report. Higher historical metrics for 50 files and all four ZIP
+refusal lines are retained. Every Java file changed by PR #6100 meets its
+retained floors. The full comparison still refuses 79 unreviewed zero floors
+and misses 34 line, 42 instruction and 31 branch floors. These failures remain
+open; this refresh adds no waiver and does not qualify full release coverage.

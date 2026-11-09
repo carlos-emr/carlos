@@ -299,3 +299,28 @@ stronger four-row Select All control require their own complete installed
 retake. Coverage metadata retains 673 floors, six nonexecutable exclusions,
 47 higher historical metrics and all ZIP refusal lines. Seventy-seven zero
 floors remain unreviewed, and the full H2 comparison remains unqualified.
+
+The `0c95d9e7cfd1` checkpoint integrates release `ef69eea17a4c` (#6099),
+retaining both lookup and prescription-favorite mutation guards. Its clean
+Ubuntu 26.04/JDK 25 compilation produces 6,289 production classes. The fresh
+full H2 run records 35,817 cases: 35,606 passes, 211 explicit routed/prerequisite
+skips and zero failures/errors; all five permission cases pass separately without
+skips. Node 22 passes 7,848 cases across 555 files without skips, cancellations
+or TODOs, and the committed case inventory matches that execution. Python
+passes 375 tooling and 30 coverage-policy tests; all 17 locked-browser source
+fixtures pass. The matrix retains 40 workstreams and 92 checks.
+
+The Maven-built WAR and supported external-WAR Debian build pass packaging
+and lintian with snapshot29 and CLI 1.3.2. All compiled class bytes and 32
+JSP/resource changes from the recent release integration match the WAR and
+package payload. Coverage metadata retains 704 floors, six nonexecutable
+exclusions, 50 higher historical metrics and every ZIP refusal line. The Java
+files changed by this PR meet their retained floors; 79 unreviewed zero floors
+and the wider native-lane union gaps remain open. Scope discovery records
+2,728 unowned production paths and no unresolved main-only migrations; this
+inventory is not qualification evidence.
+
+Installed acceptance remains a separate gate. An Ontario attempt interrupted
+by a container OOM event produced no required JUnit receipt and remains failed
+evidence, with its container and logs retained. Only complete strict ON/BC
+retakes qualify that gate; the PR description records their current outcomes.
