@@ -3033,6 +3033,33 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.webserv.rest.ReportingPatientListAuditMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[1]",
+                  "container": ""
+                },
+                {
+                  "name": "shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[2]",
+                  "container": ""
+                }
+              ]
+            },
+            {
+              "name": "shouldRollbackEarlierNameAudits_whenLaterPatientEnrichmentFails",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -3084,7 +3111,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -3094,7 +3121,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2568,
+      "minimumCases": 2572,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -3124,7 +3151,8 @@
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
-        "AppointmentUpdateDaoIntegrationTest": 17
+        "AppointmentUpdateDaoIntegrationTest": 17,
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -3154,7 +3182,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -3163,7 +3191,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 153,
+      "minimumCases": 157,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -3190,7 +3218,8 @@
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
-        "ProgramAdmissionAuditMariaDbIntegrationTest": 3
+        "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -3220,7 +3249,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest,LegacyBcTeleplanExportMariaDbIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -3229,7 +3258,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 182,
+      "minimumCases": 186,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -3254,7 +3283,8 @@
         "RxPrescribeMariaDbIntegrationTest": 4,
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
-        "LegacyBcTeleplanExportMariaDbIntegrationTest": 29
+        "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -6502,7 +6532,8 @@
     "src/main/java/io/github/carlos_emr/carlos/webserv/rest/ReportingService.java": {
       "reason": "Patient-scoped rows and totals; synchronous admission audit commits and rollback are qualified on all three native schemas.",
       "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ReportingPatientDiscoveryEndpointTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ReportingPatientDiscoveryEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ReportingPatientListAuditMariaDbIntegrationTest.java"
       ],
       "checks": [
         "java-all",

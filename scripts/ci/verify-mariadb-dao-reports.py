@@ -18,6 +18,12 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    'ReportingPatientListAuditMariaDbIntegrationTest': {
+        'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[1]',
+        'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[2]',
+        'shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes',
+        'shouldRollbackEarlierNameAudits_whenLaterPatientEnrichmentFails',
+    },
     "AppointmentUpdateDaoIntegrationTest": {
         "shouldRefuseStoredPatient_beforeArchivalOrMutation",
         "shouldRollbackArchiveAndEdit_whenReplacementPatientIsDenied",
@@ -106,6 +112,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "RxPrescribeMariaDbIntegrationTest": 4,
                           "TicklerPatientAccessMariaDbIntegrationTest": 12,
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+                          "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                           "Growth0To36FormPersistenceIntegrationTest": 19},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
@@ -121,6 +128,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "RxPrescribeMariaDbIntegrationTest": 4,
                           "TicklerPatientAccessMariaDbIntegrationTest": 12,
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+                          "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                        "Growth0To36FormPersistenceIntegrationTest": 19},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 4,
@@ -143,6 +151,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "RxPrescribeMariaDbIntegrationTest": 4,
                           "TicklerPatientAccessMariaDbIntegrationTest": 12,
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
+                          "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                            "Growth0To36FormPersistenceIntegrationTest": 19}}
 

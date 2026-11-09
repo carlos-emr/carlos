@@ -147,7 +147,9 @@ public class ReportingService extends AbstractServiceImpl {
     @Path("/demographicSets/patientList")
     @Produces("application/json")
     @Consumes("application/json")
-    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+    // Name enrichment may synchronously audit a health-care-team lookup when
+    // the patient has no MRP. Keep that audit in this request's transaction.
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class,
             propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
             isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public PatientListApptBean getAsPatientList(JsonNode json) {

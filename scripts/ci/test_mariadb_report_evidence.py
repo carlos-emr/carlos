@@ -48,6 +48,13 @@ SCHEDULE_REQUIRED_CASES = {
     "shouldRetainTheDaoHardPageLimit_atMaximumNativePageSize",
 }
 
+REPORTING_REQUIRED_CASES = {
+    'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[1]',
+    'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[2]',
+    'shouldRollbackEarlierNameAudits_whenLaterCheckedFailureEscapes',
+    'shouldRollbackEarlierNameAudits_whenLaterPatientEnrichmentFails',
+}
+
 ADMISSION_REQUIRED_CASES = {
     "shouldRollbackReadAudits_whenALaterCheckedFailureEscapes",
 
@@ -132,6 +139,7 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                     "TicklerPatientAccessMariaDbIntegrationTest": TICKLER_REQUIRED_CASES,
                     "AppointmentUpdateDaoIntegrationTest": APPOINTMENT_REQUIRED_CASES,
                     "ProgramAdmissionAuditMariaDbIntegrationTest": ADMISSION_REQUIRED_CASES,
+                    "ReportingPatientListAuditMariaDbIntegrationTest": REPORTING_REQUIRED_CASES,
                 }.get(family, set()))
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
@@ -201,7 +209,8 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                                   ("ScheduleSyncMariaDbIntegrationTest", SCHEDULE_REQUIRED_CASES),
                                   ("RxPrescribeMariaDbIntegrationTest", RX_REQUIRED_CASES),
                                   ("TicklerPatientAccessMariaDbIntegrationTest", TICKLER_REQUIRED_CASES),
-                                  ("ProgramAdmissionAuditMariaDbIntegrationTest", ADMISSION_REQUIRED_CASES)]:
+                                  ("ProgramAdmissionAuditMariaDbIntegrationTest", ADMISSION_REQUIRED_CASES),
+                                  ("ReportingPatientListAuditMariaDbIntegrationTest", REPORTING_REQUIRED_CASES)]:
                 report = self.reports / ("TEST-" + self.suite(family) + suffix + ".xml")
                 original = report.read_text()
                 for name in names:

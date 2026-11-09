@@ -85,15 +85,11 @@ public class DocumentService extends AbstractServiceImpl {
         if (id == null || id <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid document identifier");
         Document document = documentManager.getDocument(actor, id);
         if (document == null) throw new jakarta.ws.rs.NotFoundException();
-        var link = documentManager.getCtlDocumentByDocumentId(actor, id);
-        if (link != null && link.isDemographicDocument()) {
-            Integer patient = link.getId().getModuleId();
-            if (patient == null || patient <= 0) throw new IllegalStateException("Invalid document patient link");
-            if (!securityInfoManager.hasPrivilege(actor, "_edoc", SecurityInfoManager.READ, patient)
-                    || !securityInfoManager.isAllowedAccessToPatientRecord(actor, patient)) {
-                throw new jakarta.ws.rs.ForbiddenException();
-            }
-        }
+        // A first ctl_document row cannot authorize bytes shared by other charts.
+        // Reuse the stored-owner policy, including DOC routes, programs, queues
+        // and supported unassigned sentinels, before resolving any file path.
+        io.github.carlos_emr.carlos.documentManager.IncomingDocumentCapacityResponse
+                .requireStoredDocumentReadAccess(securityInfoManager, actor, id);
         java.nio.file.Path path = io.github.carlos_emr.carlos.utility.PathValidationUtils
                 .validateExistingDocumentPath(document.getDocumentFileFullPath()).toPath();
         if (!java.nio.file.Files.isRegularFile(path) || !java.nio.file.Files.isReadable(path)) {
