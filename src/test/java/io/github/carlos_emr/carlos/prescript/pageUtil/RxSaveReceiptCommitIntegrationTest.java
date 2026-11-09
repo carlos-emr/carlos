@@ -207,14 +207,25 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
                 // Action retains its response field, so construct a new request-scoped action.
                 var replayAction = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
                 request.setParameter("draftRevision_123", card.getDraftRevision());
+                var newer = new RxPrescriptionData.Prescription(0, "999998", 1001);
+                newer.setRandomId(456); newer.setSpecial("Unsaved newer draft");
+                bean.getStashList().add(newer);
+                request.setParameter("draftRevision_456", newer.getDraftRevision());
+                request.setParameter("drugName_123", "Earlier saved medication");
+                request.setParameter("drugName_456", "Newer unsaved medication");
                 try (var resolver = mockStatic(RxSessionBeanResolver.class)) {
                     resolver.when(() -> RxSessionBeanResolver.requestedDemographicNo(request)).thenReturn(1001);
                     resolver.when(() -> RxSessionBeanResolver.resolve(request)).thenReturn(bean);
                     resolver.when(() -> RxSessionBeanResolver.isRequestForBeanPatient(request, bean)).thenReturn(true);
                     assertThat(replayAction.updateSaveAllDrugs()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
-                    assertThat(bean.getStashSize()).isZero();
+                    assertThat(bean.getStash()).containsExactly(newer);
+                    assertThat(newer.getDrugId()).isZero();
+                    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM prescription", Long.class)).isEqualTo(1L);
+                    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class)).isEqualTo(1L);
                     assertThat(replayResponse.getContentAsString()).contains("RX_DRAFT_REVIEW_REQUIRED");
                 }
+                request.removeParameter("draftRevision_456");
+                request.removeParameter("drugName_456");
                 request.setParameter("draftRevision_123", originalRevision);
             }
             // No Rx bean in this new request/session: replay is resolved from durable, ownership-scoped evidence.

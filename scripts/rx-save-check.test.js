@@ -164,6 +164,7 @@ test('Save Only requests atomic cleanup and never clears the shared stash afterw
     const calls = [];
     let cleared = 0;
     const context = {
+        rxSaveNeedsReconciliation: true,
         validateWrittenDate: () => true, validateRxDate: () => true, validateCardProperties: () => true,
         setPharmacyId() {}, ctx: '/carlos',
         document: { getElementById: () => ({}) },
@@ -180,8 +181,10 @@ test('Save Only requests atomic cleanup and never clears the shared stash afterw
     assert.equal(cleared, 0);
     calls[0].options.onSuccess({status: 200, responseText: '<html>login</html>'});
     assert.equal(cleared, 0, 'a successful error/login page must not hide the draft');
+    assert.equal(context.rxSaveNeedsReconciliation, true, 'an unconfirmed response must preserve the earlier uncertainty');
     calls[0].options.onSuccess({status: 200, responseText: '{"scriptId":123}'});
     assert.equal(cleared, 1);
+    assert.equal(context.rxSaveNeedsReconciliation, false, 'a validated plain Save must clear the earlier uncertainty');
     assert.equal(calls.length, 1, 'a post-save clear can destroy another window\'s newer draft');
 });
 
