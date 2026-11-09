@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.integration.mcedt.mailbox;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import ca.ontario.health.edt.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.Logger;
@@ -284,7 +286,7 @@ public class Action2Utils {
         String suffix = filename.substring(filename.lastIndexOf(".") + 1);
         String prefix = "";
         if (filename.length() < 4) {
-            logger.warn("Checked for OBEC file, found one with too short name: " + filename);
+            logger.warn("Checked for OBEC file, found one with too short name");
         } else {
             prefix = filename.substring(0, 4);
         }
@@ -317,7 +319,7 @@ public class Action2Utils {
 //				if (new Date(file.lastModified()).after(startDate) && new Date(file.lastModified()).before(endDate)) copyFileToDirectory(file, outbox,false, true);
 //			}
         } catch (Exception e) {
-            logger.error("Unable to copy OHIP files to outbox", e);
+            logger.error("Unable to copy OHIP files to outbox: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -345,7 +347,7 @@ public class Action2Utils {
             }
 
         } catch (Exception e) {
-            logger.error("Unable to copy OBEC files to outbox", e);
+            logger.error("Unable to copy OBEC files to outbox: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -382,7 +384,7 @@ public class Action2Utils {
                 result = delegate.getTypeList();
                 setTypeList(request, result);
             } catch (Exception e) {
-                logger.error("Unable to load type list", e);
+                logger.error("Unable to load type list: {}", LogSafe.exceptionTrace(e));
 
                 //saveErrors(request, ActionUtils.addMessage("resourceAction.getTypeList.fault", McedtMessageCreator.exceptionToString(e)));
             }

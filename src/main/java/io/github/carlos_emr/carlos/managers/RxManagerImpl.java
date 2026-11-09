@@ -456,7 +456,7 @@ public class RxManagerImpl implements RxManager {
      * @param drugs  a non-empty list of the drugs to prescribe
      * @param demoNo the demographic to prescribe for.
      * @return a record of the prescription and drugs, or null for invalid/unprescribable inputs
-     * @throws RxPrescriptionWriteException when a medication write fails; the entire batch rolls back
+     * @throws PrescriptionWriteException when a medication write fails; the entire batch rolls back
      * @throws RxSourceVersionValidator.Conflict when an original source version is stale
      */
     @Override
@@ -464,7 +464,7 @@ public class RxManagerImpl implements RxManager {
     public PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo) {
 
         // sanity check on inputs
-        if (info == null || drugs == null || drugs.size() < 1 || demoNo < 0) {
+        if (info == null || drugs == null || drugs.size() < 1 || demoNo == null || demoNo < 0) {
             logger.error("Sanity Check Failed");
             return null;
         }
@@ -478,14 +478,16 @@ public class RxManagerImpl implements RxManager {
                 logger.error("Can't prescribe drug returning null");
                 return null;
             }
+            // The prescription header and every medication must describe the same patient,
+            // including new drugs with no source row to check later.
+            if (!Objects.equals(d.getDemographicId(), demoNo)) {
+                throw new AccessDeniedException("_rx", "w", String.valueOf(demoNo));
+            }
         }
 
         // Complete every imported-source compatibility check before creating the
         // prescription or mutating any candidate. A mixed batch must not partly write.
         for (Drug candidate : drugs) {
-            if (!Objects.equals(candidate.getDemographicId(), demoNo)) {
-                throw new AccessDeniedException("_rx", "w", String.valueOf(demoNo));
-            }
             CdsMedicationCompatibilityException.requireLegacyCompatible(candidate);
             if (candidate.getId() != null) {
                 Drug source = drugDao.find(candidate.getId());
@@ -501,6 +503,7 @@ public class RxManagerImpl implements RxManager {
         // p will contain the ID of the prescription in the DB.
         // use this ID and associate with drugs before doing updates.
         Prescription p = this.prescriptionManager.createNewPrescription(info, drugs, demoNo);
+        if (p == null) throw new PrescriptionWriteException();
 
         // update drugs in the DB. This should be done
         // after all of the drugs are checked to see if they
@@ -513,7 +516,7 @@ public class RxManagerImpl implements RxManager {
             if (d.getId() != null && d.getId() <= 0) d.setId(null);
             Drug saved = d.getId() == null ? this.addDrug(info, d) : this.updateDrug(info, d);
             if (saved == null) {
-                throw new RxPrescriptionWriteException();
+                throw new PrescriptionWriteException();
             }
             newDrugs.add(saved);
         }

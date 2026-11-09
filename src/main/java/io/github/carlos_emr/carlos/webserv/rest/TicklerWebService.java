@@ -88,6 +88,9 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/search")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public TicklerResponse search(JsonNode json, @QueryParam("startIndex") int startIndex, @QueryParam("limit") int limit) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
@@ -107,6 +110,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
         if (json.has("demographicNo")) {
             cf.setDemographicNo(json.get("demographicNo").asText());
+            requireFilterPatient(cf);
         }
 
         //this will need refactor...needs a manager layer and some useful methods.
@@ -129,15 +133,10 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
 
 
-        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, startIndex, limit);
-
+        var page = authorizedPage(cf, startIndex, limit, false, false);
+        List<Tickler> ticklers = page.rows();
         TicklerResponse result = new TicklerResponse();
-
-        if (ticklers.size() == limit) {
-            result.setTotal(ticklerManager.getNumTicklers(getLoggedInInfo(), cf));
-        } else {
-            result.setTotal(ticklers.size());
-        }
+        result.setTotal(page.total());
 
         TicklerConverter converter = new TicklerConverter();
         result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
@@ -149,6 +148,9 @@ public class TicklerWebService extends AbstractServiceImpl {
     @GET
     @Path("/mine")
     @Produces("application/json")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public TicklerResponse getMyTicklers(@QueryParam("limit") int limit) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
@@ -159,7 +161,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         cf.setAssignee(getLoggedInInfo().getLoggedInProviderNo());
         cf.setStatus("A");
 
-        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, 0, limit);
+        List<Tickler> ticklers = authorizedPage(cf, 0, limit, false, false).rows();
 
         TicklerResponse result = new TicklerResponse();
         result.setTotal(ticklers.size());
@@ -173,6 +175,9 @@ public class TicklerWebService extends AbstractServiceImpl {
     @GET
     @Path("/ticklers")
     @Produces("application/json")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public TicklerResponse getTicklerList() {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
@@ -240,17 +245,19 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         if (req.getParameter("demographicNo") != null) {
             cf.setDemographicNo(req.getParameter("demographicNo"));
+            requireFilterPatient(cf);
         }
 
         TicklerResponse result = new TicklerResponse();
 
 
-        int total = ticklerManager.getNumTicklers(getLoggedInInfo(), cf);
-        result.setTotal(total);
-
-
-        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, ((page - 1) * count), count,
-                includeComments, includeUpdates, false, false);
+        if (page < 1 || count < 0) throw new jakarta.ws.rs.BadRequestException("Invalid page position or size");
+        int offset;
+        try { offset = Math.multiplyExact(page - 1, count); }
+        catch (ArithmeticException invalid) { throw new jakarta.ws.rs.BadRequestException("Invalid page position or size"); }
+        var permitted = authorizedPage(cf, offset, count, includeComments, includeUpdates);
+        result.setTotal(permitted.total());
+        List<Tickler> ticklers = permitted.rows();
 
         TicklerConverter converter = new TicklerConverter();
         converter.setIncludeLinks(includeLinks);
@@ -267,6 +274,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/complete")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional
     public RestResponse<String> completeTicklers(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -283,6 +291,8 @@ public class TicklerWebService extends AbstractServiceImpl {
             return RestResponse.errorResponse(e.getMessage());
         }
 
+        // Validate every stored patient before the first mutation in a bulk request.
+        for (Integer ticklerNo : new java.util.TreeSet<>(ticklerIds)) requireStoredTicklerPatient(ticklerNo, "u");
         for (Integer ticklerNo : ticklerIds) {
             ticklerManager.completeTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
@@ -294,6 +304,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/delete")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional
     public RestResponse<String> deleteTicklers(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -309,6 +320,8 @@ public class TicklerWebService extends AbstractServiceImpl {
             return RestResponse.errorResponse(e.getMessage());
         }
 
+        // Validate every stored patient before the first mutation in a bulk request.
+        for (Integer ticklerNo : new java.util.TreeSet<>(ticklerIds)) requireStoredTicklerPatient(ticklerNo, "u");
         for (Integer ticklerNo : ticklerIds) {
             ticklerManager.deleteTickler(getLoggedInInfo(), ticklerNo, getLoggedInInfo().getLoggedInProviderNo());
         }
@@ -351,6 +364,7 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/update")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional
     public RestResponse<String> updateTickler(JsonNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "u", null)) {
@@ -359,13 +373,20 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         MiscUtils.getLogger().debug("updateTickler called, id={}", LogSafe.sanitize(json != null && json.has("id") ? json.get("id").asText() : "null"));
 
-        Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), json.get("id") != null ? json.get("id").asInt() : null);
+        JsonNode identity = json == null ? null : json.get("id");
+        if (identity == null || !identity.isIntegralNumber() || !identity.canConvertToInt()) {
+            throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+        }
+        Integer storedPatient = requireStoredTicklerPatient(identity.intValue(), "u");
+        Tickler tickler = ticklerManager.getTickler(getLoggedInInfo(), identity.intValue());
 
         if (tickler == null) {
             throw new RuntimeException("Tickler not found");
         }
 
-        //TODO: verify it's good data associations
+        if (!storedPatient.equals(tickler.getDemographicNo())) {
+            throw new IllegalStateException("Tickler patient changed during authorization");
+        }
         tickler.setTaskAssignedTo(json.get("taskAssignedTo").asText());
 
         tickler.setStatusAsChar(json.get("status").asText().charAt(0));
@@ -396,6 +417,7 @@ public class TicklerWebService extends AbstractServiceImpl {
             return RestResponse.successResponse(null);
         }
 
+        rollbackFailedMutation();
         return RestResponse.errorResponse("Failed to update tickler");
     }
 
@@ -421,12 +443,16 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/add")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional
     public RestResponse<String> addTickler(Tickler tickler) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
             throw new RuntimeException("Access Denied");
         }
 
+        if (tickler == null) throw new jakarta.ws.rs.BadRequestException("Tickler is required");
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                getLoggedInInfo(), securityInfoManager, "_tickler", "w", tickler.getDemographicNo());
         tickler.setUpdateDate(new Date());
         tickler.setCreator(getLoggedInInfo().getLoggedInProviderNo());
 
@@ -439,16 +465,48 @@ public class TicklerWebService extends AbstractServiceImpl {
         if (ticklerManager.addTickler(getLoggedInInfo(), tickler)) {
             return RestResponse.successResponse(null);
         }
+        rollbackFailedMutation();
         return RestResponse.errorResponse("Failed to add tickler");
+    }
+
+    private void rollbackFailedMutation() {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()) {
+            org.springframework.transaction.interceptor.TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+        }
+    }
+
+    private io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.Page<Tickler> authorizedPage(
+            CustomFilter filter, int offset, int limit, boolean comments, boolean updates) {
+        return io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.read(
+                getLoggedInInfo(), securityInfoManager, "_tickler", offset, limit,
+                (rawOffset, batch) -> ticklerManager.getTicklers(getLoggedInInfo(), filter, rawOffset, batch,
+                        comments, updates, false, false), Tickler::getDemographicNo, Tickler::getId);
+    }
+
+    private Integer requireStoredTicklerPatient(Integer ticklerId, String right) {
+        if (ticklerId == null || ticklerId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+        Integer patient = ticklerManager.getTicklerDemographicNoForUpdate(getLoggedInInfo(), ticklerId);
+        if (patient == null) throw new jakarta.ws.rs.NotFoundException();
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                getLoggedInInfo(), securityInfoManager, "_tickler", right, patient);
+        return patient;
+    }
+
+    private void requireFilterPatient(CustomFilter filter) {
+        String value = filter.getDemographicNo();
+        if (value == null || value.isBlank()) return; // Existing empty filter means discovery across patients.
+        Integer patient;
+        try { patient = Integer.valueOf(value.trim()); }
+        catch (NumberFormatException invalid) { throw new jakarta.ws.rs.BadRequestException("Invalid patient identifier"); }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                getLoggedInInfo(), securityInfoManager, "_tickler", "r", patient);
     }
 
     @GET
     @Path("/{demographicNo}/count/overdue")
     @Produces("application/json")
     public int getTicklerOverdueCount(@PathParam("demographicNo") Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(getLoggedInInfo(), securityInfoManager, "_tickler", "r", demographicNo);
 
         int count = ticklerManager.getActiveTicklerByDemoCount(getLoggedInInfo(), demographicNo);
         return count;

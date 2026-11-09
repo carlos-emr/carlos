@@ -577,11 +577,10 @@ public class RxWebService extends AbstractServiceImpl {
         // attempt to prescribe the drugs.
         try {
             pd = rxManager.prescribe(info, drugs, demographicNo);
-        } catch (io.github.carlos_emr.carlos.managers.RxPrescriptionWriteException
+        } catch (io.github.carlos_emr.carlos.managers.PrescriptionWriteException
                 | org.springframework.transaction.UnexpectedRollbackException failed) {
-            resp.setSuccess(false);
-            resp.setMessage("Failed to prescribe drugs; no changes were saved");
-            return resp;
+            // The manager's transaction has rolled back; retain the existing failure response.
+            pd = null;
         } catch (org.springframework.dao.OptimisticLockingFailureException | jakarta.persistence.OptimisticLockException stale) {
             throw new io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict();
         }

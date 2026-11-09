@@ -413,6 +413,19 @@ class RxWebServiceUnitTest {
     class Prescribe {
 
         @Test
+        void shouldPreserveFailureResponse_afterTransactionalWriteFailure() {
+            service.rxManager = new MockRxManager(RxWebServiceUnitTest.this) {
+                @Override
+                public PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo) {
+                    throw new io.github.carlos_emr.carlos.managers.PrescriptionWriteException();
+                }
+            };
+            PrescriptionResponse response = service.prescribe(List.of(createTestTransferObject()), 1);
+            assertThat(response.isSuccess()).isFalse();
+            assertThat(response.getMessage()).isEqualTo("Failed to prescribe drugs");
+        }
+
+        @Test
         @DisplayName("should succeed with single valid drug")
         void shouldSucceed_withSingleValidDrug() {
             List<DrugTo1> toPrescribe = new ArrayList<>();

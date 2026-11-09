@@ -158,7 +158,7 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
     @Test
     void shouldReturnJsonFailure_whenPrescriptionWriteRollsBack() throws Exception {
         when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
-        when(mockRxManager.prescribe(any(), any(), any())).thenThrow(new io.github.carlos_emr.carlos.managers.RxPrescriptionWriteException());
+        when(mockRxManager.prescribe(any(), any(), any())).thenThrow(new io.github.carlos_emr.carlos.managers.PrescriptionWriteException());
         try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
                 .post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
             assertThat(response.getStatus()).isEqualTo(200);

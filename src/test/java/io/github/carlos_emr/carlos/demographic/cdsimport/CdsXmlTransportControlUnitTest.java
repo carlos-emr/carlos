@@ -122,6 +122,15 @@ class CdsXmlTransportControlUnitTest {
     }
 
     @Test
+    void shouldEnforceTransportDeadline_evenWithAnExistingParkPermit() throws Exception {
+        var input = new ControlledSource("comment", "deadline-permit");
+        CdsInputException failure = assertThrows(CdsInputException.class,
+                () -> input.parse(limits(500), () -> false));
+        assertEquals("CDS_INPUT_DEADLINE", failure.code());
+        input.assertStoppedInSuffix();
+    }
+
+    @Test
     void shouldStopBeforeEofAndPreserveInterrupt_whenInterruptionArrivesInBoundedMarkupSuffix()
             throws Exception {
         for (String kind : new String[] {"comment", "pi"}) {
@@ -244,9 +253,18 @@ class CdsXmlTransportControlUnitTest {
                                     if (consumed.addAndGet(count) < cut) return;
                                     if (mode.equals("cancel")) LockSupport.parkNanos(2_000_000L);
                                     else if (triggered.compareAndSet(false, true)) {
-                                        if (mode.equals("deadline"))
-                                            LockSupport.parkNanos(800_000_000L);
-                                        else Thread.currentThread().interrupt();
+                                        if (mode.startsWith("deadline")) {
+                                            // parkNanos may return spuriously or consume a permit left by
+                                            // another test. Hold this controlled source until its deadline
+                                            // has actually elapsed, rather than assuming one park waited.
+                                            if (mode.equals("deadline-permit")) LockSupport.unpark(Thread.currentThread());
+                                            long resumeAt = System.nanoTime() + 800_000_000L;
+                                            long remaining;
+                                            while ((remaining = resumeAt - System.nanoTime()) > 0
+                                                    && !Thread.currentThread().isInterrupted()) {
+                                                LockSupport.parkNanos(remaining);
+                                            }
+                                        } else Thread.currentThread().interrupt();
                                     }
                                 }
                             };

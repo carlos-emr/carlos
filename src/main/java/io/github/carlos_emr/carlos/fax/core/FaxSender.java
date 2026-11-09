@@ -25,6 +25,8 @@
  */
 package io.github.carlos_emr.carlos.fax.core;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -167,12 +169,12 @@ public class FaxSender {
                     } catch (IllegalArgumentException | SecurityException e) {
                         String statusMessage = "INVALID OR UNSAFE FAX FILE PATH";
                         faxJob.setStatusString(statusMessage);
-                        log.warn("Skipping fax id {} due to invalid or unsafe file path", faxJob.getId(), e);
+                        log.warn("Skipping fax id {} due to invalid or unsafe file path: {}", faxJob.getId(), LogSafe.exceptionTrace(e));
                     } catch (FaxProviderException e) {
                         // Use generic message - full exception details are logged server-side only
                         String statusMessage = "Problem communicating with fax service";
                         faxJob.setStatusString(statusMessage);
-                        log.error("Fax send failed for fax id {} using provider {}", faxJob.getId(), faxConfig.getProviderType(), e);
+                        log.error("Fax send failed for fax id {} using provider {} {}", faxJob.getId(), faxConfig.getProviderType(), LogSafe.exceptionTrace(e));
                         if (isTransientNetworkError(e)) {
                             faxStatus = FaxJob.STATUS.WAITING;
                         }
@@ -182,8 +184,8 @@ public class FaxSender {
                             faxJobDao.merge(faxJob);
                             log.info("Updated Fax with jobid {} and status {}", faxJob.getJobId(), faxJob.getStatus());
                         } catch (RuntimeException e) {
-                            log.error("CRITICAL: Failed to persist fax status for fax id {} - status {} may be lost",
-                                    faxJob.getId(), faxStatus, e);
+                            log.error("CRITICAL: Failed to persist fax status for fax id {} - status {} may be lost {}",
+                                    faxJob.getId(), faxStatus, LogSafe.exceptionTrace(e));
                         }
                         if (faxClientLog != null) {
                             try {
@@ -191,8 +193,8 @@ public class FaxSender {
                                 faxClientLog.setEndTime(new Date(System.currentTimeMillis()));
                                 faxClientLogDao.merge(faxClientLog);
                             } catch (RuntimeException e) {
-                                log.error("Failed to update FaxClientLog for fax id {} - audit trail incomplete",
-                                        faxJob.getId(), e);
+                                log.error("Failed to update FaxClientLog for fax id {} - audit trail incomplete {}",
+                                        faxJob.getId(), LogSafe.exceptionTrace(e));
                             }
                         } else {
                             log.warn("No FaxClientLog found for fax id {} - audit trail incomplete", faxJob.getId());
@@ -205,7 +207,7 @@ public class FaxSender {
                         faxConfig.getSiteUser(), faxConfig.getProviderType(), e);
             } catch (RuntimeException e) {
                 log.error("Unexpected error sending faxes for account {} ({}) - continuing with next account: {}",
-                        faxConfig.getSiteUser(), faxConfig.getProviderType(), e.getMessage(), e);
+                        faxConfig.getId(), faxConfig.getProviderType(), LogSafe.exceptionTrace(e));
             }
         }
     }
@@ -272,7 +274,7 @@ public class FaxSender {
                 }
 
                 // Do NOT silently substitute a different file; fail the job instead.
-                log.error("Invalid absolute fax job path: {}", filename, e);
+                log.error("Invalid absolute fax job path: {}", LogSafe.exceptionTrace(e));
                 throw e;
             }
         }
@@ -282,7 +284,7 @@ public class FaxSender {
             File validatedFile = PathValidationUtils.validatePath(filename, new File(documentDir));
             return validatedFile.toPath();
         } catch (SecurityException e) {
-            log.error("Path validation failed for relative fax job filename: {}", filename, e);
+            log.error("Path validation failed for relative fax job filename: {}", LogSafe.exceptionTrace(e));
             // Do not fall back to a different file; propagate the failure.
             throw e;
         }

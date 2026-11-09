@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
@@ -560,7 +562,7 @@ public class ExtractBean extends Object implements Serializable {
             }
         } catch (Exception e) {
             retval = false;
-            logger.error("Unexpected error", e);
+            logger.error("Unexpected error: {}", LogSafe.exceptionTrace(e));
         }
         return retval;
     }

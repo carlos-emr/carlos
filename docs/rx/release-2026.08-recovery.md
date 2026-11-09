@@ -1,6 +1,6 @@
 # RX recovery and compatibility in release/2026.08
 
-The integrated change targets `release/2026.08`, including release head `1062fe6a02f` and published beta7 (`d40d2939afd`). Published migrations remain byte-for-byte unchanged: beta7 owns common `1.0.59.33`; the unpublished BC history migration is `.34`. The RX forward migrations are `.35` (provider-owned favourite groups and transactional engine qualification), `.36` (durable submission evidence) and `.37` (original versions).
+The integrated change targets `release/2026.08`, including release head `1335e1b28ab` and published beta7 (`d40d2939afd`). Published migrations remain byte-for-byte unchanged: beta7 owns common `1.0.59.33`; the unpublished BC history migration is `.34`. The RX forward migrations are `.35` (provider-owned favourite groups and transactional engine qualification), `.36` (durable submission evidence) and `.37` (original versions).
 
 Before upgrading, finish and finalize any checkpointed CDS import. Adding `drugs.row_version` changes the physical target schema fingerprint and older import receipts require reconciliation if resumed across this upgrade. Do not discard the import ledger or reinterpret a changed fingerprint as proof of a failed import.
 
@@ -44,6 +44,8 @@ Acknowledging a SAVED pending identity permanently retires its consumed cards, p
 Uncertain cards retain their original pending submission identity across reopening; their advanced revisions cannot start a new save. A later login, CSRF or stale refusal does not erase an earlier uncertain outcome. A missing receipt is not proof that an in-flight operation failed. The client never automatically retries an uncertain save. If the database is unavailable during recovery, preserve the draft/evidence and review the medication profile after service is restored. Pending submissions are intentionally not expired or automatically declared rolled back. A clinician must reconcile the chart before entering a new prescription after an unresolved attempt. If the prescription is present, do not enter it again. If it is absent after reconciliation, remove the locked card and enter it again; repeatedly submitting the pending card cannot resolve an unknown commit. Do not manually change pending evidence while an application process may still be writing.
 
 Clinical success audits are authoritative transaction writes. Best-effort asynchronous audit helpers are not used to establish prescription-save success. Technical failures are logged without prescription text or patient identifiers.
+
+The REST/SOAP hardening back-merge retains the common `PrescriptionWriteException` rollback boundary and existing prescription failure response. RX retains explicit rejection of unknown positive drug IDs, nonpositive new-drug placeholders, scoped original-version conflicts and strict atomic audits. Both sets of physical MariaDB acceptance families remain required.
 
 ## Original-version compatibility
 

@@ -55,6 +55,8 @@ public class PreventionConverter extends AbstractConverter<Prevention, Preventio
         PreventionDateDTO date = dateService.getDate(d);
         if (!precisionAware && d.isCdsImported()) date.requireExact();
 
+        t.applyClinicalState(d.isDeleted(), d.getRefusedRawValue(), d.isNever(),
+                d.getCreationDate(), d.getLastUpdateDate());
         t.setId(d.getId());
         t.setDemographicId(d.getDemographicId());
         t.setPreventionDate(!precisionAware || date.isExact() ? d.getPreventionDate() : null);
