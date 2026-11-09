@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.commn.model.BillingPaymentType;
 import org.springframework.stereotype.Repository;
 
 import io.github.carlos_emr.carlos.entities.Billingmaster;
-import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.BcBillingConstants;
 
 @Repository
 public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
@@ -95,7 +95,7 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
     public Double getTotalPaidFromHistory(Integer bmn, boolean ignoreIA) {
         String historyQry = "SELECT SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh where bh.billingMasterNo = :bmn";
         if (ignoreIA) {
-            historyQry += " and bh.paymentTypeId <> " + MSPReconcile.PAYTYPE_IA;
+            historyQry += " and bh.paymentTypeId <> " + BcBillingConstants.PAYTYPE_IA;
         }
         Query query = entityManager.createQuery(historyQry);
         query.setParameter("bmn", bmn);
@@ -124,14 +124,25 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
         if (billingMasterNos.isEmpty()) {
             return totals;
         }
-        List<Object[]> rows = entityManager.createQuery(
-                "SELECT bh.billingMasterNo, SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh "
-                        + "WHERE bh.billingMasterNo IN :billingMasterNos GROUP BY bh.billingMasterNo", Object[].class)
-                .setParameter("billingMasterNos", billingMasterNos)
-                .getResultList();
-        for (Object[] row : rows) {
-            totals.put((Integer) row[0], row[1] == null ? 0.0 : ((Number) row[1]).doubleValue());
+        List<Integer> ids = new java.util.ArrayList<>(billingMasterNos);
+        Map<Integer, java.math.BigDecimal> exact = new HashMap<>();
+        java.util.Set<Integer> unknown = new java.util.HashSet<>();
+        for (int offset = 0; offset < ids.size(); offset += 500) {
+            List<Object[]> rows = entityManager.createQuery(
+                    "SELECT bh.billingMasterNo, bh.amountReceived FROM BillingHistory bh WHERE bh.billingMasterNo IN :ids", Object[].class)
+                    .setParameter("ids", ids.subList(offset, Math.min(offset + 500, ids.size()))).getResultList();
+            for (Object[] row : rows) {
+                Integer id = (Integer) row[0];
+                String value = (String) row[1];
+                try {
+                    // Empty legacy archive rows carry no received payment. Nonempty corrupt amounts are unknown.
+                    java.math.BigDecimal amount = value == null || value.isBlank() ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(value);
+                    exact.merge(id, amount, java.math.BigDecimal::add);
+                } catch (NumberFormatException invalid) { unknown.add(id); }
+            }
         }
+        exact.forEach((id, value) -> totals.put(id, value.doubleValue()));
+        unknown.forEach(id -> totals.put(id, Double.NaN));
         return totals;
     }
 
@@ -152,7 +163,7 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
                         + "SUM(CASE WHEN bh.paymentTypeId <> :adjustmentType THEN CAST(bh.amountReceived AS double) ELSE 0 END) "
                         + "FROM BillingHistory bh WHERE bh.billingMasterNo IN :billingMasterNos GROUP BY bh.billingMasterNo",
                 Object[].class)
-                .setParameter("adjustmentType", Integer.valueOf(MSPReconcile.PAYTYPE_IA))
+                .setParameter("adjustmentType", Integer.valueOf(BcBillingConstants.PAYTYPE_IA))
                 .setParameter("billingMasterNos", billingMasterNos)
                 .getResultList();
         for (Object[] row : rows) {

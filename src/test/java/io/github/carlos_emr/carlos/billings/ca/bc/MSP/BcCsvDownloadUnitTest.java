@@ -72,6 +72,7 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
                 var bill = new io.github.carlos_emr.carlos.entities.MSPBill();
                 bill.setServiceDate(serviceDate);
                 bill.setAmount("23.45");
+                bill.setAmtOwing("23.45");
                 io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(output, "REP_ACCOUNT_REC", java.util.List.of(bill));
             }
         };
@@ -90,4 +91,33 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
         assertThatThrownBy(() -> executeAction(action)).isInstanceOf(SecurityException.class);
         assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
     }
+    @Test
+    void shouldDiscardPartialPdf_whenRenderingFails() throws Exception {
+        var action = new CreateBillingReport2Action() {
+            @Override protected String renderPdf(OutputStream output) throws java.io.IOException {
+                output.write("%PDF-partial synthetic content".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                throw new java.io.IOException("synthetic sensitive failure");
+            }
+        };
+        action.setDocFormat("pdf"); action.setRepType("REP_INVOICE");
+        assertThat(executeAction(action)).isEqualTo("none");
+        assertThat(getMockResponse().getStatus()).isEqualTo(500);
+        assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
+        assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+    }
+
+    @Test
+    void shouldRefuseNonPdfOutput_whenRendererReturnsNormally() throws Exception {
+        var action = new CreateBillingReport2Action() {
+            @Override protected String renderPdf(OutputStream output) throws java.io.IOException {
+                output.write("not a PDF".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+                return NONE;
+            }
+        };
+        action.setDocFormat("pdf"); action.setRepType("REP_INVOICE");
+        assertThat(executeAction(action)).isEqualTo("none");
+        assertThat(getMockResponse().getStatus()).isEqualTo(500);
+        assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+    }
+
 }

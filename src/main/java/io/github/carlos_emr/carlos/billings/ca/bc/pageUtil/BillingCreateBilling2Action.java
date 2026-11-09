@@ -46,7 +46,6 @@ import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingFormData;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingBillingManager.BillingItem;
 import io.github.carlos_emr.carlos.demographic.data.DemographicData;
-import io.github.carlos_emr.carlos.util.LegacyReadResult;
 import io.github.carlos_emr.carlos.commn.dao.BillingServiceDao;
 
 import jakarta.servlet.ServletException;
@@ -195,6 +194,16 @@ public class BillingCreateBilling2Action extends ActionSupport {
         // container that persists or replicates sessions).
         BcBillStaging.save(request, bean);
         log.debug("Ignore warnings ? {}", LogSafe.sanitize(request.getParameter("ignoreWarn")));
+        // Database availability is never a business warning that ignoreWarn may override.
+        try {
+            BillingServiceDao rules = SpringUtils.getBean(BillingServiceDao.class);
+            timeRules = rules.findTimeRules();
+            conditionRules = rules.findAllConditionRules();
+        } catch (jakarta.persistence.PersistenceException | org.springframework.dao.DataAccessException
+                | org.springframework.transaction.TransactionException failure) {
+            addActionError(getText("oscarMDS.patientSearch.errorDatabase"));
+            return refuse(bean, null);
+        }
         if (request.getParameter("ignoreWarn") == null) {
             validateServiceCodeList(billItem, demo, errors);
             validateDxCodeList(bean, errors);
@@ -348,10 +357,12 @@ public class BillingCreateBilling2Action extends ActionSupport {
      *
      * @param errors ActionMessages
      */
+    private List<BillingServiceDao.TimeRule> timeRules;
+    private List<BillingServiceDao.ConditionRule> conditionRules;
+
     private void validateServiceCodeTimes(ArrayList<BillingItem> billItems,
                                           List<String> errors) {
-        List<BillingServiceDao.TimeRule> results = LegacyReadResult.listOrNull(
-                () -> SpringUtils.getBean(BillingServiceDao.class).findTimeRules());
+        List<BillingServiceDao.TimeRule> results = timeRules;
         if (results == null) {
             return;
         }
@@ -527,8 +538,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
 
     private void validateCDMCodeConditions(List<String> errors, String demoNo,
                                            String serviceCode) {
-        List<BillingServiceDao.ConditionRule> cdmRules = LegacyReadResult.listOrNull(
-                () -> SpringUtils.getBean(BillingServiceDao.class).findAllConditionRules());
+        List<BillingServiceDao.ConditionRule> cdmRules = conditionRules;
         if (cdmRules == null) {
             return;
         }
@@ -572,8 +582,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private void validateCodeLastBilledHlp(List<String> errors,
                                            String demoNo, String code) {
         int codeLastBilled = -1;
-        List<BillingServiceDao.ConditionRule> conditions = LegacyReadResult.listOrNull(
-                () -> SpringUtils.getBean(BillingServiceDao.class).findConditionRules(code));
+        List<BillingServiceDao.ConditionRule> conditions = conditionRules.stream().filter(rule -> code.equals(rule.serviceCode())).toList();
         if (conditions == null) {
             return;
         }

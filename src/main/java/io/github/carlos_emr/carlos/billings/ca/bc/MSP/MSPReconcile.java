@@ -67,61 +67,61 @@ public class MSPReconcile {
     private BillingmasterDAO billingmasterDao = SpringUtils.getBean(BillingmasterDAO.class);
 
     //Accounting Report Types
-    public static final String REP_INVOICE = "REP_INVOICE";
-    public static final String REP_PAYREF = "REP_PAYREF";
-    public static final String REP_PAYREF_SUM = "REP_PAYREF_SUM";
+    public static final String REP_INVOICE = BcBillingConstants.REP_INVOICE;
+    public static final String REP_PAYREF = BcBillingConstants.REP_PAYREF;
+    public static final String REP_PAYREF_SUM = BcBillingConstants.REP_PAYREF_SUM;
     //	public static final String REP_PAYREF_GST = "REP_PAYREF_GST";
 //	public static final String REP_PAYREF_SUM_GST = "REP_PAYREF_SUM_GST";
 //	public static final String REP_GST_SUM = "REP_GST_SUM";
 //	public static final String REP_GST_SUM_SPLIT = "REP_GST_SUM_SPLIT";
-    public static final String REP_ACCOUNT_REC = "REP_ACCOUNT_REC";
-    public static final String REP_REJ = "REP_REJ";
-    public static final String REP_WO = "REP_WO";
-    public static final String REP_MSPREM = "REP_MSPREM";
-    public static final String REP_MSPREM_NEW = "REP_MSPREM_NEW";
-    public static final String REP_MSPREMSUM = "REP_MSPREMSUM";
-    public static final String REP_MSPREMSUM_PRACTSUM = "REP_MSPREMSUM_PRACTSUM";
-    public static final String REP_MSPREMSUM_S23 = "REP_MSPREMSUM_S23";
+    public static final String REP_ACCOUNT_REC = BcBillingConstants.REP_ACCOUNT_REC;
+    public static final String REP_REJ = BcBillingConstants.REP_REJ;
+    public static final String REP_WO = BcBillingConstants.REP_WO;
+    public static final String REP_MSPREM = BcBillingConstants.REP_MSPREM;
+    public static final String REP_MSPREM_NEW = BcBillingConstants.REP_MSPREM_NEW;
+    public static final String REP_MSPREMSUM = BcBillingConstants.REP_MSPREMSUM;
+    public static final String REP_MSPREMSUM_PRACTSUM = BcBillingConstants.REP_MSPREMSUM_PRACTSUM;
+    public static final String REP_MSPREMSUM_S23 = BcBillingConstants.REP_MSPREMSUM_S23;
 
     //MSP Bill Status Types
-    public static final String REJECTED = "R";
-    public static final String NOTSUBMITTED = "O";
-    public static final String SUBMITTED = "B";
-    public static final String SETTLED = "S";
-    public static final String DELETED = "D";
-    public static final String HELD = "Z";
-    public static final String DATACENTERCHANGED = "C";
-    public static final String PAIDWITHEXP = "E";
-    public static final String REFUSED = "F";
-    public static final String BADDEBT = "X";
-    public static final String WCB = "W";
-    public static final String CAPITATED = "H";
-    public static final String DONOTBILL = "N";
-    public static final String BILLPATIENT = "P";
-    public static final String COLLECTION = "T";
-    public static final String PAIDPRIVATE = "A";
+    public static final String REJECTED = BcBillingConstants.REJECTED;
+    public static final String NOTSUBMITTED = BcBillingConstants.NOTSUBMITTED;
+    public static final String SUBMITTED = BcBillingConstants.SUBMITTED;
+    public static final String SETTLED = BcBillingConstants.SETTLED;
+    public static final String DELETED = BcBillingConstants.DELETED;
+    public static final String HELD = BcBillingConstants.HELD;
+    public static final String DATACENTERCHANGED = BcBillingConstants.DATACENTERCHANGED;
+    public static final String PAIDWITHEXP = BcBillingConstants.PAIDWITHEXP;
+    public static final String REFUSED = BcBillingConstants.REFUSED;
+    public static final String BADDEBT = BcBillingConstants.BADDEBT;
+    public static final String WCB = BcBillingConstants.WCB;
+    public static final String CAPITATED = BcBillingConstants.CAPITATED;
+    public static final String DONOTBILL = BcBillingConstants.DONOTBILL;
+    public static final String BILLPATIENT = BcBillingConstants.BILLPATIENT;
+    public static final String COLLECTION = BcBillingConstants.COLLECTION;
+    public static final String PAIDPRIVATE = BcBillingConstants.PAIDPRIVATE;
 
     private static Properties negValues = new Properties();
-    public static final String BILLTYPE_PRI = "Pri";
-    public static final String BILLTYPE_MSP = "MSP";
-    public static final String BILLTYPE_ICBC = "ICBC";
-    public static final String BILLTYPE_WCB = "WCB";
+    public static final String BILLTYPE_PRI = BcBillingConstants.BILLTYPE_PRI;
+    public static final String BILLTYPE_MSP = BcBillingConstants.BILLTYPE_MSP;
+    public static final String BILLTYPE_ICBC = BcBillingConstants.BILLTYPE_ICBC;
+    public static final String BILLTYPE_WCB = BcBillingConstants.BILLTYPE_WCB;
 
-    public static final String PAYTYPE_CASH = "1";
-    public static final String PAYTYPE_CHEQUE = "2";
-    public static final String PAYTYPE_VISA = "3";
-    public static final String PAYTYPE_MC = "4";
-    public static final String PAYTYPE_AMEX = "5";
-    public static final String PAYTYPE_ELECTRONIC = "6";
-    public static final String PAYTYPE_DEBIT = "7";
-    public static final String PAYTYPE_OTHER = "8";
-    public static final String PAYTYPE_NA = "9";
+    public static final String PAYTYPE_CASH = BcBillingConstants.PAYTYPE_CASH;
+    public static final String PAYTYPE_CHEQUE = BcBillingConstants.PAYTYPE_CHEQUE;
+    public static final String PAYTYPE_VISA = BcBillingConstants.PAYTYPE_VISA;
+    public static final String PAYTYPE_MC = BcBillingConstants.PAYTYPE_MC;
+    public static final String PAYTYPE_AMEX = BcBillingConstants.PAYTYPE_AMEX;
+    public static final String PAYTYPE_ELECTRONIC = BcBillingConstants.PAYTYPE_ELECTRONIC;
+    public static final String PAYTYPE_DEBIT = BcBillingConstants.PAYTYPE_DEBIT;
+    public static final String PAYTYPE_OTHER = BcBillingConstants.PAYTYPE_OTHER;
+    public static final String PAYTYPE_NA = BcBillingConstants.PAYTYPE_NA;
     /**
      * Not truly a type of payment
      **/
-    public static final String PAYTYPE_IA = "10";
+    public static final String PAYTYPE_IA = BcBillingConstants.PAYTYPE_IA;
 
-    public static final String DATE_FORMAT = "yyyyMMdd";
+    public static final String DATE_FORMAT = BcBillingConstants.DATE_FORMAT;
     private SimpleDateFormat fmt = null;
     private BeanUtilHlp beanut = new BeanUtilHlp();
     private BillingHistoryDAO dao = new BillingHistoryDAO();
@@ -136,16 +136,13 @@ public class MSPReconcile {
     }
 
     private void reportReadFailure(Exception exception) {
-        if (failOnReadError) {
-            // Do not attach a cause: JDBC/parsing exception messages can contain patient values.
-            throw new IllegalStateException("Billing export data could not be read");
-        }
-        MiscUtils.getLogger().error("Error", exception);
+        // A report must never look complete after a read has failed. Values and SQL stay out of logs.
+        throw new IllegalStateException("Billing export data could not be read");
     }
 
     private String convertReportAmount(String value) {
         return failOnReadError
-                ? io.github.carlos_emr.carlos.report.export.TeleplanAmount.decode(value)
+                ? io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode(value)
                 : convCurValue(value);
     }
 
@@ -156,15 +153,17 @@ public class MSPReconcile {
      * @param summary boolean whether malformed input contributes zero instead of visible source text
      * @return String decoded dollars, or the report-specific malformed-field representation
      */
-    private String csvPaymentAmount(String value, boolean summary) {
+    private String csvPaymentAmount(String value, boolean summary, MSPBill bill) {
         try {
             return convertReportAmount(value);
         } catch (NumberFormatException invalid) {
             if (!failOnReadError) throw invalid;
+            bill.recordUnparsedAmount();
             return summary ? "0.00" : value;
         } catch (ArithmeticException invalid) {
             if (!failOnReadError) throw invalid;
             // A fractional cent string must not be reinterpreted as decimal dollars by money().
+            bill.recordUnparsedAmount();
             return summary ? "0.00" : "Unparsed Teleplan amount: " + value;
         }
     }
@@ -176,7 +175,7 @@ public class MSPReconcile {
      * @param summary boolean whether to return the known subtotal even when a component is invalid
      * @return String dollar total, or all decoded/raw components separated by a vertical bar
      */
-    private String csvAdjustmentAmount(PaymentRow row, boolean summary) {
+    private String csvAdjustmentAmount(PaymentRow row, boolean summary, MSPBill bill) {
         String[] components = {row.tAja1(), row.tAja2(), row.tAja3(), row.tAja4(), row.tAja5(), row.tAja6(), row.tAja7()};
         BigDecimal total = BigDecimal.ZERO;
         List<String> details = new ArrayList<>();
@@ -188,6 +187,7 @@ public class MSPReconcile {
                 details.add(amount);
             } catch (NumberFormatException | ArithmeticException invalid) {
                 malformed = true;
+                bill.recordUnparsedAmount();
                 details.add(value == null ? "" : value);
             }
         }
@@ -208,6 +208,7 @@ public class MSPReconcile {
             bill.type = sign > 0 ? "PMT" : sign < 0 ? "RFD" : "";
             return sign != 0 || !bill.adjustmentCode.isEmpty();
         } catch (NumberFormatException invalid) {
+            if (bill.getUnparsedAmounts() == 0) bill.recordUnparsedAmount();
             bill.type = "";
             return true;
         }
@@ -384,9 +385,7 @@ public class MSPReconcile {
                 String s = Integer.toString(i);
                 p.put(s, def);
             } catch (NumberFormatException intEx) {
-                if (failOnReadError) throw new IllegalStateException("Billing explanation data could not be read");
-                MiscUtils.getLogger().error("Error", intEx);
-                MiscUtils.getLogger().debug("Had trouble Parsing int from " + tc.getOfficeFolioClaimNo());
+                MiscUtils.getLogger().warn("Skipped a C12 explanation with an invalid claim identifier");
             }
         }
         return p;
@@ -1283,7 +1282,11 @@ public class MSPReconcile {
                 paidTotals = historyDao.getTotalPaidFromHistoryByBillingMasterNos(billingMasterNos);
             }
 
+            java.util.Map<String, BillingmasterDAO.PatientPhones> reportPhones = REP_REJ.equals(type)
+                    ? billingmasterDao.findReportPhones(bills.stream().map(bill -> bill.demoNo).toList()) : java.util.Map.of();
+            java.time.LocalDate reportDate = java.time.LocalDate.now();
             for (MSPBill b : bills) {
+                b.setServiceDateRange(MSPBill.ageRange(b.serviceDate, reportDate));
                 String expStr = getS00String(b.billMasterNo);
                 b.expString = "".equals(expStr) ? expStr : "(" + expStr + ")";
                 b.reason = this.getStatusDesc(b.reason);
@@ -1323,11 +1326,10 @@ public class MSPReconcile {
                         }
                     }
 
-                    var demographic = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class)
-                            .getDemographic(b.demoNo);
-                    if (demographic != null) {
-                        b.demoPhone = demographic.getPhone();
-                        b.demoPhone2 = demographic.getPhone2();
+                    var phone = reportPhones.get(b.demoNo);
+                    if (phone != null) {
+                        b.demoPhone = phone.phone();
+                        b.demoPhone2 = phone.phone2();
                     }
                 } else if (MSPReconcile.REP_INVOICE.equals(type)) {
                     b.amtOwing = "";
@@ -1342,7 +1344,7 @@ public class MSPReconcile {
                         }
                     }
                     //append the explanatory code to end of reason field
-                    String expString = c12.getProperty(b.billing_no) != null ? c12.getProperty(b.billing_no) : "";
+                    String expString = c12.getProperty(b.billMasterNo) != null ? c12.getProperty(b.billMasterNo) : "";
                     b.reason += " " + expString;
                     if ("E".equals(b.status)) {
                         b.adjustmentCode = b.expString;
@@ -1440,6 +1442,8 @@ public class MSPReconcile {
                                  double totalPaidFromHistory) {
         amountBilled = (amountBilled != null && !amountBilled.equals("")) ? amountBilled : "0.0";
         double dbltBilled = Double.valueOf(amountBilled).doubleValue();
+        if (!Double.isFinite(dbltBilled) || !Double.isFinite(totalPaidFromHistory))
+            throw new NumberFormatException("Billing balance is unavailable");
         double totalPaidFromS00 = 0.0;
         if (!MSPReconcile.BILLTYPE_PRI.equalsIgnoreCase(billingType)) {
             //bills of type msp, icbc, wcb
@@ -1462,6 +1466,7 @@ public class MSPReconcile {
         if (!failOnReadError) log.debug("amtPaid " + amtPaid);
         double dblAmountOwing = amtPaid < 0 ? dbltBilled + amtPaid : dbltBilled - amtPaid;
         dblAmountOwing = UtilMisc.toCurrencyDouble(dblAmountOwing);
+        if (!Double.isFinite(dblAmountOwing)) throw new NumberFormatException("Billing balance is unavailable");
         return dblAmountOwing;
     }
 
@@ -1552,7 +1557,7 @@ public class MSPReconcile {
                 b.demoName = row.demographicName();
 
                 if (!MSPReconcile.BILLTYPE_PRI.equalsIgnoreCase(b.billingtype)) {
-                    b.amount = csvPaymentAmount(row.tPaidamt(), REP_PAYREF_SUM.equals(reportType));
+                    b.amount = csvPaymentAmount(row.tPaidamt(), REP_PAYREF_SUM.equals(reportType), b);
                 } else {
                     b.amount = String.valueOf(getAmountPaid(row.billingmasterNo(), MSPReconcile.BILLTYPE_PRI));
                     if (!failOnReadError && !StringUtils.isNumeric(b.amount)) {
@@ -1576,7 +1581,7 @@ public class MSPReconcile {
                 b.adjustmentCodeDesc = "";
                 if (!"".equals(b.adjustmentCode)) {
                     if (failOnReadError) {
-                        b.adjustmentCodeAmt = csvAdjustmentAmount(row, REP_PAYREF_SUM.equals(reportType));
+                        b.adjustmentCodeAmt = csvAdjustmentAmount(row, REP_PAYREF_SUM.equals(reportType), b);
                     } else {
                         String adjCode1amt1Str = convertReportAmount(row.tAja1());
                         String adjCode1amt2Str = convertReportAmount(row.tAja2());
@@ -1633,7 +1638,7 @@ public class MSPReconcile {
             }
         } catch (MissingBcPaymentProviderException e) {
             if (!failOnReadError) throw e;
-            reportReadFailure(e);
+            throw e;
         } catch (Exception e) {
             reportReadFailure(e);
         }

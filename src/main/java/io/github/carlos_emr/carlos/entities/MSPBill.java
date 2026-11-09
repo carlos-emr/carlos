@@ -30,7 +30,6 @@
 package io.github.carlos_emr.carlos.entities;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.util.DateUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
 import java.util.Date;
@@ -105,6 +104,11 @@ public class MSPBill {
     public String adjustmentCodeDesc = "";
     public String amtOwing;
     public String adjustmentCodeAmt = "";
+
+    private int unparsedAmounts;
+
+    public int getUnparsedAmounts() { return unparsedAmounts; }
+    public void recordUnparsedAmount() { unparsedAmounts++; }
 
     //  public String gst="0.00";
 //  public String gstNo="";
@@ -399,27 +403,18 @@ public class MSPBill {
      * @return int
      */
     public String getServiceDateRange() {
-        String ret = "0";
-        java.util.Date dt = null;
+        if (serviceDateRange != null && !serviceDateRange.isEmpty()) return serviceDateRange;
+        return ageRange(serviceDate, java.time.LocalDate.now());
+    }
+
+    /** Strict date buckets shared with report snapshots; invalid dates are explicitly unaged. */
+    public static String ageRange(String date, java.time.LocalDate asOf) {
+        if (date == null || date.isBlank() || "00000000".equals(date)) return "0";
         try {
-            java.text.DateFormat formatter = new java.text.SimpleDateFormat(
-                    "yyyyMMdd");
-            dt = formatter.parse(this.serviceDate);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
-        DateUtils ut = new DateUtils();
-        long daysOld = DateUtils.getDifDays(new Date(), dt);
-        if (daysOld >= 0 && daysOld <= 30) {
-            ret = "1";
-        } else if (daysOld >= 31 && daysOld <= 60) {
-            ret = "2";
-        } else if (daysOld >= 61 && daysOld <= 90) {
-            ret = "3";
-        } else if (daysOld > 91) {
-            ret = "4";
-        }
-        return ret;
+            long days = java.time.temporal.ChronoUnit.DAYS.between(
+                    java.time.LocalDate.parse(date, java.time.format.DateTimeFormatter.BASIC_ISO_DATE), asOf);
+            return days <= 30 ? "1" : days <= 60 ? "2" : days <= 90 ? "3" : "4";
+        } catch (java.time.format.DateTimeParseException invalid) { return "0"; }
     }
 
     public String getStatus() {

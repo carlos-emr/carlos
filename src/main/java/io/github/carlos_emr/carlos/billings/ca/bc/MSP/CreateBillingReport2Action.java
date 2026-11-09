@@ -69,7 +69,53 @@ public class CreateBillingReport2Action extends ActionSupport {
     /**
      * Performs Report Generation Logic based on the supplied parameters form the submitted form
      */
+    @Override
     public String execute() throws IOException {
+        LoggedInInfo login = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(login, "_billing", "r", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+        if ("csv".equals(getDocFormat())) return exportCsv();
+        if (!"pdf".equals(getDocFormat()) || !BcBillingCsv.supports(getRepType())) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        Path file = null;
+        try {
+            file = PathValidationUtils.createSecureTempFile("carlos-bc-report-", ".pdf").toPath();
+            try (OutputStream output = Files.newOutputStream(file)) {
+                renderPdf(output);
+            }
+            try (InputStream input = Files.newInputStream(file)) {
+                if (!java.util.Arrays.equals(input.readNBytes(5), "%PDF-".getBytes(java.nio.charset.StandardCharsets.US_ASCII))) {
+                    throw new IllegalStateException("Report generation did not produce a PDF");
+                }
+            }
+            response.setContentType("application/pdf");
+            response.setHeader("Content-Disposition", "attachment; filename=\"" + getRepType() + ".pdf\"");
+            response.setContentLengthLong(Files.size(file));
+            Files.copy(file, response.getOutputStream());
+        } catch (io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO.MissingBcPaymentProviderException invalid) {
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Select a provider with a practitioner number.");
+            }
+        } catch (Exception failure) {
+            MiscUtils.getLogger().error("BC PDF generation failed ({})", failure.getClass().getName());
+            if (!response.isCommitted()) {
+                response.reset();
+                response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
+        } finally {
+            if (file != null) {
+                try { Files.deleteIfExists(file); }
+                catch (IOException cleanup) { MiscUtils.getLogger().warn("Could not remove temporary PDF report"); }
+            }
+        }
+        return NONE;
+    }
+
+    protected String renderPdf(OutputStream outputStream) throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
             throw new SecurityException("missing required sec object (_billing)");
@@ -88,7 +134,7 @@ public class CreateBillingReport2Action extends ActionSupport {
             String classpath = (String) ServletActionContext.getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
             if (classpath == null)
                 classpath = (String) request.getSession().getServletContext().getAttribute("com.ibm.websphere.servlet.application.classpath");
-            System.setProperty("jasper.reports.compile.class.path", classpath);
+            if (classpath != null) System.setProperty("jasper.reports.compile.class.path", classpath);
         }
         if (!System.getProperties().containsKey("java.awt.headless")) {
             System.setProperty("java.awt.headless", "true");
@@ -114,15 +160,14 @@ public class CreateBillingReport2Action extends ActionSupport {
         reportParams.put("startDate", startDate);
         reportParams.put("endDate", endDate);
         reportParams.put("insurers", insurers);
-        ServletOutputStream outputStream = this.getServletOstream(response);
-        MSPReconcile msp = new MSPReconcile();
+        MSPReconcile msp = new MSPReconcile(true);
         BillSearch billSearch = null;
 
         //open corresponding Jasper Report Definition
         InputStream reportInstream = osc.getDocumentStream(REPORTS_PATH + repDef);
         try {
             //COnfigure Reponse Header
-            cfgHeader(response, repType, docFmt);
+            // Attachment headers are set only after the complete document has been staged.
             //select appropriate report retrieval method
             if (repType.equals(MSPReconcile.REP_ACCOUNT_REC) || repType.equals(MSPReconcile.REP_INVOICE) || repType.equals(MSPReconcile.REP_WO)) {
 
@@ -202,7 +247,7 @@ public class CreateBillingReport2Action extends ActionSupport {
                         osc.fillDocumentStream(reportParams, outputStream, docFmt, reportInstream, connection);
                     }
                 } catch (SQLException e) {
-                    MiscUtils.getLogger().error("Error", e);
+                    throw new IllegalStateException("Remittance summary could not be generated");
                 }
 
             } else if (repType.equals(MSPReconcile.REP_PAYREF) || repType.equals(MSPReconcile.REP_PAYREF_SUM)) {

@@ -48,6 +48,18 @@ public class BillHistory {
     private Date archiveDate;
     private String billingtype = "";
     private String seqNum = "";
+    private String amountText;
+
+    /** Preserves the source snapshot, including malformed legacy values. */
+    public void setAmountText(String value) {
+        amountText = value == null ? "" : value;
+        try { amount = Double.parseDouble(amountText); }
+        catch (NumberFormatException invalid) { amount = Double.NaN; }
+    }
+
+    public String getAmountText() { return amountText == null ? String.valueOf(amount) : amountText; }
+    public boolean hasKnownAmount() { return Double.isFinite(amount); }
+
     private double amount;
     private double amountReceived;
     private String paymentTypeId;

@@ -47,7 +47,7 @@ async function workflow(s) {
     await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
     const row = page.locator('table.displayGrid tbody tr').filter({ hasText: codes[0] });
     h.assert(await row.count() === 1, 'Saved BC association was not listed');
-    await row.getByRole('button', { name: 'Edit', exact: true }).click();
+    await row.getByRole('link', { name: 'Edit', exact: true }).click();
     h.assert(await page.locator('#secondaryCode').inputValue() === codes[1], 'Reopened association lost its fee');
   });
   await s.step('update then delete only the owned association', async () => {
@@ -55,7 +55,7 @@ async function workflow(s) {
     await expectValue(s.sql, `SELECT billingServiceTrayNo FROM billing_trayfees WHERE billingServiceNo=${ids[0]}`, ids[2], 'BC association edit did not persist');
     const row = page.locator('table.displayGrid tbody tr').filter({ hasText: codes[0] });
     await h.withExpectedDialogs(admin, async () => {
-      await row.getByRole('button', { name: 'Delete', exact: true }).click();
+      await row.getByRole('link', { name: 'Delete', exact: true }).click();
       await expectValue(s.sql, count, '0', 'BC association delete did not persist');
     }, { accept: true });
   });

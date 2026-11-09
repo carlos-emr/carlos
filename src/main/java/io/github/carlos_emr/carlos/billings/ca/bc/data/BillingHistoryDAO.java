@@ -43,7 +43,6 @@ import io.github.carlos_emr.carlos.entities.BillHistory;
 import io.github.carlos_emr.carlos.entities.Billingmaster;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
-import io.github.carlos_emr.carlos.util.LegacyReadResult;
 
 /**
  * BillingHistoryDAO is responsible for providing database CRUD operations
@@ -82,7 +81,7 @@ public class BillingHistoryDAO {
         result.setPractitioner_no(bh.getPractitionerNo());
         result.setBillingtype(bh.getBillingType());
         result.setSeqNum(bh.getSeqNum());
-        result.setAmount(ConversionUtils.fromDoubleString(bh.getAmount()));
+        result.setAmountText(bh.getAmount());
         result.setAmountReceived(ConversionUtils.fromDoubleString(bh.getAmountReceived()));
         result.setPaymentTypeId(bpt.getId().toString());
         result.setPaymentTypeDesc(bpt.getPaymentType());
@@ -119,7 +118,7 @@ public class BillingHistoryDAO {
         b.setPractitionerNo(history.getPractitioner_no());
         b.setBillingType(history.getBillingtype());
         b.setSeqNum(history.getSeqNum());
-        b.setAmount(String.valueOf(history.getAmount()));
+        b.setAmount(history.getAmountText());
         b.setAmountReceived(String.valueOf(history.getAmountReceived()));
         b.setPaymentTypeId(Integer.parseInt(history.getPaymentTypeId()));
 
@@ -149,15 +148,14 @@ public class BillingHistoryDAO {
      */
     private BillHistory getCurrentBillItemState(String billMasterNo) {
         BillHistory history = null;
-        BillingmasterDAO.BillStateRow values = LegacyReadResult.orNull(
-                () -> SpringUtils.getBean(BillingmasterDAO.class).findCurrentBillState(billMasterNo));
+        BillingmasterDAO.BillStateRow values = SpringUtils.getBean(BillingmasterDAO.class).findCurrentBillState(billMasterNo);
         if (values != null) {
             history = new BillHistory();
             history.setBillingMasterNo(Integer.parseInt(billMasterNo));
             history.setPractitioner_no(values.practitionerNo());
             history.setBillingtype(values.billingType());
             history.setBillingStatus(values.status());
-            history.setAmount(Double.parseDouble(values.amount()));
+            history.setAmountText(values.amount());
             history.setPaymentTypeId(values.paymentMethod());
             MSPReconcile rec = new MSPReconcile();
             //don't waste resources if this is a private bill

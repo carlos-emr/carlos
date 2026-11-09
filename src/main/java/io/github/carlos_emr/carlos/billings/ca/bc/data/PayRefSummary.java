@@ -34,7 +34,7 @@ import java.util.Locale;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
-import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.BcBillingConstants;
 
 /**
  * <p>Title: PayRefSummary</p>
@@ -77,23 +77,23 @@ public class PayRefSummary {
         paymentMethod = paymentMethod == null ? "" : paymentMethod;
         try {
 
-            if (paymentMethod.equals(MSPReconcile.PAYTYPE_CASH)) {
+            if (paymentMethod.equals(BcBillingConstants.PAYTYPE_CASH)) {
                 this.cash += value;
-            } else if (paymentMethod.equals(MSPReconcile.PAYTYPE_CHEQUE)) {
+            } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_CHEQUE)) {
                 this.cheque += value;
-            } else if (paymentMethod.equals(MSPReconcile.PAYTYPE_VISA)) {
+            } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_VISA)) {
                 this.visa += value;
-            } else if (paymentMethod.equals(MSPReconcile.PAYTYPE_MC)) {
+            } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_MC)) {
                 this.mc += value;
-            } else if (paymentMethod.equals(MSPReconcile.PAYTYPE_AMEX)) {
+            } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_AMEX)) {
                 this.amex += value;
-            } else if (paymentMethod.equals(MSPReconcile.PAYTYPE_ELECTRONIC)) {
+            } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_ELECTRONIC)) {
 
                 this.electronic += value;
                 line += String.valueOf(electronic) + " " + String.valueOf(value) + "\n";
-            } else if (paymentMethod.equals(MSPReconcile.PAYTYPE_DEBIT)) {
+            } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_DEBIT)) {
                 this.debit += value;
-            } else if (paymentMethod.equals(MSPReconcile.PAYTYPE_OTHER)) {
+            } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_OTHER)) {
                 this.other += value;
             } else {
                 this.other += value;
