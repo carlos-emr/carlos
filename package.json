@@ -1024,6 +1024,10 @@
     "test:demographic-merge-clinical-history-playwright": "node scripts/demographic-merge-clinical-history-playwright-checks.js",
     "test:eform-visual-widgets-playwright": "node scripts/eform-visual-widgets-playwright-checks.js",
     "test:lab-qualified-results-playwright": "node scripts/lab-qualified-results-playwright-checks.js",
+    "test:rx-favorite-groups-playwright": "node scripts/rx-favorite-groups-playwright-checks.js",
+    "test:rx-original-version-playwright": "node scripts/rx-original-version-playwright-checks.js",
+    "test:rx-renal-waf-privacy-playwright": "node scripts/rx-renal-waf-privacy-playwright-checks.js",
+    "test:rx-preview-loading-notes-playwright": "node scripts/rx-preview-loading-notes-playwright-checks.js",
     "test:tickler-calendar-quick-picks-playwright": "node scripts/tickler-calendar-quick-picks-playwright-checks.js"
   },
   "dependencies": {

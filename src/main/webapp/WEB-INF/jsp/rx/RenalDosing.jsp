@@ -34,9 +34,8 @@
 <%@page %>
 <%@page import="io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler, java.util.*" %>
-<%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.lab.*" %>
+<%@page import="io.github.carlos_emr.carlos.lab.ca.on.*,io.github.carlos_emr.carlos.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
-<%@ page import="io.github.carlos_emr.carlos.lab.SortHashtable" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RxUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.util.RenalDosingInput" %>
@@ -72,8 +71,12 @@
         divId = "renalDosing";
     }
 
-    DosingRecomendation rd = RenalDosingFactory.getDosingInformation(atc);
-    if (rd == null) {  // No data so don't continue
+    DosingRecomendation rd;
+    try { rd = RenalDosingFactory.getDosingInformation(atc); }
+    catch (IllegalStateException unavailable) { response.setStatus(503); return; }
+    if (rd == null) {  // Explicitly distinguish no guidance from an unusable response.
+        response.setContentType("application/json");
+        out.write("{\"renalState\":\"no-guidance\"}");
         return;
     }
 
@@ -88,10 +91,12 @@
 
     Date wtDate = null;
     boolean invalidInput = age < 0;
+    boolean undatedCreatinine = false;
     if (measurementHash != null && measurementHash.get("value") != null) {
-        weight = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
+        weight = RenalDosingInput.weightKilograms((String) measurementHash.get("value"),
+                (String) measurementHash.get("measuringInstruction"));
         wtDate = (Date) measurementHash.get("dateObserved_date");
-        invalidInput |= !Double.isFinite(weight);
+        invalidInput |= !Double.isFinite(weight) || wtDate == null;
     }
 
     double measurementsCr = -1;
@@ -99,10 +104,11 @@
 
     measurementHash = EctMeasurementsDataBeanHandler.getLast(demographicNo, "sCr");
     if (measurementHash != null && measurementHash.get("value") != null) {
-        measurementsCr = RenalDosingInput.positiveNumber((String) measurementHash.get("value"));
+        measurementsCr = RenalDosingInput.creatinineMicromoles((String) measurementHash.get("value"),
+                (String) measurementHash.get("measuringInstruction"));
         measurementsCrDate = (Date) measurementHash.get("dateObserved_date");
         // An undated unusable reading cannot safely be ordered against a valid lab.
-        invalidInput |= measurementsCrDate == null && !Double.isFinite(measurementsCr);
+        invalidInput |= measurementsCrDate == null;
     }
 
 
@@ -112,11 +118,13 @@
     List labs = CommonLabTestValues.findValuesForTest("CML", Integer.valueOf(demographicNo), "CREATININE");
     if (labs != null && labs.size() > 0) {
 
-        Collections.sort(labs, new SortHashtable());
-        Hashtable hash = (Hashtable) labs.get(0);
+        // CML rows are already ordered by their typed date, with unusable undated rows first.
+        java.util.Map hash = (java.util.Map) labs.get(0);
         String sCrStr = (String) hash.get("result");
         sCrDate = (Date) hash.get("collDateDate");
-        sCr = RenalDosingInput.positiveNumber(sCrStr);
+        undatedCreatinine = sCrDate == null;
+        invalidInput |= undatedCreatinine;
+        sCr = RenalDosingInput.creatinineMicromoles(sCrStr, (String) hash.get("units"));
     }
 
 
@@ -138,31 +146,24 @@
     if (invalidInput) {
         // Keep the N/A panel and Refresh link in the refusal response so a correction
         // can be reread without retaining a previously highlighted recommendation.
-        response.setStatus(jakarta.servlet.http.HttpServletResponse.SC_BAD_REQUEST);
+        response.setHeader("X-Carlos-Renal-State", "unusable-observations");
     }
 
     boolean ageb, weightb, sCrb, equate;
     ageb = weightb = sCrb = equate = false;
 
 
-    if (age > 0) {
-        ageb = true;
-    }
-    if (weight > 0) {
-        weightb = true;
-    }
-    if (sCr > 0) {
-        sCrb = true;
-    }
-
-
-    int Clcr = 0;
-    if (!invalidInput && ageb && weightb && sCrb) {
+    ageb = RenalDosingInput.supportsAge(age);
+    weightb = RenalDosingInput.supportsWeight(weight);
+    sCrb = RenalDosingInput.supportsCreatinine(sCr);
+    boolean knownSex = "M".equalsIgnoreCase(demographic.getSex()) || "F".equalsIgnoreCase(demographic.getSex());
+    double Clcr = 0;
+    if (!invalidInput && knownSex && RenalDosingInput.supportsAutomaticHighlight(age, weight, sCr)) {
         equate = true;
-        Clcr = RxUtil.getClcr(age, weight, sCr, female);
+        // Conservative integer bands avoid both upward rounding and gaps between adjacent table rows.
+        Clcr = Math.floor(RxUtil.getClcrUnrounded(age, weight, sCr, female));
     }
 
-//int Clcr = RxUtil.getClcr(age,weight,sCr,female);
     ArrayList list = rd.getDose();
 
 
@@ -214,6 +215,11 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 <div data-renal-dosing-panel style="float:left; margin-left:10px; margin-right: 10px;">
     <h3>Dosing Information <small><button type="button" class="btn btn-link"
         onclick="getRenalDosingInformation('<carlos:encode value='<%= divId %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= atc %>' context="javaScriptAttribute"/>');">Refresh</button></small></h3>
+    <% if (!equate) { %>
+    <p role="status"><fmt:message key="oscarRx.renal.unusableObservations"/> <fmt:message key="oscarRx.renal.highlightRange"/></p>
+    <% } %>
+    <details open><summary><fmt:message key="oscarRx.renal.details"/></summary>
+    <% if (undatedCreatinine) { %><p role="status"><fmt:message key="oscarRx.renal.undated"/></p><% } %>
     <table class="sofT">
         <tr class="heading">
             <th>Clcr</th>
@@ -252,7 +258,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
                     <a href="javascript: function myFunction() {return false; }"
                        onclick="popup(500,1000,'<%= request.getContextPath() %>/encounter/oscarMeasurements/SetupMeasurements?groupName=Renal Dosing&amp;demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>','dddsfds'); return false;">
                         [kg <carlos:encode value='<%= UtilDateUtilities.DateToString(wtDate, "yyyy-MMM-dd") %>' context="html"/>]
-                    </a> X 1.23
+                    </a> X 1.25
 
                 </td>
                 <% if (female) {%>
@@ -272,6 +278,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 
     <div style="clear:left"><carlos:encode value='<%= rd.getMoreinfo() %>' context="html"/>
     </div>
+    </details>
 </div>
 <%--
   -Right now only works for CML
@@ -288,7 +295,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 
     String setNA(boolean valb, double value) {
         if (valb) {
-            return "" + value;
+            return java.math.BigDecimal.valueOf(value).setScale(2, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
         }
         return "<span style=\"color:orange\">N/A</span>";
     }

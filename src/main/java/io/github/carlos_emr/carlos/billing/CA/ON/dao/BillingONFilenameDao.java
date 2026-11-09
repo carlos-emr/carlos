@@ -55,7 +55,8 @@ public class BillingONFilenameDao extends AbstractDaoImpl<BillingONFilename> {
         Query query = entityManager.createQuery(
                 "SELECT COUNT(f) FROM BillingONFilename f WHERE f.htmlFilename = ?1");
         query.setParameter(1, htmlFilename);
-        return ((Number) query.getSingleResult()).longValue() > 0;
+        return ((Number) query.getSingleResult()).longValue() > 0
+                || BillingFilenameImportDao.isReserved(entityManager, htmlFilename);
     }
 
     public List<BillingONFilename> findByDiskIdAndStatus(Integer diskId, String status) {

@@ -4,7 +4,7 @@ const h = require('./playwright-harness');
 const CASES = {
   'male-valid': {age: 60, sex: 'M', weight: '80', cr: '100', clearance: 80},
   'female-valid': {age: 60, sex: 'F', weight: '80', cr: '100', clearance: 68},
-  'older-low-weight': {age: 80, sex: 'F', weight: '40', cr: '100', clearance: 26},
+  'older-low-weight': {age: 80, sex: 'F', weight: '40', cr: '100', clearance: 25},
   'younger-high-weight': {age: 40, sex: 'M', weight: '100', cr: '100', clearance: 125},
   'missing-weight': {weight: null, cr: '100'}, 'missing-cr': {weight: '80', cr: null},
   'missing-both': {weight: null, cr: null}, 'future-age': {age: -1, weight: '80', cr: '100', status: 400},
@@ -20,9 +20,10 @@ for (const [name, value] of Object.entries({blank: '', text: 'not-a-number', zer
   CASES['weight-'+name] = {weight: value, cr: '100', status: 400};
   CASES['cr-'+name] = {weight: '80', cr: value, status: 400};
 }
-for (const [clearance, cr] of [[4,'2000'],[5,'1600'],[6,'1333.333333'],[29,'275.862069'],[30,'266.666667'],[31,'258.064516']]) {
-  CASES['boundary-'+clearance] = {weight: '80', cr, clearance};
+for (const [clearance, age, weight, cr] of [[4,120,'20','125'],[5,120,'20','100'],[6,120,'24','100'],[29,60,'29','100'],[30,60,'30','100'],[31,60,'31','100']]) {
+  CASES['boundary-'+clearance] = {age, weight, cr, clearance};
 }
+
 function renalInputFixture(s) {
   const {sql, patient, provider, marker} = s;
   const labs = [],reports=[];

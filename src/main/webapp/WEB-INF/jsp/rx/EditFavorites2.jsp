@@ -219,6 +219,7 @@
 
     </head>
     <body>
+<p><a href="<%= request.getContextPath() %>/rx/favoriteGroups?demographicNo=<%= bean.getDemographicNo() %>"><fmt:message key="oscarRx.groups.title"/></a></p>
     <form action="${pageContext.request.contextPath}/rx/updateFavorite2" method="post">
         <input type="hidden" name="demographicNo" value="${bean.demographicNo}"/>
         <input type="hidden" name="favoriteId" id="favoriteId"/>

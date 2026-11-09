@@ -55,7 +55,7 @@ test('an empty stash is refused before any confirmation or save', () => {
 // of its contract; setPharmacyId is the next function after them.
 const refusedSave = slice('var RX_SAVE_PRE_WRITE_ERRORS', 'function setPharmacyId(');
 const refusedMessages = {
-    staleDraft: 'review the current draft', saveRefused: 'reopen the session',
+    alreadySaved: 'already saved; review the profile', staleDraft: 'review the current draft', saveRefused: 'reopen the session',
     saveIncomplete: 'review the chart before retrying', saveUncertain: 'it may be saved; check the profile',
 };
 
@@ -164,6 +164,7 @@ test('Save Only requests atomic cleanup and never clears the shared stash afterw
     const calls = [];
     let cleared = 0;
     const context = {
+        rxSaveNeedsReconciliation: true,
         validateWrittenDate: () => true, validateRxDate: () => true, validateCardProperties: () => true,
         setPharmacyId() {}, ctx: '/carlos',
         document: { getElementById: () => ({}) },
@@ -180,8 +181,10 @@ test('Save Only requests atomic cleanup and never clears the shared stash afterw
     assert.equal(cleared, 0);
     calls[0].options.onSuccess({status: 200, responseText: '<html>login</html>'});
     assert.equal(cleared, 0, 'a successful error/login page must not hide the draft');
+    assert.equal(context.rxSaveNeedsReconciliation, true, 'an unconfirmed response must preserve the earlier uncertainty');
     calls[0].options.onSuccess({status: 200, responseText: '{"scriptId":123}'});
     assert.equal(cleared, 1);
+    assert.equal(context.rxSaveNeedsReconciliation, false, 'a validated plain Save must clear the earlier uncertainty');
     assert.equal(calls.length, 1, 'a post-save clear can destroy another window\'s newer draft');
 });
 
@@ -265,3 +268,22 @@ for (const name of ['updateSaveAllDrugsPrintContinue', 'updateSaveAllDrugsContin
         assert.equal(context[name](), false);
     });
 }
+
+for (const [error, message] of [['RX_ALREADY_SAVED', refusedMessages.alreadySaved], ['RX_SAVE_OUTCOME_UNKNOWN', refusedMessages.saveUncertain]]) {
+    test(`a durable receipt reports ${error} without a false not-saved refusal`, () => {
+        assert.deepEqual(reportRefused({status: 409, responseJSON: {error}}), {alerts: [message], refreshed: 1});
+    });
+}
+
+test('a later login, CSRF, empty or stale refusal cannot erase an earlier uncertain save outcome', () => {
+    const alerts=[]; let refreshes=0;
+    const context={jsMsg: refusedMessages, alert: message=>alerts.push(message), refreshDrugProfile:()=>refreshes++};
+    vm.runInNewContext(refusedSave, context);
+    context.reportRefusedSave({status:504});
+    for (const status of [400,403,409]) context.reportRefusedSave({status,responseJSON:{error:'STALE_RX_STASH'}});
+    assert.equal(alerts.length,4);
+    assert(alerts.every(message=>message.includes(refusedMessages.saveUncertain)));
+    assert.equal(refreshes,4);
+    context.reportRefusedSave({status:409,responseJSON:{error:'RX_ALREADY_SAVED'}});
+    assert.equal(alerts.at(-1),refusedMessages.alreadySaved);
+});

@@ -44,6 +44,7 @@ class QueryByExampleSqlValidatorUnitTest {
             "appdefinition",
             "appuser",
             "casemgmt_note_lock",
+            "rx_submission_receipt",
             "cds_import_admission",
             "cds_import_checkpoint",
             "cds_import_dependency",
