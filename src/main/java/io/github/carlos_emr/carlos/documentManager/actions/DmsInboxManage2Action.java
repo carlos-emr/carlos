@@ -471,72 +471,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
         Collections.sort(labdocs);
 
-        HashMap<String, LabResultData> labMap = new HashMap<String, LabResultData>();
-        LinkedHashMap<String, ArrayList<String>> accessionMap = new LinkedHashMap<String, ArrayList<String>>();
-
-        int accessionNumCount = 0;
-        for (LabResultData result : labdocs) {
-            String segmentId = result.getSegmentID();
-            if (result.isDocument())
-                segmentId += "d";
-            else if (result.isHRM())
-                segmentId += "h";
-
-            labMap.put(segmentId, result);
-            ArrayList<String> labNums = new ArrayList<String>();
-
-            if ("HL7".equals(result.labType)) {
-                // Each HL7 version has its own review state. Keep precisely the selected report.
-                labNums.add(segmentId);
-                accessionMap.put("HL7-report:" + segmentId, labNums);
-            } else if (result.accessionNumber == null || result.accessionNumber.equals("null") || result.accessionNumber.isEmpty()) {
-                labNums.add(segmentId);
-                accessionNumCount++;
-                accessionMap.put("noAccessionNum" + accessionNumCount + result.labType, labNums);
-            } else if (!accessionMap.containsKey(result.accessionNumber + result.labType)) {
-                labNums.add(segmentId);
-                accessionMap.put(result.accessionNumber + result.labType, labNums);
-
-                // Different MDS Labs may have the same accession Number if they are seperated
-                // by two years. So accession numbers are limited to matching only if their
-                // labs are within one year of eachother
-            } else {
-                labNums = accessionMap.get(result.accessionNumber + result.labType);
-                boolean matchFlag = false;
-                for (int j = 0; j < labNums.size(); j++) {
-                    LabResultData matchingResult = labMap.get(labNums.get(j));
-
-                    Date dateA = result.getDateObj();
-                    Date dateB = matchingResult.getDateObj();
-                    int monthsBetween = 0;
-                    if (dateA == null || dateB == null) {
-                        monthsBetween = 5;
-                    } else if (dateA.before(dateB)) {
-                        monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
-                    } else {
-                        monthsBetween = UtilDateUtilities.getNumMonths(dateB, dateA);
-                    }
-
-                    if (monthsBetween < 4) {
-                        matchFlag = true;
-                        break;
-                    }
-                }
-                if (!matchFlag) {
-                    labNums.add(segmentId);
-                    accessionMap.put(result.accessionNumber + result.labType, labNums);
-                }
-            }
-        }
-
-        labdocs.clear();
-
-        for (ArrayList<String> labNums : accessionMap.values()) {
-            // must sort through in reverse to keep the labs in the correct order
-            for (int j = labNums.size() - 1; j >= 0; j--) {
-                labdocs.add(labMap.get(labNums.get(j)));
-            }
-        }
+        labdocs = preserveSelectedReports(labdocs);
         // An int count cannot carry CR/LF; the taint rule cannot model that.
         logger.debug("labdocs.size()={}", labdocs.size()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
@@ -1008,4 +943,72 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "document_in_queues";
 
     }
+    /** Keeps HL7 review identities separate and preserves the other legacy source grouping. */
+    static ArrayList<LabResultData> preserveSelectedReports(List<LabResultData> selected) {
+        ArrayList<LabResultData> labdocs = new ArrayList<>(selected);
+        HashMap<String, LabResultData> labMap = new HashMap<String, LabResultData>();
+        LinkedHashMap<String, ArrayList<String>> accessionMap = new LinkedHashMap<String, ArrayList<String>>();
+
+        int accessionNumCount = 0;
+        for (LabResultData result : labdocs) {
+            String segmentId = result.labType + ":" + result.getSegmentID();
+
+            labMap.put(segmentId, result);
+            ArrayList<String> labNums = new ArrayList<String>();
+
+            if ("HL7".equals(result.labType)) {
+                // Each HL7 version has its own review state. Keep precisely the selected report.
+                labNums.add(segmentId);
+                accessionMap.put("HL7-report:" + segmentId, labNums);
+            } else if (result.accessionNumber == null || result.accessionNumber.equals("null") || result.accessionNumber.isEmpty()) {
+                labNums.add(segmentId);
+                accessionNumCount++;
+                accessionMap.put("noAccessionNum" + accessionNumCount + result.labType, labNums);
+            } else if (!accessionMap.containsKey(result.accessionNumber + result.labType)) {
+                labNums.add(segmentId);
+                accessionMap.put(result.accessionNumber + result.labType, labNums);
+
+                // Different MDS Labs may have the same accession Number if they are seperated
+                // by two years. So accession numbers are limited to matching only if their
+                // labs are within one year of eachother
+            } else {
+                labNums = accessionMap.get(result.accessionNumber + result.labType);
+                boolean matchFlag = false;
+                for (int j = 0; j < labNums.size(); j++) {
+                    LabResultData matchingResult = labMap.get(labNums.get(j));
+
+                    Date dateA = result.getDateObj();
+                    Date dateB = matchingResult.getDateObj();
+                    int monthsBetween = 0;
+                    if (dateA == null || dateB == null) {
+                        monthsBetween = 5;
+                    } else if (dateA.before(dateB)) {
+                        monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
+                    } else {
+                        monthsBetween = UtilDateUtilities.getNumMonths(dateB, dateA);
+                    }
+
+                    if (monthsBetween < 4) {
+                        matchFlag = true;
+                        break;
+                    }
+                }
+                if (!matchFlag) {
+                    labNums.add(segmentId);
+                    accessionMap.put(result.accessionNumber + result.labType, labNums);
+                }
+            }
+        }
+
+        labdocs.clear();
+
+        for (ArrayList<String> labNums : accessionMap.values()) {
+            // must sort through in reverse to keep the labs in the correct order
+            for (int j = labNums.size() - 1; j >= 0; j--) {
+                labdocs.add(labMap.get(labNums.get(j)));
+            }
+        }
+        return labdocs;
+    }
+
 }
