@@ -332,7 +332,7 @@ public final class ImageRenderingServlet extends HttpServlet {
         }
 
         DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-        DigitalSignature signatureMetadata = digitalSignatureManager.getDigitalSignatureMetadataForRead(parsedDigitalSignatureId);
+        DigitalSignature signatureMetadata = digitalSignatureManager.getDigitalSignatureMetadata(parsedDigitalSignatureId);
         if (signatureMetadata == null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
             return;

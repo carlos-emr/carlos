@@ -130,7 +130,7 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             }
             Integer renderDemographic = renderEform.getDemographicId();
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
-			DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadataForRead(digitalSignatureId);
+			DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(digitalSignatureId);
 			if (metadata == null) {
 				response.sendError(HttpServletResponse.SC_NOT_FOUND);
 				return;

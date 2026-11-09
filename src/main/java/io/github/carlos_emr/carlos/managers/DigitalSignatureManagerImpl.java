@@ -118,11 +118,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
 
     @Override
     public DigitalSignature getDigitalSignatureMetadata(int id) {
-        return this.digitalSignatureDao.findMetadataById(id);
-    }
-
-    @Override
-    public DigitalSignature getDigitalSignatureMetadataForRead(int id) {
+        // This is used for authorization before loading signature bytes.
+        // Imported -1 rows require the frozen source owner even for legacy callers.
         return this.digitalSignatureDao.findReadableMetadataById(id);
     }
 

@@ -1643,7 +1643,7 @@ public class FrmCustomedPDFServlet extends HttpServlet {
             return null;
         }
         int signatureId = prescription.getDigitalSignatureId();
-        DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadataForRead(signatureId);
+        DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(signatureId);
         if (metadata == null || metadata.getModuleType() != ModuleType.PRESCRIPTION
                 || metadata.getDemographicId() == null
                 || !metadata.getDemographicId().equals(demographicId)

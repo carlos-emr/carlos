@@ -866,7 +866,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         }
         try {
             int patient = Integer.parseInt(expectedDemographicNo);
-            DigitalSignature metadata = mgr.getDigitalSignatureMetadataForRead(parsedId);
+            DigitalSignature metadata = mgr.getDigitalSignatureMetadata(parsedId);
             if (metadata == null || metadata.getModuleType() != io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION
                     || metadata.getDemographicId() == null || metadata.getDemographicId() != patient) {
                 throw new IllegalStateException("Consultation signature ownership cannot be established");

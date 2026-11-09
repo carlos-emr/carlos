@@ -80,7 +80,7 @@ class ConsultationPDFCreatorUnitTest {
         DigitalSignature metadata = new DigitalSignature();
         metadata.setDemographicId(42);
         metadata.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION);
-        when(mgr.getDigitalSignatureMetadataForRead(5)).thenReturn(metadata);
+        when(mgr.getDigitalSignatureMetadata(5)).thenReturn(metadata);
 
         byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, "5", "42", mgr);
 
@@ -98,7 +98,7 @@ class ConsultationPDFCreatorUnitTest {
         DigitalSignature metadata = new DigitalSignature();
         metadata.setDemographicId(42);
         metadata.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION);
-        when(mgr.getDigitalSignatureMetadataForRead(5)).thenReturn(metadata);
+        when(mgr.getDigitalSignatureMetadata(5)).thenReturn(metadata);
 
         byte[] result = ConsultationPDFCreator.resolveSignatureBytes(null, " 5 \n", "42", mgr);
 
@@ -186,7 +186,7 @@ class ConsultationPDFCreatorUnitTest {
         DigitalSignature metadata = new DigitalSignature();
         metadata.setDemographicId(77);
         metadata.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION);
-        when(mgr.getDigitalSignatureMetadataForRead(5)).thenReturn(metadata);
+        when(mgr.getDigitalSignatureMetadata(5)).thenReturn(metadata);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                 ConsultationPDFCreator.resolveSignatureBytes(null, "5", "42", mgr))

@@ -241,7 +241,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         metadata.setProviderNo(prescriberNo);
         metadata.setDemographicId(DEMOGRAPHIC_NO);
         metadata.setModuleType(ModuleType.PRESCRIPTION);
-        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(SIGNATURE_ID)).thenReturn(metadata);
+        when(digitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID)).thenReturn(metadata);
 
         DigitalSignature signature = new DigitalSignature();
         signature.setProviderNo(prescriberNo);
@@ -1551,7 +1551,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         foreignMetadata.setProviderNo("888888");
         foreignMetadata.setDemographicId(DEMOGRAPHIC_NO);
         foreignMetadata.setModuleType(ModuleType.PRESCRIPTION);
-        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(SIGNATURE_ID))
+        when(digitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID))
                 .thenReturn(foreignMetadata);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -1770,7 +1770,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         DigitalSignature foreign = new DigitalSignature();
         foreign.setDemographicId(DEMOGRAPHIC_NO + 1);
         foreign.setModuleType(ModuleType.PRESCRIPTION);
-        when(digitalSignatureManager.getDigitalSignatureMetadataForRead(SIGNATURE_ID)).thenReturn(foreign);
+        when(digitalSignatureManager.getDigitalSignatureMetadata(SIGNATURE_ID)).thenReturn(foreign);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
 
         byte[] resolved = privateDiagnostics(() -> new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo));
