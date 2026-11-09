@@ -265,9 +265,9 @@ ports yourself and run `sudo carlos-ctl finish-install`. A non-interactive
 install leaves other services running unless you explicitly opt in by preseeding
 `echo 'carlos-emr carlos-emr/stop-port-conflicts boolean true' | sudo debconf-set-selections`. Every service stopped (or a refusal)
 is printed in the install output, kept in `/var/log/apt/term.log`, and logged
-to the journal: `journalctl -t carlos-emr`. To keep the installer hands-off on
-every run, preseed
-`echo 'carlos-emr carlos-emr/stop-port-conflicts boolean false' | sudo debconf-set-selections`.
+to the journal: `journalctl -t carlos-emr`. Non-interactive runs already decline
+by default unless explicitly preseeded true. Interactive runs ask again on every
+configure that finds a conflict; preseeding false does not suppress the question.
 
 **10. Done (only if you accepted the seeded-admin replacement)** — a final
 note tells you where the initial credentials were written and points you at
