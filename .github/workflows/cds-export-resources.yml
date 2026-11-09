@@ -8,6 +8,7 @@ on:
       - 'src/main/**'
       - 'scripts/ci/CdsExportResourceQualification.java'
       - 'scripts/ci/run-cds-export-resources.py'
+      - 'scripts/ci/test_run_cds_export_resources.py'
       - 'scripts/ci/cds_war_manifest.py'
       - 'pom.xml'
       - '.github/workflows/cds-export-resources.yml'
@@ -44,6 +45,8 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - name: Verify resource-evidence and recipient-failure boundaries
+        run: python3 -m unittest discover -s scripts/ci -p test_run_cds_export_resources.py
       - name: Start Java25 build container
         uses: ./.github/actions/dev-container
         with:
@@ -58,6 +61,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cds-export-byte-resources-${{ matrix.profile }}
-          path: target/cds-export-resources-*/public/*
+          path: ${{ runner.temp }}/cds-export-resources-*/public/*
           if-no-files-found: error
           retention-days: 14

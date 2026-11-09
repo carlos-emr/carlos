@@ -163,7 +163,10 @@ success; never pass a partial ZIP to an importer or overwrite an existing
 transfer. The mandatory interoperability tests run this OpenSSL command and
 compare the recovered ZIP byte for byte before the real receiving parser reads
 it. The exact installed CLI/browser qualification independently decrypts and
-checks actual completed job downloads.
+checks actual completed job downloads. For large packages, choose a recipient
+with a streaming CMS parser and verify its resource budget. The large-byte
+qualification uses a separate streaming recipient; OpenSSL interoperability
+uses a bounded fixture.
 
 Validate the ReadMe's full paths, sender/group contact, software/schema identity,
 physician/patient totals and audit access instructions. Reconcile event/category

@@ -170,7 +170,7 @@
       "head": "ce2aa735d2f3fb84045cdd69dbcec88e8ce2eb31",
       "workflowRun": 42549472110,
       "profiles": {
-        "scaling": "RUNNING_AT_SOURCE_CHECKPOINT",
+        "scaling": "PASSED",
         "aggregate20": "PASSED",
         "zip64": "PASSED",
         "disk-reserve": "PASSED",
@@ -223,7 +223,7 @@
     },
     "exportByteResourceQualification": {
       "workflow": ".github/workflows/cds-export-resources.yml",
-      "status": "PENDING_EXACT_WAR_CI",
+      "status": "PENDING_EXACT_WAR_CI_AFTER_RUNNER_STORAGE_FIX",
       "scope": "Export byte layer only; separate from clinical readiness, query scaling and installed CLI/browser qualification",
       "heapMiB": 256,
       "peakRssBudgetMiB": 1024,
@@ -237,7 +237,18 @@
       "localExactSourceCompilePassed": true,
       "local32MiBPhysicalDiskFailureAndRecoveryPassed": true,
       "localSmallDataCmsAndZipRehearsalPassed": true,
-      "local65537EntryBoundaryPassed": true
+      "local65537EntryBoundaryPassed": true,
+      "firstAttempt": {
+        "head": "e0664fdd18d94559a3017e297c33e2d58f080eb1",
+        "workflowRun": 42553851077,
+        "status": "FAILED_BEFORE_RESOURCE_EXECUTION",
+        "failure": "The root-owned Maven target directory was not writable by the runner. Fixture/evidence storage now uses the runner-owned temporary root."
+      },
+      "boundedOpenSslInteroperabilityFixtureRequired": true,
+      "separateStreamingCmsRecipientRequired": true,
+      "localStreamingRecipientAndTagOnlyMutationRefusalPassed": true,
+      "resourceEvidenceGuardTests": 10,
+      "externalSizeAndMissingEvidenceGuardsRequired": true
     },
     "ciPostflight": {
       "prescriptionPreviewFixtures": "Capture and invoke the actual registered load handler; retain note and signature-state assertions and unrelated-load refusal",

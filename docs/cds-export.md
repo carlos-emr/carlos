@@ -103,9 +103,14 @@ heap, a 20 GiB aggregate archive containing entries above 4 GiB, independent ZIP
 readers, real 65,537-entry ZIP64 count overflow, recipient decryption and physical
 32 MiB filesystem exhaustion/reserve refusal with private-file cleanup and
 recovery. This is separate from clinical readiness and query-scaling evidence.
-The exact current source compiled and the physical disk checks passed locally;
-the large run belongs on a fresh CI runner and remains pending at this source
-checkpoint. The final test fixtures capture the real prescription-preview
+The exact current source compiled and the physical disk checks passed locally.
+A separate streaming CMS recipient verified the bounded rehearsal and rejected
+a tag-only mutation. OpenSSL interoperability uses its own bounded fixture.
+External proof checks reject small rehearsals, absent counters, ordinary ZIP
+counts, unconfirmed disk cleanup and failed recipient authentication. The initial
+CI attempt stopped before resource execution because Maven created a root-owned
+output directory; fixtures now use the runner-owned temporary root. The actual
+large run remains pending at this source checkpoint. The final test fixtures capture the real prescription-preview
 listener, and Semgrep's 120-minute budget preserves its full scan and custom-rule
 steps. Scanner execution errors or absent SARIF now fail explicitly while the
 existing non-blocking findings policy stays intact. Current-head checks remain authoritative. CodeFactor still reports an

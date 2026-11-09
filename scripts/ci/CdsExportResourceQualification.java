@@ -26,11 +26,21 @@ import java.util.UUID;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 import javax.crypto.spec.SecretKeySpec;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cms.CMSAlgorithm;
+import org.bouncycastle.cms.CMSAuthEnvelopedDataParser;
+import org.bouncycastle.cms.CMSException;
+import org.bouncycastle.cms.jcajce.JceKeyTransAuthEnvelopedRecipient;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
 /** Byte-layer qualification only: clinical readiness is tested by the installed CLI/browser workflow. */
 public final class CdsExportResourceQualification {
     private static final long GIB = 1L << 30;
     private static final long MEMBER_BYTES = 4 * GIB + 65536;
+    private static final long INTEROP_BYTES = (1L << 20) + 65536;
     private static final int MEMBERS = 5;
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final long DEADLINE = System.nanoTime() + 2700_000_000_000L;
@@ -44,9 +54,11 @@ public final class CdsExportResourceQualification {
         Path root = Path.of(args[1]).toRealPath();
         require(Files.getPosixFilePermissions(root).equals(PosixFilePermissions.fromString("rwx------")), "PRIVATE_ROOT_REQUIRED");
         Map<String, Object> proof = switch (args[0]) {
-            case "large" -> large(root);
+            case "large" -> large(root, MEMBER_BYTES);
+            case "interop" -> large(root, INTEROP_BYTES);
             case "disk" -> disk(root);
             case "verify" -> recipient(root);
+            case "decrypt" -> streamingRecipient(root);
             default -> throw new IllegalArgumentException("UNKNOWN_MODE");
         };
         proof.put("maximumHeapBytes", Runtime.getRuntime().maxMemory());
@@ -56,14 +68,15 @@ public final class CdsExportResourceQualification {
         System.out.println("PASS export resource " + args[0]);
     }
 
-    private static Map<String, Object> large(Path root) throws Exception {
-        require(Files.getFileStore(root).getUsableSpace() >= 56 * GIB, "LARGE_RUNNER_STORAGE_REQUIRED");
-        var store = store(root, 32 * GIB, GIB);
+    private static Map<String, Object> large(Path root, long memberBytes) throws Exception {
+        boolean large = memberBytes == MEMBER_BYTES;
+        require(Files.getFileStore(root).getUsableSpace() >= (large ? 56 * GIB : 64L << 20), "RUNNER_STORAGE_REQUIRED");
+        var store = store(root, 32 * GIB, large ? GIB : 1L << 20);
         byte[] block = new byte[65536];
         for (int i = 0; i < block.length; i++) block[i] = (byte) (i * 31 + 7);
         MessageDigest expected = MessageDigest.getInstance("SHA-256");
         var source = store.stage("SYNTHETIC_RESOURCE", output -> {
-            for (long left = MEMBER_BYTES; left > 0;) {
+            for (long left = memberBytes; left > 0;) {
                 checkpoint();
                 int count = (int) Math.min(block.length, left);
                 output.write(block, 0, count);
@@ -75,9 +88,9 @@ public final class CdsExportResourceQualification {
         require(source.plaintextSha256().equals(expectedHash), "SOURCE_HASH_DIFFERS");
         var archive = new CdsExportPackageComposer().compose(store, members(source, MEMBERS), 24 * GIB, 10,
                 CdsExportResourceQualification::checkpoint);
-        require(archive.expandedBytes() == MEMBER_BYTES * MEMBERS, "AGGREGATE_LENGTH_DIFFERS");
+        require(archive.expandedBytes() == memberBytes * MEMBERS, "AGGREGATE_LENGTH_DIFFERS");
         try (var input = store.open(archive.archive())) {
-            verifyZip(input, MEMBERS, MEMBER_BYTES, expectedHash, archive.archive().plaintextSha256());
+            verifyZip(input, MEMBERS, memberBytes, expectedHash, archive.archive().plaintextSha256());
         }
         Path plain = root.resolve("synthetic.zip");
         try (var input = store.open(archive.archive()); var output = Files.newOutputStream(plain, StandardOpenOption.CREATE_NEW)) {
@@ -87,7 +100,7 @@ public final class CdsExportResourceQualification {
             require(zip.size() == MEMBERS, "CENTRAL_DIRECTORY_COUNT_DIFFERS");
             for (int i = 0; i < MEMBERS; i++) {
                 var entry = zip.getEntry(name(i));
-                require(entry != null && entry.getSize() == MEMBER_BYTES, "ZIP64_LENGTH_DIFFERS");
+                require(entry != null && entry.getSize() == memberBytes, "ZIP64_LENGTH_DIFFERS");
             }
         } finally {
             Files.deleteIfExists(plain);
@@ -107,7 +120,7 @@ public final class CdsExportResourceQualification {
             result.put("ciphertextSha256", delivery.ciphertextSha256());
         }
         result.put("members", MEMBERS);
-        result.put("memberBytes", MEMBER_BYTES);
+        result.put("memberBytes", memberBytes);
         result.put("aggregateBytes", archive.expandedBytes());
         result.put("memberSha256", expectedHash);
         result.put("zipSha256", archive.archive().plaintextSha256());
@@ -115,9 +128,9 @@ public final class CdsExportResourceQualification {
         write(root.resolve("expected.json"), result);
         store.discardUnpublished(archive.archive());
         store.discardUnpublished(source);
-        countBoundary(store);
+        if (large) countBoundary(store);
         require(stageFiles(root) == 0, "LARGE_RUN_LEFT_STAGE_FILE");
-        result.put("zip64EntriesVerified", 65537);
+        result.put("zip64EntriesVerified", large ? 65537 : 0);
         result.put("independentZipReaders", 2);
         return result;
     }
@@ -135,10 +148,50 @@ public final class CdsExportResourceQualification {
 
     private static Map<String, Object> recipient(Path root) throws Exception {
         var expected = JSON.readTree(root.resolve("expected.json").toFile());
-        require(expected.get("memberBytes").asLong() == MEMBER_BYTES && expected.get("members").asInt() == MEMBERS,
+        long bytes = expected.get("memberBytes").asLong();
+        require((bytes == MEMBER_BYTES || bytes == INTEROP_BYTES) && expected.get("members").asInt() == MEMBERS,
                 "RECIPIENT_EXPECTATION_DIFFERS");
-        verifyZip(System.in, MEMBERS, MEMBER_BYTES, expected.get("memberSha256").asText(), expected.get("zipSha256").asText());
-        return new LinkedHashMap<>(Map.of("recipientDecryptionVerified", true, "aggregateBytes", MEMBER_BYTES * MEMBERS));
+        verifyZip(System.in, MEMBERS, bytes, expected.get("memberSha256").asText(), expected.get("zipSha256").asText());
+        return new LinkedHashMap<>(Map.of("recipientDecryptionVerified", true, "aggregateBytes", bytes * MEMBERS));
+    }
+
+    /** Independent process using the standard streaming recipient API, never the production composer. */
+    private static Map<String, Object> streamingRecipient(Path root) throws Exception {
+        var expected = JSON.readTree(root.resolve("expected.json").toFile());
+        long bytes = expected.get("memberBytes").asLong();
+        require((bytes == MEMBER_BYTES || bytes == INTEROP_BYTES) && expected.get("members").asInt() == MEMBERS,
+                "RECIPIENT_EXPECTATION_DIFFERS");
+        java.security.PrivateKey key;
+        try (var pem = new PEMParser(Files.newBufferedReader(root.resolve("recipient.key")))) {
+            Object parsed = pem.readObject();
+            require(parsed instanceof PrivateKeyInfo, "PRIVATE_PKCS8_KEY_REQUIRED");
+            key = new JcaPEMKeyConverter().getPrivateKey((PrivateKeyInfo) parsed);
+        }
+        X509Certificate certificate;
+        try (var input = Files.newInputStream(root.resolve("recipient.pem"))) {
+            certificate = (X509Certificate) CertificateFactory.getInstance("X.509").generateCertificate(input);
+        }
+        try (var input = Files.newInputStream(root.resolve("delivery.cms")); var cms = new RecipientParser(input)) {
+            require(CMSAlgorithm.AES256_GCM.getId().equals(cms.getEncAlgOID()), "AES256_GCM_REQUIRED");
+            var recipients = cms.getRecipientInfos().getRecipients();
+            require(recipients.size() == 1, "ONE_RECIPIENT_REQUIRED");
+            var recipient = recipients.iterator().next();
+            require(recipient.getRID().match(new X509CertificateHolder(certificate.getEncoded())), "RECIPIENT_ID_DIFFERS");
+            require("1.2.840.113549.1.1.7".equals(recipient.getKeyEncryptionAlgOID()), "RSA_OAEP_REQUIRED");
+            var decryptor = new JceKeyTransAuthEnvelopedRecipient(key).setProvider(new BouncyCastleProvider());
+            var plaintext = recipient.getContentStream(decryptor);
+            try (var clear = plaintext.getContentStream()) {
+                verifyZip(clear, MEMBERS, bytes, expected.get("memberSha256").asText(), expected.get("zipSha256").asText());
+            }
+            byte[] mac = cms.getMac();
+            require(mac != null && mac.length == 16 && MessageDigest.isEqual(mac, recipient.getMac()), "RECIPIENT_AUTHENTICATION_DIFFERS");
+        }
+        return new LinkedHashMap<>(Map.of("recipientDecryptionVerified", true, "streamingCmsParser", true,
+                "aggregateBytes", bytes * MEMBERS));
+    }
+
+    private static final class RecipientParser extends CMSAuthEnvelopedDataParser implements AutoCloseable {
+        RecipientParser(InputStream source) throws CMSException, IOException { super(source); }
     }
 
     private static void verifyZip(InputStream source, int entries, long bytes, String hash, String zipHash) throws Exception {
