@@ -65,6 +65,18 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
+    @ParameterizedTest
+    @ValueSource(strings = {"<0.1", ">100", "<=5", ">=10", "≤5", "≥10", "Negative", "Pending"})
+    void shouldExcludeQualifiedAndQualitativeResultsFromExactNumericSeries(String result) {
+        assertThat(MeasurementGraphAction22Action.numericResult(result)).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0.1", "100", "-5.25", "0"})
+    void shouldPreserveExactNumericResults(String result) {
+        assertThat(MeasurementGraphAction22Action.numericResult(result)).isEqualTo(result);
+    }
+
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();

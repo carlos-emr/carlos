@@ -51,7 +51,7 @@ public class MariaDbDaoTestContextInitializer
         }
         String database = "carlos_test_5399_dao_" + UUID.randomUUID().toString().replace("-", "");
         String jdbcUrl = server + database + "?connectionCollation=utf8mb4_general_ci"
-                + "&zeroDateTimeBehavior=CONVERT_TO_NULL&jdbcCompliantTruncation=false&useInformationSchema=false";
+                + "&zeroDateTimeBehavior=round&useOldAliasMetadataBehavior=true&jdbcCompliantTruncation=false&useInformationSchema=false";
         Properties credentials = new Properties();
         credentials.setProperty("user", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_USER", "root"));
         credentials.setProperty("password", System.getenv().getOrDefault("CARLOS_TEST_MARIADB_PASSWORD", ""));

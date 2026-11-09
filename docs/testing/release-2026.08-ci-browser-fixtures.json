@@ -18,7 +18,7 @@
         "scripts/dependency-tables-playwright-checks.js"
       ],
       "source": "scripts/dependency-tables-playwright-checks.js",
-      "sourceSha256": "6646485045208abc3e61a1d335649b3d4b96573c055899bf769b2a50a18b70e8",
+      "sourceSha256": "36f648a2c8ae8a75ff5e57c1b9414641951651d1cc3c053dd35da5b6714d9720",
       "minimumAssertions": 47
     },
     {
@@ -181,5 +181,5 @@
       "minimumAssertions": 139
     }
   ],
-  "workflowSha256": "c49974042598c2fa3c3c683b35c6ad3b3980afa3c88c247bf7b3747fc050ae82"
+  "workflowSha256": "ba97577bc3bbebad6b2c8727b691071fca67b0a27acbda1002a71976216ee41b"
 }

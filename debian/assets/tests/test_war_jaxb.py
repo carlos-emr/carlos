@@ -23,7 +23,7 @@ def archive(entries):
 
 class JaxbWarTest(unittest.TestCase):
     def test_actual_packaged_discovery(self):
-        valid = archive([(gate.SERVICE, gate.FACTORY + '\n')])
+        valid = archive([(gate.SERVICE, gate.FACTORY + '\n'), (gate.FACTORY.replace('.', '/') + '.class', b'factory')])
         cases = [
             ([('WEB-INF/lib/jaxb-runtime.jar', valid)], True),
             ([], False),

@@ -4,6 +4,8 @@
 """Validate JAXB discovery in the actual WAR, including shaded provider registrations."""
 from pathlib import PurePosixPath
 import re
+import tempfile
+import shutil
 import sys
 import zipfile
 
@@ -26,8 +28,6 @@ def check(war_path):
             if PurePosixPath(name).parent != PurePosixPath('WEB-INF/lib') or not name.endswith('.jar'):
                 continue
             # Spooled disk storage keeps memory bounded when reading a large nested JAR.
-            import tempfile
-            import shutil
             with tempfile.SpooledTemporaryFile(max_size=1024 * 1024) as spool:
                 with war.open(name) as source:
                     shutil.copyfileobj(source, spool)
@@ -43,9 +43,14 @@ def check(war_path):
                         if relative == SERVICE:
                             if entry != SERVICE:
                                 raise ValueError('versioned JAXB provider registration')
+                            if jar.getinfo(entry).file_size > 16384:
+                                raise ValueError('oversized JAXB service registration')
                             content = jar.read(entry).decode('utf-8')
                             providers = [line.split('#', 1)[0].strip() for line in content.splitlines()]
                             providers = [line for line in providers if line]
+                            for provider in providers:
+                                if provider.replace('.', '/') + '.class' not in entries:
+                                    raise ValueError('JAXB factory class missing from registering JAR')
                             registrations.extend((name, provider) for provider in providers)
                     if name.rsplit('/', 1)[-1].startswith('org.eclipse.persistence'):
                         raise ValueError('EclipseLink/MOXy artifact in WAR')

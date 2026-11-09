@@ -473,7 +473,7 @@ test('shouldWriteJUnit_forKnownFailUnexpectedPassAndFailedElsewhere', () => {
 
 function mainWith(checks, run, argv = [], env = {}) {
   const { lines, out } = captured();
-  const code = main(argv, env, out, { checks, run, readBuildIdentity: () => null });
+  const code = main(argv, {...env, CARLOS_DISPOSABLE_HOST: 'true'}, out, { checks, run, readBuildIdentity: () => null });
   return { code, text: lines.join('\n') };
 }
 

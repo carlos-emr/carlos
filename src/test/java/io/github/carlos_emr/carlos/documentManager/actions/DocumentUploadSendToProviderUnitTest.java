@@ -168,15 +168,28 @@ class DocumentUploadSendToProviderUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"scan.pdf", "scan.PDF", "scan.pDf"})
+    void shouldCountPdfPagesRegardlessOfExtensionCase(String filename) throws Exception {
+        uploadToPendingDocs("999998", filename);
+        eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(org.mockito.ArgumentMatchers.argThat(
+                document -> document.getNumberOfPages() == 1
+                        && "application/pdf".equals(document.getContentType()))));
+    }
+
     /** One upload to pending docs, posted the way the uploader page posts it. */
     private void uploadToPendingDocs(String provider) throws Exception {
+        uploadToPendingDocs(provider, "scan.pdf");
+    }
+
+    private void uploadToPendingDocs(String provider, String filename) throws Exception {
         request.setParameter("destination", "pendingDocs");
         request.setParameter("destFolder", "");
         request.setParameter("provider", provider);
         request.setParameter("queue", "1");
         DocumentUpload2Action action = new DocumentUpload2Action();
         action.setFiledata(upload);
-        action.setFiledataFileName("scan.pdf");
+        action.setFiledataFileName(filename);
         assertThat(action.executeUpload()).isNull();
     }
 

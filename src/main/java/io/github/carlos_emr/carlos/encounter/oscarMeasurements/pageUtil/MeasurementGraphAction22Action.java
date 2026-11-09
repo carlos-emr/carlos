@@ -305,8 +305,13 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         return dataset;
     }
 
-    private static String numericResult(String result) {
+    static String numericResult(String result) {
         if (StringUtils.isEmpty(result)) {
+            return null;
+        }
+        // A reported bound is not an exact observation in an ordinary numeric series.
+        if (result.indexOf('<') >= 0 || result.indexOf('>') >= 0
+                || result.indexOf('≤') >= 0 || result.indexOf('≥') >= 0) {
             return null;
         }
         String numeric = result.replaceAll(NUMERIC_REGEX, "");

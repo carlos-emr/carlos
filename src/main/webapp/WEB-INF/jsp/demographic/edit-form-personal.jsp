@@ -1014,19 +1014,19 @@
                                                             <td align="left">
 
                                                                 <select name="aboriginal" <%=getDisabled("aboriginal")%>>
-                                                                    <option value="" ${ pageScope.demoExt["aboriginal"] eq '' ? 'selected' : '' } >
+                                                                    <option value="" ${ requestScope.demoExt["aboriginal"] eq '' ? 'selected' : '' } >
                                                                         Unknown
                                                                     </option>
-                                                                    <option value="No" ${ pageScope.demoExt["aboriginal"] eq 'No' ? 'selected' : '' } >
+                                                                    <option value="No" ${ requestScope.demoExt["aboriginal"] eq 'No' ? 'selected' : '' } >
                                                                         No
                                                                     </option>
-                                                                    <option value="Yes" ${ pageScope.demoExt["aboriginal"] eq 'Yes' ? 'selected' : '' } >
+                                                                    <option value="Yes" ${ requestScope.demoExt["aboriginal"] eq 'Yes' ? 'selected' : '' } >
                                                                         Yes
                                                                     </option>
 
                                                                 </select>
                                                                 <input type="hidden" name="aboriginalOrig"
-                                                                       value="${ pageScope.demoExt["aboriginal"] }"/>
+                                                                       value="${carlos:forHtmlAttribute(requestScope.demoExt['aboriginal'])}"/>
                                                             </td>
                                                         </oscar:oscarPropertiesCheck>
                                                     </tr>

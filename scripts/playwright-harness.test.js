@@ -1537,7 +1537,7 @@ test('shared credential configuration refuses opted-in remote cleartext before l
 for (const [body, headings, refused] of [
   ['HTTP Status: 500 Reference ID: synthetic', ['An error occurred'], true],
   ['HTTP Status 403', [], true],
-  ['Reference ID: synthetic', ['An error occurred'], true],
+  ['An error occurred\nReference ID: synthetic', ['An error occurred'], true],
   ['Clinical reference ID: 123', ['Patient chart'], false],
   ['An error occurred in the past medical history', ['Patient chart'], false],
 ]) {
