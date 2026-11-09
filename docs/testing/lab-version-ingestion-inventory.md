@@ -56,6 +56,10 @@ and measurement snapshots must remain unchanged during that read. The original
 body is restored and the complete source snapshot checked in `finally`. The
 strict resolver used by mutations still refuses incomplete chains; query failures
 are never converted into a selected-report fallback.
+An owned acknowledgement macro first appears on the healthy correction as a
+positive control, then must disappear from the incomplete-chain report. The
+previous provider macro preference, including its row identity and null/absent
+state, is restored exactly; a registered cleanup also covers an interrupted probe.
 
 Earlier native ON/BC retakes reproduced two separate findings, whose fixes now
 require fresh installed qualification:

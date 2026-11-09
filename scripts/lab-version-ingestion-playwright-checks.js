@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 'use strict';
-// #5726: native ingestion, owned legacy completeness, and a restored missing-history refusal probe.
+// #5726: native ingestion with owned legacy-counter and unreadable-source recovery probes.
 const fs=require('node:fs');
 const h=require('./lib/playwright-harness'),ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
@@ -196,20 +196,21 @@ async function workflow(s) {
         const stored=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
         h.assert(stored,'Owned historical source is missing before the refusal probe');
         let cleared=false,probe,healthy;
-        const macroRows=()=>sql.rows(`SELECT id,value IS NULL,IFNULL(value,'') FROM property WHERE provider_no=${q(provider)} AND name='labMacroJSON' ORDER BY id`);
+        const macroRows=()=>sql.rows(`SELECT id,value IS NULL,IFNULL(HEX(value),'') FROM property WHERE provider_no=${q(provider)} AND name='labMacroJSON' ORDER BY id`);
         const macrosBefore=macroRows();h.assert(macrosBefore.length<=1,'Macro preferences are ambiguous before the owned probe');
-        const macroValue=JSON.stringify([{name:marker+' read-only macro',acknowledge:true,closeOnSuccess:false}]);
+        const macroValue=JSON.stringify([{name:marker+' read-only macro',acknowledge:{comment:'SYNTHETIC READ ONLY PROBE'},closeOnSuccess:false}]);
+        const macroHex=Buffer.from(macroValue,'utf8').toString('hex').toUpperCase();
         let macrosClaimed=false;
         const restoreMacros=()=>{
           if(!macrosClaimed)return;
           const current=macroRows();
           if(JSON.stringify(current)===JSON.stringify(macrosBefore)){macrosClaimed=false;return;}
-          h.assert(current.length===1&&current[0][2]===macroValue,'Owned macro preferences changed outside the read-only probe');
+          h.assert(current.length===1&&current[0][2]===macroHex,'Owned macro preferences changed outside the read-only probe');
           const id=current[0][0];h.assert(/^[1-9]\d*$/.test(id),'Owned macro property has no valid identity');
           if(macrosBefore.length){
             h.assert(id===macrosBefore[0][0],'Macro property ownership changed');
-            sql.execute(`UPDATE property SET value=${macrosBefore[0][1]==='1'?'NULL':q(macrosBefore[0][2])} WHERE id=${id}`);
-          }else sql.execute(`DELETE FROM property WHERE id=${id} AND provider_no=${q(provider)} AND name='labMacroJSON' AND value=${q(macroValue)}`);
+            sql.execute(`UPDATE property SET value=${macrosBefore[0][1]==='1'?'NULL':`UNHEX(${q(macrosBefore[0][2])})`} WHERE id=${id}`);
+          }else sql.execute(`DELETE FROM property WHERE id=${id} AND provider_no=${q(provider)} AND name='labMacroJSON' AND HEX(value)=${q(macroHex)}`);
           h.assert(JSON.stringify(macroRows())===JSON.stringify(macrosBefore),'Macro preferences were not restored exactly');
           macrosClaimed=false;
         };
@@ -261,32 +262,7 @@ async function workflow(s) {
       h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${q('%'+fileName+'%')}`)==='4','Correction replay changed checksum identities');
       h.assert(fs.readdirSync(process.env.LAB_UPLOAD_DOCUMENT_STORE).filter(name=>name.startsWith('LabUpload.'+fileName+'.')).length===4,'Correction replay changed archived-upload count');
       console.log('  Observed exact correction replay: no new version, route, clinical or measurement effect; original raw history preserved');
-      await s.step('an incomplete historical CML source retains a warned read-only selected report',async()=>{
-        const originalBody=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`);
-        const before=labState(accession),clinicalBefore=readPatientState(sql,patient);
-        let report;
-        try {
-          // Only this workflow's owned source is made unreadable, then restored
-          // exactly. Neither the selected correction nor its measurements change.
-          sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND message=${q(originalBody)}`);
-          h.assert(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`)==='','Owned incomplete source was not established');
-          const incomplete=labState(accession);
-          report=await s.context.newPage();h.relabelStrictPage(report,'incomplete-cml-selected-report');
-          const response=await report.goto(h.appUrl(s.config.baseUrl,`/lab/CA/ALL/ViewLabDisplay?segmentID=${corrected}&showLatest=true`),{waitUntil:'networkidle'});
-          h.assert(response&&response.status()===200,'Incomplete history prevented selected-report display');
-          await inspect(report,corrected,'Incomplete CML history');
-          h.assert(await report.locator('[data-carlos-cml-chain="unavailable"]').isVisible(),'Incomplete history was silently presented as complete');
-          const controls=report.locator('form input,form button,form select,form textarea');
-          h.assert(await controls.count()>0,'Read-only recovery has no guarded report controls');
-          for(const control of await controls.all())h.assert(await control.isDisabled(),'Incomplete history left a report control enabled');
-          h.assert(JSON.stringify(labState(accession))===JSON.stringify(incomplete),'Read-only recovery changed lab sources, reviews or measurements');
-          assertPatientStateUnchanged(clinicalBefore,readPatientState(sql,patient),'Incomplete CML history display');checkControl();
-        } finally {
-          sql.execute(`UPDATE hl7TextMessage SET message=${q(originalBody)} WHERE lab_id=${original} AND message=''`);
-          h.assert(JSON.stringify(labState(accession))===JSON.stringify(before),'Owned historical source was not restored exactly');
-          if(report&&!report.isClosed()){await report.waitForLoadState('networkidle',{timeout:30000});await report.close();}
-        }
-      });
+
     }});
     checkControl();
   }});

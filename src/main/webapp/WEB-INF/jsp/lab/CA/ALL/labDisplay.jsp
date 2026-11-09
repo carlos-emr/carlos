@@ -1513,7 +1513,7 @@ input[id^='acklabel_']{
                                 %>
 <div class="d-flex align-items-center input-group-sm">
                                 <%
-                                    if (up != null && !StringUtils.isEmpty(up.getValue())) {
+                                    if (versionChainReliable && up != null && !StringUtils.isEmpty(up.getValue())) {
 
                                 %>
                                 <div class="dropdown macro-dropdown" style="display:inline-block;position:relative;">
