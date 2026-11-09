@@ -178,17 +178,26 @@ async function workflow(s) {
     }
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'MRP task reads changed the control');
   });
+  const findings=[];
+  function finding(label,message) {
+    const error=h.markFailedStep(new Error(message),label);findings.push(error);console.error('  FAIL '+NAME+': '+label+' -- '+message);
+  }
   await s.step('independent composers retain their own unsaved drafts',async()=>{
-    const one=await composer(patient,marker),firstView=views.get(one);
-    // Master Record uses a named browser window. Retire the first opener so
-    // opening a second chart is a new native popup while its draft stays open.
-    await firstView.list.close();await firstView.chart.close();
-    const two=await composer(patientB,bMarker);
+    const one=await composer(patient,marker);
     await one.locator('#ticklerMessage').fill(marker+' first draft');
     await one.locator('input[name="xml_appointment_date"]').fill('2031-01-31');
     await one.locator('select[name="priority"]').selectOption('High');
     await selectTicklerAssignee(one,control.fixture.providerNo);
+    // The New Tickler button always reuses the window named "attachment".
+    // Duplicate the natively opened URL as a browser tab, in the SAME context,
+    // then change its patient through the real search form. This models the
+    // browser's Duplicate Tab operation without replacing the app's opener.
+    h.assert(new URL(one.url()).pathname.endsWith('/tickler/ViewAddTickler'),'Only an observed native composer can be duplicated');
+    const two=await author.context.newPage();h.wireStrictPage(two,'MRP-duplicate-composer',recorder);
+    await two.goto(one.url(),{waitUntil:'load'});await two.locator('#ticklerMessage').waitFor();
+    views.set(two,{});
     await two.locator('#ticklerMessage').fill(marker+' second draft');
+    await attach(two,patientB,bMarker,marker+' second draft');await assertAssignee(two,b);
     const search=one.locator('form[name="ADDAPPT"]');
     await search.locator('input[name="keyword"]').fill(marker);
     await ui.clickAndAwaitReload(one,search.locator('input[type="submit"][name="Submit"]'));
@@ -216,13 +225,9 @@ async function workflow(s) {
     await assertAssignee(one,control);await assertAssignee(two,b);
     h.assert(await field(one).inputValue()===patient&&await field(two).inputValue()===patientB,'Returning a draft changed another patient association');
     for(const page of [one,two]) {
-      const view=views.get(page);await page.close();if(!view.list.isClosed())await view.list.close();if(!view.chart.isClosed())await view.chart.close();
+      const view=views.get(page);await page.close();if(view.list&&!view.list.isClosed())await view.list.close();if(view.chart&&!view.chart.isClosed())await view.chart.close();
     }
   });
-  const findings=[];
-  function finding(label,message) {
-    const error=h.markFailedStep(new Error(message),label);findings.push(error);console.error('  FAIL '+NAME+': '+label+' -- '+message);
-  }
   async function attach(page,id,needle,draft) {
     const form=page.locator('form[name="ADDAPPT"]');await form.locator('input[name="keyword"]').fill(needle);
     await ui.clickAndAwaitReload(page,form.locator('input[type="submit"][name="Submit"]'));
