@@ -9,14 +9,23 @@ import java.math.BigDecimal;
  * @since 2026-11-02
  */
 public final class TeleplanAmount {
-    private static final java.util.regex.Pattern DECIMAL =
-            java.util.regex.Pattern.compile("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)");
-
-    /** Parses stored decimal dollars; invalid syntax remains unknown and exponents are never expanded. */
+    /** Parses stored decimal dollars in one pass; invalid syntax and exponent scales stay unknown. */
     public static BigDecimal knownDecimal(String source) {
-        if (source == null || !DECIMAL.matcher(source).matches()) return null;
-        try { return new BigDecimal(source); }
-        catch (NumberFormatException _) { return null; }
+        if (source == null || source.isEmpty()) return null;
+        int index = source.charAt(0) == '+' || source.charAt(0) == '-' ? 1 : 0;
+        boolean hasDigit = false;
+        boolean hasPoint = false;
+        for (; index < source.length(); index++) {
+            char value = source.charAt(index);
+            if (value >= '0' && value <= '9') {
+                hasDigit = true;
+            } else if (value == '.' && !hasPoint) {
+                hasPoint = true;
+            } else {
+                return null;
+            }
+        }
+        return hasDigit ? new BigDecimal(source) : null;
     }
 
     private TeleplanAmount() {

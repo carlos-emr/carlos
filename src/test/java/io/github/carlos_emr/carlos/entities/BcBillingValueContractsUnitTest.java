@@ -12,6 +12,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class BcBillingValueContractsUnitTest {
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({"0,0", "+1,1", "-1,-1", ".5,0.5", "1.,1", "-0.50,-0.50"})
+    void shouldAcceptPlainDecimalVariants_withoutChangingTheirValue(String source, String expected) {
+        assertThat(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownDecimal(source))
+                .isEqualByComparingTo(expected);
+    }
+
+    @Test
+    void shouldRefuseMalformedLongDecimals_withoutRegexBacktracking() {
+        for (String source : java.util.List.of("9".repeat(100_000) + ".0x", ".".repeat(100_000),
+                "+", "-", ".", "+.", "1.2.3", "--1", "1e999999999")) {
+            assertThat(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownDecimal(source)).isNull();
+        }
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"12d", "1f", "0x1p3", " 12.00 ", "NaN", "Infinity", "1e3", "1e999999999", "1e-999999999"})
     void shouldKeepNonDecimalArchiveAmountsUnknown_whenReadingHistory(String source) {
         BillHistory history = new BillHistory();
