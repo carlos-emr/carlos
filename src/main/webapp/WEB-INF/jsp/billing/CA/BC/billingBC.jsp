@@ -1018,7 +1018,7 @@
             });
 
             jQuery(document).on('change', '#xml_provider', function () {
-                let url = '${pageContext.servletContext.contextPath}/billing?demographic_no=' + '<carlos:encode value='<%= bean.getPatientNo() %>' context="uriComponent"/>' + '&appointment_no=' + '<carlos:encode value='<%= bean.getApptNo() %>' context="uriComponent"/>' + '&apptProvider_no=' + '<carlos:encode value='<%= bean.getApptProviderNo() %>' context="uriComponent"/>' + '&billRegion=BC&xml_provider=' + this.value;
+                let url = '${pageContext.servletContext.contextPath}/billing?demographic_no=' + '<carlos:encode value='<%= bean.getPatientNo() %>' context="uriComponent"/>' + '&appointment_no=' + '<carlos:encode value='<%= bean.getApptNo() %>' context="uriComponent"/>' + '&apptProvider_no=' + '<carlos:encode value='<%= bean.getApptProviderNo() %>' context="uriComponent"/>' + '&billRegion=BC&xml_provider=' + encodeURIComponent(this.value);
 
                 jQuery("#billingPatientInfoWrapper").load(url + " #billingPatientInfo", function () {
                     // re-bind all the javascript
@@ -1043,7 +1043,7 @@
             /* New billing form selection method*/
             jQuery(document).on('change', "#selectBillingForm", function () {
                 let selectedValue = this.value;
-                let url = ctx + '/billing?demographic_no=' + '<carlos:encode value='<%= bean.getPatientNo() %>' context="uriComponent"/>' + '&appointment_no=' + '<carlos:encode value='<%= bean.getApptNo() %>' context="uriComponent"/>' + '&apptProvider_no=' + '<carlos:encode value='<%= bean.getApptProviderNo() %>' context="uriComponent"/>' + '&xml_provider=none&billRegion=BC&billForm=' + selectedValue;
+                let url = ctx + '/billing?demographic_no=' + '<carlos:encode value='<%= bean.getPatientNo() %>' context="uriComponent"/>' + '&appointment_no=' + '<carlos:encode value='<%= bean.getApptNo() %>' context="uriComponent"/>' + '&apptProvider_no=' + '<carlos:encode value='<%= bean.getApptProviderNo() %>' context="uriComponent"/>' + '&xml_provider=none&billRegion=BC&billForm=' + encodeURIComponent(selectedValue);
                 jQuery("#billingFormTableWrapper").load(url + " #billingFormTable", function () {
                     // if the selected billing type is private, then change the billing type to private
                     if (selectedValue === 'PRI') {

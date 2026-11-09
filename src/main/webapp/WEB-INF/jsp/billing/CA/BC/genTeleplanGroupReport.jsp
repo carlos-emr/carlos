@@ -28,7 +28,14 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
-<%-- Generation and commit complete in ViewGenTeleplanGroupReport2Action before this result is dispatched. --%>
+<%--
+    Purpose: forward a committed legacy Teleplan export to the activity list.
+    Features: generation, file publication and claim updates complete in
+    ViewGenTeleplanGroupReport2Action before this result is dispatched.
+    Parameters: none; the action validates the provider/month selection.
+    Authorization: the action enforces reporting read access, billing write access and POST-only requests.
+    @since 2026-04-13
+--%>
 <jsp:forward page='/billing/CA/BC/ViewBillingTeleplanGroupReport'>
     <jsp:param name="year" value=''/>
 </jsp:forward>

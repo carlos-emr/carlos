@@ -18,9 +18,26 @@ import static org.mockito.Mockito.*;
 /** Retained route behavior, authorization and invalid opener refusal. @since 2026-11-09 */
 @Tag("unit")
 class BcCompatibilityRoutesUnitTest extends CarlosUnitTestBase {
+    @ParameterizedTest
+    @ValueSource(strings = {"_report", "_admin.reporting", "_admin"})
+    void shouldRefuseLegacyGeneration_whenOperatorOnlyHasReportingReadAccess(String reportingObject) {
+        var request = new MockHttpServletRequest("POST", "/billing/CA/BC/genTeleplanGroupReport");
+        var security = createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(), eq(reportingObject), eq("r"), isNull())).thenReturn(true);
+        var service = createAndRegisterMock(io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService.class);
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request);
+            servlet.when(ServletActionContext::getResponse).thenReturn(new MockHttpServletResponse());
+            assertThatThrownBy(() -> new ViewGenTeleplanGroupReport2Action().execute())
+                    .isInstanceOf(SecurityException.class).hasMessageContaining("_billing w");
+            verifyNoInteractions(service);
+        }
+    }
+
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
             "A provider has an invalid billing group,400",
+            "A valid Teleplan billing unit is required,400",
             "Another Teleplan export is running; retry when it finishes,409",
             "Teleplan artifact changed; operator review is required,503",
             "FAKE-PATIENT unexpected database failure,500"})
@@ -32,6 +49,7 @@ class BcCompatibilityRoutesUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.utility.LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),login);
         var security=createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(any(),eq("_report"),eq("r"),isNull())).thenReturn(true);
+        when(security.hasPrivilege(any(),eq("_billing"),eq("w"),isNull())).thenReturn(true);
         var service=createAndRegisterMock(io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService.class);
         when(service.generate(any(),any())).thenThrow(new IllegalStateException("wrapper",new IllegalArgumentException(message)));
         try(var servlet=mockStatic(ServletActionContext.class)) {

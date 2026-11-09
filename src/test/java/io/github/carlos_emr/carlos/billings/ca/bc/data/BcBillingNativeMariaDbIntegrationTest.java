@@ -28,6 +28,8 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
     @Autowired @Qualifier("billingmasterDAO") private BillingmasterDAO dao;
     @Autowired private BillingServiceDao billingServiceDao;
     @Autowired private DataSource dataSource;
+    @Autowired private io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao historyDao;
+    @Autowired private io.github.carlos_emr.carlos.billing.CA.dao.WcbBpCodeDao bodyParts;
     @jakarta.persistence.PersistenceContext(unitName = "entityManagerFactory")
     private jakarta.persistence.EntityManager entityManager;
     private JdbcTemplate jdbc;
@@ -188,7 +190,6 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
         assertThatThrownBy(() -> dao.findBcExtractBills("91234", "or 1=1", new String[0]))
                 .isInstanceOf(IllegalArgumentException.class);
     }
-    @Autowired private io.github.carlos_emr.carlos.billing.CA.dao.WcbBpCodeDao bodyParts;
 
     @Test
     void shouldListInstalledBodyParts_whenSearchIsEmpty() {
@@ -259,7 +260,6 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
         assertThat(rows.getFirst().creationDate()).isNull();
     }
 
-    @Autowired private io.github.carlos_emr.carlos.billing.CA.BC.dao.BillingHistoryDao historyDao;
 
     @Test
     void shouldKeepAllHistoryTotalsConsistent_whenAmountsRequireExactSummationOrAreCorrupt() {

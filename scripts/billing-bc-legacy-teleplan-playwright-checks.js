@@ -27,7 +27,6 @@ async function workflow(s) {
   bc.makeBcPatient(s); bc.registerOwnedBcBillCleanup(s);
   const claim = bc.seedOwnedBcBill({ ...s, provider: physician.providerNo }, { amount: '12.34' });
   sql.execute(`UPDATE billingmaster SET payee_no=${q(physician.payeeNo)},practitioner_no=${q(physician.ohipNo)} WHERE billingmaster_no=${claim.billingmasterNo}`);
-  const beforeLog = sql.value('SELECT COALESCE(MAX(log_no),0) FROM log_teleplantx');
   const home = path.resolve(process.env.HOME_DIR);
   s.cleanup(() => {
     const rows = sql.rows(`SELECT ohipfilename,htmlfilename FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}`);
@@ -37,7 +36,7 @@ async function workflow(s) {
       fs.rmSync(path.join(home, filename), { force: true });
     }
     // This check requires an exclusive disposable installation: no other generator may run.
-    sql.execute(`DELETE FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}; DELETE FROM log_teleplantx WHERE log_no>${beforeLog}`);
+    sql.execute(`DELETE FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}; DELETE FROM log_teleplantx WHERE billingmaster_no=${claim.billingmasterNo}`);
     h.assert(sql.value(`SELECT COUNT(*) FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}`) === '0', 'Owned legacy activities remain');
   });
   const count = () => sql.value(`SELECT COUNT(*) FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}`);

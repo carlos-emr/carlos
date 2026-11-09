@@ -163,11 +163,6 @@ public class MSPReconcile {
             // A rejected wire value may still parse as decimal dollars (12.3, 1e3).
             // Preserve its source text with a diagnostic so downstream totals cannot reinterpret it.
             return summary ? "0.00" : "Unparsed Teleplan amount: " + value;
-        } catch (ArithmeticException invalid) {
-            if (!failOnReadError) throw invalid;
-            // A fractional cent string must not be reinterpreted as decimal dollars by money().
-            bill.recordUnparsedAmount();
-            return summary ? "0.00" : "Unparsed Teleplan amount: " + value;
         }
     }
 
@@ -1292,6 +1287,8 @@ public class MSPReconcile {
 
             java.util.Map<String, BillingmasterDAO.PatientPhones> reportPhones = REP_REJ.equals(type)
                     ? billingmasterDao.findReportPhones(bills.stream().map(bill -> bill.demoNo).toList()) : java.util.Map.of();
+            // Match legacy clinic-local service-day aging: deployments configure the server time zone.
+            // Capture one date so every row uses the same boundary even across midnight.
             java.time.LocalDate reportDate = java.time.LocalDate.now(java.time.ZoneId.systemDefault());
             for (MSPBill b : bills) {
                 b.setServiceDateRange(MSPBill.ageRange(b.serviceDate, reportDate));

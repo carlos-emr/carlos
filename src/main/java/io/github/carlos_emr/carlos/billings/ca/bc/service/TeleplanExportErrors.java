@@ -22,6 +22,7 @@ public final class TeleplanExportErrors {
             entry("Providers share a practitioner number; correct the billing setup", 400),
             entry("A provider has an invalid billing group", 400),
             entry("A valid Teleplan claim amount is required", 400),
+            entry("A valid Teleplan billing unit is required", 400),
             entry("Teleplan claim amount exceeds the wire capacity", 400),
             entry("Teleplan claim amount must use whole cents", 400),
             entry("Teleplan claim record length is invalid", 400),

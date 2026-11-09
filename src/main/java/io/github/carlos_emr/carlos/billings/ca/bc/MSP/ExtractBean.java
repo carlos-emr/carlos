@@ -468,7 +468,14 @@ public class ExtractBean extends Object implements Serializable {
     }
 
     public String roundUp(String value) {
-        return new BigDecimal(value).setScale(0, java.math.RoundingMode.UP).toPlainString();
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("A valid Teleplan billing unit is required");
+        }
+        try {
+            return new BigDecimal(value.strip()).setScale(0, java.math.RoundingMode.UP).toPlainString();
+        } catch (NumberFormatException invalid) {
+            throw new IllegalArgumentException("A valid Teleplan billing unit is required");
+        }
     }
 
     /** Validate decimal dollars before the legacy fixed-width formatter can truncate or mis-scale them. */

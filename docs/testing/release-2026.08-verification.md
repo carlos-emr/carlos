@@ -348,3 +348,8 @@ The application and the local eForm corpus at `b4fe05452d459ba1a64325cdcb792ad5e
 | `billing/CA/BC/support/BillingCodes` | Retain the all-code picker, linked from the association editor. Missing or invalid opener form/field identifiers return 400 before its lookup. The existing search picker remains available. |
 
 All four routes remain behind the BC province guard and their existing billing privileges. Shared views, DAOs, association helpers and persisted records are retained. No generic `.do`/`.jsp` aliases or public JSP paths are introduced.
+
+Legacy BC Teleplan group generation requires both the existing reporting read privilege
+(`_report`, `_admin.reporting` or `_admin`) and `_billing w`. Generation publishes files
+and marks claims as billed; report-only operators can continue viewing activities but
+need an administrator to grant billing write access before generating a batch.

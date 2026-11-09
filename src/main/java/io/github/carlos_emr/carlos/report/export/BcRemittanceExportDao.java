@@ -152,7 +152,7 @@ public final class BcRemittanceExportDao {
     /** Keeps malformed legacy fields visible; SQL/I/O failures still abort the staged download. */
     private static String decodedAmount(String value) {
         try { return TeleplanAmount.decode(value); }
-        catch (NumberFormatException | ArithmeticException invalid) {
+        catch (NumberFormatException invalid) {
             return "Unparsed Teleplan amount: " + (value == null ? "" : value);
         }
     }

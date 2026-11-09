@@ -26,32 +26,45 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @org.junit.jupiter.params.provider.CsvSource({"REP_PAYREF,Pri,NaN","REP_PAYREF_SUM,Pri,NaN",
-            "REP_PAYREF,MSP,Unparsed Teleplan amount: 12.3","REP_PAYREF_SUM,MSP,Unparsed Teleplan amount: 12.3"})
-    void shouldRenderKnownOnlyPaymentPdf_whenAnAmountCannotBeParsed(String reportType,String insurer,String source) throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({
+            "REP_PAYREF,Pri,NaN,NaN",
+            "REP_PAYREF_SUM,Pri,NaN,Known amounts only",
+            "REP_PAYREF,MSP,Unparsed Teleplan amount: 12.3,Unparsed",
+            "REP_PAYREF_SUM,MSP,Unparsed Teleplan amount: 12.3,Known amounts only"})
+    void shouldRenderKnownOnlyPaymentPdf_whenAnAmountCannotBeParsed(
+            String reportType, String insurer, String source, String expectedText) throws Exception {
         var unknown = new io.github.carlos_emr.carlos.entities.MSPBill();
-        unknown.billingtype=insurer; unknown.amount=source; unknown.paymentMethod="1";
-        unknown.paymentDate="20261101"; unknown.serviceDate="20261101";
+        unknown.billingtype = insurer;
+        unknown.amount = source;
+        unknown.paymentMethod = "1";
+        unknown.paymentDate = "20261101";
+        unknown.serviceDate = "20261101";
         unknown.recordUnparsedAmount();
         var known = new io.github.carlos_emr.carlos.entities.MSPBill();
-        known.billingtype="Pri"; known.amount="12.50"; known.paymentMethod="1";
-        known.paymentDate="20261101"; known.serviceDate="20261101";
-        try (var reads=mockConstruction(MSPReconcile.class,(reader,context)->{
-            var search=reader.new BillSearch(); search.list=new java.util.ArrayList<>(java.util.List.of(unknown,known));
-            when(reader.getPayments(any(),any(),any(),any(),any(),anyBoolean(),anyBoolean(),anyBoolean(),anyBoolean(),any()))
-                    .thenReturn(search);
-            when(reader.getProvider(any(),anyInt())).thenReturn(new io.github.carlos_emr.carlos.entities.Provider());
+        known.billingtype = "Pri";
+        known.amount = "12.50";
+        known.paymentMethod = "1";
+        known.paymentDate = "20261101";
+        known.serviceDate = "20261101";
+        try (var reads = mockConstruction(MSPReconcile.class, (reader, context) -> {
+            var search = reader.new BillSearch();
+            search.list = new java.util.ArrayList<>(java.util.List.of(unknown, known));
+            when(reader.getPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(),
+                    anyBoolean(), anyBoolean(), any())).thenReturn(search);
+            when(reader.getProvider(any(), anyInt())).thenReturn(new io.github.carlos_emr.carlos.entities.Provider());
         })) {
-            var action=new CreateBillingReport2Action();
-            action.setDocFormat("pdf"); action.setRepType(reportType);
-            action.setSelAccount("ALL"); action.setSelPayee("ALL"); action.setSelProv("ALL");
+            var action = new CreateBillingReport2Action();
+            action.setDocFormat("pdf");
+            action.setRepType(reportType);
+            action.setSelAccount("ALL");
+            action.setSelPayee("ALL");
+            action.setSelProv("ALL");
             assertThat(executeAction(action)).isEqualTo("none");
             assertThat(getMockResponse().getStatus()).isEqualTo(200);
-            try(var pdf=org.apache.pdfbox.Loader.loadPDF(getMockResponse().getContentAsByteArray())) {
-                String text=new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
-                assertThat(text).contains("12.50").doesNotContain("$NaN","$12.30");
-                if ("REP_PAYREF_SUM".equals(reportType)) assertThat(text).contains("Known amounts only", "Unparsed amount fields excluded: 1");
-                else assertThat(text).contains(source.equals("NaN")?"NaN":"Unparsed");
+            try (var pdf = org.apache.pdfbox.Loader.loadPDF(getMockResponse().getContentAsByteArray())) {
+                String text = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
+                assertThat(text).as(reportType).contains("12.50", expectedText, "Unparsed amount fields excluded: 1")
+                        .doesNotContain("$NaN", "$12.30");
             }
         }
     }

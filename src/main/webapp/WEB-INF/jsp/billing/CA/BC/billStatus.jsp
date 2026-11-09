@@ -102,8 +102,14 @@
 
     String readonly = request.getParameter("filterPatient");
     String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "";
-    io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.Names patientNames = "true".equals(readonly)
-            ? io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.names(request, demographicNo) : null;
+    io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.Names patientNames = null;
+    if ("true".equals(readonly) && !demographicNo.isBlank()) {
+        try {
+            patientNames = io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.names(request, demographicNo);
+        } catch (IllegalArgumentException unavailablePatient) {
+            // Keep an empty filter label; never substitute a caller-supplied patient name.
+        }
+    }
 
     boolean adminAccess = false;
 %>
@@ -133,7 +139,7 @@
 
     <script>
         function checkChecked() {
-            if (document.querySelectorAll('input[name^="billCheck"]:checked').length > 0) {
+            if (document.querySelectorAll('input[name^="billCheck"]:enabled:checked').length > 0) {
                 document.getElementById('resubmitButton').disabled = false;
                 document.getElementById('settleButton').disabled = false;
             } else {
@@ -219,7 +225,7 @@
         document.addEventListener('click', function (e) {
             if (e.target && e.target.id === 'checkAll') {
                 var isChecked = e.target.checked;
-                document.querySelectorAll("input[name^='billCheck']").forEach(function (el) {
+                document.querySelectorAll("input[name^='billCheck']:enabled").forEach(function (el) {
                     el.checked = isChecked;
                 });
             }

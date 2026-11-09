@@ -128,6 +128,22 @@ async function workflow(s) {
     h.assert(new URL(billStatus.url()).pathname.endsWith('/billing/CA/BC/reprocessBill'), 'Invoice List did not open Bill Status');
     const edit = billStatus.locator(`a[href*="billingmaster_no=${billingmasterNo}&"]`);
     h.assert(await edit.count() === 1, 'Bill Status did not list the owned bill with its Edit link');
+    // An unknown balance cannot be selected or enable a write with an empty bill selection.
+    sql.execute(`UPDATE billingmaster SET bill_amount='synthetic-unknown' WHERE billingmaster_no=${billingmasterNo}`);
+    try {
+      await billStatus.reload({ waitUntil: 'domcontentloaded' });
+      await h.assertNotErrorPage(billStatus, 'BC Bill Status with an unknown balance');
+      const checkbox = billStatus.locator(`input[name="billCheck"][value$="_${billingmasterNo}"]`);
+      h.assert(await checkbox.isDisabled(), 'An unknown balance remained selectable');
+      await billStatus.locator('#checkAll').check();
+      h.assert(!await checkbox.isChecked(), 'Select All selected a disabled bill');
+      for (const button of ['#resubmitButton', '#settleButton']) {
+        h.assert(await billStatus.locator(button).isDisabled(), 'An empty selection enabled a billing write');
+      }
+    } finally {
+      sql.execute(`UPDATE billingmaster SET bill_amount='23.00' WHERE billingmaster_no=${billingmasterNo}`);
+      await billStatus.reload({ waitUntil: 'domcontentloaded' });
+    }
   });
 
   let adjust;

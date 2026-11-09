@@ -68,6 +68,7 @@ class BcPdfTemplatesUnitTest {
     @Test
     void shouldDiscardEntireDocument_whenALaterInvoiceAmountCannotBeRendered() throws Exception {
         var response=new MockHttpServletResponse();
+        response.setHeader("X-Partial-Receipt", "discard-me");
         var invalid=row(); invalid.put("amount","synthetic-invalid-amount");
         PdfDownload.inline(response,"report.pdf", output -> {
             try(var template=getClass().getResourceAsStream(ROOT+"pdf_rep_invoice.jrxml")) {
@@ -77,6 +78,7 @@ class BcPdfTemplatesUnitTest {
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(response.getContentAsByteArray()).isEmpty();
         assertThat(response.getHeader("Content-Disposition")).isNull();
+        assertThat(response.getHeader("X-Partial-Receipt")).isNull();
     }
 
     @Test

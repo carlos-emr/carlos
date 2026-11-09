@@ -193,6 +193,8 @@ async function workflow(s) {
   });
 
   await s.step('the retained all-service-codes picker fills the association editor and closes', async () => {
+    await frame.locator('#xml_other1').evaluate(input => { input.value = ''; });
+    h.assert(await frame.locator('#xml_other1').inputValue() === '', 'The picker target was not cleared');
     const picker = await s.popup(admin, frame.getByRole('link', { name: 'All service codes', exact: true }), 'bc-all-service-codes');
     await picker.waitForLoadState('domcontentloaded');
     await h.assertNotErrorPage(picker, 'all-service-codes picker');

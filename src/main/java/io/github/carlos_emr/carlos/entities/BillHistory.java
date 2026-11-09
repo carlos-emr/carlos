@@ -53,7 +53,7 @@ public class BillHistory {
     /** Preserves the source snapshot, including malformed legacy values. */
     public void setAmountText(String value) {
         amountText = value == null ? "" : value;
-        try { amount = Double.parseDouble(amountText); }
+        try { amount = new java.math.BigDecimal(amountText).doubleValue(); }
         catch (NumberFormatException invalid) { amount = Double.NaN; }
     }
 

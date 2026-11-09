@@ -78,6 +78,20 @@ class ExtractBeanHtmlUnitTest extends CarlosUnitTestBase {
         when(masters.hasBcExtractInvoices()).thenReturn(true);
     }
 
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "broken", "1f"})
+    void shouldRejectInvalidUnits_withAnActionableError(String units) {
+        assertThatThrownBy(() -> new ExtractBean().roundUp(units))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("A valid Teleplan billing unit is required");
+    }
+
+    @Test
+    void shouldRoundPaddedUnits_usingTheLegacyRoundingRule() {
+        assertThat(new ExtractBean().roundUp(" 1.1 ")).isEqualTo("2");
+    }
+
     @Test
     void shouldWriteReportOnce_afterCallerAssignsHtmlFilename() throws Exception {
         CarlosProperties properties = mock(CarlosProperties.class);

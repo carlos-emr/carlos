@@ -144,6 +144,18 @@ class BillingShortcutPg1ViewModelAssemblerUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldResolvePatientLabel_fromTheManagerDespiteAConflictingRequestName() {
+        Demographic patient = new Demographic();
+        patient.setLastName("Fixture");
+        patient.setFirstName("Patient");
+        when(demographicDao.getDemographic("1")).thenReturn(patient);
+        request.setParameter("demographic_no", "1");
+        request.setParameter("demographic_name", "Wrong,Patient");
+        BillingShortcutPg1ViewModel model = assembler.assemble(request, loggedInInfo);
+        assertThat(model.getDemoName()).isEqualTo("Fixture, Patient");
+    }
+
+    @Test
     void shouldHardCodeVisitTypeTo02_forHospitalBilling() {
         request.setParameter("demographic_no", "1");
         when(demographicDao.getDemographic("1")).thenReturn(null);

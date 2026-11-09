@@ -102,6 +102,15 @@ class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRejectZeroPatient_beforeResolvingPatientOrStagingBill() throws Exception {
+        request.setParameter("demographic_no", "0");
+        request.setParameter("appointment_no", "1");
+        assertThat(new BillingBCSetup2Action().execute()).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
+        assertThat(request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE)).isNull();
+    }
+
+    @Test
     void shouldKeepEachWindowsBill_whenTwoPatientsBillsAreOpened() throws Exception {
         String keyA = openBill("101", "11");
         BillingSessionBean billA = (BillingSessionBean) request.getAttribute(BcBillStaging.BEAN_ATTRIBUTE);

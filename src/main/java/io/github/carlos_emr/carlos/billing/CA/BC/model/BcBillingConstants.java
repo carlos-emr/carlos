@@ -1,7 +1,10 @@
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 package io.github.carlos_emr.carlos.billing.CA.BC.model;
 
-/** Shared wire values; neither persistence nor exporters depend on report orchestration. */
+/**
+ * Shared wire values; neither persistence nor exporters depend on report orchestration.
+ * @since 2026-11-09
+ */
 public final class BcBillingConstants {
     private BcBillingConstants() { }
     public static final String REP_INVOICE = "REP_INVOICE";

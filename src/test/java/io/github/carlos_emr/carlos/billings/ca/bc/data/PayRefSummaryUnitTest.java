@@ -61,6 +61,15 @@ class PayRefSummaryUnitTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"1.00", " 1.00", "1.00 ", " 1.00 "})
+    void shouldSumPaddedAdjustments_usingTheSameParserAsTheReportGuard(String amount) {
+        PayRefSummary summary = new PayRefSummary();
+        summary.addAdjustmentAmount(amount);
+        assertThat(summary.getElectronic()).isEqualTo("$1.00");
+        assertThat(summary.getTotal()).isEqualTo("$1.00");
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"en", "en-CA", "fr-FR", "de-DE"})
     void shouldFormatEveryPaymentMethodInCanadianDollars_underDifferentHostLocales(String locale) {
         Locale.setDefault(Locale.Category.FORMAT, Locale.forLanguageTag(locale));

@@ -30,7 +30,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * Enforces POST-only AND {@code _report} {@code r}
  * privilege (matching the JSP's original {@code security:oscarSec} taglib,
  * which accepts {@code _report}, {@code _admin.reporting}, or {@code _admin}
- * at read level) before forwarding to the JSP. GET requests return 405.
+ * at read level), plus {@code _billing w} because generation updates claims.
+ * GET requests return 405.
  * <p>
  * Class name retains the {@code View...} prefix for consistency with
  * sibling gate actions in this migration; behavior is mutation-gate.
@@ -64,14 +65,16 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
             return NONE;
         }
 
-        // The historical JSP allowed _report OR _admin.reporting OR _admin (read). Keep POST-only
-        // for CSRF protection and retain the original
-        // documented read-privilege OR chain rather than escalating to _admin.billing w.
+        // Retain the reporting gate and require billing write access for the claim mutation.
         boolean hasReport = securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null);
         boolean hasAdminReporting = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null);
         boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);
         if (!hasReport && !hasAdminReporting && !hasAdmin) {
             throw new SecurityException("missing required sec object (_report, _admin.reporting, or _admin)");
+        }
+
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing w)");
         }
 
         try {

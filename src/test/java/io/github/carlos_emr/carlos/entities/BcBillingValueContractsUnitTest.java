@@ -11,6 +11,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("unit")
 class BcBillingValueContractsUnitTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"12d", "1f", "0x1p3", " 12.00 ", "NaN", "Infinity"})
+    void shouldKeepNonDecimalArchiveAmountsUnknown_whenReadingHistory(String source) {
+        BillHistory history = new BillHistory();
+        history.setAmountText(source);
+        assertThat(history.getAmountText()).isEqualTo(source);
+        assertThat(history.hasKnownAmount()).isFalse();
+    }
+
     @Test
     void shouldReplaceRawArchiveText_whenNumericAmountIsExplicitlyChanged() {
         BillHistory history = new BillHistory();

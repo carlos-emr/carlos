@@ -148,7 +148,8 @@ public class PayRefSummary {
      * @param adjAmt String
      */
     public void addAdjustmentAmount(String amount) {
-        if (amount != null && !amount.isBlank()) electronic = electronic.add(new java.math.BigDecimal(amount));
+        java.math.BigDecimal parsed = knownAmount(amount);
+        if (parsed != null) electronic = electronic.add(parsed);
     }
 
     /** Null denotes an unavailable amount; never substitute a numeric zero for unknown money. */
