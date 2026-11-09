@@ -20,6 +20,7 @@ class DocumentSummaryMessagesUnitTest {
     void absentLanguageHeaderDoesNotSelectTheContainersFrenchDefault() {
         var request = new MockHttpServletRequest();
         request.setPreferredLocales(List.of(Locale.CANADA_FRENCH));
+        request.removeHeader("Accept-Language");
         assertThat(request.getLocale()).isEqualTo(Locale.CANADA_FRENCH);
         assertThat(request.getHeaders("accept-language").hasMoreElements()).isFalse();
 
