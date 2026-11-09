@@ -50,8 +50,8 @@ public class CategoryData {
     private int unmatchedLabs = 0;
     private int unmatchedDocs = 0;
     private int totalNumDocs = 0;
-    private int abnormalCount = 0;
-    private int normalCount = 0;
+    private Integer abnormalCount;
+    private boolean populated;
     private int unmatchedHRMCount = 0;
     private int matchedHRMCount = 0;
 
@@ -85,13 +85,26 @@ public class CategoryData {
         return totalNumDocs;
     }
 
-    /** @return int abnormal lab count from the most recent population */
+    /**
+     * Lazily counts abnormal labs in this request's scope after population.
+     * @return int abnormal lab count, or zero before population
+     * @throws IllegalStateException if the lazy query fails
+     */
     public int getAbnormalCount() {
+        if (!populated) return 0;
+        if (abnormalCount == null) {
+            try {
+                abnormalCount = getAbnormalCount(true);
+            } catch (SQLException failure) {
+                throw new IllegalStateException("Could not read abnormal inbox count", failure);
+            }
+        }
         return abnormalCount;
     }
 
+    /** @return int normal labs in the most recent population; shares the lazy abnormal query */
     public int getNormalCount() {
-        return normalCount;
+        return populated ? totalLabs - getAbnormalCount() : 0;
     }
 
     public HashMap<Integer, PatientInfo> getPatients() {
@@ -212,6 +225,11 @@ public class CategoryData {
     public int getHRMDocumentCountForUnmatched() throws SQLException { return count(Operation.HRM_UNMATCHED, null); }
 
     public void populateCountsAndPatients() throws SQLException {
+        populated = false;
+        abnormalCount = null;
+        totalDocs = totalLabs = unmatchedDocs = unmatchedLabs = totalNumDocs = 0;
+        matchedHRMCount = unmatchedHRMCount = 0;
+        patients.clear();
 
         // Retrieving documents and labs.
         totalDocs += getDocumentCountForPatientSearch();
@@ -245,8 +263,8 @@ public class CategoryData {
         // The total overall items is the sum of docs and labs.
         totalNumDocs = totalDocs + totalLabs;
 
-        // Abnormal/normal filters are applied by the count queries. The unused
-        // aggregate getters must not trigger an extra unscoped scan on every inbox load.
+        // Ordinary inbox loads do not pay for the optional legacy aggregate getters.
+        populated = true;
 
     }
 

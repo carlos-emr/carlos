@@ -179,6 +179,21 @@ class CategoryDataNullHinCountUnitTest extends CarlosUnitTestBase {
         assertThat(data.getLabCountForPatientSearch()).isEqualTo(1);
     }
 
+    @Test
+    void shouldScopeAbnormalCounts_byDatesAndDistinctReportsIncludingNullNormalStatus() throws SQLException {
+        insert("UPDATE hl7TextInfo SET obr_date=?,result_status=NULL WHERE lab_no=21", "2026-01-01");
+        insert("UPDATE hl7TextInfo SET obr_date=? WHERE lab_no=22", "2025-12-31");
+        insert("INSERT INTO providerLabRouting (provider_no,lab_no,status,lab_type) VALUES ('111111',21,'N','HL7')");
+        CategoryData data = new CategoryData("Synthetic", "Nohin", "", true, false, "-1",
+                "N", "all", "2026-01-01", "2026-01-01");
+        assertThat(data.getLabCountForPatientSearch()).isEqualTo(1);
+        assertThat(data.getAbnormalCount(true)).isZero();
+        assertThat(data.getAbnormalCount(false)).isEqualTo(1);
+        insert("UPDATE hl7TextInfo SET result_status='A' WHERE lab_no=21");
+        assertThat(data.getAbnormalCount(true)).isEqualTo(1);
+        assertThat(data.getAbnormalCount(false)).isZero();
+    }
+
     private static CategoryData search(String hin) {
         return new CategoryData("Synthetic", "Nohin", hin, true, true, PROVIDER, "N", "all", null, null);
     }

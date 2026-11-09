@@ -122,7 +122,7 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"<0.1", ">100", "<=5", "Negative", "Pending", "1:160", "12abc34", "5 mmol/L", "5%", "1,234", "NaN", "Infinity", "2026/10/09"})
+    @ValueSource(strings = {"<0.1", ">100", "<=5", "Negative", "Pending", "1:160", "12abc34", "5 mmol/L", "5%", "1,234", "NaN", "Infinity", "2026/10/09", "+", "-", ".", "+.", "5..2", "1e3", "0x1p2", "１２"})
     void shouldExcludeNonExactNumbers_fromNumericSeries(String value) {
         assertThat(MeasurementGraphAction22Action.numericResult(value)).isNull();
     }
@@ -131,5 +131,11 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"0", "-5.2", "+5.2", ".5", "5.", "137", "145", "5.7"})
     void shouldPreserveExactFiniteNumbers_inNumericSeries(String value) {
         assertThat(MeasurementGraphAction22Action.numericResult("  " + value + "  ")).isEqualTo(value);
+    }
+
+    @Test
+    void shouldRejectLongMalformedAndOverflowValues_withoutBacktracking() {
+        assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(1000000) + "x")).isNull();
+        assertThat(MeasurementGraphAction22Action.numericResult("1".repeat(10000))).isNull();
     }
 }

@@ -943,72 +943,41 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "document_in_queues";
 
     }
+    private record ReportIdentity(String source, String id) { }
+    private record AccessionIdentity(String source, String accession) { }
+
     /** Keeps HL7 review identities separate and preserves the other legacy source grouping. */
     static ArrayList<LabResultData> preserveSelectedReports(List<LabResultData> selected) {
-        ArrayList<LabResultData> labdocs = new ArrayList<>(selected);
-        HashMap<String, LabResultData> labMap = new HashMap<String, LabResultData>();
-        LinkedHashMap<String, ArrayList<String>> accessionMap = new LinkedHashMap<String, ArrayList<String>>();
-
-        int accessionNumCount = 0;
-        for (LabResultData result : labdocs) {
-            String segmentId = result.labType + ":" + result.getSegmentID();
-
-            labMap.put(segmentId, result);
-            ArrayList<String> labNums = new ArrayList<String>();
-
-            if ("HL7".equals(result.labType)) {
-                // Each HL7 version has its own review state. Keep precisely the selected report.
-                labNums.add(segmentId);
-                accessionMap.put("HL7-report:" + segmentId, labNums);
-            } else if (result.accessionNumber == null || result.accessionNumber.equals("null") || result.accessionNumber.isEmpty()) {
-                labNums.add(segmentId);
-                accessionNumCount++;
-                accessionMap.put("noAccessionNum" + accessionNumCount + result.labType, labNums);
-            } else if (!accessionMap.containsKey(result.accessionNumber + result.labType)) {
-                labNums.add(segmentId);
-                accessionMap.put(result.accessionNumber + result.labType, labNums);
-
-                // Different MDS Labs may have the same accession Number if they are seperated
-                // by two years. So accession numbers are limited to matching only if their
-                // labs are within one year of eachother
-            } else {
-                labNums = accessionMap.get(result.accessionNumber + result.labType);
-                boolean matchFlag = false;
-                for (int j = 0; j < labNums.size(); j++) {
-                    LabResultData matchingResult = labMap.get(labNums.get(j));
-
-                    Date dateA = result.getDateObj();
-                    Date dateB = matchingResult.getDateObj();
-                    int monthsBetween = 0;
-                    if (dateA == null || dateB == null) {
-                        monthsBetween = 5;
-                    } else if (dateA.before(dateB)) {
-                        monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
-                    } else {
-                        monthsBetween = UtilDateUtilities.getNumMonths(dateB, dateA);
-                    }
-
-                    if (monthsBetween < 4) {
-                        matchFlag = true;
-                        break;
-                    }
-                }
-                if (!matchFlag) {
-                    labNums.add(segmentId);
-                    accessionMap.put(result.accessionNumber + result.labType, labNums);
-                }
+        Map<ReportIdentity, LabResultData> reports = new LinkedHashMap<>();
+        for (LabResultData result : selected) {
+            reports.put(new ReportIdentity(result.labType, result.getSegmentID()), result);
+        }
+        Map<Object, List<LabResultData>> groups = new LinkedHashMap<>();
+        for (var entry : reports.entrySet()) {
+            LabResultData result = entry.getValue();
+            String accession = result.accessionNumber;
+            // An HL7 version is an independently reviewed report. Missing accessions
+            // also carry no evidence of a shared family, whatever their source.
+            Object key = "HL7".equals(result.labType) || accession == null
+                    || accession.isEmpty() || "null".equals(accession)
+                    ? entry.getKey() : new AccessionIdentity(result.labType, accession);
+            List<LabResultData> group = groups.computeIfAbsent(key, ignored -> new ArrayList<>());
+            if (group.stream().noneMatch(previous -> sameLegacyReportPeriod(previous, result))) {
+                group.add(result);
             }
         }
-
-        labdocs.clear();
-
-        for (ArrayList<String> labNums : accessionMap.values()) {
-            // must sort through in reverse to keep the labs in the correct order
-            for (int j = labNums.size() - 1; j >= 0; j--) {
-                labdocs.add(labMap.get(labNums.get(j)));
-            }
+        ArrayList<LabResultData> retained = new ArrayList<>();
+        for (List<LabResultData> group : groups.values()) {
+            retained.addAll(group.reversed());
         }
-        return labdocs;
+        return retained;
     }
 
+    private static boolean sameLegacyReportPeriod(LabResultData first, LabResultData second) {
+        Date firstDate = first.getDateObj();
+        Date secondDate = second.getDateObj();
+        if (firstDate == null || secondDate == null) return false;
+        return (firstDate.before(secondDate) ? UtilDateUtilities.getNumMonths(firstDate, secondDate)
+                : UtilDateUtilities.getNumMonths(secondDate, firstDate)) < 4;
+    }
 }

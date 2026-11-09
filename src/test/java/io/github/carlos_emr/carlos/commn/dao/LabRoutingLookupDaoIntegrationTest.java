@@ -64,7 +64,7 @@ class LabRoutingLookupDaoIntegrationTest extends CarlosTestBase {
     @Test
     void shouldNeverMatchMissingCmlHin_evenWithOnePlausiblePatient() {
         em.createNativeQuery("UPDATE demographic SET hin='' WHERE demographic_no=1900554802").executeUpdate();
-        for (String hin : new String[] {null, "", "  ", "UNKNOWN", "unknown"}) {
+        for (String hin : new String[] {null, "", "  ", "UNKNOWN", "unknown", "  Unknown  ", "UN\u212aNOWN"}) {
             for (boolean ignoreNames : new boolean[] {true, false}) {
                 assertThat(lookup.findCmlPatients(hin, "2000", "01", "02", "F", "Other", "Beta", ignoreNames)).isEmpty();
             }

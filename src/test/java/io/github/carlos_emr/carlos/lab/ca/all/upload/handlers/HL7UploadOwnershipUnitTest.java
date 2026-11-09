@@ -81,13 +81,36 @@ class HL7UploadOwnershipUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldSkipContentParseAbsence_withoutUpdatingStatus() throws Exception {
+    void shouldRejectMissingContent_withoutReportingASuccessfulRecheck() {
         var lab = new Hl7TextInfo();
         when(info.findByLabId(17)).thenReturn(java.util.List.of(lab));
+        assertThatThrownBy(() -> HL7Handler.updateLabStatus(Set.of(17)))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("content is missing");
+        verify(info, never()).updateResultStatusLowPriority(anyInt(), anyString());
+    }
+
+    @Test
+    void shouldRejectUnreadableContent_withoutReportingASuccessfulRecheck() {
+        var lab = new Hl7TextInfo();
+        var message = new Hl7TextMessage();
+        when(info.findByLabId(17)).thenReturn(java.util.List.of(lab));
+        when(messages.find(17)).thenReturn(message);
         try (var factory = mockStatic(Factory.class)) {
-            factory.when(() -> Factory.getHandler((Hl7TextMessage) null)).thenReturn(null);
-            HL7Handler.updateLabStatus(Set.of(17));
+            factory.when(() -> Factory.getHandler(message)).thenReturn(null);
+            assertThatThrownBy(() -> HL7Handler.updateLabStatus(Set.of(17)))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("cannot be parsed");
         }
         verify(info, never()).updateResultStatusLowPriority(anyInt(), anyString());
+    }
+
+    @Test
+    void shouldRejectMissingOrAmbiguousMetadata_beforeReadingContent() {
+        when(info.findByLabId(17)).thenReturn(java.util.List.of(),
+                java.util.List.of(new Hl7TextInfo(), new Hl7TextInfo()));
+        for (int attempt = 0; attempt < 2; attempt++) {
+            assertThatThrownBy(() -> HL7Handler.updateLabStatus(Set.of(17)))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("missing or ambiguous");
+        }
+        verifyNoInteractions(messages);
     }
 }

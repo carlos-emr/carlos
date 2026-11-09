@@ -106,8 +106,9 @@ public class HL7Handler implements MessageHandler {
             if (lab.getResultStatus() != null && "A".equals(lab.getResultStatus().trim())) continue;
             // Database failures must propagate; the ID-based factory catches retrieval errors.
             var stored = messages.find(id.intValue());
+            if (stored == null) throw new IllegalStateException("Uploaded lab content is missing");
             io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler handler = Factory.getHandler(stored);
-            if (handler == null) continue;
+            if (handler == null) throw new IllegalStateException("Uploaded lab content cannot be parsed for abnormal recheck");
             boolean abnormal = false;
             for (int obr = 0; !abnormal && obr < handler.getOBRCount(); obr++) {
                 for (int obx = 0; !abnormal && obx < handler.getOBXCount(obr); obx++) {

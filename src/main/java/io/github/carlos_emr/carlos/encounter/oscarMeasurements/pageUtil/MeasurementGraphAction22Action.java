@@ -80,7 +80,6 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     private static final Logger log = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private static final java.util.regex.Pattern EXACT_NUMERIC = java.util.regex.Pattern.compile("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)");
     private static final String WHITE = "#ffffff";
     private static final String VALUE_DATE_LABEL = "{1} \n {2}";
     private static final String SYSTOLIC = "Systolic";
@@ -310,7 +309,20 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             return null;
         }
         String numeric = result.trim();
-        if (!EXACT_NUMERIC.matcher(numeric).matches()) return null;
+        int digits = 0;
+        boolean decimal = false;
+        int start = !numeric.isEmpty() && (numeric.charAt(0) == '+' || numeric.charAt(0) == '-') ? 1 : 0;
+        for (int i = start; i < numeric.length(); i++) {
+            char character = numeric.charAt(i);
+            if (character >= '0' && character <= '9') {
+                digits++;
+            } else if (character == '.' && !decimal) {
+                decimal = true;
+            } else {
+                return null;
+            }
+        }
+        if (digits == 0) return null;
         try {
             return Double.isFinite(Double.parseDouble(numeric)) ? numeric : null;
         } catch (NumberFormatException invalid) {

@@ -18,6 +18,10 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "LegacyLabUploadDaoIntegrationTest": {
+        "shouldKeepMissingIdentifiersUnmatched_withOnePlausibleBlankHinPatient",
+        "shouldRejectWholeFile_whenSecondPatientRecordIsMalformed",
+    },
     "LabRoutingLookupDaoIntegrationTest": {
         "shouldNeverMatchMissingCmlHin_evenWithOnePlausiblePatient",
     },

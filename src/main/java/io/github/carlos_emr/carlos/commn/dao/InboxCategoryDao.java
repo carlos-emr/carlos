@@ -314,43 +314,27 @@ public class InboxCategoryDao {
         }
 
         public int getAbnormalCount(boolean isAbnormal) throws SQLException {
-            String sql;
-            List<Object> params = new ArrayList<>();
-            if (patientSearch) {
-                sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM patientLabRouting cd, demographic d, providerLabRouting plr, hl7TextInfo info "
-                        + " WHERE d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ?  ")
+            String sql = " SELECT HIGH_PRIORITY COUNT(DISTINCT info.lab_no) as count "
+                    + " FROM providerLabRouting plr JOIN hl7TextInfo info ON info.lab_no = plr.lab_no "
+                    + (getDateSearchType().equals("receivedCreated")
+                        ? " JOIN hl7TextMessage message ON message.lab_id = info.lab_no " : "")
+                    + (patientSearch ? " JOIN patientLabRouting cd ON cd.lab_no = plr.lab_no AND cd.lab_type = 'HL7' "
+                        + " JOIN demographic d ON d.demographic_no = cd.demographic_no " : "")
+                    + " WHERE plr.lab_type = 'HL7' "
+                    + (patientSearch ? " AND d.last_name" + (StringUtils.isEmpty(patientLastName) ? SQL_IS_NOT_NULL : " like ? ")
                         + " AND d.first_name" + (StringUtils.isEmpty(patientFirstName) ? SQL_IS_NOT_NULL : " like ? ")
-                        + hinFilter()
-                        + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                        + (providerSearch ? "AND plr.provider_no = ? " : "")
-                        + " AND plr.lab_type = 'HL7' "
-                        + " AND cd.lab_type = 'HL7' "
-                        + " AND cd.lab_no = plr.lab_no "
-                        + " AND cd.demographic_no = d.demographic_no "
-                        + " AND info.lab_no = plr.lab_no "
-                        + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                addPatientSearchParams(params);
-                if (bindsStatusParameter()) params.add(status);
-                if (providerSearch) params.add(searchProviderNo);
-                return queryTrustedCount(sql, params);
-            } else if (providerSearch || bindsStatusParameter()) {
-                sql = "SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM providerLabRouting plr, hl7TextInfo info "
-                        + " WHERE plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
-                        + (providerSearch ? " AND plr.provider_no = ? " : " ")
-                        + " AND plr.lab_type = 'HL7'  "
-                        + " AND info.lab_no = plr.lab_no"
-                        + " AND result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                if (bindsStatusParameter()) params.add(status);
-                if (providerSearch) params.add(searchProviderNo);
-                return queryTrustedCount(sql, params);
-            } else {
-                sql = " SELECT HIGH_PRIORITY COUNT(1) as count "
-                        + " FROM hl7TextInfo info "
-                        + " WHERE result_status " + (isAbnormal ? "" : "!") + "= 'A' ";
-                return queryTrustedCount(sql, params);
-            }
+                        + hinFilter() : "")
+                    + " AND plr.status " + (matchesAnyStatus() ? SQL_IS_NOT_NULL : SQL_EQUALS_PARAM)
+                    + (providerSearch ? " AND plr.provider_no = ? " : "")
+                    + (isAbnormal ? " AND info.result_status = 'A' "
+                        : " AND (info.result_status IS NULL OR info.result_status != 'A') ")
+                    + labAbnormalSql + labDateSql;
+            List<Object> params = new ArrayList<>();
+            if (patientSearch) addPatientSearchParams(params);
+            if (bindsStatusParameter()) params.add(status);
+            if (providerSearch) params.add(searchProviderNo);
+            params.addAll(labDateParams);
+            return queryTrustedCount(sql, params);
         }
 
         public int getDocumentCountForUnmatched()

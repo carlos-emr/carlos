@@ -43,4 +43,26 @@ class InboxReportIdentityUnitTest {
         assertThat(DmsInboxManage2Action.preserveSelectedReports(List.of(original, original, correction)))
                 .containsExactly(original, correction);
     }
+
+    @Test
+    void shouldKeepMissingAccessionsSeparate_acrossLegacySources() {
+        var first = row("CML", "10", "");
+        var second = row("CML", "20", null);
+        var document = row("DOC", "10", "null");
+        assertThat(DmsInboxManage2Action.preserveSelectedReports(List.of(first, second, document)))
+                .containsExactly(first, second, document);
+    }
+
+    @Test
+    void shouldPreserveLegacyGrouping_andKeepReusedAccessionsAndUnknownDates() {
+        var first = row("CML", "10", "shared");
+        var duplicate = row("CML", "20", "shared");
+        var reused = row("CML", "30", "shared");
+        var undated = row("CML", "40", "shared");
+        when(first.getDateObj()).thenReturn(java.sql.Date.valueOf("2026-01-01"));
+        when(duplicate.getDateObj()).thenReturn(java.sql.Date.valueOf("2026-02-01"));
+        when(reused.getDateObj()).thenReturn(java.sql.Date.valueOf("2026-08-01"));
+        assertThat(DmsInboxManage2Action.preserveSelectedReports(List.of(first, duplicate, reused, undated)))
+                .containsExactly(undated, reused, first);
+    }
 }

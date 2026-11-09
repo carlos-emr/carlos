@@ -166,6 +166,8 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
     }
 
     /** Missing identifiers must never select blank-HIN patients by initials alone. */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Conservatively rejects case variants of the missing-HIN sentinel; never grants a patient match")
     public static boolean isMissingCmlHin(String hin) {
         return hin == null || hin.isBlank() || "UNKNOWN".equalsIgnoreCase(hin.trim());
     }
