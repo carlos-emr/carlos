@@ -76,14 +76,26 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  */
 public class ConsultationPDFCreator extends PdfPageEventHelper {
 
+    /** A stored signature claim that cannot safely be printed as signed. */
+    public static final class SignatureRenderingException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        public SignatureRenderingException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
     private static final float SIGNATURE_IMAGE_SCALE_PERCENT = 40f;
     private static final float SIGNATURE_IMAGE_MAX_WIDTH = 200f;
     private static final float SIGNATURE_IMAGE_MAX_HEIGHT = 60f;
     private static final float[] SIGNATURE_ROW_WIDTHS = new float[]{1.55f, 1.0f};
     private static final float SIGNATURE_TOP_PADDING = 10f;
     private static final float SIGNATURE_LABEL_BOTTOM_PADDING = 2f;
+    private static final String SIGNATURE_PRINT_ERROR = "The consultation request could not be printed because "
+            + "its stored signature could not be verified or rendered.";
 
     private static Logger logger = MiscUtils.getLogger();
+    private final HttpServletRequest request;
     private OutputStream os;
     private Document document;
     private BaseFont bf;
@@ -110,6 +122,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param os      OutputStream where the generated PDF will be written
      */
     public ConsultationPDFCreator(HttpServletRequest request, OutputStream os) {
+        this.request = request;
 
         try {
             bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
@@ -170,7 +183,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * referring practitioner footer.</p>
      *
      * @param loggedInInfo LoggedInInfo the authenticated session context for the current provider
-     * @throws DocumentException when OpenPDF encounters an error constructing the PDF
+     * @throws DocumentException when PDF construction fails or a stored signature cannot be verified
      */
     public void printPdf(LoggedInInfo loggedInInfo) throws DocumentException {
 
@@ -180,11 +193,21 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         document.setPageSize(PageSize.LETTER);
         document.addTitle(getResource("msgConsReq"));
         document.addCreator("CARLOS EMR");
-        document.open();
-
-        PdfPTable maintable = createConsultationRequest(loggedInInfo);
-        document.add(maintable);
+        try {
+            document.open();
+            PdfPTable maintable = createConsultationRequest(loggedInInfo);
+            document.add(maintable);
+        } catch (SignatureRenderingException e) {
+            // Existing print/fax callers handle DocumentException. Put the reason on the
+            // request for the consultation form's alert before they return an error result.
+            throw reportSignaturePrintFailure(request, e);
+        }
         document.close();
+    }
+
+    static DocumentException reportSignaturePrintFailure(HttpServletRequest request, SignatureRenderingException e) {
+        request.setAttribute("errorMessage", SIGNATURE_PRINT_ERROR);
+        return new DocumentException(e);
     }
 
     /**
@@ -761,14 +784,15 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
                 signatureImageOverride != null && signatureImageOverride.length > 0
                         ? null
                         : SpringUtils.getBean(DigitalSignatureManager.class);
-        byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(), digitalSignatureManager);
+        byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(),
+                reqFrm.demoNo, digitalSignatureManager);
 
         if (signatureImage != null && signatureImage.length > 0) {
             try {
                 Image image = createScaledSignatureImage(signatureImage);
                 addTable(pdfPTable, createRightAlignedSignatureTable(getResource("msgSignature"), image, font));
-            } catch (BadElementException | IOException e) {
-                logger.error("An error occurred while trying to create an image from the signature", e);
+            } catch (IOException | RuntimeException e) {
+                throw new SignatureRenderingException("Referenced consultation signature cannot be rendered", e);
             }
         }
     }
@@ -837,11 +861,12 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param signatureImageOverride non-mutating preview bytes, or {@code null}/empty when none
      * @param signatureImageId       the persisted {@code DigitalSignature} id, or {@code null}/empty
      * @param mgr                    manager used to load the persisted signature when no override is present
-     * @return the chosen signature bytes, or {@code null} when none are available, the id is blank/invalid
-     *         after trimming, or the signature cannot be loaded
+     * @return the chosen signature bytes, or {@code null} when no stored id is present
+     * @throws IllegalStateException when a present stored signature cannot be verified or rendered
      */
     @SuppressWarnings("java:S1168")
-    static byte[] resolveSignatureBytes(byte[] signatureImageOverride, String signatureImageId, DigitalSignatureManager mgr) {
+    static byte[] resolveSignatureBytes(byte[] signatureImageOverride, String signatureImageId,
+                                        String expectedDemographicNo, DigitalSignatureManager mgr) {
         if (signatureImageOverride != null && signatureImageOverride.length > 0) {
             return signatureImageOverride;
         }
@@ -859,18 +884,28 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         try {
             parsedId = Integer.parseInt(normalizedSignatureImageId);
         } catch (NumberFormatException e) {
-            // Malformed id is benign (the field is upstream-validated); render unsigned.
-            logger.debug("Consultation signature id {} is not a valid number", LogSafe.sanitize(normalizedSignatureImageId));
-            return null;
+            logger.warn("Consultation signature id {} is not a valid number", LogSafe.sanitize(normalizedSignatureImageId));
+            throw new SignatureRenderingException("Referenced consultation signature id is invalid", e);
         }
         try {
+            int patient = Integer.parseInt(expectedDemographicNo);
+            DigitalSignature metadata = mgr.getDigitalSignatureMetadata(parsedId);
+            if (metadata == null || metadata.getModuleType() != io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION
+                    || metadata.getDemographicId() == null || metadata.getDemographicId() != patient) {
+                throw new IllegalStateException("Consultation signature ownership cannot be established");
+            }
             DigitalSignature digitalSignature = mgr.getDigitalSignature(parsedId);
-            return digitalSignature != null ? digitalSignature.getSignatureImage() : null;
+            if (digitalSignature == null || digitalSignature.getSignatureImage() == null
+                    || digitalSignature.getSignatureImage().length == 0) {
+                throw new IllegalStateException("Referenced consultation signature has no readable image");
+            }
+            return digitalSignature.getSignatureImage();
         } catch (RuntimeException e) {
-            // A real lookup fault (DB/infra) - log WITH the stack trace rather than mislabel it
-            // "not found"; stay fail-soft so a transient blip renders unsigned instead of blanking the PDF.
+            // A stored signature id is a claim that the rendered document
+            // is signed. Refuse a PDF whose ownership or bytes cannot be
+            // proved; silently omitting the image would misstate its status.
             logger.error("Error loading consultation digital signature {}", parsedId, e);
-            return null;
+            throw new SignatureRenderingException("Consultation signature could not be rendered", e);
         }
     }
 

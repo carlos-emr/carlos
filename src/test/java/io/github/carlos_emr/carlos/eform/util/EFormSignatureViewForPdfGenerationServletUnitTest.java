@@ -63,6 +63,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             // The grant's eForm (fdid 4321) references signature 42 AND the signature belongs to
             // the same patient (111), so the fetch is authorized.
@@ -97,6 +99,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             // Stored markup escapes the '&' as '&amp;'; the reference must still authorize the fetch.
             registerMock(EFormValueDao.class, eFormValueDaoReferencingEscaped(4321, "42"));
@@ -223,6 +227,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
             imagelessSignature.setDemographicId(111);
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(imagelessSignature);
+            imagelessSignature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(imagelessSignature);
             registerMock(DigitalSignatureManager.class, manager);
             registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
             registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));
@@ -252,6 +258,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             // The form's stored TEXT references signature 42 — text a form-filling user controls —
             // but the signature row belongs to another patient (222 vs the eForm's 111). The
@@ -286,6 +294,8 @@ class EFormSignatureViewForPdfGenerationServletUnitTest extends CarlosUnitTestBa
 
             DigitalSignatureManager manager = mock(DigitalSignatureManager.class);
             when(manager.getDigitalSignature(42)).thenReturn(signature);
+            signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM);
+            when(manager.getDigitalSignatureMetadata(42)).thenReturn(signature);
             registerMock(DigitalSignatureManager.class, manager);
             registerMock(EFormValueDao.class, eFormValueDaoReferencing(4321, "42"));
             registerMock(EFormDataDao.class, eFormDataDaoFor(4321, 111));

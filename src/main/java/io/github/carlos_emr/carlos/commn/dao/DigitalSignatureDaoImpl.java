@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.ImportedSignatureOwner;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 
 import java.util.List;
@@ -44,6 +45,13 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
 
     private static final String EFORM_SIGNATURE_FIELD_NAME = "signatureValue";
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId=";
+    // The PDF composer can render a stored signature from signatureValue or
+    // from the Rich Text Letter's stored Letter HTML, but not arbitrary fields.
+    private static final String EFORM_REFERENCE_PREDICATE =
+            "(ev.varValue LIKE ?2 OR ev.varValue LIKE ?3 OR ev.varValue LIKE ?4 "
+                    + "OR ev.varValue LIKE ?5 OR ev.varValue LIKE ?6 OR ev.varValue LIKE ?7 "
+                    + "OR ev.varValue LIKE ?8 OR ev.varValue LIKE ?9 OR ev.varValue LIKE ?10 "
+                    + "OR ev.varValue LIKE ?11 OR ev.varValue LIKE ?12 OR ev.varValue LIKE ?13)";
 
     public DigitalSignatureDaoImpl() {
         super(DigitalSignature.class);
@@ -76,7 +84,10 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
         if (digitalSignature.getModuleType() != null) {
             return digitalSignature;
         }
-        if (digitalSignature.getDemographicId() == null) {
+        if (digitalSignature.getDemographicId() == null
+                || digitalSignature.getDemographicId() == -1) {
+            // A live clinical reference can be submitted after migration.
+            // It is never authority for an imported unassigned signature.
             return digitalSignature;
         }
 
@@ -88,6 +99,34 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
             inferredMetadata.setProviderNo(digitalSignature.getProviderNo());
         }
         return inferredMetadata != null ? inferredMetadata : digitalSignature;
+    }
+
+    @Override
+    public DigitalSignature findReadableMetadataById(int id) {
+        DigitalSignature stored = findMetadataById(id);
+        if (stored == null || stored.getDemographicId() == null
+                || stored.getDemographicId() != -1) {
+            return stored;
+        }
+        DigitalSignature resolved = findImportedUnassignedOwner(id);
+        if (resolved == null || (stored.getModuleType() != null
+                && stored.getModuleType() != resolved.getModuleType())) {
+            // An imported -1 row is never itself proof of patient ownership.
+            // A caller must not authorize its image with the sentinel or a
+            // module that conflicts with the frozen source decision.
+            return null;
+        }
+        resolved.setProviderNo(stored.getProviderNo());
+        return resolved;
+    }
+
+    private DigitalSignature findImportedUnassignedOwner(int id) {
+        ImportedSignatureOwner owner = entityManager.find(ImportedSignatureOwner.class, id);
+        if (owner == null || owner.getDemographicId() == null
+                || owner.getDemographicId() <= 0 || owner.getModuleType() == null) {
+            return null;
+        }
+        return metadata(owner.getDemographicId(), owner.getModuleType());
     }
 
     private DigitalSignature findLegacyMetadataByReference(int id, int demographicId) {
@@ -154,19 +193,30 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
 
     private DigitalSignature findLegacyEformMetadata(String idValue, int demographicId) {
         String jpql =
-                "SELECT ev.demographicId FROM EFormValue ev WHERE ev.varName = ?1 "
-                        + "AND (ev.varValue LIKE ?2 OR ev.varValue LIKE ?3 "
-                        + "OR ev.varValue LIKE ?4 OR ev.varValue LIKE ?5) "
-                        + "AND ev.demographicId = ?6";
+                "SELECT ev.demographicId FROM EFormValue ev WHERE "
+                        + "(ev.varName = ?1 OR ev.varName = 'Letter') "
+                        + "AND " + EFORM_REFERENCE_PREDICATE + " AND ev.demographicId = ?14";
 
         Query query = entityManager.createQuery(jpql);
         query.setParameter(1, EFORM_SIGNATURE_FIELD_NAME);
-        query.setParameter(2, "%?" + DIGITAL_SIGNATURE_ID_PARAM + idValue + "&%");
-        query.setParameter(3, "%&" + DIGITAL_SIGNATURE_ID_PARAM + idValue + "&%");
-        query.setParameter(4, "%?" + DIGITAL_SIGNATURE_ID_PARAM + idValue);
-        query.setParameter(5, "%&" + DIGITAL_SIGNATURE_ID_PARAM + idValue);
-        query.setParameter(6, demographicId);
+        bindEformSignatureReference(query, idValue);
+        query.setParameter(14, demographicId);
         return referencedMetadata(query, ModuleType.E_FORM);
+    }
+
+    private void bindEformSignatureReference(Query query, String idValue) {
+        String token = DIGITAL_SIGNATURE_ID_PARAM + idValue;
+        // A saved eForm may HTML-escape '&' in its URL. Match the same
+        // query-parameter spellings the PDF renderer accepts. A saved Letter
+        // can end the URL at a literal HTML attribute quote rather than at
+        // the end of the stored value or before another parameter. Keep the
+        // character after the exact id explicit so 42 cannot match 420.
+        int parameter = 2;
+        for (String suffix : new String[] {"&%", "", "\"%", "'%"}) {
+            for (String prefix : new String[] {"%?", "%&", "%&amp;"}) {
+                query.setParameter(parameter++, prefix + token + suffix);
+            }
+        }
     }
 
     private DigitalSignature referencedMetadata(

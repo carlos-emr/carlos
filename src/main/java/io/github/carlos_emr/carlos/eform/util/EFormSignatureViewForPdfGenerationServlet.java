@@ -130,21 +130,23 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             }
             Integer renderDemographic = renderEform.getDemographicId();
 			DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
+			DigitalSignature metadata = digitalSignatureManager.getDigitalSignatureMetadata(digitalSignatureId);
+			if (metadata == null) {
+				logger.warn("Rejected signature fetch: no readable signature metadata for render eForm: fdid={}",
+						LogSafe.sanitize(String.valueOf(grant.fdid())));
+				response.sendError(HttpServletResponse.SC_NOT_FOUND);
+				return;
+			}
+			if (metadata.getModuleType() != io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.E_FORM
+					|| renderDemographic == null || !renderDemographic.equals(metadata.getDemographicId())) {
+				logger.warn("Rejected signature fetch: signature module or patient does not match render eForm: fdid={}",
+						LogSafe.sanitize(String.valueOf(grant.fdid())));
+				response.sendError(HttpServletResponse.SC_FORBIDDEN);
+				return;
+			}
 			DigitalSignature digitalSignature = digitalSignatureManager
 					.getDigitalSignature(digitalSignatureId);
             if (digitalSignature != null) {
-                Integer signatureDemographic = digitalSignature.getDemographicId();
-                if (renderDemographic == null || signatureDemographic == null
-                        || !signatureDemographic.equals(renderDemographic)) {
-                    // Distinct, triage-able message: DigitalSignature.demographicId is NOT NULL in
-                    // the schema and set by every creation path, so a legitimate form can only hit
-                    // this if demographic merge/renumber tooling moved EFormData without updating
-                    // DigitalSignature. fdid only — never patient or signature identifiers.
-                    logger.warn("Rejected signature fetch: signature not bound to the render eForm's patient: fdid={}",
-                            LogSafe.sanitize(String.valueOf(grant.fdid())));
-                    response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                    return;
-                }
                 //renderImage(response, digitalSignature.getSignatureImage(), "jpeg");
 
                 byte[] image = digitalSignature.getSignatureImage();

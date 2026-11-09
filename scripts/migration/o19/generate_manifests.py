@@ -69,7 +69,7 @@ MANIFEST_DIR = REPO_ROOT / "debian" / "assets" / "o19-manifest"
 #: format it does not know, and the content is versioned separately by
 #: SCHEMA_MAP_VERSION / PROPS_MAP_VERSION.
 MANIFEST_FORMAT = 1
-SCHEMA_MANIFEST_FORMAT = 2
+SCHEMA_MANIFEST_FORMAT = 3
 #: manifest kind -> file name; the kind is written into the file too
 MANIFEST_FILES = {
     "o19map-schema": "o19map_schema.json",

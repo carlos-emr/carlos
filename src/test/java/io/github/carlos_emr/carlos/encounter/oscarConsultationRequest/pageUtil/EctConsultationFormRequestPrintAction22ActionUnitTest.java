@@ -28,6 +28,7 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
@@ -216,6 +217,27 @@ class EctConsultationFormRequestPrintAction22ActionUnitTest extends CarlosUnitTe
         if (servletActionContextMock != null) {
             servletActionContextMock.close();
         }
+    }
+
+    @Test
+    @DisplayName("should refuse direct printing when the stored consultation signature cannot be verified")
+    void shouldRefuseDirectPrint_whenStoredSignatureCannotBeVerified() throws Exception {
+        consultationPdfCreatorConstruction.close();
+        consultationPdfCreatorConstruction = mockConstruction(ConsultationPDFCreator.class,
+                (mock, context) -> doAnswer(invocation -> {
+                    throw ConsultationPDFCreator.reportSignaturePrintFailure(request,
+                            new ConsultationPDFCreator.SignatureRenderingException(
+                                    "signature ownership cannot be established", null));
+                }).when(mock).printPdf(any()));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo("error");
+        assertThat(request.getAttribute("printError")).isEqualTo(Boolean.TRUE);
+        assertThat((String) request.getAttribute("errorMessage"))
+                .contains("stored signature could not be verified or rendered");
+        assertThat(response.getContentAsByteArray()).isEmpty();
+        assertThat(response.getContentType()).isNull();
     }
 
     @Test
