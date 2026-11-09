@@ -433,6 +433,9 @@ async function workflow(s) {
 
   if (ticklerForm && process.env.TICKLER_DST_GAP_ZONE) await s.step('the configured daylight-saving gap is refused without writes and correction saves the retained draft', async () => {
     const zone=process.env.TICKLER_DST_GAP_ZONE;
+    // BC observes permanent daylight time after March 2026. Use its real last
+    // spring gap rather than inventing a Vancouver transition in a later year.
+    const gapDate=zone==='America/Vancouver'?'2026-03-08':'2030-03-10';
     h.assert(['America/Toronto','America/Vancouver'].includes(zone),'Unsupported DST qualification zone');
     const config=fs.readFileSync('/etc/carlos-emr/carlos-emr.env','utf8');
     h.assert(config.split('\n').filter(line=>line===`CARLOS_TZ="${zone}"`).length===1,'The installed clinic is not configured for the requested DST gap');
@@ -441,7 +444,7 @@ async function workflow(s) {
     await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
     await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
     await form.locator('select[name="priority"]').selectOption('High');
-    await form.locator('input[name="serviceDate"]').fill('2030-03-10');
+    await form.locator('input[name="serviceDate"]').fill(gapDate);
     const time=form.locator('input[name="serviceTime"]');await time.fill('02:30 AM');await time.press('Tab');await modal.locator('.modal-header').click();
     const stamp=`${marker} DST recovered`;await form.locator('textarea[name="messageAppend"]').fill(stamp);
     const snapshot=()=>JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${alpha},${bravo},${charlie}) ORDER BY tickler_no`));
@@ -449,10 +452,13 @@ async function workflow(s) {
     const dialogs=await h.withExpectedDialogs(dashboard,async()=>{
       const [response]=await Promise.all([
         dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
-        dashboard.waitForEvent('dialog'),dashboard.locator('#saveTicklerBtn').click(),
+        dashboard.locator('#saveTicklerBtn').click(),
       ]);
+      const submitted=new URLSearchParams(response.request().postData());
+      h.assert(submitted.get('serviceDate')===gapDate&&submitted.get('serviceTime')==='2:30 AM','DST request did not carry the chosen date and time');
       const body=await response.json();
       h.assert(response.status()===400&&body.success==='false'&&/daylight saving/i.test(body.message),'The nonexistent clinic time was not explicitly refused');
+      await dashboard.waitForFunction(()=>document.getElementById('saveTicklerBtn').disabled===false);
     });
     h.assert(dialogs.length===1&&dialogs[0].type==='alert'&&/Nothing was saved.*daylight saving/i.test(dialogs[0].text),'DST refusal was not shown to the user');
     h.assert(await modal.isVisible()&&await form.locator('textarea[name="messageAppend"]').inputValue()===stamp&&await time.inputValue()==='2:30 AM'&&snapshot()===initial,'DST refusal changed tasks or discarded the draft');
@@ -464,7 +470,7 @@ async function workflow(s) {
     ]);
     h.assert(saved.status()===200&&(await saved.json()).success==='true','Correcting the refused time did not save');await modal.waitFor({state:'hidden'});
     for(const id of [alpha,bravo])h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${id} AND message=${h.sqlString(' '+stamp)}
-      AND DATE_FORMAT(service_date,'%Y-%m-%d %H:%i')='2030-03-10 03:30' AND creator=${P} AND task_assigned_to=${P}`)==='1','Corrected DST time was not saved exactly once for the intended recipient and patient');
+      AND DATE_FORMAT(service_date,'%Y-%m-%d %H:%i')=${h.sqlString(gapDate+' 03:30')} AND creator=${P} AND task_assigned_to=${P}`)==='1','Corrected DST time was not saved exactly once for the intended recipient and patient');
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`)==='0','DST recovery changed the unchecked patient');
   });
 
