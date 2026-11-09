@@ -105,4 +105,74 @@ class DemographicSearchAuthorizationUnitTest extends CarlosUnitTestBase {
         verify(dao).searchDemographicByNameString("Synthetic", 500, 500);
     }
 
+    @Test
+    void shouldApplyReadonlyPolicy_toAllUnpagedPatientDiscoveryPaths() {
+        var rows = patients(502);
+        rows.forEach(patient -> patient.setLastName("Synthetic"));
+        readable.addAll(List.of(501, 502));
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider(); provider.setProviderNo("41");
+        when(dao.getDemographicByProvider("41")).thenReturn(rows);
+        when(dao.getDemographicByProvider("41", true)).thenReturn(rows);
+        when(dao.searchDemographic("Synthetic")).thenReturn(rows);
+        when(dao.getActiveDemosByHealthCardNo("FAKE-HIN", "ON")).thenReturn(rows);
+        when(dao.getClientsByChartNo("FAKE-CHART")).thenReturn(rows);
+        when(dao.searchByHealthCard("FAKE-HIN")).thenReturn(rows);
+        when(dao.getDemographicWithLastFirstDOB("Synthetic", "Patient", "1980", "01", "15")).thenReturn(rows);
+        var calls = List.<java.util.function.Supplier<List<Demographic>>>of(
+                () -> manager.getDemographicsNameRangeByProvider(actor, provider, "^[A-Z]"),
+                () -> manager.getDemographicsByProvider(actor, provider),
+                () -> manager.searchDemographic(actor, "Synthetic"),
+                () -> manager.getActiveDemosByHealthCardNo(actor, "FAKE-HIN", "ON"),
+                () -> manager.getDemosByChartNo(actor, "FAKE-CHART"),
+                () -> manager.searchByHealthCard(actor, "FAKE-HIN"),
+                () -> manager.getDemographicWithLastFirstDOB(actor, "Synthetic", "Patient", "1980", "01", "15"));
+        for (var call : calls) assertThat(call.get()).extracting(Demographic::getId).containsExactly(501, 502);
+        verify(privileges, atLeastOnce()).getReadableDemographicIds(actor,
+                java.util.stream.IntStream.rangeClosed(1, 500).boxed().toList());
+        verify(privileges, atLeastOnce()).getReadableDemographicIds(actor, List.of(501, 502));
+        verify(privileges, never()).hasPrivilegeReadOnly(any(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void shouldFilterAdmissionAndCareTeamIds_withTheSameBoundedPolicy() {
+        var admissions = mock(io.github.carlos_emr.carlos.commn.dao.AdmissionDao.class);
+        var extensions = mock(io.github.carlos_emr.carlos.commn.dao.DemographicExtDao.class);
+        injectDependency(manager, "admissionDao", admissions); injectDependency(manager, "demographicExtDao", extensions);
+        var ids = java.util.stream.IntStream.rangeClosed(1, 502).boxed().toList(); readable.addAll(List.of(501, 502));
+        when(admissions.getAdmittedDemographicIdByProgramAndProvider(7, "41")).thenReturn(ids);
+        when(extensions.getDemographicNumbersByDemographicExtKeyAndProviderNumberAndDemographicLastNameRegex(
+                any(), eq("41"), eq("^[A-Z]"))).thenReturn(ids);
+        assertThat(manager.getAdmittedDemographicIdsByProgramAndProvider(actor, 7, "41")).containsExactly(501, 502);
+        assertThat(manager.getDemographicNumbersByMidwifeNumberAndDemographicLastNameRegex(actor, "41", "^[A-Z]"))
+                .containsExactly(501, 502);
+        assertThat(manager.getDemographicNumbersByNurseNumberAndDemographicLastNameRegex(actor, "41", "^[A-Z]"))
+                .containsExactly(501, 502);
+        assertThat(manager.getDemographicNumbersByResidentNumberAndDemographicLastNameRegex(actor, "41", "^[A-Z]"))
+                .containsExactly(501, 502);
+    }
+
+    @Test
+    void shouldRefuseGlobalDenial_beforeReadingAdmissions() {
+        var admissions = mock(io.github.carlos_emr.carlos.commn.dao.AdmissionDao.class);
+        injectDependency(manager, "admissionDao", admissions);
+        when(privileges.hasPrivilege(actor, "_demographic", "r", null)).thenReturn(false);
+        assertThatThrownBy(() -> manager.getAdmittedDemographicIdsByProgramAndProvider(actor, 7, "41"))
+                .isInstanceOf(SecurityException.class);
+        verifyNoInteractions(admissions);
+    }
+
+    @Test
+    void shouldPropagateDiscoveryFailures_withoutReturningTheUnfilteredRows() {
+        when(dao.searchDemographic("Synthetic")).thenReturn(patients(2));
+        when(privileges.getReadableDemographicIds(eq(actor), anyCollection()))
+                .thenThrow(new IllegalStateException("policy unavailable"));
+        assertThatThrownBy(() -> manager.searchDemographic(actor, "Synthetic")).isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void shouldRejectMalformedDiscoveryRows_insteadOfTreatingThemAsAuthorized() {
+        when(dao.searchDemographic("Synthetic")).thenReturn(List.of(new Demographic()));
+        assertThatThrownBy(() -> manager.searchDemographic(actor, "Synthetic")).isInstanceOf(IllegalStateException.class);
+    }
+
 }

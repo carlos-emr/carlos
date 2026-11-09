@@ -1,6 +1,6 @@
 # REST/SOAP release hardening acceptance ledger
 
-Base: release/2026.08 at 9004536dc8314d5f50542b48905ca3ca4099a916.
+Target: release/2026.08 at 74f240a4b9f92188300a8700cf11f1d74bc2b58d. The original issue-review snapshot was 9004536dc8314d5f50542b48905ca3ca4099a916.
 
 This PR is incomplete until every outstanding requirement below is reconciled with source and executable evidence. Ticket closure, prior PR checks and documentation alone are not validation of this candidate. No closure keywords are used while work remains.
 
@@ -35,7 +35,7 @@ This PR is incomplete until every outstanding requirement below is reconciled wi
 - [ ] [#2811](https://github.com/carlos-emr/carlos/issues/2811): Raw JPA entities embedded in REST DTOs; reconcile current call paths and acceptance.
 - [x] [#2809](https://github.com/carlos-emr/carlos/issues/2809): Provider billing identifiers; reconcile current call paths and acceptance.
 - [ ] [#2805](https://github.com/carlos-emr/carlos/issues/2805): Inbox HIN exposure; reconcile current call paths and acceptance.
-- [ ] [#2804](https://github.com/carlos-emr/carlos/issues/2804): SOAP bulk demographic access (reconcile absent getAllDemographics method); reconcile current call paths and acceptance.
+- [x] [#2804](https://github.com/carlos-emr/carlos/issues/2804): The named getAllDemographics method is absent. Actual name/attribute/incremental/bulk-ID, program-admission and consent-ID paths now apply global and per-patient authorization; current source and executable evidence are recorded below. The broader #2282 sweep remains separate.
 - [ ] [#2802](https://github.com/carlos-emr/carlos/issues/2802): NoteTo1 clinical-text diagnostics and embedded entities; reconcile current call paths and acceptance.
 - [x] [#2801](https://github.com/carlos-emr/carlos/issues/2801): Base #5512 reconciled: all thirteen named SOAP DTOs use structural diagnostics; the populated-field tests and source scan cover the entire named family.
 - [ ] [#2800](https://github.com/carlos-emr/carlos/issues/2800): SIN exposure through web-service DTOs; reconcile current call paths and acceptance.
@@ -155,3 +155,5 @@ This PR is incomplete until every outstanding requirement below is reconciled wi
 - Two new Semgrep review findings on retained document/lab surrogate IDs are fixed: both values again pass through LogSafe.sanitizeObject while filenames remain omitted. The corrected selection of actual ManageDocument2ActionTest and LogSafeUnitTest classes passes 217 checks without failures/errors/skips; the first attempted selection named nonexistent classes and explicitly failed instead of reporting a false pass.
 
 - Full 7488894be45 run completed 35,129 cases with two old diagnostic-oracle failures, zero errors and 149 conditional skips. Both expected the former raw Throwable/message formatting after the broader redaction pass. The upload oracle now checks the actual propagated IOException type and write call site without attaching its original Throwable or private source/destination paths; the renderer oracle retains HTTP 500 and diagnostic call-site checks while excluding URL/token/message payloads. All 27 targeted upload/renderer checks pass without failures/errors/skips. Full final-head verification remains required.
+
+- Remaining demographic discovery paths now apply the same readonly chart policy in batches of at most 500: provider/name-range, general names, active health-card, chart-number, health-card and DOB searches, admission IDs and midwife/nurse/resident IDs. Policy failures and malformed ID-less rows fail explicitly. SOAP consent-ID discovery requires demographic read before querying consents, deduplicates IDs and filters through bounded readonly policy checks. All 218 focused manager/CXF REST/SOAP/published-WSDL checks pass without failures/errors/skips; tests cover blocked rows before a later permitted batch, global denial before data access, ID deduplication and policy-service failure. The CDS source-bound crosswalk remains unchanged. Final full/CI qualification and the separate broader REST authorization sweep remain required.
