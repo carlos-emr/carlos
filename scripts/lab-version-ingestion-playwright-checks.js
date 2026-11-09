@@ -190,7 +190,25 @@ async function workflow(s) {
         const before=labState(accession),clinical=readPatientState(sql,patient);
         const stored=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
         h.assert(stored,'Owned historical source is missing before the refusal probe');
-        let cleared=false,probe;
+        let cleared=false,probe,healthy;
+        const macroRows=()=>sql.rows(`SELECT id,value IS NULL,IFNULL(value,'') FROM property WHERE provider_no=${q(provider)} AND name='labMacroJSON' ORDER BY id`);
+        const macrosBefore=macroRows();h.assert(macrosBefore.length<=1,'Macro preferences are ambiguous before the owned probe');
+        const macroValue=JSON.stringify([{name:marker+' read-only macro',acknowledge:true,closeOnSuccess:false}]);
+        let macrosClaimed=false;
+        const restoreMacros=()=>{
+          if(!macrosClaimed)return;
+          const current=macroRows();
+          if(JSON.stringify(current)===JSON.stringify(macrosBefore)){macrosClaimed=false;return;}
+          h.assert(current.length===1&&current[0][2]===macroValue,'Owned macro preferences changed outside the read-only probe');
+          const id=current[0][0];h.assert(/^[1-9]\d*$/.test(id),'Owned macro property has no valid identity');
+          if(macrosBefore.length){
+            h.assert(id===macrosBefore[0][0],'Macro property ownership changed');
+            sql.execute(`UPDATE property SET value=${macrosBefore[0][1]==='1'?'NULL':q(macrosBefore[0][2])} WHERE id=${id}`);
+          }else sql.execute(`DELETE FROM property WHERE id=${id} AND provider_no=${q(provider)} AND name='labMacroJSON' AND value=${q(macroValue)}`);
+          h.assert(JSON.stringify(macroRows())===JSON.stringify(macrosBefore),'Macro preferences were not restored exactly');
+          macrosClaimed=false;
+        };
+        s.cleanup(restoreMacros);
         const restore=()=>{
           if(!cleared)return;
           const current=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
@@ -201,12 +219,19 @@ async function workflow(s) {
         };
         s.cleanup(restore);
         try{
+          macrosClaimed=true;
+          if(macrosBefore.length)sql.execute(`UPDATE property SET value=${q(macroValue)} WHERE id=${macrosBefore[0][0]} AND provider_no=${q(provider)} AND name='labMacroJSON'`);
+          else sql.execute(`INSERT INTO property(provider_no,name,value) VALUES(${q(provider)},'labMacroJSON',${q(macroValue)})`);
+          healthy=await inboxReport(corrected);
+          h.assert(await healthy.report.locator('.macro-dropdown').isVisible()&&await healthy.report.getByRole('link',{name:marker+' read-only macro',exact:true}).count()===1,'Configured macro menu precondition was not established');
+          await retireReports(healthy);healthy=null;
           cleared=true;
           sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND type='CML' AND message=${q(stored)}`);
           h.assert(sql.value(`SELECT LENGTH(message) FROM hl7TextMessage WHERE lab_id=${original}`)==='0','Missing-body probe was not established');
           probe=await inboxReport(corrected);await inspect(probe.report,corrected,'Incomplete history');
           const warning=probe.report.locator('[data-carlos-hl7-chain-warning="unavailable"]');
           h.assert(await warning.isVisible()&&(await warning.innerText()).length>60,'Incomplete history has no visible explanation');
+          h.assert(await probe.report.locator('.macro-dropdown').count()===0,'Incomplete history still exposes configured macro anchors');
           h.assert(await probe.report.locator('input[onclick*="ackLab"],button[onclick*="ackLab"],input[onclick*="ForwardSelectedRows"],input[onclick*="unlinkDemographic"],a[href*="SearchPatient"],input[onclick*="SearchPatient"]').count()===0,'Incomplete history still offers a chain-dependent mutation');
           h.assert(await probe.report.locator('input[onclick*="printPDF"]:enabled').count()===0,'Unverified version headers are still printable');
           const chart=await s.chart();await chart.reload({waitUntil:'domcontentloaded'});await waitForNavbars(chart,30000);
@@ -215,7 +240,8 @@ async function workflow(s) {
           h.assert(visible.size===known.size,'Incomplete history lost a visible patient report');
           assertPatientStateUnchanged(clinical,readPatientState(sql,patient),'Incomplete history read');checkControl();
         }finally{
-          restore();
+          try{restore();}finally{restoreMacros();}
+          if(healthy)await retireReports(healthy);
           if(probe)await retireReports(probe);
         }
         h.assert(JSON.stringify(labState(accession))===JSON.stringify(before),'Missing-history read or restoration changed lab state');
