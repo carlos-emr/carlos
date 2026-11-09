@@ -399,6 +399,38 @@ async function workflow(s) {
     });
   }
 
+  if (ticklerForm) await s.step('supported 24-hour and mixed-case AM/PM inputs save their exact intended times', async () => {
+    const control=JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${alpha},${bravo}) ORDER BY tickler_no`));
+    const controlIds=sql.rows(`SELECT tickler_no FROM tickler WHERE demographic_no IN (${alpha},${bravo}) ORDER BY tickler_no`).flat().join(',');
+    for (const [index, [typed, display, stored]] of [
+      ['14:30','2:30 PM','14:30'],['10:30 am','10:30 AM','10:30'],['2:30 Pm','2:30 PM','14:30'],
+      ['00:00','12:00 AM','00:00'],['23:59','11:59 PM','23:59'],
+    ].entries()) {
+      await dashboard.locator('#actionMenuLink').click();await dashboard.locator('#assignTicklerChecked').click();
+      const modal=dashboard.locator('#assignTickler'),form=modal.locator('#ticklerAddForm');await form.waitFor({state:'visible'});
+      await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
+      await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
+      await form.locator('select[name="priority"]').selectOption('High');
+      await form.locator('input[name="serviceDate"]').fill('2030-12-31');
+      const time=form.locator('input[name="serviceTime"]');await time.fill(typed);await time.press('Tab');
+      await modal.locator('.modal-header').click();
+      h.assert(await time.inputValue()===display,'Supported typed service time was changed incorrectly');
+      const stamp=`${marker} supported time ${index}`;
+      await form.locator('textarea[name="messageAppend"]').fill(stamp);
+      const [response]=await Promise.all([
+        dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+        dashboard.locator('#saveTicklerBtn').click(),
+      ]);
+      h.assert(response.status()===200&&(await response.json()).success==='true','A supported time did not receive a complete save acknowledgement');
+      await modal.waitFor({state:'hidden'});
+      for(const id of [alpha,bravo]) h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${id}
+        AND message=${h.sqlString(' '+stamp)} AND DATE_FORMAT(service_date,'%Y-%m-%d %H:%i')=${h.sqlString('2030-12-31 '+stored)}
+        AND creator=${P} AND task_assigned_to=${P} AND priority='High' AND status='A'`)==='1','A supported time stored another patient, recipient, date or time');
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`)==='0','A supported time save changed the unchecked patient');
+    }
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no IN (${controlIds}) ORDER BY tickler_no`))===control,'Supported time saves changed the original control tasks');
+  });
+
   const dxRows = id => `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${id} AND dxresearch_code='${DX_CODE}'
     AND coding_system='icd9' AND status='A' AND providerNo=${P}`;
   await s.step('Add To Disease Registry confirms ICD9 250 and its stored description; the unchecked patient stays unregistered', async () => {
