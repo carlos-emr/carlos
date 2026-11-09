@@ -2,158 +2,87 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 /** Detached wire snapshot retaining established member names without persistence relationships. */
-@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.NONE)
+@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.PUBLIC_MEMBER)
 @jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 @jakarta.xml.bind.annotation.XmlType(name="embeddedDemographicTo1")
 @com.fasterxml.jackson.annotation.JsonAutoDetect(fieldVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY,
         getterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE,
         isGetterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE,
         setterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE)
-public class EmbeddedDemographicTo1 {
-    @jakarta.xml.bind.annotation.XmlElement(name="demographicNo")
+public class EmbeddedDemographicTo1 implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private java.lang.Integer demographicNo;
-    @jakarta.xml.bind.annotation.XmlElement(name="phone")
     private java.lang.String phone;
-    @jakarta.xml.bind.annotation.XmlElement(name="patientStatus")
     private java.lang.String patientStatus;
-    @jakarta.xml.bind.annotation.XmlElement(name="patientStatusDate")
     private java.util.Date patientStatusDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="rosterStatus")
     private java.lang.String rosterStatus;
-    @jakarta.xml.bind.annotation.XmlElement(name="providerNo")
     private java.lang.String providerNo;
-    @jakarta.xml.bind.annotation.XmlElement(name="hin")
     private java.lang.String hin;
-    @jakarta.xml.bind.annotation.XmlElement(name="address")
     private java.lang.String address;
-    @jakarta.xml.bind.annotation.XmlElement(name="province")
     private java.lang.String province;
-    @jakarta.xml.bind.annotation.XmlElement(name="monthOfBirth")
     private java.lang.String monthOfBirth;
-    @jakarta.xml.bind.annotation.XmlElement(name="ver")
     private java.lang.String ver;
-    @jakarta.xml.bind.annotation.XmlElement(name="dateOfBirth")
     private java.lang.String dateOfBirth;
-    @jakarta.xml.bind.annotation.XmlElement(name="sex")
     private java.lang.String sex;
-    @jakarta.xml.bind.annotation.XmlElement(name="sexDesc")
     private java.lang.String sexDesc;
-    @jakarta.xml.bind.annotation.XmlElement(name="dateJoined")
     private java.util.Date dateJoined;
-    @jakarta.xml.bind.annotation.XmlElement(name="familyDoctor")
     private java.lang.String familyDoctor;
-    @jakarta.xml.bind.annotation.XmlElement(name="familyPhysician")
     private java.lang.String familyPhysician;
-    @jakarta.xml.bind.annotation.XmlElement(name="city")
     private java.lang.String city;
-    @jakarta.xml.bind.annotation.XmlElement(name="firstName")
     private java.lang.String firstName;
-    @jakarta.xml.bind.annotation.XmlElement(name="postal")
     private java.lang.String postal;
-    @jakarta.xml.bind.annotation.XmlElement(name="hcRenewDate")
     private java.util.Date hcRenewDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="phone2")
     private java.lang.String phone2;
-    @jakarta.xml.bind.annotation.XmlElement(name="pcnIndicator")
     private java.lang.String pcnIndicator;
-    @jakarta.xml.bind.annotation.XmlElement(name="endDate")
     private java.util.Date endDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="lastName")
     private java.lang.String lastName;
-    @jakarta.xml.bind.annotation.XmlElement(name="hcType")
     private java.lang.String hcType;
-    @jakarta.xml.bind.annotation.XmlElement(name="chartNo")
     private java.lang.String chartNo;
-    @jakarta.xml.bind.annotation.XmlElement(name="email")
     private java.lang.String email;
-    @jakarta.xml.bind.annotation.XmlElement(name="consentToUseEmailForCare")
     private java.lang.Boolean consentToUseEmailForCare;
-    @jakarta.xml.bind.annotation.XmlElement(name="yearOfBirth")
     private java.lang.String yearOfBirth;
-    @jakarta.xml.bind.annotation.XmlElement(name="effDate")
     private java.util.Date effDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="rosterDate")
     private java.util.Date rosterDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="rosterTerminationDate")
     private java.util.Date rosterTerminationDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="rosterTerminationReason")
     private java.lang.String rosterTerminationReason;
-    @jakarta.xml.bind.annotation.XmlElement(name="links")
     private java.lang.String links;
-    @jakarta.xml.bind.annotation.XmlElement(name="extras")
     private EmbeddedDemographicExtTo1[] extras;
-    @jakarta.xml.bind.annotation.XmlElement(name="alias")
     private java.lang.String alias;
-    @jakarta.xml.bind.annotation.XmlElement(name="previousAddress")
     private java.lang.String previousAddress;
-    @jakarta.xml.bind.annotation.XmlElement(name="children")
     private java.lang.String children;
-    @jakarta.xml.bind.annotation.XmlElement(name="sourceOfIncome")
     private java.lang.String sourceOfIncome;
-    @jakarta.xml.bind.annotation.XmlElement(name="citizenship")
     private java.lang.String citizenship;
-    @jakarta.xml.bind.annotation.XmlElement(name="sin")
     private java.lang.String sin;
-    @jakarta.xml.bind.annotation.XmlElement(name="headRecord")
     private java.lang.Integer headRecord;
-    @jakarta.xml.bind.annotation.XmlElement(name="subRecord")
     private java.util.Set<Integer> subRecord;
-    @jakarta.xml.bind.annotation.XmlElement(name="anonymous")
     private java.lang.String anonymous;
-    @jakarta.xml.bind.annotation.XmlElement(name="spokenLanguage")
     private java.lang.String spokenLanguage;
-    @jakarta.xml.bind.annotation.XmlElement(name="activeCount")
     private int activeCount;
-    @jakarta.xml.bind.annotation.XmlElement(name="hsAlertCount")
     private int hsAlertCount;
-    @jakarta.xml.bind.annotation.XmlElement(name="displayName")
     private java.lang.String displayName;
-    @jakarta.xml.bind.annotation.XmlElement(name="provider")
     private EmbeddedProviderTo1 provider;
-    @jakarta.xml.bind.annotation.XmlElement(name="lastUpdateUser")
     private java.lang.String lastUpdateUser;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.NUMBER)
-    @jakarta.xml.bind.annotation.XmlElement(name="lastUpdateDate")
     private java.util.Date lastUpdateDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="title")
     private java.lang.String title;
-    @jakarta.xml.bind.annotation.XmlElement(name="officialLanguage")
     private java.lang.String officialLanguage;
-    @jakarta.xml.bind.annotation.XmlElement(name="countryOfOrigin")
     private java.lang.String countryOfOrigin;
-    @jakarta.xml.bind.annotation.XmlElement(name="newsletter")
     private java.lang.String newsletter;
-    @jakarta.xml.bind.annotation.XmlElement(name="cellPhone")
     private java.lang.String cellPhone;
-    @jakarta.xml.bind.annotation.XmlElement(name="phoneComment")
     private java.lang.String phoneComment;
-    @jakarta.xml.bind.annotation.XmlElement(name="middleNames")
     private java.lang.String middleNames;
-    @jakarta.xml.bind.annotation.XmlElement(name="rosterEnrolledTo")
     private java.lang.String rosterEnrolledTo;
-    @jakarta.xml.bind.annotation.XmlElement(name="residentialAddress")
     private java.lang.String residentialAddress;
-    @jakarta.xml.bind.annotation.XmlElement(name="residentialCity")
     private java.lang.String residentialCity;
-    @jakarta.xml.bind.annotation.XmlElement(name="residentialProvince")
     private java.lang.String residentialProvince;
-    @jakarta.xml.bind.annotation.XmlElement(name="residentialPostal")
     private java.lang.String residentialPostal;
-    @jakarta.xml.bind.annotation.XmlElement(name="gender")
     private java.lang.String gender;
-    @jakarta.xml.bind.annotation.XmlElement(name="pronoun")
     private java.lang.String pronoun;
-    @jakarta.xml.bind.annotation.XmlElement(name="genderId")
     private java.lang.Integer genderId;
-    @jakarta.xml.bind.annotation.XmlElement(name="pronounId")
     private java.lang.Integer pronounId;
-    @jakarta.xml.bind.annotation.XmlElement(name="patientType")
     private java.lang.String patientType;
-    @jakarta.xml.bind.annotation.XmlElement(name="prefName")
     private java.lang.String prefName;
-    @jakarta.xml.bind.annotation.XmlElement(name="mrp")
     private EmbeddedProviderTo1 mrp;
-    @jakarta.xml.bind.annotation.XmlElement(name="nextAppointment")
     private java.lang.String nextAppointment;
     private java.lang.Integer id;
     private boolean active;
@@ -162,16 +91,12 @@ public class EmbeddedDemographicTo1 {
     private java.lang.String age;
     private java.lang.String familyDoctorLastName;
     private java.lang.String familyDoctorFirstName;
-    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.BirthdayXmlAdapter.class)
-    @jakarta.xml.bind.annotation.XmlSchemaType(name="dateTime")
-    @jakarta.xml.bind.annotation.XmlElement(name="birthDay")
     private java.util.Calendar birthDay;
     private int numLinks;
     private java.lang.String standardIdentificationHtml;
     private java.lang.String formattedName;
     private java.lang.String birthDayAsString;
     private java.lang.String rosterStatusDisplay;
-    @jakarta.xml.bind.annotation.XmlElement(name="formattedDob")
     private java.lang.String formattedDob;
     private java.lang.String formattedDateJoined;
     private java.lang.String familyDoctorName;
@@ -181,9 +106,7 @@ public class EmbeddedDemographicTo1 {
     private java.lang.String familyPhysicianFullName;
     private java.lang.String familyPhysicianNumber;
     private java.lang.String formattedEndDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="formattedEffDate")
     private java.lang.String formattedEffDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="formattedRenewDate")
     private java.lang.String formattedRenewDate;
     private java.lang.String subjectPronoun;
     private java.lang.String possessivePronoun;
@@ -336,64 +259,66 @@ public class EmbeddedDemographicTo1 {
     public java.lang.String getNextAppointment() { return nextAppointment; }
     public void setNextAppointment(java.lang.String value) { nextAppointment = value; }
     public java.lang.Integer getId() { return id; }
-    public void setId(java.lang.Integer value) { id = value; }
+    public void assignId(java.lang.Integer value) { id = value; }
     public boolean isActive() { return active; }
-    public void setActive(boolean value) { active = value; }
+    public void assignActive(boolean value) { active = value; }
     public java.lang.String getLabel() { return label; }
-    public void setLabel(java.lang.String value) { label = value; }
+    public void assignLabel(java.lang.String value) { label = value; }
     public java.lang.String getFullName() { return fullName; }
-    public void setFullName(java.lang.String value) { fullName = value; }
+    public void assignFullName(java.lang.String value) { fullName = value; }
     public java.lang.String getAge() { return age; }
-    public void setAge(java.lang.String value) { age = value; }
+    public void assignAge(java.lang.String value) { age = value; }
     public java.lang.String getFamilyDoctorLastName() { return familyDoctorLastName; }
-    public void setFamilyDoctorLastName(java.lang.String value) { familyDoctorLastName = value; }
+    public void assignFamilyDoctorLastName(java.lang.String value) { familyDoctorLastName = value; }
     public java.lang.String getFamilyDoctorFirstName() { return familyDoctorFirstName; }
-    public void setFamilyDoctorFirstName(java.lang.String value) { familyDoctorFirstName = value; }
+    public void assignFamilyDoctorFirstName(java.lang.String value) { familyDoctorFirstName = value; }
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.BirthdayXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name="dateTime")
     public java.util.Calendar getBirthDay() { return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.calendar(birthDay); }
     public void setBirthDay(java.util.Calendar value) { birthDay = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.calendar(value); }
     public int getNumLinks() { return numLinks; }
-    public void setNumLinks(int value) { numLinks = value; }
+    public void assignNumLinks(int value) { numLinks = value; }
     public java.lang.String getStandardIdentificationHtml() { return standardIdentificationHtml; }
-    public void setStandardIdentificationHtml(java.lang.String value) { standardIdentificationHtml = value; }
+    public void assignStandardIdentificationHtml(java.lang.String value) { standardIdentificationHtml = value; }
     public java.lang.String getFormattedName() { return formattedName; }
-    public void setFormattedName(java.lang.String value) { formattedName = value; }
+    public void assignFormattedName(java.lang.String value) { formattedName = value; }
     public java.lang.String getBirthDayAsString() { return birthDayAsString; }
-    public void setBirthDayAsString(java.lang.String value) { birthDayAsString = value; }
+    public void assignBirthDayAsString(java.lang.String value) { birthDayAsString = value; }
     public java.lang.String getRosterStatusDisplay() { return rosterStatusDisplay; }
-    public void setRosterStatusDisplay(java.lang.String value) { rosterStatusDisplay = value; }
+    public void assignRosterStatusDisplay(java.lang.String value) { rosterStatusDisplay = value; }
     public java.lang.String getFormattedDob() { return formattedDob; }
     public void setFormattedDob(java.lang.String value) { formattedDob = value; }
     public java.lang.String getFormattedDateJoined() { return formattedDateJoined; }
-    public void setFormattedDateJoined(java.lang.String value) { formattedDateJoined = value; }
+    public void assignFormattedDateJoined(java.lang.String value) { formattedDateJoined = value; }
     public java.lang.String getFamilyDoctorName() { return familyDoctorName; }
-    public void setFamilyDoctorName(java.lang.String value) { familyDoctorName = value; }
+    public void assignFamilyDoctorName(java.lang.String value) { familyDoctorName = value; }
     public java.lang.String getFamilyDoctorNumber() { return familyDoctorNumber; }
-    public void setFamilyDoctorNumber(java.lang.String value) { familyDoctorNumber = value; }
+    public void assignFamilyDoctorNumber(java.lang.String value) { familyDoctorNumber = value; }
     public java.lang.String getFamilyPhysicianLastName() { return familyPhysicianLastName; }
-    public void setFamilyPhysicianLastName(java.lang.String value) { familyPhysicianLastName = value; }
+    public void assignFamilyPhysicianLastName(java.lang.String value) { familyPhysicianLastName = value; }
     public java.lang.String getFamilyPhysicianFirstName() { return familyPhysicianFirstName; }
-    public void setFamilyPhysicianFirstName(java.lang.String value) { familyPhysicianFirstName = value; }
+    public void assignFamilyPhysicianFirstName(java.lang.String value) { familyPhysicianFirstName = value; }
     public java.lang.String getFamilyPhysicianFullName() { return familyPhysicianFullName; }
-    public void setFamilyPhysicianFullName(java.lang.String value) { familyPhysicianFullName = value; }
+    public void assignFamilyPhysicianFullName(java.lang.String value) { familyPhysicianFullName = value; }
     public java.lang.String getFamilyPhysicianNumber() { return familyPhysicianNumber; }
-    public void setFamilyPhysicianNumber(java.lang.String value) { familyPhysicianNumber = value; }
+    public void assignFamilyPhysicianNumber(java.lang.String value) { familyPhysicianNumber = value; }
     public java.lang.String getFormattedEndDate() { return formattedEndDate; }
-    public void setFormattedEndDate(java.lang.String value) { formattedEndDate = value; }
+    public void assignFormattedEndDate(java.lang.String value) { formattedEndDate = value; }
     public java.lang.String getFormattedEffDate() { return formattedEffDate; }
     public void setFormattedEffDate(java.lang.String value) { formattedEffDate = value; }
     public java.lang.String getFormattedRenewDate() { return formattedRenewDate; }
     public void setFormattedRenewDate(java.lang.String value) { formattedRenewDate = value; }
     public java.lang.String getSubjectPronoun() { return subjectPronoun; }
-    public void setSubjectPronoun(java.lang.String value) { subjectPronoun = value; }
+    public void assignSubjectPronoun(java.lang.String value) { subjectPronoun = value; }
     public java.lang.String getPossessivePronoun() { return possessivePronoun; }
-    public void setPossessivePronoun(java.lang.String value) { possessivePronoun = value; }
+    public void assignPossessivePronoun(java.lang.String value) { possessivePronoun = value; }
     public int getAgeInYears() { return ageInYears; }
-    public void setAgeInYears(int value) { ageInYears = value; }
+    public void assignAgeInYears(int value) { ageInYears = value; }
     public java.lang.String getFormattedLinks() { return formattedLinks; }
-    public void setFormattedLinks(java.lang.String value) { formattedLinks = value; }
+    public void assignFormattedLinks(java.lang.String value) { formattedLinks = value; }
     public java.lang.Integer getCurrentRecord() { return currentRecord; }
-    public void setCurrentRecord(java.lang.Integer value) { currentRecord = value; }
+    public void assignCurrentRecord(java.lang.Integer value) { currentRecord = value; }
     public boolean isPersistent() { return persistent; }
-    public void setPersistent(boolean value) { persistent = value; }
+    public void assignPersistent(boolean value) { persistent = value; }
     @Override public String toString() { return "EmbeddedDemographicTo1[protected]"; }
 }

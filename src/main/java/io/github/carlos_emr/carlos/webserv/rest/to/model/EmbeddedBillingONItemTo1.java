@@ -2,38 +2,27 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 /** Detached invoice line. The Java-only Optional amount becomes a nullable numeric wire value. */
-@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.NONE)
+@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.PUBLIC_MEMBER)
 @jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 @jakarta.xml.bind.annotation.XmlType(name="embeddedBillingONItemTo1")
 @com.fasterxml.jackson.annotation.JsonAutoDetect(fieldVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY,
         getterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE,
         isGetterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE,
         setterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE)
-public class EmbeddedBillingONItemTo1 {
+public class EmbeddedBillingONItemTo1 implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private Integer id;
-    @jakarta.xml.bind.annotation.XmlElement(name="ch1Id")
     private Integer ch1Id;
-    @jakarta.xml.bind.annotation.XmlElement(name="transcId")
     private String transcId;
-    @jakarta.xml.bind.annotation.XmlElement(name="recId")
     private String recId;
-    @jakarta.xml.bind.annotation.XmlElement(name="serviceCode")
     private String serviceCode;
-    @jakarta.xml.bind.annotation.XmlElement(name="fee")
     private String fee;
-    @jakarta.xml.bind.annotation.XmlElement(name="serviceCount")
     private String serviceCount;
-    @jakarta.xml.bind.annotation.XmlElement(name="serviceDate")
     private java.util.Date serviceDate;
-    @jakarta.xml.bind.annotation.XmlElement(name="dx")
     private String dx;
-    @jakarta.xml.bind.annotation.XmlElement(name="dx1")
     private String dx1;
-    @jakarta.xml.bind.annotation.XmlElement(name="dx2")
     private String dx2;
-    @jakarta.xml.bind.annotation.XmlElement(name="status")
     private String status;
-    @jakarta.xml.bind.annotation.XmlElement(name="lastEditDT")
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.NUMBER)
     private java.util.Date lastEditDT;
     private java.math.BigDecimal feeAsBigDecimal;
@@ -42,7 +31,7 @@ public class EmbeddedBillingONItemTo1 {
     private boolean deleted;
     private boolean persistent;
     public Integer getId() { return id; }
-    public void setId(Integer value) { id = value; }
+    public void assignId(Integer value) { id = value; }
     public Integer getCh1Id() { return ch1Id; }
     public void setCh1Id(Integer value) { ch1Id = value; }
     public String getTranscId() { return transcId; }
@@ -67,15 +56,15 @@ public class EmbeddedBillingONItemTo1 {
     public void setStatus(String value) { status = value; }
     public java.util.Date getLastEditDT() { return io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.date(lastEditDT); }
     public void setLastEditDT(java.util.Date value) { lastEditDT = io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.date(value); }
-    public java.math.BigDecimal getFeeAsBigDecimal() { return feeAsBigDecimal; }
-    public void setFeeAsBigDecimal(java.math.BigDecimal value) { feeAsBigDecimal = value; }
+    public java.math.BigDecimal feeAsBigDecimal() { return feeAsBigDecimal; }
+    public void assignFeeAsBigDecimal(java.math.BigDecimal value) { feeAsBigDecimal = value; }
     public boolean isDefunct() { return defunct; }
-    public void setDefunct(boolean value) { defunct = value; }
+    public void assignDefunct(boolean value) { defunct = value; }
     public boolean isActive() { return active; }
-    public void setActive(boolean value) { active = value; }
+    public void assignActive(boolean value) { active = value; }
     public boolean isDeleted() { return deleted; }
-    public void setDeleted(boolean value) { deleted = value; }
+    public void assignDeleted(boolean value) { deleted = value; }
     public boolean isPersistent() { return persistent; }
-    public void setPersistent(boolean value) { persistent = value; }
+    public void assignPersistent(boolean value) { persistent = value; }
     @Override public String toString() { return "EmbeddedBillingONItemTo1[protected]"; }
 }

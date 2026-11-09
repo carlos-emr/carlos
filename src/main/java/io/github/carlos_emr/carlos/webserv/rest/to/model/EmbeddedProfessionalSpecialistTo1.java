@@ -2,91 +2,57 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 /** Detached wire snapshot retaining established member names without persistence relationships. */
-@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.NONE)
+@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.PUBLIC_MEMBER)
 @jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 @jakarta.xml.bind.annotation.XmlType(name="embeddedProfessionalSpecialistTo1")
 @com.fasterxml.jackson.annotation.JsonAutoDetect(fieldVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY,
         getterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE,
         isGetterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE,
         setterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE)
-public class EmbeddedProfessionalSpecialistTo1 {
+public class EmbeddedProfessionalSpecialistTo1 implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private java.lang.Integer id;
-    @jakarta.xml.bind.annotation.XmlElement(name="firstName")
     private java.lang.String firstName;
-    @jakarta.xml.bind.annotation.XmlElement(name="lastName")
     private java.lang.String lastName;
-    @jakarta.xml.bind.annotation.XmlElement(name="professionalLetters")
     private java.lang.String professionalLetters;
-    @jakarta.xml.bind.annotation.XmlElement(name="streetAddress")
     private java.lang.String streetAddress;
-    @jakarta.xml.bind.annotation.XmlElement(name="phoneNumber")
     private java.lang.String phoneNumber;
-    @jakarta.xml.bind.annotation.XmlElement(name="faxNumber")
     private java.lang.String faxNumber;
-    @jakarta.xml.bind.annotation.XmlElement(name="webSite")
     private java.lang.String webSite;
-    @jakarta.xml.bind.annotation.XmlElement(name="emailAddress")
     private java.lang.String emailAddress;
-    @jakarta.xml.bind.annotation.XmlElement(name="specialtyType")
     private java.lang.String specialtyType;
-    @jakarta.xml.bind.annotation.XmlElement(name="annotation")
     private java.lang.String annotation;
-    @jakarta.xml.bind.annotation.XmlElement(name="referralNo")
     private java.lang.String referralNo;
-    @jakarta.xml.bind.annotation.XmlElement(name="institutionId")
     private java.lang.Integer institutionId;
-    @jakarta.xml.bind.annotation.XmlElement(name="departmentId")
     private java.lang.Integer departmentId;
-    @jakarta.xml.bind.annotation.XmlElement(name="privatePhoneNumber")
     private java.lang.String privatePhoneNumber;
-    @jakarta.xml.bind.annotation.XmlElement(name="cellPhoneNumber")
     private java.lang.String cellPhoneNumber;
-    @jakarta.xml.bind.annotation.XmlElement(name="pagerNumber")
     private java.lang.String pagerNumber;
-    @jakarta.xml.bind.annotation.XmlElement(name="salutation")
     private java.lang.String salutation;
-    @jakarta.xml.bind.annotation.XmlElement(name="hideFromView")
     private boolean hideFromView;
-    @jakarta.xml.bind.annotation.XmlElement(name="province")
     private java.lang.String province;
-    @jakarta.xml.bind.annotation.XmlElement(name="deleted")
     private boolean deleted;
     @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.NUMBER)
-    @jakarta.xml.bind.annotation.XmlElement(name="lastUpdated")
     private java.util.Date lastUpdated;
-    @jakarta.xml.bind.annotation.XmlElement(name="eformId")
     private java.lang.Integer eformId;
-    @jakarta.xml.bind.annotation.XmlElement(name="contactRelationship")
     private io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactRelationship contactRelationship;
-    @jakarta.xml.bind.annotation.XmlElement(name="contactType")
     private io.github.carlos_emr.carlos.integration.fhir.resources.constants.ContactType contactType;
-    @jakarta.xml.bind.annotation.XmlElement(name="addressArray")
     private java.lang.String[] addressArray;
-    @jakarta.xml.bind.annotation.XmlElement(name="address")
     private java.lang.String address;
-    @jakarta.xml.bind.annotation.XmlElement(name="city")
     private java.lang.String city;
-    @jakarta.xml.bind.annotation.XmlElement(name="postal")
     private java.lang.String postal;
-    @jakarta.xml.bind.annotation.XmlElement(name="phone")
     private java.lang.String phone;
     private java.lang.String formattedTitle;
-    @jakarta.xml.bind.annotation.XmlElement(name="locationCode")
     private java.lang.String locationCode;
-    @jakarta.xml.bind.annotation.XmlElement(name="organizationName")
     private java.lang.String organizationName;
-    @jakarta.xml.bind.annotation.XmlElement(name="address2")
     private java.lang.String address2;
-    @jakarta.xml.bind.annotation.XmlElement(name="fax")
     private java.lang.String fax;
-    @jakarta.xml.bind.annotation.XmlElement(name="providerCpso")
     private java.lang.String providerCpso;
-    @jakarta.xml.bind.annotation.XmlElement(name="workPhone")
     private java.lang.String workPhone;
     private java.lang.String formattedName;
     private boolean persistent;
     public java.lang.Integer getId() { return id; }
-    public void setId(java.lang.Integer value) { id = value; }
+    public void assignId(java.lang.Integer value) { id = value; }
     public java.lang.String getFirstName() { return firstName; }
     public void setFirstName(java.lang.String value) { firstName = value; }
     public java.lang.String getLastName() { return lastName; }
@@ -146,7 +112,7 @@ public class EmbeddedProfessionalSpecialistTo1 {
     public java.lang.String getPhone() { return phone; }
     public void setPhone(java.lang.String value) { phone = value; }
     public java.lang.String getFormattedTitle() { return formattedTitle; }
-    public void setFormattedTitle(java.lang.String value) { formattedTitle = value; }
+    public void assignFormattedTitle(java.lang.String value) { formattedTitle = value; }
     public java.lang.String getLocationCode() { return locationCode; }
     public void setLocationCode(java.lang.String value) { locationCode = value; }
     public java.lang.String getOrganizationName() { return organizationName; }
@@ -160,8 +126,8 @@ public class EmbeddedProfessionalSpecialistTo1 {
     public java.lang.String getWorkPhone() { return workPhone; }
     public void setWorkPhone(java.lang.String value) { workPhone = value; }
     public java.lang.String getFormattedName() { return formattedName; }
-    public void setFormattedName(java.lang.String value) { formattedName = value; }
+    public void assignFormattedName(java.lang.String value) { formattedName = value; }
     public boolean isPersistent() { return persistent; }
-    public void setPersistent(boolean value) { persistent = value; }
+    public void assignPersistent(boolean value) { persistent = value; }
     @Override public String toString() { return "EmbeddedProfessionalSpecialistTo1[protected]"; }
 }

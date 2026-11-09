@@ -2,37 +2,27 @@
 package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 /** Detached wire snapshot retaining established member names without persistence relationships. */
-@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.NONE)
+@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.PUBLIC_MEMBER)
 @jakarta.xml.bind.annotation.XmlAccessorOrder(jakarta.xml.bind.annotation.XmlAccessOrder.ALPHABETICAL)
 @jakarta.xml.bind.annotation.XmlType(name="embeddedCaseManagementIssueTo1")
 @com.fasterxml.jackson.annotation.JsonAutoDetect(fieldVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.ANY,
         getterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE,
         isGetterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE,
         setterVisibility=com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility.NONE)
-public class EmbeddedCaseManagementIssueTo1 {
-    @jakarta.xml.bind.annotation.XmlElement(name="id")
+public class EmbeddedCaseManagementIssueTo1 implements java.io.Serializable {
+    private static final long serialVersionUID = 1L;
     private java.lang.Long id;
-    @jakarta.xml.bind.annotation.XmlElement(name="demographic_no")
     private java.lang.Integer demographic_no;
-    @jakarta.xml.bind.annotation.XmlElement(name="issue_id")
     private long issue_id;
-    @jakarta.xml.bind.annotation.XmlElement(name="acute")
     private boolean acute;
-    @jakarta.xml.bind.annotation.XmlElement(name="certain")
     private boolean certain;
-    @jakarta.xml.bind.annotation.XmlElement(name="major")
     private boolean major;
-    @jakarta.xml.bind.annotation.XmlElement(name="resolved")
     private boolean resolved;
-    @jakarta.xml.bind.annotation.XmlElement(name="type")
     private java.lang.String type;
-    @jakarta.xml.bind.annotation.XmlElement(name="update_date")
+    @com.fasterxml.jackson.annotation.JsonFormat(shape=com.fasterxml.jackson.annotation.JsonFormat.Shape.NUMBER)
     private java.util.Date update_date;
-    @jakarta.xml.bind.annotation.XmlElement(name="notes")
     private java.util.Set<NoteTo1> notes;
-    @jakarta.xml.bind.annotation.XmlElement(name="issue")
     private EmbeddedIssueTo1 issue;
-    @jakarta.xml.bind.annotation.XmlElement(name="program_id")
     private java.lang.Integer program_id;
     public java.lang.Long getId() { return id; }
     public void setId(java.lang.Long value) { id = value; }

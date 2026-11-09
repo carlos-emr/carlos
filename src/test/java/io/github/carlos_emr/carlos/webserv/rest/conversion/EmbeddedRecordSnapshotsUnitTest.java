@@ -154,4 +154,36 @@ class EmbeddedRecordSnapshotsUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @ParameterizedTest @MethodSource("mappers")
+    void shouldPreserveClinicalExtensionValues_withoutSharingTheirEntityOrLosingTimestampShape(ObjectMapper mapper) throws Exception {
+        var source = patient();
+        var extension = new io.github.carlos_emr.carlos.commn.model.DemographicExt("p",42,"PHU","Retained extension");
+        extension.setDateCreated(new Date(0));
+        source.setExtras(new io.github.carlos_emr.carlos.commn.model.DemographicExt[]{extension});
+        var detached = EmbeddedRecordSnapshots.demographic(actor,source);
+        extension.setValue("changed");
+        var wire = mapper.readTree(mapper.writeValueAsBytes(detached));
+        assertThat(wire.at("/extras/0/value").asText()).isEqualTo("Retained extension");
+        assertThat(wire.at("/extras/0/dateCreated").isIntegralNumber()).isTrue();
+        assertThat(wire.at("/extras/0/dateCreated").longValue()).isZero();
+    }
+
+    @Test void shouldSerializeTheDetachedResponseGraphs_withoutIntroducingNonserializableEntityReplacements() throws Exception {
+        var appointment = new AppointmentTo1(); appointment.setDemographic(patient()); appointment.setProvider(provider());
+        var billing = new BillingDetailTo1(); var line = new io.github.carlos_emr.carlos.commn.model.BillingONItem(7); line.setFee("12.00");
+        billing.setBillingItems(List.of(line)); appointment.setBillingDetail(billing);
+        var note = new NoteTo1(); var issue = new CaseManagementIssue(); issue.setId(3L); issue.setIssue(new Issue()); note.setIssues(Set.of(issue));
+        var measurements = new MeasurementResponse(); measurements.addMeasurements(List.of(new Measurement(9)));
+        for (Object response : List.of(appointment,note,measurements)) {
+            var bytes = new java.io.ByteArrayOutputStream();
+            try (var output = new java.io.ObjectOutputStream(bytes)) { output.writeObject(response); }
+            try (var input = new java.io.ObjectInputStream(new java.io.ByteArrayInputStream(bytes.toByteArray()))) {
+                assertThat(input.readObject()).isExactlyInstanceOf(response.getClass());
+            }
+        }
+        assertThat(java.io.ObjectStreamClass.lookup(Measurement.class).getSerialVersionUID()).isEqualTo(2859566890374252474L);
+        assertThat(java.io.ObjectStreamClass.lookup(ProfessionalSpecialist.class).getSerialVersionUID()).isEqualTo(-8082870337148089173L);
+        assertThat(java.io.ObjectStreamClass.lookup(io.github.carlos_emr.carlos.commn.model.BillingONItem.class).getSerialVersionUID()).isEqualTo(4758912463499371165L);
+    }
+
 }

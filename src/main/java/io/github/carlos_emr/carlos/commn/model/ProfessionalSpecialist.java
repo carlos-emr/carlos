@@ -112,6 +112,9 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     @Transient
     private String[] addressArray;
 
+    // Retain the pre-snapshot entity serialization identity after adding compatibility constructors.
+    private static final long serialVersionUID = -8082870337148089173L;
+
     /** Required by JPA and existing Java callers. */
     public ProfessionalSpecialist() { }
 

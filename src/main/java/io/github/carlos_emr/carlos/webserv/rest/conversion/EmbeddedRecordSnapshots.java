@@ -156,40 +156,40 @@ public final class EmbeddedRecordSnapshots {
         target.setPrefName(source.getPrefName());
         target.setMrp(provider(actor, source.getMrp()));
         target.setNextAppointment(source.getNextAppointment());
-        target.setId(source.getId());
-        target.setActive(source.isActive());
-        target.setFullName(source.getFullName());
-        target.setAge(source.getAge());
-        target.setFamilyDoctorLastName(source.getFamilyDoctorLastName());
-        target.setFamilyDoctorFirstName(source.getFamilyDoctorFirstName());
+        target.assignId(source.getId());
+        target.assignActive(source.isActive());
+        target.assignFullName(source.getFullName());
+        target.assignAge(source.getAge());
+        target.assignFamilyDoctorLastName(source.getFamilyDoctorLastName());
+        target.assignFamilyDoctorFirstName(source.getFamilyDoctorFirstName());
         target.setBirthDay(source.getBirthDay());
         target.setFormattedDob(source.getFormattedDob());
-        target.setNumLinks(source.getNumLinks());
-        target.setFormattedName(source.getFormattedName());
-        target.setBirthDayAsString(source.getBirthDayAsString());
-        target.setRosterStatusDisplay(source.getRosterStatusDisplay());
-        target.setFormattedDateJoined(source.getFormattedDateJoined());
-        target.setFamilyDoctorName(source.getFamilyDoctorName());
-        target.setFamilyDoctorNumber(source.getFamilyDoctorNumber());
-        target.setFamilyPhysicianLastName(source.getFamilyPhysicianLastName());
-        target.setFamilyPhysicianFirstName(source.getFamilyPhysicianFirstName());
-        target.setFamilyPhysicianFullName(source.getFamilyPhysicianFullName());
-        target.setFamilyPhysicianNumber(source.getFamilyPhysicianNumber());
-        target.setFormattedEndDate(source.getFormattedEndDate());
+        target.assignNumLinks(source.getNumLinks());
+        target.assignFormattedName(source.getFormattedName());
+        target.assignBirthDayAsString(source.getBirthDayAsString());
+        target.assignRosterStatusDisplay(source.getRosterStatusDisplay());
+        target.assignFormattedDateJoined(source.getFormattedDateJoined());
+        target.assignFamilyDoctorName(source.getFamilyDoctorName());
+        target.assignFamilyDoctorNumber(source.getFamilyDoctorNumber());
+        target.assignFamilyPhysicianLastName(source.getFamilyPhysicianLastName());
+        target.assignFamilyPhysicianFirstName(source.getFamilyPhysicianFirstName());
+        target.assignFamilyPhysicianFullName(source.getFamilyPhysicianFullName());
+        target.assignFamilyPhysicianNumber(source.getFamilyPhysicianNumber());
+        target.assignFormattedEndDate(source.getFormattedEndDate());
         target.setFormattedEffDate(source.getFormattedEffDate());
         target.setFormattedRenewDate(source.getFormattedRenewDate());
-        target.setSubjectPronoun(source.getSubjectPronoun());
-        target.setPossessivePronoun(source.getPossessivePronoun());
-        target.setAgeInYears(source.getAgeInYears());
-        target.setFormattedLinks(source.getFormattedLinks());
-        target.setCurrentRecord(source.getCurrentRecord());
-        target.setPersistent(source.isPersistent());
+        target.assignSubjectPronoun(source.getSubjectPronoun());
+        target.assignPossessivePronoun(source.getPossessivePronoun());
+        target.assignAgeInYears(source.getAgeInYears());
+        target.assignFormattedLinks(source.getFormattedLinks());
+        target.assignCurrentRecord(source.getCurrentRecord());
+        target.assignPersistent(source.isPersistent());
         var safeView = demographicDomain(target);
         safeView.setHin("");
         safeView.setSin("");
-        target.setLabel(safeView.getLabel());
+        target.assignLabel(safeView.getLabel());
         if (safeView.getFirstName() != null && safeView.getLastName() != null) {
-            target.setStandardIdentificationHtml(safeView.getStandardIdentificationHtml());
+            target.assignStandardIdentificationHtml(safeView.getStandardIdentificationHtml());
         }
         return target;
     }
@@ -281,7 +281,7 @@ public final class EmbeddedRecordSnapshots {
         target.setValue(source.getValue());
         target.setDateCreated(source.getDateCreated());
         target.setHidden(source.isHidden());
-        target.setPersistent(source.isPersistent());
+        target.assignPersistent(source.isPersistent());
         return target;
     }
     public static io.github.carlos_emr.carlos.commn.model.DemographicExt demographicExtDomain(EmbeddedDemographicExtTo1 source) {
@@ -301,7 +301,7 @@ public final class EmbeddedRecordSnapshots {
         if (source == null) return null;
         initialized(source);
         EmbeddedMeasurementTo1 target = new EmbeddedMeasurementTo1();
-        target.setId(source.getId());
+        target.assignId(source.getId());
         target.setType(source.getType());
         target.setDemographicId(source.getDemographicId());
         target.setProviderNo(source.getProviderNo());
@@ -311,7 +311,7 @@ public final class EmbeddedRecordSnapshots {
         target.setDateObserved(source.getDateObserved());
         target.setAppointmentNo(source.getAppointmentNo());
         target.setCreateDate(source.getCreateDate());
-        target.setPersistent(source.isPersistent());
+        target.assignPersistent(source.isPersistent());
         return target;
     }
     public static io.github.carlos_emr.carlos.commn.model.Measurement measurementDomain(EmbeddedMeasurementTo1 source) {
@@ -332,7 +332,7 @@ public final class EmbeddedRecordSnapshots {
         if (source == null) return null;
         initialized(source);
         EmbeddedProfessionalSpecialistTo1 target = new EmbeddedProfessionalSpecialistTo1();
-        target.setId(source.getId());
+        target.assignId(source.getId());
         target.setFirstName(source.getFirstName());
         target.setLastName(source.getLastName());
         target.setProfessionalLetters(source.getProfessionalLetters());
@@ -362,15 +362,15 @@ public final class EmbeddedRecordSnapshots {
         target.setCity(source.getCity());
         target.setPostal(source.getPostal());
         target.setPhone(source.getPhone());
-        target.setFormattedTitle(source.getFormattedTitle());
+        target.assignFormattedTitle(source.getFormattedTitle());
         target.setLocationCode(source.getLocationCode());
         target.setOrganizationName(source.getOrganizationName());
         target.setAddress2(source.getAddress2());
         target.setFax(source.getFax());
         target.setProviderCpso(source.getProviderCpso());
         target.setWorkPhone(source.getWorkPhone());
-        target.setFormattedName(source.getFormattedName());
-        target.setPersistent(source.isPersistent());
+        target.assignFormattedName(source.getFormattedName());
+        target.assignPersistent(source.isPersistent());
         return target;
     }
     public static io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist professionalSpecialistDomain(EmbeddedProfessionalSpecialistTo1 source) {
@@ -434,10 +434,10 @@ public final class EmbeddedRecordSnapshots {
         target.setLastUpdateUser(source.getLastUpdateUser());
         target.setLastUpdateDate(source.getLastUpdateDate());
         target.setSupervisor(source.getSupervisor());
-        target.setId(source.getId());
-        target.setFullName(source.getFullName());
-        target.setFormattedName(source.getFormattedName());
-        target.setPersistent(source.isPersistent());
+        target.assignId(source.getId());
+        target.assignFullName(source.getFullName());
+        target.assignFormattedName(source.getFormattedName());
+        target.assignPersistent(source.isPersistent());
         return target;
     }
     public static io.github.carlos_emr.carlos.commn.model.Provider providerDomain(EmbeddedProviderTo1 source) {
@@ -475,7 +475,7 @@ public final class EmbeddedRecordSnapshots {
         if (source == null) return null;
         initialized(source);
         var target = new EmbeddedBillingONItemTo1();
-        target.setId(source.getId());
+        target.assignId(source.getId());
         target.setCh1Id(source.getCh1Id());
         target.setTranscId(source.getTranscId());
         target.setRecId(source.getRecId());
@@ -489,13 +489,13 @@ public final class EmbeddedRecordSnapshots {
         target.setStatus(source.getStatus());
         target.setLastEditDT(source.getLastEditDT());
         if (source.getFee() != null && !source.isDefunct()) {
-            try { target.setFeeAsBigDecimal(new java.math.BigDecimal(source.getFee())); }
+            try { target.assignFeeAsBigDecimal(new java.math.BigDecimal(source.getFee())); }
             catch (NumberFormatException invalid) { throw new ConversionException("Invalid stored billing amount"); }
         }
-        target.setDefunct(source.isDefunct());
-        target.setActive(source.isActive());
-        target.setDeleted(source.isDeleted());
-        target.setPersistent(source.isPersistent());
+        target.assignDefunct(source.isDefunct());
+        target.assignActive(source.isActive());
+        target.assignDeleted(source.isDeleted());
+        target.assignPersistent(source.isPersistent());
         return target;
     }
     public static io.github.carlos_emr.carlos.commn.model.BillingONItem billingItemDomain(EmbeddedBillingONItemTo1 source) {

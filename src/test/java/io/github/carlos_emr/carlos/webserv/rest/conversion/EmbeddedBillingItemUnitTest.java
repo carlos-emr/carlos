@@ -40,7 +40,7 @@ class EmbeddedBillingItemUnitTest {
         var source = new BillingONItem(); source.setFee(BillingONItem.DEFUNCT_FEE);
         var snapshot = EmbeddedRecordSnapshots.billingItem(source);
         assertThat(snapshot.getFee()).isEqualTo(BillingONItem.DEFUNCT_FEE);
-        assertThat(snapshot.getFeeAsBigDecimal()).isNull(); assertThat(snapshot.isDefunct()).isTrue();
+        assertThat(snapshot.feeAsBigDecimal()).isNull(); assertThat(snapshot.isDefunct()).isTrue();
     }
     @Test void shouldRejectMalformedLegacyAmounts_insteadOfSilentlyReplacingThemWithNull() {
         var source = new BillingONItem(); org.springframework.test.util.ReflectionTestUtils.setField(source,"fee","invalid stored amount");
