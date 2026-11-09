@@ -55,7 +55,7 @@ import org.springframework.stereotype.Component;
 @org.apache.cxf.interceptor.OutFaultInterceptors(interceptors = {"io.github.carlos_emr.carlos.webserv.DocumentListProfileOutInterceptor"})
 @GZIP(threshold = AbstractWs.GZIP_THRESHOLD)
 public class DocumentWs extends AbstractWs {
-    private Logger logger = MiscUtils.getLogger();
+    private final Logger logger = MiscUtils.getLogger();
 
     @Autowired
     private DocumentManager documentManager;

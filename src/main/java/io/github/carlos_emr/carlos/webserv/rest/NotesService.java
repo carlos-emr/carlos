@@ -149,6 +149,9 @@ public class NotesService extends AbstractServiceImpl {
     private ProgramManager programMgr;
 
     @Autowired
+    private io.github.carlos_emr.carlos.managers.TicklerManager noteTicklerManager;
+
+    @Autowired
     private CaseManagementManager caseManagementMgr;
 
     @Autowired
@@ -1644,12 +1647,13 @@ public class NotesService extends AbstractServiceImpl {
     public TicklerNoteResponse ticklerGetNote(@PathParam("ticklerNo") Integer ticklerNo) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new jakarta.ws.rs.ForbiddenException("Access Denied");
         }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "r", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new jakarta.ws.rs.ForbiddenException("Access Denied");
         }
 
+        Integer patient = requireTicklerPatient(ticklerNo, "r");
         TicklerNoteResponse response = new TicklerNoteResponse();
         CaseManagementNoteLink link = caseManagementMgr.getLatestLinkByTableId(CaseManagementNoteLink.TICKLER, Long.valueOf(ticklerNo));
 
@@ -1659,6 +1663,9 @@ public class NotesService extends AbstractServiceImpl {
             CaseManagementNote note = caseManagementMgr.getNote(noteId.toString());
 
             if (note != null) {
+                if (!patient.toString().equals(note.getDemographic_no())) {
+                    throw new IllegalStateException("Tickler note patient link is inconsistent");
+                }
                 TicklerNoteTo1 tNote = new TicklerNoteTo1();
                 tNote.setNoteId(note.getId().intValue());
                 tNote.setNote(note.getNote());
@@ -1671,6 +1678,16 @@ public class NotesService extends AbstractServiceImpl {
         return response;
     }
 
+    private Integer requireTicklerPatient(Integer ticklerId, String right) {
+        if (ticklerId == null || ticklerId <= 0) throw new jakarta.ws.rs.BadRequestException("Invalid tickler identifier");
+        LoggedInInfo actor = getLoggedInInfo();
+        Integer patient = noteTicklerManager.getTicklerDemographicNo(actor, ticklerId);
+        if (patient == null) throw new jakarta.ws.rs.NotFoundException();
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(actor, securityInfoManager, "_tickler", right, patient);
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(actor, securityInfoManager, "_eChart", right, patient);
+        return patient;
+    }
+
     @POST
     @Path("/ticklerSaveNote")
     @Produces("application/json")
@@ -1678,12 +1695,13 @@ public class NotesService extends AbstractServiceImpl {
     public RestResponse<String> ticklerSaveNote(ObjectNode json) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "w", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new jakarta.ws.rs.ForbiddenException("Access Denied");
         }
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_eChart", "w", null)) {
-            throw new RuntimeException("Access Denied");
+            throw new jakarta.ws.rs.ForbiddenException("Access Denied");
         }
 
+        if (json == null || !json.path("tickler").isObject()) throw new jakarta.ws.rs.BadRequestException("Tickler is required");
         logger.debug("Note configuration received");
 
         String strNote = json.get("note") != null ? json.get("note").asText() : null;
@@ -1694,6 +1712,8 @@ public class NotesService extends AbstractServiceImpl {
         ObjectNode tickler = (ObjectNode) json.get("tickler");
         Integer ticklerId = tickler.get("id") != null ? tickler.get("id").asInt() : null;
         Integer demographicNo = tickler.get("demographicNo") != null ? tickler.get("demographicNo").asInt() : null;
+        Integer storedPatient = requireTicklerPatient(ticklerId, "w");
+        if (!storedPatient.equals(demographicNo)) throw new jakarta.ws.rs.BadRequestException("Tickler patient does not match");
 
         logger.info("tickler id " + ticklerId + ", demographicNo " + demographicNo);
 
@@ -1708,6 +1728,10 @@ public class NotesService extends AbstractServiceImpl {
 
         if (noteId != null && noteId.intValue() > 0) {
             CaseManagementNote existingNote = caseManagementMgr.getNote(String.valueOf(noteId));
+            if (existingNote == null) throw new jakarta.ws.rs.NotFoundException();
+            if (!storedPatient.toString().equals(existingNote.getDemographic_no())) {
+                throw new jakarta.ws.rs.BadRequestException("Note patient does not match");
+            }
 
             revision = String.valueOf(Integer.valueOf(existingNote.getRevision()).intValue() + 1);
             history = strNote + "\n" + existingNote.getHistory();

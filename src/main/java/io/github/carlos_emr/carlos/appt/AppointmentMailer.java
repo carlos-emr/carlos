@@ -165,12 +165,7 @@ public class AppointmentMailer implements MessageMailer {
                     int lineIndex = 0;
                     while ((strLine = bufreader.readLine()) != null) {
                         if (lineIndex < 2) {
-                            String[] msgConfig = strLine.split(":");
-                            if (msgConfig[0].equalsIgnoreCase("From")) {
-                                this.message.setFrom(msgConfig[1]);
-                            } else if (msgConfig[0].equalsIgnoreCase("Subject")) {
-                                this.message.setSubject(msgConfig[1]);
-                            }
+                            applyTemplateHeader(this.message, strLine);
                         } else {
                             this.msgTextTemplate.append(strLine).append("\n");
                         }
@@ -199,6 +194,21 @@ public class AppointmentMailer implements MessageMailer {
                 }
             }
         }
+    }
+
+    /** Parse one template header without losing colons in the value or indexing a missing part. */
+    static void applyTemplateHeader(SimpleMailMessage target, String line) {
+        int separator = line.indexOf(':');
+        String key = separator < 0 ? line : line.substring(0, separator);
+        boolean from = "From".equalsIgnoreCase(key);
+        boolean subject = "Subject".equalsIgnoreCase(key);
+        if (!from && !subject) return;
+        if (separator < 0 || separator == line.length() - 1) {
+            throw new IllegalArgumentException("Invalid appointment reminder template header");
+        }
+        String value = line.substring(separator + 1);
+        if (from) target.setFrom(value);
+        else target.setSubject(value);
     }
 
     private void fillMessageText() {

@@ -107,6 +107,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
         if (json.has("demographicNo")) {
             cf.setDemographicNo(json.get("demographicNo").asText());
+            requireFilterPatient(cf);
         }
 
         //this will need refactor...needs a manager layer and some useful methods.
@@ -240,6 +241,7 @@ public class TicklerWebService extends AbstractServiceImpl {
 
         if (req.getParameter("demographicNo") != null) {
             cf.setDemographicNo(req.getParameter("demographicNo"));
+            requireFilterPatient(cf);
         }
 
         TicklerResponse result = new TicklerResponse();
@@ -442,13 +444,21 @@ public class TicklerWebService extends AbstractServiceImpl {
         return RestResponse.errorResponse("Failed to add tickler");
     }
 
+    private void requireFilterPatient(CustomFilter filter) {
+        String value = filter.getDemographicNo();
+        if (value == null || value.isBlank()) return; // Existing empty filter means discovery across patients.
+        Integer patient;
+        try { patient = Integer.valueOf(value.trim()); }
+        catch (NumberFormatException invalid) { throw new jakarta.ws.rs.BadRequestException("Invalid patient identifier"); }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                getLoggedInInfo(), securityInfoManager, "_tickler", "r", patient);
+    }
+
     @GET
     @Path("/{demographicNo}/count/overdue")
     @Produces("application/json")
     public int getTicklerOverdueCount(@PathParam("demographicNo") Integer demographicNo) {
-        if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
-            throw new RuntimeException("Access Denied");
-        }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(getLoggedInInfo(), securityInfoManager, "_tickler", "r", demographicNo);
 
         int count = ticklerManager.getActiveTicklerByDemoCount(getLoggedInInfo(), demographicNo);
         return count;
