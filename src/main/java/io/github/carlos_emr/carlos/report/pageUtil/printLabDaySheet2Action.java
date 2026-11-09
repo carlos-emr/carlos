@@ -34,12 +34,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -85,7 +83,7 @@ public class printLabDaySheet2Action extends ActionSupport {
     }
 
     @Override
-    public String execute() {
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
@@ -100,7 +98,6 @@ public class printLabDaySheet2Action extends ActionSupport {
         HashMap parameters = new HashMap();
         parameters.put("input_date", request.getParameter("input_date"));
         String xmlStyleFile = request.getParameter("xmlStyle");
-        ServletOutputStream sos = null;
         InputStream ins = null;
 
         try {
@@ -132,26 +129,12 @@ public class printLabDaySheet2Action extends ActionSupport {
             }
         }
 
-        try {
-            sos = response.getOutputStream();
-        } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-
-        response.setHeader("Content-disposition", getHeader(response).toString());
-        if (ins == null) {
-            logger.error("No lab day sheet template stream available");
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            return NONE;
-        }
-
-        OscarDocumentCreator osc = new OscarDocumentCreator();
-        try (InputStream input = ins;
-             Connection connection = LegacyJdbcQuery.getConnection()) {
-            osc.fillDocumentStream(parameters, sos, "pdf", input, connection);
-        } catch (SQLException | IOException e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
+        InputStream template = ins;
+        io.github.carlos_emr.carlos.report.export.PdfDownload.inline(response, "label_.pdf", output -> {
+            try (InputStream input = template; Connection connection = LegacyJdbcQuery.getConnection()) {
+                new OscarDocumentCreator().fillDocumentStream(parameters, output, "pdf", input, connection);
+            }
+        });
 
         // This action streams the PDF directly and its Struts mapping has no success result.
         // Returning SUCCESS makes Struts render the global error page over the PDF as "0".

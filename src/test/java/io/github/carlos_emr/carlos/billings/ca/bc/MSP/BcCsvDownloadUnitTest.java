@@ -94,9 +94,27 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
     @Test
     void shouldDiscardPartialPdf_whenRenderingFails() throws Exception {
         var action = new CreateBillingReport2Action() {
-            @Override protected String renderPdf(OutputStream output) throws java.io.IOException {
+            @Override protected void renderPdf(OutputStream output) throws java.io.IOException {
                 output.write("%PDF-partial synthetic content".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
                 throw new java.io.IOException("synthetic sensitive failure");
+            }
+        };
+        action.setDocFormat("pdf"); action.setRepType("REP_INVOICE");
+        try (LogCapture logs = LogCapture.forLogger(CreateBillingReport2Action.class)) {
+            assertThat(executeAction(action)).isEqualTo("none");
+            assertThat(getMockResponse().getStatus()).isEqualTo(500);
+            assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
+            assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+            assertThat(logs.events()).isNotEmpty().allSatisfy(event -> assertThat(event.getThrown()).isNull());
+            assertThat(logs.messages()).allSatisfy(message -> assertThat(message).doesNotContain("synthetic sensitive failure"));
+        }
+    }
+
+    @Test
+    void shouldRefuseNonPdfOutput_whenRendererReturnsNormally() throws Exception {
+        var action = new CreateBillingReport2Action() {
+            @Override protected void renderPdf(OutputStream output) throws java.io.IOException {
+                output.write("not a PDF".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
             }
         };
         action.setDocFormat("pdf"); action.setRepType("REP_INVOICE");
@@ -107,16 +125,33 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
     }
 
     @Test
-    void shouldRefuseNonPdfOutput_whenRendererReturnsNormally() throws Exception {
+    void shouldSendCompletePdf_whenGenerationSucceeds() throws Exception {
+        byte[] expected = "%PDF-1.7\nsynthetic complete document".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
         var action = new CreateBillingReport2Action() {
-            @Override protected String renderPdf(OutputStream output) throws java.io.IOException {
-                output.write("not a PDF".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
-                return NONE;
+            @Override protected void renderPdf(OutputStream output) throws java.io.IOException {
+                assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+                output.write(expected);
             }
         };
         action.setDocFormat("pdf"); action.setRepType("REP_INVOICE");
         assertThat(executeAction(action)).isEqualTo("none");
-        assertThat(getMockResponse().getStatus()).isEqualTo(500);
+        assertThat(getMockResponse().getStatus()).isEqualTo(200);
+        assertThat(getMockResponse().getContentType()).isEqualTo("application/pdf");
+        assertThat(getMockResponse().getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"REP_INVOICE.pdf\"");
+        assertThat(getMockResponse().getContentAsByteArray()).isEqualTo(expected);
+    }
+
+    @Test
+    void shouldReturnBadRequest_whenProviderHasNoPractitionerNumber() throws Exception {
+        var action = new CreateBillingReport2Action() {
+            @Override protected void renderPdf(OutputStream output) {
+                throw new io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO.MissingBcPaymentProviderException();
+            }
+        };
+        action.setDocFormat("pdf"); action.setRepType("REP_PAYREF");
+        assertThat(executeAction(action)).isEqualTo("none");
+        assertThat(getMockResponse().getStatus()).isEqualTo(400);
+        assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
         assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
     }
 

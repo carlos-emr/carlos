@@ -6,8 +6,34 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** BC amount and aging compatibility contracts.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 class BcBillingValueContractsUnitTest {
+    @Test
+    void shouldReplaceRawArchiveText_whenNumericAmountIsExplicitlyChanged() {
+        BillHistory history = new BillHistory();
+        history.setAmountText("old invalid");
+        history.setAmount(12.34);
+        assertThat(history.getAmountText()).isEqualTo("12.34");
+        assertThat(history.hasKnownAmount()).isTrue();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"+12345", "1e5", "12.3", "--5", "1-2"})
+    void shouldRefuseNonTeleplanSyntax_whenDecodingImpliedCents(String source) {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode(source))
+                .isInstanceOf(NumberFormatException.class);
+    }
+
+    @Test
+    void shouldDecodeSingleCharacterOverpunch_withoutLosingImpliedCents() {
+        assertThat(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode("}")).isEqualTo("0.00");
+        assertThat(io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.decode("R")).isEqualTo("-0.09");
+    }
+
     @Test
     void shouldPreserveUnknownArchiveAmount_withoutInventingZero() {
         BillHistory history = new BillHistory();

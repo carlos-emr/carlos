@@ -1113,7 +1113,7 @@
                                     <c:set var="__encInvoiceLastName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getLastName()) %>' context="uriComponent"/></c:set>
                                     <c:set var="__encInvoiceFirstName"><carlos:encode value='<%= StringUtils.defaultString(demographic.getFirstName()) %>' context="uriComponent"/></c:set>
                                     <c:set var="__encInvoiceDemoNo"><carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="uriComponent"/></c:set>
-                                    <c:set var="__encInvoiceUrl" value="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill?lastName=${__encInvoiceLastName}&firstName=${__encInvoiceFirstName}&filterPatient=true&demographicNo=${__encInvoiceDemoNo}" />
+                                    <c:set var="__encInvoiceUrl" value="${pageContext.request.contextPath}/billing/CA/BC/reprocessBill?filterPatient=true&demographicNo=${__encInvoiceDemoNo}" />
                                     <a href="${carlos:forHtmlAttribute(__encInvoiceUrl)}"
                                        onclick="popupPage(800,1000,this.href);return false;">
                                         <fmt:message key="demographic.demographiceditdemographic.msgInvoiceList"/></a>
@@ -1144,7 +1144,6 @@
                                         <c:param name="billForm" value='<%= oscarProps.getProperty("default_view") %>'/>
                                         <c:param name="hotclick" value=""/>
                                         <c:param name="appointment_no" value="0"/>
-                                        <c:param name="demographic_name" value='<%= demographic.getLastName() + "," + demographic.getFirstName() %>'/>
                                         <c:param name="demographic_no" value='<%= String.valueOf(demographic.getDemographicNo()) %>'/>
                                         <c:param name="providerview" value='<%= demographic.getProviderNo() %>'/>
                                         <c:param name="user_no" value='<%= curProvider_no %>'/>
@@ -1172,7 +1171,6 @@
                                         <c:param name="billForm" value='<%= oscarProps.getProperty("hospital_view", oscarProps.getProperty("default_view")) %>'/>
                                         <c:param name="hotclick" value=""/>
                                         <c:param name="appointment_no" value="0"/>
-                                        <c:param name="demographic_name" value='<%= demographic.getLastName() + "," + demographic.getFirstName() %>'/>
                                         <c:param name="demographic_no" value='<%= String.valueOf(demographic.getDemographicNo()) %>'/>
                                         <c:param name="providerview" value='<%= demographic.getProviderNo() %>'/>
                                         <c:param name="user_no" value='<%= curProvider_no %>'/>

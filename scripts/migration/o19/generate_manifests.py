@@ -1095,6 +1095,8 @@ def load_schema(files: List[Path],
         elif f.name == "V1.0.59__archive_security_mfa_setting.sql":
             schema.apply_alter("SecurityArchive", "ADD COLUMN IF NOT EXISTS "
                                "usingMfa TINYINT(1) NULL DEFAULT NULL")
+        elif f.name == "V1.0.59.33__preserve_bc_history_amount.sql":
+            schema.apply_alter("billing_history", "MODIFY COLUMN amount VARCHAR(9) NOT NULL DEFAULT ''")
         elif f.name == "V1.0.57__preserve_rourke2020_immunization_notes.sql":
             for column in ("p3_immunization", "p4_immunization"):
                 schema.apply_alter("formRourke2020", "ADD COLUMN IF NOT EXISTS "

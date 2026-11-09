@@ -73,6 +73,17 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_report, _admin.reporting, or _admin)");
         }
 
+        try {
+            var selection = new io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService.Selection(
+                    request.getParameter("providers"), request.getParameter("monthCode"),
+                    request.getParameter("verCode"), request.getParameter("billcenter"));
+            SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService.class)
+                    .generate(selection, loggedInInfo.getLoggedInProviderNo());
+        } catch (Exception failure) {
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Legacy BC Teleplan export failed ({})", failure.getClass().getName());
+            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Teleplan export failed. Review the activity list before retrying.");
+            return NONE;
+        }
         return SUCCESS;
     }
 }

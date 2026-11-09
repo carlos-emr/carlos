@@ -386,8 +386,8 @@ public class BillingClaimSubmissionService {
             claim1Header = claim1Header.withVer(val.getParameter("ver"));
             claim1Header = claim1Header.withDob(val.getParameter("demographic_dob"));
             claim1Header = claim1Header.withAppointmentNo(val.getParameter("appointment_no"));
-            claim1Header = claim1Header.withDemographicName(val.getParameter("demographic_name"));
-            String temp[] = getPatientLF(val.getParameter("demographic_name"));
+            claim1Header = claim1Header.withDemographicName(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.requiredName(val));
+            String temp[] = getPatientLF(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.requiredName(val));
             claim1Header = claim1Header.withLastName(temp[0]);
             claim1Header = claim1Header.withFirstName(temp[1]);
             claim1Header = claim1Header.withSex(val.getParameter("sex"));
@@ -531,8 +531,8 @@ public class BillingClaimSubmissionService {
         }
 
         claim1Header = claim1Header.withAppointmentNo(val.getParameter("appointment_no"));
-        claim1Header = claim1Header.withDemographicName(val.getParameter("demographic_name"));
-        String temp[] = getPatientLF(val.getParameter("demographic_name"));
+        claim1Header = claim1Header.withDemographicName(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.requiredName(val));
+        String temp[] = getPatientLF(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.requiredName(val));
         claim1Header = claim1Header.withLastName(temp[0]);
         claim1Header = claim1Header.withFirstName(temp[1]);
         claim1Header = claim1Header.withSex(val.getParameter("sex"));

@@ -241,7 +241,8 @@ public final class BcBillingRows {
      *
      * @since 2026-11-02
      */
-    public record ExtractBillRow(Integer billingNo, String demographicName) {
+    public record ExtractBillRow(Integer billingNo, String demographicName, String billingType) {
+        public ExtractBillRow(Integer billingNo, String demographicName) { this(billingNo, demographicName, null); }
         @Override
         public String toString() { return "ExtractBillRow[redacted]"; }
     }

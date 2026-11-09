@@ -121,6 +121,7 @@ public class BillHistory {
 
     public void setAmount(double amount) {
         this.amount = UtilMisc.toCurrencyDouble(amount);
+        this.amountText = null;
     }
 
     public void setAmountReceived(double amountReceived) {

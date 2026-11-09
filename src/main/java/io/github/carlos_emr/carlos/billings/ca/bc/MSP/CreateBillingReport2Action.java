@@ -115,20 +115,7 @@ public class CreateBillingReport2Action extends ActionSupport {
         return NONE;
     }
 
-    protected String renderPdf(OutputStream outputStream) throws IOException {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "r", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
-        }
-
-        if ("csv".equals(getDocFormat())) {
-            return exportCsv();
-        }
-        if (!"pdf".equals(getDocFormat()) || !BcBillingCsv.supports(getRepType())) {
-            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
-
+    protected void renderPdf(OutputStream outputStream) throws IOException {
         request.getSession().getServletContext().getServletContextName();
         if (!System.getProperties().containsKey("jasper.reports.compile.class.path")) {
             String classpath = (String) ServletActionContext.getServletContext().getAttribute("org.apache.catalina.jsp_classpath");
@@ -172,6 +159,8 @@ public class CreateBillingReport2Action extends ActionSupport {
             if (repType.equals(MSPReconcile.REP_ACCOUNT_REC) || repType.equals(MSPReconcile.REP_INVOICE) || repType.equals(MSPReconcile.REP_WO)) {
 
                 billSearch = msp.getBillsByType(account, payee, provider, startDate, endDate, !showWCB, !showMSP, !showPriv, !showICBC, repType);
+                reportParams.put("reportWarning", msp.getSkippedC12Count() == 0 ? "" :
+                        "Warning: " + msp.getSkippedC12Count() + " C12 explanation records skipped (invalid claim identifiers)");
                 String billCnt = String.valueOf(msp.getDistinctFieldCount(billSearch.list, "billing_no"));
                 String demNoCnt = String.valueOf(msp.getDistinctFieldCount(billSearch.list, "demoNo"));
                 if (repType.equals(MSPReconcile.REP_ACCOUNT_REC)) {
@@ -251,7 +240,7 @@ public class CreateBillingReport2Action extends ActionSupport {
                 }
 
             } else if (repType.equals(MSPReconcile.REP_PAYREF) || repType.equals(MSPReconcile.REP_PAYREF_SUM)) {
-                billSearch = msp.getPayments(account, payee, provider, startDate, endDate, !showWCB, !showMSP, !showPriv, !showICBC);
+                billSearch = msp.getPayments(account, payee, provider, startDate, endDate, !showWCB, !showMSP, !showPriv, !showICBC, repType);
                 Provider payeeProv = msp.getProvider(payee, 1);
                 Provider acctProv = msp.getProvider(account, 0);
                 Provider provProv = msp.getProvider(provider, 0);
@@ -267,6 +256,7 @@ public class CreateBillingReport2Action extends ActionSupport {
                     sumPayed.addIncValue(item.getPaymentMethod(), dblValue);
                     sumPayed.addAdjustmentAmount(item.getAdjustmentCodeAmt());
                 }
+                reportParams.put("unparsedAmountCount", billSearch.list.stream().map(MSPBill.class::cast).mapToInt(MSPBill::getUnparsedAmounts).sum());
                 reportParams.put("sumPayed", sumPayed);
                 reportParams.put("sumRefunded", sumRefunded);
 
@@ -293,7 +283,6 @@ public class CreateBillingReport2Action extends ActionSupport {
             IOUtils.closeQuietly(reportInstream);
         }
 
-        return NONE;
     }
 
     private String exportCsv() throws IOException {
@@ -365,7 +354,7 @@ public class CreateBillingReport2Action extends ActionSupport {
                 : msp.getBillsByType(getSelAccount(), getSelPayee(), getSelProv(), getXml_vdate(), getXml_appointment_date(),
                         !Boolean.parseBoolean(getShowWCB()), !Boolean.parseBoolean(getShowMSP()),
                         !Boolean.parseBoolean(getShowPRIV()), !Boolean.parseBoolean(getShowICBC()), getRepType());
-        BcBillingCsv.write(output, getRepType(), search.list.stream().map(MSPBill.class::cast).toList());
+        BcBillingCsv.write(output, getRepType(), search.list.stream().map(MSPBill.class::cast).toList(), msp.getSkippedC12Count());
     }
 
     /**

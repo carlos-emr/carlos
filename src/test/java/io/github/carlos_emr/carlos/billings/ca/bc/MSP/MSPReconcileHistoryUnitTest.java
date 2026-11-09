@@ -93,16 +93,15 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPreserveProviderValidationFailure_whenLookupCannotReadDatabase() {
+    void shouldPropagatePersistenceFailure_whenLookupCannotReadDatabase() {
         var dao = new BillingmasterDAO();
         var persistence = mock(jakarta.persistence.EntityManager.class);
         org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", persistence);
         when(persistence.isJoinedToTransaction()).thenThrow(new jakarta.persistence.PersistenceException("synthetic patient detail"));
         try (LogCapture logs = LogCapture.forLogger(BillingmasterDAO.class)) {
             assertThatThrownBy(() -> dao.findBcPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
-                    .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
-                    .hasMessage("Provider must have ohip no!").hasNoCause();
-            assertThat(logs.messages()).containsExactly("Unable to retrieve BC payment provider (PersistenceException)");
+                    .isInstanceOf(jakarta.persistence.PersistenceException.class);
+            assertThat(logs.messages()).isEmpty();
             assertThat(logs.events()).allSatisfy(event -> assertThat(event.getThrown()).isNull());
         }
     }
@@ -116,8 +115,8 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
                 .hasMessage("Provider must have ohip no!").hasNoCause();
         var strict = new MSPReconcile(true);
         assertThatThrownBy(() -> strict.getPayments("ALL", "ALL", "missing", "", "", false, false, true, false))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Billing export data could not be read").hasNoCause();
+                .isInstanceOf(BillingmasterDAO.MissingBcPaymentProviderException.class)
+                .hasMessage("Provider must have ohip no!").hasNoCause();
     }
 
     @Test
@@ -129,9 +128,9 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
                 .thenThrow(new IllegalStateException("synthetic patient detail"));
         assertThatThrownBy(() -> strict.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false,
                 MSPReconcile.REP_ACCOUNT_REC)).isInstanceOf(IllegalStateException.class)
-                .hasMessage("Billing export data could not be read").hasNoCause();
+                .hasMessage("Billing export data could not be read").hasCauseInstanceOf(RuntimeException.class);
         assertThatThrownBy(() -> strict.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false))
-                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasNoCause();
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasCauseInstanceOf(RuntimeException.class);
     }
 
     private void reportRows(String... types) throws Exception {
@@ -188,7 +187,7 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
             assertThat(result.list).hasSize(4);
             var first = (MSPBill) result.list.getFirst();
             if (MSPReconcile.REP_PAYREF.equals(type)) {
-                assertThat(first.getAmount()).isEqualTo("bad".equals(malformedAmount) ? "bad" : "Unparsed Teleplan amount: 12.3");
+                assertThat(first.getAmount()).isEqualTo(malformedAmount);
                 assertThat(first.getAdjustmentCodeAmt()).contains("bad adjustment", "2.25");
                 assertThat(((MSPBill) result.list.get(1)).getType()).isEqualTo("PMT");
                 assertThat(((MSPBill) result.list.get(2)).getType()).isEqualTo("RFD");
@@ -202,7 +201,7 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
                         output.toString(java.nio.charset.StandardCharsets.UTF_8))).getRecords();
                 assertThat(rows.get(1).toList()).containsExactly("Cash", "7.50", "-5.00");
                 assertThat(rows.get(6).toList()).containsExactly("Electronic", "3.00", "0.00");
-                assertThat(rows.get(9).toList()).containsExactly("Total", "10.50", "-5.00");
+                assertThat(rows.get(9).toList()).containsExactly("Total (known amounts only)", "10.50", "-5.00");
             }
         }
     }
@@ -230,7 +229,7 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         }
         when(teleplanDao.findByOfficeNumber("0000041")).thenThrow(new jakarta.persistence.PersistenceException("synthetic read failure"));
         assertThatThrownBy(() -> csv.getBillsByType("ALL", "ALL", "ALL", "", "", false, false, false, false, type))
-                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasNoCause();
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read").hasCauseInstanceOf(RuntimeException.class);
     }
 
     @ParameterizedTest
@@ -351,19 +350,21 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldReturnNoRows_whenDaoReadFails() throws Exception {
+    void shouldRefuseReport_whenDaoReadFails() throws Exception {
         when(billingmasterDao.findBcBills(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean(), any()))
                 .thenThrow(new IllegalStateException("Synthetic read failure"));
-        assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> report(MSPReconcile.REP_INVOICE))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read");
         verifyNoInteractions(historyDao);
     }
 
     @Test
-    void shouldReturnNoRows_whenTotalsFail() throws Exception {
+    void shouldRefuseReport_whenTotalsFail() throws Exception {
         reportRows("Pri");
         when(historyDao.getTotalPaidFromHistoryByBillingMasterNos(anyCollection()))
                 .thenThrow(new IllegalStateException("Synthetic aggregation failure"));
-        assertThat(report(MSPReconcile.REP_INVOICE).list).isEmpty();
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> report(MSPReconcile.REP_INVOICE))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Billing export data could not be read");
     }
     @Test
     void shouldBatchPaidAndOwing_forLargeBulkSettleList() {

@@ -6,12 +6,17 @@ import org.apache.struts2.interceptor.AbstractInterceptor;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
-/** Refuses every mapped BC-only endpoint before action/JSP access to provincial tables. */
+/**
+ * Refuses mapped BC-only endpoints before action/JSP access to provincial tables.
+ * @since 2026-11-09
+ */
 public final class BcBillingProvinceInterceptor extends AbstractInterceptor {
     private static final long serialVersionUID = 1L;
     @Override
     public String intercept(ActionInvocation invocation) throws Exception {
-        if (invocation.getProxy().getActionName().startsWith("billing/CA/BC/")
+        String actionName = invocation.getProxy().getActionName();
+        if ((actionName.startsWith("billing/CA/BC/") || "quickBillingBC".equals(actionName)
+                || "saveQuickBillingBC".equals(actionName))
                 && !BcBillingRequestGuards.requireBcProvince(ServletActionContext.getResponse())) {
             return ActionSupport.NONE;
         }

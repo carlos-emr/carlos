@@ -35,6 +35,17 @@ async function workflow(s) {
   const save = async () => {
     await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), page.locator('[name="submitButton"]').click()]);
   };
+  const showOwnedRow = async () => {
+    const row = page.locator('table.displayGrid tbody tr').filter({ hasText: codes[0] });
+    h.assert(await row.count() === 1, 'Saved BC association was not listed');
+    // Use the visible pager, including its Next control when the target is outside its link group.
+    while (!await row.isVisible()) {
+      const next = page.locator('.pagelinks a[data-table-page="next"]');
+      h.assert(await next.count() === 1, 'Owned association is hidden without a next page');
+      await next.click();
+    }
+    return row;
+  };
   await s.step('invalid code is visibly rejected without persistence', async () => {
     await page.locator('#primaryCode').fill(''); await page.locator('#secondaryCode').fill(codes[1]); await save();
     await page.locator('.errorMessage').first().waitFor();
@@ -45,15 +56,14 @@ async function workflow(s) {
     await expectValue(s.sql, count, '1', 'Valid BC association was not saved');
     h.assert(s.sql.value(`SELECT billingServiceTrayNo FROM billing_trayfees WHERE billingServiceNo=${ids[0]}`) === ids[1], 'BC association saved the wrong tray fee');
     await page.goto(page.url(), { waitUntil: 'domcontentloaded' });
-    const row = page.locator('table.displayGrid tbody tr').filter({ hasText: codes[0] });
-    h.assert(await row.count() === 1, 'Saved BC association was not listed');
+    const row = await showOwnedRow();
     await row.getByRole('link', { name: 'Edit', exact: true }).click();
     h.assert(await page.locator('#secondaryCode').inputValue() === codes[1], 'Reopened association lost its fee');
   });
   await s.step('update then delete only the owned association', async () => {
     await page.locator('#secondaryCode').fill(codes[2]); await save();
     await expectValue(s.sql, `SELECT billingServiceTrayNo FROM billing_trayfees WHERE billingServiceNo=${ids[0]}`, ids[2], 'BC association edit did not persist');
-    const row = page.locator('table.displayGrid tbody tr').filter({ hasText: codes[0] });
+    const row = await showOwnedRow();
     await h.withExpectedDialogs(admin, async () => {
       await row.getByRole('link', { name: 'Delete', exact: true }).click();
       await expectValue(s.sql, count, '0', 'BC association delete did not persist');

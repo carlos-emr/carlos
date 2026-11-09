@@ -195,10 +195,11 @@ public class BillingCreateBilling2Action extends ActionSupport {
         BcBillStaging.save(request, bean);
         log.debug("Ignore warnings ? {}", LogSafe.sanitize(request.getParameter("ignoreWarn")));
         // Database availability is never a business warning that ignoreWarn may override.
+        BillingServiceDao rules = SpringUtils.getBean(BillingServiceDao.class);
         try {
-            BillingServiceDao rules = SpringUtils.getBean(BillingServiceDao.class);
             timeRules = rules.findTimeRules();
             conditionRules = rules.findAllConditionRules();
+            if (timeRules == null || conditionRules == null) throw new org.springframework.dao.DataRetrievalFailureException("Billing rules are unavailable");
         } catch (jakarta.persistence.PersistenceException | org.springframework.dao.DataAccessException
                 | org.springframework.transaction.TransactionException failure) {
             addActionError(getText("oscarMDS.patientSearch.errorDatabase"));
@@ -363,9 +364,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private void validateServiceCodeTimes(ArrayList<BillingItem> billItems,
                                           List<String> errors) {
         List<BillingServiceDao.TimeRule> results = timeRules;
-        if (results == null) {
-            return;
-        }
+        java.util.Objects.requireNonNull(results, "Mandatory time rules must be loaded");
 
         for (int i = 0; i < billItems.size(); i++) {
             BillingItem item = billItems.get(i);
@@ -539,9 +538,7 @@ public class BillingCreateBilling2Action extends ActionSupport {
     private void validateCDMCodeConditions(List<String> errors, String demoNo,
                                            String serviceCode) {
         List<BillingServiceDao.ConditionRule> cdmRules = conditionRules;
-        if (cdmRules == null) {
-            return;
-        }
+        java.util.Objects.requireNonNull(cdmRules, "Mandatory condition rules must be loaded");
         List<String[]> cdmSvcCodes = vldt.getCDMCodes();
         for (String[] item : cdmSvcCodes) {
             if (patientDX.contains(item[0])) {
@@ -583,10 +580,6 @@ public class BillingCreateBilling2Action extends ActionSupport {
                                            String demoNo, String code) {
         int codeLastBilled = -1;
         List<BillingServiceDao.ConditionRule> conditions = conditionRules.stream().filter(rule -> code.equals(rule.serviceCode())).toList();
-        if (conditions == null) {
-            return;
-        }
-
         for (BillingServiceDao.ConditionRule row : conditions) {
             codeLastBilled = vldt.daysSinceCodeLastBilled(demoNo, row.conditionCode());
             if (codeLastBilled < 365 && codeLastBilled > -1) {

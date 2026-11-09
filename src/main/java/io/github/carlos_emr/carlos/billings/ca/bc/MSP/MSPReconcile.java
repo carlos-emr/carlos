@@ -137,7 +137,7 @@ public class MSPReconcile {
 
     private void reportReadFailure(Exception exception) {
         // A report must never look complete after a read has failed. Values and SQL stay out of logs.
-        throw new IllegalStateException("Billing export data could not be read");
+        throw new IllegalStateException("Billing export data could not be read", exception);
     }
 
     private String convertReportAmount(String value) {
@@ -154,6 +154,7 @@ public class MSPReconcile {
      * @return String decoded dollars, or the report-specific malformed-field representation
      */
     private String csvPaymentAmount(String value, boolean summary, MSPBill bill) {
+        if (value == null || value.isBlank()) bill.recordUnparsedAmount();
         try {
             return convertReportAmount(value);
         } catch (NumberFormatException invalid) {
@@ -372,7 +373,11 @@ public class MSPReconcile {
         return map;
     }
 
+    private int skippedC12Count;
+    public int getSkippedC12Count() { return skippedC12Count; }
+
     public Properties currentC12Records() {
+        skippedC12Count = 0;
         Properties p = new Properties();
         TeleplanC12Dao dao = SpringUtils.getBean(TeleplanC12Dao.class);
 
@@ -385,9 +390,10 @@ public class MSPReconcile {
                 String s = Integer.toString(i);
                 p.put(s, def);
             } catch (NumberFormatException intEx) {
-                MiscUtils.getLogger().warn("Skipped a C12 explanation with an invalid claim identifier");
+                skippedC12Count++;
             }
         }
+        if (skippedC12Count > 0) MiscUtils.getLogger().warn("Skipped {} C12 explanations with invalid claim identifiers", skippedC12Count);
         return p;
     }
 
@@ -1637,7 +1643,6 @@ public class MSPReconcile {
                 }
             }
         } catch (MissingBcPaymentProviderException e) {
-            if (!failOnReadError) throw e;
             throw e;
         } catch (Exception e) {
             reportReadFailure(e);
@@ -1977,9 +1982,9 @@ public class MSPReconcile {
             s21.setPaymentDate(t.getPayment());
             s21.setPayeeNo(t.getPayeeNo());
             s21.setPayeeName(t.getPayeeName());
-            s21.setAmtBilled(MSPReconcile.convCurValue(t.getAmountBilled()));
-            s21.setAmtPaid(MSPReconcile.convCurValue(t.getAmountPaid()));
-            s21.setCheque(MSPReconcile.convCurValue(t.getCheque()));
+            s21.setAmtBilled(convertReportAmount(t.getAmountBilled()));
+            s21.setAmtPaid(convertReportAmount(t.getAmountPaid()));
+            s21.setCheque(convertReportAmount(t.getCheque()));
         }
 
         return s21;

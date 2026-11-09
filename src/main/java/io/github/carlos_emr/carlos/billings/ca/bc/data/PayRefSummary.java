@@ -32,7 +32,6 @@ package io.github.carlos_emr.carlos.billings.ca.bc.data;
 import java.text.NumberFormat;
 import java.util.Locale;
 
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.model.BcBillingConstants;
 
@@ -52,14 +51,14 @@ import io.github.carlos_emr.carlos.billing.CA.BC.model.BcBillingConstants;
  * @version 1.0
  */
 public class PayRefSummary {
-    private double cash = 0.0;
-    private double cheque = 0.0;
-    private double visa = 0.0;
-    private double mc = 0.0;
-    private double amex = 0.0;
-    private double electronic = 0.0;
-    private double debit = 0.0;
-    private double other = 0.0;
+    private java.math.BigDecimal cash = java.math.BigDecimal.ZERO;
+    private java.math.BigDecimal cheque = java.math.BigDecimal.ZERO;
+    private java.math.BigDecimal visa = java.math.BigDecimal.ZERO;
+    private java.math.BigDecimal mc = java.math.BigDecimal.ZERO;
+    private java.math.BigDecimal amex = java.math.BigDecimal.ZERO;
+    private java.math.BigDecimal electronic = java.math.BigDecimal.ZERO;
+    private java.math.BigDecimal debit = java.math.BigDecimal.ZERO;
+    private java.math.BigDecimal other = java.math.BigDecimal.ZERO;
     private double adjustmentAmountTotal = 0.0;
     String line = "";
 
@@ -75,89 +74,87 @@ public class PayRefSummary {
      */
     public void addIncValue(String paymentMethod, double value) {
         paymentMethod = paymentMethod == null ? "" : paymentMethod;
-        try {
 
             if (paymentMethod.equals(BcBillingConstants.PAYTYPE_CASH)) {
-                this.cash += value;
+                this.cash = this.cash.add(java.math.BigDecimal.valueOf(value));
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_CHEQUE)) {
-                this.cheque += value;
+                this.cheque = this.cheque.add(java.math.BigDecimal.valueOf(value));
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_VISA)) {
-                this.visa += value;
+                this.visa = this.visa.add(java.math.BigDecimal.valueOf(value));
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_MC)) {
-                this.mc += value;
+                this.mc = this.mc.add(java.math.BigDecimal.valueOf(value));
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_AMEX)) {
-                this.amex += value;
+                this.amex = this.amex.add(java.math.BigDecimal.valueOf(value));
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_ELECTRONIC)) {
 
-                this.electronic += value;
+                this.electronic = this.electronic.add(java.math.BigDecimal.valueOf(value));
                 line += String.valueOf(electronic) + " " + String.valueOf(value) + "\n";
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_DEBIT)) {
-                this.debit += value;
+                this.debit = this.debit.add(java.math.BigDecimal.valueOf(value));
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_OTHER)) {
-                this.other += value;
+                this.other = this.other.add(java.math.BigDecimal.valueOf(value));
             } else {
-                this.other += value;
+                this.other = this.other.add(java.math.BigDecimal.valueOf(value));
             }
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
     }
 
     // The service runs under C.UTF-8 (language-only en). A host-default formatter prints the generic
     // currency sign there, or a different currency on other hosts; BC report amounts are always CAD.
     public String getCash() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(cash);
+        return formatMoney(cash);
     }
 
     public String getCheque() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(cheque);
+        return formatMoney(cheque);
     }
 
     public String getVisa() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(visa);
+        return formatMoney(visa);
     }
 
     public String getMc() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(mc);
+        return formatMoney(mc);
     }
 
     public String getAmex() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(amex);
+        return formatMoney(amex);
     }
 
     public String getElectronic() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(electronic);
+        return formatMoney(electronic);
     }
 
     public String getDebit() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(debit);
+        return formatMoney(debit);
     }
 
     public String getOther() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(other);
+        return formatMoney(other);
     }
 
     public String getTotal() {
-        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(getRawTotal());
+        return formatMoney(exactTotal());
     }
 
     public double getRawTotal() {
-        return cash + cheque + visa + mc + amex + electronic + debit + other;
+        return exactTotal().doubleValue();
     }
 
     /**
      * @param adjAmt String
      */
-    public void addAdjustmentAmount(String adjAmt) {
+    public void addAdjustmentAmount(String amount) {
+        if (amount != null && !amount.isBlank()) electronic = electronic.add(new java.math.BigDecimal(amount));
+    }
 
-        try {
-            if (adjAmt != null && !"".equals(adjAmt)) {
-                Double amt = Double.valueOf(adjAmt);
-                this.electronic += amt.doubleValue();
-            }
-        } catch (NumberFormatException e) {
-            MiscUtils.getLogger().error("Error", e);
-        }
+    private java.math.BigDecimal exactTotal() {
+        return cash.add(cheque).add(visa).add(mc).add(amex).add(electronic).add(debit).add(other);
+    }
+
+    private static String formatMoney(java.math.BigDecimal amount) {
+        NumberFormat format = NumberFormat.getCurrencyInstance(Locale.CANADA);
+        format.setRoundingMode(java.math.RoundingMode.HALF_UP);
+        return format.format(amount);
     }
 
     public void setAdjustmentAmountTotal(double adjustmentAmountTotal) {

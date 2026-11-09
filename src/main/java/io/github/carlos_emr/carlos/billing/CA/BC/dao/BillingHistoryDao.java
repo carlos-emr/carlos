@@ -93,23 +93,8 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
     }
 
     public Double getTotalPaidFromHistory(Integer bmn, boolean ignoreIA) {
-        String historyQry = "SELECT SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh where bh.billingMasterNo = :bmn";
-        if (ignoreIA) {
-            historyQry += " and bh.paymentTypeId <> " + BcBillingConstants.PAYTYPE_IA;
-        }
-        Query query = entityManager.createQuery(historyQry);
-        query.setParameter("bmn", bmn);
-        List<?> result = query.getResultList();
-        if (result.isEmpty()) {
-            return 0.0;
-        }
-
-        Object d = result.get(0);
-        if (d == null) {
-            return 0.0;
-        }
-
-        return ((Number) d).doubleValue();
+        PaymentTotals totals = getPaymentTotalsByBillingMasterNos(List.of(bmn)).getOrDefault(bmn, PaymentTotals.ZERO);
+        return ignoreIA ? totals.excludingAdjustments() : totals.includingAdjustments();
     }
 
     /**
@@ -121,28 +106,8 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
      */
     public Map<Integer, Double> getTotalPaidFromHistoryByBillingMasterNos(Collection<Integer> billingMasterNos) {
         Map<Integer, Double> totals = new HashMap<>();
-        if (billingMasterNos.isEmpty()) {
-            return totals;
-        }
-        List<Integer> ids = new java.util.ArrayList<>(billingMasterNos);
-        Map<Integer, java.math.BigDecimal> exact = new HashMap<>();
-        java.util.Set<Integer> unknown = new java.util.HashSet<>();
-        for (int offset = 0; offset < ids.size(); offset += 500) {
-            List<Object[]> rows = entityManager.createQuery(
-                    "SELECT bh.billingMasterNo, bh.amountReceived FROM BillingHistory bh WHERE bh.billingMasterNo IN :ids", Object[].class)
-                    .setParameter("ids", ids.subList(offset, Math.min(offset + 500, ids.size()))).getResultList();
-            for (Object[] row : rows) {
-                Integer id = (Integer) row[0];
-                String value = (String) row[1];
-                try {
-                    // Empty legacy archive rows carry no received payment. Nonempty corrupt amounts are unknown.
-                    java.math.BigDecimal amount = value == null || value.isBlank() ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(value);
-                    exact.merge(id, amount, java.math.BigDecimal::add);
-                } catch (NumberFormatException invalid) { unknown.add(id); }
-            }
-        }
-        exact.forEach((id, value) -> totals.put(id, value.doubleValue()));
-        unknown.forEach(id -> totals.put(id, Double.NaN));
+        getPaymentTotalsByBillingMasterNos(billingMasterNos)
+                .forEach((id, value) -> totals.put(id, value.includingAdjustments()));
         return totals;
     }
 
@@ -154,23 +119,48 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
      * @return both totals by billing line ID; bills without history are absent
      */
     public Map<Integer, PaymentTotals> getPaymentTotalsByBillingMasterNos(Collection<Integer> billingMasterNos) {
+        Map<Integer, ExactPayments> exact = new HashMap<>();
+        List<Integer> ids = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(billingMasterNos));
+        for (int offset = 0; offset < ids.size(); offset += 500) {
+            List<Object[]> rows = entityManager.createQuery(
+                    "SELECT bh.billingMasterNo, bh.amountReceived, bh.paymentTypeId FROM BillingHistory bh WHERE bh.billingMasterNo IN :ids",
+                    Object[].class)
+                    .setParameter("ids", ids.subList(offset, Math.min(offset + 500, ids.size())))
+                    .getResultList();
+            for (Object[] row : rows) {
+                ExactPayments payments = exact.computeIfAbsent((Integer) row[0], ignored -> new ExactPayments());
+                // Match SQL <> semantics: a null payment type is excluded from the non-adjustment sum.
+                boolean includeWithoutAdjustments = row[2] != null
+                        && !BcBillingConstants.PAYTYPE_IA.equals(row[2].toString());
+                payments.add((String) row[1], includeWithoutAdjustments);
+            }
+        }
         Map<Integer, PaymentTotals> totals = new HashMap<>();
-        if (billingMasterNos.isEmpty()) {
-            return totals;
-        }
-        List<Object[]> rows = entityManager.createQuery(
-                "SELECT bh.billingMasterNo, SUM(CAST(bh.amountReceived AS double)), "
-                        + "SUM(CASE WHEN bh.paymentTypeId <> :adjustmentType THEN CAST(bh.amountReceived AS double) ELSE 0 END) "
-                        + "FROM BillingHistory bh WHERE bh.billingMasterNo IN :billingMasterNos GROUP BY bh.billingMasterNo",
-                Object[].class)
-                .setParameter("adjustmentType", Integer.valueOf(BcBillingConstants.PAYTYPE_IA))
-                .setParameter("billingMasterNos", billingMasterNos)
-                .getResultList();
-        for (Object[] row : rows) {
-            totals.put((Integer) row[0], new PaymentTotals(
-                    row[1] == null ? 0.0 : ((Number) row[1]).doubleValue(),
-                    row[2] == null ? 0.0 : ((Number) row[2]).doubleValue()));
-        }
+        exact.forEach((id, value) -> totals.put(id, value.totals()));
         return totals;
+    }
+
+    private static final class ExactPayments {
+        private java.math.BigDecimal including = java.math.BigDecimal.ZERO;
+        private java.math.BigDecimal excluding = java.math.BigDecimal.ZERO;
+        private boolean unknownIncluding;
+        private boolean unknownExcluding;
+
+        private void add(String source, boolean includeWithoutAdjustments) {
+            try {
+                java.math.BigDecimal amount = source == null || source.isBlank()
+                        ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(source);
+                including = including.add(amount);
+                if (includeWithoutAdjustments) excluding = excluding.add(amount);
+            } catch (NumberFormatException invalid) {
+                unknownIncluding = true;
+                if (includeWithoutAdjustments) unknownExcluding = true;
+            }
+        }
+
+        private PaymentTotals totals() {
+            return new PaymentTotals(unknownIncluding ? Double.NaN : including.doubleValue(),
+                    unknownExcluding ? Double.NaN : excluding.doubleValue());
+        }
     }
 }

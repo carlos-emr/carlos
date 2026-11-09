@@ -100,9 +100,9 @@
     boolean showICBC = request.getParameter("showICBC") == null ? defaultShow : !defaultShow;  //request.getParameter("showPRIV");
 
     String readonly = request.getParameter("filterPatient");
-    String firstName = request.getParameter("firstName");
-    String lastName = request.getParameter("lastName");
     String demographicNo = request.getParameter("demographicNo") != null ? request.getParameter("demographicNo") : "";
+    var patientNames = "true".equals(readonly)
+            ? io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.names(request, demographicNo) : null;
 
     boolean adminAccess = false;
 %>
@@ -270,8 +270,8 @@
             <div class="col-lg-12">
                 <i>Results for Demographic</i>
                 :
-                <carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastName")) %>' context="html"/>      ,
-                <carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstName")) %>' context="html"/>      (
+                <carlos:encode value='<%= patientNames == null ? "" : patientNames.last() %>' context="html"/>      ,
+                <carlos:encode value='<%= patientNames == null ? "" : patientNames.first() %>' context="html"/>      (
                 <carlos:encode value='<%= StringUtils.noNull(request.getParameter("demographicNo")) %>' context="html"/>      )
             </div>
         </div>
@@ -280,8 +280,6 @@
 
         <form name="serviceform" method="get" action="<%= request.getContextPath() %>/billing/CA/BC/reprocessBill" class="d-flex flex-wrap align-items-center gap-2">
             <input type="hidden" name="filterPatient" value="<carlos:encode value='<%= readonly %>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="lastName" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("lastName")) %>' context="htmlAttribute"/>"/>
-            <input type="hidden" name="firstName" value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("firstName")) %>' context="htmlAttribute"/>"/>
             <div class="row">
                 <div class="col-lg-12">
                     <div class="mb-3">

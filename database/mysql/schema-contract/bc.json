@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "2e16618f8b95b2529bfa12e45c89c97a6243c8dfdfe3a90f8609de840d773e82",
+ "migration_sha256": "883aa045b9241823ff1620d4b577b309ca35e3fdc7c1871bd7ee91a22063cdfa",
  "province": "bc",
  "schema": {
   "checks": [
@@ -9439,7 +9439,7 @@
    [
     "billing_history",
     "amount",
-    "varchar(7)",
+    "varchar(9)",
     "NO",
     "''",
     "",

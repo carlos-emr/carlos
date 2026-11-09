@@ -11,11 +11,11 @@ const h = require('./lib/playwright-harness');
 const { authenticatedProbe } = require('./lib/authenticated-probe');
 const { propertyValue } = require('./lib/download-contract');
 
-const ROUTES = [
-  '/billing/CA/BC/reprocessBill',
-  '/billing/CA/BC/ViewWcbForms',
-  '/billing/CA/BC/privateBilling/ViewStatement',
-];
+// Derive all BC mappings from the shipped configuration so future routes cannot escape coverage.
+const path = require('node:path');
+const billingConfig = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/classes/struts-billing.xml'), 'utf8');
+const ROUTES = [...new Set([...billingConfig.matchAll(/<action\s+name="(billing\/CA\/BC\/[^"*]+)"/g)]
+  .map(match => '/' + match[1]).concat(['/quickBillingBC', '/saveQuickBillingBC']))];
 
 /** Require CARLOS's response marker even for HEAD, where no error-page body is available. */
 function assertApplicationNotFound(response, method, route) {

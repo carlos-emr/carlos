@@ -28,6 +28,9 @@
 	</parameter>
 	<parameter name="provider" class="java.lang.String" forPrompting="false" />
 	<parameter name="payee" class="java.lang.String" forPrompting="false" />
+	<parameter name="unparsedAmountCount" class="java.lang.Integer">
+        <defaultValueExpression><![CDATA[0]]></defaultValueExpression>
+    </parameter>
 	<parameter name="sumPayed" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" forPrompting="false" />
 	<parameter name="sumRefunded" class="io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary" forPrompting="false" />
 	<query>
@@ -190,7 +193,7 @@ order by billing.billingtype;]]>
 			<expression><![CDATA["" + $V{PAGE_NUMBER}]]></expression>
 		</element>
 	</pageFooter>
-	<summary height="159" splitType="Stretch">
+	<summary height="179" splitType="Stretch">
 		<element kind="staticText" mode="Opaque" x="0" y="4" width="84" height="14" forecolor="#000000" backcolor="#FFFFFF" key="staticText-2" hTextAlign="Left" vTextAlign="Top" fontSize="8.0" rotation="None">
 			<paragraph lineSpacing="Single" />
 			<box>
@@ -580,5 +583,9 @@ order by billing.billingtype;]]>
 			</box>
 			<expression><![CDATA[$P{sumPayed}.getTotal()]]></expression>
 		</element>
+		<element kind="textField" x="0" y="159" width="535" height="18" fontSize="9.0">
+            <printWhenExpression><![CDATA[$P{unparsedAmountCount} > 0]]></printWhenExpression>
+            <expression><![CDATA["Known amounts only. Unparsed amount fields excluded: " + $P{unparsedAmountCount}]]></expression>
+        </element>
 	</summary>
 </jasperReport>

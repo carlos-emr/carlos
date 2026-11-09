@@ -165,7 +165,7 @@ class SpreadsheetExportsUnitTest {
         var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
         assertThat(rows).hasSize(3);
         assertThat(rows.get(1)).contains("20260230", type.equals("REP_ACCOUNT_REC") ? "not a decimal" : "\t=bad amount");
-        assertThat(rows.get(2)).contains("01-Oct-26", "-1234.50");
+        assertThat(rows.get(2)).contains("01-Oct-26", type.equals("REP_ACCOUNT_REC") ? "12.50" : "-1234.50");
         if (type.equals("REP_INVOICE")) assertThat(rows.get(1)).contains("not a decimal");
         if (type.equals("REP_REJ")) assertThat(rows.get(1)).contains("not a date");
         if (type.equals("REP_PAYREF")) assertThat(rows.get(1)).contains("20261301", "bad adjustment");
@@ -183,7 +183,7 @@ class SpreadsheetExportsUnitTest {
         var rows = CSVFormat.DEFAULT.parse(new StringReader(output.toString(StandardCharsets.UTF_8))).getRecords();
         assertThat(rows.get(1).toList()).containsExactly("Cash", "7.50", "-5.00");
         assertThat(rows.get(6).toList()).containsExactly("Electronic", "2.25", "0.00");
-        assertThat(rows.get(9).toList()).containsExactly(amount == null || amount.isBlank() ? "Total" : "Total (known amounts only)", "9.75", "-5.00");
+        assertThat(rows.get(9).toList()).containsExactly("Total (known amounts only)", "9.75", "-5.00");
     }
 
     @ParameterizedTest

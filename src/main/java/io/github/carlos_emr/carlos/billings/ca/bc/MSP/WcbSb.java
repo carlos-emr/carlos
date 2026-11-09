@@ -122,10 +122,16 @@ public class WcbSb {
         }
     }
 
-    private void fillWithRs(Wcb w) {
+    public WcbSb(Wcb form, String masterNo) {
+        fillWithRs(form, masterNo);
+    }
+
+    private void fillWithRs(Wcb w) { fillWithRs(w, null); }
+
+    private void fillWithRs(Wcb w, String masterNo) {
         this.bill_amount = w.getBillAmount();
         this.visit_type = w.getServiceLocation();
-        this.billing_no = getBillingMasterNo("" + w.getBillingNo());
+        this.billing_no = masterNo == null ? getBillingMasterNo("" + w.getBillingNo()) : masterNo;
         this.invoice_no = "" + w.getBillingNo();
         this.demographic_no = "" + w.getDemographicNo();
         this.provider_no = "" + w.getProviderNo();
@@ -176,7 +182,7 @@ public class WcbSb {
         this.w_feeitem = w.getFeeItem();
         this.w_extrafeeitem = w.getExtraFeeItem();
         this.w_servicelocation = w.getServiceLocation();
-        this.billamountforfeeitem1 = w.getFeeItem();
+        this.billamountforfeeitem1 = w.getBillAmount();
         this.formNeeded = "" + w.getFormNeeded();
     }
 

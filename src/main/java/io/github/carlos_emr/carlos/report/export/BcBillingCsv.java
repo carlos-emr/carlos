@@ -71,6 +71,21 @@ public final class BcBillingCsv {
         return value == null ? "" : value;
     }
 
+    private static boolean isKnownMoney(String source) {
+        try { return source != null && !source.isBlank() && Double.isFinite(new BigDecimal(source).doubleValue()); }
+        catch (NumberFormatException invalid) { return false; }
+    }
+
+    private static String arStatus(MSPBill bill) {
+        String status = text(bill.getReason()) + text(bill.getExpString());
+        if (bill.getAmtOwing() == null || bill.getAmtOwing().isBlank()) {
+            status += isKnownMoney(bill.getAmount()) ? " [Balance unavailable]"
+                    : " [Unparsed billed amount: " + (bill.getAmount() == null || bill.getAmount().isBlank()
+                            ? "missing" : bill.getAmount()) + "]";
+        }
+        return status;
+    }
+
     private static String patient(MSPBill b) {
         return text(b.getDemoName()) + "(" + text(b.getDemoNo()) + ")";
     }
@@ -95,7 +110,15 @@ public final class BcBillingCsv {
         write(output, type, bills, LocalDate.now());
     }
 
+    public static void write(OutputStream output, String type, List<MSPBill> bills, int skippedExplanations) throws IOException {
+        write(output, type, bills, LocalDate.now(), skippedExplanations);
+    }
+
     static void write(OutputStream output, String type, List<MSPBill> bills, LocalDate reportDate) throws IOException {
+        write(output, type, bills, reportDate, 0);
+    }
+
+    private static void write(OutputStream output, String type, List<MSPBill> bills, LocalDate reportDate, int skippedExplanations) throws IOException {
         if (BcBillingConstants.REP_PAYREF_SUM.equals(type)) {
             writePaymentSummary(output, bills);
             return;
@@ -121,7 +144,7 @@ public final class BcBillingCsv {
                             "4".equals(bucket) ? money(b.getAmtOwing()) : "",
                             "3".equals(bucket) ? money(b.getAmtOwing()) : "",
                             "2".equals(bucket) ? money(b.getAmtOwing()) : "",
-                            "1".equals(bucket) ? money(b.getAmtOwing()) : "", text(b.getReason()) + text(b.getExpString()),
+                            "1".equals(bucket) ? money(b.getAmtOwing()) : "", arStatus(b),
                             "unknown".equals(bucket) ? money(b.getAmtOwing()) : "");
                     case BcBillingConstants.REP_INVOICE -> csv.row(initial(b.getProviderFirstName()) + initial(b.getProviderLastName()),
                             b.getBillingtype(), date(b.getServiceDate()), invoice(b), patient(b), b.getBillingUnit(), b.getCode(),
@@ -138,6 +161,12 @@ public final class BcBillingCsv {
                             b.getProvName(), money(b.getAdjustmentCodeAmt()), b.getAdjustmentCodeDesc());
                     default -> throw new IllegalArgumentException("Unsupported accounting export");
                 }
+            }
+            if (skippedExplanations > 0 && BcBillingConstants.REP_INVOICE.equals(type)) {
+                Object[] warning = new Object[headers.length];
+                java.util.Arrays.fill(warning, "");
+                warning[0] = "Warning: " + skippedExplanations + " C12 explanation records skipped (invalid claim identifiers)";
+                csv.row(warning);
             }
         }
     }
@@ -181,8 +210,9 @@ public final class BcBillingCsv {
         for (MSPBill b : bills) {
             unparsed += b.getUnparsedAmounts();
             if (b.getUnparsedAmounts() == 0) {
-                try { if (b.getAmount() != null && !b.getAmount().isBlank()) new BigDecimal(b.getAmount()); }
-                catch (NumberFormatException invalid) { unparsed++; }
+                if (b.getAmount() == null || b.getAmount().isBlank() || !isKnownMoney(b.getAmount())) unparsed++;
+                if (b.getAdjustmentCodeAmt() != null && !b.getAdjustmentCodeAmt().isBlank()
+                        && !isKnownMoney(b.getAdjustmentCodeAmt())) unparsed++;
             }
             int method = switch (text(b.getPaymentMethod())) {
                 case "1" -> 0; case "2" -> 1; case "3" -> 2; case "4" -> 3;
@@ -202,7 +232,7 @@ public final class BcBillingCsv {
                 totalPayments = totalPayments.add(payments[i]); totalRefunds = totalRefunds.add(refunds[i]);
             }
             csv.row(unparsed == 0 ? "Total" : "Total (known amounts only)", money(totalPayments.toPlainString()), money(totalRefunds.toPlainString()));
-            if (unparsed > 0) csv.row("Unparsed amounts excluded: " + unparsed, "", "");
+            if (unparsed > 0) csv.row("Unparsed amount fields excluded: " + unparsed, "", "");
         }
     }
 

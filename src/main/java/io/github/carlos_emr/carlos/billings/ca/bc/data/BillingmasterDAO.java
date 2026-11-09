@@ -68,12 +68,17 @@ public class BillingmasterDAO {
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public java.util.Map<String, PatientPhones> findReportPhones(java.util.Collection<String> ids) {
         java.util.Map<String, PatientPhones> phones = new java.util.HashMap<>();
-        java.util.List<String> unique = new java.util.ArrayList<>(new java.util.LinkedHashSet<>(ids));
+        java.util.Set<Integer> validIds = new java.util.LinkedHashSet<>();
+        for (String id : ids) {
+            if (id == null || !id.matches("[0-9]+")) continue;
+            try { validIds.add(Integer.valueOf(id)); }
+            catch (NumberFormatException invalid) { /* A legacy orphan has no demographic phone. */ }
+        }
+        java.util.List<Integer> unique = new java.util.ArrayList<>(validIds);
         for (int offset = 0; offset < unique.size(); offset += 500) {
             java.util.List<Object[]> rows = entityManager.createQuery(
                     "SELECT d.demographicNo, d.phone, d.phone2 FROM Demographic d WHERE d.demographicNo IN :ids", Object[].class)
-                    .setParameter("ids", unique.subList(offset, Math.min(offset + 500, unique.size())).stream()
-                            .map(Integer::valueOf).toList()).getResultList();
+                    .setParameter("ids", unique.subList(offset, Math.min(offset + 500, unique.size()))).getResultList();
             for (Object[] row : rows) phones.put(String.valueOf(row[0]), new PatientPhones((String) row[1], (String) row[2]));
         }
         return phones;
@@ -218,7 +223,7 @@ public class BillingmasterDAO {
     }
 
     public void save(WCB wcb) {
-        if (wcb.getW_doi() == null) {
+        if (wcb.getId() == 0 && wcb.getW_doi() == null) {
             wcb.setW_doi(new Date()); //Fixes SF ID : 2962864
         }
         entityManager.persist(wcb);
@@ -602,7 +607,8 @@ public class BillingmasterDAO {
         String sql = """
                 SELECT b.billingtype, bm.billingmaster_no, b.demographic_no, b.demographic_name,
                        bm.service_date, b.apptProvider_no, b.provider_no, bm.payee_no,
-                       bh.creation_date, bh.amount_received, payment_type_id
+                       CASE WHEN CAST(bh.creation_date AS CHAR(30)) LIKE '0000-00-00%' THEN NULL ELSE bh.creation_date END AS creation_date,
+                       bh.amount_received, payment_type_id
                 FROM billing_history bh LEFT JOIN billingmaster bm ON bh.billingmaster_no = bm.billingmaster_no,
                      billing b
                 WHERE bm.billing_no = b.billing_no AND bh.payment_type_id != 10
@@ -777,8 +783,8 @@ public class BillingmasterDAO {
         params[0] = providerOhipNo;
         System.arraycopy(dates, 0, params, 1, dates.length);
         // Only allowlisted syntax enters the query; provider/date values are JDBC parameters.
-        String sql = "select billing_no, demographic_name from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
-        return readBcRows(sql, params, rs -> new ExtractBillRow(rs.getObject("billing_no", Integer.class), rs.getString("demographic_name")));
+        String sql = "select billing_no, demographic_name, billingtype from billing where provider_ohip_no=? and (status='O' or status='W') " + dateRange;
+        return readBcRows(sql, params, rs -> new ExtractBillRow(rs.getObject("billing_no", Integer.class), rs.getString("demographic_name"), rs.getString("billingtype")));
     }
 
     /**
@@ -789,8 +795,19 @@ public class BillingmasterDAO {
      * @since 2026-11-02
      */
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
-    public List<ExtractClaimRow> findBcExtractClaims(int billingNo) {
-        String sql = "select bill_amount, billingmaster_no, phn, service_date, billing_code, dx_code1, dx_code2, dx_code3, claimcode, datacenter, payee_no, practitioner_no, name_verify, dependent_num, billing_unit, clarification_code, anatomical_area, after_hour, new_program, payment_mode, service_to_day, submission_code, service_location, referral_flag1, referral_no1, referral_flag2, referral_no2, time_call, service_start_time, service_end_time, birth_date, correspondence_code, mva_claim_code, icbc_claim_no, original_claim, facility_no, facility_sub_no, oin_insurer_code, oin_registration_no, oin_birthdate, oin_first_name, oin_second_name, oin_surname, oin_sex_code, oin_address, oin_address2, oin_address3, oin_address4, oin_postalcode from billingmaster where billing_no=? and billingstatus='O'";
+    public List<ExtractClaimRow> findBcExtractClaims(int billingNo) { return readExtractClaims(billingNo, false); }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<ExtractClaimRow> findBcPendingExtractClaims(int billingNo) { return readExtractClaims(billingNo, true); }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public boolean hasBcExtractInvoices() {
+        return !readBcRows("SELECT 1 FROM billing WHERE status IN ('O','W') LIMIT 1", new Object[0], row -> row.getInt(1)).isEmpty();
+    }
+
+    private List<ExtractClaimRow> readExtractClaims(int billingNo, boolean includeWcb) {
+        String sql = "select bill_amount, billingmaster_no, phn, service_date, billing_code, dx_code1, dx_code2, dx_code3, claimcode, datacenter, payee_no, practitioner_no, name_verify, dependent_num, billing_unit, clarification_code, anatomical_area, after_hour, new_program, payment_mode, service_to_day, submission_code, service_location, referral_flag1, referral_no1, referral_flag2, referral_no2, time_call, service_start_time, service_end_time, birth_date, correspondence_code, mva_claim_code, icbc_claim_no, original_claim, facility_no, facility_sub_no, oin_insurer_code, oin_registration_no, oin_birthdate, oin_first_name, oin_second_name, oin_surname, oin_sex_code, oin_address, oin_address2, oin_address3, oin_address4, oin_postalcode from billingmaster where billing_no=? and "
+                + (includeWcb ? "billingstatus IN ('O','W')" : "billingstatus='O'");
         return readBcRows(sql, new Object[]{billingNo}, rs -> new ExtractClaimRow(
                 rs.getString("bill_amount"),
                 rs.getObject("billingmaster_no", Integer.class),
@@ -852,8 +869,9 @@ public class BillingmasterDAO {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void markBcMasterBilled(int id) {
-        entityManager.createQuery("update Billingmaster b set b.billingstatus = 'B' where b.billingmasterNo = :id")
+        int changed = entityManager.createQuery("update Billingmaster b set b.billingstatus = 'B' where b.billingmasterNo = :id AND b.billingstatus IN ('O','W')")
                 .setParameter("id", id).executeUpdate();
+        if (changed != 1) throw new IllegalStateException("Claim changed during Teleplan generation");
     }
 
     /**
@@ -865,8 +883,9 @@ public class BillingmasterDAO {
      */
     @Transactional(propagation = Propagation.MANDATORY)
     public void markBcBillBilled(int id) {
-        entityManager.createQuery("update Billing b set b.status = 'B' where b.id = :id")
+        int changed = entityManager.createQuery("update Billing b set b.status = 'B' where b.id = :id AND b.status IN ('O','W')")
                 .setParameter("id", id).executeUpdate();
+        if (changed != 1) throw new IllegalStateException("Invoice changed during Teleplan generation");
     }
 
     /**

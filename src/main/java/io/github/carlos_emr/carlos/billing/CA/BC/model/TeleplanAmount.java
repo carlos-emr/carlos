@@ -26,6 +26,7 @@ public final class TeleplanAmount {
         String negativeDigits = "}JKLMNOPQR";
         int last = negativeDigits.indexOf(value.charAt(value.length() - 1));
         String digits = last < 0 ? value : "-" + value.substring(0, value.length() - 1) + last;
+        if (!digits.matches("-?\\d+")) throw new NumberFormatException("Invalid Teleplan amount");
         return new BigDecimal(digits).movePointLeft(2).setScale(2).toPlainString();
     }
 

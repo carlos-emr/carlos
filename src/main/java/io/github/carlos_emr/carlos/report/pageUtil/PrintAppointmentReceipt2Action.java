@@ -39,7 +39,6 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
-import jakarta.servlet.ServletOutputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -80,7 +79,7 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
-    public String execute() {
+    public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
             throw new SecurityException("missing required sec object (_report)");
@@ -167,7 +166,6 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
         parameters.put("report.appointmentReceipt.With", oscarResources.getString("report.appointmentReceipt.With"));
         parameters.put("report.appointmentReceipt.Printed", oscarResources.getString("report.appointmentReceipt.Printed"));
 
-        ServletOutputStream sos = null;
         InputStream ins = null;
 
         logger.error("user home: " + System.getProperty("user.home"));
@@ -190,27 +188,13 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
             }
         }
 
-        try {
-            sos = response.getOutputStream();
-        } catch (IOException ex) {
-            MiscUtils.getLogger().error("Error", ex);
-        }
-
-        response.setHeader("Content-disposition", getHeader(response).toString());
-        OscarDocumentCreator osc = new OscarDocumentCreator();
-        try {
-            osc.fillDocumentStream(parameters, sos, "pdf", ins, null, exportPdfJavascript);
-        } catch (Exception e) {
-            MiscUtils.getLogger().error("Error", e);
-        } finally {
-            try {
-                if (ins != null) {
-                    ins.close();
-                }
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+        InputStream template = ins;
+        String pdfJavascript = exportPdfJavascript;
+        io.github.carlos_emr.carlos.report.export.PdfDownload.inline(response, "receipt_.pdf", output -> {
+            try (InputStream input = template) {
+                new OscarDocumentCreator().fillDocumentStream(parameters, output, "pdf", input, null, pdfJavascript);
             }
-        }
+        });
         // This action streams the PDF directly and its Struts mapping has no success result.
         // Returning SUCCESS makes Struts render the global error page over the PDF as "0".
         return NONE;

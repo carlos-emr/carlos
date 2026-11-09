@@ -96,7 +96,7 @@ class GenerateTeleplanFile2ActionUnitTest extends CarlosUnitTestBase {
     private TeleplanSubmission submission;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         request = new MockHttpServletRequest();
         request.setRequestURI("/carlos/billing/CA/BC/GenerateTeleplanFile");
         response = new MockHttpServletResponse();
@@ -104,6 +104,9 @@ class GenerateTeleplanFile2ActionUnitTest extends CarlosUnitTestBase {
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), info);
         security = createAndRegisterMock(SecurityInfoManager.class);
         when(security.hasPrivilege(info, "_billing", "w", null)).thenReturn(true);
+        when(info.getLoggedInProviderNo()).thenReturn("999998");
+        var coordinator=createAndRegisterMock(io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportCoordinator.class);
+        when(coordinator.generate(any())).thenAnswer(call -> ((java.util.concurrent.Callable<?>) call.getArgument(0)).call());
         billingmasterDao = createAndRegisterMock(BillingmasterDAO.class);
         demographicManager = createAndRegisterMock(DemographicManager.class);
         servlet = mockStatic(ServletActionContext.class);
