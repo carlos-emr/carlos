@@ -75,6 +75,9 @@ blocks other invalid patient references and unknown signature module values;
 P7 checks the original signature values independently of the ETL mapping.
 P4 freezes a uniquely inferred patient and module from the staged OSCAR
 references in an app-owned receipt, and P7 checks that receipt against staging.
+For eForms, only saved source `signatureValue` and Rich Text `Letter` fields
+can supply that reference; conflicting patients or modules leave the signature
+unreadable.
 Read access to an unassigned signature uses only that frozen decision; later
 eForm submissions cannot assign its patient. A row without a unique source
 owner remains preserved but unreadable until separately reconciled.
