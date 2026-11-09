@@ -2798,6 +2798,18 @@
             {
               "name": "shouldExportAnAdditionalWcbFee_fromTheClaimWithoutDuplicatingFormNotes",
               "container": ""
+            },
+            {
+              "name": "shouldRetainLegacyInvoiceLinkedForms_whenNoClaimSideLinkWasStored",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseAmbiguousLegacyForms_withoutChoosingOneOrMarkingTheClaim",
+              "container": ""
+            },
+            {
+              "name": "shouldRefuseBrokenExplicitLinks_withoutFallingBackToAnUnrelatedLegacyForm",
+              "container": ""
             }
           ]
         }
@@ -3002,7 +3014,7 @@
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "LegacyBcTeleplanExportMariaDbIntegrationTest": 26
+        "LegacyBcTeleplanExportMariaDbIntegrationTest": 29
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

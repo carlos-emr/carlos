@@ -125,7 +125,10 @@ public class LegacyBcTeleplanExportService {
                 if (eligible.isEmpty()) continue;
                 entityManager.createNativeQuery("SELECT id FROM wcb WHERE id IN (SELECT bm.wcb_id FROM billingmaster bm "
                         + "JOIN billing b ON b.billing_no=bm.billing_no WHERE b.provider_ohip_no=?1 "
-                        + "AND b.status IN ('O','W') AND bm.billingstatus IN ('O','W')) FOR UPDATE")
+                        + "AND b.status IN ('O','W') AND bm.billingstatus IN ('O','W')) "
+                        + "OR billing_no IN (SELECT b.billing_no FROM billing b JOIN billingmaster bm ON bm.billing_no=b.billing_no "
+                        + "WHERE b.provider_ohip_no=?1 AND b.billingtype='WCB' AND b.status IN ('O','W') "
+                        + "AND bm.billingstatus IN ('O','W') AND (bm.wcb_id IS NULL OR bm.wcb_id=0)) FOR UPDATE")
                         .setParameter(1, provider.getOhipNo()).getResultList();
                 ExtractBean extract = new ExtractBean();
                 extract.seteFlag("1");

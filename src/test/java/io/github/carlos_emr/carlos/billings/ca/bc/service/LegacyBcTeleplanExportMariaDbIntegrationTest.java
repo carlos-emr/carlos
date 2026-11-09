@@ -223,6 +223,37 @@ class LegacyBcTeleplanExportMariaDbIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldRetainLegacyInvoiceLinkedForms_whenNoClaimSideLinkWasStored() throws Exception {
+        makeWcbSource();
+        jdbc.update("UPDATE wcb SET billing_no=?,status='O' WHERE id=?",BILL,wcbId);
+        jdbc.update("UPDATE billingmaster SET wcb_id=NULL WHERE billingmaster_no=?",MASTER);
+        assertThat(service.generate(selection(),"BC60")).isEqualTo(1);
+        assertThat(Files.readString(directory.resolve("HK81234.001"))).contains(String.valueOf(MASTER),"0001234");
+    }
+
+    @Test
+    void shouldRefuseAmbiguousLegacyForms_withoutChoosingOneOrMarkingTheClaim() {
+        makeWcbSource();
+        jdbc.update("UPDATE wcb SET billing_no=?,status='O' WHERE id=?",BILL,wcbId);
+        jdbc.update("UPDATE billingmaster SET wcb_id=0 WHERE billingmaster_no=?",MASTER);
+        jdbc.update("INSERT INTO wcb (billing_no,demographic_no,provider_no,bill_amount,w_feeitem,status,formCreated,formEdited) "
+                + "VALUES (?,985560,'0',NULL,'19950','O',NOW(),NOW())",BILL);
+        assertThatThrownBy(() -> service.generate(selection(),"BC60")).isInstanceOf(IllegalStateException.class);
+        assertThat(jdbc.queryForObject("SELECT billingstatus FROM billingmaster WHERE billingmaster_no=?",String.class,MASTER)).isEqualTo("W");
+        assertThat(directory.resolve("HK81234.001")).doesNotExist();
+    }
+
+    @Test
+    void shouldRefuseBrokenExplicitLinks_withoutFallingBackToAnUnrelatedLegacyForm() {
+        makeWcbSource();
+        jdbc.update("UPDATE wcb SET billing_no=?,status='O' WHERE id=?",BILL,wcbId);
+        jdbc.update("UPDATE billingmaster SET wcb_id=2147483647 WHERE billingmaster_no=?",MASTER);
+        assertThatThrownBy(() -> service.generate(selection(),"BC60")).isInstanceOf(IllegalStateException.class);
+        assertThat(jdbc.queryForObject("SELECT billingstatus FROM billingmaster WHERE billingmaster_no=?",String.class,MASTER)).isEqualTo("W");
+        assertThat(directory.resolve("HK81234.001")).doesNotExist();
+    }
+
+    @Test
     void shouldNotTreatAnOlderFilenameAsCommitEvidence_whenNewExportRollsBack() {
         jdbc.update("INSERT INTO billactivity (monthCode,batchcount,groupno,providerohipno,ohipfilename,htmlfilename,creator,updatedatetime,status) "
                 + "VALUES ('K',1,'81234','91234','HK81234.001','HK91234_001.htm','BC60',DATE_SUB(NOW(),INTERVAL 1 YEAR),'D')");
