@@ -72,6 +72,7 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
         Hl7TextInfoDao infos = (Hl7TextInfoDao) mockedBeans.get(Hl7TextInfoDao.class);
         when(infos.findByLabIdViaMagic(selected)).thenReturn(List.of(new Object[]{correction, selectedInfo},
                 new Object[]{older, selectedInfo}, new Object[]{original, selectedInfo},
+                new Object[]{correction, selectedInfo}, new Object[]{older, selectedInfo},
                 new Object[]{otherVendor, selectedInfo}));
         Hl7TextMessageDao messages = (Hl7TextMessageDao) mockedBeans.get(Hl7TextMessageDao.class);
         try (var parsers = mockStatic(Factory.class)) {
@@ -91,6 +92,10 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
             }
             assertThat(Hl7textResultsData.getMatchingLabs(Integer.toString(selected)))
                     .isEqualTo(sameTimeFinal ? "11,13,12" : "13,11,12");
+            for (int id : List.of(11, 12, 13)) {
+                Hl7TextMessage message = messages.find(id);
+                parsers.verify(() -> Factory.getHandler(message), times(1));
+            }
             parsers.verify(() -> Factory.getHandler(foreign), never());
         }
         assertThat(correction.getFinalResultCount()).isZero(); // A read does not rewrite historical metadata.

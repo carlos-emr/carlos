@@ -164,11 +164,33 @@ class CoverageFreshnessTest(unittest.TestCase):
         self.assertFalse(floors.check_freshness(self.policy, 'HEAD')['ready'])
         self.policy['baselineCommit'] = self.base
         self.assertIn('baselineSourceTree', floors.check_freshness(self.policy, self.base)['problems'])
-        for key, value in (('baselineCommit', 'unknown'), ('baselineCommit', 'f' * 40),
+        for key, value in (('baselineCommit', 'unknown'),
                            ('baselineReportSha256', ''), ('baselineLane', ' ')):
             with self.subTest(key=key):
                 policy = dict(self.policy, **{key: value})
                 self.assertIn(key, floors.check_freshness(policy, self.base)['problems'])
+
+    def test_rewritten_merge_preserves_source_identity_even_without_the_original_commit(self):
+        original = self.policy['baselineCommit']
+        self.git('reset', '--hard', self.base)
+        (self.root / self.source).write_text('class Guard { int value = 2; }\n')
+        self.git('commit', '-qam', 'squashed candidate')
+        self.assertNotEqual(self.git('rev-parse', 'HEAD'), original)
+        self.assertNotEqual(subprocess.run(['git', 'merge-base', '--is-ancestor', original, 'HEAD']).returncode, 0)
+        record = floors.check_freshness(self.policy, self.base)
+        self.assertTrue(record['ready'], record)
+        self.assertTrue(record['baselineCommitAvailable'])
+        self.git('reflog', 'expire', '--expire=now', '--all')
+        self.git('gc', '--prune=now')
+        record = floors.check_freshness(self.policy, self.base)
+        self.assertTrue(record['ready'], record)
+        self.assertFalse(record['baselineCommitAvailable'])
+        for key, invalid in (('sourceTree', 'b' * 40), ('comparisonSha256', 'b' * 64), ('base', 'b' * 40)):
+            with self.subTest(key=key):
+                self.assertIn(key, floors.check_freshness(dict(self.policy, **{key: invalid}), self.base)['problems'])
+        (self.root / self.source).write_text('class Guard { int value = 3; }\n')
+        self.git('commit', '-qam', 'changed production source after squash')
+        self.assertFalse(floors.check_freshness(self.policy, self.base)['ready'])
 
     def test_cli_freshness_does_not_claim_that_coverage_was_evaluated(self):
         policy = self.root / 'floors.json'

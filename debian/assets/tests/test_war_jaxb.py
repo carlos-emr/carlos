@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2026 CARLOS Contributors
 import importlib.util
+from contextlib import redirect_stderr
 import io
 from pathlib import Path
 import tempfile
@@ -25,18 +26,26 @@ class JaxbWarTest(unittest.TestCase):
     def test_actual_packaged_discovery(self):
         valid = archive([(gate.SERVICE, gate.FACTORY + '\n'), (gate.FACTORY.replace('.', '/') + '.class', b'factory')])
         cases = [
-            ([('WEB-INF/lib/jaxb-runtime.jar', valid)], True),
-            ([], False),
-            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/b.jar', valid)], False),
-            ([('WEB-INF/lib/a.jar', archive([(gate.SERVICE, 'other.Factory')]))], False),
-            ([('WEB-INF/classes/' + gate.SERVICE, gate.FACTORY)], False),
-            ([('WEB-INF/lib/a.jar', archive([('META-INF/versions/25/' + gate.SERVICE, gate.FACTORY)]))], False),
-            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/shaded.jar', archive([('org/eclipse/persistence/Foo.class', b'x')]))], False),
-            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/bad.jar', b'corrupt')], False),
+            ([('WEB-INF/lib/jaxb-runtime.jar', valid)], None),
+            ([], 'WAR must register exactly one Glassfish JAXB factory'),
+            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/b.jar', valid)], 'WAR must register exactly one Glassfish JAXB factory'),
+            ([('WEB-INF/lib/a.jar', archive([(gate.SERVICE, 'other.Factory')]))], 'JAXB factory class missing'),
+            ([('WEB-INF/lib/a.jar', archive([(gate.SERVICE, 'other.Factory'), ('other/Factory.class', b'factory')]))],
+             'WAR must register exactly one Glassfish JAXB factory'),
+            ([('WEB-INF/classes/' + gate.SERVICE, gate.FACTORY)], 'loose JAXB override'),
+            ([('WEB-INF/lib/a.jar', archive([('META-INF/versions/25/' + gate.SERVICE, gate.FACTORY)]))], 'versioned JAXB provider registration'),
+            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/shaded.jar', archive([('org/eclipse/persistence/Foo.class', b'x')]))], 'EclipseLink/MOXy runtime'),
+            ([('WEB-INF/lib/a.jar', valid), ('WEB-INF/lib/bad.jar', b'corrupt')], 'File is not a zip file'),
         ]
         with tempfile.TemporaryDirectory() as temp:
             war = Path(temp) / 'candidate.war'
-            for entries, accepted in cases:
+            for entries, reason in cases:
                 with self.subTest(entries=[name for name, _ in entries]):
                     war.write_bytes(archive(entries))
-                    self.assertEqual(gate.main([str(war)]), 0 if accepted else 1)
+                    stderr = io.StringIO()
+                    with redirect_stderr(stderr):
+                        self.assertEqual(gate.main([str(war)]), 0 if reason is None else 1)
+                    if reason is None:
+                        self.assertEqual(stderr.getvalue(), '')
+                    else:
+                        self.assertIn(reason, stderr.getvalue())

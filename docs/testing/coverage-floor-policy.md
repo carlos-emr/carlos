@@ -11,6 +11,11 @@ counts. Test/document-only commits can retain that baseline. Changed Java
 sources, a different comparison base, missing/stale floors, dirty Java files or
 a baseline from another source tree fail freshness. A failed invocation removes
 any previous result file before validation, so an old success cannot survive.
+Squash/rebase merges may rewrite or discard the historical baseline commit.
+Freshness therefore requires the exact source tree, comparison and per-file
+blobs rather than commit ancestry. When the historical commit is available,
+its source tree is also checked; its availability is recorded explicitly.
+An absent commit does not waive any source identity or coverage requirement.
 
 Run freshness independently:
 

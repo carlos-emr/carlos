@@ -121,7 +121,11 @@ function superviseInstalledFault({ environment = process.env, signalProcess = pr
     signalProcess.on('SIGINT', interrupt);
     signalProcess.on('SIGTERM', terminate);
     child.once('error', error => { cleanup(); reject(error); });
-    child.once('close', (code, signal) => { cleanup(); resolve(signal || code === null ? 1 : code); });
+    child.once('close', (code, signal) => {
+      cleanup();
+      if (signal) console.error(`FAIL installed error fixture supervisor terminated by ${signal}; web.xml restoration is unconfirmed`);
+      resolve(signal || code === null ? 1 : code);
+    });
   });
 }
 

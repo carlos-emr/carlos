@@ -541,6 +541,9 @@ public class Hl7textResultsData {
 
             if (monthsBetween < 4) {
                 if (cml) {
+                    // The accession self-join can repeat a lab number. Parse and
+                    // order each source once, so chain indexes remain stable.
+                    if (completedCounts.containsKey(labNo)) continue;
                     Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
                             ? hl7Msg : hl7TxtMsgDao.find(labNo);
                     if (version == null) throw new IllegalStateException("A CML version has no stored source message");
