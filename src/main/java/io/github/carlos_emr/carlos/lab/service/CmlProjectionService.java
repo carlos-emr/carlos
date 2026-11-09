@@ -30,9 +30,13 @@ public class CmlProjectionService {
         public int getArchiveCount() { return archiveCount; }
         public int getCreateCount() { return createCount; }
         public boolean isSpansReports() { return spansReports; }
-        public boolean isReady() { return reason == Reason.READY; }
-        public boolean isReviewNeeded() { return reason != Reason.READY && reason != Reason.UNMATCHED; }
-        public boolean isChangeNeeded() { return archiveCount + createCount > 0; }
+        // EL 6 resolves every record property through name(), including derived properties.
+        public boolean ready() { return reason == Reason.READY; }
+        public boolean reviewNeeded() { return reason != Reason.READY && reason != Reason.UNMATCHED; }
+        public boolean changeNeeded() { return archiveCount > 0 || createCount > 0; }
+        public boolean isReady() { return ready(); }
+        public boolean isReviewNeeded() { return reviewNeeded(); }
+        public boolean isChangeNeeded() { return changeNeeded(); }
     }
     private record Expected(String value, String type, String instruction, String comments, Date observed, Map<String, String> source) { }
     private record Row(Measurement measurement, Map<String, String> extensions, CmlVersionPolicy.Observation source) { }
