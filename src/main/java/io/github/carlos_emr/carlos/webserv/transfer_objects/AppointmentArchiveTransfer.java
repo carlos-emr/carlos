@@ -51,6 +51,7 @@ public final class AppointmentArchiveTransfer {
     private String notes;
     private String reason;
     private String location;
+    private Integer locationCode;
     private String resources;
     private String type;
     private String style;
@@ -150,6 +151,27 @@ public final class AppointmentArchiveTransfer {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    /**
+     * Gets the Location List item the appointment was booked with; {@link #getLocation()} holds
+     * that item's label as it was at booking. Read-only for SOAP clients.
+     *
+     * @return Integer the LookupListItem id, or null when no item was chosen
+     * @since 2026-11-04
+     */
+    public Integer getLocationCode() {
+        return locationCode;
+    }
+
+    /**
+     * Sets the Location List item id copied from the appointment.
+     *
+     * @param locationCode Integer the LookupListItem id, or null
+     * @since 2026-11-04
+     */
+    public void setLocationCode(Integer locationCode) {
+        this.locationCode = locationCode;
     }
 
     public String getResources() {

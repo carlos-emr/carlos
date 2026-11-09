@@ -106,6 +106,8 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
 
     private Integer reasonCode;
 
+    private Integer locationCode;
+
     public Integer getReasonCode() {
         return reasonCode;
     }
@@ -229,6 +231,30 @@ public class Appointment extends AbstractModel<Integer> implements Serializable,
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    /**
+     * Gets the Location List item chosen for this appointment. {@link #getLocation()} holds a
+     * snapshot of that item's label at booking time, so renaming the item later does not rewrite
+     * this appointment, and screens that only read the text keep working.
+     *
+     * @return Integer the LookupListItem id, or null when no item was chosen (free text, a site, a
+     *         program, or no location)
+     * @since 2026-11-04
+     */
+    public Integer getLocationCode() {
+        return locationCode;
+    }
+
+    /**
+     * Sets the Location List item chosen for this appointment. Writers go through
+     * {@code AppointmentLocationResolver}, which keeps the code and the label snapshot together.
+     *
+     * @param locationCode Integer the LookupListItem id, or null for none
+     * @since 2026-11-04
+     */
+    public void setLocationCode(Integer locationCode) {
+        this.locationCode = locationCode;
     }
 
     public String getResources() {

@@ -32,6 +32,12 @@
 
 <%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ page import="io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver" %>
+<fmt:setBundle basename="oscarResources"/>
+<%-- The appointment Location List has its own page, which keeps its rules (#3982); it is shown here read-only. --%>
+<c:set var="appointmentLocationListName" value="<%= AppointmentLocationResolver.LIST_NAME %>"/>
+<c:set var="managedElsewhere" value="${lookuplist.name eq appointmentLocationListName}"/>
 <div class="lookupListItemsWrapper">
 
     <div class="row lookupListItemHeading">
@@ -55,15 +61,22 @@
 						<span class="label">
 							${carlos:forHtml(lookupListItem.label)}
 						</span>
+                        <c:if test="${not managedElsewhere}">
                         <a href="javascript:void(0);"
                            id="removeLookupListItem_${ lookupListItem.id }_${ lookuplist.id }"
                            class="removeLookupListItem">X</a>
+                        </c:if>
                     </li>
                 </c:if>
             </c:forEach>
         </ul>
     </div>
 
+    <c:choose>
+    <c:when test="${managedElsewhere}">
+    <p class="lookupListManagedElsewhere"><fmt:message key="admin.lookupList.managedOnLocationsTab"/></p>
+    </c:when>
+    <c:otherwise>
     <div class="addLookupListItemTools">
         <div class="addInput">
             <input type="text" class="lookupListItemLabel" id="lookupListItemLabel_${ lookuplist.id }"
@@ -74,5 +87,7 @@
                    value="add">
         </div>
     </div>
+    </c:otherwise>
+    </c:choose>
 
 </div>		
