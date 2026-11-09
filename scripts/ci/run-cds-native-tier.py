@@ -269,6 +269,28 @@ def verify_case_mode(client, run, log, folded):
         raise RuntimeError('Disposable MariaDB table-name case mode differs from the required profile')
 
 
+def publish_upgrade_proof(path, proof):
+    """Replace the container-owned partial report using the host-owned output directory."""
+    if path.is_symlink() or not path.is_file():
+        raise RuntimeError('Upgrade evidence is not a regular producer report')
+    pending = path.with_name(path.name + '.qualified-' + uuid.uuid4().hex)
+    try:
+        with os.fdopen(os.open(pending, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600),
+                       'w', encoding='utf-8') as stream:
+            json.dump(proof, stream, sort_keys=True)
+            stream.write('\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(pending, path)
+        directory = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        pending.unlink(missing_ok=True)
+
+
 def main():
     args = parse_args()
     repository = Path(__file__).resolve().parents[2]
@@ -391,7 +413,7 @@ def main():
                         build(physical + ['--output', container_output + '/schema-' + province + '.json'], log)
                         raise RuntimeError('Develop upgrade differs from the canonical fresh physical schema')
                     proof.update(status='PASSED', physicalSchemaAndSeedsMatched=True)
-                    (output / ('upgrade-' + province + '.json')).write_text(json.dumps(proof, sort_keys=True) + '\n')
+                    publish_upgrade_proof(output / ('upgrade-' + province + '.json'), proof)
                 print('CDS develop upgrade passed for both provinces; CLI, boot, retained data and original checksums verified.')
                 return 0
 

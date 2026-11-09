@@ -7,6 +7,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 from defusedxml.common import DefusedXmlException
 
 MODULE_PATH = Path(__file__).with_name('run-cds-native-tier.py')
@@ -105,6 +106,32 @@ class NativeEvidenceTest(unittest.TestCase):
                     total, incomplete = NATIVE.collect_reports((simple,), self.source, self.output)
                 self.assertEqual(len(names), total)
                 self.assertEqual(expected, not incomplete)
+
+
+class UpgradeEvidencePublicationTest(unittest.TestCase):
+    def test_publishes_over_a_read_only_container_report_using_a_private_new_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'upgrade-on.json'
+            path.write_text('{"status":"CLI_AND_RETENTION_PASSED"}\n')
+            path.chmod(0o444)
+            proof = {'status': 'PASSED', 'physicalSchemaAndSeedsMatched': True}
+            NATIVE.publish_upgrade_proof(path, proof)
+            self.assertEqual(proof, NATIVE.json.loads(path.read_text()))
+            self.assertEqual(0o600, path.stat().st_mode & 0o777)
+            self.assertEqual([path], list(root.iterdir()))
+
+    def test_rename_failure_retains_partial_evidence_and_removes_pending_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'upgrade-on.json'
+            original = '{"status":"CLI_AND_RETENTION_PASSED"}\n'
+            path.write_text(original)
+            with mock.patch.object(NATIVE.os, 'replace', side_effect=PermissionError('fixture')):
+                with self.assertRaises(PermissionError):
+                    NATIVE.publish_upgrade_proof(path, {'status': 'PASSED'})
+            self.assertEqual(original, path.read_text())
+            self.assertEqual([path], list(root.iterdir()))
 
 
 class CoordinatedInventoryTest(unittest.TestCase):
