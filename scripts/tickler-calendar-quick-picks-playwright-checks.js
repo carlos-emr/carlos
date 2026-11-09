@@ -46,8 +46,7 @@ async function workflow(s) {
   id=sql.value(`SELECT tickler_no FROM tickler WHERE ${owned}`);h.assert(/^[1-9]\d*$/.test(id),'Calendar task identity missing');
  });
  await s.step('Edit quick picks remain based on today, clamp leap years and save the exact resulting date',async()=>{
-  await list.locator('#xml_vdate').fill('2027-02-28');await list.locator('#xml_appointment_date').fill('2027-02-28');
-  await Promise.all([list.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/tickler/ListTicklers')),list.locator('#formSubmitBtn').click()]);
+  // Patient mode intentionally has no date-range controls and includes future tasks.
   await waitForTicklerTable(list);
   await Promise.all([list.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/tickler/ListTicklers')&&new URL(r.url()).searchParams.get('search[value]')===marker),list.locator('#ticklerResults_filter input').fill(marker)]);
   await waitForTicklerTable(list);

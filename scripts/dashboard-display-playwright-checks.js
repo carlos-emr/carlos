@@ -330,7 +330,7 @@ async function workflow(s) {
           await field.pressSequentially(value);
           await field.press(commit);
           await form.locator('textarea[name="messageAppend"]').click();
-          h.assert(await field.inputValue() === value, `Invalid typed value ${value} was erased or reinterpreted`);
+          h.assert(await field.inputValue() === value, `Invalid typed value ${value} became ${JSON.stringify(await field.inputValue())}`);
           h.assert((field === dateInput ? /Invalid service date/ : /Invalid service time/)
             .test(await field.evaluate(input => input.validationMessage)),
             `Invalid typed value ${value} has no validation explanation`);

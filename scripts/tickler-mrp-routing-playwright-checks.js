@@ -179,7 +179,11 @@ async function workflow(s) {
     h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'MRP task reads changed the control');
   });
   await s.step('independent composers retain their own unsaved drafts',async()=>{
-    const one=await composer(patient,marker),two=await composer(patientB,bMarker);
+    const one=await composer(patient,marker),firstView=views.get(one);
+    // Master Record uses a named browser window. Retire the first opener so
+    // opening a second chart is a new native popup while its draft stays open.
+    await firstView.list.close();await firstView.chart.close();
+    const two=await composer(patientB,bMarker);
     await one.locator('#ticklerMessage').fill(marker+' first draft');
     await one.locator('input[name="xml_appointment_date"]').fill('2031-01-31');
     await one.locator('select[name="priority"]').selectOption('High');
@@ -212,7 +216,7 @@ async function workflow(s) {
     await assertAssignee(one,control);await assertAssignee(two,b);
     h.assert(await field(one).inputValue()===patient&&await field(two).inputValue()===patientB,'Returning a draft changed another patient association');
     for(const page of [one,two]) {
-      const view=views.get(page);await page.close();await view.list.close();await view.chart.close();
+      const view=views.get(page);await page.close();if(!view.list.isClosed())await view.list.close();if(!view.chart.isClosed())await view.chart.close();
     }
   });
   const findings=[];

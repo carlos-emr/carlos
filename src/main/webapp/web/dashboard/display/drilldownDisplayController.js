@@ -123,21 +123,28 @@ function initTicklerPickers() {
             if (input.value && !parseTicklerValue(input.value, format)) {
                 invalidText = input.value;
                 // Stop Flatpickr's commit handler from clearing/reinterpreting raw input.
-                if (event) event.stopImmediatePropagation();
+                if (event) {
+                    event.stopImmediatePropagation();
+                    if (event.type === 'keydown' && event.key === 'Enter') event.preventDefault();
+                    // Closing explicitly also retires the popup after a refused Tab/Enter.
+                    // Flatpickr's own commit handler would clear or reinterpret this text.
+                    input._flatpickr.close();
+                }
                 showError();
             }
         }
-        function rejectOnEnter(event) {
-            if (event.key === 'Enter') rejectInvalidText(event);
+        function rejectOnCommitKey(event) {
+            if (event.key === 'Enter' || event.key === 'Tab') rejectInvalidText(event);
         }
         function rejectOnOutsidePress(event) {
             if (input._flatpickr.calendarContainer.contains(event.target)) invalidText = null;
             if (event.target !== input && !input._flatpickr.calendarContainer.contains(event.target)) {
-                rejectInvalidText(event);
+                // Let Flatpickr close its popup; onClose restores the refused text.
+                rejectInvalidText();
             }
         }
         input.addEventListener('blur', rejectInvalidText, true);
-        input.addEventListener('keydown', rejectOnEnter, true);
+        input.addEventListener('keydown', rejectOnCommitKey, true);
         document.addEventListener('pointerdown', rejectOnOutsidePress, true);
         document.addEventListener('mousedown', rejectOnOutsidePress, true);
         document.addEventListener('touchstart', rejectOnOutsidePress, true);
@@ -154,7 +161,7 @@ function initTicklerPickers() {
             allowInput: true,
             disableMobile: true,
             parseDate: parseTicklerValue,
-            // Invalid text is cleared by flatpickr, but an explanation remains until corrected.
+            // Preserve refused text when Flatpickr closes after an outside press.
             // Do not log flatpickr's error: it includes the user's input.
             errorHandler: showError,
             onDestroy: function () {
@@ -163,7 +170,7 @@ function initTicklerPickers() {
                 document.removeEventListener('touchstart', rejectOnOutsidePress, true);
                 input.removeEventListener('input', clearIfValid);
                 input.removeEventListener('blur', rejectInvalidText, true);
-                input.removeEventListener('keydown', rejectOnEnter, true);
+                input.removeEventListener('keydown', rejectOnCommitKey, true);
                 feedback.remove();
             },
             onClose: function () {
