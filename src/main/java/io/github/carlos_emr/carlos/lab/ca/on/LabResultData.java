@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.lab.ca.on;
 
 import io.github.carlos_emr.carlos.documentManager.data.LabAttachmentReference;
+import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -558,7 +559,17 @@ public class LabResultData implements Comparable<LabResultData> {
 
             // String[] multiId = this.multiLabId.split(",");
             CommonLabResultData data = new CommonLabResultData();
-            String[] multiId = data.getMatchingLabs(this.segmentID, this.labType).split(",");
+            String[] multiId;
+            try {
+                multiId = data.getMatchingLabs(this.segmentID, this.labType).split(",");
+            } catch (Hl7textResultsData.IncompleteCmlVersionChainException unavailable) {
+                // This getter only renders a display count. Keep the report accessible
+                // without presenting a partial total; -1 already suppresses that total.
+                // Mutation callers retain the strict resolver and its refusal.
+                logger.warn("CML version evidence is incomplete; aggregate acknowledgement count is unavailable");
+                multiplAckCount = -1;
+                return multiplAckCount;
+            }
             int count = 0;
             if (multiId.length == 1) {
                 count = -1;
