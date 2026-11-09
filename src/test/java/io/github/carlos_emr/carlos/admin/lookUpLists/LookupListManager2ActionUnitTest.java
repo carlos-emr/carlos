@@ -119,6 +119,18 @@ class LookupListManager2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldShowTheRequestedLookup_onAnAuthorizedRead() {
+        request.setMethod("GET");
+        request.setParameter("listName", "practitionerNoType");
+        var expected = new io.github.carlos_emr.carlos.commn.model.LookupList();
+        when(lists.findLookupListByName(actor, "practitionerNoType")).thenReturn(expected);
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("lookupListSingle")).isSameAs(expected);
+        verify(lists).findLookupListByName(actor, "practitionerNoType");
+        verifyNoMoreInteractions(lists);
+    }
+
+    @Test
     void shouldPreserveAdminAuthorization_beforePostMutation() {
         populate("order", "POST");
         when(security.hasPrivilege(actor, "_admin", "w", null)).thenReturn(false);
