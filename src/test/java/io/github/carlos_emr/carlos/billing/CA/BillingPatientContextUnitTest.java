@@ -70,7 +70,7 @@ class BillingPatientContextUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldPropagateAuthorizationAndReadFailures() {
+    void shouldPropagateFailures_whenAuthorizationOrPatientReadsFail() {
         when(manager.getDemographic(login, 17)).thenThrow(new SecurityException("synthetic denial"));
         assertThatThrownBy(() -> BillingPatientContext.names(request, "17")).isInstanceOf(SecurityException.class);
         when(manager.getDemographic(login, 18)).thenThrow(new jakarta.persistence.PersistenceException("synthetic read failure"));
