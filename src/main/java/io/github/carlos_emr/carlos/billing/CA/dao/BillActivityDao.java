@@ -40,6 +40,9 @@ import io.github.carlos_emr.carlos.commn.dao.AbstractDao;
 
 public interface BillActivityDao extends AbstractDao<BillActivity> {
 
+    /** Ontario's shared output directory must retain original imported names. */
+    boolean isImportedFilenameReserved(String filename);
+
     public List<BillActivity> findCurrentByMonthCodeAndGroupNo(String monthCode, String groupNo, Date updateDateTime);
 
     public List<BillActivity> findCurrentByDateRange(Date startDate, Date endDate);
