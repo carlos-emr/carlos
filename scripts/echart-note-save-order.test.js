@@ -25,6 +25,7 @@ function harness() {
   };
   vm.createContext(context); vm.runInContext(chartHelper + source.slice(start, end), context);
   context.updateIssueError = 'issue refresh failed';
+  context.issueSidebarRefreshError = 'sidebar refresh failed; saving remains available';
   return { context, updates, panels, alerts, fields };
 }
 

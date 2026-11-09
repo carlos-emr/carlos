@@ -448,6 +448,8 @@ window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.c
             pickIssueMsg = "<fmt:message key="encounter.pickIssue.msg"/>";
             assignIssueMsg = "<fmt:message key="encounter.assign.title"/>";
             updateIssueError = "<fmt:message key="encounter.updateIssueError.msg"/>";
+            <fmt:message key="encounter.issueSidebarRefreshError.msg" var="issueSidebarRefreshErrorText"/>
+            issueSidebarRefreshError = "${carlos:forJavaScriptBlock(issueSidebarRefreshErrorText)}";
             unsavedNoteMsg = "<fmt:message key="encounter.unsavedNote.msg"/>";
             printDateMsg = "<fmt:message key="encounter.printDate.msg"/>";
             printDateOrderMsg = "<fmt:message key="encounter.printDateOrder.msg"/>";

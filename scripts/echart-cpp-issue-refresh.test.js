@@ -57,6 +57,7 @@ function harness(checked = [true], issueChange = '') {
     vm.runInContext(source.slice(start, end), context);
   }
   context.updateIssueError = 'issue refresh failed';
+  context.issueSidebarRefreshError = 'sidebar refresh failed; saving remains available';
   return { context, requests, updates, fields, alerts, errors };
 }
 
@@ -359,6 +360,8 @@ for (const failedModule of ['unresolvedIssues', 'resolvedIssues']) {
     assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
     for (const module of pending) module.complete(module.id !== failedModule);
     assert.equal(saves, 1);
+    assert.deepEqual(h.alerts, ['sidebar refresh failed; saving remains available'],
+      'a presentation failure must not report that the confirmed clinical save was refused');
     assert.equal(h.context.issueUpdateFailed, false);
     assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), false);
     // Re-rendering the failed module succeeds without a new clinical mutation.

@@ -3391,6 +3391,7 @@ function updateCPPNote() {
     }
     var ajaxRequest;
     var updateIssueError;
+    var issueSidebarRefreshError;
     var issueUpdatesPending = 0;
     var issueUpdateFailed = false;
     var issueRefreshQueue = [];
@@ -3580,7 +3581,7 @@ function updateCPPNote() {
             loadDiv(id, reloadUrl, 0, function (ok) {
                 succeeded = succeeded && ok;
                 if (--pending === 0) {
-                    if (!succeeded) alert(updateIssueError);
+                    if (!succeeded) alert(issueSidebarRefreshError);
                     // The editor's clinical fields were confirmed before these
                     // optional presentation requests. A sidebar failure must not
                     // poison Save/Sign or discard a queued save.

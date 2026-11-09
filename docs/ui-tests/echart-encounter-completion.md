@@ -154,3 +154,7 @@ The strict residue audit passes. Only the single deliberately injected HTTP resp
 and its matching browser console diagnostic are consumed; other failures remain strict.
 The Ubuntu 26.04 package upgrade (snapshot28 to snapshot29, carlos-ctl 1.3.2) also passes
 all deployment health checks and preserves the encounter-table snapshot exactly.
+
+Optional sidebar failures use their own localized presentation message. They no
+longer display the clinical-refusal message while a confirmed queued save proceeds.
+The regression checks both the distinct feedback and continued Save/Sign behavior.
