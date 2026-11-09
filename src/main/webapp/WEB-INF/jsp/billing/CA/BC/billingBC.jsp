@@ -29,8 +29,6 @@
 
 --%>
 
-<%@page import="java.net.URLEncoder" %>
-<%@page import="java.nio.charset.StandardCharsets" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
