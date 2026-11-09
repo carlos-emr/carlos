@@ -15,15 +15,13 @@
  * included; a GET carrying a save parameter is refused with 405 and nothing changes. Direct
  * requests are negative probes only.
  *
- * Expected to FAIL while app-findings-log.md finding 145 stands: the save writes the note back as
- * "patient\'s", one more backslash per save. (Finding 147, the adjust page's TypeError on load,
- * was fixed with #4551.)
+ * Regression for findings 145 and 147: exact note text survives the save and the adjust page loads.
  *
  * BC_REPROCESS_PIN=inactive runs the bill of a physician who has left instead (#4422): the same
  * Invoice List and Edit, then Reprocess Bill after a diagnostic code is fixed. The adjust page lists
- * only active physicians, so it posts an empty physician, and the save must still keep the bill's
- * provider, payee and practitioner numbers. Expected to FAIL while finding 153 stands: the save
- * writes '' to all four.
+ * the current physician even when inactive, and the save keeps all four stored identifiers unless
+ * a different valid physician is explicitly chosen. Finding 153 is fixed in #6097; the live
+ * inactive-physician correction passed with synthetic data on 2026-11-09.
  *
  * Fixtures: one billing + billingmaster + billingnote row for the workflow's own FAKE patient,
  * stamped with the run marker; cleanup deletes exactly those rows (and the history and notes the

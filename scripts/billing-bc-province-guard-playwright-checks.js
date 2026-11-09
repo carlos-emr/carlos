@@ -25,6 +25,15 @@ function assertApplicationNotFound(response, method, route) {
     `${method} ${route} must carry the CARLOS response header ${h.APPLICATION_HEADER}`);
 }
 
+function assertReadRefusal(response, method, route) {
+  // The method filter runs before Struts. Its marked POST-only refusal is valid for reads;
+  // the authenticated, CSRF-valid POST below must still reach the province guard and return 404.
+  if (response.status() === 405) {
+    h.assert(response.headers().allow === 'POST', `${method} ${route} lacks the POST-only method contract`);
+    h.assert(response.headers()[h.APPLICATION_HEADER] === 'none', `${method} ${route} lacks the CARLOS response marker`);
+  } else assertApplicationNotFound(response, method, route);
+}
+
 async function main() {
   const propertiesFile = process.env.CARLOS_PROPERTIES_FILE || '/etc/carlos-emr/carlos.properties';
   const region = propertyValue(fs.readFileSync(propertiesFile, 'utf8'), 'billregion');
@@ -39,13 +48,14 @@ async function main() {
     await h.login(context, config, recorder);
     const statuses = [];
     for (const route of ROUTES) {
-      for (const method of ['GET', 'HEAD']) {
+      for (const method of ['GET', 'HEAD', 'POST']) {
         // Match the route crawl and attempt to override the deployment's province.
         const target = config.baseUrl + route
           + '?demographic_no=3459&demographicNo=3459&demoNo=3459&billRegion=BC&billregion=BC';
-        const response = await authenticatedProbe({ config, context }, target, { method });
+        const response = await authenticatedProbe({ config, context }, target, { method, allowPost: method === 'POST' });
         try {
-          assertApplicationNotFound(response, method, route);
+          if (method === 'POST') assertApplicationNotFound(response, method, route);
+          else assertReadRefusal(response, method, route);
           const status = response.status();
           statuses.push({ route, method, status });
           console.log(`  ${method} ${route}: ${status}`);
@@ -62,4 +72,4 @@ async function main() {
 }
 
 if (require.main === module) h.runCheck({ name: 'billing-bc-province-guard', run: main });
-module.exports = { main, assertApplicationNotFound };
+module.exports = { main, assertApplicationNotFound, assertReadRefusal };

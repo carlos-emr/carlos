@@ -14,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.function.Predicate;
+import java.util.function.BiPredicate;
 
 /**
  * Durable, private staging journal for legacy Teleplan files. Recovery consults committed activity
@@ -22,6 +22,7 @@ import java.util.function.Predicate;
  * @since 2026-11-09
  */
 final class LegacyTeleplanFiles {
+    private record Artifact(int activityId, String hash) { }
     private static final String MANIFEST = "manifest.properties";
     private final Path home;
     private final Path journal;
@@ -39,18 +40,20 @@ final class LegacyTeleplanFiles {
         }
     }
 
-    Path stage(Map<String, String> artifacts) throws IOException {
+    Path stage(Map<String, String> artifacts, Map<String, Integer> activityIds) throws IOException {
         Path batch = Files.createDirectory(journal.resolve(UUID.randomUUID().toString()),
                 PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------")));
         Properties manifest = new Properties();
-        manifest.setProperty("version", "1");
+        manifest.setProperty("version", "2");
         for (var artifact : artifacts.entrySet()) {
             Path target = target(artifact.getKey());
             if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) throw new IOException("Teleplan output filename is already in use");
             byte[] bytes = (artifact.getValue() + System.lineSeparator()).getBytes(StandardCharsets.UTF_8);
             Path staged = child(batch, artifact.getKey());
             writeNew(staged, bytes);
-            manifest.setProperty(artifact.getKey(), hash(bytes));
+            Integer activityId = activityIds.get(artifact.getKey());
+            if (activityId == null || activityId <= 0) throw new IOException("A batch activity identity is required");
+            manifest.setProperty(artifact.getKey(), activityId + ":" + hash(bytes));
         }
         var serialized = new java.io.ByteArrayOutputStream();
         manifest.store(serialized, "CARLOS legacy Teleplan recovery journal");
@@ -61,12 +64,12 @@ final class LegacyTeleplanFiles {
     }
 
     void publish(Path batch) throws IOException {
-        for (var artifact : manifest(batch).entrySet()) publishOne(batch, artifact.getKey(), artifact.getValue());
+        for (var artifact : manifest(batch).entrySet()) publishOne(batch, artifact.getKey(), artifact.getValue().hash());
         forceDirectory(home);
     }
 
     /** Must run under the database generation lock, outside the export transaction. */
-    void recover(Predicate<String> hasCommittedActivity) throws IOException {
+    void recover(BiPredicate<Integer, String> hasCommittedActivity) throws IOException {
         try (var batches = Files.list(journal)) {
             for (Path batch : batches.toList()) {
                 if (!batch.getFileName().toString().matches("[0-9a-f-]{36}")
@@ -78,20 +81,20 @@ final class LegacyTeleplanFiles {
                     removeBatch(batch);
                     continue;
                 }
-                Map<String, String> artifacts = manifest(batch);
+                Map<String, Artifact> artifacts = manifest(batch);
                 boolean committed = false;
                 boolean uncommitted = false;
-                for (String name : artifacts.keySet()) {
-                    if (hasCommittedActivity.test(name)) committed = true;
+                for (var entry : artifacts.entrySet()) {
+                    if (hasCommittedActivity.test(entry.getValue().activityId(), entry.getKey())) committed = true;
                     else uncommitted = true;
                 }
                 if (committed && uncommitted) throw new IOException("Inconsistent Teleplan batch; operator review is required");
                 for (var artifact : artifacts.entrySet()) {
-                    if (committed) publishOne(batch, artifact.getKey(), artifact.getValue());
+                    if (committed) publishOne(batch, artifact.getKey(), artifact.getValue().hash());
                     else {
                         Path target = target(artifact.getKey());
                         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-                            verify(target, artifact.getValue());
+                            verify(target, artifact.getValue().hash());
                             Files.delete(target);
                         }
                     }
@@ -123,18 +126,20 @@ final class LegacyTeleplanFiles {
         }
     }
 
-    private Map<String, String> manifest(Path batch) throws IOException {
+    private Map<String, Artifact> manifest(Path batch) throws IOException {
         Properties data = new Properties();
         Path path = batch.resolve(MANIFEST);
         if (Files.isSymbolicLink(path)) throw new IOException("Invalid Teleplan journal");
         try (var input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) { data.load(input); }
-        if (!"1".equals(data.remove("version"))) throw new IOException("Unsupported Teleplan journal");
-        Map<String, String> artifacts = new LinkedHashMap<>();
+        if (!"2".equals(data.remove("version"))) throw new IOException("Unsupported Teleplan journal");
+        Map<String, Artifact> artifacts = new LinkedHashMap<>();
         for (String name : data.stringPropertyNames()) {
             target(name);
-            String hash = data.getProperty(name);
-            if (!hash.matches("[a-f0-9]{64}")) throw new IOException("Invalid Teleplan journal digest");
-            artifacts.put(name, hash);
+            String encoded = data.getProperty(name);
+            if (!encoded.matches("[1-9][0-9]{0,9}:[a-f0-9]{64}")) throw new IOException("Invalid Teleplan journal witness");
+            String[] parts = encoded.split(":", 2);
+            try { artifacts.put(name, new Artifact(Integer.parseInt(parts[0]), parts[1])); }
+            catch (NumberFormatException invalid) { throw new IOException("Invalid Teleplan journal activity identity", invalid); }
         }
         if (artifacts.isEmpty()) throw new IOException("Empty Teleplan journal");
         return artifacts;

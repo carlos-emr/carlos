@@ -159,9 +159,17 @@ public class LegacyBcTeleplanExportService {
             if (providerBatch > 1) artifacts.put(claimFilename, claimFile.toString());
         }
         if (activity.isEmpty()) return 0;
-        Path staged = files.stage(artifacts);
-        files.publish(staged);
+        // Allocate activity identities inside this transaction before publication. Recovery must never
+        // mistake an older year's activity with the same filename for this commit's witness.
         for (BillActivity batch : activity) activities.persist(batch);
+        entityManager.flush();
+        Map<String, Integer> witnesses = new LinkedHashMap<>();
+        for (BillActivity batch : activity) {
+            witnesses.putIfAbsent(batch.getOhipFilename(), batch.getId());
+            witnesses.put(batch.getHtmlFilename(), batch.getId());
+        }
+        Path staged = files.stage(artifacts, witnesses);
+        files.publish(staged);
         for (ExtractBean extract : extracts) {
             for (Integer id : extract.getMasterIdsToMark()) masters.markBcMasterBilled(id);
             for (Integer id : extract.getBillIdsToMark()) masters.markBcBillBilled(id);
@@ -178,11 +186,11 @@ public class LegacyBcTeleplanExportService {
         return max == null ? 1 : Math.addExact(max.intValue(), 1);
     }
 
-    private boolean hasCommittedActivity(String filename) {
+    private boolean hasCommittedActivity(Integer activityId, String filename) {
         // Include deleted activities: a deleted batch was still committed, and its files must not be discarded.
         return Boolean.TRUE.equals(transactions.execute(status -> ((Number) entityManager.createNativeQuery(
-                "SELECT COUNT(*) FROM billactivity WHERE ohipfilename=?1 OR htmlfilename=?1")
-                .setParameter(1, filename).getSingleResult()).longValue() > 0));
+                "SELECT COUNT(*) FROM billactivity WHERE id=?1 AND (ohipfilename=?2 OR htmlfilename=?2)")
+                .setParameter(1, activityId).setParameter(2, filename).getSingleResult()).longValue() > 0));
     }
 
     private static String defaultCode(String value, String fallback) {

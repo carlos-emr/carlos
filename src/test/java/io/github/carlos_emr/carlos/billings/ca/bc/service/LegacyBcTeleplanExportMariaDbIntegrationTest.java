@@ -151,4 +151,21 @@ class LegacyBcTeleplanExportMariaDbIntegrationTest extends CarlosTestBase {
         assertThat(directory.resolve("HK81234.001")).doesNotExist();
     }
 
+    @Test
+    void shouldNotTreatAnOlderFilenameAsCommitEvidence_whenNewExportRollsBack() {
+        jdbc.update("INSERT INTO billactivity (monthCode,batchcount,groupno,providerohipno,ohipfilename,htmlfilename,creator,updatedatetime,status) "
+                + "VALUES ('K',1,'81234','91234','HK81234.001','HK91234_001.htm','BC60',DATE_SUB(NOW(),INTERVAL 1 YEAR),'D')");
+        jdbc.execute("CREATE TRIGGER FAKE_6097_export_failure BEFORE UPDATE ON billingmaster FOR EACH ROW "
+                + "BEGIN IF NEW.billingmaster_no=" + MASTER + " AND NEW.billingstatus='B' THEN "
+                + "SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='synthetic export rollback'; END IF; END");
+        try {
+            assertThatThrownBy(() -> service.generate(selection(),"BC60")).isInstanceOf(IllegalStateException.class);
+            assertThat(jdbc.queryForObject("SELECT status FROM billing WHERE billing_no=?",String.class,BILL)).isEqualTo("O");
+            assertThat(jdbc.queryForObject("SELECT billingstatus FROM billingmaster WHERE billingmaster_no=?",String.class,MASTER)).isEqualTo("O");
+            assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM billactivity WHERE creator='BC60'",Integer.class)).isEqualTo(1);
+            assertThat(directory.resolve("HK81234.001")).doesNotExist();
+            assertThat(directory.resolve("HK91234_001.htm")).doesNotExist();
+        } finally { jdbc.execute("DROP TRIGGER FAKE_6097_export_failure"); }
+    }
+
 }

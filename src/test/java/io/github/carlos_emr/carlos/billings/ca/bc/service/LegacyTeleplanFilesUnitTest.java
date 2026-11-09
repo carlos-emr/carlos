@@ -19,9 +19,9 @@ class LegacyTeleplanFilesUnitTest {
     @Test
     void shouldDiscardOwnedArtifacts_whenDatabaseConfirmsRollback() throws Exception {
         var files = new LegacyTeleplanFiles(directory);
-        Path journal = files.stage(Map.of(CLAIM, "synthetic claim", HTML, "synthetic report"));
+        Path journal = files.stage(Map.of(CLAIM, "synthetic claim", HTML, "synthetic report"), Map.of(CLAIM, 42, HTML, 42));
         files.publish(journal);
-        files.recover(filename -> false);
+        files.recover((id, filename) -> false);
         assertThat(directory.resolve(CLAIM)).doesNotExist();
         assertThat(directory.resolve(HTML)).doesNotExist();
         assertThat(journal).doesNotExist();
@@ -30,10 +30,10 @@ class LegacyTeleplanFilesUnitTest {
     @Test
     void shouldRestoreCompleteArtifacts_whenCommitSucceededButAcknowledgementWasLost() throws Exception {
         var files = new LegacyTeleplanFiles(directory);
-        Path journal = files.stage(Map.of(CLAIM, "synthetic claim", HTML, "synthetic report"));
+        Path journal = files.stage(Map.of(CLAIM, "synthetic claim", HTML, "synthetic report"), Map.of(CLAIM, 42, HTML, 42));
         files.publish(journal);
         Files.delete(directory.resolve(HTML));
-        files.recover(filename -> true);
+        files.recover((id, filename) -> id == 42);
         assertThat(directory.resolve(CLAIM)).hasContent("synthetic claim" + System.lineSeparator());
         assertThat(directory.resolve(HTML)).hasContent("synthetic report" + System.lineSeparator());
         assertThat(journal).doesNotExist();
@@ -42,12 +42,12 @@ class LegacyTeleplanFilesUnitTest {
     @Test
     void shouldPreserveChangedArtifactsAndJournal_whenRecoveryCannotProveOwnership() throws Exception {
         var files = new LegacyTeleplanFiles(directory);
-        Path journal = files.stage(Map.of(CLAIM, "synthetic claim"));
+        Path journal = files.stage(Map.of(CLAIM, "synthetic claim"), Map.of(CLAIM, 42));
         files.publish(journal);
         // Replace, rather than modifying the hard-linked staging copy.
         Files.delete(directory.resolve(CLAIM));
         Files.writeString(directory.resolve(CLAIM), "operator replacement");
-        assertThatThrownBy(() -> files.recover(filename -> false)).isInstanceOf(java.io.IOException.class);
+        assertThatThrownBy(() -> files.recover((id, filename) -> false)).isInstanceOf(java.io.IOException.class);
         assertThat(directory.resolve(CLAIM)).hasContent("operator replacement");
         assertThat(journal).isDirectory();
     }
@@ -55,9 +55,9 @@ class LegacyTeleplanFilesUnitTest {
     @Test
     void shouldRefuseMixedCommitEvidence_withoutRemovingAnyFile() throws Exception {
         var files = new LegacyTeleplanFiles(directory);
-        Path journal = files.stage(Map.of(CLAIM, "synthetic claim", HTML, "synthetic report"));
+        Path journal = files.stage(Map.of(CLAIM, "synthetic claim", HTML, "synthetic report"), Map.of(CLAIM, 42, HTML, 42));
         files.publish(journal);
-        assertThatThrownBy(() -> files.recover(CLAIM::equals)).isInstanceOf(java.io.IOException.class);
+        assertThatThrownBy(() -> files.recover((id, filename) -> CLAIM.equals(filename))).isInstanceOf(java.io.IOException.class);
         assertThat(directory.resolve(CLAIM)).exists();
         assertThat(directory.resolve(HTML)).exists();
         assertThat(journal).exists();
@@ -67,9 +67,9 @@ class LegacyTeleplanFilesUnitTest {
     void shouldRefuseExistingOrEscapingFilenames_withoutOverwritingThem() throws Exception {
         Files.writeString(directory.resolve(CLAIM), "existing content");
         var files = new LegacyTeleplanFiles(directory);
-        assertThatThrownBy(() -> files.stage(Map.of(CLAIM, "replacement"))).isInstanceOf(java.io.IOException.class);
-        assertThatThrownBy(() -> files.stage(Map.of("../escape", "replacement"))).isInstanceOf(java.io.IOException.class);
-        files.recover(filename -> false);
+        assertThatThrownBy(() -> files.stage(Map.of(CLAIM, "replacement"), Map.of(CLAIM, 42))).isInstanceOf(java.io.IOException.class);
+        assertThatThrownBy(() -> files.stage(Map.of("../escape", "replacement"), Map.of("../escape", 42))).isInstanceOf(java.io.IOException.class);
+        files.recover((id, filename) -> false);
         assertThat(directory.resolve(CLAIM)).hasContent("existing content");
     }
 }

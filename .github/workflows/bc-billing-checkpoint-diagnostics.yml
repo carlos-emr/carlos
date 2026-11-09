@@ -17,11 +17,17 @@ jobs:
         run: |
           python3 - <<'PY'
           import io, json, os, urllib.request, zipfile, xml.etree.ElementTree as ET
+          class DownloadRedirect(urllib.request.HTTPRedirectHandler):
+              def redirect_request(self, request, fp, code, message, headers, new_url):
+                  redirected = super().redirect_request(request, fp, code, message, headers, new_url)
+                  redirected.remove_header('Authorization')
+                  return redirected
+          opener = urllib.request.build_opener(DownloadRedirect())
           for artifact in (13648015904, 13648185072):
               request = urllib.request.Request(
                   f'https://api.github.com/repos/carlos-emr/carlos/actions/artifacts/{artifact}/zip',
                   headers={'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json'})
-              with urllib.request.urlopen(request, timeout=60) as response:
+              with opener.open(request, timeout=60) as response:
                   archive = zipfile.ZipFile(io.BytesIO(response.read()))
               for name in archive.namelist():
                   if artifact == 13648015904 and name.endswith('.json'):

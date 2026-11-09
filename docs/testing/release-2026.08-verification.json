@@ -2695,6 +2695,10 @@
             {
               "name": "shouldKeepWcbClaimsPending_whenTheFormAndClaimAmountsDisagree",
               "container": ""
+            },
+            {
+              "name": "shouldNotTreatAnOlderFilenameAsCommitEvidence_whenNewExportRollsBack",
+              "container": ""
             }
           ]
         }
@@ -2874,7 +2878,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 131,
+      "minimumCases": 132,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -2891,7 +2895,7 @@
         "AntenatalReportDaoIntegrationTest": 5,
         "EFormGroupDaoIntegrationTest": 9,
         "Growth0To36FormPersistenceIntegrationTest": 19,
-        "LegacyBcTeleplanExportMariaDbIntegrationTest": 7
+        "LegacyBcTeleplanExportMariaDbIntegrationTest": 8
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

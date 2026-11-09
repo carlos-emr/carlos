@@ -61,7 +61,7 @@ REQUIRED = {"generated": {**CRITICAL, "LegacyLabUploadDaoIntegrationTest": 6, "L
                            "AntenatalReportDaoIntegrationTest": 5,
                            "EFormGroupDaoIntegrationTest": 9,
                            "BcBillingDaoTransactionIntegrationTest": 4,
-                           "LegacyBcTeleplanExportMariaDbIntegrationTest": 7,
+                           "LegacyBcTeleplanExportMariaDbIntegrationTest": 8,
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
                            "DemographicMergeMariaDbIntegrationTest": 8,
                            "Growth0To36FormPersistenceIntegrationTest": 19}}

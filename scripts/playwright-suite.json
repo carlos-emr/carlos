@@ -4373,11 +4373,7 @@
       "env": [
         "BC_REPROCESS_PIN"
       ],
-      "notes": "BC adjust bill page, the bill of a physician who has left (#4422): Master record \u25b8 Invoice List \u25b8 Edit on a claim whose physician is inactive, fix Dx 1, Reprocess Bill; before the failure pin, assert the chosen Dx 1 is stored and exactly one history row is added. The physician select lists active physicians only, so the save posts an empty physician; the step asserts the claim keeps billing.provider_no, billing.provider_ohip_no, billingmaster.payee_no and billingmaster.practitioner_no. Expected to FAIL there while app-findings-log.md finding 153 stands (the save writes '' to all four).",
-      "expectedFailure": {
-        "finding": 153,
-        "step": "Reprocess Bill on the bill of a physician who has left keeps its provider, payee and practitioner numbers"
-      },
+      "notes": "Issue #4422 regression: Invoice List > Edit on an inactive physician\u2019s claim, correct Dx 1 and Reprocess Bill. Asserts the diagnosis is saved, exactly one history row is added, and billing.provider_no/provider_ohip_no plus billingmaster.payee_no/practitioner_no remain unchanged. Passed against the locally built WAR on Tomcat 11/JDK 25 with synthetic BC MariaDB fixtures on 2026-11-09; packaged release qualification remains separate.",
       "fixtures": "One owned inactive billing physician (a copy of the test login's provider row with FAKE BC numbers and the run marker, status 0) and one billing/billingmaster/billingnote row for the workflow's own FAKE patient billed by that physician; cleanup deletes the patient's bill rows and the physician and asserts them gone. BC installs only (billregion=BC)."
     },
     {

@@ -8,7 +8,8 @@ SET @bc_history_widen_sql = (
         CONCAT('ALTER TABLE `billing_history` MODIFY COLUMN `amount` VARCHAR(9) CHARACTER SET ',
             CHARACTER_SET_NAME, ' COLLATE ', COLLATION_NAME,
             IF(IS_NULLABLE = 'YES', ' NULL', ' NOT NULL'),
-            ' DEFAULT ', COALESCE(COLUMN_DEFAULT, 'NULL'), ' COMMENT ', QUOTE(COLUMN_COMMENT)))
+            IF(COLUMN_DEFAULT IS NULL, '', CONCAT(' DEFAULT ', COLUMN_DEFAULT)),
+            ' COMMENT ', QUOTE(COLUMN_COMMENT)))
     FROM information_schema.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'billing_history' AND COLUMN_NAME = 'amount'
         AND DATA_TYPE IN ('char', 'varchar', 'tinytext', 'text', 'mediumtext', 'longtext') AND EXTRA = ''
