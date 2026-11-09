@@ -66,7 +66,8 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
     }
     @BeforeEach void setup() throws Exception {
         tx=new TransactionTemplate(transactions);tx.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        for(Field field:Hl7textResultsData.class.getDeclaredFields()) if(Modifier.isStatic(field.getModifiers())&&field.getName().endsWith("Dao")) {
+        for(Class<?> owner:List.of(Hl7textResultsData.class,io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.class))
+        for(Field field:owner.getDeclaredFields()) if(Modifier.isStatic(field.getModifiers())&&field.getName().endsWith("Dao")) {
             field.setAccessible(true);saved.put(field,field.get(null));field.set(null,applicationContext.getBean(field.getType()));
         }
         oldFilter=CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER");
@@ -430,5 +431,26 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
             assertThat(providers.findAllLabRoutingByIdandType(original,"HL7").getFirst().getStatus()).isEqualTo("A");
             for(int id:List.of(correction,conflict))assertThat(providers.findAllLabRoutingByIdandType(id,"HL7").getFirst().getStatus()).isEqualTo("N");
         });
+    }
+
+    @Test void shouldRecoverToANewerExplicitCorrection_afterAnOlderConflictRequiredReview() {
+        ingest("20260310120000","C","7010=12.7");
+        int conflict=ingest("20260310120000","C","7010=13.1");
+        assertThat(service.status(conflict,actor).isReviewNeeded()).isTrue();
+        int resolved=ingest("20260310140000","C","7010=15.2");
+        assertThat(active()).singleElement().satisfies(row->assertThat(row.getDataField()).isEqualTo("15.2"));
+        assertThat(service.status(resolved,actor).isReady()).isTrue();
+    }
+    @Test void shouldKeepOmittedObservationsUnreviewed_whenAcknowledgingAPartialCorrection() {
+        int original=ingest("20260310080000","F","7010=5.1","7020=9.2");
+        int partial=ingest("20260310120000","C","7010=12.7");
+        assertThat(io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.acknowledgeReport(partial,"999998","reviewed partial correction","HL7",false,null)).isEqualTo(1);
+        tx.executeWithoutResult(status->{
+            assertThat(providers.findAllLabRoutingByIdandType(partial,"HL7").getFirst().getStatus()).isEqualTo("A");
+            assertThat(providers.findAllLabRoutingByIdandType(original,"HL7").getFirst().getStatus()).isEqualTo("N");
+        });
+        int full=ingest("20260310140000","C","7010=15.2","7020=9.3");
+        io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.acknowledgeReport(full,"999998","reviewed complete correction","HL7",false,null);
+        tx.executeWithoutResult(status->{for(int id:List.of(original,partial,full))assertThat(providers.findAllLabRoutingByIdandType(id,"HL7").getFirst().getStatus()).isNotEqualTo("N");});
     }
 }

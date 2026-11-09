@@ -124,4 +124,24 @@ class CmlVersionPolicyUnitTest {
         sources.put(2,handler("20260310120000","X","7010=13.1"));
         assertThatThrownBy(()->CmlVersionPolicy.order(sources)).isInstanceOf(CmlVersionPolicy.AmbiguousRevision.class);
     }
+
+    @Test void shouldResolveObsoleteConflicts_withTheSameLatestWinnerInEveryArrivalOrder() throws Exception {
+        for(List<Integer> order:List.of(List.of(1,2,3),List.of(1,3,2),List.of(2,1,3),List.of(2,3,1),List.of(3,1,2),List.of(3,2,1))) {
+            var sources=new LinkedHashMap<Integer,CMLHandler>();
+            for(int id:order)sources.put(id,handler(id==3?"20260310140000":"20260310120000","C","7010="+(id==1?"12.7":id==2?"13.1":"15.2")));
+            var all=new ArrayList<CmlVersionPolicy.Observation>();sources.forEach((id,source)->all.addAll(CmlVersionPolicy.observations(id,source)));
+            assertThat(CmlVersionPolicy.winners(all).values()).singleElement().satisfies(row->assertThat(row.report()).isEqualTo(3));
+            assertThat(CmlVersionPolicy.order(sources)).endsWith(3);
+        }
+    }
+    @Test void shouldAutoFileOnlyFullyCoveredOlderReports_whenTheReviewedCorrectionIsPartial() throws Exception {
+        var sources=new HashMap<Integer,io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler>();
+        sources.put(1,handler("20260310080000","F","7010=5.1","7020=9.2"));
+        sources.put(2,handler("20260310120000","C","7010=12.7"));
+        assertThat(CmlVersionPolicy.coveredOlderReports(2,List.of(1),sources::get)).isEmpty();
+        sources.put(2,handler("20260310120000","C","7010=12.7","7020=9.3"));
+        assertThat(CmlVersionPolicy.coveredOlderReports(2,List.of(1),sources::get)).containsExactly(1);
+        sources.put(2,handler("20260310120000","P","7010=12.7","7020=9.3"));
+        assertThat(CmlVersionPolicy.coveredOlderReports(2,List.of(1),sources::get)).isEmpty();
+    }
 }

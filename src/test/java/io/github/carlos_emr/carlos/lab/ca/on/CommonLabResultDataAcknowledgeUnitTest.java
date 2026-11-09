@@ -80,9 +80,11 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
 
     private ProviderLabRoutingDao originalRoutingDao;
     private boolean routingDaoReplaced;
+    private MockedStatic<io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory> sourceHandlers;
 
     @org.junit.jupiter.api.AfterEach
     void restoreRoutingDao() {
+        if (sourceHandlers != null) sourceHandlers.close();
         if (routingDaoReplaced) {
             org.springframework.test.util.ReflectionTestUtils.setField(CommonLabResultData.class,
                     "providerLabRoutingDao", originalRoutingDao);
@@ -109,6 +111,11 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
      * register them so referencing either class does not blow up outside a Spring context.
      */
     private void registerStaticInitializerMocks() {
+        // These tests cover the established non-CML chain policy. CML coverage and
+        // unreadable sources are exercised separately with actual parsed messages.
+        sourceHandlers = mockStatic(io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.class);
+        sourceHandlers.when(() -> io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory.getHandler(anyString()))
+                .thenReturn(mock(io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler.class));
         org.springframework.transaction.PlatformTransactionManager transactions =
                 createAndRegisterMock(org.springframework.transaction.PlatformTransactionManager.class);
         when(transactions.getTransaction(any())).thenAnswer(call -> {

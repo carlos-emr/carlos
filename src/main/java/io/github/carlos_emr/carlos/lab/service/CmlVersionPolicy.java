@@ -5,6 +5,8 @@ import java.time.*;
 import java.time.format.*;
 import java.time.temporal.*;
 import java.util.*;
+import java.util.function.Function;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler;
 import io.github.carlos_emr.carlos.utility.ContentDigests;
 
@@ -103,7 +105,11 @@ public final class CmlVersionPolicy {
     public static Map<String, Observation> winners(List<Observation> observations) {
         Map<String, Observation> winners = new LinkedHashMap<>();
         Set<String> withinReport = new HashSet<>();
-        for (Observation observation : observations) {
+        // Compare the maximal revisions first. An obsolete conflict must not
+        // prevent a newer explicit correction from resolving the observation.
+        List<Observation> ordered = new ArrayList<>(observations);
+        ordered.sort((left, right) -> rank(right, left));
+        for (Observation observation : ordered) {
             if (!withinReport.add(pack(Integer.toString(observation.report()), observation.key()))) {
                 throw new AmbiguousRevision("Repeated CML observation identity requires review");
             }
@@ -112,16 +118,45 @@ public final class CmlVersionPolicy {
         return winners;
     }
 
-    private static Observation newer(Observation left, Observation right) {
+    private static int rank(Observation left, Observation right) {
         int order = Integer.compare(left.stage(), right.stage());
         if (order == 0) order = left.revision().compareTo(right.revision());
-        if (order == 0) order = Integer.compare(left.correction(), right.correction());
+        return order == 0 ? Integer.compare(left.correction(), right.correction()) : order;
+    }
+
+    private static Observation newer(Observation left, Observation right) {
+        int order = rank(left, right);
         if (order != 0) return order > 0 ? left : right;
         if (!left.signature().equals(right.signature())) {
             throw new AmbiguousRevision("Conflicting CML revisions at the same clinical time require review");
         }
         // Identical clinical content is interchangeable; this tie never chooses between different results.
         return left.report() < right.report() ? left : right;
+    }
+
+    /** A partial report cannot silently mark omitted observations reviewed. */
+    public static List<Integer> coveredOlderReports(int selected, List<Integer> older,
+            Function<Integer, MessageHandler> handlers) {
+        if (older.isEmpty()) return older;
+        MessageHandler handler = handlers.apply(selected);
+        if (handler == null) throw new IllegalStateException("Selected source is unreadable");
+        if (!(handler instanceof CMLHandler cml)) return older;
+        Map<String, Observation> reviewed = winners(observations(selected, cml));
+        List<Integer> covered = new ArrayList<>();
+        for (int report : older) {
+            if (!(handlers.apply(report) instanceof CMLHandler previous)) {
+                throw new AmbiguousRevision("CML source membership requires review");
+            }
+            List<Observation> prior = observations(report, previous);
+            boolean complete = !prior.isEmpty() && prior.stream().allMatch(row -> {
+                Observation replacement = reviewed.get(row.key());
+                if (replacement == null) return false;
+                int comparison = rank(replacement, row);
+                return comparison > 0 || comparison == 0 && replacement.signature().equals(row.signature());
+            });
+            if (complete) covered.add(report);
+        }
+        return covered;
     }
 
     public static List<Integer> order(Map<Integer, CMLHandler> reports) {

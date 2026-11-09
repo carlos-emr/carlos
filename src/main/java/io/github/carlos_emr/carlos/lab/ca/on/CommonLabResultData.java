@@ -54,6 +54,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.db.ArchiveDeletedRecords;
 import io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData;
 import io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionChain;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.upload.ProviderLabRouting;
 import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.PathnetResultsData;
 import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
@@ -434,7 +435,7 @@ public class CommonLabResultData {
     }
 
     /**
-     * Acknowledges one lab report and files every OLDER version of the same lab.
+     * Acknowledges one lab report and files eligible OLDER versions of the same lab.
      *
      * <p>Labs arrive as a chain of versions that share an accession number (preliminary, final,
      * corrected). The inbox collapses that chain to a single row for the newest version, so
@@ -443,6 +444,9 @@ public class CommonLabResultData {
      * lab looks like it was never acknowledged. Filing the older versions is what actually
      * clears the item from the inbox, and BOTH acknowledge paths (the Acknowledge button and a
      * lab macro) must do it, or they disagree about what an acknowledgement means.
+     *
+     * <p>For CML, only older reports whose observations are fully covered by the reviewed
+     * report can be filed automatically. Omitted observations keep their source NEW.
      *
      * <p>Newer versions are deliberately left alone. A corrected result that arrived after this
      * one is a NEW clinical fact and has to stay in the inbox until somebody reads it.
@@ -461,7 +465,7 @@ public class CommonLabResultData {
     }
 
     /**
-     * Applies {@code status} to one lab report and files every OLDER version of the same lab.
+     * Applies {@code status} to one lab report and files eligible OLDER versions of the same lab.
      *
      * <p>Splitting this out from {@link #acknowledgeReport} keeps the status-update endpoint's
      * long-standing behaviour intact: it filed the preceding versions for whatever status it
@@ -549,8 +553,9 @@ public class CommonLabResultData {
      *
      * <p>For labs the chain is ALWAYS derived server side from the accession number and the
      * posted {@code multiID} is ignored. That is the same source the view used to build
-     * {@code multiID}, so the result is identical for an honest client — but a forged or stale
-     * chain can no longer name unrelated labs and have them filed. A chain is not a hint here;
+     * {@code multiID}. For CML, the result is further restricted to reports whose observations
+     * are completely covered by the selected source. A forged or stale client
+     * chain cannot name unrelated labs and have them filed. A chain is not a hint here;
      * every id in it becomes a write to another lab's routing row.
      *
      * <p>The shared lookup also supports MDS, CML and BC PathNet. Documents and HRM reports
@@ -561,10 +566,13 @@ public class CommonLabResultData {
      * <p>Exact type match, not a case-insensitive one: the routing rows are looked up by this
      * same lab_type string, so accepting a spelling the lookup would miss buys nothing.
      */
-    static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
+    public static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
         String chain = labType == null ? null
                 : new CommonLabResultData().getMatchingLabsForWrite(String.valueOf(labNo), labType);
-        return LabVersionChain.olderThan(labNo, chain);
+        List<Integer> older = LabVersionChain.olderThan(labNo, chain);
+        return "HL7".equals(labType)
+                ? io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.coveredOlderReports(labNo, older,
+                        id -> Factory.getHandler(Integer.toString(id))) : older;
     }
 
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType) {
