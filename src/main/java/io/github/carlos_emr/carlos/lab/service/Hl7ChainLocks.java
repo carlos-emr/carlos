@@ -45,6 +45,21 @@ public final class Hl7ChainLocks {
                 | Integer.MIN_VALUE;
     }
 
+    /** Acquire a batch's coordination keys in one order, before any clinical row locks. */
+    public static void lockReports(java.util.Collection<Integer> reports) {
+        java.util.Set<Integer> keys = new java.util.TreeSet<>();
+        for (int report : reports) {
+            var message = SpringUtils.getBean(Hl7TextMessageDao.class).find(report);
+            var info = SpringUtils.getBean(Hl7TextInfoDao.class).findByLabId(report);
+            if (message == null && info.isEmpty()) continue; // An orphan cannot be changed by source ingestion.
+            if (message == null || info.size() != 1) throw new IllegalArgumentException("Source report is unavailable");
+            String accession = info.getFirst().getAccessionNumber();
+            if ("CLS".equals(message.getType())) keys.add(key("CLS", "*"));
+            else if (accession != null && !accession.isBlank()) keys.add(key(message.getType(), accession.trim()));
+        }
+        keys.forEach(Hl7ChainLocks::acquire);
+    }
+
     public static void lockReport(int report) {
         var message = SpringUtils.getBean(Hl7TextMessageDao.class).find(report);
         var info = SpringUtils.getBean(Hl7TextInfoDao.class).findByLabId(report);

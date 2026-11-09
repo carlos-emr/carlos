@@ -113,7 +113,7 @@ public class Hl7textResultsData {
      * @param observationDate the handler's formatted timestamp, may be null
      * @return the parsed instant, or {@code null} when no supported layout matches
      */
-    static Date parseObservationDate(String observationDate) {
+    public static Date parseObservationDate(String observationDate) {
         if (observationDate == null) {
             return null;
         }
@@ -131,19 +131,13 @@ public class Hl7textResultsData {
         return null;
     }
 
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Preserve the configured clinical extraction filter's existing server-locale matching semantics; project matches back to original source text")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        Calendar calender = Calendar.getInstance();
-        String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
-        String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
-        String year = Integer.toString(calender.get(Calendar.YEAR));
-        String hour = Integer.toString(calender.get(Calendar.HOUR_OF_DAY));
-        String min = Integer.toString(calender.get(Calendar.MINUTE));
-        String second = Integer.toString(calender.get(Calendar.SECOND));
-        String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
-
+        if (h instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler) {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.CmlProjectionService.class)
+                    .reconcile(Integer.parseInt(lab_no), Integer.parseInt(demographic_no));
+            return;
+        }
         //Check for other versions of this lab
         String[] matchingLabs = getMatchingLabs(lab_no).split(",");
         //if this lab is the latest version delete the measurements from the previous version and add the new ones
@@ -165,15 +159,28 @@ public class Hl7textResultsData {
             measurementsDeletedDao.batchPersistAtomically(measurementsDeletedList);
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
-        // loop through the measurements for the lab and add them
+        projectMeasurements(lab_no, demographic_no, (obr, obx) -> true);
+    }
+
+    /** Writes only the source observations selected by the caller's transactional reconciliation. */
+    public static void projectMeasurements(String lab_no, String demographic_no,
+            java.util.function.BiPredicate<Integer, Integer> selected) {
+        MessageHandler h = Factory.getHandler(lab_no);
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        Calendar calender = Calendar.getInstance();
+        String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
+        String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
+        String year = Integer.toString(calender.get(Calendar.YEAR));
+        String hour = Integer.toString(calender.get(Calendar.HOUR_OF_DAY));
+        String min = Integer.toString(calender.get(Calendar.MINUTE));
+        String second = Integer.toString(calender.get(Calendar.SECOND));
+        String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
 
         /*
          * find a regex filter in properties -or- set default to find everything
          * This OSCAR property determines what is allowed to be written to the measurements
          * table.  No more entire PDF documents written into measurements.
          */
-        String patternstring = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
-        Pattern pattern = Pattern.compile(patternstring);
 
         /*
          * Setting in OSCAR properties that toggles if a code
@@ -185,7 +192,7 @@ public class Hl7textResultsData {
         List<MeasurementsExt> measurementsExts = new ArrayList<>();
         for (int i = 0; i < h.getOBRCount(); i++) {
             for (int j = 0; j < h.getOBXCount(i); j++) {
-
+                if (!selected.test(i, j)) continue;
                 String result = h.getOBXResult(i, j);
 
                 if (result == null) {
@@ -258,43 +265,9 @@ public class Hl7textResultsData {
                 }
 
 
-                /*
-                 * Trim and remove HTML
-                 */
-                String trimmed = StringUtils.trimToEmpty(result);
-                // Trim again once the markers are gone: a result such as "<br /> -5.2" (handlers turn \.br\ into
-                // <br />) would otherwise reach the filter with a leading space and be filed with it, or, for a word
-                // result such as "<br />negative", not at all.
-                trimmed = StringUtils.trimToEmpty(trimmed.replaceAll("\\<br\\s?/?\\>", ""));
-                // Preserve the configured filter's existing matching semantics on a lowercase
-                // shadow; project its boundaries back to the unchanged clinical literal.
-                Locale filterLocale = Locale.getDefault();
-                String shadow = trimmed.toLowerCase(filterLocale);
-                Matcher matcher = pattern.matcher(shadow);
-                Measurement m = new Measurement();
-
-                if (matcher.find()) {
-                    // The match, not the whole result, is the value filed: the filter both selects and extracts.
-                    int start = originalBoundary(trimmed, shadow, matcher.start(), filterLocale);
-                    int end = originalBoundary(trimmed, shadow, matcher.end(), filterLocale);
-                    if (start < 0 || end < 0) {
-                        logger.warn("HL7 measurement filter splits a case-mapped character; not filing an ambiguous literal (lab {}, OBX {}-{})",
-                                LogSafe.sanitize(lab_no), i, j);
-                        continue;
-                    }
-                    String value = trimmed.substring(start, end);
-                    // measurements.dataField holds 255 characters. The packaged install (MariaDB sql_mode="", and
-                    // jdbcCompliantTruncation=false in the JDBC URL) would cut a longer value to fit without an error,
-                    // and a strict server would roll back the whole lab. The lab report keeps the full result, so such
-                    // a value is left out of measurements rather than filed as something the lab did not send (#4613).
-                    // Counted in code points: the utf8mb4 column counts characters, not UTF-16 units.
-                    int characters = value.codePointCount(0, value.length());
-                    if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
-                        logger.warn("A result of {} characters matched HL7_LAB_MEASUREMENT_FILTER but is longer than a"
-                                + " measurement holds; not filed as a measurement (lab {}, OBX {}-{})",
-                                characters, LogSafe.sanitize(lab_no), i, j);
-                        continue;
-                    }
+                String value = projectableValue(result, lab_no, i, j);
+                if (value != null) {
+                    Measurement m = new Measurement();
                     m.setType(measType);
                     m.setDemographicId(Integer.parseInt(demographic_no));
                     m.setProviderNo("0");
@@ -437,6 +410,40 @@ public class Hl7textResultsData {
         measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
     }
 
+    /** The unchanged configured extraction policy, shared with projection validation and repair. */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Preserve the existing server-locale filter semantics and original clinical literal")
+    public static String projectableValue(String result) {
+        return projectableValue(result, null);
+    }
+
+    public static String projectableValue(String result, String lab, int obr, int obx) {
+        return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
+    }
+
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Preserve the existing server-locale extraction policy")
+    private static String projectableValue(String result, String context) {
+        if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
+        String trimmed = StringUtils.trimToEmpty(result).replaceAll("\\<br\\s?/?\\>", "").trim();
+        Locale locale = Locale.getDefault();
+        String shadow = trimmed.toLowerCase(locale);
+        Matcher match = Pattern.compile(CarlosProperties.getInstance()
+                .getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*")).matcher(shadow);
+        if (!match.find()) return null;
+        int start = originalBoundary(trimmed, shadow, match.start(), locale);
+        int end = originalBoundary(trimmed, shadow, match.end(), locale);
+        if (start < 0 || end < 0) {
+            if (context != null) logger.warn("HL7 measurement filter splits a case-mapped character; not filing an ambiguous literal ({})", context);
+            return null;
+        }
+        String value = trimmed.substring(start, end);
+        int characters = value.codePointCount(0, value.length());
+        if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+            if (context != null) logger.warn("A result of {} characters matched HL7_LAB_MEASUREMENT_FILTER but is longer than a measurement holds; original remains in the source report ({})", characters, context);
+            return null;
+        }
+        return value;
+    }
+
     /** Map a lowercase-shadow boundary without cutting a source character in half. */
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Use the same server locale as the original extraction filter solely to map source-text boundaries")
     private static int originalBoundary(String source, String shadow, int boundary, Locale locale) {
@@ -535,6 +542,22 @@ public class Hl7textResultsData {
             }
         }
 
+        if (hl7Msg != null && "CML".equals(hl7Msg.getType())) {
+            var selected = Factory.getHandler(lab_no);
+            var reports = new java.util.LinkedHashMap<Integer, io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler>();
+            for (String id : (ret.isEmpty() ? lab_no : ret).split(",")) {
+                var message = hl7TxtMsgDao.find(Integer.parseInt(id));
+                var candidate = Factory.getHandler(id);
+                if (message != null && "CML".equals(message.getType())
+                        && candidate instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cml
+                        && io.github.carlos_emr.carlos.lab.service.CmlProjectionService.sameSourcePatient(selected, cml)) {
+                    reports.put(Integer.parseInt(id), cml);
+                }
+            }
+            if (!reports.containsKey(Integer.parseInt(lab_no))) throw new IllegalStateException("CML chain identity is unavailable");
+            return io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.order(reports).stream()
+                    .map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        }
         if (ret.equals("")) return (lab_no);
         else return (ret);
     }

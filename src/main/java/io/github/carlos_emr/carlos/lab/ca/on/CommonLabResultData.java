@@ -826,7 +826,11 @@ public class CommonLabResultData {
                 }
             }
         }
-        if (!existing && labIds.length > 0) {
+        if (labIds.length > 0 && io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory
+                .getHandler(labIds[labIds.length - 1]) instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler) {
+            SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.CmlProjectionService.class)
+                    .reconcile(Integer.parseInt(labIds[labIds.length - 1]), patient);
+        } else if (!existing && labIds.length > 0) {
             populateMeasurementsTable(labIds[labIds.length - 1], demographicNo, labType);
         }
     }

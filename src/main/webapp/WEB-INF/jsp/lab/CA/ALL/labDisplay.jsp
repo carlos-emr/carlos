@@ -391,6 +391,18 @@ if (isLinkedToDemographic && StringUtils.isNumeric(segmentID) && Integer.parseIn
     }
 }
 
+if (handler instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler && isLinkedToDemographic) {
+    try {
+        io.github.carlos_emr.carlos.lab.service.CmlProjectionService.Summary projection = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.CmlProjectionService.class)
+                .status(Integer.parseInt(segmentID), loggedInInfo);
+        request.setAttribute("cmlProjectionReview", projection.isReviewNeeded() || projection.isChangeNeeded());
+        request.setAttribute("cmlProjectionSpansReports", projection.isSpansReports());
+    } catch (RuntimeException unavailableProjection) {
+        MiscUtils.getLogger().warn("CML projection status unavailable: {}", unavailableProjection.getClass().getSimpleName());
+        response.setStatus(500); request.setAttribute("cmlProjectionReview", Boolean.TRUE);
+    }
+}
+
 /********************** Converted to this sport *****************************/
 
 Integer demoI = 0;
@@ -1069,6 +1081,8 @@ input[id^='acklabel_']{
 </head>
 
 <body onLoad="javascript:matchMe(); loadHL7hx();">
+<c:if test="${cmlProjectionReview}"><p role="alert" id="cmlProjectionReview"><fmt:message key="clinical.cml.review"/></p></c:if>
+<c:if test="${cmlProjectionSpansReports}"><p role="status"><fmt:message key="clinical.cml.spansReports"/></p></c:if>
 
 <!-- form forwarding of the lab -->
 <%

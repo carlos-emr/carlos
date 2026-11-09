@@ -199,6 +199,34 @@ public class CMLHandler implements MessageHandler {
         }
     }
 
+    /** Stable observation identity: panel/code namespaces and OBX-4, never row position or result text. */
+    public String getProjectionKey(int obrIndex, int obxIndex) {
+        try {
+            Segment obr = msg.getRESPONSE().getORDER_OBSERVATION(obrIndex).getOBR();
+            Segment obx = getOBXSegment(obrIndex, obxIndex);
+            String code = getOBXIdentifier(obrIndex, obxIndex);
+            if (code.isBlank()) throw new IllegalStateException("CML observation identifier is missing");
+            return io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.pack(
+                    Terser.get(obr, 4, 0, 1, 1), Terser.get(obr, 4, 0, 3, 1), code,
+                    Terser.get(obx, 3, 0, 3, 1), obx.getField(4, 0).encode());
+        } catch (Exception failure) {
+            throw new IllegalStateException("CML observation identity is unreadable", failure);
+        }
+    }
+
+    /** Source revision time; a transport/replay MSH time is deliberately not a revision. */
+    public String getRevisionTimestamp(int obrIndex, int obxIndex) {
+        try {
+            Segment obr = msg.getRESPONSE().getORDER_OBSERVATION(obrIndex).getOBR();
+            String revision = Terser.get(obr, 22, 0, 1, 1);
+            if (revision != null && !revision.isBlank()) return revision;
+            String observation = Terser.get(getOBXSegment(obrIndex, obxIndex), 14, 0, 1, 1);
+            return observation == null || observation.isBlank() ? Terser.get(obr, 7, 0, 1, 1) : observation;
+        } catch (Exception failure) {
+            throw new IllegalStateException("CML revision time is unreadable", failure);
+        }
+    }
+
     @Override
     public String getOBXValueType(int i, int j){
         try{
@@ -273,7 +301,7 @@ public class CMLHandler implements MessageHandler {
         for (int i=0; i < obrCount; i++){
             obxCount = getOBXCount(i);
             for (int j=0; j < obxCount; j++){
-                if (getOBXResultStatus(i, j).equals("Final"))
+                if (getOBXResultStatus(i, j).equals("Final") || getOBXResultStatus(i, j).equals("C"))
                     count++;
             }
         }

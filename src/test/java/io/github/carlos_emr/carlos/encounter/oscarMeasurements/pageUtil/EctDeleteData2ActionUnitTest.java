@@ -88,6 +88,9 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
     private MockHttpServletRequest request;
     private MockHttpServletResponse response;
 
+    private final io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService deletion =
+            mock(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class);
+
     @BeforeEach
     void setUp() {
         servletActionContextMock = mockStatic(ServletActionContext.class);
@@ -100,6 +103,7 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, securityInfoManager);
         registerMock(MeasurementDao.class, measurementDao);
         registerMock(MeasurementsDeletedDao.class, measurementsDeletedDao);
+        registerMock(io.github.carlos_emr.carlos.lab.service.ClinicalMeasurementDeletionService.class, deletion);
         action = new EctDeleteData2Action();
     }
 
@@ -209,8 +213,7 @@ class EctDeleteData2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(EctDeleteData2Action.SUCCESS);
         assertThat(response.getRedirectedUrl()).isNull();
         assertThat(response.getStatus()).isEqualTo(200);
-        verify(measurementsDeletedDao).persist(any(MeasurementsDeleted.class));
-        verify(measurementDao).remove((Object) Integer.valueOf(5));
+        verify(deletion).delete(eq(java.util.List.of(5)), eq("111"), nullable(LoggedInInfo.class));
     }
 
     @Test

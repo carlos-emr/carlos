@@ -49,17 +49,39 @@ public final class Hl7SourceResults {
                 seen.add(version);
                 if (visible.contains(version)) current = version;
             }
-            MessageHandler handler = handlers.apply(current);
-            if (handler == null) throw new IllegalStateException("Source observations are unavailable");
+            Map<String, MessageHandler> selected = new java.util.LinkedHashMap<>();
+            Map<String, java.util.Set<String>> selectedRows = new java.util.HashMap<>();
+            MessageHandler currentHandler = handlers.apply(current);
+            if (currentHandler instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler) {
+                var candidates = new ArrayList<io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.Observation>();
+                for (String version : versions) {
+                    if (!visible.contains(version)) continue;
+                    MessageHandler candidate = handlers.apply(version);
+                    if (!(candidate instanceof io.github.carlos_emr.carlos.lab.ca.all.parsers.CMLHandler cml)) {
+                        throw new IllegalStateException("CML source observations are unavailable");
+                    }
+                    selected.put(version, candidate);
+                    selectedRows.put(version, new java.util.HashSet<>());
+                    candidates.addAll(io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.observations(Integer.parseInt(version), cml));
+                }
+                for (var row : io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.winners(candidates).values()) {
+                    if (!row.withdrawn()) selectedRows.get(Integer.toString(row.report())).add(row.obr() + "-" + row.obx());
+                }
+            } else selected.put(current, currentHandler);
+            for (var entry : selected.entrySet()) {
+                String selectedReport = entry.getKey();
+                MessageHandler handler = entry.getValue();
+                if (handler == null) throw new IllegalStateException("Source observations are unavailable");
             for (int obr = 0; obr < handler.getOBRCount(); obr++) {
                 for (int obx = 0; obx < handler.getOBXCount(obr); obx++) {
+                    if (selectedRows.containsKey(selectedReport) && !selectedRows.get(selectedReport).contains(obr + "-" + obx)) continue;
                     String status = handler.getOBXResultStatus(obr, obx);
                     if ("DNS".equals(status) || "P".equals(status) || "Pending".equals(status)
                             || handler.isTestResultBlocked(obr, obx)) continue;
                     String result = handler.getOBXResult(obr, obx);
                     if (result == null || result.isEmpty() || "DNR".equals(result)) continue;
                     Map<String, Serializable> row = new HashMap<>();
-                    row.put("lab_no", current);
+                    row.put("lab_no", selectedReport);
                     row.put("identifier", handler.getOBXIdentifier(obr, obx));
                     row.put("testName", handler.getOBXName(obr, obx));
                     row.put("result", result);
@@ -71,6 +93,7 @@ public final class Hl7SourceResults {
                     observations.add(row);
                 }
             }
+        }
         }
         return observations;
     }
