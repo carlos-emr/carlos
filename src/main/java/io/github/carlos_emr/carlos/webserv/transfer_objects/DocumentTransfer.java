@@ -34,18 +34,15 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public final class DocumentTransfer {
-    private static Logger logger = MiscUtils.getLogger();
 
     private Integer documentNo;
     private String doctype;
@@ -300,6 +297,10 @@ public final class DocumentTransfer {
             justification = "Spring BeanUtils.copyProperties copies fixed JavaBean descriptors between " +
                     "known CARLOS types; no user-controlled property name reaches the sink")
     public static DocumentTransfer toTransfer(Document document, CtlDocument ctlDocument) throws IOException {
+        return toTransfer(document, ctlDocument, true);
+    }
+
+    private static DocumentTransfer toTransfer(Document document, CtlDocument ctlDocument, boolean inline) throws IOException {
         if (document == null) return (null);
         requireLegacyProjection(document);
 
@@ -313,12 +314,13 @@ public final class DocumentTransfer {
             documentTransfer.setCtlStatus(ctlDocument.getStatus());
         }
 
-        documentTransfer.setFileContents(document.getDocumentFileContentsAsBytes());
+        if (inline) documentTransfer.setFileContents(document.getDocumentFileContentsAsBytes());
 
         return (documentTransfer);
     }
 
     public static DocumentTransfer[] getTransfers(LoggedInInfo loggedInInfo, List<Document> documents) {
+        boolean inline = io.github.carlos_emr.carlos.webserv.DocumentListProfile.current().inline();
         // Refuse the whole selected page before allocating any file byte arrays.
         for (Document document:documents) requireLegacyProjection(document);
         DocumentManager documentManager = SpringUtils.getBean(DocumentManager.class);
@@ -328,10 +330,12 @@ public final class DocumentTransfer {
         for (Document document : documents) {
             try {
                 CtlDocument ctlDocument = documentManager.getCtlDocumentByDocumentId(loggedInInfo, document.getId());
-                DocumentTransfer transfer = DocumentTransfer.toTransfer(document, ctlDocument);
+                DocumentTransfer transfer = DocumentTransfer.toTransfer(document, ctlDocument, inline);
                 results.add(transfer);
             } catch (IOException e) {
-                logger.error("Unexpected error", e);
+                // An unreadable item must never disappear from an apparently complete page.
+                throw new org.apache.cxf.binding.soap.SoapFault("Document content could not be read",
+                        org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_SERVER);
             }
         }
 
