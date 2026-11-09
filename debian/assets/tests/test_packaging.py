@@ -153,6 +153,7 @@ class TestTheCarlosCtlPin(unittest.TestCase):
         self.assertRegex(tag or "", r"^\d+\.\d+\.\d+(-[A-Za-z0-9.]+)?$")
 
     def test_fallback_names_one_full_commit(self):
+        """Require the immutable CLI source commit used by installed CI."""
         # a branch name would move under the job; a short id is ambiguous
         fallback = self._fields().get("fallback")
         self.assertRegex(fallback or "", r"^[0-9a-f]{40}$")
