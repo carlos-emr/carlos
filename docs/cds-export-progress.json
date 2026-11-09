@@ -1,6 +1,6 @@
 {
   "formatVersion": 2,
-  "status": "DRAFT_CURRENT_CANDIDATE_VALIDATION_IN_PROGRESS",
+  "status": "IMPLEMENTED_FINAL_PAIR_VERIFICATION",
   "scope": "OntarioMD CDS export alongside the modern importer, shared application service for CLI and asynchronous browser jobs",
   "engineRegistered": true,
   "advertisedProfiles": [
@@ -13,7 +13,7 @@
   "currentCandidate": {
     "applicationBranch": "codex/cds-export",
     "developBase": "497896230576b492284b1c29efa77f4c4a2409ea",
-    "cliCommit": "9bd1a88d605c654243a55359adedb4d41c0e062e",
+    "cliCommit": "cdc1302ca58df9b5de9f25a6e92b808fa95882ea",
     "cliMergedMain": "84adfc5c237d4a536300a9d7e74e19599df23dcc",
     "applicationPublishedBillingCompatibility": "d40d2939afde9bea460b232fe78976b2820698ca",
     "unpublishedCliVersion": "1.3.3",
@@ -97,10 +97,10 @@
       },
       "effectiveRuntimeContract": "The CLI bootstrap sets its Java default zone to the configured clinical zone and uses a minimal C.UTF-8 locale. The owned Tomcat matches both; strict runtime compatibility equality remains mandatory.",
       "latestPassingCheckpoint": {
-        "head": "ce2aa735d2f3fb84045cdd69dbcec88e8ce2eb31",
-        "workflowRun": 42549472160,
+        "head": "a40178c7141fb72ac03c403cfe315ed8d7680933",
+        "workflowRun": 42555710037,
         "status": "PASSED",
-        "warSha256": "f9ff6661fdc7146eecd362d077597ce441ce8b1d4468c4fb2bdde19294610fba",
+        "warSha256": "b6fcfd3dc9b865dc384646f1dd69e770835fbe16e4c57964e6ea671ced6a6ec5",
         "cliCommit": "9bd1a88d605c654243a55359adedb4d41c0e062e",
         "bothTransportsReady": true,
         "cliAndBrowserCompatibilityEqual": true,
@@ -135,8 +135,8 @@
     },
     "reviewedInventorySuites": 305,
     "latestCoordinatedCheckpoint": {
-      "head": "ce2aa735d2f3fb84045cdd69dbcec88e8ce2eb31",
-      "workflowRun": 42549472000,
+      "head": "a40178c7141fb72ac03c403cfe315ed8d7680933",
+      "workflowRun": 42555709975,
       "tests": 3909,
       "suites": 305,
       "failures": 0,
@@ -163,12 +163,12 @@
       "status": "EXPLICITLY_USER_AUTHORIZED",
       "commentId": 6728500525,
       "commentUrl": "https://github.com/carlos-emr/carlos/pull/5706#issuecomment-6728500525",
-      "latestVerifiedPassingHead": "ce2aa735d2f3fb84045cdd69dbcec88e8ce2eb31",
+      "latestVerifiedPassingHead": "a40178c7141fb72ac03c403cfe315ed8d7680933",
       "finalHeadConfirmationRequired": true
     },
     "latestResourceCheckpoint": {
-      "head": "ce2aa735d2f3fb84045cdd69dbcec88e8ce2eb31",
-      "workflowRun": 42549472110,
+      "head": "a40178c7141fb72ac03c403cfe315ed8d7680933",
+      "workflowRun": 42555710062,
       "profiles": {
         "scaling": "PASSED",
         "aggregate20": "PASSED",
@@ -181,8 +181,8 @@
       "exportQualificationSubstituted": false
     },
     "latestFullJavaCheckpoint": {
-      "head": "ce2aa735d2f3fb84045cdd69dbcec88e8ce2eb31",
-      "workflowRun": 42549472262,
+      "head": "a40178c7141fb72ac03c403cfe315ed8d7680933",
+      "workflowRun": 42555709983,
       "tests": 39371,
       "reports": 3008,
       "errors": 0,
@@ -201,8 +201,8 @@
       "codeFactorSourceMismatch": "The critical annotation still reports the old main at lines29-478. Those exact annotations are replayed on three different source revisions; the current helper main has independently measured Python cyclomatic complexity59.",
       "originalAppRefreshAttempt": "Both official check-run and check-suite re-request endpoints refused the scoped CI identity with HTTP403 and quota remaining. No check conclusions or source guards were changed.",
       "sonarLatestCheckpoint": {
-        "head": "ce2aa735d2f3fb84045cdd69dbcec88e8ce2eb31",
-        "workflowRun": 42549472097,
+        "head": "a40178c7141fb72ac03c403cfe315ed8d7680933",
+        "workflowRun": 42555710080,
         "jobPassed": true,
         "completeAfterAnalysisReport": true,
         "findings": 5403,
@@ -219,11 +219,19 @@
         "annotations": 16279,
         "annotationsSha256": "bcf1e55dc066e095f4eca0fe0bbfa9e15871fe363fd7a53b32e211c7b990737e",
         "criticalStillObsolete": "Complexity128 at lines29-478, while the current main is at170-508 and independently measured CC59"
+      },
+      "semgrepLatestCheckpoint": {
+        "head": "a40178c7141fb72ac03c403cfe315ed8d7680933",
+        "workflowRun": 42555710143,
+        "status": "PASSED",
+        "fullCloudAndCustomRulesCompleted": true,
+        "findingsPolicyUnchanged": true,
+        "executionErrorsAndAbsentSarifFail": true
       }
     },
     "exportByteResourceQualification": {
       "workflow": ".github/workflows/cds-export-resources.yml",
-      "status": "PENDING_EXACT_WAR_CI_AFTER_RUNNER_STORAGE_FIX",
+      "status": "PASSED_CHECKPOINT_FINAL_PAIR_PIN_VERIFICATION_PENDING",
       "scope": "Export byte layer only; separate from clinical readiness, query scaling and installed CLI/browser qualification",
       "heapMiB": 256,
       "peakRssBudgetMiB": 1024,
@@ -248,7 +256,18 @@
       "separateStreamingCmsRecipientRequired": true,
       "localStreamingRecipientAndTagOnlyMutationRefusalPassed": true,
       "resourceEvidenceGuardTests": 10,
-      "externalSizeAndMissingEvidenceGuardsRequired": true
+      "externalSizeAndMissingEvidenceGuardsRequired": true,
+      "head": "a40178c7141fb72ac03c403cfe315ed8d7680933",
+      "workflowRun": 42555710098,
+      "largestChildPeakRssBytes": 346894336,
+      "elapsedSeconds": 1618.269,
+      "largeWarSha256": "68b91bda2521cb6c6ff7f5ca8bf1e9b9cc64c7f0d1166c08173f5d3c8b6665c9",
+      "independentRecipientVerified": true,
+      "streamingCmsParser": true,
+      "openSslInteroperabilityVerified": true,
+      "installedFilesVerifiedBeforeAndAfter": 10328,
+      "diskWorkflowPassed": true,
+      "diskWarSha256": "49bd520bd73ae31929adff6109630b4c80314cff33eef340ab78833b46458348"
     },
     "ciPostflight": {
       "prescriptionPreviewFixtures": "Capture and invoke the actual registered load handler; retain note and signature-state assertions and unrelated-load refusal",
@@ -257,7 +276,25 @@
       "reason": "The current 20-minute cancellation prevented scanner completion and subsequent custom-rule/upload steps",
       "companionPrReadyForReview": true,
       "unpublishedCliReleaseRemainsUnpublished": true,
-      "semgrepExecutionErrorsAndAbsentEvidenceFail": true
+      "semgrepExecutionErrorsAndAbsentEvidenceFail": true,
+      "cliOrphanDelegationCleanupAdded": true,
+      "cliPinAlignedWithCleanupAndHelpFix": true
+    },
+    "cliPostReview": {
+      "cleanupCommit": "e141d0cb2e6a446e0d11c96e6d812d76fe84b4fb",
+      "cleanupWorkflowRun": 42559027155,
+      "hostedPythonDebianInstalledRootAndManPagePassed": true,
+      "finalHelpCommit": "cdc1302ca58df9b5de9f25a6e92b808fa95882ea",
+      "finalHelpWorkflowRun": 42560385901,
+      "finalHelpCiPendingAtSourceCheckpoint": true,
+      "sameTenMinuteExpiryRuleForImportAndExport": true,
+      "cleanupDoesNotCreateApplicationIdentities": true,
+      "freshTicketsAndUnrelatedFilesRetained": true,
+      "operatorUidAndProtocolAsserted": true,
+      "localPairedUnitTests": 2017,
+      "localPairedOptionalEnvironmentSkips": 107,
+      "onlyCurrentStandaloneDataExportedIntoDisposableCopy": true,
+      "pinnedRuntimeAndTestsUnchangedByDataExport": true
     }
   },
   "verifiedClinicalCheckpoint": {
@@ -302,9 +339,9 @@
     "Any missing clinical authorization, changed accepted policy or incompatible runtime"
   ],
   "remaining": [
-    "Complete exact-head CI after the test/CI-only postflight changes, including the new export byte-resource workflow and full Semgrep scan",
-    "Confirm fresh external CodeFactor source analysis instead of the obsolete critical annotation",
-    "Keep the current-head DCO confirmation, evidence scopes and PR readiness aligned with completed checks"
+    "Complete the final paired-pin CI and independent review; all application runtime, native, installed clinical, export byte-resource, importer resource and scanner workflows passed at a40178c7",
+    "Obtain fresh CodeFactor source analysis for the obsolete critical annotation; both available original-app refresh endpoints returned HTTP403",
+    "Keep final-head DCO, PR readiness and evidence scopes aligned; CLI1.3.3 remains unpublished"
   ],
   "deploymentObligations": [
     "Establish usable complete historical patient audit access for the approved recipient",

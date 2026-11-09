@@ -110,7 +110,15 @@ External proof checks reject small rehearsals, absent counters, ordinary ZIP
 counts, unconfirmed disk cleanup and failed recipient authentication. The initial
 CI attempt stopped before resource execution because Maven created a root-owned
 output directory; fixtures now use the runner-owned temporary root. The actual
-large run remains pending at this source checkpoint. The final test fixtures capture the real prescription-preview
+large run passed at `a40178c7`: 21,475,164,160 aggregate bytes, 4,295,032,832-byte
+entries, 65,537-entry ZIP64 and verified streaming recipient decryption, with a
+256 MiB heap and a measured largest-child RSS of 346,894,336 bytes. Both export
+resource jobs verified all 10,328 installed files before and after. The same
+head passed all 3,909 native checks, the complete 39,371-test Java workflow, all
+five importer resource profiles, installed clinical CLI/browser proof, SonarCloud
+and the full Semgrep workflow. The final CLI pin includes the matching ten-minute
+import/export orphan-ticket cleanup and the clarified package artifact identifier;
+its paired-pin checks remain authoritative. The final test fixtures capture the real prescription-preview
 listener, and Semgrep's 120-minute budget preserves its full scan and custom-rule
 steps. Scanner execution errors or absent SARIF now fail explicitly while the
 existing non-blocking findings policy stays intact. Current-head checks remain authoritative. CodeFactor still reports an
@@ -126,7 +134,12 @@ removal of `_admin` authority and must be revoked separately when intended.
 The maintainer DCO attestation was also explicitly approved; its PR comment and
 check must match the final head. There is no outstanding permission decision.
 
-The paired CLI at `9bd1a88d` passed its unit, installed MariaDB and Debian checks.
+The paired CLI checkpoints passed their unit, installed MariaDB and Debian checks.
+The final unpublished CLI pin is `cdc1302c`; its cleanup follow-up at `e141d0cb`
+passed Python3.12/3.14, Debian/lintian, installed root identity/expiry and man-page
+checks. A disposable current-schema test copy passed all 2,017 CLI tests with
+107 optional-environment skips, while verifying unchanged pinned runtime code
+and tests outside the supported standalone-data export.
 It incorporates the published manifest-format-2/ETL-4 billing contract and retains
 its filename/audit safeguards. Version 1.3.3 remains unpublished. Final candidate
 Java, security, installed resource and complete clinical workflow results remain
