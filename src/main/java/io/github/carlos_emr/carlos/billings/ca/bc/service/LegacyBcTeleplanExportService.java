@@ -182,7 +182,7 @@ public class LegacyBcTeleplanExportService {
         Number max = (Number) entityManager.createNativeQuery("SELECT MAX(batchcount) FROM billactivity "
                         + "WHERE monthCode=?1 AND groupno=?2 AND updatedatetime >= ?3")
                 .setParameter(1, month).setParameter(2, group)
-                .setParameter(3, java.sql.Date.valueOf(LocalDate.now().withDayOfYear(1))).getSingleResult();
+                .setParameter(3, java.sql.Date.valueOf(LocalDate.now(java.time.ZoneId.systemDefault()).withDayOfYear(1))).getSingleResult();
         return max == null ? 1 : Math.addExact(max.intValue(), 1);
     }
 

@@ -129,7 +129,7 @@ public class WcbSb {
     private void fillWithRs(Wcb w) { fillWithRs(w, null); }
 
     private void fillWithRs(Wcb w, String masterNo) {
-        this.bill_amount = w.getBillAmount();
+        this.bill_amount = ExtractBean.claimAmount(w.getBillAmount()).toPlainString();
         this.visit_type = w.getServiceLocation();
         this.billing_no = masterNo == null ? getBillingMasterNo("" + w.getBillingNo()) : masterNo;
         this.invoice_no = "" + w.getBillingNo();
@@ -182,7 +182,7 @@ public class WcbSb {
         this.w_feeitem = w.getFeeItem();
         this.w_extrafeeitem = w.getExtraFeeItem();
         this.w_servicelocation = w.getServiceLocation();
-        this.billamountforfeeitem1 = w.getBillAmount();
+        this.billamountforfeeitem1 = this.bill_amount;
         this.formNeeded = "" + w.getFormNeeded();
     }
 

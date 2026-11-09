@@ -91,9 +91,7 @@ public class ExtractBean extends Object implements Serializable {
     private String htmlContentHeader = "";
     private String htmlFooter = "";
     private String htmlValue = "";
-    private double dFee;
     private BigDecimal BigTotal = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
-    private BigDecimal bdFee = new BigDecimal(0).setScale(2, BigDecimal.ROUND_HALF_UP);
     private DateRange dateRange = null;
     private String eFlag = "";
     private int vsFlag = 0;
@@ -173,9 +171,7 @@ public class ExtractBean extends Object implements Serializable {
                             setLog(noteLogNo, noteRecordLine);
                         }
 
-                        dFee = bm.getBillAmountAsDouble();
-                        bdFee = new BigDecimal(dFee).setScale(2, BigDecimal.ROUND_HALF_UP);
-                        BigTotal = BigTotal.add(bdFee);
+                        BigTotal = BigTotal.add(claimAmount(bm.getBillAmount()));
 
                         if (isMSPInsurer(bm)) {
                             htmlContent += htmlLine("" + bm.getBillingmasterNo(), invNo, demoName, bm.getPhn(), bm.getServiceDate(),
@@ -218,7 +214,7 @@ public class ExtractBean extends Object implements Serializable {
                         if (!java.util.Objects.equals(form.getFeeItem(), wcbClaim.getBillingCode())) {
                             throw new IllegalStateException("WCB form and claim fee codes do not match");
                         }
-                        if (new BigDecimal(form.getBillAmount()).compareTo(new BigDecimal(wcbClaim.getBillAmount())) != 0) {
+                        if (claimAmount(form.getBillAmount()).compareTo(claimAmount(wcbClaim.getBillAmount())) != 0) {
                             throw new IllegalStateException("WCB form and billing amounts differ");
                         }
                         WcbSb sb = new WcbSb(form, String.valueOf(wcbClaim.getBillingmasterNo()));
@@ -276,7 +272,7 @@ public class ExtractBean extends Object implements Serializable {
                     }
 
                     setAsBilledMaster(String.valueOf(wcbClaim.getBillingmasterNo()));
-                    BigTotal = BigTotal.add(new BigDecimal(wcbClaim.getBillAmount()));
+                    BigTotal = BigTotal.add(claimAmount(wcbClaim.getBillAmount()));
                     recordCount++;
                     /////////////////////////////////////
                 }
@@ -459,6 +455,18 @@ public class ExtractBean extends Object implements Serializable {
         return new BigDecimal(value).setScale(0, java.math.RoundingMode.UP).toPlainString();
     }
 
+    /** Validate decimal dollars before the legacy fixed-width formatter can truncate or mis-scale them. */
+    static BigDecimal claimAmount(String source) {
+        if (source == null || !source.strip().matches("[0-9]+(?:\\.[0-9]*)?")) {
+            throw new IllegalArgumentException("A valid Teleplan claim amount is required");
+        }
+        BigDecimal amount = new BigDecimal(source.strip()).setScale(2, java.math.RoundingMode.UNNECESSARY);
+        if (amount.compareTo(new BigDecimal("99999.99")) > 0) {
+            throw new IllegalArgumentException("Teleplan claim amount exceeds the wire capacity");
+        }
+        return amount;
+    }
+
     public String getClaimDetailRecord(Billingmaster bm, String LogNo) {
         String dataLine = Misc.forwardSpace(bm.getClaimcode(), 3)            //p00   3
                 + Misc.forwardSpace(bm.getDatacenter(), 5)           //p02   5
@@ -474,7 +482,7 @@ public class ExtractBean extends Object implements Serializable {
                 + Misc.forwardSpace(bm.getAfterHour(), 1)           //p24   1
                 + Misc.forwardZero(bm.getNewProgram(), 2)           //p25   2
                 + Misc.forwardZero(bm.getBillingCode(), 5)          //p26   5
-                + Misc.moneyFormatPaddedZeroNoDecimal(bm.getBillAmount(), 7)           //p27   7
+                + Misc.forwardZero(claimAmount(bm.getBillAmount()).movePointRight(2).toBigIntegerExact().toString(), 7)           //p27   7
                 + Misc.forwardZero(bm.getPaymentMode(), 1)         //p28   1
                 + Misc.forwardSpace(bm.getServiceDate(), 8)        //p30   8
                 + Misc.forwardZero(bm.getServiceToDay(), 2)        //p32   2

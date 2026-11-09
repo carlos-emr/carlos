@@ -30,20 +30,31 @@ public class TeleplanExportCoordinator {
                         throw new IllegalStateException("Another Teleplan export is running; retry when it finishes");
                     }
                 }
+            } catch (java.sql.SQLException acquisitionFailure) {
+                try { connection.abort(Runnable::run); }
+                catch (java.sql.SQLException abortFailure) { acquisitionFailure.addSuppressed(abortFailure); }
+                throw acquisitionFailure;
             }
-            try {
+            try (var heldLock = new GenerationLock(connection, lock)) {
                 return operation.call();
-            } finally {
-                // A pool must never receive a physical connection still owning this lock.
-                try (var statement = connection.prepareStatement("SELECT RELEASE_LOCK(?)")) {
-                    statement.setString(1, lock);
-                    try (var rows = statement.executeQuery()) {
-                        if (!rows.next() || rows.getInt(1) != 1) throw new java.sql.SQLException("Teleplan lock release failed");
-                    }
-                } catch (Exception releaseFailure) {
-                    connection.abort(Runnable::run);
-                    throw releaseFailure;
+            }
+        }
+    }
+
+    /** TWR preserves an operation failure and suppresses any lock-release failure on it. */
+    private record GenerationLock(Connection connection, String name) implements AutoCloseable {
+        @Override
+        public void close() throws java.sql.SQLException {
+            try (var statement = connection.prepareStatement("SELECT RELEASE_LOCK(?)")) {
+                statement.setString(1, name);
+                try (var rows = statement.executeQuery()) {
+                    if (!rows.next() || rows.getInt(1) != 1) throw new java.sql.SQLException("Teleplan lock release failed");
                 }
+            } catch (java.sql.SQLException releaseFailure) {
+                // A pool must never receive a physical connection still owning this lock.
+                try { connection.abort(Runnable::run); }
+                catch (java.sql.SQLException abortFailure) { releaseFailure.addSuppressed(abortFailure); }
+                throw releaseFailure;
             }
         }
     }

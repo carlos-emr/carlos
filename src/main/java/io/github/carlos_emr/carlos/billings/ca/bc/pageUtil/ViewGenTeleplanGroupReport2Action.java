@@ -24,9 +24,9 @@ import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Mutation gate for {@code billing/CA/BC/genTeleplanGroupReport.jsp}. The JSP
- * performs {@code billActivityDao.persist()} calls when generating the group
- * report in a scriptlet. Enforces POST-only AND {@code _report} {@code r}
+ * Mutation gate for the legacy BC group export service. The service commits complete
+ * files, activity, logs and claim statuses before forwarding to the activity-list JSP.
+ * Enforces POST-only AND {@code _report} {@code r}
  * privilege (matching the JSP's original {@code security:oscarSec} taglib,
  * which accepts {@code _report}, {@code _admin.reporting}, or {@code _admin}
  * at read level) before forwarding to the JSP. GET requests return 405.
@@ -63,8 +63,8 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
             return NONE;
         }
 
-        // JSP taglib allows _report OR _admin.reporting OR _admin (read). The JSP also performs
-        // billActivityDao.persist(); we keep POST-only for CSRF protection but match the JSP's
+        // The historical JSP allowed _report OR _admin.reporting OR _admin (read). Keep POST-only
+        // for CSRF protection and retain the original
         // documented read-privilege OR chain rather than escalating to _admin.billing w.
         boolean hasReport = securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null);
         boolean hasAdminReporting = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null);

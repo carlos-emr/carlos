@@ -80,21 +80,9 @@ public class CreateBillingReport2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        Path file = null;
         try {
-            file = PathValidationUtils.createSecureTempFile("carlos-bc-report-", ".pdf").toPath();
-            try (OutputStream output = Files.newOutputStream(file)) {
-                renderPdf(output);
-            }
-            try (InputStream input = Files.newInputStream(file)) {
-                if (!java.util.Arrays.equals(input.readNBytes(5), "%PDF-".getBytes(java.nio.charset.StandardCharsets.US_ASCII))) {
-                    throw new IllegalStateException("Report generation did not produce a PDF");
-                }
-            }
-            response.setContentType("application/pdf");
-            response.setHeader("Content-Disposition", "attachment; filename=\"" + getRepType() + ".pdf\"");
-            response.setContentLengthLong(Files.size(file));
-            Files.copy(file, response.getOutputStream());
+            io.github.carlos_emr.carlos.report.ReportPdfResponse.write(response,
+                    "attachment; filename=\"" + getRepType() + ".pdf\"", this::renderPdf);
         } catch (io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO.MissingBcPaymentProviderException invalid) {
             if (!response.isCommitted()) {
                 response.reset();
@@ -105,11 +93,8 @@ public class CreateBillingReport2Action extends ActionSupport {
             if (!response.isCommitted()) {
                 response.reset();
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            }
-        } finally {
-            if (file != null) {
-                try { Files.deleteIfExists(file); }
-                catch (IOException cleanup) { MiscUtils.getLogger().warn("Could not remove temporary PDF report"); }
+            } else {
+                throw new IOException("BC PDF transfer failed");
             }
         }
         return NONE;

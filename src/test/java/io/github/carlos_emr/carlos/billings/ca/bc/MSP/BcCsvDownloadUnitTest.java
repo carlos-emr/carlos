@@ -125,8 +125,22 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
     }
 
     @Test
+    void shouldRefuseTruncatedPdf_whenItsSignatureIsPresentButTrailerIsMissing() throws Exception {
+        var action = new CreateBillingReport2Action() {
+            @Override protected void renderPdf(OutputStream output) throws java.io.IOException {
+                output.write("%PDF-1.7\ntruncated document".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+            }
+        };
+        action.setDocFormat("pdf"); action.setRepType("REP_INVOICE");
+        assertThat(executeAction(action)).isEqualTo("none");
+        assertThat(getMockResponse().getStatus()).isEqualTo(500);
+        assertThat(getMockResponse().getContentAsByteArray()).isEmpty();
+        assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();
+    }
+
+    @Test
     void shouldSendCompletePdf_whenGenerationSucceeds() throws Exception {
-        byte[] expected = "%PDF-1.7\nsynthetic complete document".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        byte[] expected = "%PDF-1.7\nsynthetic complete document\n%%EOF\n".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
         var action = new CreateBillingReport2Action() {
             @Override protected void renderPdf(OutputStream output) throws java.io.IOException {
                 assertThat(getMockResponse().getHeader("Content-Disposition")).isNull();

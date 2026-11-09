@@ -1290,7 +1290,7 @@ public class MSPReconcile {
 
             java.util.Map<String, BillingmasterDAO.PatientPhones> reportPhones = REP_REJ.equals(type)
                     ? billingmasterDao.findReportPhones(bills.stream().map(bill -> bill.demoNo).toList()) : java.util.Map.of();
-            java.time.LocalDate reportDate = java.time.LocalDate.now();
+            java.time.LocalDate reportDate = java.time.LocalDate.now(java.time.ZoneId.systemDefault());
             for (MSPBill b : bills) {
                 b.setServiceDateRange(MSPBill.ageRange(b.serviceDate, reportDate));
                 String expStr = getS00String(b.billMasterNo);

@@ -168,4 +168,28 @@ class LegacyBcTeleplanExportMariaDbIntegrationTest extends CarlosTestBase {
         } finally { jdbc.execute("DROP TRIGGER FAKE_6097_export_failure"); }
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullAndEmptySource
+    @org.junit.jupiter.params.provider.ValueSource(strings={"bad", "12.345", "100000.00", "-1.00", "1e3"})
+    void shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String amount) {
+        jdbc.update("UPDATE billingmaster SET bill_amount=? WHERE billingmaster_no=?", amount, MASTER);
+        assertThatThrownBy(() -> service.generate(selection(),"BC60")).isInstanceOf(IllegalStateException.class);
+        assertThat(jdbc.queryForObject("SELECT billingstatus FROM billingmaster WHERE billingmaster_no=?",String.class,MASTER)).isEqualTo("O");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM billactivity WHERE creator='BC60'",Integer.class)).isZero();
+        assertThat(directory.resolve("HK81234.001")).doesNotExist();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans={false,true})
+    void shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean wcb) throws Exception {
+        if (wcb) {
+            makeWcbSource();
+            jdbc.update("UPDATE wcb SET bill_amount='12.3' WHERE billing_no=?",BILL);
+        }
+        jdbc.update("UPDATE billingmaster SET bill_amount='12.3' WHERE billingmaster_no=?",MASTER);
+        assertThat(service.generate(selection(),"BC60")).isEqualTo(1);
+        assertThat(Files.readString(directory.resolve("HK81234.001"))).contains("0001230");
+        assertThat(jdbc.queryForObject("SELECT total FROM billactivity WHERE creator='BC60'",String.class)).isEqualTo("12.30");
+    }
+
 }

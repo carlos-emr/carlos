@@ -30,6 +30,7 @@
         <interceptors>
             <interceptor name="bcProvince" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BcBillingProvinceInterceptor"/>
             <interceptor-stack name="bcBillingStack">
+                <interceptor-ref name="carlosException"/>
                 <interceptor-ref name="bcProvince"/>
                 <interceptor-ref name="carlosDefaultStack"/>
             </interceptor-stack>

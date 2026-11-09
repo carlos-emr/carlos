@@ -2694,6 +2694,14 @@
             {
               "name": "shouldNotTreatAnOlderFilenameAsCommitEvidence_whenNewExportRollsBack",
               "container": ""
+            },
+            {
+              "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled",
+              "container": ""
+            },
+            {
+              "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent",
+              "container": ""
             }
           ]
         }
@@ -2879,7 +2887,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 136,
+      "minimumCases": 145,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 22,
@@ -2898,7 +2906,7 @@
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "LegacyBcTeleplanExportMariaDbIntegrationTest": 8
+        "LegacyBcTeleplanExportMariaDbIntegrationTest": 17
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

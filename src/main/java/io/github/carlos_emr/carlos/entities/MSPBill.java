@@ -404,7 +404,7 @@ public class MSPBill {
      */
     public String getServiceDateRange() {
         if (serviceDateRange != null && !serviceDateRange.isEmpty()) return serviceDateRange;
-        return ageRange(serviceDate, java.time.LocalDate.now());
+        return ageRange(serviceDate, java.time.LocalDate.now(java.time.ZoneId.systemDefault()));
     }
 
     /** Strict date buckets shared with report snapshots; invalid dates are explicitly unaged. */

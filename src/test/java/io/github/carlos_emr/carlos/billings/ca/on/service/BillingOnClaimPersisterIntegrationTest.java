@@ -67,6 +67,20 @@ class BillingOnClaimPersisterIntegrationTest extends CarlosTestBase {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    @org.junit.jupiter.api.BeforeEach
+    void authorizeFixturePatient() {
+        var manager = applicationContext.getBean(io.github.carlos_emr.carlos.managers.DemographicManager.class);
+        var patient = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        patient.setLastName("Fixture"); patient.setFirstName("Patient");
+        org.mockito.Mockito.when(manager.getDemographic(org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.eq(700001))).thenReturn(patient);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearFixtureAuthorization() {
+        org.mockito.Mockito.reset(applicationContext.getBean(io.github.carlos_emr.carlos.managers.DemographicManager.class));
+    }
+
     @Test
     void shouldRollbackExtPaymentAndItemPaymentRows_whenAmountValidationFails() {
         // Run setup/assertions in their own transactions so the integration

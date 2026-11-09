@@ -107,11 +107,11 @@ public final class BcBillingCsv {
      * @throws IllegalArgumentException if the accounting report type is unsupported
      */
     public static void write(OutputStream output, String type, List<MSPBill> bills) throws IOException {
-        write(output, type, bills, LocalDate.now());
+        write(output, type, bills, LocalDate.now(java.time.ZoneId.systemDefault()));
     }
 
     public static void write(OutputStream output, String type, List<MSPBill> bills, int skippedExplanations) throws IOException {
-        write(output, type, bills, LocalDate.now(), skippedExplanations);
+        write(output, type, bills, LocalDate.now(java.time.ZoneId.systemDefault()), skippedExplanations);
     }
 
     static void write(OutputStream output, String type, List<MSPBill> bills, LocalDate reportDate) throws IOException {

@@ -4299,6 +4299,23 @@
       "env": []
     },
     {
+      "name": "billing-bc-legacy-teleplan",
+      "script": "scripts/billing-bc-legacy-teleplan-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "HOME_DIR"
+      ],
+      "fixtures": "Owned FAKE patient, billing physician and claim; deletes only its own activities/files and the new export logs on an exclusive disposable BC installation. No transmission to MSP.",
+      "notes": "Issue #6002: actual legacy Administration menu and form with NEW_BC_TELEPLAN=no; GET refusal, complete file/activity/log/status commit, authenticated creator despite a forged hidden value, and idempotent retry. Requires runner access to HOME_DIR and exclusive execution."
+    },
+    {
       "name": "billing-bc-teleplan-file",
       "script": "scripts/billing-bc-teleplan-file-playwright-checks.js",
       "tiers": [
