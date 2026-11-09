@@ -88,6 +88,9 @@ public class TicklerWebService extends AbstractServiceImpl {
     @Path("/search")
     @Produces("application/json")
     @Consumes("application/json")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public TicklerResponse search(JsonNode json, @QueryParam("startIndex") int startIndex, @QueryParam("limit") int limit) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
@@ -130,15 +133,10 @@ public class TicklerWebService extends AbstractServiceImpl {
         }
 
 
-        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, startIndex, limit);
-
+        var page = authorizedPage(cf, startIndex, limit, false, false);
+        List<Tickler> ticklers = page.rows();
         TicklerResponse result = new TicklerResponse();
-
-        if (ticklers.size() == limit) {
-            result.setTotal(ticklerManager.getNumTicklers(getLoggedInInfo(), cf));
-        } else {
-            result.setTotal(ticklers.size());
-        }
+        result.setTotal(page.total());
 
         TicklerConverter converter = new TicklerConverter();
         result.getContent().addAll(converter.getAllAsTransferObjects(getLoggedInInfo(), ticklers));
@@ -150,6 +148,9 @@ public class TicklerWebService extends AbstractServiceImpl {
     @GET
     @Path("/mine")
     @Produces("application/json")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public TicklerResponse getMyTicklers(@QueryParam("limit") int limit) {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
@@ -160,7 +161,7 @@ public class TicklerWebService extends AbstractServiceImpl {
         cf.setAssignee(getLoggedInInfo().getLoggedInProviderNo());
         cf.setStatus("A");
 
-        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, 0, limit);
+        List<Tickler> ticklers = authorizedPage(cf, 0, limit, false, false).rows();
 
         TicklerResponse result = new TicklerResponse();
         result.setTotal(ticklers.size());
@@ -174,6 +175,9 @@ public class TicklerWebService extends AbstractServiceImpl {
     @GET
     @Path("/ticklers")
     @Produces("application/json")
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
+            isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public TicklerResponse getTicklerList() {
 
         if (!securityInfoManager.hasPrivilege(getLoggedInInfo(), "_tickler", "r", null)) {
@@ -247,12 +251,13 @@ public class TicklerWebService extends AbstractServiceImpl {
         TicklerResponse result = new TicklerResponse();
 
 
-        int total = ticklerManager.getNumTicklers(getLoggedInInfo(), cf);
-        result.setTotal(total);
-
-
-        List<Tickler> ticklers = ticklerManager.getTicklers(getLoggedInInfo(), cf, ((page - 1) * count), count,
-                includeComments, includeUpdates, false, false);
+        if (page < 1 || count < 0) throw new jakarta.ws.rs.BadRequestException("Invalid page position or size");
+        int offset;
+        try { offset = Math.multiplyExact(page - 1, count); }
+        catch (ArithmeticException invalid) { throw new jakarta.ws.rs.BadRequestException("Invalid page position or size"); }
+        var permitted = authorizedPage(cf, offset, count, includeComments, includeUpdates);
+        result.setTotal(permitted.total());
+        List<Tickler> ticklers = permitted.rows();
 
         TicklerConverter converter = new TicklerConverter();
         converter.setIncludeLinks(includeLinks);
@@ -456,6 +461,14 @@ public class TicklerWebService extends AbstractServiceImpl {
             return RestResponse.successResponse(null);
         }
         return RestResponse.errorResponse("Failed to add tickler");
+    }
+
+    private io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.Page<Tickler> authorizedPage(
+            CustomFilter filter, int offset, int limit, boolean comments, boolean updates) {
+        return io.github.carlos_emr.carlos.webserv.rest.util.PatientApiPages.read(
+                getLoggedInInfo(), securityInfoManager, "_tickler", offset, limit,
+                (rawOffset, batch) -> ticklerManager.getTicklers(getLoggedInInfo(), filter, rawOffset, batch,
+                        comments, updates, false, false), Tickler::getDemographicNo, Tickler::getId);
     }
 
     private Integer requireStoredTicklerPatient(Integer ticklerId, String right) {

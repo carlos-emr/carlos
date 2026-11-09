@@ -22,7 +22,7 @@ public final class PatientApiPages {
     public static <T> Page<T> read(LoggedInInfo actor, SecurityInfoManager permissions, String module,
             int offset, int limit, BiFunction<Integer, Integer, List<T>> fetch, Function<T, Integer> patientId,
             Function<T, Object> identity) {
-        if (offset < 0 || limit < 0) throw new BadRequestException("Invalid page position or size");
+        if (offset < 0 || limit < 0 || limit > io.github.carlos_emr.carlos.commn.dao.AbstractDao.MAX_LIST_RETURN_SIZE) throw new BadRequestException("Invalid page position or size");
         var selected = new ArrayList<T>(); int rawOffset=0, readable=0; Object previousLast=null;
         while (true) {
             List<T> raw=fetch.apply(rawOffset, BATCH);

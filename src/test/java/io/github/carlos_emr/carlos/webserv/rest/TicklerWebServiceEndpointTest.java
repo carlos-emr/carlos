@@ -100,7 +100,7 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with empty list when no ticklers match")
         void shouldReturn200WithEmptyList_whenNoTicklersMatch() {
-            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(10)))
+            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(500), eq(false), eq(false), eq(false), eq(false)))
                 .thenReturn(Collections.emptyList());
 
             String searchJson = "{\"status\":\"C\"}";
@@ -124,7 +124,7 @@ class TicklerWebServiceEndpointTest extends CarlosRestTestBase {
         @Test
         @DisplayName("should return 200 with empty list when provider has no ticklers")
         void shouldReturn200WithEmptyList_whenNoTicklersForProvider() {
-            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(10)))
+            when(mockTicklerManager.getTicklers(any(LoggedInInfo.class), any(CustomFilter.class), eq(0), eq(500), eq(false), eq(false), eq(false), eq(false)))
                 .thenReturn(Collections.emptyList());
 
             Response response = request().path("/tickler/mine")
