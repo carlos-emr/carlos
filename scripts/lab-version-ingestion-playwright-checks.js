@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. */
 'use strict';
-// #5726: ingest every version natively; only the owned legacy completeness counter is simulated.
+// #5726: native ingestion, owned legacy completeness, and a restored missing-history refusal probe.
 const fs=require('node:fs');
 const h=require('./lib/playwright-harness'),ui=require('./lib/playwright-ui');
 const {runWorkflow}=require('./lib/workflow-session');
@@ -186,6 +186,40 @@ async function workflow(s) {
         }
       }
       h.assert(known.size===4,'Native version matrix omitted an original, correction, older delivery or same-time late final');
+      await s.step('a missing historical source preserves selected-report and patient-list reads',async()=>{
+        const before=labState(accession),clinical=readPatientState(sql,patient);
+        const stored=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
+        h.assert(stored,'Owned historical source is missing before the refusal probe');
+        let cleared=false,probe;
+        const restore=()=>{
+          if(!cleared)return;
+          const current=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original} AND type='CML'`);
+          h.assert(current==='','Historical source changed outside the owned missing-body probe');
+          sql.execute(`UPDATE hl7TextMessage SET message=${q(stored)} WHERE lab_id=${original} AND type='CML' AND message=''`);
+          h.assert(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`)===stored,'Historical source restoration failed');
+          cleared=false;
+        };
+        s.cleanup(restore);
+        try{
+          cleared=true;
+          sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND type='CML' AND message=${q(stored)}`);
+          h.assert(sql.value(`SELECT LENGTH(message) FROM hl7TextMessage WHERE lab_id=${original}`)==='0','Missing-body probe was not established');
+          probe=await inboxReport(corrected);await inspect(probe.report,corrected,'Incomplete history');
+          const warning=probe.report.locator('[data-carlos-hl7-chain-warning="unavailable"]');
+          h.assert(await warning.isVisible()&&(await warning.innerText()).length>60,'Incomplete history has no visible explanation');
+          h.assert(await probe.report.locator('input[onclick*="ackLab"],button[onclick*="ackLab"],input[onclick*="ForwardSelectedRows"],input[onclick*="unlinkDemographic"],a[href*="SearchPatient"],input[onclick*="SearchPatient"]').count()===0,'Incomplete history still offers a chain-dependent mutation');
+          h.assert(await probe.report.locator('input[onclick*="printPDF"]:enabled').count()===0,'Unverified version headers are still printable');
+          const chart=await s.chart();await chart.reload({waitUntil:'domcontentloaded'});await waitForNavbars(chart,30000);
+          const hrefs=await chart.locator('#leftNavBar a,#rightNavBar a').evaluateAll(nodes=>nodes.map(node=>(node.getAttribute('onclick')||'')+' '+(node.getAttribute('href')||'')));
+          const visible=new Set(hrefs.flatMap(text=>[...text.matchAll(/[?&]segmentID=([1-9]\d*)(?=&|['"]|$)/g)].map(match=>match[1])).filter(id=>known.has(id)));
+          h.assert(visible.size===known.size,'Incomplete history lost a visible patient report');
+          assertPatientStateUnchanged(clinical,readPatientState(sql,patient),'Incomplete history read');checkControl();
+        }finally{
+          restore();
+          if(probe)await retireReports(probe);
+        }
+        h.assert(JSON.stringify(labState(accession))===JSON.stringify(before),'Missing-history read or restoration changed lab state');
+      });
       const beforeReplay=labState(accession),clinicalBeforeReplay=readPatientState(sql,patient);
       fs.writeFileSync(filePath,Buffer.from(versionMessage(accession,marker,VERSIONS.corrected),'latin1'));
       h.assert(await uploadThroughPopup(s,filePath,fileName)==='Already uploaded','Repeated correction was not recognized byte-for-byte');

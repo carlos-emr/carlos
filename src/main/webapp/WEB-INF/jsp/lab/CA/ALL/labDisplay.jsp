@@ -1063,7 +1063,7 @@ input[id^='acklabel_']{
 
 <body onLoad="javascript:matchMe(); loadHL7hx();">
 <% if (!versionChainReliable) { %>
-<div class="alert alert-warning" role="alert"><fmt:message key="cml.versionChain.unavailable"/></div>
+<div class="alert alert-warning" role="alert" data-carlos-hl7-chain-warning="unavailable"><fmt:message key="cml.versionChain.unavailable"/></div>
 <% } %>
 
 <!-- form forwarding of the lab -->
@@ -1569,10 +1569,12 @@ input[id^='acklabel_']{
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','msgLab');">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Tickler"
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','ticklerLab');">
+                                <% if (versionChainReliable) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
                                        onclick="unlinkDemographic(<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>)">
+                                <% } %>
 
-                                <% if (searchProviderNo != null) { // null if we were called from e-chart%>
+                                <% if (versionChainReliable && searchProviderNo != null) { // null if we were called from e-chart%>
                                 <c:set var="__enc_1"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/>"
                                        onClick="popupStart(360, 680, '<%= request.getContextPath() %>/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='${__enc_1}' context="javaScriptAttribute"/>&name=<carlos:encode value='<%= java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8) %>' context="javaScriptAttribute"/>', 'encounter')">
@@ -1712,7 +1714,7 @@ input[id^='acklabel_']{
                                                                     <c:set var="__enc_6"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>
                                                                     <div class=                                                                            
 "FieldData">
-                                                                        <% if (searchProviderNo == null) { // we were called from e-chart%>
+                                                                        <% if (!versionChainReliable || searchProviderNo == null) { // no patient matching with an unverified chain%>
                                                                         <a href="javascript:window.close()">
                                                                                 <% } else { // we were called from lab module%>
                                                                             <a href="${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&amp;segmentID=<carlos:encode value='${__enc_6}' context="htmlAttribute"/>&amp;name=<carlos:encode value='<%= java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8) %>' context="htmlAttribute"/>" onclick="popupStart(360, 680, this.href, 'searchPatientWindow'); return false;">
@@ -2942,18 +2944,20 @@ input[id^='acklabel_']{
         <table style="width:100%" class="MainTableBottomRowRightColumn">
             <tr>
                 <td style="text-align:left; width:50%">
-                    <% if (!ackFlag) { %>
+                    <% if (!ackFlag && versionChainReliable) { %>
                     <input type="button" class="btn btn-sm btn-outline-primary" value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                            onclick="<carlos:encode value='<%= ackLabFunc %>' context="htmlAttribute"/>">
                     <% } %>
+                    <% if (versionChainReliable) { %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                            onclick="return getComment('addComment',<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>);">
                     <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.index.btnForward"/>"
                            onClick="ForwardSelectedRows(<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/> + ':HL7', '', '')">
+                    <% } %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnClose"/> " onClick="window.close()">
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnPrint"/> "
-                           onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')">
-                    <% if (searchProviderNo != null) { // we were called from e-chart %>
+                           onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')" <%= versionChainReliable ? "" : "disabled" %>>
+                    <% if (versionChainReliable && searchProviderNo != null) { // we were called from e-chart %>
                     <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
                            onClick="popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScript"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'encounter')">
 
