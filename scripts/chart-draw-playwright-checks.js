@@ -392,6 +392,23 @@ async function main() {
             return ink > 100;
         }), 'exclusion explanation has actual visible ink');
 
+        const frenchInput = JSON.parse(fs.readFileSync(path.join(__dirname,
+            '../docs/images/pr6102/configs/after-fr/qualified-results.json'), 'utf8'));
+        await draw(page, frenchInput, 1000, 600);
+        const localizedTicks = await page.evaluate(() => {
+            const chart = Object.values(Chart.instances).find(item => item.canvas.isConnected && item.scales.x);
+            const ctx = chart.ctx; ctx.save();
+            ctx.font = chart.scales.x.options.ticks.font.size + 'px "DejaVu Sans"';
+            const ticks = chart.scales.x.ticks.map((tick, index) => ({
+                label: tick.label, x: chart.scales.x.getPixelForTick(index), width: ctx.measureText(tick.label).width,
+            }));
+            ctx.restore(); return ticks;
+        });
+        assert.ok(localizedTicks.length > 1, 'localized dates retain useful ticks');
+        localizedTicks.slice(1).forEach((tick, index) => assert.ok(
+            tick.x - localizedTicks[index].x >= (tick.width + localizedTicks[index].width) / 2 + 2,
+            'French date labels do not overlap using independent browser text measurements'));
+
         // A zero-length prescription is still visible: JFreeChart drew it as a one pixel line with its shadow.
         const thirteen = JSON.parse(fs.readFileSync(path.join(FIXTURES, 'chartmeds-13.json'), 'utf8'));
         const result = await draw(page, thirteen.input, thirteen.width, thirteen.height);

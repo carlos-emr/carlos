@@ -414,14 +414,22 @@
     function dateTicks(lower, upper, pixels, fontSize, timeZone) {
         const pixelsPerMs = pixels / (upper - lower);
         const labelSize = unit => 8 + Math.max(textWidth(formatDate(lower, unit.format, timeZone), fontSize), textWidth(formatDate(upper, unit.format, timeZone), fontSize));
-        const unit = selectUnit(DATE_UNITS, INITIAL_DATE_UNIT, pixelsPerMs, labelSize);
-        const ticks = [];
-        let tick = addToDate(previousStandardDate(lower, unit, timeZone), unit, timeZone);
-        for (let guard = 0; tick < upper && guard < 1000; guard++) {
-            ticks.push({ value: tick, label: formatDate(tick, unit.format, timeZone) });
-            tick = addToDate(tick, unit, timeZone);
+        const selected = selectUnit(DATE_UNITS, INITIAL_DATE_UNIT, pixelsPerMs, labelSize);
+        // Localized month lengths vary. Checking the endpoints alone can select a
+        // unit whose interior labels overlap (for example French août and déc.).
+        for (let index = DATE_UNITS.indexOf(selected); index < DATE_UNITS.length; index++) {
+            const unit = DATE_UNITS[index], ticks = [];
+            let tick = addToDate(previousStandardDate(lower, unit, timeZone), unit, timeZone);
+            for (let guard = 0; tick < upper && guard < 1000; guard++) {
+                ticks.push({ value: tick, label: formatDate(tick, unit.format, timeZone) });
+                tick = addToDate(tick, unit, timeZone);
+            }
+            const overlap = ticks.some((current, position) => position > 0 &&
+                (current.value - ticks[position - 1].value) * pixelsPerMs <
+                (textWidth(current.label, fontSize) + textWidth(ticks[position - 1].label, fontSize)) / 2 + 8);
+            if (!overlap || index === DATE_UNITS.length - 1) return { unit, ticks };
         }
-        return { unit, ticks };
+        throw new Error('Chart date tick unit is unavailable');
     }
 
     // --- the drawing -----------------------------------------------------------------------------

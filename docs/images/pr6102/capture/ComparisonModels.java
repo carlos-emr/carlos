@@ -1,3 +1,4 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil;
 import java.nio.file.*;
 import java.time.Instant;
