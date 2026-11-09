@@ -527,6 +527,7 @@
 	const toggleIssueElement = document.getElementById("toggleIssue");
 	if (toggleIssueElement) {
 		toggleIssueElement.disabled = false;
+        toggleIssueElement.setAttribute("aria-expanded", String(showIssue));
 	}
 
     if (showIssue) {

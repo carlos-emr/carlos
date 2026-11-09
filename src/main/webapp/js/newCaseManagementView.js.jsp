@@ -464,7 +464,7 @@
                     }
                 },
                 onFailure: function (request) {
-                    $("notCPP").textContent = savingNoteError + " " + request.status;
+                    showChartLoadError("notCPP", request.status);
                 }
             }
         );
@@ -1464,7 +1464,7 @@ function updateCPPNote() {
                     refreshed = true;
                 },
                 onFailure: function (request) {
-                    if ($(div)) $(div).textContent = savingNoteError + " " + request.status;
+                    showChartLoadError(div, request.status);
                 },
                 onComplete: function (request) {
                     if (complete) complete(refreshed && request.status >= 200 && request.status < 300);
@@ -1473,6 +1473,20 @@ function updateCPPNote() {
         );
         return false;
 
+    }
+
+    function showChartLoadError(id, status) {
+        var panel = $(id);
+        if (!panel) return;
+        var error = panel.querySelector('[data-carlos-load-error]');
+        if (!error) {
+            error = document.createElement('p');
+            error.setAttribute('data-carlos-load-error', '');
+            error.setAttribute('role', 'alert');
+            panel.appendChild(error);
+        }
+        // Keep the existing editor and its recoverable text in the DOM.
+        error.textContent = savingNoteError + " " + status;
     }
 
     /*
@@ -4603,7 +4617,7 @@ function autoSave() {
                     }
                 },
                 onFailure: function (request) {
-                    $("notCPP").textContent = savingNoteError + " " + request.status;
+                    showChartLoadError("notCPP", request.status);
                 }
             }
         );

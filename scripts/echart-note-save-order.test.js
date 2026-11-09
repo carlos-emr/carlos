@@ -14,7 +14,7 @@ assert.ok(start > 0 && end > start);
 
 function harness() {
   const updates = []; const panels = []; const alerts = [];
-  const fields = { newIssueId: { value: '42' }, issueAutocomplete: { value: 'fixture' } };
+  const fields = { unresolvedIssues: {}, newIssueId: { value: '42' }, issueAutocomplete: { value: 'fixture' } };
   const context = {
     caseNote: 'editor1', demographicNo: '123', ctx: '/carlos', chartContext: '', savingNoteError: 'save failed',
     document: { forms: { caseManagementEntryForm: { method: {}, ajax: {} } } },

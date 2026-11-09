@@ -20,7 +20,7 @@ function harness(checked = [true], issueChange = '') {
     issueChange: { get value() { return changeValue; }, set value(value) { changeValue = String(value); } },
     channel: { style: {} }, showEditNote: { style: {} },
     'cpp.socialHistory': { id: 'cpp.socialHistory', update: text => { fields.cppText = text; } },
-    unresolvedIssues: { id: 'unresolvedIssues', update: text => { fields.issuesText = text; } },
+    unresolvedIssues: { id: 'unresolvedIssues', children: [], querySelector: () => null, appendChild(child) { this.children.push(child); }, update: text => { fields.issuesText = text; } },
   };
   const cppForm = {
     action: '/carlos/CaseManagementEntry?method=issueNoteSave',
@@ -36,7 +36,7 @@ function harness(checked = [true], issueChange = '') {
     caseNote: 'caseNote_note01', demographicNo: '123', ctx: '/carlos', chartContext: '',
     savingNoteError: 'save failed', CONTROL_CHAR_PATTERN_2: /unused/,
     sanitizeElementByPattern: () => {},
-    document: { forms: { frmIssueNotes: cppForm, caseManagementEntryForm: { method: {}, ajax: {}, querySelectorAll: () => [] } } },
+    document: { createElement: () => ({setAttribute() {}}), forms: { frmIssueNotes: cppForm, caseManagementEntryForm: { method: {}, ajax: {}, querySelectorAll: () => [] } } },
     Form: { serialize: () => 'fixture=form' },
     CarlosAjax: {
       request: (url, options) => requests.push({ url, options }),
@@ -336,6 +336,12 @@ test('a module failure displays text without inserting response HTML', () => {
   h.context.loadDiv('unresolvedIssues', '/module', 0);
   h.requests[0].options.onFailure({status: 500, responseText: '<style>body{display:none}</style><script>bad()</script>'});
   assert.equal(h.fields.issuesText, undefined);
-  assert.equal(h.fields.unresolvedIssues.textContent.includes('<'), false);
-  assert.match(h.fields.unresolvedIssues.textContent, /500/);
+  assert.equal(h.fields.unresolvedIssues.children[0].textContent.includes('<'), false);
+  assert.match(h.fields.unresolvedIssues.children[0].textContent, /500/);
+});
+
+
+test('resolved issue refresh has a real Struts route and the correct module handler', () => {
+  const mappings = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/classes/struts-encounter.xml'), 'utf8');
+  assert.match(mappings, /action name="encounter\/displayResolvedIssues" class="io\.github\.carlos_emr\.carlos\.encounter\.pageUtil\.EctDisplayResolvedIssues2Action"/);
 });
