@@ -49,6 +49,8 @@ SCHEDULE_REQUIRED_CASES = {
 }
 
 ADMISSION_REQUIRED_CASES = {
+    "shouldRollbackReadAudits_whenALaterCheckedFailureEscapes",
+
     "shouldCommitSynchronousAdmissionAudits_withThePatientFilteredResponse",
     "shouldRollbackEarlierReadAudits_whenLaterPatientPolicyAbortsTheResponse",
 }
@@ -67,6 +69,10 @@ RX_REQUIRED_CASES = {
 }
 
 TICKLER_REQUIRED_CASES = {
+    "shouldRetainClinicalPriorityOrdering_whenUsingTypedCriteria",
+    "shouldRollbackLegacyResolution_whenALaterStoredPatientIsDenied",
+    "shouldBindFilterValues_andKeepSortHintsOutOfNativeQueryText",
+
     "shouldAuthorizeTheStoredAndRequestedPatients_beforeFlushingAManagedEdit",
     "shouldDenyTheCurrentStoredPatient_beforeAnyNativeMutation",
     "shouldHoldThePhysicalPatientLock_untilTheMutationTransactionCommits",

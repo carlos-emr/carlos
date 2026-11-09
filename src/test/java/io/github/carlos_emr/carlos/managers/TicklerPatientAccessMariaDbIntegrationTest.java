@@ -110,6 +110,48 @@ class TicklerPatientAccessMariaDbIntegrationTest {
                 .when(rows).getTicklers(any(),anyInt(),anyInt(),anyBoolean(),anyBoolean(),anyBoolean(),anyBoolean());
         var result=resource.search(body("{}"),1,1);assertThat(result.getTotal()).isEqualTo(2);assertThat(result.getContent()).extracting(t -> t.getId()).containsExactly(1);
     }
+    @Test void shouldRollbackLegacyResolution_whenALaterStoredPatientIsDenied() throws Exception {
+        seed(1,42); seed(2,43);
+        assertThatThrownBy(() -> manager.resolveTicklersBySubstring(actor,"FAKE",java.util.List.of("42","43"),"clinical"))
+                .isInstanceOf(io.github.carlos_emr.carlos.commn.exception.AccessDeniedException.class);
+        assertThat(status(1)).isEqualTo("A"); assertThat(status(2)).isEqualTo("A");
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM tickler_update",Integer.class)).isZero();
+    }
+    @Test void shouldBindFilterValues_andKeepSortHintsOutOfNativeQueryText() throws Exception {
+        seed(1,42); seed(2,43);
+        String injected="' OR 1=1 --";
+        jdbc.update("UPDATE tickler SET message=? WHERE tickler_no=1",injected);
+        jdbc.update("UPDATE demographic SET provider_no='FAKE' WHERE demographic_no=42");
+        var filter=new io.github.carlos_emr.carlos.commn.model.CustomFilter();
+        filter.setStartDate(java.sql.Date.valueOf("2001-09-08")); filter.setEndDate(java.sql.Date.valueOf("2001-09-09"));
+        filter.setMessage(injected); filter.setStatus("A"); filter.setPriority("Normal");
+        filter.setProvider("FAKE"); filter.setAssignee("FAKE"); filter.setMrp("FAKE");
+        filter.setClient("42"); filter.setDemographicNo("42");
+        filter.setSortColumn("serviceDate DESC; DELETE FROM tickler"); filter.setSort_order("ASC; DELETE FROM tickler");
+        var result=new TransactionTemplate(transactions).execute(tx -> rows.getTicklers(filter,0,10,false,false,true,true));
+        assertThat(result).extracting(Tickler::getId).containsExactly(1);
+        filter.setProgramId("999999");
+        var missingProgram=new TransactionTemplate(transactions).execute(tx -> rows.getTicklers(filter,0,10));
+        assertThat(missingProgram).isEmpty();
+        filter.setProgramId(null); filter.setExcludedDemographicNos(java.util.Set.of(42));
+        var excludedPatient=new TransactionTemplate(transactions).execute(tx -> rows.getTicklers(filter,0,10));
+        assertThat(excludedPatient).isEmpty();
+        assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM tickler",Integer.class)).isEqualTo(2);
+    }
+    @Test void shouldRetainClinicalPriorityOrdering_whenUsingTypedCriteria() throws Exception {
+        for (int id=1; id<=4; id++) seed(id,42);
+        jdbc.update("UPDATE tickler SET priority='High' WHERE tickler_no=1");
+        jdbc.update("UPDATE tickler SET priority='Low' WHERE tickler_no=3");
+        var filter=new io.github.carlos_emr.carlos.commn.model.CustomFilter(); filter.setEndDate(null);
+        filter.setSortColumn("priority"); filter.setSort_order("asc");
+        var ascending=new TransactionTemplate(transactions).execute(tx -> rows.getTicklers(filter,0,10));
+        assertThat(ascending).extracting(Tickler::getId).containsExactly(1,4,2,3);
+        var page=new TransactionTemplate(transactions).execute(tx -> rows.getTicklers(filter,1,2));
+        assertThat(page).extracting(Tickler::getId).containsExactly(4,2);
+        filter.setSort_order("desc");
+        var descending=new TransactionTemplate(transactions).execute(tx -> rows.getTicklers(filter,0,10));
+        assertThat(descending).extracting(Tickler::getId).containsExactly(3,4,2,1);
+    }
     @Test void shouldRetainUpdateOnlyAuthority_withoutAddingReadPermission()throws Exception{
         seed(1,42);when(security.hasPrivilege(actor,"_tickler","r",(String)null)).thenReturn(false);
         assertThat(resource.completeTicklers(body("{\"ticklers\":[1]}"))).isNotNull();assertThat(status(1)).isEqualTo("C");

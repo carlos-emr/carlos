@@ -588,6 +588,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void resolveTicklersBySubstring(LoggedInInfo loggedInInfo, String providerNo, List<String> demographicIds,
                                            String remString) {
         checkPrivilege(loggedInInfo, PRIVILEGE_UPDATE);
@@ -596,7 +597,8 @@ public class TicklerManagerImpl implements TicklerManager {
         for (String str : demographicIds) {
             tmp.add(Integer.parseInt(str));
         }
-        List<Tickler> ticklers = ticklerDao.findActiveByMessageForPatients(tmp, remString);
+        List<Tickler> ticklers = new ArrayList<>(ticklerDao.findActiveByMessageForPatients(tmp, remString));
+        ticklers.sort(java.util.Comparator.comparing(Tickler::getId));
         for (Tickler t : ticklers) {
             deleteTickler(loggedInInfo, t.getId(), providerNo);
         }

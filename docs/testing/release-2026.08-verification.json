@@ -2822,6 +2822,18 @@
             {
               "name": "shouldKeepDiscoveryRowsAndTotals_inOneNativeReadSnapshot",
               "container": ""
+            },
+            {
+              "name": "shouldRollbackLegacyResolution_whenALaterStoredPatientIsDenied",
+              "container": ""
+            },
+            {
+              "name": "shouldBindFilterValues_andKeepSortHintsOutOfNativeQueryText",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainClinicalPriorityOrdering_whenUsingTypedCriteria",
+              "container": ""
             }
           ]
         },
@@ -2834,6 +2846,10 @@
             },
             {
               "name": "shouldRollbackEarlierReadAudits_whenLaterPatientPolicyAbortsTheResponse",
+              "container": ""
+            },
+            {
+              "name": "shouldRollbackReadAudits_whenALaterCheckedFailureEscapes",
               "container": ""
             }
           ]
@@ -2898,7 +2914,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2563,
+      "minimumCases": 2567,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2926,8 +2942,8 @@
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
-        "TicklerPatientAccessMariaDbIntegrationTest": 8,
-        "ProgramAdmissionAuditMariaDbIntegrationTest": 2,
+        "TicklerPatientAccessMariaDbIntegrationTest": 11,
+        "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "AppointmentUpdateDaoIntegrationTest": 17
       },
       "requiresEnvironment": [
@@ -2967,7 +2983,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 148,
+      "minimumCases": 152,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -2993,8 +3009,8 @@
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
-        "TicklerPatientAccessMariaDbIntegrationTest": 8,
-        "ProgramAdmissionAuditMariaDbIntegrationTest": 2
+        "TicklerPatientAccessMariaDbIntegrationTest": 11,
+        "ProgramAdmissionAuditMariaDbIntegrationTest": 3
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -3033,7 +3049,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 145,
+      "minimumCases": 149,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 10,
@@ -3056,8 +3072,8 @@
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
-        "TicklerPatientAccessMariaDbIntegrationTest": 8,
-        "ProgramAdmissionAuditMariaDbIntegrationTest": 2
+        "TicklerPatientAccessMariaDbIntegrationTest": 11,
+        "ProgramAdmissionAuditMariaDbIntegrationTest": 3
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"

@@ -39,10 +39,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import jakarta.persistence.Query;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.ParameterExpression;
+import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.TypedQuery;
 
 import io.github.carlos_emr.carlos.commn.model.CustomFilter;
@@ -60,13 +63,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerDao {
     private static final int IN_CLAUSE_BATCH_SIZE = 500;
     private static final String TICKLER_ALIAS = "t";
-
-    /**
-     * Matches the canonical root Tickler alias emitted by getTicklerQueryString().
-     * Keep this pattern and the query builder aligned through {@link #TICKLER_ALIAS}.
-     */
-    private static final Pattern TICKLER_FROM_PATTERN =
-            Pattern.compile("\\bFROM\\s+Tickler\\s+" + TICKLER_ALIAS + "\\b", Pattern.CASE_INSENSITIVE);
 
     /**
      * Pre-built ORDER BY clauses keyed by "column:dir". Values are static strings —
@@ -351,18 +347,71 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
 
     @SuppressWarnings("unchecked")
     @Override
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Case-insensitive domain filter/sort hints select typed criteria; no security decision or SQL text is derived from case folding")
     public List<Tickler> getTicklers(CustomFilter filter, int offset, int limit, boolean includeComments,
                                      boolean includeUpdates, boolean includeProvider, boolean includeAssignee) {
-        String sql = "select t";
-        ArrayList<Object> paramList = new ArrayList<Object>();
-        sql = getTicklerQueryString(sql, paramList, filter);
-        sql = addTicklerFetchJoins(sql, includeProvider, includeAssignee);
-        sql += buildOrderByClause(filter);
-
-        Query query = entityManager.createQuery(sql);
-        for (int x = 0; x < paramList.size(); x++) {
-            query.setParameter(x + 1, paramList.get(x));
+        CriteriaBuilder builder = entityManager.getCriteriaBuilder();
+        var criteria = builder.createQuery(Tickler.class);
+        var tickler = criteria.from(Tickler.class);
+        if (includeProvider) tickler.fetch("provider", JoinType.LEFT);
+        if (includeAssignee) tickler.fetch("assignee", JoinType.LEFT);
+        var predicates = new ArrayList<Predicate>();
+        var parameters = new java.util.LinkedHashMap<ParameterExpression<?>, Object>();
+        if (activeFilter(filter.getMrp(), "All Providers")) {
+            var patient = criteria.subquery(Integer.class);
+            var demographic = patient.from(io.github.carlos_emr.carlos.commn.model.Demographic.class);
+            patient.select(demographic.get("demographicNo")).where(
+                    builder.equal(demographic.get("demographicNo"), tickler.get("demographicNo")),
+                    builder.equal(demographic.get("providerNo"), bind(builder, parameters, String.class, filter.getMrp())));
+            predicates.add(builder.exists(patient));
         }
+        if (filter.getStartDate() != null) predicates.add(builder.greaterThanOrEqualTo(
+                tickler.get("serviceDate"), bind(builder, parameters, Date.class, filter.getStartDate())));
+        if (filter.getEndDate() != null) {
+            Calendar end = Calendar.getInstance(); end.setTime(filter.getEndDate());
+            end.set(Calendar.HOUR_OF_DAY, 23); end.set(Calendar.MINUTE, 59); end.set(Calendar.SECOND, 59);
+            predicates.add(builder.lessThanOrEqualTo(tickler.get("serviceDate"), bind(builder, parameters, Date.class, end.getTime())));
+        }
+        if (activeFilter(filter.getProvider(), "All Providers")) {
+            var providers = builder.<String>in(tickler.get("creator"));
+            for (Provider provider : filter.getProviders()) providers.value(bind(builder, parameters, String.class, provider.getProviderNo()));
+            predicates.add(providers);
+        }
+        if (activeFilter(filter.getAssignee(), "All Providers")) {
+            var assignees = builder.<String>in(tickler.get("taskAssignedTo"));
+            for (Provider provider : filter.getAssignees()) assignees.value(bind(builder, parameters, String.class, provider.getProviderNo()));
+            predicates.add(assignees);
+        }
+        if (activeFilter(filter.getProgramId(), "All Programs")) predicates.add(builder.equal(
+                tickler.get("programId"), bind(builder, parameters, Integer.class, Integer.valueOf(filter.getProgramId()))));
+        String status = java.util.Objects.requireNonNull(filter.getStatus(), "Tickler status is required");
+        if (!status.isEmpty() && !"Z".equals(status)) predicates.add(builder.equal(
+                tickler.get("status"), bind(builder, parameters, Tickler.STATUS.class, convertStatus(status))));
+        if (filter.getPriority() != null && !filter.getPriority().isEmpty()) predicates.add(builder.equal(
+                tickler.get("priority"), bind(builder, parameters, Tickler.PRIORITY.class, convertPriority(filter.getPriority()))));
+        if (activeFilter(filter.getClient(), "All Clients")) predicates.add(builder.equal(
+                tickler.get("demographicNo"), bind(builder, parameters, Integer.class, Integer.valueOf(filter.getClient()))));
+        if (filter.getDemographicNo() != null && !filter.getDemographicNo().isEmpty()
+                && !"All Clients".equalsIgnoreCase(filter.getDemographicNo())) predicates.add(builder.equal(
+                        tickler.get("demographicNo"), bind(builder, parameters, Integer.class, Integer.valueOf(filter.getDemographicNo()))));
+        if (filter.getMessage() != null && !filter.getMessage().trim().isEmpty()) predicates.add(builder.equal(
+                tickler.get("message"), bind(builder, parameters, String.class, filter.getMessage())));
+        if (!filter.getExcludedDemographicNos().isEmpty()) {
+            var excluded = builder.<Integer>in(tickler.get("demographicNo"));
+            for (Integer patient : filter.getExcludedDemographicNos()) excluded.value(bind(builder, parameters, Integer.class, patient));
+            predicates.add(builder.or(builder.isNull(tickler.get("demographicNo")), builder.not(excluded)));
+        }
+        boolean ascending = "asc".equalsIgnoreCase(filter.getSort_order());
+        jakarta.persistence.criteria.Order primary;
+        if ("priority".equalsIgnoreCase(filter.getSortColumn())) {
+            var rank = builder.<Tickler.PRIORITY, Integer>selectCase(tickler.get("priority"));
+            var first = ascending ? Tickler.PRIORITY.High : Tickler.PRIORITY.Low;
+            var last = ascending ? Tickler.PRIORITY.Low : Tickler.PRIORITY.High;
+            primary = builder.asc(rank.when(first, 0).when(Tickler.PRIORITY.Normal, 1).when(last, 2).otherwise(3));
+        } else primary = ascending ? builder.asc(tickler.get("serviceDate")) : builder.desc(tickler.get("serviceDate"));
+        criteria.select(tickler).where(predicates.toArray(Predicate[]::new)).orderBy(primary, builder.desc(tickler.get("id")));
+        TypedQuery<Tickler> query = entityManager.createQuery(criteria);
+        parameters.forEach((parameter, value) -> setCriteriaParameter(query, parameter, value));
         query.setFirstResult(offset);
         if (limit > 0) {
             setLimit(query, limit);
@@ -377,28 +426,20 @@ public class TicklerDaoImpl extends AbstractDaoImpl<Tickler> implements TicklerD
         return results;
     }
 
-    /**
-     * Adds only single-valued provider fetch joins to legacy Tickler list queries.
-     *
-     * <p>Tickler comments and updates are initialized after the paged query instead of being
-     * fetch-joined here. Those collections use Hibernate batch loading, which avoids collection
-     * fetch joins on paginated list queries and avoids fetching both Tickler collections in one
-     * query.</p>
-     */
-    private String addTicklerFetchJoins(String sql, boolean includeProvider, boolean includeAssignee) {
-        if (!includeProvider && !includeAssignee) {
-            return sql;
-        }
-        StringBuilder joins = new StringBuilder();
-        if (includeProvider) {
-            joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".provider");
-        }
-        if (includeAssignee) {
-            joins.append(" left join fetch ").append(TICKLER_ALIAS).append(".assignee");
-        }
-        // Rewrites to the canonical uppercase FROM form used by getTicklerQueryString().
-        return TICKLER_FROM_PATTERN.matcher(sql)
-                .replaceFirst(String.format("FROM Tickler %s%s", TICKLER_ALIAS, joins));
+    /** Domain sentinel values control which typed criteria are present. */
+    private static boolean activeFilter(String value, String all) {
+        return value != null && !value.isEmpty() && !all.equals(value);
+    }
+
+    private static <T> ParameterExpression<T> bind(CriteriaBuilder builder,
+            Map<ParameterExpression<?>, Object> parameters, Class<T> type, T value) {
+        ParameterExpression<T> parameter = builder.parameter(type, "filter" + parameters.size());
+        parameters.put(parameter, value);
+        return parameter;
+    }
+
+    private static <T> void setCriteriaParameter(TypedQuery<Tickler> query, ParameterExpression<T> parameter, Object value) {
+        query.setParameter(parameter, parameter.getParameterType().cast(value));
     }
 
     private void initializeTicklerUpdates(List<Tickler> ticklers) {

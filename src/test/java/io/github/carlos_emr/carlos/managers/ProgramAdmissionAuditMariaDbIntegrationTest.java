@@ -81,6 +81,13 @@ class ProgramAdmissionAuditMariaDbIntegrationTest {
         when(security.hasPrivilegeReadOnly(actor,"_pmm_management","r","43")).thenThrow(new IllegalStateException("Synthetic policy failure"));
         assertThatThrownBy(()->resource.getPatientList("7","2026-11-09",0,1)).isInstanceOf(IllegalStateException.class);assertThat(audits()).isZero();
     }
+    @Test void shouldRollbackReadAudits_whenALaterCheckedFailureEscapes() {
+        when(security.hasPrivilegeReadOnly(actor,"_pmm_management","r","43")).thenAnswer(call -> {
+            throw new java.io.IOException("Synthetic checked policy failure");
+        });
+        assertThatThrownBy(() -> resource.getPatientList("7","2026-11-09",0,1)).isInstanceOf(java.io.IOException.class);
+        assertThat(audits()).isZero();
+    }
     @Configuration static class Config{
         @Bean(destroyMethod="close")IsolatedJpaTestDatabase ownedDatabase()throws Exception{return new IsolatedJpaTestDatabase("admission_audit");}
         @Bean DataSource dataSource(IsolatedJpaTestDatabase db){return db.dataSource();}
