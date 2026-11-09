@@ -6513,7 +6513,7 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "notes": "Fails at its last step on 2026.08: the patient tickler list (ticklerDemoMain) answers 500 for a patient with a tickler (LazyInitializationException). The WorkFlow step skips while WORKFLOW is off.",
-      "fixtures": "One owned patient with its suggestion, tickler and one PDF document (row, ctl_document link and file); pre-existing suggestions asserted unchanged."
+      "fixtures": "One owned patient with its suggestion, tickler and one PDF document (row, ctl_document link and file); pre-existing suggestions asserted unchanged. Also owns a throwaway login and unique role for revocation/403 checks; these grants never modify existing roles and cleanup asserts their removal."
     },
     {
       "name": "billing-on-invoice-third-party",
