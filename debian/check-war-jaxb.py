@@ -27,6 +27,8 @@ def check(war_path):
                     raise ValueError('loose JAXB override in WEB-INF/classes')
             if PurePosixPath(name).parent != PurePosixPath('WEB-INF/lib') or not name.endswith('.jar'):
                 continue
+            if name.rsplit('/', 1)[-1].startswith('org.eclipse.persistence'):
+                raise ValueError('EclipseLink/MOXy artifact in WAR')
             # Spooled disk storage keeps memory bounded when reading a large nested JAR.
             with tempfile.SpooledTemporaryFile(max_size=1024 * 1024) as spool:
                 with war.open(name) as source:
@@ -52,8 +54,6 @@ def check(war_path):
                                 if provider.replace('.', '/') + '.class' not in entries:
                                     raise ValueError('JAXB factory class missing from registering JAR')
                             registrations.extend((name, provider) for provider in providers)
-                    if name.rsplit('/', 1)[-1].startswith('org.eclipse.persistence'):
-                        raise ValueError('EclipseLink/MOXy artifact in WAR')
         if len(registrations) != 1 or registrations[0][1] != FACTORY:
             raise ValueError('WAR must register exactly one Glassfish JAXB factory')
 

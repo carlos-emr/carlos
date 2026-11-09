@@ -1535,8 +1535,11 @@ test('shared credential configuration refuses opted-in remote cleartext before l
 
 // #6072: exercise the actual detector, including safe clinical/reference text.
 for (const [body, headings, refused] of [
-  ['HTTP Status: 500 Reference ID: synthetic', ['An error occurred'], true],
-  ['HTTP Status 403', [], true],
+  ['HTTP Status: 500 Reference ID: synthetic', ['HTTP Status: 500'], true],
+  ['Unable to complete the request', ['HTTP Status: 404'], true],
+  ['HTTP Status 403', ['HTTP Status 403'], true],
+  ['The patient quoted HTTP Status 404 from a portal.', ['Patient chart'], false],
+  ['Portal troubleshooting\nHTTP Status: 500\nCall the clinic', ['Patient chart'], false],
   ['An error occurred\nReference ID: synthetic', ['An error occurred'], true],
   ['Clinical reference ID: 123', ['Patient chart'], false],
   ['An error occurred in the past medical history', ['Patient chart'], false],

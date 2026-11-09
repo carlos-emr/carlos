@@ -19,7 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Pins the legacy independent ID/edited maxima on the actual packaged SQL engine. */
+/** Pins the legacy independent ID/edited maxima on the actual packaged SQL engine.
+ * @since 2026-11-09
+ */
 @Tag("mariadb-native")
 @EnabledIfEnvironmentVariable(named = "CARLOS_TEST_MARIADB_DAO", matches = "true")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -52,7 +54,7 @@ class EncounterFormDaoGroupedHistoryIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldGroupPhysicalHistoryWithoutCoveringOnlyXmlOrGrowthBranches() {
+    void shouldGroupPhysicalHistory_onTheNativeTable() {
         // Creation date is constant within each day: the legacy SQL does not select
         // a deterministic creation date when it differs inside a group. Do not bless
         // an arbitrary engine-selected value or redefine this contract in a test.

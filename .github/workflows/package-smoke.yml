@@ -32,8 +32,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: package-smoke-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Every branch push keeps its own qualification; only superseded PR heads cancel.
+  group: package-smoke-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:

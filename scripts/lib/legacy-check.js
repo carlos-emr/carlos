@@ -55,6 +55,8 @@ function observeLegacySignals({signalProcess=process}={}) {
   };
 }
 function runLegacyCheck(name,operation,{cancellationGraceMs,cleanup,realSignalCheckpoints=false,existingSignalHandlers=false,processRef=process}={}) {
+  h.assert(!(realSignalCheckpoints&&existingSignalHandlers),
+    'Legacy signal observers cannot use real signal checkpoints');
   return h.runCheck({name,cancellationGraceMs,cleanup,processRef,
     ...(existingSignalHandlers?{createCancellation:observeLegacySignals}:{}),async run(context) {
     armInterruption(context,{realSignalCheckpoints});

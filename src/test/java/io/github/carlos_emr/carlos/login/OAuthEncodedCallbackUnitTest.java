@@ -25,6 +25,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/** Independent signatures exercise decoded OAuth parameters and persisted callback URI bytes.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 @Tag("security")
 class OAuthEncodedCallbackUnitTest {

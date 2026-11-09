@@ -7,14 +7,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Exercise the real list operators with an independently specified demographic value. */
+/** Exercise the real list operators with an independently specified demographic value.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 class DSDemographicSexOperatorsUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({"F, 'F,M', false, true", "M, 'F,M', false, true",
         "F, F, true, true", "M, F, false, false", "F, 'F,F', true, true",
         "F, 'male,female', false, true", "F, female, true, true"})
-    void shouldApplyConjunctionAndItsNegation(String sex, String candidates, boolean all, boolean any)
+    void shouldEvaluateSexCandidates_withAllAndAnyNegations(String sex, String candidates, boolean all, boolean any)
             throws Exception {
         DSDemographicAccess demographic = new DSDemographicAccess(null, "0") {
             @Override public String getSex() { return sex; }

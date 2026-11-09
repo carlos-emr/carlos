@@ -1570,7 +1570,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7736,
+      "minimumCases": 7740,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
       ],
@@ -2642,7 +2642,7 @@
           "check": "java-native-flyway",
           "cases": [
             {
-              "name": "shouldGroupPhysicalHistoryWithoutCoveringOnlyXmlOrGrowthBranches",
+              "name": "shouldGroupPhysicalHistory_onTheNativeTable",
               "container": ""
             }
           ]
@@ -2728,6 +2728,7 @@
         "AbstractDaoFindAllOrderingIntegrationTest": 6,
         "CaseManagementIssueDAOIntegrationTest": 21,
         "Growth0To36FormPersistenceIntegrationTest": 19,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2
@@ -2788,6 +2789,7 @@
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2
@@ -2846,6 +2848,7 @@
         "AntenatalReportDaoIntegrationTest": 5,
         "EFormGroupDaoIntegrationTest": 9,
         "Growth0To36FormPersistenceIntegrationTest": 19,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2
       },

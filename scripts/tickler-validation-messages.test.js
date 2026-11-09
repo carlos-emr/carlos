@@ -82,8 +82,12 @@ for(const multisite of [false,true])test(`Add Tickler refuses an unselected assi
   assert.deepEqual(s.messages(),[]);
 });
 test('native patient search carries the current Tickler draft through repeated attachment and patient changes',()=>{
-  const search=pages[0].source.match(/<form name="ADDAPPT"[\s\S]*?<\/form>/)[0];
-  const submit=search.match(/onsubmit="([^"]+)"/)[1];
+  const searchMatch=pages[0].source.match(/<form name="ADDAPPT"[\s\S]*?<\/form>/);
+  assert.ok(searchMatch,'Native Tickler patient search must contain the ADDAPPT form');
+  const search=searchMatch[0];
+  const submitMatch=search.match(/onsubmit="([^"]+)"/);
+  assert.ok(submitMatch,'Native Tickler patient search must carry the draft in its submit handler');
+  const submit=submitMatch[1];
   assert.match(search,/<input type="hidden" name="ticklerMessage"/);
   const carried={value:'old draft'},message={value:''};
   const form={elements:{namedItem(name){assert.equal(name,'ticklerMessage');return carried;}}};

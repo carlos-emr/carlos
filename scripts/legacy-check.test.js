@@ -2,6 +2,15 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
 const {spawn}=require('node:child_process');
+test('incompatible legacy signal modes fail before starting operations or installing handlers',()=>{
+  const {runLegacyCheck}=require('./lib/legacy-check');
+  const before=['SIGINT','SIGTERM'].map(signal=>process.listenerCount(signal));
+  let started=false;
+  assert.throws(()=>runLegacyCheck('invalid-modes',()=>{started=true;},
+    {existingSignalHandlers:true,realSignalCheckpoints:true}),/cannot use real signal checkpoints/);
+  assert.equal(started,false);
+  assert.deepEqual(['SIGINT','SIGTERM'].map(signal=>process.listenerCount(signal)),before);
+});
 async function run(t,{signal,result,selfSignal}={}) {
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-legacy-check-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const child=spawn(process.execPath,[path.join(__dirname,'fixtures/legacy-check/worker.cjs')],

@@ -67,13 +67,13 @@ class MeasurementGraphAction22ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"<0.1", ">100", "<=5", ">=10", "≤5", "≥10", "Negative", "Pending"})
-    void shouldExcludeQualifiedAndQualitativeResultsFromExactNumericSeries(String result) {
+    void shouldExcludeQualifiedAndQualitativeResults_fromExactNumericSeries(String result) {
         assertThat(MeasurementGraphAction22Action.numericResult(result)).isNull();
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"0.1", "100", "-5.25", "0"})
-    void shouldPreserveExactNumericResults(String result) {
+    void shouldPreserveExactNumericResults_forNumericInput(String result) {
         assertThat(MeasurementGraphAction22Action.numericResult(result)).isEqualTo(result);
     }
 

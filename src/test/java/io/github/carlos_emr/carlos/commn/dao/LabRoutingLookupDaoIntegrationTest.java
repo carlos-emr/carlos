@@ -29,7 +29,7 @@ class LabRoutingLookupDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Test
-    void shouldPreserveBcLikeMatchingAndSpireShortestNameLimit() {
+    void shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch() {
         Provider shortName = new Provider("954601", "Fixture", "doctor", "F", "", "Al");
         shortName.setHsoNo("BC9546A");
         Provider longName = new Provider("954602", "Fixture", "doctor", "F", "", "Alexandra");

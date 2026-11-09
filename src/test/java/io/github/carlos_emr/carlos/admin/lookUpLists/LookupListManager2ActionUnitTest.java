@@ -24,6 +24,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/** Mutation guards reject read methods before lookup access while preserving authorized POSTs.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 @Tag("security")
 class LookupListManager2ActionUnitTest extends CarlosUnitTestBase {
@@ -84,7 +87,7 @@ class LookupListManager2ActionUnitTest extends CarlosUnitTestBase {
 
     @ParameterizedTest
     @ValueSource(strings = {"order", "add", "remove"})
-    void shouldPreserveAuthorizedPostMutations(String method) {
+    void shouldPreserveAuthorizedPostMutations_forEachLookupMutation(String method) {
         populate(method, "POST");
         when(lists.findLookupListItemsByLookupListId(actor, 9)).thenReturn(List.of());
         assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
