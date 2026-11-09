@@ -54,6 +54,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 public class AssociateCodes2Action extends SaveAssoc2Action {
     private ServiceCodeAssociation legacyAssociation;
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Redirect uses only the deployment context path and a fixed same-origin route; no request parameter enters the destination")
     @Override
     public String execute() {
         // Preserve the old no-diagnosis no-op, after checking the same privilege and verb as the live writer.

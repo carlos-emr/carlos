@@ -42,6 +42,7 @@ public final class ViewPrivateBillingPrintPreview2Action extends ActionSupport {
      * @throws Exception if the underlying Struts framework signals an error
      * @since 2026-04-13
      */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Destination has a fixed local route and encoded provider query value; the complete destination is checked by RedirectValidationUtils before redirecting")
     @Override
     public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();

@@ -32,7 +32,8 @@ async function workflow(s) {
   s.cleanup(() => {
     const rows = sql.rows(`SELECT ohipfilename,htmlfilename FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}`);
     for (const files of rows) for (const filename of files) {
-      h.assert(new RegExp(`^H[A-L](?:${physician.payeeNo}\\.[0-9]{3}|${physician.ohipNo}_[0-9]{3}\\.htm)$`).test(filename), 'Unexpected owned legacy filename');
+      const match = /^H[A-L]([0-9]+)(?:\.([0-9]{3})|_([0-9]{3})\.htm)$/.exec(filename);
+      h.assert(match && match[1] === (match[2] ? physician.payeeNo : physician.ohipNo), 'Unexpected owned legacy filename');
       fs.rmSync(path.join(home, filename), { force: true });
     }
     // This check requires an exclusive disposable installation: no other generator may run.

@@ -457,7 +457,7 @@ public class ExtractBean extends Object implements Serializable {
 
     /** Validate decimal dollars before the legacy fixed-width formatter can truncate or mis-scale them. */
     static BigDecimal claimAmount(String source) {
-        if (source == null || !source.strip().matches("[0-9]+(?:\\.[0-9]*)?")) {
+        if (source == null || !source.strip().matches("[0-9]++(?:\\.[0-9]*+)?+")) {
             throw new IllegalArgumentException("A valid Teleplan claim amount is required");
         }
         BigDecimal amount = new BigDecimal(source.strip()).setScale(2, java.math.RoundingMode.UNNECESSARY);

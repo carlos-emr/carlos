@@ -1831,7 +1831,7 @@
               "container": ""
             },
             {
-              "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion",
+              "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)",
               "container": ""
             },
             {
@@ -2696,11 +2696,11 @@
               "container": ""
             },
             {
-              "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled",
+              "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)",
               "container": ""
             },
             {
-              "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent",
+              "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)",
               "container": ""
             }
           ]
