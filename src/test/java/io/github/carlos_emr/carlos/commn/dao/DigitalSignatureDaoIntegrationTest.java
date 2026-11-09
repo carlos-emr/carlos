@@ -242,6 +242,61 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
+        @DisplayName("infers legacy eForm metadata from an HTML-escaped URL reference")
+        void shouldInferLegacyEformMetadataFromEscapedReference() {
+            DigitalSignature saved = persistLegacySignature(789);
+            EFormValue value = new EFormValue();
+            value.setDemographicId(789);
+            value.setVarName("signatureValue");
+            value.setVarValue("/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId="
+                    + saved.getId() + "&amp;r=42");
+            entityManager.persist(value);
+            entityManager.flush();
+
+            DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
+            assertThat(metadata.getDemographicId()).isEqualTo(789);
+            assertThat(metadata.getModuleType()).isEqualTo(ModuleType.E_FORM);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("resolves an unassigned eForm signature from an HTML-escaped URL reference")
+        void shouldResolveUnassignedEformSignatureFromEscapedReference() {
+            DigitalSignature saved = persistLegacySignature(-1);
+            EFormValue value = new EFormValue();
+            value.setDemographicId(789);
+            value.setVarName("signatureValue");
+            value.setVarValue("/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId="
+                    + saved.getId());
+            entityManager.persist(value);
+            entityManager.flush();
+
+            assertThat(digitalSignatureDao.findMetadataById(saved.getId()).getDemographicId()).isEqualTo(-1);
+            DigitalSignature readable = digitalSignatureDao.findReadableMetadataById(saved.getId());
+            assertThat(readable.getDemographicId()).isEqualTo(789);
+            assertThat(readable.getModuleType()).isEqualTo(ModuleType.E_FORM);
+        }
+
+        @Test
+        @Tag("query")
+        @DisplayName("infers a legacy eForm signature embedded in stored letter content")
+        void shouldInferLegacyEformMetadataFromLetterContent() {
+            DigitalSignature saved = persistLegacySignature(789);
+            EFormValue letter = new EFormValue();
+            letter.setDemographicId(789);
+            letter.setVarName("Letter");
+            letter.setVarValue("&lt;img src=&quot;/imageRenderingServlet?source=signature_stored"
+                    + "&amp;digitalSignatureId=" + saved.getId() + "&quot;&gt;");
+            entityManager.persist(letter);
+            entityManager.flush();
+
+            DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
+            assertThat(metadata.getDemographicId()).isEqualTo(789);
+            assertThat(metadata.getModuleType()).isEqualTo(ModuleType.E_FORM);
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should leave legacy metadata unscoped when no owner reference exists")
         void shouldLeaveLegacyMetadataUnscoped_whenNoOwnerReferenceExists() {
             DigitalSignature saved = persistLegacySignature(123);

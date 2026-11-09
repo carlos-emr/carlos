@@ -45,6 +45,11 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
 
     private static final String EFORM_SIGNATURE_FIELD_NAME = "signatureValue";
     private static final String DIGITAL_SIGNATURE_ID_PARAM = "digitalSignatureId=";
+    // The PDF composer can render a stored signature from signatureValue or
+    // from the Rich Text Letter's stored Letter HTML, but not arbitrary fields.
+    private static final String EFORM_REFERENCE_PREDICATE =
+            "(ev.varValue LIKE ?2 OR ev.varValue LIKE ?3 OR ev.varValue LIKE ?4 "
+                    + "OR ev.varValue LIKE ?5 OR ev.varValue LIKE ?6 OR ev.varValue LIKE ?7)";
 
     public DigitalSignatureDaoImpl() {
         super(DigitalSignature.class);
@@ -130,15 +135,11 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
                         + "WHERE rx.digitalSignatureId = ?1 AND rx.demographicId > 0",
                 id, ModuleType.PRESCRIPTION);
         Query eform = entityManager.createQuery(
-                "SELECT DISTINCT ev.demographicId FROM EFormValue ev WHERE ev.varName = ?1 "
-                        + "AND (ev.varValue LIKE ?2 OR ev.varValue LIKE ?3 "
-                        + "OR ev.varValue LIKE ?4 OR ev.varValue LIKE ?5) "
-                        + "AND ev.demographicId > 0");
+                "SELECT DISTINCT ev.demographicId FROM EFormValue ev WHERE "
+                        + "(ev.varName = ?1 OR ev.varName = 'Letter') "
+                        + "AND " + EFORM_REFERENCE_PREDICATE + " AND ev.demographicId > 0");
         eform.setParameter(1, EFORM_SIGNATURE_FIELD_NAME);
-        eform.setParameter(2, "%?" + DIGITAL_SIGNATURE_ID_PARAM + idValue + "&%");
-        eform.setParameter(3, "%&" + DIGITAL_SIGNATURE_ID_PARAM + idValue + "&%");
-        eform.setParameter(4, "%?" + DIGITAL_SIGNATURE_ID_PARAM + idValue);
-        eform.setParameter(5, "%&" + DIGITAL_SIGNATURE_ID_PARAM + idValue);
+        bindEformSignatureReference(eform, idValue);
         addCandidates(candidates, eform, ModuleType.E_FORM);
         // Even two valid references are unsafe if they disagree on
         // patient or module. No first-match inference for a -1 row.
@@ -236,19 +237,28 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
 
     private DigitalSignature findLegacyEformMetadata(String idValue, int demographicId) {
         String jpql =
-                "SELECT ev.demographicId FROM EFormValue ev WHERE ev.varName = ?1 "
-                        + "AND (ev.varValue LIKE ?2 OR ev.varValue LIKE ?3 "
-                        + "OR ev.varValue LIKE ?4 OR ev.varValue LIKE ?5) "
-                        + "AND ev.demographicId = ?6";
+                "SELECT ev.demographicId FROM EFormValue ev WHERE "
+                        + "(ev.varName = ?1 OR ev.varName = 'Letter') "
+                        + "AND " + EFORM_REFERENCE_PREDICATE + " AND ev.demographicId = ?8";
 
         Query query = entityManager.createQuery(jpql);
         query.setParameter(1, EFORM_SIGNATURE_FIELD_NAME);
-        query.setParameter(2, "%?" + DIGITAL_SIGNATURE_ID_PARAM + idValue + "&%");
-        query.setParameter(3, "%&" + DIGITAL_SIGNATURE_ID_PARAM + idValue + "&%");
-        query.setParameter(4, "%?" + DIGITAL_SIGNATURE_ID_PARAM + idValue);
-        query.setParameter(5, "%&" + DIGITAL_SIGNATURE_ID_PARAM + idValue);
-        query.setParameter(6, demographicId);
+        bindEformSignatureReference(query, idValue);
+        query.setParameter(8, demographicId);
         return referencedMetadata(query, ModuleType.E_FORM);
+    }
+
+    private void bindEformSignatureReference(Query query, String idValue) {
+        String token = DIGITAL_SIGNATURE_ID_PARAM + idValue;
+        // A saved eForm may HTML-escape '&' in its URL. Match the same
+        // query-parameter spellings the PDF renderer accepts, with an
+        // end-of-value or next-parameter boundary after the exact id.
+        query.setParameter(2, "%?" + token + "&%");
+        query.setParameter(3, "%&" + token + "&%");
+        query.setParameter(4, "%&amp;" + token + "&%");
+        query.setParameter(5, "%?" + token);
+        query.setParameter(6, "%&" + token);
+        query.setParameter(7, "%&amp;" + token);
     }
 
     private DigitalSignature referencedMetadata(

@@ -1001,6 +1001,10 @@ the additive billing audit migration does not permit a partial-copy bypass.
   snapshot, rebuild the tar and start a new import. The phase records the
   tar it restored and refuses a different one on resume.
   An eForm image reference that escapes `eform/images` is blocking too.
+  Correct that eForm in the source, re-export the complete source set,
+  restore the pre-import snapshot, and start a fresh import. Editing the
+  target `form_html` and resuming cannot pass the P7 source-integrity check;
+  disabling the form does not bypass reconciliation.
   Separately reported, not blocking: references CARLOS cannot route to
   because the form names a subdirectory or carries a query suffix while
   the asset itself is present. No tar can fix those — each needs
