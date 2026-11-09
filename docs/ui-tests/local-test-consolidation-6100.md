@@ -42,7 +42,7 @@ has current evidence.
 | #6069 | Java runs on main/release pushes; PR CI now builds both complete Debian packages and tests ON/BC installs. CI execution is still required. |
 | #6070 | Node, packaging Python and O19 generator CI use strict outcome runners. Native ON/BC references are provisioned for required generator cases. The pinned CLI's separate upstream suite retains its own contract. |
 | #6072 | Error-page detection recognizes colon-bearing HTTP status and the sanitizer heading/reference signature; failed body reads propagate. Controls cover legitimate reference prose. |
-| #6076 | Finding 141 remains pinned until a current installed audit-log retake proves the fix. Source inspection alone does not retire it. |
+| #6076 | The current ON installed package passed the exact history-row patient assertion. Finding 141 is marked fixed and its manifest/known-outcome pin is retired; independent audit findings 206–208 remain fatal and do not become passing acceptance. |
 
 ## Qualification accounting
 

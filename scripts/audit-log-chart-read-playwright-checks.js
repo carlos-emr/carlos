@@ -18,10 +18,9 @@
  * every step and reports every violated expectation in its LAST step, so the steps that pass prove
  * what works before the defect is named.
  *
- * The Note Search history view is judged on its own, before that last step, because it is pinned to a
- * logged defect (finding 141: LogAction takes the note's audit string for the demographic number, so
- * the read/CME note row has no demographic_no and the note text goes to the application log). Its
- * request is made in one step and the assertion that the row names the patient stands alone in the next.
+ * The Note Search history view retains a separate regression assertion for finding 141,
+ * whose stale expected-failure pin was retired after the current installed history row passed.
+ * Its request is made in one step and the patient-column assertion stands alone in the next.
  *
  * Fixtures: the harness's owned synthetic patient and one note saved through the chart. Cleanup
  * deletes the note rows and the audit rows scoped to the patient or to the note id and asserts them gone.
