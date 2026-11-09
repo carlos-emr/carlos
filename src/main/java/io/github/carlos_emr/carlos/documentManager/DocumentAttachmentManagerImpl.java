@@ -244,7 +244,20 @@ public class DocumentAttachmentManagerImpl implements DocumentAttachmentManager 
     public List<AttachmentLabResultData> getAllLabsSortedByVersions(LoggedInInfo loggedInInfo, String demographicNo) {
         CommonLabResultData commonLabResultData = new CommonLabResultData();
         List<LabResultData> allLabs = commonLabResultData.populateLabResultsData(loggedInInfo, "", demographicNo, "", "", "", "U");
-        return groupLabsByVersion(allLabs, Hl7textResultsData::getMatchingLabs);
+        return groupLabsByVersion(allLabs, DocumentAttachmentManagerImpl::hl7VersionChain);
+    }
+
+    /**
+     * The clinical version chain of an HL7 report, or the report alone when its revisions
+     * cannot be ordered. No "newest" is chosen for such a chain, so each of its reports is
+     * offered individually instead of failing the whole picker.
+     */
+    static String hl7VersionChain(String segmentId) {
+        try {
+            return Hl7textResultsData.getMatchingLabs(segmentId);
+        } catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
+            return segmentId;
+        }
     }
 
     /**

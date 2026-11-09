@@ -179,14 +179,15 @@
 // check for errors printing
     if (request.getAttribute("printError") != null && (Boolean) request.getAttribute("printError")) {
 %>
-<% if (cmlRevisionReview) { %><p role="alert"><fmt:message key="clinical.cml.review"/></p><% } %>
-
 <script language="JavaScript">
     alert("The lab could not be printed due to an error. Please see the server logs for more detail.");
 </script>
 <%
     }
 %>
+<%-- Outside the print-error block: an unorderable CML chain must be flagged on every preview. --%>
+<% if (cmlRevisionReview) { %><p role="alert"><fmt:message key="clinical.cml.review"/></p><% } %>
+
 <script type="text/javascript" src="<%= request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js"></script>
 <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/carlos-ajax.js"></script>
 

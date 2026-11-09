@@ -236,6 +236,14 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
         assertThat(service.preview(report,actor).reason()).isEqualTo(CmlProjectionService.Reason.LEGACY_DELETION);
         ingest("20260310120000","C","7010=12.7");assertThat(active()).isEmpty();
     }
+    @Test void shouldNameTheSecurityObject_whenAdminWriteIsMissing() {
+        int report=ingest("20260310080000","F","7010=5.1");
+        when(security.hasPrivilege(actor,"_admin","w",null)).thenReturn(false);
+        assertThatThrownBy(()->service.preview(report,actor)).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin)");
+        assertThatThrownBy(()->service.apply(report,"a".repeat(64),actor,"127.0.0.1")).isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_admin)");
+    }
     @Test void shouldRefuseRepair_whenThePatientRecordIsLocked() {
         int report=legacyDuplicates();var preview=service.preview(report,actor);
         when(security.isAllowedAccessToPatientRecord(actor,patient)).thenReturn(false);

@@ -578,6 +578,7 @@ public class CommonLabTestValues {
     }
 
     /** Display-only restoration of the exact lowercase transformation used by legacy ingestion. */
+    // FindSecBugs IMPROPER_UNICODE: compares the original or legacy server-locale lowercase clinical text for display only; never authorizes or merges source identities.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
             justification = "Compare exact original or legacy server-locale lowercase clinical text solely for display; never authorize or merge source identities")
     private static boolean isOriginalOrLegacyLiteral(String literal, String projected) {

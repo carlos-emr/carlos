@@ -131,7 +131,7 @@ public class CmlProjectionService {
     }
 
     private void authorizeAdmin(LoggedInInfo actor) {
-        if (!security.hasPrivilege(actor, "_admin", "w", null)) throw new SecurityException("Admin write privilege required");
+        if (!security.hasPrivilege(actor, "_admin", "w", null)) throw new SecurityException("missing required sec object (_admin)");
     }
 
     private int owner(int report) {
@@ -309,6 +309,7 @@ public class CmlProjectionService {
         return result;
     }
 
+    // FindSecBugs IMPROPER_UNICODE: exact comparison with the legacy server-locale lowercase extraction, solely to preserve clinical edits; never identity or authorization.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
             justification = "Exact comparison with the legacy server-locale extraction, solely to preserve clinical edits; never identity or authorization")
     private boolean unchanged(Row row, Expected expected) {

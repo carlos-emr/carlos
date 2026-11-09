@@ -160,15 +160,16 @@ public final class CmlVersionPolicy {
     }
 
     public static List<Integer> order(Map<Integer, CMLHandler> reports) {
+        // One report has one order. Requiring a revision time here would make an undated
+        // single report unopenable; projection still refuses it through observations().
+        if (reports.size() == 1) return List.copyOf(reports.keySet());
         record Revision(int report, int stage, Instant time, int correction) { }
         List<Revision> revisions = new ArrayList<>();
         List<Observation> candidates = new ArrayList<>();
         for (var entry : reports.entrySet()) {
             CMLHandler handler = entry.getValue();
-            if (reports.size() > 1) {
-                if (hasUnsupportedStatus(handler)) throw new AmbiguousRevision("Unsupported CML observation status requires review");
-                candidates.addAll(observations(entry.getKey(), handler));
-            }
+            if (hasUnsupportedStatus(handler)) throw new AmbiguousRevision("Unsupported CML observation status requires review");
+            candidates.addAll(observations(entry.getKey(), handler));
             int stage = 0, correction = 0;
             Instant time = Instant.MIN;
             for (int i = 0; i < handler.getOBRCount(); i++) {

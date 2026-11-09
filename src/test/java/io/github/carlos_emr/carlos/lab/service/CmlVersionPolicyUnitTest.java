@@ -88,6 +88,12 @@ class CmlVersionPolicyUnitTest {
         assertThat(sources.get(11).getOBXFinalResultCount()).isEqualTo(1);
         assertThat(sources.get(11).getOBXResultStatus(0,0)).isEqualTo("C");
     }
+    @Test void shouldOrderASingleReport_withoutAUsableRevisionTime() throws Exception {
+        // One report has only one possible order; an undated source must stay openable.
+        var sources=new LinkedHashMap<Integer,CMLHandler>();
+        sources.put(7,handler("","F","7010=5.1"));
+        assertThat(CmlVersionPolicy.order(sources)).containsExactly(7);
+    }
     @Test void shouldIgnoreTransportReplayTime_whenOrderingClinicalRevisions() throws Exception {
         var sources=new LinkedHashMap<Integer,CMLHandler>();
         CMLHandler replay=new CMLHandler();

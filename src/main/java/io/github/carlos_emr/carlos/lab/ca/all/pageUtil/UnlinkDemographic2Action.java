@@ -43,8 +43,18 @@ public class UnlinkDemographic2Action extends ActionSupport {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private final HttpServletRequest request = ServletActionContext.getRequest();
     private final HttpServletResponse response = ServletActionContext.getResponse();
-    private final transient SecurityInfoManager security = SpringUtils.getBean(SecurityInfoManager.class);
-    private final transient Hl7PatientUnlinkService unlink = SpringUtils.getBean(Hl7PatientUnlinkService.class);
+    private final transient SecurityInfoManager security;
+    private final transient Hl7PatientUnlinkService unlink;
+
+    /** Struts creates this legacy route without arguments. */
+    public UnlinkDemographic2Action() {
+        this(SpringUtils.getBean(SecurityInfoManager.class), SpringUtils.getBean(Hl7PatientUnlinkService.class));
+    }
+
+    UnlinkDemographic2Action(SecurityInfoManager security, Hl7PatientUnlinkService unlink) {
+        this.security = security;
+        this.unlink = unlink;
+    }
 
     @Override
     public String execute() throws IOException {

@@ -88,7 +88,14 @@ public class LabDisplayHelper {
             addAcknowledgment(doc, reportStatus);
         }
 
-        String multiLabId = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+        String multiLabId;
+        try {
+            multiLabId = Hl7textResultsData.getMatchingLabs(lab.getSegmentID());
+        } catch (io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision ambiguous) {
+            // No clinical order is invented: keep the report readable with its raw versions,
+            // as the lab display does for a chain that needs review.
+            multiLabId = Hl7textResultsData.getMatchingLabsForHistory(lab.getSegmentID());
+        }
         XmlUtils.appendChildToRoot(doc, "multiLabId", multiLabId);
 
         Hl7TextMessageDao hl7TextMessageDao = (Hl7TextMessageDao) SpringUtils.getBean(Hl7TextMessageDao.class);

@@ -412,7 +412,6 @@ public class Hl7textResultsData {
     }
 
     /** The unchanged configured extraction policy, shared with projection validation and repair. */
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Preserve the existing server-locale filter semantics and original clinical literal")
     public static String projectableValue(String result) {
         return projectableValue(result, null);
     }
@@ -421,6 +420,7 @@ public class Hl7textResultsData {
         return projectableValue(result, "lab " + LogSafe.sanitize(lab) + ", OBX " + obr + "-" + obx);
     }
 
+    // FindSecBugs IMPROPER_UNICODE: lowercases a lab result in the server locale to apply the clinic's existing extraction filter; not a security or authorization decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Preserve the existing server-locale extraction policy")
     private static String projectableValue(String result, String context) {
         if (result == null || result.isEmpty() || "DNR".equals(result)) return null;
@@ -446,6 +446,7 @@ public class Hl7textResultsData {
     }
 
     /** Map a lowercase-shadow boundary without cutting a source character in half. */
+    // FindSecBugs IMPROPER_UNICODE: folds with the same server locale as the extraction filter, solely to map match boundaries back onto the source text.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Use the same server locale as the original extraction filter solely to map source-text boundaries")
     private static int originalBoundary(String source, String shadow, int boundary, Locale locale) {
         if (boundary == 0) return 0;
