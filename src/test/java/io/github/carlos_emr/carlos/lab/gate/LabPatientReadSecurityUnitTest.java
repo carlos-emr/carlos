@@ -65,7 +65,7 @@ class LabPatientReadSecurityUnitTest extends CarlosUnitTestBase {
         request.setParameter("segmentID","77");request.setParameter("demographicNo","123");
         servlet=mockStatic(ServletActionContext.class);servlet.when(ServletActionContext::getRequest).thenReturn(request);servlet.when(ServletActionContext::getResponse).thenReturn(response);
         sessions=mockStatic(LoggedInInfo.class);sessions.when(()->LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
-        versions=mockStatic(Hl7textResultsData.class);versions.when(()->Hl7textResultsData.getMatchingLabs("77")).thenReturn("77");
+        versions=mockStatic(Hl7textResultsData.class);versions.when(()->Hl7textResultsData.getMatchingLabsForHistory("77")).thenReturn("77");
         factory=mockStatic(Factory.class);audit=logActionMock;
     }
     @AfterEach void closeMocks(){factory.close();versions.close();sessions.close();servlet.close();}
@@ -93,7 +93,7 @@ class LabPatientReadSecurityUnitTest extends CarlosUnitTestBase {
         assertThatThrownBy(()->execute(Gate.DISPLAY)).isInstanceOf(SecurityException.class);verify(security).isAllowedAccessToPatientRecord(login,456);verify(security).isAllowedAccessToPatientRecord(login,123);}
     @Test void sourceTypedRoutingCannotBeReplacedByANumericIdCollision()throws Exception{owner(77,"HL7",123);owner(77,"BCP",456);locked(123);assertThat(execute(Gate.BC)).isEqualTo(ActionSupport.SUCCESS);verify(routings).findByLabNoAndLabType(77,"BCP");verify(routings,never()).findByLabNoAndLabType(77,"HL7");}
     @ParameterizedTest @ValueSource(strings={"true","false"})
-    void refusesLockedServerSelectedVersionIncludingShowLatestAndComparison(String showLatest){owner(77,"HL7",456);owner(88,"HL7",123);locked(123);request.setParameter("showLatest",showLatest);versions.when(()->Hl7textResultsData.getMatchingLabs("77")).thenReturn("77,88");
+    void refusesLockedServerSelectedVersionIncludingShowLatestAndComparison(String showLatest){owner(77,"HL7",456);owner(88,"HL7",123);locked(123);request.setParameter("showLatest",showLatest);versions.when(()->Hl7textResultsData.getMatchingLabsForHistory("77")).thenReturn("77,88");
         assertThatThrownBy(()->execute(Gate.DISPLAY)).isInstanceOf(SecurityException.class);factory.verifyNoInteractions();}
     @Test void refusesLockedExplicitAllVersionsEvenWithOpenRequestedAndForgedDemographic(){owner(77,"HL7",456);owner(88,"HL7",123);locked(123);request.setParameter("all","true");request.setParameter("multiID","77,88");request.setParameter("demographicId","456");
         assertThatThrownBy(()->execute(Gate.DISPLAY)).isInstanceOf(SecurityException.class);versions.verifyNoInteractions();factory.verifyNoInteractions();}
@@ -156,5 +156,15 @@ class LabPatientReadSecurityUnitTest extends CarlosUnitTestBase {
         assertThat(all).isPositive();assertThat(first).isBetween(all,firstParser-1);
         int selected=jsp.indexOf("multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);");int second=jsp.indexOf("LabPatientAccess.requireLabs(",selected);int secondParser=jsp.indexOf("handler = Factory.getHandler(segmentID);",selected);
         assertThat(selected).isPositive();assertThat(second).isBetween(selected,secondParser-1);
+    }
+
+    @Test void rawDisplayAuthorizationUsesMembership_withoutRequiringClinicalRevisionOrdering() throws Exception {
+        owner(77,"HL7",456);
+        versions.when(()->Hl7textResultsData.getMatchingLabs("77")).thenThrow(
+                new io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.AmbiguousRevision("Review required"));
+        assertThat(execute(Gate.DISPLAY)).isEqualTo("success");
+        versions.verify(()->Hl7textResultsData.getMatchingLabsForHistory("77"));
+        versions.verify(()->Hl7textResultsData.getMatchingLabs("77"), org.mockito.Mockito.never());
+        factory.verifyNoInteractions();
     }
 }

@@ -1,10 +1,10 @@
+<%-- Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later --%>
 <%--
 Purpose: Preview and apply a reviewed CML measurement projection repair.
 Features: Patient authorization, read-only preview, exact stale-plan rejection and transactional audit.
 Parameters: reportNo (positive CML report ID), fingerprint (preview token on POST only).
 @since 2026-11-09
 --%>
-<%-- Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later --%>
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>

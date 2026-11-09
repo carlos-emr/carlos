@@ -63,7 +63,7 @@ public final class ViewLabDisplay2Action extends ActionSupport {
         // matching versions. Authorize those actual lab identities before forwarding to it.
         String all = request.getParameter("all");
         String versions = all != null && !"null".equalsIgnoreCase(all)
-                ? request.getParameter("multiID") : Hl7textResultsData.getMatchingLabs(segment);
+                ? request.getParameter("multiID") : Hl7textResultsData.getMatchingLabsForHistory(segment);
         if (versions == null || versions.isEmpty()) {
             ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
