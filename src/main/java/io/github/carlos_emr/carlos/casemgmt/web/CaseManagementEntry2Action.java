@@ -3240,27 +3240,13 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
         String field = request.getParameter(ISSUE_FIELD_PARAM);
         Boolean value = parseIssueFlag(request.getParameter(ISSUE_VALUE_PARAM));
-        if (field == null || !ISSUE_CHANGE_FIELDS.contains(field) || value == null) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
         String demono = getDemographicNo(request);
         String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
-        if (sessionFrm == null || sessionFrm.getIssueCheckList() == null) {
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return NONE;
-        }
         // Resolve the clicked issue by identity before touching the session editor, so a
         // refused or stale request leaves the note times and every issue unchanged.
-        CheckBoxBean target = resolveTargetIssue(sessionFrm.getIssueCheckList(), demono);
+        CheckBoxBean target = issueChangeTarget(sessionFrm, demono, field, value);
         if (target == null) return NONE;
-        if (WRITE_ACCESS_ISSUE_FIELDS.contains(field) && target.getIssueDisplay() != null
-                && !target.getIssueDisplay().isWriteAccess()) {
-            // The editor renders these controls disabled for an issue this provider cannot write.
-            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-            return NONE;
-        }
 
         request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
         request.setAttribute("change_flag", "true");
@@ -3271,28 +3257,12 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
-        logger.debug("issueChange field={} value={}", field, value);
+        logger.debug("issueChange field={} value={}", LogSafe.sanitize(field), value);
 
-        // Apply exactly the attribute the user clicked; the other attributes keep their stored
-        // values rather than whatever the serialized form happened to hold for that row.
-        CaseManagementIssue changed = target.getIssue();
-        switch (field) {
-            case "acute" -> changed.setAcute(value);
-            case "certain" -> changed.setCertain(value);
-            case "major" -> changed.setMajor(value);
-            default -> changed.setResolved(value);
-        }
-        changed.setUpdate_date(new Date());
+        CaseManagementIssue changed = applyIssueFlag(target.getIssue(), field, value);
         caseManagementMgr.saveAndUpdateCaseIssues(new ArrayList<>(List.of(changed)));
-
         // Change issueDisplay if this issue is successfully saved.
-        IssueDisplay display = target.getIssueDisplay();
-        if (display != null) {
-            display.setAcute(changed.isAcute() ? "acute" : "chronic");
-            display.setCertain(changed.isCertain() ? "certain" : "uncertain");
-            display.setMajor(changed.isMajor() ? "major" : "not major");
-            display.setResolved(changed.isResolved() ? "resolved" : "unresolved");
-        }
+        showIssueFlags(target.getIssueDisplay(), changed);
 
         if (CarlosProperties.getInstance().isCaisiLoaded()) {
             // get access right
@@ -3313,6 +3283,58 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             request.setAttribute("caseManagementEntryForm", sessionFrm);
             return ISSUE_LIST_AJAX_RESULT;
         } else return "view";
+    }
+
+    /**
+     * Sets exactly the attribute the user clicked; the other attributes keep their stored values
+     * rather than whatever the serialized form happened to hold for that row.
+     */
+    private static CaseManagementIssue applyIssueFlag(CaseManagementIssue issue, String field, boolean value) {
+        switch (field) {
+            case "acute" -> issue.setAcute(value);
+            case "certain" -> issue.setCertain(value);
+            case "major" -> issue.setMajor(value);
+            default -> issue.setResolved(value);
+        }
+        issue.setUpdate_date(new Date());
+        return issue;
+    }
+
+    private static void showIssueFlags(IssueDisplay display, CaseManagementIssue issue) {
+        if (display == null) return;
+        display.setAcute(issue.isAcute() ? "acute" : "chronic");
+        display.setCertain(issue.isCertain() ? "certain" : "uncertain");
+        display.setMajor(issue.isMajor() ? "major" : "not major");
+        display.setResolved(issue.isResolved() ? "resolved" : "unresolved");
+    }
+
+    /**
+     * Validates an issue-change request and resolves its target, or sets the refusal status:
+     * 400 for an unknown attribute, a value other than true/false or no editor, the statuses of
+     * {@link #resolveTargetIssue(List, String)} for the id, and 403 for an attribute the editor
+     * renders disabled because this provider cannot write the issue.
+     *
+     * @return the clicked issue's entry, or {@code null} after the response status has been set
+     */
+    private CheckBoxBean issueChangeTarget(CaseManagementEntryFormBean sessionFrm, String demographicNo,
+                                           String field, Boolean value) {
+        if (field == null || !ISSUE_CHANGE_FIELDS.contains(field) || value == null
+                || sessionFrm == null || sessionFrm.getIssueCheckList() == null) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return null;
+        }
+        CheckBoxBean target = resolveTargetIssue(sessionFrm.getIssueCheckList(), demographicNo);
+        if (target != null && isReadOnlyAttribute(target, field)) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            return null;
+        }
+        return target;
+    }
+
+    /** True when the attribute is one the editor disables for an issue this provider cannot write. */
+    private static boolean isReadOnlyAttribute(CheckBoxBean target, String field) {
+        return WRITE_ACCESS_ISSUE_FIELDS.contains(field) && target.getIssueDisplay() != null
+                && !target.getIssueDisplay().isWriteAccess();
     }
 
     /** Parses an issue attribute value strictly; anything but {@code true}/{@code false} is refused. */
