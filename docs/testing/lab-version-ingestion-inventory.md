@@ -39,11 +39,17 @@ Normal first-open chart initialization precedes read-isolation snapshots. All
 subsequent report/chart reads must preserve complete owned clinical and source/
 review state, and the independent control patient/accession must never change.
 
-The release currently orders an HL7 version chain by `final_result_count`, then
-`obr_date`, then source ID. CML's F contributes one final result; C contributes
-zero. That observed implementation order is recorded as metadata, not reused as
-the expected clinical ordering. Native retakes on ON and BC reproduce two
-separate findings:
+The supported CML ordering counts both F and C observations as complete, then
+orders by clinical observation date. At equal completeness and observation time,
+a correction outranks a final original; source ID is only the final stable tie
+break. C remains C in the source/report status. Completeness is derived from the
+stored source when resolving a CML chain, so old zero-count correction metadata
+does not require rewriting clinical records. Historical deliveries retain their
+raw messages and review/routing state but do not mutate active measurements.
+The other vendor ordering paths retain their existing contracts.
+
+Earlier native ON/BC retakes reproduced two separate findings, whose fixes now
+require fresh installed qualification:
 
 - [#5819](https://github.com/carlos-emr/carlos/issues/5819): the chart selects the
   original F as current instead of the later C correction. Explicit Inbox and

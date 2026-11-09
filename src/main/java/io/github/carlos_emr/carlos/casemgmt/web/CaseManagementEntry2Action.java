@@ -3319,6 +3319,9 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                                          List<CaseManagementNote> history, boolean linkedGroupNote) { }
 
     private String prepareNoteHistoryView(AuthorizedNoteHistory access) {
+        LogAction.addLogStrict(LoggedInInfo.getLoggedInInfoFromSession(request),
+                LogConst.READ, LogConst.CON_CME_NOTE,
+                parseExistingNoteId(request.getParameter("noteId")).toString(), access.patient(), null);
         request.setAttribute("demoName", getDemoName(access.patient()));
         request.setAttribute("history", access.history());
         request.setAttribute("showStoredNoteHistory", !access.linkedGroupNote());
@@ -3732,7 +3735,8 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
         CaseManagementPrint cmp = new CaseManagementPrint();
         try {
-            cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request, response.getOutputStream());
+            cmp.doPrint(loggedInInfo, demographicNo, printAllNotes, noteIds, printCPP, printRx, printLabs, printPreventions, printAllergies, (pType != null && "dates".equals(pType)) ? true : false, cStartDate, cEndDate, request,
+                    auditedChartPrintOutput(loggedInInfo, patient, response.getOutputStream()));
         } catch (CaseManagementPrint.NoteAccessDeniedException deniedNote) {
             sendPrintError(HttpServletResponse.SC_FORBIDDEN, "Selected note access denied");
         } catch (Exception e) {
@@ -3743,6 +3747,30 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         return null;
+    }
+
+    /** Audit the first disclosed PDF byte, after renderer authorization and before disclosure. */
+    private java.io.OutputStream auditedChartPrintOutput(LoggedInInfo login, String patient,
+                                                        java.io.OutputStream destination) {
+        return new java.io.FilterOutputStream(destination) {
+            private boolean recorded;
+            private void audit() {
+                if (!recorded) {
+                    LogAction.addLogStrict(login, "print", "echart", patient, patient, null);
+                    recorded = true;
+                }
+            }
+            @Override
+            public void write(int value) throws IOException {
+                audit();
+                out.write(value);
+            }
+            @Override
+            public void write(byte[] bytes, int offset, int length) throws IOException {
+                if (length > 0) audit();
+                out.write(bytes, offset, length);
+            }
+        };
     }
 
     /** Clears failed PDF output while retaining the request's security, cache and session headers. */

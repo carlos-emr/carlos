@@ -7,6 +7,11 @@ passes, a registered script, and a successful unit test do not establish an
 installed workflow pass. Leave tickets open until their complete acceptance
 has current evidence.
 
+The follow-up clinical fixes have passing focused Java, Node and tooling
+regressions. Complete replacement packages and the new ON/BC audit, CML-version
+and literal-view installed checks are being qualified; earlier package retakes
+below are retained history and do not qualify the changed clinical paths.
+
 ## Scope and disposition
 
 | Issue | Implementation and remaining acceptance |
@@ -19,9 +24,9 @@ has current evidence.
 | #5709 | Retain lookup CRUD and consumer isolation. Provider add/edit forms omit inactive choices; edit explicitly preserves and labels its current retired value. The consumer test checks both that preservation and the new-provider boundary. Lookup add/remove/reorder now require POST and have direct/dispatcher GET/HEAD and authorized POST controls; current ON/BC lookup lifecycle and consumer-isolation retakes passed. |
 | #5708 | The current ON native multi-recipient/routing retake passed with no residue. The offered New/Filed status is source-wide; no per-recipient control is invented. This check is registered for ON. |
 | #5730 | PDF suffix matching now handles upper/mixed case; action tests inspect stored page count and MIME. Current ON/BC native eDoc/Inbox format, suffix-case, opaque/malformed-storage, retry and exact multipart-limit retakes passed; opaque storage is not represented as content validation. |
-| #5803 | Qualified bounds are excluded from exact numeric graph points, with numeric and qualitative controls. Literal/history behavior (#5828) still requires an explicit clinical contract and installed retakes. |
+| #5803 | Qualified bounds are excluded from exact numeric graph points. Accepted measurement literals now preserve source spelling. The explicit #5828 contract retains the shipped filter: final-status Pending remains unfiled, with visible unsupported-history and grid-scope explanations in all five languages. Original reports/PDFs must retain Pending exactly; fresh ON/BC installed retakes are required. |
 | #5727 | Corrected request-scoped First Nations selected/original values and removed a missing focus handler; separate required First Nations round-trip and encoding profiles enable the module. Both profiles passed on current ON/BC packages. Two owned three-digit communities enabled round-trip setup; complete lookup bytes were restored and the application cache was restarted. |
-| #5726 | Retain original/corrected/out-of-order ingestion assertions. Current-version selection (#5819) and stale measurement replacement (#5820) remain product blockers. |
+| #5726 | CML F/C observations both count as complete; clinical observation date and correction status precede the source-ID tie break. Existing correction metadata is interpreted from the stored source without rewriting it. Historical deliveries no longer replace active measurements. Preserve all raw versions, independent review state and duplicate handling. Fresh ON/BC ingestion retakes must qualify #5819/#5820. |
 | #5794 | Only the error check provisions temporary fault routes; exact descriptor restoration is required before its supervisor exits. Current ON/BC packaged retakes passed with exact descriptor restoration, fault-class removal and no residue. Broader development/lifecycle filter qualification remains required. |
 | #6025 | Growth persistence tests compare all five submitted headers, with H2 and physical MariaDB executions. |
 | #6093 | A real physical-table grouped history test covers independent MAX projections, historical ordering, the EctFormData caller and other-patient isolation. Required in generated and ON/BC Flyway native lanes. |
@@ -42,7 +47,7 @@ has current evidence.
 | #6069 | Java runs on main/release pushes; PR CI now builds both complete Debian packages and tests ON/BC installs. The final head must pass these CI lanes. On restricted AppArmor kernels, the disposable container exposes securityfs before installation so the package can load its dedicated Chromium userns profile; the kernel restriction and renderer sandbox remain enabled. Installed CI also exercises a real eForm PDF. |
 | #6070 | Node, packaging Python and O19 generator CI use strict outcome runners. Native ON/BC references are provisioned for required generator cases. The pinned CLI's separate upstream suite retains its own contract. |
 | #6072 | Error-page detection recognizes colon-bearing HTTP status and the sanitizer heading/reference signature; failed body reads propagate. Controls cover legitimate reference prose. |
-| #6076 | The current ON/BC installed packages passed the exact history-row patient assertion. Finding 141 is marked fixed and its manifest/known-outcome pin is retired; independent audit findings 206–208 remain fatal and do not become passing acceptance. |
+| #6076 | Finding 141 passed on ON/BC and its pin is retired. Fixes for 206–208 add patient/note revision-read auditing, one chart-print audit before its first disclosed PDF byte, and structured patient IDs on consent/merge manager events. Audit persistence failures withhold clinical output. Focused tests, including actual H2 group-note audit rows, pass; findings remain fatal until fresh ON/BC installed retakes pass. |
 
 ## Qualification accounting
 
@@ -60,8 +65,10 @@ variant, which requires the real clinic selector and drives the native Change
 control for manual reassignment. Both ON and BC passed, including profile restoration.
 The complete `b8f89793c5d7` package candidate matched 6,197 production-class/changed-JSP
 entries through the WAR, Debian payload and both installations. Later commits change
-test/CI infrastructure and rename an unused OAuth exception parameter; final-head
-package build/install CI qualifies its own rebuilt artifacts separately. Current ON/BC document, OAuth and eForm
+test/CI infrastructure, rename an unused OAuth exception parameter, and repair
+CML versioning, literal views and audit events. Those clinical changes require a
+fresh complete package candidate; final-head build/install CI qualifies its own
+rebuilt artifacts separately. Earlier ON/BC document, OAuth and eForm
 widget/PDF bundles passed with no skips or residue; the ON guideline and forwarding
 retakes and BC billing selector retakes also passed. These focused passes do not
 substitute for the remaining full profiles, repetitions and lifecycle acceptance.

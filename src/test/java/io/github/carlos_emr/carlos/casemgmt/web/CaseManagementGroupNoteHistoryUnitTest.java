@@ -126,7 +126,8 @@ class CaseManagementGroupNoteHistoryUnitTest extends CarlosUnitTestBase {
         assertThat(visible).extracting(CaseManagementNote::getId).containsExactly(502L);
         assertThat(visible.getFirst().getHistory()).isNull();
         assertThat(request.getAttribute("showStoredNoteHistory")).isEqualTo(false);
-        logActionMock.verifyNoInteractions();
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                user, "read", "CME note", "502", "101", null));
     }
 
     @Test

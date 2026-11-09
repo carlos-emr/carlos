@@ -1659,13 +1659,16 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
 
         @Test
         @DisplayName("should return merged demographic IDs")
-        void shouldReturnMergedDemographicIds() {
+        void shouldReturnMergedDemographicIds_withPatientIdentifiedAudit() {
             List<Integer> expected = List.of(1001, 1002);
             when(mockDemographicDao.getMergedDemographics(TEST_DEMO_NO)).thenReturn(expected);
 
             List<Integer> result = manager.getMergedDemographicIds(mockLoggedInInfo, TEST_DEMO_NO);
 
             assertThat(result).hasSize(2);
+            logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                    mockLoggedInInfo, "DemographicManager.getMergedDemographics", null, null,
+                    Integer.toString(TEST_DEMO_NO), "demographicNo=" + TEST_DEMO_NO));
         }
 
         @Test

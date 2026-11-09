@@ -350,8 +350,8 @@ public class PatientConsentManagerImpl implements PatientConsentManager {
 
         List<Consent> consent = consentDao.findByDemographic(demographic_no);
 
-        LogAction.addLogSynchronous(loggedinInfo, "PatientConsentManager.getAllConsentsByDemographic",
-                " Demographic: " + demographic_no);
+        LogAction.addLogStrict(loggedinInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                Integer.toString(demographic_no), " Demographic: " + demographic_no);
 
         return consent;
     }

@@ -5845,6 +5845,128 @@
       "workstreams": [
         "T08"
       ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
+      "reason": "Authorized revision reads and PDF first-byte disclosure require a patient-associated audit, with no clinical output after audit failure. Linked-group histories audit the authorized recipient. Remaining full lifecycle requirements are unchanged.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementNoteHistoryAccessUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementGroupNoteHistoryIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/casemgmt/web/ChartPrintReadAccessUnitTest.java",
+        "scripts/audit-log-chart-read-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T18"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
+      "reason": "CML source-derived completeness/date/correction ordering, historical-delivery measurement isolation, accepted literal spelling and Unicode extraction refusal; existing source/filter, clinical-state and cleanup acceptance remains required.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsDataUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js",
+        "scripts/lab-qualified-results-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/CMLHandler.java": {
+      "reason": "Real parsed F/C observations count as complete without changing raw C status; native original/correction/out-of-order uploads validate source, current-version and measurement provenance.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DemographicManagerImpl.java": {
+      "reason": "Merged-demographic read audit identifies the requested patient; installed chart reads verify the patient-filtered access audit. Other manager acceptance and source-scope gaps are not waived.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/DemographicManagerUnitTest.java",
+        "scripts/audit-log-chart-read-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23",
+        "T39"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/PatientConsentManagerImpl.java": {
+      "reason": "Consent-read audit carries the structured patient identity and refuses silent audit loss before returning data; installed chart reads verify the patient-associated event.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/PatientConsentManagerUnitTest.java",
+        "scripts/audit-log-chart-read-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T23"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/CA/ON/labValues.jsp": {
+      "reason": "Measurement-backed histories and grid visibly explain unfiled Pending without inventing observations or broadening the filter; actual reports/PDFs and all supported literal associations remain independently asserted.",
+      "tests": [
+        "scripts/lab-qualified-results-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full",
+        "jsp-compile"
+      ],
+      "workstreams": [
+        "T28",
+        "T40"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/DisplayLabValue.jsp": {
+      "reason": "Measurement-backed histories and grid visibly explain unfiled Pending without inventing observations or broadening the filter; actual reports/PDFs and all supported literal associations remain independently asserted.",
+      "tests": [
+        "scripts/lab-qualified-results-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full",
+        "jsp-compile"
+      ],
+      "workstreams": [
+        "T28",
+        "T40"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/CumulativeLabValues3.jsp": {
+      "reason": "Measurement-backed histories and grid visibly explain unfiled Pending without inventing observations or broadening the filter; actual reports/PDFs and all supported literal associations remain independently asserted.",
+      "tests": [
+        "scripts/lab-qualified-results-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full",
+        "jsp-compile"
+      ],
+      "workstreams": [
+        "T28",
+        "T40"
+      ]
     }
   },
   "lifecycleBaselineManifest": "docs/testing/release-2026.08-lifecycle-baselines.json",

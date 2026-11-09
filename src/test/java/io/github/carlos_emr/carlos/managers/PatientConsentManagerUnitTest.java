@@ -93,6 +93,25 @@ class PatientConsentManagerUnitTest extends CarlosUnitTestBase {
         return ct;
     }
 
+    @Test
+    void shouldIdentifyThePatientInTheAudit_whenConsentListIsRead() {
+        when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
+        assertThat(manager.getAllConsentsByDemographic(loggedInInfo, 101)).isEmpty();
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                loggedInInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                "101", " Demographic: 101"));
+    }
+
+    @Test
+    void shouldWithholdConsentResults_whenAuditPersistenceFails() {
+        when(mockConsentDao.findByDemographic(101)).thenReturn(List.of());
+        RuntimeException failure = new IllegalStateException("audit unavailable");
+        logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(
+                loggedInInfo, "PatientConsentManager.getAllConsentsByDemographic", null, null,
+                "101", " Demographic: 101")).thenThrow(failure);
+        assertThatThrownBy(() -> manager.getAllConsentsByDemographic(loggedInInfo, 101)).isSameAs(failure);
+    }
+
     private void setConsentId(Consent consent, Integer id) {
         try {
             java.lang.reflect.Field idField = Consent.class.getDeclaredField("id");

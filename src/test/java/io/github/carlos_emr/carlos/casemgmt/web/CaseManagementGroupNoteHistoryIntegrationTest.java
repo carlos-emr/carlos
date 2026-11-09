@@ -83,6 +83,10 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
         request.setParameter("noteId", Long.toString(id));
         LoggedInInfo user = mock(LoggedInInfo.class);
         when(user.getLoggedInProviderNo()).thenReturn(providerNo);
+        var provider = new io.github.carlos_emr.carlos.commn.model.Provider();
+        provider.setProviderNo(providerNo);
+        when(user.getLoggedInProvider()).thenReturn(provider);
+        when(user.getIp()).thenReturn("127.0.0.1");
         Facility facility = new Facility();
         facility.setEnableGroupNotes(true);
         when(user.getCurrentFacility()).thenReturn(facility);
@@ -97,6 +101,10 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
             when(security.hasPrivilege(eq(user), anyString(), eq("r"), eq("202"))).thenReturn(true);
             when(security.isAllowedAccessToPatientRecord(user, 202)).thenReturn(true);
         }
+        io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl audit =
+                new io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl();
+        ReflectionTestUtils.setField(audit, "entityManager", entityManager);
+        io.github.carlos_emr.carlos.log.LogActionTestHooks.useOscarLogDao(audit);
         try (MockedStatic<SpringUtils> beans = mockStatic(SpringUtils.class)) {
             beans.when(() -> SpringUtils.getBean(GroupNoteDao.class)).thenReturn(groups);
             beans.when(() -> SpringUtils.getBean(SecObjPrivilegeDao.class)).thenReturn(privileges);
@@ -107,6 +115,20 @@ class CaseManagementGroupNoteHistoryIntegrationTest extends CaseManagementNoteDa
             ReflectionTestUtils.setField(action, "securityInfoManager", security);
             assertThat(action.notehistory()).isEqualTo(expectedStatus == 200 ? "showHistory" : "none");
             assertThat(response.getStatus()).isEqualTo(expectedStatus);
+            if (expectedStatus == 200) {
+                entityManager.flush();
+                assertThat(entityManager.createQuery("select l from OscarLog l where l.action='read'"
+                                + " and l.content='CME note' and l.contentId=:note", io.github.carlos_emr.carlos.commn.model.OscarLog.class)
+                        .setParameter("note", Long.toString(id)).getResultList())
+                        .singleElement().satisfies(row -> {
+                            assertThat(row.getDemographicId()).isEqualTo(202);
+                            assertThat(row.getProviderNo()).isEqualTo(providerNo);
+                            assertThat(row.getIp()).isEqualTo("127.0.0.1");
+                            assertThat(row.getData()).isNull();
+                        });
+            }
+        } finally {
+            io.github.carlos_emr.carlos.log.LogActionTestHooks.useOscarLogDao(null);
         }
         return request;
     }

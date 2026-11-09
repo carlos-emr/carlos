@@ -70,6 +70,30 @@ class CaseManagementNoteHistoryAccessUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("demoName")).isNull();
     }
 
+    @Test
+    void shouldAuditOnlyThePatientAndNoteIdentity_whenRevisionHistoryIsRead() {
+        assertThat(action.notehistory()).isEqualTo("showHistory");
+        logActionMock.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(user,
+                "read", "CME note", "501", "101", null));
+    }
+
+    @Test
+    void shouldWithholdClinicalHistory_whenAuditPersistenceFails() {
+        RuntimeException failure = new IllegalStateException("audit unavailable");
+        logActionMock.when(() -> io.github.carlos_emr.carlos.log.LogAction.addLogStrict(user,
+                "read", "CME note", "501", "101", null)).thenThrow(failure);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> action.notehistory()).isSameAs(failure);
+        assertThat(request.getAttribute("history")).isNull();
+        assertThat(request.getAttribute("demoName")).isNull();
+    }
+
+    @Test
+    void shouldNotAuditARevisionRead_whenPatientReadIsRefused() {
+        when(security.hasPrivilege(user, "_demographic", "r", "101")).thenReturn(false);
+        assertRefused();
+        logActionMock.verifyNoInteractions();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"_demographic", "_casemgmt.notes"})
     void shouldRefuseHistory_whenPatientReadPrivilegeIsDenied(String object) {

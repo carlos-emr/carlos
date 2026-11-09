@@ -218,6 +218,62 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         return measurement;
     }
 
+    @Test
+    void shouldPreserveTheOriginalUnicodeLiteral_whenItsWholeCaseMappingMatches() {
+        Measurement value = fileResult("\u0130", "i\u0307", "2026-03-10 12:00:00",
+                LocalDateTime.parse("2026-03-10T14:00:00"));
+        assertThat(value.getDataField()).isEqualTo("\u0130");
+    }
+
+    @Test
+    void shouldNotInventPartOfAUnicodeCharacter_whenTheFilterSplitsItsCaseMapping() {
+        assertThat(fileResult("\u0130", "i", "2026-03-10 12:00:00",
+                LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
+    }
+
+    @Test
+    void shouldPreserveEnglishClinicalLiterals_whenTheServerLocaleIsTurkish() throws IOException {
+        java.util.Locale original = java.util.Locale.getDefault();
+        java.util.Locale display = java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY);
+        java.util.Locale format = java.util.Locale.getDefault(java.util.Locale.Category.FORMAT);
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("tr-TR"));
+            assertThat(fileResult("NEGATIVE", shippedFilter(), "2026-03-10 12:00:00",
+                    LocalDateTime.parse("2026-03-10T14:00:00")).getDataField()).isEqualTo("NEGATIVE");
+        } finally {
+            java.util.Locale.setDefault(original);
+            java.util.Locale.setDefault(java.util.Locale.Category.DISPLAY, display);
+            java.util.Locale.setDefault(java.util.Locale.Category.FORMAT, format);
+        }
+    }
+
+    @Test
+    void shouldRefuseAnUnresolvedIncomingVersion_beforeChangingClinicalMeasurements() {
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,9999");
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> fileResult("4.3", ".*",
+                    "2026-03-10 07:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                    .isInstanceOf(IllegalStateException.class).hasMessageContaining("absent");
+        }
+        org.mockito.Mockito.verifyNoInteractions(measurementDao,
+                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class),
+                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"4616,9999", "1111,4616,9999"})
+    void shouldLeaveActiveMeasurementsUntouched_whenAnOlderVersionArrivesLast(String chain) {
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn(chain);
+            assertThat(fileResult("4.3", ".*", "2026-03-10 07:00:00",
+                    LocalDateTime.parse("2026-03-10T14:00:00"))).isNull();
+        }
+        org.mockito.Mockito.verifyNoInteractions(measurementDao,
+                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class),
+                mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.class),
+                mockedBeans.get(MeasurementMapDao.class));
+    }
+
     /**
      * Files one A1C result through {@link Hl7textResultsData#populateMeasurementsTable} with the given
      * {@code HL7_LAB_MEASUREMENT_FILTER}, and returns the measurement it persisted, or {@code null} when it
@@ -310,6 +366,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "++ (moderate)| ++",
                 "2026-10-09   | 2026-10-09",
                 "negative     | negative",
+                "Negative     | Negative",
+                "NEGATIVE     | NEGATIVE",
+                "NeGaTiVe     | NeGaTiVe",
                 "112.5<br />  | 112.5",
                 // A leading break marker is stripped before the filter runs, and so is the space it leaves.
                 "<br /> -5.2  | -5.2",
@@ -326,7 +385,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
 
         @ParameterizedTest(name = "[{0}] is not filed")
-        @CsvSource(delimiter = '|', value = {"see report", "Comment to follow", "(see below)"})
+        @CsvSource(delimiter = '|', value = {"see report", "Comment to follow", "(see below)", "Pending"})
         void shouldNotFileMeasurement_whenShippedFilterRejectsResult(String result) throws IOException {
             assertThat(fileResult(result, shippedFilter(), OBSERVED, ENTERED)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));
@@ -341,18 +400,19 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             verify(measurementDao, never()).persist(any(Measurement.class));
         }
 
-        private String shippedFilter() throws IOException {
-            Properties properties = new Properties();
-            try (InputStream in = Thread.currentThread().getContextClassLoader()
-                    .getResourceAsStream("carlos.properties")) {
-                assertThat(in).as("carlos.properties on the classpath").isNotNull();
-                try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
-                    properties.load(reader);
-                }
+    }
+
+    private static String shippedFilter() throws IOException {
+        Properties properties = new Properties();
+        try (InputStream in = Thread.currentThread().getContextClassLoader()
+                .getResourceAsStream("carlos.properties")) {
+            assertThat(in).as("carlos.properties on the classpath").isNotNull();
+            try (Reader reader = new InputStreamReader(in, StandardCharsets.UTF_8)) {
+                properties.load(reader);
             }
-            String filter = properties.getProperty("HL7_LAB_MEASUREMENT_FILTER");
-            assertThat(filter).as("the shipped HL7_LAB_MEASUREMENT_FILTER").isNotBlank();
-            return filter;
         }
+        String filter = properties.getProperty("HL7_LAB_MEASUREMENT_FILTER");
+        assertThat(filter).as("the shipped HL7_LAB_MEASUREMENT_FILTER").isNotBlank();
+        return filter;
     }
 }
