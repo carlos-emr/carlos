@@ -31,6 +31,18 @@ jobs:
                   with urlopen(req, timeout=30) as response:
                       body = response.read(2 * 1024 * 1024 + 1)
               except HTTPError as failure:
+                  raw = failure.read(4097)
+                  try:
+                      details = json.loads(raw) if len(raw) <= 4096 else {}
+                  except (ValueError, UnicodeDecodeError):
+                      details = {}
+                  message = details.get("message", "") if isinstance(details, dict) else ""
+                  if not isinstance(message, str):
+                      message = ""
+                  message = message.replace(token, "[REDACTED]").replace("\\n", " ")[:240]
+                  print(json.dumps({"httpStatus": failure.code, "message": message,
+                                    "rateRemaining": failure.headers.get("X-RateLimit-Remaining", ""),
+                                    "rateReset": failure.headers.get("X-RateLimit-Reset", "")}), flush=True)
                   raise RuntimeError("External check refresh refused: HTTP " + str(failure.code)) from None
               if len(body) > 2 * 1024 * 1024:
                   raise RuntimeError("External check response exceeded bound")
