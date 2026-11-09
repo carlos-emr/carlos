@@ -1,0 +1,518 @@
+/* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
+package io.github.carlos_emr.carlos.webserv.rest.conversion;
+
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedCaseManagementIssueTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedBillingONItemTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedIssueTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedDemographicTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedDemographicExtTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedMeasurementTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedProfessionalSpecialistTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.EmbeddedProviderTo1;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+
+/** Explicit detached snapshots. No reflection, lazy graph traversal or managed entities reach the wire. */
+public final class EmbeddedRecordSnapshots {
+    private EmbeddedRecordSnapshots() { }
+    public static java.util.Date date(java.util.Date value) { return value == null ? null : (java.util.Date) value.clone(); }
+    public static java.util.Calendar calendar(java.util.Calendar value) { return value == null ? null : (java.util.Calendar) value.clone(); }
+    private static void initialized(Object value) {
+        if (value != null && !org.hibernate.Hibernate.isInitialized(value)) throw new ConversionException("Embedded record is not initialized");
+    }
+
+    public static EmbeddedCaseManagementIssueTo1 caseManagementIssue(LoggedInInfo actor, io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue source) {
+        if (source == null) return null;
+        initialized(source);
+        EmbeddedCaseManagementIssueTo1 target = new EmbeddedCaseManagementIssueTo1();
+        target.setId(source.getId());
+        target.setDemographic_no(source.getDemographic_no());
+        target.setIssue_id(source.getIssue_id());
+        target.setAcute(source.isAcute());
+        target.setCertain(source.isCertain());
+        target.setMajor(source.isMajor());
+        target.setResolved(source.isResolved());
+        target.setType(source.getType());
+        target.setUpdate_date(source.getUpdate_date());
+        target.setIssue(issue(actor, source.getIssue()));
+        target.setProgram_id(source.getProgram_id());
+        return target;
+    }
+    public static io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue caseManagementIssueDomain(EmbeddedCaseManagementIssueTo1 source) {
+        if (source == null) return null;
+        io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue target = new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue();
+        target.setId(source.getId());
+        target.setDemographic_no(source.getDemographic_no());
+        target.setIssue_id(source.getIssue_id());
+        target.setAcute(source.isAcute());
+        target.setCertain(source.isCertain());
+        target.setMajor(source.isMajor());
+        target.setResolved(source.isResolved());
+        target.setType(source.getType());
+        target.setUpdate_date(source.getUpdate_date());
+        target.setIssue(issueDomain(source.getIssue()));
+        target.setProgram_id(source.getProgram_id());
+        return target;
+    }
+    public static EmbeddedIssueTo1 issue(LoggedInInfo actor, io.github.carlos_emr.carlos.casemgmt.model.Issue source) {
+        if (source == null) return null;
+        initialized(source);
+        EmbeddedIssueTo1 target = new EmbeddedIssueTo1();
+        target.setId(source.getId());
+        target.setCode(source.getCode());
+        target.setDescription(source.getDescription());
+        target.setRole(source.getRole());
+        target.setUpdate_date(source.getUpdate_date());
+        target.setPriority(source.getPriority());
+        target.setType(source.getType());
+        target.setSortOrderId(source.getSortOrderId());
+        target.setUpdate_date_web(source.getUpdate_date_web());
+        return target;
+    }
+    public static io.github.carlos_emr.carlos.casemgmt.model.Issue issueDomain(EmbeddedIssueTo1 source) {
+        if (source == null) return null;
+        io.github.carlos_emr.carlos.casemgmt.model.Issue target = new io.github.carlos_emr.carlos.casemgmt.model.Issue();
+        target.setId(source.getId());
+        target.setCode(source.getCode());
+        target.setDescription(source.getDescription());
+        target.setRole(source.getRole());
+        target.setUpdate_date(source.getUpdate_date());
+        target.setPriority(source.getPriority());
+        target.setType(source.getType());
+        target.setSortOrderId(source.getSortOrderId());
+        return target;
+    }
+    public static EmbeddedDemographicTo1 demographic(LoggedInInfo actor, io.github.carlos_emr.carlos.commn.model.Demographic source) {
+        if (source == null) return null;
+        initialized(source);
+        EmbeddedDemographicTo1 target = new EmbeddedDemographicTo1();
+        target.setDemographicNo(source.getDemographicNo());
+        target.setPhone(source.getPhone());
+        target.setPatientStatus(source.getPatientStatus());
+        target.setPatientStatusDate(source.getPatientStatusDate());
+        target.setRosterStatus(source.getRosterStatus());
+        target.setProviderNo(source.getProviderNo());
+        target.setAddress(source.getAddress());
+        target.setProvince(source.getProvince());
+        target.setMonthOfBirth(source.getMonthOfBirth());
+        target.setVer(source.getVer());
+        target.setDateOfBirth(source.getDateOfBirth());
+        target.setSex(source.getSex());
+        target.setSexDesc(source.getSexDesc());
+        target.setDateJoined(source.getDateJoined());
+        target.setFamilyDoctor(source.getFamilyDoctor());
+        target.setFamilyPhysician(source.getFamilyPhysician());
+        target.setCity(source.getCity());
+        target.setFirstName(source.getFirstName());
+        target.setPostal(source.getPostal());
+        target.setHcRenewDate(source.getHcRenewDate());
+        target.setPhone2(source.getPhone2());
+        target.setPcnIndicator(source.getPcnIndicator());
+        target.setEndDate(source.getEndDate());
+        target.setLastName(source.getLastName());
+        target.setHcType(source.getHcType());
+        target.setChartNo(source.getChartNo());
+        target.setEmail(source.getEmail());
+        target.setConsentToUseEmailForCare(source.getConsentToUseEmailForCare());
+        target.setYearOfBirth(source.getYearOfBirth());
+        target.setEffDate(source.getEffDate());
+        target.setRosterDate(source.getRosterDate());
+        target.setRosterTerminationDate(source.getRosterTerminationDate());
+        target.setRosterTerminationReason(source.getRosterTerminationReason());
+        target.setLinks(source.getLinks());
+        if (source.getExtras() != null) target.setExtras(java.util.Arrays.stream(source.getExtras()).map(value -> demographicExt(actor, value)).toArray(EmbeddedDemographicExtTo1[]::new));
+        target.setAlias(source.getAlias());
+        target.setPreviousAddress(source.getPreviousAddress());
+        target.setChildren(source.getChildren());
+        target.setSourceOfIncome(source.getSourceOfIncome());
+        target.setCitizenship(source.getCitizenship());
+        target.setHeadRecord(source.getHeadRecord());
+        initialized(source.getSubRecord());
+        if (source.getSubRecord() != null) target.setSubRecord(new java.util.LinkedHashSet<>(source.getSubRecord()));
+        target.setAnonymous(source.getAnonymous());
+        target.setSpokenLanguage(source.getSpokenLanguage());
+        target.setActiveCount(source.getActiveCount());
+        target.setHsAlertCount(source.getHsAlertCount());
+        target.setDisplayName(source.getDisplayName());
+        target.setProvider(provider(actor, source.getProvider()));
+        target.setLastUpdateUser(source.getLastUpdateUser());
+        target.setLastUpdateDate(source.getLastUpdateDate());
+        target.setTitle(source.getTitle());
+        target.setOfficialLanguage(source.getOfficialLanguage());
+        target.setCountryOfOrigin(source.getCountryOfOrigin());
+        target.setNewsletter(source.getNewsletter());
+        target.setCellPhone(source.getCellPhone());
+        target.setPhoneComment(source.getPhoneComment());
+        target.setMiddleNames(source.getMiddleNames());
+        target.setRosterEnrolledTo(source.getRosterEnrolledTo());
+        target.setResidentialAddress(source.getResidentialAddress());
+        target.setResidentialCity(source.getResidentialCity());
+        target.setResidentialProvince(source.getResidentialProvince());
+        target.setResidentialPostal(source.getResidentialPostal());
+        target.setGender(source.getGender());
+        target.setPronoun(source.getPronoun());
+        target.setGenderId(source.getGenderId());
+        target.setPronounId(source.getPronounId());
+        target.setPatientType(source.getPatientType());
+        target.setPrefName(source.getPrefName());
+        target.setMrp(provider(actor, source.getMrp()));
+        target.setNextAppointment(source.getNextAppointment());
+        target.setId(source.getId());
+        target.setActive(source.isActive());
+        target.setFullName(source.getFullName());
+        target.setAge(source.getAge());
+        target.setFamilyDoctorLastName(source.getFamilyDoctorLastName());
+        target.setFamilyDoctorFirstName(source.getFamilyDoctorFirstName());
+        target.setBirthDay(source.getBirthDay());
+        target.setFormattedDob(source.getFormattedDob());
+        target.setNumLinks(source.getNumLinks());
+        target.setFormattedName(source.getFormattedName());
+        target.setBirthDayAsString(source.getBirthDayAsString());
+        target.setRosterStatusDisplay(source.getRosterStatusDisplay());
+        target.setFormattedDateJoined(source.getFormattedDateJoined());
+        target.setFamilyDoctorName(source.getFamilyDoctorName());
+        target.setFamilyDoctorNumber(source.getFamilyDoctorNumber());
+        target.setFamilyPhysicianLastName(source.getFamilyPhysicianLastName());
+        target.setFamilyPhysicianFirstName(source.getFamilyPhysicianFirstName());
+        target.setFamilyPhysicianFullName(source.getFamilyPhysicianFullName());
+        target.setFamilyPhysicianNumber(source.getFamilyPhysicianNumber());
+        target.setFormattedEndDate(source.getFormattedEndDate());
+        target.setFormattedEffDate(source.getFormattedEffDate());
+        target.setFormattedRenewDate(source.getFormattedRenewDate());
+        target.setSubjectPronoun(source.getSubjectPronoun());
+        target.setPossessivePronoun(source.getPossessivePronoun());
+        target.setAgeInYears(source.getAgeInYears());
+        target.setFormattedLinks(source.getFormattedLinks());
+        target.setCurrentRecord(source.getCurrentRecord());
+        target.setPersistent(source.isPersistent());
+        var safeView = demographicDomain(target);
+        safeView.setHin("");
+        safeView.setSin("");
+        target.setLabel(safeView.getLabel());
+        if (safeView.getFirstName() != null && safeView.getLastName() != null) {
+            target.setStandardIdentificationHtml(safeView.getStandardIdentificationHtml());
+        }
+        return target;
+    }
+    public static io.github.carlos_emr.carlos.commn.model.Demographic demographicDomain(EmbeddedDemographicTo1 source) {
+        if (source == null) return null;
+        io.github.carlos_emr.carlos.commn.model.Demographic target = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        target.setDemographicNo(source.getDemographicNo());
+        target.setPhone(source.getPhone());
+        target.setPatientStatus(source.getPatientStatus());
+        target.setPatientStatusDate(source.getPatientStatusDate());
+        target.setRosterStatus(source.getRosterStatus());
+        target.setProviderNo(source.getProviderNo());
+        target.setHin(source.getHin());
+        target.setAddress(source.getAddress());
+        target.setProvince(source.getProvince());
+        target.setMonthOfBirth(source.getMonthOfBirth());
+        target.setVer(source.getVer());
+        target.setDateOfBirth(source.getDateOfBirth());
+        target.setSex(source.getSex());
+        target.setSexDesc(source.getSexDesc());
+        target.setDateJoined(source.getDateJoined());
+        target.setFamilyDoctor(source.getFamilyDoctor());
+        target.setFamilyPhysician(source.getFamilyPhysician());
+        target.setCity(source.getCity());
+        target.setFirstName(source.getFirstName());
+        target.setPostal(source.getPostal());
+        target.setHcRenewDate(source.getHcRenewDate());
+        target.setPhone2(source.getPhone2());
+        target.setPcnIndicator(source.getPcnIndicator());
+        target.setEndDate(source.getEndDate());
+        target.setLastName(source.getLastName());
+        target.setHcType(source.getHcType());
+        target.setChartNo(source.getChartNo());
+        target.setEmail(source.getEmail());
+        target.setConsentToUseEmailForCare(source.getConsentToUseEmailForCare());
+        target.setYearOfBirth(source.getYearOfBirth());
+        target.setEffDate(source.getEffDate());
+        target.setRosterDate(source.getRosterDate());
+        target.setRosterTerminationDate(source.getRosterTerminationDate());
+        target.setRosterTerminationReason(source.getRosterTerminationReason());
+        target.setLinks(source.getLinks());
+        if (source.getExtras() != null) target.setExtras(java.util.Arrays.stream(source.getExtras()).map(EmbeddedRecordSnapshots::demographicExtDomain).toArray(io.github.carlos_emr.carlos.commn.model.DemographicExt[]::new));
+        target.setAlias(source.getAlias());
+        target.setPreviousAddress(source.getPreviousAddress());
+        target.setChildren(source.getChildren());
+        target.setSourceOfIncome(source.getSourceOfIncome());
+        target.setCitizenship(source.getCitizenship());
+        target.setSin(source.getSin());
+        target.setHeadRecord(source.getHeadRecord());
+        target.setSubRecord(source.getSubRecord() == null ? null : new java.util.LinkedHashSet<>(source.getSubRecord()));
+        target.setAnonymous(source.getAnonymous());
+        target.setSpokenLanguage(source.getSpokenLanguage());
+        target.setActiveCount(source.getActiveCount());
+        target.setHsAlertCount(source.getHsAlertCount());
+        target.setDisplayName(source.getDisplayName());
+        target.setProvider(providerDomain(source.getProvider()));
+        target.setLastUpdateUser(source.getLastUpdateUser());
+        target.setLastUpdateDate(source.getLastUpdateDate());
+        target.setTitle(source.getTitle());
+        target.setOfficialLanguage(source.getOfficialLanguage());
+        target.setCountryOfOrigin(source.getCountryOfOrigin());
+        target.setNewsletter(source.getNewsletter());
+        target.setCellPhone(source.getCellPhone());
+        target.setPhoneComment(source.getPhoneComment());
+        target.setMiddleNames(source.getMiddleNames());
+        target.setRosterEnrolledTo(source.getRosterEnrolledTo());
+        target.setResidentialAddress(source.getResidentialAddress());
+        target.setResidentialCity(source.getResidentialCity());
+        target.setResidentialProvince(source.getResidentialProvince());
+        target.setResidentialPostal(source.getResidentialPostal());
+        target.setGender(source.getGender());
+        target.setPronoun(source.getPronoun());
+        target.setGenderId(source.getGenderId());
+        target.setPronounId(source.getPronounId());
+        target.setPatientType(source.getPatientType());
+        target.setPrefName(source.getPrefName());
+        target.setMrp(providerDomain(source.getMrp()));
+        target.setNextAppointment(source.getNextAppointment());
+        return target;
+    }
+    public static EmbeddedDemographicExtTo1 demographicExt(LoggedInInfo actor, io.github.carlos_emr.carlos.commn.model.DemographicExt source) {
+        if (source == null) return null;
+        initialized(source);
+        EmbeddedDemographicExtTo1 target = new EmbeddedDemographicExtTo1();
+        target.setId(source.getId());
+        target.setDemographicNo(source.getDemographicNo());
+        target.setProviderNo(source.getProviderNo());
+        target.setKey(source.getKey());
+        target.setValue(source.getValue());
+        target.setDateCreated(source.getDateCreated());
+        target.setHidden(source.isHidden());
+        target.setPersistent(source.isPersistent());
+        return target;
+    }
+    public static io.github.carlos_emr.carlos.commn.model.DemographicExt demographicExtDomain(EmbeddedDemographicExtTo1 source) {
+        if (source == null) return null;
+        io.github.carlos_emr.carlos.commn.model.DemographicExt target = new io.github.carlos_emr.carlos.commn.model.DemographicExt();
+        target.setId(source.getId());
+        target.setDemographicNo(source.getDemographicNo());
+        target.setProviderNo(source.getProviderNo());
+        target.setKey(source.getKey());
+        target.setValue(source.getValue());
+        target.setDateCreated(source.getDateCreated());
+        target.setHidden(source.isHidden());
+        target.setDemographic(demographicDomain(source.getDemographic()));
+        return target;
+    }
+    public static EmbeddedMeasurementTo1 measurement(LoggedInInfo actor, io.github.carlos_emr.carlos.commn.model.Measurement source) {
+        if (source == null) return null;
+        initialized(source);
+        EmbeddedMeasurementTo1 target = new EmbeddedMeasurementTo1();
+        target.setId(source.getId());
+        target.setType(source.getType());
+        target.setDemographicId(source.getDemographicId());
+        target.setProviderNo(source.getProviderNo());
+        target.setDataField(source.getDataField());
+        target.setMeasuringInstruction(source.getMeasuringInstruction());
+        target.setComments(source.getComments());
+        target.setDateObserved(source.getDateObserved());
+        target.setAppointmentNo(source.getAppointmentNo());
+        target.setCreateDate(source.getCreateDate());
+        target.setPersistent(source.isPersistent());
+        return target;
+    }
+    public static io.github.carlos_emr.carlos.commn.model.Measurement measurementDomain(EmbeddedMeasurementTo1 source) {
+        if (source == null) return null;
+        io.github.carlos_emr.carlos.commn.model.Measurement target = new io.github.carlos_emr.carlos.commn.model.Measurement(source.getId());
+        target.setType(source.getType());
+        target.setDemographicId(source.getDemographicId());
+        target.setProviderNo(source.getProviderNo());
+        target.setDataField(source.getDataField());
+        target.setMeasuringInstruction(source.getMeasuringInstruction());
+        target.setComments(source.getComments());
+        target.setDateObserved(source.getDateObserved());
+        target.setAppointmentNo(source.getAppointmentNo());
+        target.setCreateDate(source.getCreateDate());
+        return target;
+    }
+    public static EmbeddedProfessionalSpecialistTo1 professionalSpecialist(LoggedInInfo actor, io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist source) {
+        if (source == null) return null;
+        initialized(source);
+        EmbeddedProfessionalSpecialistTo1 target = new EmbeddedProfessionalSpecialistTo1();
+        target.setId(source.getId());
+        target.setFirstName(source.getFirstName());
+        target.setLastName(source.getLastName());
+        target.setProfessionalLetters(source.getProfessionalLetters());
+        target.setStreetAddress(source.getStreetAddress());
+        target.setPhoneNumber(source.getPhoneNumber());
+        target.setFaxNumber(source.getFaxNumber());
+        target.setWebSite(source.getWebSite());
+        target.setEmailAddress(source.getEmailAddress());
+        target.setSpecialtyType(source.getSpecialtyType());
+        target.setAnnotation(source.getAnnotation());
+        target.setReferralNo(source.getReferralNo());
+        target.setInstitutionId(source.getInstitutionId());
+        target.setDepartmentId(source.getDepartmentId());
+        target.setPrivatePhoneNumber(source.getPrivatePhoneNumber());
+        target.setCellPhoneNumber(source.getCellPhoneNumber());
+        target.setPagerNumber(source.getPagerNumber());
+        target.setSalutation(source.getSalutation());
+        target.setHideFromView(source.getHideFromView());
+        target.setProvince(source.getProvince());
+        target.setDeleted(source.isDeleted());
+        target.setLastUpdated(source.getLastUpdated());
+        target.setEformId(source.getEformId());
+        target.setContactRelationship(source.getContactRelationship());
+        target.setContactType(source.getContactType());
+        target.setAddressArray(source.getAddressArray());
+        target.setAddress(source.getAddress());
+        target.setCity(source.getCity());
+        target.setPostal(source.getPostal());
+        target.setPhone(source.getPhone());
+        target.setFormattedTitle(source.getFormattedTitle());
+        target.setLocationCode(source.getLocationCode());
+        target.setOrganizationName(source.getOrganizationName());
+        target.setAddress2(source.getAddress2());
+        target.setFax(source.getFax());
+        target.setProviderCpso(source.getProviderCpso());
+        target.setWorkPhone(source.getWorkPhone());
+        target.setFormattedName(source.getFormattedName());
+        target.setPersistent(source.isPersistent());
+        return target;
+    }
+    public static io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist professionalSpecialistDomain(EmbeddedProfessionalSpecialistTo1 source) {
+        if (source == null) return null;
+        io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist target = new io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist(source.getId());
+        target.setFirstName(source.getFirstName());
+        target.setLastName(source.getLastName());
+        target.setProfessionalLetters(source.getProfessionalLetters());
+        target.setStreetAddress(source.getStreetAddress());
+        target.setPhoneNumber(source.getPhoneNumber());
+        target.setFaxNumber(source.getFaxNumber());
+        target.setWebSite(source.getWebSite());
+        target.setEmailAddress(source.getEmailAddress());
+        target.setSpecialtyType(source.getSpecialtyType());
+        target.setAnnotation(source.getAnnotation());
+        target.setReferralNo(source.getReferralNo());
+        target.setInstitutionId(source.getInstitutionId());
+        target.setDepartmentId(source.getDepartmentId());
+        target.setPrivatePhoneNumber(source.getPrivatePhoneNumber());
+        target.setCellPhoneNumber(source.getCellPhoneNumber());
+        target.setPagerNumber(source.getPagerNumber());
+        target.setSalutation(source.getSalutation());
+        target.setHideFromView(source.isHideFromView());
+        target.setProvince(source.getProvince());
+        target.setDeleted(source.isDeleted());
+        target.setLastUpdated(source.getLastUpdated());
+        target.setEformId(source.getEformId());
+        target.setContactRelationship(source.getContactRelationship());
+        target.setContactType(source.getContactType());
+        target.setAddressArray(source.getAddressArray());
+        return target;
+    }
+    public static EmbeddedProviderTo1 provider(LoggedInInfo actor, io.github.carlos_emr.carlos.commn.model.Provider source) {
+        if (source == null) return null;
+        initialized(source);
+        EmbeddedProviderTo1 target = new EmbeddedProviderTo1();
+        boolean billing = actor != null && io.github.carlos_emr.carlos.webserv.ProviderBillingAccess.canRead(actor);
+        target.setProviderNo(source.getProviderNo());
+        target.setComments(source.getComments());
+        target.setPhone(source.getPhone());
+        if (billing) target.setBillingNo(source.getBillingNo());
+        target.setWorkPhone(source.getWorkPhone());
+        target.setAddress(source.getAddress());
+        target.setTeam(source.getTeam());
+        target.setStatus(source.getStatus());
+        target.setLastName(source.getLastName());
+        target.setProviderType(source.getProviderType());
+        target.setSex(source.getSex());
+        if (billing) target.setOhipNo(source.getOhipNo());
+        target.setSpecialty(source.getSpecialty());
+        target.setDob(source.getDob());
+        if (billing) target.setHsoNo(source.getHsoNo());
+        target.setProviderActivity(source.getProviderActivity());
+        target.setFirstName(source.getFirstName());
+        if (billing) target.setRmaNo(source.getRmaNo());
+        target.setSignedConfidentiality(source.getSignedConfidentiality());
+        target.setPractitionerNo(source.getPractitionerNo());
+        target.setPractitionerNoType(source.getPractitionerNoType());
+        target.setEmail(source.getEmail());
+        target.setTitle(source.getTitle());
+        target.setLastUpdateUser(source.getLastUpdateUser());
+        target.setLastUpdateDate(source.getLastUpdateDate());
+        target.setSupervisor(source.getSupervisor());
+        target.setId(source.getId());
+        target.setFullName(source.getFullName());
+        target.setFormattedName(source.getFormattedName());
+        target.setPersistent(source.isPersistent());
+        return target;
+    }
+    public static io.github.carlos_emr.carlos.commn.model.Provider providerDomain(EmbeddedProviderTo1 source) {
+        if (source == null) return null;
+        io.github.carlos_emr.carlos.commn.model.Provider target = new io.github.carlos_emr.carlos.commn.model.Provider();
+        target.setProviderNo(source.getProviderNo());
+        target.setComments(source.getComments());
+        target.setPhone(source.getPhone());
+        target.setBillingNo(source.getBillingNo());
+        target.setWorkPhone(source.getWorkPhone());
+        target.setAddress(source.getAddress());
+        target.setTeam(source.getTeam());
+        target.setStatus(source.getStatus());
+        target.setLastName(source.getLastName());
+        target.setProviderType(source.getProviderType());
+        target.setSex(source.getSex());
+        target.setOhipNo(source.getOhipNo());
+        target.setSpecialty(source.getSpecialty());
+        target.setDob(source.getDob());
+        target.setHsoNo(source.getHsoNo());
+        target.setProviderActivity(source.getProviderActivity());
+        target.setFirstName(source.getFirstName());
+        target.setRmaNo(source.getRmaNo());
+        target.setSignedConfidentiality(source.getSignedConfidentiality());
+        target.setPractitionerNo(source.getPractitionerNo());
+        target.setPractitionerNoType(source.getPractitionerNoType());
+        target.setEmail(source.getEmail());
+        target.setTitle(source.getTitle());
+        target.setLastUpdateUser(source.getLastUpdateUser());
+        target.setLastUpdateDate(source.getLastUpdateDate());
+        target.setSupervisor(source.getSupervisor());
+        return target;
+    }
+    public static EmbeddedBillingONItemTo1 billingItem(io.github.carlos_emr.carlos.commn.model.BillingONItem source) {
+        if (source == null) return null;
+        initialized(source);
+        var target = new EmbeddedBillingONItemTo1();
+        target.setId(source.getId());
+        target.setCh1Id(source.getCh1Id());
+        target.setTranscId(source.getTranscId());
+        target.setRecId(source.getRecId());
+        target.setServiceCode(source.getServiceCode());
+        target.setFee(source.getFee());
+        target.setServiceCount(source.getServiceCount());
+        target.setServiceDate(source.getServiceDate());
+        target.setDx(source.getDx());
+        target.setDx1(source.getDx1());
+        target.setDx2(source.getDx2());
+        target.setStatus(source.getStatus());
+        target.setLastEditDT(source.getLastEditDT());
+        if (source.getFee() != null && !source.isDefunct()) {
+            try { target.setFeeAsBigDecimal(new java.math.BigDecimal(source.getFee())); }
+            catch (NumberFormatException invalid) { throw new ConversionException("Invalid stored billing amount"); }
+        }
+        target.setDefunct(source.isDefunct());
+        target.setActive(source.isActive());
+        target.setDeleted(source.isDeleted());
+        target.setPersistent(source.isPersistent());
+        return target;
+    }
+    public static io.github.carlos_emr.carlos.commn.model.BillingONItem billingItemDomain(EmbeddedBillingONItemTo1 source) {
+        if (source == null) return null;
+        var target = new io.github.carlos_emr.carlos.commn.model.BillingONItem(source.getId());
+        target.setCh1Id(source.getCh1Id());
+        target.setTranscId(source.getTranscId());
+        target.setRecId(source.getRecId());
+        target.setServiceCode(source.getServiceCode());
+        target.setFee(source.getFee());
+        target.setServiceCount(source.getServiceCount());
+        target.setServiceDate(source.getServiceDate());
+        target.setDx(source.getDx());
+        target.setDx1(source.getDx1());
+        target.setDx2(source.getDx2());
+        target.setStatus(source.getStatus());
+        target.setLastEditDT(source.getLastEditDT());
+        return target;
+    }
+}

@@ -104,6 +104,7 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
 
     @BeforeEach
     void setUpSecurityDefaults() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,42)).thenReturn(true);
         when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), any(), any(), any()))
             .thenReturn(true);
     }
@@ -439,4 +440,38 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/appointments/0/endTime").textValue()).isEqualTo("09:45:00");
         }
     }
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings={"allowed","global-denied","patient-denied"})
+    void shouldRetainAppointmentHistory_andExposeBillingOnlyWithBothBillingPermissions(String mode) {
+        registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
+        registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,mock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class));
+        when(mockSecurityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo,"_billing","r",(String)null)).thenReturn(!mode.equals("global-denied"));
+        when(mockSecurityInfoManager.hasPrivilegeReadOnly(mockLoggedInInfo,"_billing","r","42")).thenReturn(!mode.equals("patient-denied"));
+        var appointment = new io.github.carlos_emr.carlos.commn.model.Appointment(); appointment.setId(23); appointment.setDemographicNo(42);
+        when(mockAppointmentManager.getAppointmentHistoryWithoutDeleted(any(),eq(42),anyInt(),anyInt())).thenReturn(List.of(appointment));
+        var header = mock(io.github.carlos_emr.carlos.commn.model.BillingONCHeader1.class);
+        when(header.getId()).thenReturn(11); when(header.getAppointmentNo()).thenReturn(23); when(header.getHin()).thenReturn("PRIVATE_BILLING_HIN");
+        var line = new io.github.carlos_emr.carlos.commn.model.BillingONItem(7); line.setFee("12.00");
+        when(header.getBillingItems()).thenReturn(List.of(line));
+        when(mockBillingONCHeader1Dao.findByDemoNoWithItems(eq(42),anyInt(),anyInt())).thenReturn(List.of(header));
+        var response = request().path("/schedule/42/appointmentHistory").post("{}");
+        assertThat(response.getStatus()).isEqualTo(200); var wire = responseJson(response);
+        assertThat(wire.at("/appointments/0/id").intValue()).isEqualTo(23);
+        if (mode.equals("allowed")) {
+            assertThat(wire.at("/appointments/0/billingDetail/id").intValue()).isEqualTo(11);
+            assertThat(wire.at("/appointments/0/billingDetail/hin").asText()).isEqualTo("PRIVATE_BILLING_HIN");
+            assertThat(wire.at("/appointments/0/billingDetail/billingItems/0/fee").asText()).isEqualTo("12.00");
+        } else {
+            assertThat(wire.toString()).doesNotContain("PRIVATE_BILLING_HIN");
+            org.mockito.Mockito.verifyNoInteractions(mockBillingONCHeader1Dao);
+        }
+    }
+
+    @Test
+    void shouldRejectBlockedHistory_beforeAnyAppointmentOrBillingLookup() {
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(mockLoggedInInfo,42)).thenReturn(false);
+        assertThat(request().path("/schedule/42/appointmentHistory").post("{}").getStatus()).isEqualTo(403);
+        org.mockito.Mockito.verifyNoInteractions(mockAppointmentManager,mockBillingONCHeader1Dao);
+    }
+
 }

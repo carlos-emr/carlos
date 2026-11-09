@@ -54,6 +54,7 @@ final class RestDateSemantics {
             entry("webserv.rest.to.model.ProviderTo1.dob", Kind.DATE),
             entry("webserv.transfer_objects.ProviderTransfer.dob", Kind.DATE),
             entry("commn.model.BillingONItem.serviceDate", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedBillingONItemTo1.serviceDate", Kind.DATE),
             entry("commn.model.Demographic.dateJoined", Kind.DATE),
             entry("commn.model.Demographic.effDate", Kind.DATE),
             entry("commn.model.Demographic.endDate", Kind.DATE),
@@ -61,7 +62,15 @@ final class RestDateSemantics {
             entry("commn.model.Demographic.patientStatusDate", Kind.DATE),
             entry("commn.model.Demographic.rosterDate", Kind.DATE),
             entry("commn.model.Demographic.rosterTerminationDate", Kind.DATE),
-            entry("commn.model.Provider.dob", Kind.DATE)
+            entry("commn.model.Provider.dob", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedProviderTo1.dob", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.dateJoined", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.effDate", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.endDate", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.hcRenewDate", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.patientStatusDate", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.rosterDate", Kind.DATE),
+            entry("webserv.rest.to.model.EmbeddedDemographicTo1.rosterTerminationDate", Kind.DATE)
     );
     static Kind find(Class<?> owner, String property) {
         String name = owner.getName();

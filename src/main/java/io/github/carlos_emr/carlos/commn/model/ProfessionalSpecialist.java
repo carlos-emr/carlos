@@ -112,6 +112,12 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     @Transient
     private String[] addressArray;
 
+    /** Required by JPA and existing Java callers. */
+    public ProfessionalSpecialist() { }
+
+    /** Builds an identified detached compatibility view; does not persist or attach it. */
+    public ProfessionalSpecialist(Integer id) { this.id = id; }
+
     @Override
     public Integer getId() {
         return (id);

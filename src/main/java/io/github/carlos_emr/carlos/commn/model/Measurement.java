@@ -175,6 +175,12 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      * 
      * @return Integer the unique measurement ID, null if not yet persisted
      */
+    /** Required by JPA and existing Java callers. */
+    public Measurement() { }
+
+    /** Builds an identified detached compatibility view; does not persist or attach it. */
+    public Measurement(Integer id) { this.id = id; }
+
     @Override
     public Integer getId() {
         return id;

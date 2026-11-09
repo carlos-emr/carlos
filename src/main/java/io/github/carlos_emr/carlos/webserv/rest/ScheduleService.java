@@ -321,6 +321,12 @@ public class ScheduleService extends AbstractServiceImpl {
     @Consumes("application/json")
     @Produces("application/json")
     public SchedulingResponse findExistAppointments(@PathParam("demographicNo") Integer demographicNo) {
+        LoggedInInfo actor = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilege(actor, "_appointment", "r", (String) null)) {
+            throw new jakarta.ws.rs.ForbiddenException();
+        }
+        io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.require(
+                actor, securityInfoManager, "_appointment", "r", demographicNo);
         SchedulingResponse response = new SchedulingResponse();
         List<AppointmentTo1> appts = getAppointmentHistoryWithoutDeleted(demographicNo);
 
@@ -337,6 +343,12 @@ public class ScheduleService extends AbstractServiceImpl {
     }
 
     private Map<Integer, BillingDetailTo1> getAppointmentIdToBillingDetailMap(Integer demographicNo) {
+        LoggedInInfo actor = getLoggedInInfo();
+        if (!securityInfoManager.hasPrivilegeReadOnly(actor, "_billing", "r", (String) null)
+                || !securityInfoManager.hasPrivilegeReadOnly(actor, "_billing", "r", demographicNo.toString())
+                || !securityInfoManager.isAllowedAccessToPatientRecord(actor, demographicNo)) {
+            return Map.of();
+        }
         // findByDemoNoWithItems eagerly fetches each header's billingItems —
         // BillingDetailConverter copies the collection into the REST DTO,
         // which would otherwise trip a LazyInitializationException now that

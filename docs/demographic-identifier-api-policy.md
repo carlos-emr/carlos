@@ -1,6 +1,6 @@
 # Demographic identifier API policy (release/2026.08)
 
-The published WSDLs and nullable DTO properties remain unchanged. Normal conversion into `DemographicTo1`, `DemographicTransfer` and `DemographicTransfer2` omits SIN. This policy concerns these named converters; raw entities embedded in other responses remain a separate requirement tracked by #2811.
+The published WSDLs and nullable DTO properties remain unchanged. Normal conversion into `DemographicTo1`, `DemographicTransfer` and `DemographicTransfer2` omits SIN. This policy concerns these named converters. Dedicated snapshots separately protect the named appointment, consultation, measurement and note response graphs; this is not a global serializer policy for every domain entity.
 
 Bulk demographic conversion, active demographic lists and authorized search results omit HIN. Inbox listings also omit HIN. Patient-specific REST demographic detail retains HIN after the existing demographic and chart-read checks, supporting clinical identification without distributing identifiers through bulk discovery. This does not grant additional chart access. These rules do not mutate stored entities, remove input setters or change SOAP schema members.
 
