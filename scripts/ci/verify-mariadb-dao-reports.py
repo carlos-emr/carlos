@@ -18,12 +18,8 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
-    "EncounterFormDaoGroupedHistoryIntegrationTest": {
-        "shouldGroupPhysicalHistory_onTheNativeTable",
-    },
-    "LabRoutingLookupDaoIntegrationTest": {
-        "shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch",
-    },
+    "EncounterFormDaoGroupedHistoryIntegrationTest": {"shouldGroupPhysicalHistory_onTheNativeTable"},
+    "LabRoutingLookupDaoIntegrationTest": {"shouldPreserveBcLikeMatchingAndSpireShortestNameLimit_forProviderSearch"},
     'ReportingPatientListAuditMariaDbIntegrationTest': {
         'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[1]',
         'shouldCommitPatientNameAudit_withAnUnassignedOrMissingProvider(String)[2]',
@@ -125,8 +121,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                          "Growth0To36FormPersistenceIntegrationTest": 19,
-                           "EncounterFormDaoGroupedHistoryIntegrationTest": 1},
+                          "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 1},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 5,
                        "LegacyLabNativeMariaDbIntegrationTest": 7, "ConsultationArchiveDaoIntegrationTest": 1,
                        "ArchiveAuditTimestampIntegrationTest": 2,
@@ -142,8 +137,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                       "Growth0To36FormPersistenceIntegrationTest": 19,
-                           "EncounterFormDaoGroupedHistoryIntegrationTest": 1},
+                       "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 1},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 5,
                            "LegacyLabNativeMariaDbIntegrationTest": 7,
                            "ConsultationArchiveDaoIntegrationTest": 1,
@@ -166,8 +160,7 @@ REQUIRED = {"generated": {"AppointmentUpdateDaoIntegrationTest": 17,**CRITICAL, 
                           "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
                           "ReportingPatientListAuditMariaDbIntegrationTest": 4,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
-                           "Growth0To36FormPersistenceIntegrationTest": 19,
-                           "EncounterFormDaoGroupedHistoryIntegrationTest": 1}}
+                           "Growth0To36FormPersistenceIntegrationTest": 19, "EncounterFormDaoGroupedHistoryIntegrationTest": 1}}
 
 
 INBOX_CASES = (

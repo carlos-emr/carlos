@@ -407,10 +407,11 @@
         "scripts/lab-qualified-results-playwright-checks.js",
         "scripts/lib/qualified-lab-oracle.js",
         "scripts/qualified-lab-oracle.test.js",
-        "docs/testing/lab-qualified-results-inventory.md"
+        "docs/testing/lab-qualified-results-inventory.md",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java"
       ],
       "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep.",
-      "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal.",
+      "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal. Incomplete CML acknowledgement aggregates retain visible inbox rows with an explicit warning and disabled bulk selection; unrelated query errors propagate and existing JSON/XML count contracts remain unchanged.",
       "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm.",
       "requiredChecks": [
         "evidence-self-tests",
@@ -819,7 +820,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -1689,7 +1690,8 @@
         "AppointmentArchiveDateTimeContractUnitTest": 7,
         "PublishedXmlSchemaContractUnitTest": 28,
         "JaxbGeneratedSchemaUnitTest": 336,
-        "DemographicBirthDayTimezoneUnitTest": 27
+        "DemographicBirthDayTimezoneUnitTest": 27,
+        "LabResultDataAcknowledgementCountUnitTest": 10
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -2711,65 +2713,6 @@
             }
           ]
         },
-        "io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoGroupedHistoryIntegrationTest": {
-          "check": "java-native-flyway",
-          "cases": [
-            {
-              "name": "shouldGroupPhysicalHistory_onTheNativeTable",
-              "container": ""
-            }
-          ]
-        },
-        "io.github.carlos_emr.CarlosPropertiesModernChartPersistenceUnitTest": {
-          "check": "java-unprivileged-permission",
-          "cases": [
-            {
-              "name": "shouldRefuseCutover_whenUnsafeSourceIsReadOnly",
-              "container": "",
-              "check": "java-unprivileged-permission"
-            }
-          ]
-        },
-        "io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtilsOutboxTimestampUnitTest": {
-          "check": "java-unprivileged-permission",
-          "cases": [
-            {
-              "name": "shouldCopyNothing_whenTheLastOpenCannotBeRecorded",
-              "container": "ActionUtils outbox staging window",
-              "check": "java-unprivileged-permission"
-            }
-          ]
-        },
-        "io.github.carlos_emr.carlos.managers.ApplicationTempPurgeJobUnitTest": {
-          "check": "java-unprivileged-permission",
-          "cases": [
-            {
-              "name": "shouldCountScanFailure_whenDirectoryUnreadable",
-              "container": "",
-              "check": "java-unprivileged-permission"
-            }
-          ]
-        },
-        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest": {
-          "check": "java-unprivileged-permission",
-          "cases": [
-            {
-              "name": "shouldReportUnavailableOutputFolder_whenFolderIsReadOnly",
-              "container": "",
-              "check": "java-unprivileged-permission"
-            }
-          ]
-        },
-        "io.github.carlos_emr.carlos.decision.AntenatalRiskConfigServiceUnitTest": {
-          "check": "java-unprivileged-permission",
-          "cases": [
-            {
-              "name": "shouldRefuse_whenExistingConfigurationIsUnreadable",
-              "container": "Antenatal risk configuration service",
-              "check": "java-unprivileged-permission"
-            }
-          ]
-        },
         "io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportMariaDbIntegrationTest": {
           "check": "java-native-bc-flyway",
           "cases": [
@@ -2897,6 +2840,65 @@
             {
               "name": "shouldRefuseBrokenExplicitLinks_withoutFallingBackToAnUnrelatedLegacyForm",
               "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.EncounterFormDaoGroupedHistoryIntegrationTest": {
+          "check": "java-native-flyway",
+          "cases": [
+            {
+              "name": "shouldGroupPhysicalHistory_onTheNativeTable",
+              "container": ""
+            }
+          ]
+        },
+        "io.github.carlos_emr.CarlosPropertiesModernChartPersistenceUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldRefuseCutover_whenUnsafeSourceIsReadOnly",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtilsOutboxTimestampUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldCopyNothing_whenTheLastOpenCannotBeRecorded",
+              "container": "ActionUtils outbox staging window",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.ApplicationTempPurgeJobUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldCountScanFailure_whenDirectoryUnreadable",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldReportUnavailableOutputFolder_whenFolderIsReadOnly",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.decision.AntenatalRiskConfigServiceUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldRefuse_whenExistingConfigurationIsUnreadable",
+              "container": "Antenatal risk configuration service",
+              "check": "java-unprivileged-permission"
             }
           ]
         },
@@ -3140,41 +3142,6 @@
       "requireClassIdentity": true
     },
     {
-      "id": "java-unprivileged-permission",
-      "kind": "junit",
-      "profiles": [
-        "all"
-      ],
-      "repetitions": 1,
-      "command": [
-        "bash",
-        "scripts/check-ci-permission-test.sh"
-      ],
-      "environment": {
-        "CARLOS_PERMISSION_REPORTS": "{run}/reports",
-        "CARLOS_PERMISSION_EXECUTION": "{run}/jacoco.exec",
-        "CARLOS_PERMISSION_COVERAGE": "{run}/coverage"
-      },
-      "requiresExecutables": [
-        "bash",
-        "setpriv"
-      ],
-      "runtimeConstraints": {
-        "java": "25"
-      },
-      "minimumCases": 5,
-      "requiredFamilies": {
-        "CarlosPropertiesModernChartPersistenceUnitTest": 1,
-        "ActionUtilsOutboxTimestampUnitTest": 1,
-        "ApplicationTempPurgeJobUnitTest": 1,
-        "BillingOutputLockUnitTest": 1,
-        "AntenatalRiskConfigServiceUnitTest": 1
-      },
-      "requireCoverage": true,
-      "requireClassIdentity": true,
-      "timeoutSeconds": 300
-    },
-    {
       "id": "java-date-zones",
       "kind": "junit",
       "profiles": [
@@ -3249,16 +3216,10 @@
         "AbstractDaoFindAllOrderingIntegrationTest": 6,
         "CaseManagementIssueDAOIntegrationTest": 21,
         "Growth0To36FormPersistenceIntegrationTest": 19,
-        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "RxSaveReceiptCommitIntegrationTest": 8,
-        "RxConcurrencyIntegrationTest": 6,
-        "RxFavoriteGroupIntegrationTest": 6,
-        "RxFavoriteCopyIntegrationTest": 1,
-        "RxRestPrescriptionRollbackIntegrationTest": 1,
-        "RxStrictAuditIntegrationTest": 1,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -3266,7 +3227,13 @@
         "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "AppointmentUpdateDaoIntegrationTest": 17,
-        "ReportingPatientListAuditMariaDbIntegrationTest": 4
+        "ReportingPatientListAuditMariaDbIntegrationTest": 4,
+        "RxSaveReceiptCommitIntegrationTest": 8,
+        "RxConcurrencyIntegrationTest": 6,
+        "RxFavoriteGroupIntegrationTest": 6,
+        "RxFavoriteCopyIntegrationTest": 1,
+        "RxRestPrescriptionRollbackIntegrationTest": 1,
+        "RxStrictAuditIntegrationTest": 1
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -3324,10 +3291,10 @@
         "LegacyLabNativeMariaDbIntegrationTest": 7,
         "ArchiveAuditTimestampIntegrationTest": 2,
         "Growth0To36FormPersistenceIntegrationTest": 19,
-        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -3390,10 +3357,10 @@
         "AntenatalReportDaoIntegrationTest": 5,
         "EFormGroupDaoIntegrationTest": 9,
         "Growth0To36FormPersistenceIntegrationTest": 19,
-        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
         "LegacyBcTeleplanExportMariaDbIntegrationTest": 29,
+        "EncounterFormDaoGroupedHistoryIntegrationTest": 1,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
@@ -5682,6 +5649,41 @@
       }
     },
     {
+      "id": "java-unprivileged-permission",
+      "kind": "junit",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "bash",
+        "scripts/check-ci-permission-test.sh"
+      ],
+      "environment": {
+        "CARLOS_PERMISSION_REPORTS": "{run}/reports",
+        "CARLOS_PERMISSION_EXECUTION": "{run}/jacoco.exec",
+        "CARLOS_PERMISSION_COVERAGE": "{run}/coverage"
+      },
+      "requiresExecutables": [
+        "bash",
+        "setpriv"
+      ],
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "minimumCases": 5,
+      "requiredFamilies": {
+        "CarlosPropertiesModernChartPersistenceUnitTest": 1,
+        "ActionUtilsOutboxTimestampUnitTest": 1,
+        "ApplicationTempPurgeJobUnitTest": 1,
+        "BillingOutputLockUnitTest": 1,
+        "AntenatalRiskConfigServiceUnitTest": 1
+      },
+      "requireCoverage": true,
+      "requireClassIdentity": true,
+      "timeoutSeconds": 300
+    },
+    {
       "id": "packaged-native-pathnet",
       "kind": "browser",
       "profiles": [
@@ -6439,6 +6441,34 @@
         "T08"
       ]
     },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportService.java": {
+      "reason": "Physical MariaDB covers complete files/logs/status commit, prior-year claim/report collisions and capacity exhaustion, the real WCB form save and claim-side link used by both exporters, additional WCB fees, simulation diagnostics, rollback, retry idempotence and the shared generation lock.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyTeleplanFilesUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrors.java": {
+      "reason": "Both endpoint refusal tests and privacy regressions verify canonical operator messages, HTTP status, retained cause/stack diagnostics and removal of patient/SQL exception text.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrorsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/GenerateTeleplanFile2ActionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcCompatibilityRoutesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
+      ],
+      "workstreams": [
+        "T16"
+      ]
+    },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementEntry2Action.java": {
       "reason": "Authorized revision reads and PDF first-byte disclosure require a patient-associated audit, with no clinical output after audit failure. Linked-group histories audit the authorized recipient. Remaining full lifecycle requirements are unchanged.",
       "tests": [
@@ -6561,34 +6591,6 @@
         "T40"
       ]
     },
-    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportService.java": {
-      "reason": "Physical MariaDB covers complete files/logs/status commit, prior-year claim/report collisions and capacity exhaustion, the real WCB form save and claim-side link used by both exporters, additional WCB fees, simulation diagnostics, rollback, retry idempotence and the shared generation lock.",
-      "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportMariaDbIntegrationTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyTeleplanFilesUnitTest.java"
-      ],
-      "checks": [
-        "java-all",
-        "java-native-bc-flyway"
-      ],
-      "workstreams": [
-        "T16"
-      ]
-    },
-    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrors.java": {
-      "reason": "Both endpoint refusal tests and privacy regressions verify canonical operator messages, HTTP status, retained cause/stack diagnostics and removal of patient/SQL exception text.",
-      "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrorsUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/GenerateTeleplanFile2ActionUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcCompatibilityRoutesUnitTest.java"
-      ],
-      "checks": [
-        "java-all"
-      ],
-      "workstreams": [
-        "T16"
-      ]
-    },
     "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewLabDisplay2Action.java": {
       "reason": "Authorize selected report reads, retain a warned read-only CML report when related source data cannot be parsed, and preserve strict mutation refusal.",
       "tests": [
@@ -6635,6 +6637,48 @@
       "workstreams": [
         "T14",
         "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultData.java": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/web/inboxhub/InboxhubListMode.jsp": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/oscarMDS/Page.jsp": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePage.java": {

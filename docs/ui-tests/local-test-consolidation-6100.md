@@ -262,3 +262,40 @@ comparison still refuses 32 unreviewed zero floors and unmet higher metrics;
 no waiver or lower floor substitutes for the required native-lane union.
 Failed browser, package and permission setup attempts remain separate evidence
 and do not count as passes.
+
+The installed missing-history probe exposed an additional inbox reader: the
+acknowledgement-count getter used a strict chain lookup and prevented every
+row from rendering. Only the typed incomplete-CML condition now withholds that
+optional aggregate. Both inbox views retain the report, show the translated
+warning and disable bulk selection; unrelated lookup/count failures propagate.
+The display flag is transient and Jackson-ignored so existing wire properties
+remain unchanged. Ten required unit cases cover normal formats, single and
+incomplete chains, cache replacement, failure propagation and JSON boundaries.
+The 73 focused lab cases pass. The preceding installed seven-check attempt
+passed six checks and failed this real inbox path; it is retained as failed
+evidence and requires a fresh source build and installed retake.
+
+Release `1335e1b28ab4` (#6098) adds REST/SOAP hardening and an independent
+native XML binary-contract gate. The integration retains all new native
+transaction families and named cases, together with the grouped-history
+family, five-case routing floor, unprivileged permission lane and ten-case
+inbox aggregate family. The matrix now contains 40 workstreams and 92 checks.
+OAuth retains single decoding of parsed protocol fields alongside the new
+strict UTF-8 decoder for raw query input. The earlier `a0eb9d5bcb4e` H2 run
+passed 34,778 cases with 172 explicit routed/prerequisite skips and no failures
+or errors; its 6,209 tested class bytes match its rebuilt 6,237-entry package.
+Those receipts qualify that earlier source only; the merged API production
+tree requires its own package, Java, coverage and installed browser retakes.
+
+The merged `3192f601a58a` source passes the complete H2 execution: 35,695
+cases, including 216 explicit prerequisite/routed skips, and no failures/errors.
+All 6,271 tested production classes match its normal Ubuntu 26.04 source-built
+WAR and Debian package; all 6,301 checked payload entries match the installed
+BC application. Actual APT install preservation and all nine same-candidate
+reinstall assertions pass. Node 22 passes all 7,828 cases and Python 3.14 passes
+375 tooling cases. The earlier installed CML recovery probe passes with exact
+source/preference restoration and no residue; the combined API source and the
+stronger four-row Select All control require their own complete installed
+retake. Coverage metadata retains 673 floors, six nonexecutable exclusions,
+47 higher historical metrics and all ZIP refusal lines. Seventy-seven zero
+floors remain unreviewed, and the full H2 comparison remains unqualified.

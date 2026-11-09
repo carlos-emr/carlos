@@ -244,8 +244,8 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         return r == 0 && a.length() == b.length();
     }
 
-    // Only raw non-OAuth query fields reach this UTF-8 decoder. Protocol fields and
-    // signatures are already decoded by the parser; another decode changes signed values.
+    // Raw non-OAuth query parameters require strict UTF-8 decoding and retain literal +.
+    // Parsed OAuth protocol fields bypass this helper because they are already decoded.
     private static String pctDecode(String s) {
         if (s == null || s.isEmpty()) return s;
         StringBuilder out = new StringBuilder(s.length());

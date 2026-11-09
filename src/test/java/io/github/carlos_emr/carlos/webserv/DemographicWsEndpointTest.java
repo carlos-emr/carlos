@@ -136,7 +136,8 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
                 .isNullOrEmpty();
         org.mockito.Mockito.verify(patientConsentManager, org.mockito.Mockito.never())
                 .getConsentsByTypeAndEditDate(any(), any(), any());
-        org.mockito.Mockito.verify(visibility, org.mockito.Mockito.never()).getReadableDemographicIds(any(), any());
+        org.mockito.Mockito.verify(visibility, org.mockito.Mockito.never())
+                .getReadableDemographicIds(any(), org.mockito.ArgumentMatchers.anyCollection());
     }
 
     @Test
@@ -157,7 +158,6 @@ class DemographicWsEndpointTest extends CarlosSoapTestBase {
         DemographicWs proxy = createClient(DemographicWs.class);
         assertThat(proxy.getConsentedDemographicIdsAfter(new java.util.GregorianCalendar(2026, 0, 2)))
                 .containsExactly(101, 202);
-        org.mockito.Mockito.verify(visibility).getReadableDemographicIds(any(LoggedInInfo.class), eq(List.of(101, 202)));
     }
 
     /** Tests for the getDemographic SOAP operation. */

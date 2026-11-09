@@ -824,7 +824,7 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
             assertThat(report.getMultipleAckCount()).isEqualTo(-1);
             assertThat(report.getAckCount()).isEqualTo(3);
             hl7.verify(() -> Hl7textResultsData.getMatchingLabs("41"), Mockito.times(1));
-            assertThat(logs.messages()).anyMatch(message -> message.contains("aggregate acknowledgement count is unavailable"));
+            assertThat(logs.messages()).anyMatch(message -> message.contains("aggregate count withheld"));
             assertThat(logs.messages().toString()).doesNotContain("PRIVATE_SOURCE_CONTENT");
             assertThat(logs.events()).allMatch(event -> event.getThrown() == null);
             assertThatThrownBy(() -> new CommonLabResultData().getMatchingLabsForMutation("41", "HL7"))
