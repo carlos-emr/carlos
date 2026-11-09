@@ -301,7 +301,9 @@ public class CMLHandler implements MessageHandler {
         for (int i=0; i < obrCount; i++){
             obxCount = getOBXCount(i);
             for (int j=0; j < obxCount; j++){
-                if (getOBXResultStatus(i, j).equals("Final") || getOBXResultStatus(i, j).equalsIgnoreCase("C"))
+                String status = getOBXResultStatus(i, j);
+                if ("Final".equals(status) || "F".equals(status) || "f".equals(status)
+                        || "C".equals(status) || "c".equals(status))
                     count++;
             }
         }

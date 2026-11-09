@@ -61,13 +61,14 @@ class LabDisplayHelperUnitTest extends CarlosUnitTestBase {
             acknowledgements.when(() -> AcknowledgementData.getAcknowledgements("123")).thenReturn(new ArrayList<>());
             matching.when(() -> Hl7textResultsData.getMatchingLabs("123")).thenReturn("123");
             factory.when(() -> Factory.getHandler("123")).thenReturn(handler);
-            tests.when(() -> CommonLabTestValues.findValuesForTest("HL7", 17, "FAKE-test", "FAKE-id")).thenReturn(values);
+            tests.when(() -> CommonLabTestValues.findSourceValuesForTests(17, java.util.Set.of("FAKE-id"))).thenReturn(Map.of("FAKE-id", values));
             var xml = LabDisplayHelper.labToXml(17, lab);
             assertThat(xml.getElementsByTagName("mapOfTestValues").item(0).getTextContent()).isEqualTo(legacy);
             assertThat(LabDisplayHelper.getMapOfTestValues(xml)).isEqualTo(expected);
             assertThat(LabDisplayHelper.getHl7Body(xml)).isEqualTo("FAKE-HL7");
             assertThat(LabDisplayHelper.getMultiLabId(xml)).isEqualTo("123");
-            tests.verify(() -> CommonLabTestValues.findValuesForTest("HL7", 17, "FAKE-test", "FAKE-id"));
+            tests.verify(() -> CommonLabTestValues.findSourceValuesForTests(17, java.util.Set.of("FAKE-id")), times(1));
+            tests.verifyNoMoreInteractions();
         }
     }
 }

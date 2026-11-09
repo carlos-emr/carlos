@@ -105,4 +105,10 @@ class CmlVersionPolicyUnitTest {
             assertThatThrownBy(()->CmlVersionPolicy.timestamp(invalid)).isInstanceOf(java.time.DateTimeException.class);
         }
     }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"F", "f", "C", "c"})
+    void shouldCountAsciiFinalAndCorrectionStatuses_withoutUnicodeCaseFolding(String status) throws Exception {
+        assertThat(handler("20260310120000", status, "7010=12.7").getOBXFinalResultCount()).isEqualTo(1);
+    }
 }

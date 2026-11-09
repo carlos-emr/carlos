@@ -87,7 +87,7 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
         when(handler.getFirstName()).thenReturn("FAKE"); when(handler.getLastName()).thenReturn("PATIENT");
         when(handler.getDOB()).thenReturn("1980-01-02"); when(handler.getPatientLocation()).thenReturn("CML");
         chains = mockStatic(Hl7textResultsData.class);
-        chains.when(() -> Hl7textResultsData.getMatchingLabs(anyString())).thenReturn("11,12");
+        chains.when(() -> Hl7textResultsData.getMatchingLabsForHistory(anyString())).thenReturn("11,12");
         handlers = mockStatic(Factory.class);
         handlers.when(() -> Factory.getHandler(anyString())).thenReturn(handler);
 
