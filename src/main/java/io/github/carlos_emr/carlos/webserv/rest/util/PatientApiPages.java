@@ -21,7 +21,7 @@ public final class PatientApiPages {
     /** A zero limit retains the legacy unbounded response; raw queries remain bounded. */
     public static <T> Page<T> read(LoggedInInfo actor, SecurityInfoManager permissions, String module,
             int offset, int limit, BiFunction<Integer, Integer, List<T>> fetch, Function<T, Integer> patientId,
-            Function<T, Object> identity) {
+            Function<T, Object> identity, String... additionalModules) {
         if (offset < 0 || limit < 0 || limit > io.github.carlos_emr.carlos.commn.dao.AbstractDao.MAX_LIST_RETURN_SIZE) throw new BadRequestException("Invalid page position or size");
         var selected = new ArrayList<T>(); int rawOffset=0, readable=0; Object previousLast=null;
         while (true) {
@@ -38,9 +38,8 @@ public final class PatientApiPages {
                 if (row==null || identity.apply(row)==null) throw new IllegalStateException("Patient discovery row has no identity");
                 Integer patient=patientId.apply(row);
                 if (patient==null || patient<=0) throw new IllegalStateException("Patient discovery row has no patient identity");
-                boolean allowed=decisions.computeIfAbsent(patient, id -> actor!=null
-                        && permissions.hasPrivilegeReadOnly(actor, module, "r", id.toString())
-                        && permissions.isAllowedAccessToPatientRecord(actor, id));
+                boolean allowed=decisions.computeIfAbsent(patient, id -> readable(
+                        actor, permissions, module, id, additionalModules));
                 if (allowed) {
                     if (readable>=offset && (limit==0 || selected.size()<limit)) selected.add(row);
                     readable=Math.incrementExact(readable);
@@ -50,5 +49,13 @@ public final class PatientApiPages {
             if (raw.size()<BATCH) break;
         }
         return new Page<>(selected, readable);
+    }
+    private static boolean readable(LoggedInInfo actor, SecurityInfoManager permissions,
+            String module, Integer patient, String[] additionalModules) {
+        if (actor == null || !permissions.hasPrivilegeReadOnly(actor, module, "r", patient.toString())) return false;
+        for (String additional : additionalModules) {
+            if (!permissions.hasPrivilegeReadOnly(actor, additional, "r", patient.toString())) return false;
+        }
+        return permissions.isAllowedAccessToPatientRecord(actor, patient);
     }
 }
