@@ -43,28 +43,28 @@ class UnlinkDemographic2ActionUnitTest extends CarlosUnitTestBase {
     }
     @AfterEach void closeMocks() { login.close(); servlet.close(); }
 
-    @Test void shouldReturnSuccessOnlyAfterTransactionalUnlinkCompletes() throws Exception {
+    @Test void shouldReturnSuccess_afterTransactionalUnlinkCompletes() throws Exception {
         when(service.unlink(456, version, "incorrect match", actor, "127.0.0.1")).thenReturn(123);
         new UnlinkDemographic2Action().execute();
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).contains("\"success\":true", "\"unlinkedDemographicNo\":123");
     }
-    @Test void shouldRefuseGetWithoutMutation() throws Exception {
+    @Test void shouldRefuseGet_withoutMutation() throws Exception {
         request.setMethod("GET"); new UnlinkDemographic2Action().execute();
         assertThat(response.getStatus()).isEqualTo(405); verifyNoInteractions(service);
     }
-    @Test void shouldRefuseDuplicateSelectorsWithoutMutation() throws Exception {
+    @Test void shouldRefuseDuplicateSelectors_withoutMutation() throws Exception {
         request.setParameter("labNo", "456", "789"); new UnlinkDemographic2Action().execute();
         assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(service);
     }
-    @Test void shouldReturnConflictWhenPatientMatchChanged() throws Exception {
+    @Test void shouldReturnConflict_whenPatientMatchChanged() throws Exception {
         when(service.unlink(456, version, "incorrect match", actor, "127.0.0.1"))
                 .thenThrow(new Hl7PatientUnlinkService.StaleMatch());
         new UnlinkDemographic2Action().execute();
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getContentAsString()).doesNotContain("\"success\":true");
     }
-    @Test void shouldNotClaimSuccessOrExposeClinicalErrorsWhenTransactionFails() throws Exception {
+    @Test void shouldNotClaimSuccessOrExposeClinicalErrors_whenTransactionFails() throws Exception {
         when(service.unlink(456, version, "incorrect match", actor, "127.0.0.1"))
                 .thenThrow(new IllegalStateException("PRIVATE-SYNTHETIC-RESULT"));
         new UnlinkDemographic2Action().execute();
@@ -72,7 +72,7 @@ class UnlinkDemographic2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(response.getErrorMessage()).doesNotContain("PRIVATE-SYNTHETIC-RESULT");
         assertThat(response.getContentAsString()).doesNotContain("\"success\":true");
     }
-    @Test void shouldRequireUpdatePrivilegeBeforeMutation() {
+    @Test void shouldRequireUpdatePrivilege_beforeMutation() {
         when(security.hasPrivilege(actor, "_lab", "u", null)).thenReturn(false);
         assertThatThrownBy(() -> new UnlinkDemographic2Action().execute()).isInstanceOf(SecurityException.class);
         verifyNoInteractions(service);

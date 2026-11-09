@@ -6,6 +6,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Regression coverage for this contract.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 class ExactGraphObservationUnitTest {
     @ParameterizedTest

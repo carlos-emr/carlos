@@ -6,6 +6,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** Regression coverage for this contract.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 class CdmReportContextsUnitTest {
     private static void definitions(org.springframework.mock.web.MockHttpSession session) {

@@ -65,8 +65,8 @@ used for retained browser/database evidence.
   source was then supplied to the two optional contract files: 31 pass, no skips.
 - The screenshot gallery records 90 images (45 pairs), source/configuration hashes,
   actual browser version, synthetic fixtures and the deliberately limited renderer scope.
-- Raw numeric parsing is bounded before regex work, uses possessive numeric
-  components, and excludes nonzero results that underflow to zero.
+- Raw numeric parsing has a 512-character bound before grammar validation and
+  excludes nonzero results that underflow to zero.
 
 ## Subsequent lab integrity changes (qualification in progress)
 
@@ -103,3 +103,17 @@ used for retained browser/database evidence.
   automatically restoring that wrong-patient match. Ambiguous current clinical
   ordering, feed correction contracts and historical repair remain separate,
   unchecked requirements above.
+- CLS source-wide serialization is deliberate: the legacy accession/filler-order
+  lookup can produce overlapping chains, so narrowing to one filler number is
+  not yet proven safe. Database lock failures are logged by class without source
+  or patient data and propagate as failures. Large-CLS transaction/wait latency
+  qualification remains a merge gate; no throughput claim is made.
+- Full Java/JSP verification at 0ede7b1b0e9 succeeds: 34,509 cases, zero failures
+  or errors, 143 explicit skips. The exact pinned browser was enabled. Subsequent
+  review corrections require their own focused checks and current-head CI.
+- CodeRabbit review retake: 93 focused cases pass without skips, including real
+  PNG/JPEG and eForm PDF rendering, day-precision HL7 chart data, exclusion-count
+  accumulation, source/projection display controls, POST authorization, CDM
+  binding and transaction faults. The review changes localize warnings/retry
+  controls, retain healthy grid rows under an explicit source-load failure, and
+  distinguish internal I/O defects from defined retryable availability failures.

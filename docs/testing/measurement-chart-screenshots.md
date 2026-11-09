@@ -10,6 +10,10 @@ The eight baseline renderer exceptions are displayed explicitly in the screensho
 
 [Configuration, script and screenshot hashes](../images/pr6102/comparison-manifest.json) · [Java fixture exporter](../images/pr6102/capture/ComparisonModels.java) · [Playwright capture script](../images/pr6102/capture/capture-comparisons.cjs)
 
+The capture utility accepts `CARLOS_ROOT`, `CARLOS_BASELINE_ROOT` and `CHROME_BIN`
+to reproduce the saved configurations elsewhere. The configurations identify
+their original Java revision; each run hashes the actual draw scripts and images.
+
 ## Defect-focused comparisons
 
 | Case | Before | After |

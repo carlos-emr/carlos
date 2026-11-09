@@ -99,9 +99,15 @@
     boolean sourceOnlyResults = false;
     boolean sourceLoadFailed = false;
 
+    List<Map<String, java.io.Serializable>> sourceResults = List.of();
     try {
-        List<Map<String, java.io.Serializable>> sourceResults =
-                io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.read(patient);
+        sourceResults = io.github.carlos_emr.carlos.lab.ca.on.Hl7SourceResults.read(patient);
+    } catch (RuntimeException unavailableSource) {
+        MiscUtils.getLogger().warn("HL7 source results unavailable: {}", unavailableSource.getClass().getSimpleName());
+        sourceLoadFailed = true;
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+    }
+    try {
         InputStream is = application.getResource("/WEB-INF/measurements.xml").openStream();
         SAXBuilder saxParser = io.github.carlos_emr.carlos.utility.XmlUtils.createSecureSAXBuilder();
         Document doc = saxParser.build(is);
@@ -121,7 +127,8 @@
                 for (int j = 0; j < labList.size(); j++) {
                     Hashtable h  = (Hashtable) labList.get(j);
                     sourceOnlyResults |= Boolean.TRUE.equals(h.get("sourceOnly"))
-                            || Boolean.TRUE.equals(h.get("multipleSourceResults"));
+                            || Boolean.TRUE.equals(h.get("multipleSourceResults"))
+                            || Boolean.TRUE.equals(h.get("differentSourceResult"));
                     String date  = (String) h.get("date");
                     String id    = (String) h.get("lab_no");
                     idMap.put(id, h);

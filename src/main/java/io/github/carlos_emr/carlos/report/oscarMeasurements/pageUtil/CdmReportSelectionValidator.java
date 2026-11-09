@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 public final class CdmReportSelectionValidator {
 
     /** Session attribute holding the {@link RptMeasurementTypesBeanHandler} of the selected group. */
-    static final String SESSION_MEASUREMENT_TYPES = "measurementTypes";
+    static final String SESSION_MEASUREMENT_TYPES = CdmReportContexts.MEASUREMENT_TYPES;
 
     private final RptMeasurementTypesBeanHandler definitions;
     private boolean valid = true;

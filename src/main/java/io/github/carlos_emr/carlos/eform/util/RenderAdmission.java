@@ -7,7 +7,9 @@ import java.util.EnumMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-/** One bounded browser budget with FIFO queues and no repeated overtaking between work classes. */
+/** One bounded browser budget with FIFO queues and no repeated overtaking between work classes.
+ * @since 2026-11-09
+ */
 final class RenderAdmission {
     enum Kind { CHART, PDF }
     private final Semaphore slots;

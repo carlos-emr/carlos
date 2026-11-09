@@ -110,8 +110,8 @@ class MeasurementChartDataUnitTest {
     void shouldExplainExcludedObservations_withoutChangingNumericSeries() {
         var source = collection("Weight", 61);
         source.excludeObservation();
-        var config = MeasurementChart.lines("Synthetic", "Days", "kg", source).toConfig();
-        assertThat(config.get("exclusionNotice")).asString().startsWith("1 qualified or nonnumeric");
+        var config = MeasurementChart.lines("Synthetic", "Days", "kg", source).withExcludedObservations(2).toConfig();
+        assertThat(config.get("exclusionNotice")).asString().startsWith("3 qualified or nonnumeric");
     }
 
     /** V8's Intl accepts IANA regions and "+HH:MM" offsets, not Java's "GMT+03:00" or "Z". */

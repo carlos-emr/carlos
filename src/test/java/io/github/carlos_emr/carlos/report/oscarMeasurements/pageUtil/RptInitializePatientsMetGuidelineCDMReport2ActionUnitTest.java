@@ -355,8 +355,8 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             String result = action.execute();
 
             assertThat(result).isEqualTo("success");
-            // Two instructions were rendered for row 0, so validate + report read exactly two
-            // checkbox fields each and never probe a third; the DAO sees one query per instruction.
+            // Two instructions were rendered. Binding, validation and reporting each read
+            // both fields, never a third; the DAO sees one query per instruction.
             verify(request, times(3)).getParameter("value(mInstrcsCheckbox00)");
             verify(request, times(3)).getParameter("value(mInstrcsCheckbox01)");
             verify(request, never()).getParameter(startsWith("value(mInstrcsCheckbox02"));

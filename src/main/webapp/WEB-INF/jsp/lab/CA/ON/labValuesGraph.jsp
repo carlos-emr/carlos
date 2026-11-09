@@ -209,9 +209,9 @@
                             </tr-->
             </table>
 
-            <img alt="Clinical graph" onerror="document.getElementById('graphUnavailable').hidden=false" src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=actualLab&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&labType=<carlos:encode value='<%= labType %>' context="uriComponent"/>&identifier=<carlos:encode value='<%= identifier %>' context="uriComponent"/>&testName=<carlos:encode value='<%= testName %>' context="uriComponent"/><%=drugForGraph%>"/>
-            <p id="graphUnavailable" hidden role="alert">Graph unavailable. Retry or contact your administrator.
-                <button type="button" onclick="window.location.reload()">Retry</button>
+            <img alt="<fmt:message key="clinical.graph.alt"/>" onerror="document.getElementById('graphUnavailable').hidden=false" src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=actualLab&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/>&labType=<carlos:encode value='<%= labType %>' context="uriComponent"/>&identifier=<carlos:encode value='<%= identifier %>' context="uriComponent"/>&testName=<carlos:encode value='<%= testName %>' context="uriComponent"/><%=drugForGraph%>"/>
+            <p id="graphUnavailable" hidden role="alert"><fmt:message key="clinical.graph.unavailable"/>
+                <button type="button" onclick="window.location.reload()"><fmt:message key="clinical.graph.retry"/></button>
             </p>
 
 

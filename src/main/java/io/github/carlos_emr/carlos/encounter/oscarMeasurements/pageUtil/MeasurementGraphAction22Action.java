@@ -506,8 +506,16 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             if ("null".equals(observed)) return null;
             collectionDate = observed;
         }
-        return collectionDate == null ? null
-                : new Day(new SimpleDateFormat("yyyy-MM-dd HH:mm").parse(collectionDate).toInstant());
+        if (collectionDate == null) return null;
+        for (String pattern : new String[]{"yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss",
+                "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH", "yyyy-MM-dd"}) {
+            SimpleDateFormat format = new SimpleDateFormat(pattern);
+            format.setLenient(false);
+            java.text.ParsePosition position = new java.text.ParsePosition(0);
+            Date date = format.parse(collectionDate, position);
+            if (date != null && position.getIndex() == collectionDate.length()) return new Day(date.toInstant());
+        }
+        throw new ParseException("Unsupported observation date", 0);
     }
 
     private MeasurementChart chartMeds(Integer demographicNo, String chartTitle, String[] drugs) {

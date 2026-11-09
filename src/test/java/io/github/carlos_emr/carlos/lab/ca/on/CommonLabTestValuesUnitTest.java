@@ -36,11 +36,24 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldRetainEverySourceLiteral_whenMappedObservationRepeatsInOneReport() {
         List<Map<String, Serializable>> raw = List.of(
-                Map.of("lab_no", "100", "result", "Negative", "collDate", "2026-01-02 09:00:00", "identifier", "3007"),
-                Map.of("lab_no", "100", "result", "Pending", "collDate", "2026-01-02 10:00:00", "identifier", "3007"));
+                Map.of("lab_no", "100", "result", "Negative", "collDate", "2026-01-02 09:00:00", "identifier", "3007", "abn", "N"),
+                Map.of("lab_no", "100", "result", "Pending", "collDate", "2026-01-02 10:00:00", "identifier", "3007", "abn", "HH"));
         var rows = CommonLabTestValues.overlaySourceValues(List.of(), raw, Set.of("3007"));
         assertThat(rows).singleElement().satisfies(row -> assertThat(row)
-                .containsEntry("result", "Negative; Pending").containsEntry("multipleSourceResults", true));
+                .containsEntry("result", "Negative; Pending").containsEntry("multipleSourceResults", true).containsEntry("abn", "A"));
+    }
+
+    @Test
+    void shouldRetainProjectedValuesAndAbnormalColours_whenSourceDisplayDiffers() {
+        Hashtable<String, Serializable> old = new Hashtable<>();
+        old.put("lab_no", "100"); old.put("result", "6.7"); old.put("date", "2026-01-02 09:00:00"); old.put("abn", "A");
+        List<Map<String, Serializable>> raw = List.of(
+                Map.of("lab_no", "100", "result", "5.1", "collDate", "2026-01-02 09:00:00", "identifier", "3007", "abn", "N"),
+                Map.of("lab_no", "200", "result", "Pending", "collDate", "2026-01-03 09:00:00", "identifier", "3007", "abn", "HH"));
+        var rows = CommonLabTestValues.overlaySourceValues(List.of(old), raw, Set.of("3007"));
+        assertThat(rows.getFirst()).containsEntry("result", "Pending").containsEntry("abn", "A");
+        assertThat(rows.getLast()).containsEntry("result", "6.7").containsEntry("abn", "A")
+                .containsEntry("differentSourceResult", true);
     }
 
     @Test

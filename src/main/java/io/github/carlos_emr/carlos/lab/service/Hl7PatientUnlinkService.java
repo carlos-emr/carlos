@@ -25,7 +25,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-/** Unlinks a complete HL7 chain and archives its projections in the same transaction. */
+/** Unlinks a complete HL7 chain and archives its projections in the same transaction.
+ * @since 2026-11-09
+ */
 @Service
 public class Hl7PatientUnlinkService {
     private final PatientLabRoutingDao patients;

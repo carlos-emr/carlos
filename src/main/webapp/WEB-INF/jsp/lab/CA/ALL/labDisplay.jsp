@@ -381,7 +381,7 @@
 request.setAttribute("duplicateOfLab", duplicateOfLab);
 request.setAttribute("missingTests", missingTests);
 String unlinkMatchVersion = "";
-if (StringUtils.isNumeric(segmentID) && Integer.parseInt(segmentID) > 0) {
+if (isLinkedToDemographic && StringUtils.isNumeric(segmentID) && Integer.parseInt(segmentID) > 0) {
     try {
         unlinkMatchVersion = SpringUtils.getBean(io.github.carlos_emr.carlos.lab.service.Hl7PatientUnlinkService.class)
                 .version(Integer.parseInt(segmentID));
@@ -1571,8 +1571,10 @@ input[id^='acklabel_']{
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','msgLab');">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Tickler"
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','ticklerLab');">
+                                <% if (isLinkedToDemographic) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnUnlinkDemo"/>"
                                        onclick="unlinkDemographic(<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>)">
+                                <% } %>
 
                                 <% if (searchProviderNo != null) { // null if we were called from e-chart%>
                                 <c:set var="__enc_1"><carlos:encode value='<%= segmentID %>' context="uriComponent"/></c:set>

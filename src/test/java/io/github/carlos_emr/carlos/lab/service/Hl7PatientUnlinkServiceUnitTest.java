@@ -30,7 +30,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-/** Real Spring transaction advice and committed H2 writes, including injected failures. */
+/** Real Spring transaction advice and committed H2 writes, including injected failures.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 @Tag("lab")
 class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
@@ -122,7 +124,7 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
 
     @AfterEach void closeMocks() { routers.close(); handlers.close(); chains.close(); jdbc.execute("shutdown"); }
 
-    @Test void shouldArchiveAndUnmatchEveryVersionAndAuditTogether() {
+    @Test void shouldArchiveUnmatchAndAuditEveryVersion_inOneTransaction() {
         String version = service.version(11);
         assertThat(service.unlink(11, version, "incorrect patient", actor, "127.0.0.1")).isEqualTo(42);
         assertThat(first.getDemographicNo()).isEqualTo(PatientLabRoutingDao.UNMATCHED);
@@ -143,7 +145,7 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
         assertThat(jdbc.queryForObject("select count(*) from writes", Integer.class)).isZero();
     }
 
-    @Test void shouldRefuseStaleRetryAfterPatientMatchChanges() {
+    @Test void shouldRefuseStaleRetry_afterPatientMatchChanges() {
         String version = service.version(11); second.setDemographicNo(99);
         assertThatThrownBy(() -> service.unlink(11, version, "incorrect patient", actor, "127.0.0.1"))
                 .isInstanceOf(Hl7PatientUnlinkService.StaleMatch.class);
@@ -151,7 +153,7 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
         assertThat(routers.constructed()).isEmpty();
     }
 
-    @Test void shouldRefusePatientLockBeforeAnyClinicalWrite() {
+    @Test void shouldRefusePatientLock_beforeAnyClinicalWrite() {
         String version = service.version(11);
         when(security.isAllowedAccessToPatientRecord(actor, 42)).thenReturn(false);
         assertThatThrownBy(() -> service.unlink(11, version, "incorrect patient", actor, "127.0.0.1"))
@@ -160,7 +162,7 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(measurements, deleted, extensions, audit);
     }
 
-    @Test void shouldRefuseDifferentSourcePatientIdentity() {
+    @Test void shouldRefuseUnlink_withDifferentSourcePatientIdentity() {
         var other = mock(MessageHandler.class); when(other.getFirstName()).thenReturn("OTHER");
         when(other.getLastName()).thenReturn("PATIENT"); when(other.getDOB()).thenReturn("1980-01-02");
         when(other.getPatientLocation()).thenReturn("CML");
@@ -185,7 +187,7 @@ class Hl7PatientUnlinkServiceUnitTest extends CarlosUnitTestBase {
         verifyNoInteractions(measurements, deleted, extensions, audit);
     }
 
-    @Test void shouldKeepCoordinationIdsNegativeAndSourceQualified() {
+    @Test void shouldKeepCoordinationIdsNegative_whenQualifyingSources() {
         assertThat(Hl7ChainLocks.key("CML", "FAKE-ACC")).isNegative();
         assertThat(Hl7ChainLocks.key("CML", "FAKE-ACC")).isNotEqualTo(Hl7ChainLocks.key("OTHER", "FAKE-ACC"));
     }

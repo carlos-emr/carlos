@@ -9,7 +9,9 @@ import io.github.carlos_emr.carlos.commn.dao.ProviderLabRoutingDao;
 import io.github.carlos_emr.carlos.utility.ContentDigests;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-/** Database coordination shared by ingestion and patient-match mutations, before report locks. */
+/** Database coordination shared by ingestion and patient-match mutations, before report locks.
+ * @since 2026-11-09
+ */
 public final class Hl7ChainLocks {
     private Hl7ChainLocks() { }
 
@@ -17,11 +19,22 @@ public final class Hl7ChainLocks {
         // CLS may link distinct accessions by filler order (glucose tolerance tests).
         // Its legacy membership lookup therefore needs source-wide coordination.
         if ("CLS".equals(type)) {
-            SpringUtils.getBean(ProviderLabRoutingDao.class).lockRoutingReport(key(type, "*"));
+            acquire(key(type, "*"));
             return;
         }
         if (accession == null || accession.isBlank()) return; // No accession means no version chain.
-        SpringUtils.getBean(ProviderLabRoutingDao.class).lockRoutingReport(key(type, accession.trim()));
+        acquire(key(type, accession.trim()));
+    }
+
+    private static void acquire(int key) {
+        try {
+            SpringUtils.getBean(ProviderLabRoutingDao.class).lockRoutingReport(key);
+        } catch (RuntimeException failure) {
+            // No raw accession, patient data or coordination digest in operational logs.
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().warn(
+                    "HL7 chain coordination failed: {}", failure.getClass().getSimpleName());
+            throw failure;
+        }
     }
 
     static int key(String type, String accession) {

@@ -86,14 +86,14 @@ public final class RptSelectCDMReport2Action extends ActionSupport {
         String today = now.get(Calendar.YEAR) + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
         String lastYear = now.get(Calendar.YEAR) - 1 + "-" + (now.get(Calendar.MONTH) + 1) + "-" + now.get(Calendar.DATE);
 
-        session.setAttribute("measurementTypes", hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced measurement types handler
+        session.setAttribute(CdmReportContexts.MEASUREMENT_TYPES, hd); // nosemgrep: tainted-session-from-http-request -- DAO-sourced measurement types handler
         // nosemgrep: tainted-session-from-http-request -- CDMgroup validated via regex [^\\p{Cntrl}]+, length-capped to 100; action guarded by _report read privilege
-        session.setAttribute("CDMGroup", CDMgroup);
-        session.setAttribute("today", today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
-        session.setAttribute("lastYear", lastYear); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
+        session.setAttribute(CdmReportContexts.GROUP, CDMgroup);
+        session.setAttribute(CdmReportContexts.TODAY, today); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
+        session.setAttribute(CdmReportContexts.LAST_YEAR, lastYear); // nosemgrep: tainted-session-from-http-request -- server-generated date string from GregorianCalendar
 
-        CdmReportContexts.issue(request, Map.of("measurementTypes", hd, "CDMGroup", CDMgroup == null ? "" : CDMgroup,
-                "today", today, "lastYear", lastYear));
+        CdmReportContexts.issue(request, Map.of(CdmReportContexts.MEASUREMENT_TYPES, hd, CdmReportContexts.GROUP, CDMgroup == null ? "" : CDMgroup,
+                CdmReportContexts.TODAY, today, CdmReportContexts.LAST_YEAR, lastYear));
 
         if (forward != null) {
             if (forward.compareTo("patientWhoMetGuideline") == 0) {

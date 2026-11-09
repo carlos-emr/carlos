@@ -224,7 +224,7 @@ public final class MeasurementChart {
     }
 
     MeasurementChart withExcludedObservations(int count) {
-        excludedObservations = count;
+        excludedObservations += count;
         return this;
     }
 

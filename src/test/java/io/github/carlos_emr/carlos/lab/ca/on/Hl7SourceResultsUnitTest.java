@@ -12,6 +12,9 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 
+/** Regression coverage for this contract.
+ * @since 2026-11-09
+ */
 @Tag("unit")
 @Tag("lab")
 class Hl7SourceResultsUnitTest {

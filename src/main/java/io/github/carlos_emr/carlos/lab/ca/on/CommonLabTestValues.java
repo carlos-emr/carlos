@@ -516,26 +516,45 @@ public class CommonLabTestValues {
             if (!identifiers.contains(observation.get("identifier"))) continue;
             String id = (String) observation.get("lab_no");
             if (overlaid.contains(id)) {
-                // A source may report the same mapped analyte more than once. Keep every
-                // literal visible together; never choose an arbitrary last numeric result.
+                // Keep all unprojected source literals; preserve any existing projection and
+                // flag the multiplicity so the full source history can be reviewed.
                 var row = rows.get(id);
-                row.put("result", row.get("result") + "; " + observation.get("result"));
+                if (Boolean.TRUE.equals(row.get("sourceOnly"))) {
+                    row.put("result", row.get("result") + "; " + observation.get("result"));
+                    String nextFlag = gridFlag(observation.get("abn"));
+                    if ("N".equals(row.get("abn")) && !"N".equals(nextFlag)) row.put("abn", nextFlag);
+                }
                 row.put("multipleSourceResults", Boolean.TRUE);
                 continue;
             }
-            Hashtable<String, Serializable> row = new Hashtable<>();
+            Hashtable<String, Serializable> projected = rows.get(id);
+            Hashtable<String, Serializable> row = projected == null ? new Hashtable<>() : new Hashtable<>(projected);
+            String literal = Objects.toString(observation.get("result"), "");
             row.put("lab_no", id);
-            row.put("result", Objects.toString(observation.get("result"), ""));
-            row.put("date", Objects.toString(observation.get("collDate"), ""));
-            row.put("collDateDate", Objects.toString(observation.get("collDate"), ""));
-            row.put("abn", Objects.toString(observation.get("abn"), "N"));
-            row.put("sourceOnly", !rows.containsKey(id));
+            if (projected == null) {
+                row.put("result", literal);
+                row.put("date", Objects.toString(observation.get("collDate"), ""));
+                row.put("collDateDate", Objects.toString(observation.get("collDate"), ""));
+                row.put("abn", gridFlag(observation.get("abn")));
+            } else if (literal.equalsIgnoreCase((String) projected.get("result"))) {
+                row.put("result", literal); // Restore clinical case without changing the projected value.
+            } else {
+                // A configured extractor or a clinician's replacement may deliberately differ.
+                // Do not silently replace an existing clinical projection during a read.
+                row.put("differentSourceResult", Boolean.TRUE);
+            }
+            row.put("sourceOnly", projected == null);
             rows.put(id, row);
             overlaid.add(id);
         }
         ArrayList<Hashtable<String, Serializable>> result = new ArrayList<>(rows.values());
         result.sort(Comparator.comparing((Hashtable<String, Serializable> row) -> (String) row.get("date")).reversed());
         return result;
+    }
+
+    private static String gridFlag(Serializable flag) {
+        String value = Objects.toString(flag, "N");
+        return value.equals("A") || value.startsWith("H") ? "A" : value.startsWith("L") ? "L" : "N";
     }
 
     private static String parseObservationId(String id) {

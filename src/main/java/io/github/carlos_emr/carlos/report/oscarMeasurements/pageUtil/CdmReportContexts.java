@@ -7,9 +7,16 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-/** Bounded, session-private definitions for independently rendered CDM forms. */
+/** Bounded, session-private definitions for independently rendered CDM forms.
+ * @since 2026-11-09
+ */
 public final class CdmReportContexts {
     public static final String PARAMETER = "cdmFormContext";
+    static final String MEASUREMENT_TYPES = "measurementTypes";
+    static final String GROUP = "CDMGroup";
+    static final String TODAY = "today";
+    static final String LAST_YEAR = "lastYear";
+    private static final String[] ATTRIBUTES = {MEASUREMENT_TYPES, GROUP, TODAY, LAST_YEAR};
     private static final String KEY = CdmReportContexts.class.getName();
     private static final long TTL_MILLIS = 60 * 60 * 1000L;
     private static final int CAPACITY = 64;
@@ -23,7 +30,7 @@ public final class CdmReportContexts {
 
     static String issue(HttpServletRequest request, long now) {
         Map<String, Object> attributes = new LinkedHashMap<>();
-        for (String name : new String[]{"measurementTypes", "CDMGroup", "today", "lastYear"}) {
+        for (String name : ATTRIBUTES) {
             Object value = request.getSession().getAttribute(name);
             if (value != null) attributes.put(name, value);
         }
@@ -41,8 +48,8 @@ public final class CdmReportContexts {
             entries.values().removeIf(entry -> now - entry.created() >= TTL_MILLIS);
             while (entries.size() >= CAPACITY) entries.remove(entries.keySet().iterator().next());
             Map<String, Object> snapshot = new LinkedHashMap<>(attributes);
-            if (snapshot.get("measurementTypes") instanceof RptMeasurementTypesBeanHandler definitions) {
-                snapshot.put("measurementTypes", RptMeasurementTypesBeanHandler.snapshot(definitions));
+            if (snapshot.get(MEASUREMENT_TYPES) instanceof RptMeasurementTypesBeanHandler definitions) {
+                snapshot.put(MEASUREMENT_TYPES, RptMeasurementTypesBeanHandler.snapshot(definitions));
             }
             String token = UUID.randomUUID().toString();
             entries.put(token, new Entry(now, Map.copyOf(snapshot)));

@@ -31,7 +31,9 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
-/** Real persisted clinical rows and transactions; also run by the physical MariaDB DAO tier. */
+/** Real persisted clinical rows and transactions; also run by the physical MariaDB DAO tier.
+ * @since 2026-11-09
+ */
 @Tag("integration")
 @Tag("lab")
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

@@ -17,7 +17,9 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-/** Read-only source observations, independent of the clinic's measurement extraction filter. */
+/** Read-only source observations, independent of the clinic's measurement extraction filter.
+ * @since 2026-11-09
+ */
 public final class Hl7SourceResults {
     private Hl7SourceResults() { }
 
