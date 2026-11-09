@@ -200,7 +200,10 @@ async function workflow(s) {
     const selected=await checked().evaluateAll(nodes=>nodes.map(node=>node.value));
     h.assert(selected.length===1&&selected.every(id=>visible.includes(id)&&tasks.some(task=>task.id===id&&task.status==='A'&&!changed.has(id))),
       'Refuse bulk mutation: selection is not exactly one currently visible, active, owned task');
-    const [response]=await withTicklerConfirmations(list,name==='Delete'?1:0,()=>Promise.all([list.waitForResponse(r=>bulkRequest(r.request())),list.waitForNavigation({waitUntil:'domcontentloaded'}),action(name).click()]));
+    let response;
+    await withTicklerConfirmations(list,name==='Delete'?1:0,async()=>{
+      [response]=await Promise.all([list.waitForResponse(r=>bulkRequest(r.request())),list.waitForNavigation({waitUntil:'domcontentloaded'}),action(name).click()]);
+    });
     h.assert(response.status()<400,'Native '+name+' failed');
     const data=new URLSearchParams(response.request().postData());
     assert.deepEqual(data.getAll('checkbox').sort(),[...selected].sort(),'Bulk POST includes stale/hidden/out-of-page IDs');

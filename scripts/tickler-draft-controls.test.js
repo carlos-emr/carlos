@@ -7,3 +7,8 @@ test('draft POST fields cannot shadow visible date and priority controls',()=>{
  assert.match(add, /name="ticklerDraftDate"/);
  assert.match(add, /name="ticklerDraftPriority"/);
 });
+
+test('Add priority values remain stable across translated draft round trips',()=>{
+ for(const value of ['High','Normal','Low'])assert.match(add,new RegExp('<option value="'+value+'"'));
+ assert.doesNotMatch(add, /<option value="<carlos:encode value='<%= oscarBundle.getString\("tickler\.ticklerMain\.priority/);
+});

@@ -239,6 +239,14 @@
 
         <%
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+            // Keep submitted priority identities stable while retaining legacy localized opener values.
+            for (String stablePriority : new String[]{"High", "Normal", "Low"}) {
+                if (priority.equalsIgnoreCase(stablePriority) || priority.equals(oscarBundle.getString(
+                        "tickler.ticklerMain.priority." + stablePriority.toLowerCase(java.util.Locale.ROOT)))) {
+                    priority = stablePriority;
+                    break;
+                }
+            }
         %>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-calendar.js"></script>
@@ -815,9 +823,9 @@
                     <td class="tickler-label"><fmt:message key="tickler.ticklerMain.Priority"/>:</td>
                     <td>
                         <select name="priority" class="form-select">
-                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.high") %>' context="htmlAttribute"/>" <%=priority.equals("High")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
-                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.normal") %>' context="htmlAttribute"/>" <%=priority.equals("Normal")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
-                            <option value="<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerMain.priority.low") %>' context="htmlAttribute"/>" <%=priority.equals("Low")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
+                            <option value="High" <%=priority.equals("High")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.high"/></option>
+                            <option value="Normal" <%=priority.equals("Normal")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.normal"/></option>
+                            <option value="Low" <%=priority.equals("Low")?"selected":""%>><fmt:message key="tickler.ticklerMain.priority.low"/></option>
                         </select>
                     </td>
                 </tr>

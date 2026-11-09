@@ -159,6 +159,7 @@ async function workflow(s) {
     await waitForTicklerTable(list);
     await Promise.all([list.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/tickler/ListTicklers')&&
       new URL(response.url()).searchParams.get('search[value]')===marker),list.locator('#ticklerResults_filter input[type="search"]').fill(marker)]);
+    if(await list.locator('select#site').count())await list.locator('select#site').selectOption(site);
     await list.locator('#assignedTo').selectOption(actor.fixture.providerNo);
     const [response]=await Promise.all([list.waitForResponse(answer=>new URL(answer.url()).pathname.endsWith('/tickler/ListTicklers')&&
       new URL(answer.url()).searchParams.get('assignee')===actor.fixture.providerNo),list.locator('#formSubmitBtn').click()]);
