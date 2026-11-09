@@ -2863,7 +2863,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2897,11 +2897,12 @@
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "RxSaveReceiptCommitIntegrationTest": 4,
-        "RxConcurrencyIntegrationTest": 4,
-        "RxFavoriteGroupIntegrationTest": 4,
+        "RxSaveReceiptCommitIntegrationTest": 8,
+        "RxConcurrencyIntegrationTest": 6,
+        "RxFavoriteGroupIntegrationTest": 6,
         "RxFavoriteCopyIntegrationTest": 1,
-        "RxRestPrescriptionRollbackIntegrationTest": 1
+        "RxRestPrescriptionRollbackIntegrationTest": 1,
+        "RxStrictAuditIntegrationTest": 1
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
