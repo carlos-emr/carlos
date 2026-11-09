@@ -154,7 +154,8 @@
             </table>
 
 
-            <img alt="<fmt:message key="clinical.graph.alt"/>" onerror="document.getElementById('graphUnavailable').hidden=false" src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/><%=drugForGraph%>"/>
+            <fmt:message key="clinical.graph.alt" var="graphAlt"/>
+            <img alt="${carlos:forHtmlAttribute(graphAlt)}" onerror="document.getElementById('graphUnavailable').hidden=false" src="<%= request.getContextPath() %>/encounter/GraphMeasurements?method=ChartMeds&demographic_no=<carlos:encode value='<%= demographicNo %>' context="uriComponent"/><%=drugForGraph%>"/>
             <p id="graphUnavailable" hidden role="alert"><fmt:message key="clinical.graph.unavailable"/>
                 <button type="button" onclick="window.location.reload()"><fmt:message key="clinical.graph.retry"/></button>
             </p>

@@ -16,26 +16,12 @@ public final class CdmReportContexts {
     static final String GROUP = "CDMGroup";
     static final String TODAY = "today";
     static final String LAST_YEAR = "lastYear";
-    private static final String[] ATTRIBUTES = {MEASUREMENT_TYPES, GROUP, TODAY, LAST_YEAR};
     private static final String KEY = CdmReportContexts.class.getName();
     private static final long TTL_MILLIS = 60 * 60 * 1000L;
     private static final int CAPACITY = 64;
     private record Entry(long created, Map<String, Object> attributes) { }
 
     private CdmReportContexts() { }
-
-    static String issue(HttpServletRequest request) {
-        return issue(request, System.currentTimeMillis());
-    }
-
-    static String issue(HttpServletRequest request, long now) {
-        Map<String, Object> attributes = new LinkedHashMap<>();
-        for (String name : ATTRIBUTES) {
-            Object value = request.getSession().getAttribute(name);
-            if (value != null) attributes.put(name, value);
-        }
-        return issue(request, attributes, now);
-    }
 
     public static String issue(HttpServletRequest request, Map<String, Object> attributes) {
         return issue(request, attributes, System.currentTimeMillis());

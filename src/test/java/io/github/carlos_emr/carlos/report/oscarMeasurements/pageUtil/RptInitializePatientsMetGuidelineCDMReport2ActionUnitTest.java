@@ -195,7 +195,7 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
                 }
                 return parameters;
             });
-            String context = CdmReportContexts.issue(request);
+            String context = CdmReportContexts.issue(request, Map.of(CdmReportContexts.MEASUREMENT_TYPES, definitions));
             when(request.getParameter(CdmReportContexts.PARAMETER)).thenReturn(context);
             clearInvocations(measurementDao);
         }

@@ -16,6 +16,15 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("lab")
 class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({" h ,A", "hh,A", " a ,A", "l,L", "ll,L", "n,N"})
+    void shouldRetainAbnormalGridColour_whenSourceFlagUsesLowercase(String flag, String expected) {
+        var raw = List.<Map<String, Serializable>>of(Map.of("lab_no", "100", "result", "Pending",
+                "collDate", "2026-01-02 09:00:00", "identifier", "3007", "abn", flag));
+        assertThat(CommonLabTestValues.overlaySourceValues(List.of(), raw, Set.of("3007")))
+                .singleElement().satisfies(row -> assertThat(row).containsEntry("abn", expected));
+    }
+
     @Test
     void shouldDisplaySourceCaseAndExcludedLiteral_withoutChangingMeasurements() {
         Hashtable<String, Serializable> old = new Hashtable<>();

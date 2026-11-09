@@ -11,6 +11,21 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("unit")
 class CdmReportContextsUnitTest {
+    private static String issue(MockHttpServletRequest request) {
+        return issue(request, System.currentTimeMillis());
+    }
+
+    private static String issue(MockHttpServletRequest request, long now) {
+        // Legacy-session setup is confined to this fixture. Production passes captured request-local definitions.
+        var attributes = new java.util.LinkedHashMap<String, Object>();
+        for (String name : new String[]{CdmReportContexts.MEASUREMENT_TYPES, CdmReportContexts.GROUP,
+                CdmReportContexts.TODAY, CdmReportContexts.LAST_YEAR}) {
+            Object value = request.getSession().getAttribute(name);
+            if (value != null) attributes.put(name, value);
+        }
+        return CdmReportContexts.issue(request, attributes, now);
+    }
+
     private static void definitions(org.springframework.mock.web.MockHttpSession session) {
         var handler = org.mockito.Mockito.mock(RptMeasurementTypesBeanHandler.class);
         org.mockito.Mockito.when(handler.getMeasurementTypeVector()).thenReturn(new java.util.Vector<>());
@@ -22,11 +37,11 @@ class CdmReportContextsUnitTest {
         var first = new MockHttpServletRequest();
         definitions((org.springframework.mock.web.MockHttpSession) first.getSession());
         first.getSession().setAttribute("CDMGroup", "Group A");
-        String token = CdmReportContexts.issue(first);
+        String token = issue(first);
         var second = new MockHttpServletRequest();
         second.setSession(first.getSession());
         second.getSession().setAttribute("CDMGroup", "Group B");
-        CdmReportContexts.issue(second);
+        issue(second);
         var submitted = new MockHttpServletRequest();
         submitted.setSession(first.getSession());
         submitted.setParameter(CdmReportContexts.PARAMETER, token);
@@ -37,7 +52,7 @@ class CdmReportContextsUnitTest {
 
     @Test
     void shouldRefuseContext_fromAnotherSession() {
-        String token = CdmReportContexts.issue(new MockHttpServletRequest());
+        String token = issue(new MockHttpServletRequest());
         var other = new MockHttpServletRequest();
         other.setParameter(CdmReportContexts.PARAMETER, token);
         assertThat(CdmReportContexts.bind(other)).isFalse();
@@ -46,8 +61,8 @@ class CdmReportContextsUnitTest {
     @Test
     void shouldRefuseOldestForm_whenCapacityIsExceeded() {
         var request = new MockHttpServletRequest();
-        String oldest = CdmReportContexts.issue(request);
-        for (int i = 0; i < 64; i++) CdmReportContexts.issue(request);
+        String oldest = issue(request);
+        for (int i = 0; i < 64; i++) issue(request);
         request.setParameter(CdmReportContexts.PARAMETER, oldest);
         assertThat(CdmReportContexts.bind(request)).isFalse();
     }
@@ -55,8 +70,8 @@ class CdmReportContextsUnitTest {
     void shouldRefuseExpiredForm_withoutExpiringANewerForm() {
         var request = new MockHttpServletRequest();
         definitions((org.springframework.mock.web.MockHttpSession) request.getSession());
-        String old = CdmReportContexts.issue(request, 0);
-        String fresh = CdmReportContexts.issue(request, 3_599_999);
+        String old = issue(request, 0);
+        String fresh = issue(request, 3_599_999);
         request.setParameter(CdmReportContexts.PARAMETER, old);
         assertThat(CdmReportContexts.bind(request, 3_600_000)).isFalse();
         request.setParameter(CdmReportContexts.PARAMETER, fresh);

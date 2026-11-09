@@ -14,6 +14,29 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("measurement")
 class MeasurementChartDataUnitTest {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "2024-03-10 02:30:00-05:00,2024-03-10T07:30:00Z",
+            "2024-03-10 23:30:00-05:00,2024-03-11T04:30:00Z",
+            "2024-03-10 00:30:00+05:30,2024-03-09T19:00:00Z",
+            "2024-03-10 02:30-05:00,2024-03-10T07:30:00Z",
+            "2024-03-10 02:30:00.123456789-05:00,2024-03-10T07:30:00.123456789Z"})
+    void shouldPreserveTimestampInstant_whenCdsCollectionDateHasOffset(String source, String instant) throws Exception {
+        var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+        method.setAccessible(true);
+        var day = (MeasurementChart.Day) method.invoke(null, Map.of("collDate", source));
+        assertThat(day.getStart()).isEqualTo(new MeasurementChart.Day(Instant.parse(instant)).getStart());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"2024-02-30 02:30:00-05:00", "2024-03-10 02:30:00+25:00", "2024-03-10 02:30:00-05:00 extra"})
+    void shouldRejectInvalidCollectionTimestamp_withoutDiscardingOffsetOrTrailingText(String source) throws Exception {
+        var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+        method.setAccessible(true);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> method.invoke(null, Map.of("collDate", source)))
+                .hasCauseInstanceOf(java.text.ParseException.class);
+    }
+
     @Test
     @SuppressWarnings("unchecked")
     void shouldReplaceDailyReadings_andKeepSecondaryAxisUnits() {

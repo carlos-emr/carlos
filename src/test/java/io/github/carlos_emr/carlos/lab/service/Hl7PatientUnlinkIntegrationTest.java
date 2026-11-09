@@ -172,6 +172,9 @@ class Hl7PatientUnlinkIntegrationTest extends CarlosTestBase {
                         .satisfies(row -> assertThat(row.getStatus()).isEqualTo("N"));
                 assertThat(messages.find(report)).isNotNull();
             }
+            assertThat(em.createQuery("select count(l) from OscarLog l where l.contentId in ?1 and l.demographicId=?2", Long.class)
+                    .setParameter(1, reports.stream().map(String::valueOf).toList()).setParameter(2, patient)
+                    .getSingleResult()).isEqualTo(4L);
         });
         assertThatThrownBy(() -> service.unlink(reports.getFirst(), expected, "stale retry", actor, "127.0.0.1"))
                 .isInstanceOf(Hl7PatientUnlinkService.StaleMatch.class);
@@ -193,6 +196,9 @@ class Hl7PatientUnlinkIntegrationTest extends CarlosTestBase {
                 assertThat(providers.findAllLabRoutingByIdandType(report, "HL7")).singleElement()
                         .satisfies(row -> assertThat(row.getStatus()).isEqualTo("A"));
             }
+            assertThat(em.createQuery("select count(l) from OscarLog l where l.contentId in ?1 and l.demographicId=?2", Long.class)
+                    .setParameter(1, reports.stream().map(String::valueOf).toList()).setParameter(2, patient)
+                    .getSingleResult()).isZero();
         });
         assertThat(service.version(reports.getFirst())).isEqualTo(expected);
     }

@@ -507,6 +507,14 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             collectionDate = observed;
         }
         if (collectionDate == null) return null;
+        try {
+            // CDS timestamps can carry explicit offsets and nanosecond fractions.
+            // Use their instant, just as for a normalized Date supplied by a handler.
+            return new Day(java.time.OffsetDateTime.parse(collectionDate.replace(' ', 'T'),
+                    java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME).toInstant());
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // Offset-free producer formats below still require a strict, full-input match.
+        }
         for (String pattern : new String[]{"yyyy-MM-dd HH:mm:ss.SSS", "yyyy-MM-dd HH:mm:ss",
                 "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH", "yyyy-MM-dd"}) {
             SimpleDateFormat format = new SimpleDateFormat(pattern);

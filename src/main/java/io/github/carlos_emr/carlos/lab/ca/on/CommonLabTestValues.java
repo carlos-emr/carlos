@@ -560,8 +560,12 @@ public class CommonLabTestValues {
     }
 
     private static String gridFlag(Serializable flag) {
-        String value = Objects.toString(flag, "N");
-        return value.equals("A") || value.startsWith("H") ? "A" : value.startsWith("L") ? "L" : "N";
+        String value = Objects.toString(flag, "N").trim();
+        if (value.isEmpty()) return "N";
+        // HL7 flags are ASCII codes; fold only their leading ASCII letter.
+        char code = value.charAt(0);
+        if (code >= 'a' && code <= 'z') code -= 'a' - 'A';
+        return code == 'A' && value.length() == 1 || code == 'H' ? "A" : code == 'L' ? "L" : "N";
     }
 
     private static String parseObservationId(String id) {
