@@ -170,7 +170,7 @@ class DocumentUploadSendToProviderUnitTest extends CarlosUnitTestBase {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"scan.pdf", "scan.PDF", "scan.pDf"})
-    void shouldCountPdfPagesRegardlessOfExtensionCase(String filename) throws Exception {
+    void shouldCountPdfPages_forMixedCaseExtensions(String filename) throws Exception {
         uploadToPendingDocs("999998", filename);
         eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(org.mockito.ArgumentMatchers.argThat(
                 document -> document.getNumberOfPages() == 1

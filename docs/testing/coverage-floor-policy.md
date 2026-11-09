@@ -12,6 +12,13 @@ sources, a different comparison base, missing/stale floors, dirty Java files or
 a baseline from another source tree fail freshness. A failed invocation removes
 any previous result file before validation, so an old success cannot survive.
 
+Squash and rebase merges may rewrite the baseline commit without changing its
+Java sources. Freshness therefore checks source identity rather than commit
+ancestry. `baselineSourceTree` retains the measured tree if the original commit
+object becomes unavailable; when that object is present, its tree must also
+match. This does not bypass the comparison fingerprint, individual source blobs,
+report hash, metric floors or review requirements.
+
 Run freshness independently:
 
 ```sh

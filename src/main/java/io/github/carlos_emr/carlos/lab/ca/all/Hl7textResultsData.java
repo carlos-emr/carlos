@@ -501,6 +501,15 @@ public class Hl7textResultsData {
         return sb.toString();
     }
 
+    /** Missing CML source evidence prevents chain-dependent writes, but not viewing the selected report. */
+    public static final class IncompleteCmlVersionChainException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        private IncompleteCmlVersionChainException(String message) {
+            super(message);
+        }
+    }
+
     public static String getMatchingLabs(String lab_no) {
         String ret = "";
         int monthsBetween = 0;
@@ -515,6 +524,7 @@ public class Hl7textResultsData {
         java.util.Map<Integer, Integer> completedCounts = new java.util.HashMap<>();
         java.util.Map<Integer, Date> observationDates = new java.util.HashMap<>();
         java.util.Set<Integer> correctedVersions = new java.util.HashSet<>();
+        java.util.Set<Integer> seenVersions = new java.util.HashSet<>();
 
         for (Object[] o : hl7TxtInfoDao.findByLabIdViaMagic(ConversionUtils.fromIntString(lab_no))) {
             Hl7TextInfo a = (Hl7TextInfo) o[0];
@@ -541,12 +551,13 @@ public class Hl7textResultsData {
 
             if (monthsBetween < 4) {
                 if (cml) {
+                    if (!seenVersions.add(labNo)) continue;
                     Hl7TextMessage version = labNo == Integer.parseInt(lab_no)
                             ? hl7Msg : hl7TxtMsgDao.find(labNo);
-                    if (version == null) throw new IllegalStateException("A CML version has no stored source message");
+                    if (version == null) throw new IncompleteCmlVersionChainException("A CML version has no stored source message");
                     if ("CML".equals(version.getType())) {
                         MessageHandler parser = Factory.getHandler(version);
-                        if (parser == null) throw new IllegalStateException("A stored CML version cannot be parsed");
+                        if (parser == null) throw new IncompleteCmlVersionChainException("A stored CML version cannot be parsed");
                         // Derive completeness from the source so corrections stored before the
                         // C-status counter fix do not remain permanently below an original F.
                         completedCounts.put(labNo, parser.getOBXFinalResultCount());

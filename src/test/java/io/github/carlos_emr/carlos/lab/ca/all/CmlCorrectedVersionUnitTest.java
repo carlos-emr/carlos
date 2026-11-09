@@ -72,6 +72,7 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
         Hl7TextInfoDao infos = (Hl7TextInfoDao) mockedBeans.get(Hl7TextInfoDao.class);
         when(infos.findByLabIdViaMagic(selected)).thenReturn(List.of(new Object[]{correction, selectedInfo},
                 new Object[]{older, selectedInfo}, new Object[]{original, selectedInfo},
+                new Object[]{correction, selectedInfo},
                 new Object[]{otherVendor, selectedInfo}));
         Hl7TextMessageDao messages = (Hl7TextMessageDao) mockedBeans.get(Hl7TextMessageDao.class);
         try (var parsers = mockStatic(Factory.class)) {
@@ -115,9 +116,13 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
                 new Object[]{selectedInfo, selectedInfo}));
         try (var parsers = mockStatic(Factory.class)) {
             assertThatThrownBy(() -> Hl7textResultsData.getMatchingLabs("12"))
-                    .isInstanceOf(IllegalStateException.class)
+                    .isInstanceOf(Hl7textResultsData.IncompleteCmlVersionChainException.class)
                     .hasMessageContaining(missing ? "no stored source" : "cannot be parsed");
-            parsers.verify(() -> Factory.getHandler(previous), times(missing ? 0 : 1));
+            assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("12", "101"))
+                    .isInstanceOf(Hl7textResultsData.IncompleteCmlVersionChainException.class);
+            verifyNoInteractions(mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class),
+                    mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class));
+            parsers.verify(() -> Factory.getHandler(previous), times(missing ? 0 : 2));
         }
     }
 

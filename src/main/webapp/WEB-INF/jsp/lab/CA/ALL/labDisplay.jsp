@@ -283,6 +283,7 @@
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
+    boolean versionChainReliable = !Boolean.TRUE.equals(request.getAttribute("hl7VersionChainUnavailable"));
 
     String duplicateOfLab = null;
     Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
@@ -298,6 +299,19 @@
                 new String[] {segmentID}, "HL7");
         if (showAll) {
             multiLabId = request.getParameter("multiID");
+            LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo,
+                    multiLabId.split(","), "HL7");
+        }
+        String resolvedLabIds;
+        try {
+            resolvedLabIds = Hl7textResultsData.getMatchingLabs(segmentID);
+        } catch (Hl7textResultsData.IncompleteCmlVersionChainException unavailable) {
+            versionChainReliable = false;
+            resolvedLabIds = segmentID;
+        }
+        if (!versionChainReliable) showAll = false;
+        if (showAll) {
+            multiLabId = request.getParameter("multiID");
             segmentIDs = multiLabId.split(",");
             LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
             for (int i = 0; i < segmentIDs.length; ++i) {
@@ -306,7 +320,7 @@
 
             handler = handlers.get(0);
         } else {
-            multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
+            multiLabId = resolvedLabIds;
             segmentIDs = multiLabId.split(",");
             LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
 
@@ -693,7 +707,7 @@ input[id^='acklabel_']{
 
 
         function matchMe() {
-            <% if ( !isLinkedToDemographic) { %>
+            <% if (versionChainReliable && !isLinkedToDemographic) { %>
             popupStart(360, 680, '${pageContext.request.contextPath}/oscarMDS/SearchPatient?labType=HL7&segmentID=<carlos:encode value='<%= segmentID %>' context="javaScript"/>&name=<%=java.net.URLEncoder.encode(handler.getLastName()+", "+handler.getFirstName(), StandardCharsets.UTF_8)%>', 'searchPatientWindow');
             <% } %>
         }
@@ -1048,6 +1062,9 @@ input[id^='acklabel_']{
 </head>
 
 <body onLoad="javascript:matchMe(); loadHL7hx();">
+<% if (!versionChainReliable) { %>
+<div class="alert alert-warning" role="alert"><fmt:message key="cml.versionChain.unavailable"/></div>
+<% } %>
 
 <!-- form forwarding of the lab -->
 <%
@@ -1081,7 +1098,7 @@ input[id^='acklabel_']{
         String label = "";
         if (hl7Lab != null && hl7Lab.getLabel() != null) label = hl7Lab.getLabel();
 
-        boolean offerFiling = remoteFacilityIdString == null
+        boolean offerFiling = versionChainReliable && remoteFacilityIdString == null
                 && SpringUtils.getBean(ProviderManager2.class).isHl7OfferFileForOthers(
                         loggedInInfo, loggedInInfo.getLoggedInProviderNo());
         java.util.Set<String> filingProviders = new java.util.HashSet<>();
@@ -1489,7 +1506,7 @@ input[id^='acklabel_']{
                                 <input type="hidden" name="comment" value="">
                                 <input type="hidden" name="labType" value="HL7">
                                 <%
-                                    if (!ackFlag) {
+                                    if (!ackFlag && versionChainReliable) {
                                 %>
 
                                 <%
@@ -1536,15 +1553,17 @@ input[id^='acklabel_']{
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-file-for="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
                                         onclick="openLabFilingDialog('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>',false);"><fmt:message key="lab.filing.fileFor"/></button>
                                 <% } %>
+                                <% if (versionChainReliable) { %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('addComment',<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>);">
                                 <input type="button" class="btn btn-sm btn-outline-secondary"
                                        value="<fmt:message key="oscarMDS.index.btnForward"/>"
                                        onClick="ForwardSelectedRows(<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/> + ':HL7', '', '')">
+                                <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnClose"/> "
                                        onClick="window.close()">
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value=" <fmt:message key="global.btnPrint"/> "
-                                       onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')">
+                                       onClick="printPDF('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>')" <%= versionChainReliable ? "" : "disabled" %>>
 
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="Msg"
                                        onclick="handleLab('','<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>','msgLab');">

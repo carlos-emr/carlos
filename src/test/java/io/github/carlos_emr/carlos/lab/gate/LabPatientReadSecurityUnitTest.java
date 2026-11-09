@@ -49,6 +49,22 @@ class LabPatientReadSecurityUnitTest extends CarlosUnitTestBase {
     private MockedStatic<Factory> factory;
     private MockedStatic<LogAction> audit;
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldDisplaySelectedReport_whenCmlVersionEvidenceIsUnavailable(boolean showAll) throws Exception {
+        owner(77, "HL7", 456);
+        owner(88, "HL7", 456);
+        if (showAll) {
+            request.setParameter("all", "true");
+            request.setParameter("multiID", "77,88");
+        }
+        versions.when(() -> Hl7textResultsData.getMatchingLabs("77"))
+                .thenThrow(mock(Hl7textResultsData.IncompleteCmlVersionChainException.class));
+        assertThat(new ViewLabDisplay2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("hl7VersionChainUnavailable")).isEqualTo(Boolean.TRUE);
+        verify(routings, times(showAll ? 1 : 0)).findByLabNoAndLabType(88, "HL7");
+    }
+
     @BeforeEach void setup() {
         security=mock(SecurityInfoManager.class);routings=mock(PatientLabRoutingDao.class);login=mock(LoggedInInfo.class);
         when(login.getLoggedInProviderNo()).thenReturn("test-provider");
@@ -154,7 +170,7 @@ class LabPatientReadSecurityUnitTest extends CarlosUnitTestBase {
     @Test void forwardedNativeLabDisplayPreflightsEachSelectedSetBeforeEitherHl7Parser()throws Exception{
         String jsp=jspSource("CA/ALL/labDisplay.jsp");int all=jsp.indexOf("if (showAll) {");int first=jsp.indexOf("LabPatientAccess.requireLabs(",all);int firstParser=jsp.indexOf("handlers.add(Factory.getHandler(",all);
         assertThat(all).isPositive();assertThat(first).isBetween(all,firstParser-1);
-        int selected=jsp.indexOf("multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);");int second=jsp.indexOf("LabPatientAccess.requireLabs(",selected);int secondParser=jsp.indexOf("handler = Factory.getHandler(segmentID);",selected);
+        int selected=jsp.indexOf("resolvedLabIds = Hl7textResultsData.getMatchingLabs(segmentID);");int second=jsp.indexOf("LabPatientAccess.requireLabs(",selected);int secondParser=jsp.indexOf("handler = Factory.getHandler(segmentID);",selected);
         assertThat(selected).isPositive();assertThat(second).isBetween(selected,secondParser-1);
     }
 }

@@ -70,12 +70,17 @@ def check_freshness(floors, base, head='HEAD'):
         resolved = subprocess.run(['git', 'rev-parse', '--verify', baseline + ':src/main/java'],
                                   capture_output=True, text=True, check=False)
         if resolved.returncode:
-            problems.append('baselineCommit')
+            # Squash/rebase merges can discard the original commit object. Retain
+            # its measured Java tree explicitly; the candidate tree, comparison
+            # and every source blob above must still match that recorded evidence.
+            if floors.get('baselineSourceTree') != actual['sourceTree']:
+                problems.append('baselineSourceTree')
         else:
             if resolved.stdout.strip() != actual['sourceTree']:
                 problems.append('baselineSourceTree')
-            if subprocess.run(['git', 'merge-base', '--is-ancestor', baseline, head], check=False).returncode:
-                problems.append('baselineAncestry')
+            if ('baselineSourceTree' in floors
+                    and floors['baselineSourceTree'] != resolved.stdout.strip()):
+                problems.append('baselineSourceTree')
     if not isinstance(floors.get('baselineReportSha256'), str) or not re.fullmatch(
             r'[0-9a-f]{64}', floors['baselineReportSha256']):
         problems.append('baselineReportSha256')

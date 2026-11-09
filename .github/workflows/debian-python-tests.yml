@@ -142,6 +142,11 @@ jobs:
           python3 "$GITHUB_WORKSPACE/scripts/ci/prepare-cli-manifest-test-copy.py" --verify \
             "$GITHUB_WORKSPACE/.carlos-ctl" "$RUNNER_TEMP/carlos-ctl-current-data" "$GITHUB_WORKSPACE"
           exit "$test_status"
+      - name: Require both strict Python outcome files
+        if: always()
+        run: |
+          test -s target/debian-python-ci.json
+          test -s target/o19-python-ci.json
       - name: Preserve strict Python outcomes
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -150,7 +155,7 @@ jobs:
           path: |
             target/debian-python-ci.json
             target/o19-python-ci.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
       - name: Remove the owned native generator database
         if: always()

@@ -51,7 +51,9 @@ public class LookupListManager2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private final LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
+    private LookupListManager lookupListManager() {
+        return SpringUtils.getBean(LookupListManager.class);
+    }
 
     public LookupListManager2Action() {
         super();
@@ -81,7 +83,7 @@ public class LookupListManager2Action extends ActionSupport {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String listName = request.getParameter("listName");
         if (listName != null && !listName.isEmpty()) {
-            request.setAttribute("lookupListSingle", lookupListManager.findLookupListByName(loggedInInfo, listName));
+            request.setAttribute("lookupListSingle", lookupListManager().findLookupListByName(loggedInInfo, listName));
         }
 
         return SUCCESS;
@@ -91,7 +93,7 @@ public class LookupListManager2Action extends ActionSupport {
     public String manage() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
+        request.setAttribute("lookupLists", lookupListManager().findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
     }
@@ -107,7 +109,7 @@ public class LookupListManager2Action extends ActionSupport {
         if (lookupListItemId != null && !lookupListItemId.isEmpty() &&
                 lookupListItemDisplayOrder != null && !lookupListItemDisplayOrder.isEmpty()) {
 
-            lookupListManager.updateLookupListItemDisplayOrder(loggedInInfo, Integer.parseInt(lookupListItemId),
+            lookupListManager().updateLookupListItemDisplayOrder(loggedInInfo, Integer.parseInt(lookupListItemId),
                     Integer.parseInt(lookupListItemDisplayOrder));
 
         }
@@ -135,7 +137,7 @@ public class LookupListManager2Action extends ActionSupport {
                 lookupListId != null && !lookupListId.isEmpty()) {
 
             lookupListIdInteger = Integer.parseInt(lookupListId);
-            lookupListItems = lookupListManager.findLookupListItemsByLookupListId(loggedInInfo, lookupListIdInteger);
+            lookupListItems = lookupListManager().findLookupListItemsByLookupListId(loggedInInfo, lookupListIdInteger);
             lookupListItem = new LookupListItem();
             lookupListItem.setActive(true);
             lookupListItem.setCreatedBy(user);
@@ -150,10 +152,10 @@ public class LookupListManager2Action extends ActionSupport {
             lookupListItem.setLookupListId(lookupListIdInteger);
             lookupListItem.setValue(UUID.randomUUID().toString());
 
-            lookupListManager.addLookupListItem(loggedInInfo, lookupListItem);
+            lookupListManager().addLookupListItem(loggedInInfo, lookupListItem);
         }
 
-        request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
+        request.setAttribute("lookupLists", lookupListManager().findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
     }
@@ -171,10 +173,10 @@ public class LookupListManager2Action extends ActionSupport {
         }
 
         if (id > 0) {
-            lookupListManager.removeLookupListItem(loggedInInfo, id);
+            lookupListManager().removeLookupListItem(loggedInInfo, id);
         }
 
-        request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
+        request.setAttribute("lookupLists", lookupListManager().findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
     }

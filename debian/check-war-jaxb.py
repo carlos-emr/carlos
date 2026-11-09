@@ -65,8 +65,8 @@ def main(argv=None):
         return 2
     try:
         check(argv[0])
-    except (OSError, ValueError, zipfile.BadZipFile, RuntimeError, NotImplementedError, EOFError):
-        print('JAXB WAR provider validation failed', file=sys.stderr)
+    except (OSError, ValueError, zipfile.BadZipFile, RuntimeError, NotImplementedError, EOFError) as failure:
+        print(f'JAXB WAR provider validation failed: {failure}', file=sys.stderr)
         return 1
     print('JAXB WAR provider validation passed')
     return 0

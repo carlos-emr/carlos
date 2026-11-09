@@ -41,7 +41,7 @@ class PermissionLaneShellTest(unittest.TestCase):
 
     def run_script(self, **environment):
         return subprocess.run(['bash', str(self.script)], env={**self.environment, **environment},
-                              capture_output=True, text=True, timeout=15)
+                              cwd=self.root, capture_output=True, text=True, timeout=15)
 
     def test_real_shell_prepares_agent_before_tests_and_reports_the_same_execution(self):
         paths = {'CARLOS_PERMISSION_REPORTS': str(self.root / 'private-reports'),

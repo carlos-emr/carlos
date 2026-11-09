@@ -460,7 +460,9 @@ test('visible securityfs requires no second mount',t=>{
 });
 test('an unavailable policy interface or a failed mount blocks qualification',t=>{
   for(const options of [{visible:false},{mounted:true,visible:false},{mountFails:true}]){
-    const {result}=securityfsFixture(t,options);assert.notEqual(result.status,0);
+    const context=JSON.stringify(options);
+    const {result}=securityfsFixture(t,options);assert.notEqual(result.status,0,context);
+    assert.match(result.stderr,options.mountFails?/Cannot mount securityfs/:/AppArmor policy interface is unavailable/,context);
   }
 });
 test('unrestricted or disabled AppArmor requires no kernel interface change',t=>{

@@ -164,11 +164,33 @@ class CoverageFreshnessTest(unittest.TestCase):
         self.assertFalse(floors.check_freshness(self.policy, 'HEAD')['ready'])
         self.policy['baselineCommit'] = self.base
         self.assertIn('baselineSourceTree', floors.check_freshness(self.policy, self.base)['problems'])
-        for key, value in (('baselineCommit', 'unknown'), ('baselineCommit', 'f' * 40),
+        for key, value in (('baselineCommit', 'unknown'),
                            ('baselineReportSha256', ''), ('baselineLane', ' ')):
             with self.subTest(key=key):
                 policy = dict(self.policy, **{key: value})
                 self.assertIn(key, floors.check_freshness(policy, self.base)['problems'])
+
+    def test_rewritten_history_retains_the_measured_tree_even_when_the_original_commit_is_gone(self):
+        measured = self.policy['baselineCommit']
+        self.policy['baselineSourceTree'] = self.git('rev-parse', measured + ':src/main/java')
+        self.git('reset', '--hard', self.base)
+        (self.root / self.source).write_text('class Guard { int value = 2; }\n')
+        (self.root / 'squashed.txt').write_text('Independent rewritten merge')
+        self.git('add', '.')
+        self.git('commit', '-qm', 'squashed candidate')
+        self.assertTrue(floors.check_freshness(self.policy, self.base)['ready'])
+        self.git('reflog', 'expire', '--expire=now', '--all')
+        self.git('gc', '--prune=now')
+        self.assertNotEqual(subprocess.run(['git', 'cat-file', '-e', measured],
+                            capture_output=True).returncode, 0)
+        self.assertTrue(floors.check_freshness(self.policy, self.base)['ready'])
+        for identity in (None, 'b' * 40):
+            policy = dict(self.policy, baselineSourceTree=identity)
+            self.assertIn('baselineSourceTree', floors.check_freshness(policy, self.base)['problems'])
+        policy = dict(self.policy, comparisonSha256='b' * 64)
+        self.assertIn('comparisonSha256', floors.check_freshness(policy, self.base)['problems'])
+        policy = dict(self.policy, sourceTree='b' * 40)
+        self.assertIn('sourceTree', floors.check_freshness(policy, self.base)['problems'])
 
     def test_cli_freshness_does_not_claim_that_coverage_was_evaluated(self):
         policy = self.root / 'floors.json'
