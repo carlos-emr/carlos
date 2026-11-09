@@ -137,7 +137,9 @@ jobs:
     # scratch itself, and the Maven cache it restores has a prefix fallback, so
     # waiting for build only added its ~4.5 min to the critical path.
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    # Includes the full suite, permission/compatibility/time-zone retakes,
+    # the renderer font matrix and retained PDF evidence.
+    timeout-minutes: 60
     permissions:
       contents: read
       packages: read
