@@ -2751,6 +2751,15 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.eform.util.DhirReviewJspBrowserIntegrationTest": {
+          "check": "java-browser-pdf",
+          "cases": [
+            {
+              "name": "shouldRenderClinicalTextAndUuidAsData_inTheActualReviewJsp",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -3836,14 +3845,14 @@
         "all"
       ],
       "repetitions": 1,
-      "minimumCases": 4,
+      "minimumCases": 5,
       "command": [
         "mvn",
         "-B",
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,MeasurementChartSmokeIntegrationTest",
+        "-Dtest=EFormBrowserPdfServiceSeleniumSmokeIntegrationTest,DhirReviewJspBrowserIntegrationTest,MeasurementChartSmokeIntegrationTest",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
         "-Djacoco.destFile={run}/jacoco.exec",
@@ -6019,6 +6028,19 @@
       ],
       "workstreams": [
         "T09"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/prevention/review.jsp": {
+      "reason": "The actual DHIR review JSP must render hostile clinical text and UUID values as data and preserve Unicode; real Jasper/Chromium tests include a script-execution positive control.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/eform/util/DhirReviewJspBrowserIntegrationTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-browser-pdf"
+      ],
+      "workstreams": [
+        "T08"
       ]
     }
   },
