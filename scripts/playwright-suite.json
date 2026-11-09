@@ -18997,6 +18997,32 @@
       ]
     },
     {
+      "name": "tickler-mrp-routing-multisite",
+      "script": "scripts/tickler-mrp-routing-multisite-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 900,
+      "env": [
+        "CARLOS_DISPOSABLE_HOST",
+        "EXCLUSIVE"
+      ],
+      "notes": "Required multisite variant of #5812. Reuses every native MRP/draft/recipient/cleanup control and additionally requires the actual clinic selector in the composer.",
+      "fixtures": "Four owned actors and two owned patients, separate unchanged control task; full known task/history cleanup, strict second-patient reference checks, original first-patient MRP restore, owned provider archive/property cleanup and post-browser application cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "mutates": [
+        "provider",
+        "providersite",
+        "providerArchive",
+        "providerbillcenter",
+        "property:tickler_task_assignee"
+      ],
+      "profile": "multisite"
+    },
+    {
       "name": "eform-image-zip-roundtrip",
       "script": "scripts/eform-image-zip-roundtrip-playwright-checks.js",
       "tiers": [

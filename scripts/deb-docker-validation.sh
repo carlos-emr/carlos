@@ -288,6 +288,9 @@ cmd_up() {
   done
   case "$state" in running|degraded) ;; *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;; esac
 
+  docker exec -e CARLOS_DISPOSABLE_HOST=true "$CONTAINER" \
+    bash /root/carlos/scripts/ci/prepare-container-securityfs.sh
+
   preseed | docker exec -i "$CONTAINER" debconf-set-selections
   say "installing $emr, $drugref and $ctl (log: $LOG_DIR/install.log)"
   # The proxy is exported only for apt here; the running EMR never sees it.

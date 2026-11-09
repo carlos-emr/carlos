@@ -13,7 +13,7 @@ has current evidence.
 | --- | --- |
 | #4102 | Actual develop SMS/consent locking implementations are absent from this branch. Keep branch-inapplicable races open; do not substitute unrelated locks or synthetic production tables. See `test-only-release-issues.md`. |
 | #5718 | Corrected the all-sex operator and added matching/nonmatching multi-value and alias controls. Broader installed guideline acceptance remains required. |
-| #5812 | Retain native MRP routing assertions. The composer now carries its draft through patient search, refuses an unselected assignee in both site modes, and offers an explicit blank choice for an unavailable preferred provider (#5824/#5825). Current installed retakes remain required. |
+| #5812 | Retain native MRP routing assertions. The composer now carries its draft through patient search, refuses an unselected assignee in both site modes, and offers an explicit blank choice for an unavailable preferred provider (#5824/#5825). Current default-profile ON/BC retakes passed; the dedicated multisite MRP variant is enrolled in the required profile lane. It drives both clinic filtering and the visible Change control. |
 | #5806 | Retain actual signed callback/deny boundaries. Callback verification/storage now preserve internal percent escapes and invalid signatures map to 401 (#5823); real-parser signature controls cover header, form and query transports. All 262 selected OAuth/eForm/CSRF/report regression cases pass; current installed retakes remain required. |
 | #5801 | Explicit empty eForm values clear saved markup and PDF defaults; missing parameters remain distinct. Existing nonblank-only value rows and chart-template substitutions are preserved. Installed visual editor, checkbox, radio, image and signature acceptance remains required. |
 | #5709 | Retain lookup CRUD and consumer isolation. Provider add/edit forms omit inactive choices; edit explicitly preserves and labels its current retired value. The consumer test checks both that preservation and the new-provider boundary. Lookup add/remove/reorder now require POST and have direct/dispatcher GET/HEAD and authorized POST controls; current installed retakes remain required. |
@@ -39,22 +39,25 @@ has current evidence.
 | #5977 | Source-contract tests pin both the DrugRef lock goal/path and absence of the lock-skip flag. The new PR package job executes the shipping source-build pipeline. |
 | #6048 | Jasper compiles all eight dynamically dispatched JSP fragments in addition to the ordinary JSP execution; an exposed source-level incompatibility was repaired. |
 | #6062 | Candidate coverage-floor regeneration, zero-coverage disposition and freshness enforcement remain outstanding. No waiver is implied. |
-| #6069 | Java runs on main/release pushes; PR CI now builds both complete Debian packages and tests ON/BC installs. CI execution is still required. |
+| #6069 | Java runs on main/release pushes; PR CI now builds both complete Debian packages and tests ON/BC installs. CI execution is still required. On restricted AppArmor kernels, the disposable container exposes securityfs before installation so the package can load its dedicated Chromium userns profile; the kernel restriction and renderer sandbox remain enabled. Installed CI also exercises a real eForm PDF. |
 | #6070 | Node, packaging Python and O19 generator CI use strict outcome runners. Native ON/BC references are provisioned for required generator cases. The pinned CLI's separate upstream suite retains its own contract. |
 | #6072 | Error-page detection recognizes colon-bearing HTTP status and the sanitizer heading/reference signature; failed body reads propagate. Controls cover legitimate reference prose. |
 | #6076 | The current ON installed package passed the exact history-row patient assertion. Finding 141 is marked fixed and its manifest/known-outcome pin is retired; independent audit findings 206–208 remain fatal and do not become passing acceptance. |
 
 ## Qualification accounting
 
-The merged-source H2 retake at `5c7977e30a8` completed 34,478 cases with no failures/errors and
+The merged-source H2 retake at `c50603fb641` completed 34,495 cases with no failures/errors and
 143 explicitly routed skips. The OAuth callback changes also passed all
 262 selected regression cases, including six independently signed transport and
 refusal cases. The generated-schema MariaDB lane passed 3,128 cases without skips, and all
 177 selected lookup-guard/mutator/render cases pass. Native MRP fixture cleanup
 now reserves and removes owned provider billing-centre rows; the failing run is
 retained and its three synthetic orphan rows were recovered without changing
-unrelated rows. The strict Node inventory now has 7,729 passing cases in 547 files. Rebuilt
-package retakes for the lookup guard and visible MRP guidance remain required. These source results do not substitute for rebuilding/reinstalling the
+unrelated rows. The strict Node inventory now has 7,736 passing cases in 547 files. Rebuilt
+ON/BC package retakes for the lookup guard and visible MRP guidance passed
+without residue. The required multisite lane now includes a dedicated MRP
+variant, which requires the real clinic selector and drives the native Change
+control for manual reassignment. ON passed; BC retake remains pending. These source results do not substitute for rebuilding/reinstalling the
 final candidate and rerunning its installed acceptance.
 
 The generator's old 289 count included twelve duplicate executions of

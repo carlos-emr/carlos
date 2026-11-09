@@ -431,3 +431,43 @@ exit 0
     assert.match(fs.readFileSync(box.calls,'utf8'),new RegExp('node scripts/run-playwright-suite\\.js --profile '+profile));
   }
 });
+
+function securityfsFixture(t,{enabled='Y',restricted='1',mounted=false,visible=true,mountFails=false,disposable=true}={}){
+  const box=sandbox(t),root=path.join(box.dir,'security fs'),aa=path.join(box.dir,'enabled'),restriction=path.join(box.dir,'restricted');
+  fs.mkdirSync(root);fs.writeFileSync(aa,enabled);fs.writeFileSync(restriction,restricted);
+  const policy=path.join(root,'apparmor','profiles');
+  const expose=()=>{fs.mkdirSync(path.dirname(policy),{recursive:true});fs.writeFileSync(policy,'carlos-emr-chromium (unconfined)\n');};
+  if(mounted&&visible)expose();
+  const mountCalls=path.join(box.dir,'mount-calls');
+  fs.writeFileSync(path.join(box.dir,'bin','mountpoint'),'#!/bin/sh\nexit '+(mounted?'0':'1')+'\n',{mode:0o755});
+  fs.writeFileSync(path.join(box.dir,'bin','mount'),`#!/bin/sh
+printf '%s\\n' "$*" >> '${mountCalls}'
+${mountFails?'exit 1':visible?`mkdir -p '${path.dirname(policy)}'\nprintf '%s\\n' 'carlos-emr-chromium (unconfined)' > '${policy}'`:'exit 0'}
+`,{mode:0o755});
+  const source=fs.readFileSync(path.join(__dirname,'ci/prepare-container-securityfs.sh'),'utf8')
+    .replace('enabled_path=/sys/module/apparmor/parameters/enabled',`enabled_path='${aa}'`)
+    .replace('restriction_path=/proc/sys/kernel/apparmor_restrict_unprivileged_userns',`restriction_path='${restriction}'`)
+    .replace('security_root=/sys/kernel/security',`security_root='${root}'`);
+  const result=spawnSync('bash',['-c',source],{encoding:'utf8',env:{...box.env,CARLOS_DISPOSABLE_HOST:disposable?'true':''}});
+  return {result,calls:fs.existsSync(mountCalls)?fs.readFileSync(mountCalls,'utf8'):'',root};
+}
+test('restricted AppArmor container exposes securityfs for the shipped browser profile',t=>{
+  const {result,calls,root}=securityfsFixture(t);assert.equal(result.status,0,result.stderr);
+  assert.equal(calls,`-t securityfs securityfs ${root}\n`);
+});
+test('visible securityfs requires no second mount',t=>{
+  const {result,calls}=securityfsFixture(t,{mounted:true});assert.equal(result.status,0,result.stderr);assert.equal(calls,'');
+});
+test('an unavailable policy interface or a failed mount blocks qualification',t=>{
+  for(const options of [{visible:false},{mounted:true,visible:false},{mountFails:true}]){
+    const {result}=securityfsFixture(t,options);assert.notEqual(result.status,0);
+  }
+});
+test('unrestricted or disabled AppArmor requires no kernel interface change',t=>{
+  for(const options of [{enabled:'N'},{restricted:'0'}]){
+    const {result,calls}=securityfsFixture(t,options);assert.equal(result.status,0,result.stderr);assert.equal(calls,'');
+  }
+});
+test('securityfs preparation refuses a target without the disposable declaration',t=>{
+  const {result,calls}=securityfsFixture(t,{disposable:false});assert.notEqual(result.status,0);assert.equal(calls,'');
+});
