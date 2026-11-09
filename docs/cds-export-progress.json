@@ -295,6 +295,40 @@
       "localPairedOptionalEnvironmentSkips": 107,
       "onlyCurrentStandaloneDataExportedIntoDisposableCopy": true,
       "pinnedRuntimeAndTestsUnchangedByDataExport": true
+    },
+    "finalPinnedPairCheckpoint": {
+      "applicationHead": "8f861dee50de595eed3f57479a8094bc9ced48de",
+      "testedPullRequestMerge": "6a68395838d17d61dd25435b134b8cc8898c86ca",
+      "cliHead": "cdc1302ca58df9b5de9f25a6e92b808fa95882ea",
+      "cliWorkflowRun": 42560385901,
+      "cliAllJobsPassed": true,
+      "installedWorkflowRun": 42561789470,
+      "installedStatus": "PASSED",
+      "warSha256": "fb756fb6215cb94fbd799c260cd852c9a2372290a7b496b1a664677e69cbe9e8",
+      "realReadyJobs": 2,
+      "independentNativeFactsPerTransport": 14,
+      "schemaValidClinicalMutantsPerTransport": 4,
+      "nativeChartUnchanged": true,
+      "importMetadataRows": 0,
+      "installedFilesVerifiedBeforeAndAfter": 10328,
+      "currentSchemaCliTests": 2017,
+      "currentSchemaCliOptionalSkips": 107,
+      "coordinatedWorkflowRun": 42561789121,
+      "coordinatedAllShardsPassed": true,
+      "remainingFullJavaResourcesAndScannersAtCapture": "RUNNING",
+      "doesNotQualifySubsequentInactivityFix": true
+    },
+    "postReviewInactivityFix": {
+      "backgroundPollsDoNotRefreshSession": true,
+      "manualStatusReadsRemainUserActivity": true,
+      "serverAcceptsOnlySingleLowercaseBooleanFlag": true,
+      "existingImportLoginAndUserActivityTestsExtendedToExport": true,
+      "actualPageControllerChecks": 2,
+      "pageChecks": 7,
+      "importConcurrencyChecks": 55,
+      "allFocusedJavascriptChecksPassed": true,
+      "bothNewChecksDetectOriginalBug": true,
+      "javaAndFinalInstalledChecks": "PENDING_CURRENT_HEAD_CI"
     }
   },
   "verifiedClinicalCheckpoint": {
@@ -339,7 +373,7 @@
     "Any missing clinical authorization, changed accepted policy or incompatible runtime"
   ],
   "remaining": [
-    "Complete the final paired-pin CI and independent review; all application runtime, native, installed clinical, export byte-resource, importer resource and scanner workflows passed at a40178c7",
+    "Complete CI and independent review after the browser inactivity-polling fix; the preceding pinned pair passed CLI, installed clinical and coordinated native workflows",
     "Obtain fresh CodeFactor source analysis for the obsolete critical annotation; both available original-app refresh endpoints returned HTTP403",
     "Keep final-head DCO, PR readiness and evidence scopes aligned; CLI1.3.3 remains unpublished"
   ],

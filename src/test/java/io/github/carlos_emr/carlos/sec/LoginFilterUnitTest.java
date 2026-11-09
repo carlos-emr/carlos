@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
@@ -504,10 +505,10 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
     class InactivityTimeout {
 
         @ParameterizedTest
-        @ValueSource(strings = {"true", "false"})
-        void shouldRefreshOnlyManualCdsStatusRequests_byAutoRefreshFlag(String background) throws Exception {
+        @CsvSource({"cdsImportStatus,true", "cdsImportStatus,false", "cdsExportStatus,true", "cdsExportStatus,false"})
+        void shouldRefreshOnlyManualCdsStatusRequests_byAutoRefreshFlag(String route, String background) throws Exception {
             var request=authenticatedRequest();
-            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setRequestURI(CONTEXT_PATH+"/form/"+route);
             request.setParameter("autoRefresh",background);
             var session=request.getSession(false);
             var previous=new Date(System.currentTimeMillis()-30_000);
@@ -524,9 +525,10 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        @Test void shouldInitializeTimer_forFirstCdsBackgroundRequest() throws Exception {
+        @ParameterizedTest @ValueSource(strings = {"cdsImportStatus", "cdsExportStatus"})
+        void shouldInitializeTimer_forFirstCdsBackgroundRequest(String route) throws Exception {
             var request=authenticatedRequest();
-            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setRequestURI(CONTEXT_PATH+"/form/"+route);
             request.setParameter("autoRefresh","true");
             var chain=new MockFilterChain();
             try(var statics=mockStatic(CarlosProperties.class)) {
@@ -539,9 +541,10 @@ class LoginFilterUnitTest extends CarlosUnitTestBase {
             }
         }
 
-        @Test void shouldRejectExpiredCdsBackgroundRequests_beforeAnyTimerReset() throws Exception {
+        @ParameterizedTest @ValueSource(strings = {"cdsImportStatus", "cdsExportStatus"})
+        void shouldRejectExpiredCdsBackgroundRequests_beforeAnyTimerReset(String route) throws Exception {
             var request=authenticatedRequest();
-            request.setRequestURI(CONTEXT_PATH+"/form/cdsImportStatus");
+            request.setRequestURI(CONTEXT_PATH+"/form/"+route);
             request.setParameter("autoRefresh","true");
             var previous=new Date(System.currentTimeMillis()-7_200_000);
             request.getSession(false).setAttribute("last_request_time",previous);

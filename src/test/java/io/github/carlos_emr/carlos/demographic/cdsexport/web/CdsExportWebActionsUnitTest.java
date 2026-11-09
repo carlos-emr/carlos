@@ -47,6 +47,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -126,6 +127,25 @@ class CdsExportWebActionsUnitTest {
     @Test void shouldKeepObservationParametersUnambiguous() throws Exception {
         var action = new CdsExportStatus2Action(web, exports, security); action.setSubmissionKey("saved-key"); action.setRunId(job().id());
         action.execute(); assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(exports);
+    }
+    @ParameterizedTest @NullSource @ValueSource(strings = {"true", "false"})
+    void shouldObserveManualAndBackgroundStatus_withoutChangingTheJob(String background) throws Exception {
+        if (background != null) request.addParameter("autoRefresh", background);
+        var job = job(); var action = new CdsExportStatus2Action(web, exports, security); action.setRunId(job.id());
+        when(exports.observe(viewer, job.id())).thenReturn(job); action.execute();
+        assertThat(response.getStatus()).isEqualTo(200); verify(exports).observe(viewer, job.id());
+        assertThat(response.getContentAsString()).contains(job.id(), "\"waiting\":true", "\"complete\":false");
+    }
+    @ParameterizedTest @ValueSource(strings = {"TRUE", "1", "invalid", ""})
+    void shouldRejectMalformedBackgroundFlags_beforeReadingJobData(String flag) throws Exception {
+        request.addParameter("autoRefresh", flag);
+        var action = new CdsExportStatus2Action(web, exports, security); action.setRunId(job().id()); action.execute();
+        assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(exports);
+    }
+    @Test void shouldRejectRepeatedBackgroundFlags_beforeReadingJobData() throws Exception {
+        request.addParameter("autoRefresh", "true", "false");
+        var action = new CdsExportStatus2Action(web, exports, security); action.setRunId(job().id()); action.execute();
+        assertThat(response.getStatus()).isEqualTo(400); verifyNoInteractions(exports);
     }
     @Test void shouldRenderExactlyOneAssembledPageModel_withoutClinicalReads() throws Exception {
         var assembler = mock(CdsExportViewModelAssembler.class);

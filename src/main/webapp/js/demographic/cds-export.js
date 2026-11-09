@@ -123,15 +123,15 @@
             fresh = false; controls();
             byId('exportConnection').textContent = 'Status could not be refreshed. The job may still be processing; check again before acting.';
         }
-        async function poll(id, generation) {
+        async function poll(id, generation, background = false) {
             if (generation !== view) return;
             try {
-                const data = await request('cdsExportStatus', {runId: id});
+                const data = await request('cdsExportStatus', {runId: id, ...(background ? {autoRefresh: true} : {})});
                 if (generation !== view) return; render(data.job);
             } catch (_) {
                 if (generation !== view) return; stale();
             }
-            if (generation === view && (!current || !FINAL.has(current.state) || !fresh)) timer = setTimeout(() => poll(id, generation), 5000);
+            if (generation === view && (!current || !FINAL.has(current.state) || !fresh)) timer = setTimeout(() => poll(id, generation, true), 5000);
         }
         async function open(id) {
             if (!UUID.test(id || '')) { notice('Enter a valid job ID.', true); return; }

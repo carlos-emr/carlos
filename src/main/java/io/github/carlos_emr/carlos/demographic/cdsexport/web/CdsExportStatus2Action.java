@@ -58,7 +58,11 @@ public class CdsExportStatus2Action extends ActionSupport {
             throw new SecurityException("CDS_EXPORT_ACCESS_DENIED");
         }
             var actor = web.authorize(request);
-            web.parameters(request, Set.of("runId", "submissionKey", "after", "limit"), false);
+            web.parameters(request, Set.of("runId", "submissionKey", "after", "limit", "autoRefresh"), false);
+            String background = request.getParameter("autoRefresh");
+            if (background != null && !Set.of("true", "false").contains(background)) {
+                throw new IllegalArgumentException("CDS_EXPORT_PARAMETERS_INVALID");
+            }
             if (runId != null || submissionKey != null) {
                 if (runId != null && submissionKey != null || after != null || request.getParameterMap().containsKey("limit")) {
                     throw new IllegalArgumentException("CDS_EXPORT_PARAMETERS_INVALID");
