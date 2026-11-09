@@ -81,7 +81,7 @@ public class ProgramService extends AbstractServiceImpl {
     @GET
     @Path("/patientList")
     @Produces("application/json")
-    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+    @org.springframework.transaction.annotation.Transactional(
             propagation = org.springframework.transaction.annotation.Propagation.REQUIRES_NEW,
             isolation = org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public AbstractSearchResponse<AdmissionTo1> getPatientList(@QueryParam("programNo") String programNo, @QueryParam("day") String day, @QueryParam("startIndex") Integer startIndex, @QueryParam("numToReturn") Integer numToReturn) throws Exception {
