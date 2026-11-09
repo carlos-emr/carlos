@@ -41,7 +41,8 @@ public class Hl7PatientUnlinkService {
 
     public Hl7PatientUnlinkService(PatientLabRoutingDao patients, ProviderLabRoutingDao providers,
             MeasurementDao measurements, MeasurementsDeletedDao deleted, MeasurementsExtDao extensions,
-            Hl7TextMessageDao messages, SecurityInfoManager security, OscarLogDao audit) {
+            Hl7TextMessageDao messages, SecurityInfoManager security,
+            @org.springframework.beans.factory.annotation.Qualifier("oscarLogDaoImpl") OscarLogDao audit) {
         this.patients = patients; this.providers = providers; this.measurements = measurements;
         this.deleted = deleted; this.extensions = extensions; this.messages = messages; this.security = security;
         this.audit = audit;
