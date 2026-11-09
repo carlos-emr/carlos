@@ -114,6 +114,7 @@ class RecordUxServiceUnitTest extends CarlosUnitTestBase {
         };
 
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
+        when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, DEMOGRAPHIC_NO)).thenReturn(true);
     }
 
     @Test

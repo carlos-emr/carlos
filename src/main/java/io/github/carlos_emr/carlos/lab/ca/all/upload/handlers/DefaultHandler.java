@@ -75,7 +75,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
-        logger.info("DefaultHandler.parse: Called with serviceName={}, fileName={}, fileId={}", LogSafe.sanitize(serviceName), LogSafe.sanitize(fileName), fileId); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        logger.info("DefaultHandler.parse: fileId=");
         Document xmlDoc = getXML(fileName);
 
         /*
@@ -99,7 +99,7 @@ public class DefaultHandler implements MessageHandler {
                 }
             } catch (Exception e) {
                 MessageUploader.clean(fileId);
-                logger.error("ERROR:", e);
+                logger.error("ERROR: {}", LogSafe.exceptionTrace(e));
                 return null;
             }
         } else {
@@ -118,7 +118,7 @@ public class DefaultHandler implements MessageHandler {
                 }
             } catch (Exception e) {
                 MessageUploader.clean(fileId);
-                logger.error("ERROR:", e);
+                logger.error("ERROR: {}", LogSafe.exceptionTrace(e));
                 return null;
             }
         }
@@ -139,7 +139,7 @@ public class DefaultHandler implements MessageHandler {
             CarlosProperties props = CarlosProperties.getInstance();
             String documentDir = props.getProperty("DOCUMENT_DIR");
             if (documentDir == null || documentDir.trim().isEmpty()) {
-                logger.error("DOCUMENT_DIR is not configured while parsing XML file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("DOCUMENT_DIR is not configured while parsing XML file");
                 return null;
             }
             File docDir = PathValidationUtils.validateConfiguredDirectory(documentDir, "DOCUMENT_DIR");
@@ -147,7 +147,7 @@ public class DefaultHandler implements MessageHandler {
 
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: {}", LogSafe.sanitize(fileName)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.error("File does not exist or is not a regular file");
                 return null;
             }
 
@@ -156,10 +156,10 @@ public class DefaultHandler implements MessageHandler {
             return (doc);
 
         } catch (SecurityException e) {
-            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Path traversal attempt detected while parsing XML file: {}", LogSafe.exceptionTrace(e));
             return null;
         } catch (Exception e) {
-            logger.error("Error parsing XML file: {}", LogSafe.sanitize(fileName), e); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Error parsing XML file: {}", LogSafe.exceptionTrace(e));
             return (null);
         }
     }

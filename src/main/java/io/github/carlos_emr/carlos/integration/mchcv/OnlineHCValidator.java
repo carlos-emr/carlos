@@ -28,6 +28,8 @@
  */
 package io.github.carlos_emr.carlos.integration.mchcv;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import ca.ontario.health.ebs.EbsFault;
 import ca.ontario.health.hcv.Faultexception;
 import ca.ontario.health.hcv.HCValidation;
@@ -153,7 +155,7 @@ public class OnlineHCValidator implements HCValidator {
             try {
                 builder.setClientKeystoreFilename(signatureFile.toURI().toURL().toString());
             } catch (MalformedURLException e) {
-                logger.error("Malformed URL: " + clientKeystorePropertiesPath, e);
+                logger.error("Malformed client keystore configuration URL: {}", LogSafe.exceptionTrace(e));
             }
         }
     }

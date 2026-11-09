@@ -483,7 +483,12 @@ public class RxWebService extends AbstractServiceImpl {
         }
 
         // attempt to prescribe the drugs.
-        pd = rxManager.prescribe(info, drugs, demographicNo);
+        try {
+            pd = rxManager.prescribe(info, drugs, demographicNo);
+        } catch (io.github.carlos_emr.carlos.managers.PrescriptionWriteException failedWrite) {
+            // The manager's transaction has rolled back before preserving the legacy response.
+            pd = null;
+        }
 
         if (pd != null) {
 

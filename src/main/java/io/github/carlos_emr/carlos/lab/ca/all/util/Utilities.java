@@ -144,13 +144,12 @@ public class Utilities {
             // Only the configured directory is logged, never the generated name: it is derived from
             // the caller-supplied lab filename, which can carry patient-identifying text.
             if (logger.isDebugEnabled()) {
-                logger.debug("saveFile place={}",
-                        LogSafe.sanitize(safeDir.getPath(), 1024)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                logger.debug("Preparing validated upload destination"); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             }
 
             return writeUploadToNewFile(uploadStream, outputFile) ? outputFile.getPath() : null;
         } catch (IOException ioe) {
-            logger.error("Error processing file: {}", LogSafe.sanitize(filename), ioe); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Error processing file: {}", LogSafe.exceptionTrace(ioe)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
     }
@@ -290,7 +289,7 @@ public class Utilities {
             logger.error("Error writing PDF upload: {}", LogSafe.exceptionTrace(ioe));
             return retVal;
         } catch (IllegalArgumentException | SecurityException iae) {
-            logger.error("Invalid filename: {}", LogSafe.sanitize(filename), iae); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.error("Invalid filename: {}", LogSafe.exceptionTrace(iae)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             return null;
         }
 

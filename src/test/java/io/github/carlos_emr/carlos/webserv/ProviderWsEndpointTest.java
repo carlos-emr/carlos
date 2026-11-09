@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.webserv;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -60,8 +61,11 @@ class ProviderWsEndpointTest extends CarlosSoapTestBase {
     @Mock
     private Provider mockProvider;
 
+    private io.github.carlos_emr.carlos.managers.SecurityInfoManager billingPolicy;
+
     @Override
     protected Object getServiceBean() {
+        billingPolicy = createAndRegisterMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
         ProviderWs ws = new ProviderWs();
         injectDependency(ws, "providerManager", mockProviderManager);
         return ws;
@@ -89,6 +93,27 @@ class ProviderWsEndpointTest extends CarlosSoapTestBase {
         assertThat(result).isNotNull();
         assertThat(result.getProviderNo()).isEqualTo("999998");
         assertThat(result.getLastName()).isEqualTo("Doctor");
+    }
+
+    @Test
+    void shouldGateAllFourBillingIdentifiers_onSoapDetailAndListResponses() {
+        var policy = billingPolicy;
+        when(mockProvider.getBillingNo()).thenReturn("FAKE-BILLING");
+        when(mockProvider.getOhipNo()).thenReturn("FAKE-OHIP");
+        when(mockProvider.getRmaNo()).thenReturn("FAKE-RMA");
+        when(mockProvider.getHsoNo()).thenReturn("FAKE-HSO");
+        when(mockProviderManager.getProviders(any(LoggedInInfo.class), eq(true))).thenReturn(List.of(mockProvider));
+        ProviderWs proxy = createClient(ProviderWs.class);
+        for (boolean allowed : List.of(false, true)) {
+            when(policy.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("r"), isNull())).thenReturn(allowed);
+            for (ProviderTransfer response : List.of(proxy.getLoggedInProviderTransfer(), proxy.getProviders2(true)[0])) {
+                assertThat(response.getProviderNo()).isEqualTo("999998");
+                assertThat(response.getBillingNo()).isEqualTo(allowed ? "FAKE-BILLING" : null);
+                assertThat(response.getOhipNo()).isEqualTo(allowed ? "FAKE-OHIP" : null);
+                assertThat(response.getRmaNo()).isEqualTo(allowed ? "FAKE-RMA" : null);
+                assertThat(response.getHsoNo()).isEqualTo(allowed ? "FAKE-HSO" : null);
+            }
+        }
     }
 
     @Test

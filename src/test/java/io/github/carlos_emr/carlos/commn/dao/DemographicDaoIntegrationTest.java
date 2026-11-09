@@ -100,6 +100,55 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         demo4 = createDemographic("Bob", "Johnson", "ON", uniquePrefix + "3", "IN");  // Inactive
     }
 
+
+    @Test
+    void shouldOrderSearchTiesByPatientId_forSoapNamesAttributesAndRestPages() {
+        String lastName = uniquePrefix + "tie";
+        for (Demographic patient : java.util.List.of(demo1, demo2, demo3)) {
+            patient.setFirstName("Synthetic"); patient.setLastName(lastName); demographicDao.save(patient);
+        }
+        hibernateTemplate.flush();
+        var expected = java.util.stream.Stream.of(demo1, demo2, demo3).map(Demographic::getDemographicNo).sorted().toList();
+        assertThat(demographicDao.searchDemographicByNameString(lastName, 1, 1))
+                .extracting(Demographic::getDemographicNo).containsExactly(expected.get(1));
+        for (boolean byName : java.util.List.of(false, true)) {
+            assertThat(demographicDao.findByAttributes(null, null, lastName, null, null, null, null, null, null, null, 1, 1, byName))
+                    .extracting(Demographic::getDemographicNo).containsExactly(expected.get(1));
+        }
+        var request = new io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest();
+        request.setMode(io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest.SEARCHMODE.Name);
+        request.setKeyword(lastName); request.setActive(true); request.setOutOfDomain(true);
+        request.setSortMode(io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchRequest.SORTMODE.Name);
+        assertThat(demographicDao.searchPatients(null, request, 1, 1))
+                .extracting(io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult::getDemographicNo)
+                .containsExactly(expected.get(1));
+        assertThat(demographicDao.searchPatientCount(null, request)).isEqualTo(3);
+    }
+
+    @Test
+    void shouldBindSoapNameSearchValues_forEveryFixedQueryVariant() {
+        String family = uniquePrefix + "Family' OR 1=1 --";
+        String given = uniquePrefix + "Given' OR 1=1 --";
+        demo1.setLastName(family);
+        demo1.setFirstName(given);
+        demo2.setLastName(family);
+        demo2.setAlias(given);
+        demographicDao.save(demo1);
+        demographicDao.save(demo2);
+        hibernateTemplate.flush();
+        var ids = java.util.stream.Stream.of(demo1, demo2).map(Demographic::getDemographicNo).sorted().toList();
+        for (String search : List.of(family, family + ",", "," + given, family + "," + given)) {
+            assertThat(demographicDao.searchDemographicByNameString(search, 0, 100))
+                    .extracting(Demographic::getDemographicNo).containsExactlyElementsOf(ids);
+            assertThat(demographicDao.searchDemographicByNameString(search, 1, 1))
+                    .extracting(Demographic::getDemographicNo).containsExactly(ids.get(1));
+        }
+        // Empty filters preserve the established unfiltered, ID-ordered pagination contract.
+        for (String search : java.util.Arrays.asList(null, "", " ", ",", ",,")) {
+            assertThat(demographicDao.searchDemographicByNameString(search, 0, 1)).hasSize(1);
+        }
+    }
+
     @Test
     void shouldBindLabSearchTextAndBoundPages_whenSortContainsQuerySyntax() {
         String quotedName = uniquePrefix + "Alpha' OR 1=1 --";
@@ -471,6 +520,23 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
 
             // Then
             assertThat(results).hasSize(2);
+        }
+
+        @Test
+        @Tag("query")
+        void shouldTraverseActivePatients_inUniqueIdentifierOrder() {
+            List<Demographic> first = demographicDao.getActiveDemographics(0, 2);
+            List<Demographic> next = demographicDao.getActiveDemographics(2, 2);
+            java.util.List<Integer> identifiers = new java.util.ArrayList<>();
+            first.forEach(d -> identifiers.add(d.getDemographicNo()));
+            next.forEach(d -> identifiers.add(d.getDemographicNo()));
+            assertThat(identifiers).doesNotHaveDuplicates().isSorted();
+            assertThat(demographicDao.getActiveDemographicIds(0, 2))
+                    .containsExactlyElementsOf(first.stream().map(Demographic::getDemographicNo).toList());
+            assertThat(demographicDao.getActiveDemographicIds(2, 2))
+                    .containsExactlyElementsOf(next.stream().map(Demographic::getDemographicNo).toList());
+            assertThat(demographicDao.getActiveDemographics(0, 2)).extracting(Demographic::getDemographicNo)
+                    .containsExactlyElementsOf(first.stream().map(Demographic::getDemographicNo).toList());
         }
 
         @Test

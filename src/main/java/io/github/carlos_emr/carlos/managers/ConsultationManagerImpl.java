@@ -191,7 +191,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         for (Object[] items : result) {
             ConsultationRequest consultRequest = (ConsultationRequest) items[0];
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.searchRequest", "id=" + consultRequest.getId());
-            r.add(convertToRequestSearchResult(items));
+            r.add(convertToRequestSearchResult(loggedInInfo, items));
         }
         return r;
     }
@@ -206,7 +206,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
         for (Object[] items : result) {
             ConsultationResponse consultResponse = (ConsultationResponse) items[0];
             LogAction.addLogSynchronous(loggedInInfo, "ConsultationManager.searchResponse", "id=" + consultResponse.getId());
-            r.add(convertToResponseSearchResult(items));
+            r.add(convertToResponseSearchResult(loggedInInfo, items));
         }
         return r;
     }
@@ -587,7 +587,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      * @param items Object[] the JPA projection row
      * @return ConsultationRequestSearchResult the populated DTO
      */
-    private ConsultationRequestSearchResult convertToRequestSearchResult(Object[] items) {
+    private ConsultationRequestSearchResult convertToRequestSearchResult(LoggedInInfo loggedInInfo, Object[] items) {
         ConsultationRequestSearchResult result = new ConsultationRequestSearchResult();
 
         ConsultationRequest consultRequest = (ConsultationRequest) items[0];
@@ -598,11 +598,11 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
 
         result.setAppointmentDate(joinDateAndTime(consultRequest.getAppointmentDate(), consultRequest.getAppointmentTime()));
-        result.setConsultant(professionalSpecialist);
-        result.setDemographic(demographic);
+        result.setConsultantSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(loggedInInfo, professionalSpecialist));
+        result.setDemographicSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(loggedInInfo, demographic));
         result.setId(consultRequest.getId());
         result.setLastFollowUp(consultRequest.getFollowUpDate());
-        result.setMrp(provider);
+        result.setMrpSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(loggedInInfo, provider));
         result.setReferralDate(consultRequest.getReferralDate());
         result.setServiceName(consultationServices.getServiceDesc());
         result.setStatus(consultRequest.getStatus());
@@ -623,7 +623,7 @@ public class ConsultationManagerImpl implements ConsultationManager {
      * @param items Object[] the JPA projection row
      * @return ConsultationResponseSearchResult the populated DTO
      */
-    private ConsultationResponseSearchResult convertToResponseSearchResult(Object[] items) {
+    private ConsultationResponseSearchResult convertToResponseSearchResult(LoggedInInfo loggedInInfo, Object[] items) {
         ConsultationResponseSearchResult result = new ConsultationResponseSearchResult();
 
         ConsultationResponse consultResponse = (ConsultationResponse) items[0];
@@ -633,11 +633,11 @@ public class ConsultationManagerImpl implements ConsultationManager {
 
 
         result.setAppointmentDate(joinDateAndTime(consultResponse.getAppointmentDate(), consultResponse.getAppointmentTime()));
-        result.setReferringDoctor(professionalSpecialist);
-        result.setDemographic(demographic);
+        result.setReferringDoctorSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.professionalSpecialist(loggedInInfo, professionalSpecialist));
+        result.setDemographicSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.demographic(loggedInInfo, demographic));
         result.setId(consultResponse.getId());
         result.setLastFollowUp(consultResponse.getFollowUpDate());
-        result.setProvider(provider);
+        result.setProviderSnapshot(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.provider(loggedInInfo, provider));
         result.setReferralDate(consultResponse.getReferralDate());
         result.setResponseDate(consultResponse.getResponseDate());
         result.setStatus(consultResponse.getStatus());

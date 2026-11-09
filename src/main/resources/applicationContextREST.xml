@@ -96,7 +96,7 @@
         <property name="mapper" ref="oauthJacksonObjectMapper"/>
     </bean>
 
-    <bean id="oauthJaxbProvider" class="org.apache.cxf.jaxrs.provider.JAXBElementProvider">
+    <bean id="oauthJaxbProvider" class="io.github.carlos_emr.carlos.utility.xml.CompatibilityJaxbProvider">
         <property name="marshallerProperties">
             <map>
                 <entry key="jaxb.formatted.output">
@@ -153,13 +153,17 @@
     <!-- CXF JAX-RS server for data APIs at /carlos/ws/services. OAuthInterceptor rejects any call
          without a valid signed OAuth access token (401); browser sessions use /ws/rs instead. -->
     <jaxrs:server id="restServices" address="/services">
+        <jaxrs:outInterceptors><bean class="io.github.carlos_emr.carlos.webserv.rest.util.JsonDateProfileOutInterceptor"/></jaxrs:outInterceptors>
+        <jaxrs:outFaultInterceptors><bean class="io.github.carlos_emr.carlos.webserv.rest.util.JsonDateProfileOutInterceptor"/></jaxrs:outFaultInterceptors>
 
 		<jaxrs:inInterceptors>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.JsonDateProfileInInterceptor"/>
 			<bean name="oauthInInterceptor"
 				class="io.github.carlos_emr.carlos.webserv.oauth.util.OAuthInterceptor" />
 		</jaxrs:inInterceptors>
 
         <jaxrs:serviceBeans>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.SoapTokenResource"/>
             <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuthStatusService" autowire="byName"/>
             <!-- Constructor injection requires both dependencies at startup; OceanSettingDaoImpl
                  is discovered by spring_jpa.xml and spring_managers.xml component scans. -->
@@ -199,13 +203,18 @@
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.AccessDeniedExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.CdsMedicationCompatibilityExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.CdsTemporalPrecisionExceptionMapper"/>
             <ref bean="oauthJaxbProvider"/>
             <ref bean="oauthJsonProvider"/>
             <!-- Keep privilege denials mapped on both session and OAuth REST surfaces (#2798). -->
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.SecurityExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.PatientDirectiveExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.IllegalArgumentExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.ConversionExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.DemographicWriteProfileResponseFilter"/>
             <!-- OAuthInterceptor rejections must retain their OAuth status and reason (#4438). -->
             <bean class="io.github.carlos_emr.carlos.webserv.oauth.OAuth1ExceptionMapper"/>
         </jaxrs:providers>
