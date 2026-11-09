@@ -459,8 +459,10 @@ shows a PDF as verified only when it comes from that key. Handle the key the way
 you would a TLS private key.
 
 **Create.** Use an ECDSA P-256 key in a PKCS#12 file that only the Tomcat user
-can read. A self-signed certificate is enough for myCarlos; a certificate from a
-recognised authority also removes the "unknown signer" warning in PDF readers.
+can read. A self-signed certificate is enough for myCarlos. A certificate already
+trusted by the recipient's PDF reader can avoid unknown-signer warnings; a
+CA-issued certificate alone does not guarantee reader trust. See
+[Adobe's trusted identities guidance](https://helpx.adobe.com/acrobat/using/trusted-identities.html).
 
 ```
 keytool -genkeypair -alias carlos-pdf-signing -keyalg EC -groupname secp256r1 \
