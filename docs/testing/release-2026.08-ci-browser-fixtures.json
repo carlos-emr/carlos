@@ -167,7 +167,7 @@
         "scripts/ui-scroll-quick-pick-browser-check.js"
       ],
       "source": "scripts/ui-scroll-quick-pick-browser-check.js",
-      "sourceSha256": "ecc33617b8339f9562af84fac128060c2e6384dd3319842571d3a1b415091dc3",
+      "sourceSha256": "430d6db01861dead2c080de2bf50f85ceeef3d70c75a4ce38466245096dd561f",
       "minimumAssertions": 61
     },
     {
