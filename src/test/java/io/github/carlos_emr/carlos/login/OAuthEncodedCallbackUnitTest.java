@@ -28,19 +28,20 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("security")
 class OAuthEncodedCallbackUnitTest {
+    private final String consumerSecret = java.util.UUID.randomUUID().toString();
     private static final String CALLBACK = "https://app.example/callback?fixture=owned&context=owned%20callback%20%26%20value&literal=%2520&plus=%2B";
 
     @ParameterizedTest
     @ValueSource(strings = {"header", "form", "query"})
     void shouldVerifyOnceAndPreserveCallbackEscapes_forEachParameterTransport(String transport) throws Exception {
         var provider = mock(OscarOAuthDataProvider.class);
-        var client = new Client("consumer", "secret", "Fixture", "https://app.example");
+        var client = new Client("consumer", consumerSecret, "Fixture", "https://app.example");
         client.setCallbackUri("https://app.example/callback?fixture=owned");
         when(provider.getClient("consumer")).thenReturn(client);
         when(provider.createRequestToken(any())).thenReturn(new RequestToken(client, "token", "token-secret"));
         var service = new OscarRequestTokenService(provider, new OAuth1ParamParser());
         ReflectionTestUtils.setField(service, "verifier", new OAuth1SignatureVerifierImplementation(provider));
-        var request = signedRequest(transport, false);
+        var request = signedRequest(transport, false, consumerSecret);
 
         assertThat(service.initiatePost(request).getStatus()).isEqualTo(200);
         var registration = ArgumentCaptor.forClass(RequestTokenRegistration.class);
@@ -53,12 +54,12 @@ class OAuthEncodedCallbackUnitTest {
     @ValueSource(strings = {"header", "form", "query"})
     void shouldRefuseAnInvalidSignature_withoutMintingCredentialsOrConsumingNonce(String transport) throws Exception {
         var provider = mock(OscarOAuthDataProvider.class);
-        var client = new Client("consumer", "secret", "Fixture", "https://app.example");
+        var client = new Client("consumer", consumerSecret, "Fixture", "https://app.example");
         when(provider.getClient("consumer")).thenReturn(client);
         var service = new OscarRequestTokenService(provider, new OAuth1ParamParser());
         ReflectionTestUtils.setField(service, "verifier", new OAuth1SignatureVerifierImplementation(provider));
 
-        assertThatThrownBy(() -> service.initiatePost(signedRequest(transport, true)))
+        assertThatThrownBy(() -> service.initiatePost(signedRequest(transport, true, consumerSecret)))
                 .isInstanceOfSatisfying(OAuth1Exception.class, error -> {
                     assertThat(error.getHttpCode()).isEqualTo(401);
                     assertThat(error).hasMessage("invalid_signature");
@@ -67,7 +68,7 @@ class OAuthEncodedCallbackUnitTest {
         verify(provider, never()).consumeNonce(any(), any(), any(), anyLong(), anyLong());
     }
 
-    private static MockHttpServletRequest signedRequest(String transport, boolean tamper) throws Exception {
+    private static MockHttpServletRequest signedRequest(String transport, boolean tamper, String consumerSecret) throws Exception {
         var request = new MockHttpServletRequest("POST", "/ws/oauth/initiate");
         request.setScheme("https");
         request.setServerName("clinic.example");
@@ -81,7 +82,7 @@ class OAuthEncodedCallbackUnitTest {
                 .collect(java.util.stream.Collectors.joining("&"));
         String base = "POST&" + encode("https://clinic.example/ws/oauth/initiate") + "&" + encode(normalized);
         var mac = Mac.getInstance("HmacSHA1");
-        mac.init(new SecretKeySpec("secret&".getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
+        mac.init(new SecretKeySpec((encode(consumerSecret) + "&").getBytes(StandardCharsets.UTF_8), "HmacSHA1"));
         parameters.put("oauth_signature", tamper ? "invalid" : Base64.getEncoder().encodeToString(mac.doFinal(base.getBytes(StandardCharsets.UTF_8))));
         if ("header".equals(transport)) {
             request.setQueryString("scope=demographic.read");
