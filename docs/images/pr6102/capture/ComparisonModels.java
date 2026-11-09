@@ -5,6 +5,9 @@ import java.time.Instant;
 import java.util.*;
 import java.io.Serializable;
 import com.fasterxml.jackson.databind.ObjectMapper;
+/** Regression coverage for this contract.
+ * @since 2026-11-09
+ */
 public class ComparisonModels {
  public static void main(String[] args) throws Exception {
   Map<String,Object> models=new LinkedHashMap<>();
