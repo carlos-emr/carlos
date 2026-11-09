@@ -133,6 +133,9 @@ public class InboxCategoryDao {
     }
 
     private static final class QueryState {
+        private static final java.time.format.DateTimeFormatter INBOX_DATE =
+                java.time.format.DateTimeFormatter.ofPattern("uuuu-M-d")
+                        .withResolverStyle(java.time.format.ResolverStyle.STRICT);
 
         private static final String COUNT_COLUMN = "count";
         private static final String SQL_EQUALS_PARAM = " = ? ";
@@ -186,6 +189,9 @@ public class InboxCategoryDao {
         private QueryState(EntityManager entityManager, SystemPreferencesDao systemPreferencesDao, String patientLastName, String patientFirstName, String patientHealthNumber, boolean patientSearch,
                             boolean providerSearch, String searchProviderNo, String status, String abnormalStatus,
                             String startDate, String endDate) {
+
+            startDate = normalizeDate(startDate);
+            endDate = normalizeDate(endDate);
 
             this.entityManager = entityManager;
             this.patientLastName = patientLastName;
@@ -276,6 +282,10 @@ public class InboxCategoryDao {
 
             patients = new HashMap<Integer, PatientInfo>();
 
+        }
+
+        private static String normalizeDate(String date) {
+            return StringUtils.isBlank(date) ? null : java.time.LocalDate.parse(date, INBOX_DATE).toString();
         }
 
         private boolean matchesAnyStatus() {

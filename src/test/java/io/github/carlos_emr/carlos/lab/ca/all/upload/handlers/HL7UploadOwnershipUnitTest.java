@@ -9,15 +9,22 @@ import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessage;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.MessageUploader;
+import io.github.carlos_emr.carlos.lab.ca.all.upload.RouteReportResults;
+import io.github.carlos_emr.carlos.lab.ca.all.util.Utilities;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @Tag("unit")
+@Isolated("Initializes legacy upload dependency caches")
 class HL7UploadOwnershipUnitTest extends CarlosUnitTestBase {
     private Hl7TextInfoDao info;
     private Hl7TextMessageDao messages;
@@ -28,6 +35,75 @@ class HL7UploadOwnershipUnitTest extends CarlosUnitTestBase {
         messages = mock(Hl7TextMessageDao.class);
         registerMock(Hl7TextInfoDao.class, info);
         registerMock(Hl7TextMessageDao.class, messages);
+    }
+
+    private void registerUploaderDependencies() {
+        for (var field : MessageUploader.class.getDeclaredFields()) {
+            if (java.lang.reflect.Modifier.isStatic(field.getModifiers())
+                    && !java.lang.reflect.Modifier.isFinal(field.getModifiers())
+                    && (field.getName().endsWith("Dao") || field.getName().endsWith("Manager"))) {
+                createAndRegisterMock(field.getType());
+            }
+        }
+    }
+
+    @Test
+    void shouldPassOnlyReturnedReportIds_toRecheckAcrossMultipleMessages() throws Exception {
+        registerUploaderDependencies();
+        try (var utilities = mockStatic(Utilities.class); var uploader = mockStatic(MessageUploader.class);
+             var recheck = mockStatic(HL7Handler.class, CALLS_REAL_METHODS)) {
+            utilities.when(() -> Utilities.separateMessages("synthetic.hl7"))
+                    .thenReturn(new java.util.ArrayList<>(java.util.List.of("first", "second", "repeated-id")));
+            uploader.when(() -> MessageUploader.routeReport(isNull(), eq(""), eq("HL7"), anyString(), eq(51), any()))
+                    .thenAnswer(call -> {
+                        RouteReportResults result = call.getArgument(5);
+                        result.segmentId = "second".equals(call.getArgument(3)) ? 23 : 17;
+                        return "";
+                    });
+            recheck.when(() -> HL7Handler.updateLabStatus(anySet())).thenAnswer(call -> null);
+            assertThat(new HL7Handler().parse(null, "HL7", "synthetic.hl7", 51, "127.0.0.1"))
+                    .isEqualTo("success");
+            recheck.verify(() -> HL7Handler.updateLabStatus(Set.of(17, 23)));
+            uploader.verify(() -> MessageUploader.clean(anyInt()), never());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void shouldFailAndCleanUpload_whenRoutingReturnsNoStoredIdentity(int returnedId) throws Exception {
+        registerUploaderDependencies();
+        try (var utilities = mockStatic(Utilities.class); var uploader = mockStatic(MessageUploader.class);
+             var recheck = mockStatic(HL7Handler.class, CALLS_REAL_METHODS)) {
+            utilities.when(() -> Utilities.separateMessages("synthetic.hl7"))
+                    .thenReturn(new java.util.ArrayList<>(java.util.List.of("first")));
+            uploader.when(() -> MessageUploader.routeReport(isNull(), eq(""), eq("HL7"), anyString(), eq(51), any()))
+                    .thenAnswer(call -> {
+                        ((RouteReportResults) call.getArgument(5)).segmentId = returnedId;
+                        return "";
+                    });
+            assertThat(new HL7Handler().parse(null, "HL7", "synthetic.hl7", 51, "127.0.0.1")).isNull();
+            uploader.verify(() -> MessageUploader.clean(51));
+            recheck.verify(() -> HL7Handler.updateLabStatus(anySet()), never());
+        }
+    }
+
+    @Test
+    void shouldCleanEarlierRoutedMessages_whenALaterMessageFails() throws Exception {
+        registerUploaderDependencies();
+        try (var utilities = mockStatic(Utilities.class); var uploader = mockStatic(MessageUploader.class);
+             var recheck = mockStatic(HL7Handler.class, CALLS_REAL_METHODS)) {
+            utilities.when(() -> Utilities.separateMessages("synthetic.hl7"))
+                    .thenReturn(new java.util.ArrayList<>(java.util.List.of("first", "second")));
+            uploader.when(() -> MessageUploader.routeReport(isNull(), eq(""), eq("HL7"), anyString(), eq(51), any()))
+                    .thenAnswer(call -> {
+                        if ("second".equals(call.getArgument(3))) throw new java.sql.SQLException("synthetic routing failure");
+                        ((RouteReportResults) call.getArgument(5)).segmentId = 17;
+                        return "";
+                    });
+            assertThat(new HL7Handler().parse(null, "HL7", "synthetic.hl7", 51, "127.0.0.1")).isNull();
+            uploader.verify(() -> MessageUploader.clean(51));
+            recheck.verify(() -> HL7Handler.updateLabStatus(anySet()), never());
+        }
     }
 
     @Test

@@ -146,7 +146,7 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
      * @param lastName String optional surname prefix source
      * @param firstName String optional given-name prefix source
      * @param ignoreNames boolean whether name predicates are omitted
-     * @return List&lt;Patient&gt; matching patient projections
+     * @return List&lt;Patient&gt; matching patient projections, empty when the HIN is missing
      * @throws NullPointerException if a DOB component is null
      */
     public List<Patient> findCmlPatients(String hin, String year, String month, String day, String sex,
@@ -165,7 +165,11 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
         return patients(sql.toString(), params);
     }
 
-    /** Missing identifiers must never select blank-HIN patients by initials alone. */
+    /**
+     * Missing identifiers must never select blank-HIN patients by initials alone.
+     * @param hin incoming health number, possibly null
+     * @return true for null, blank, or a case-insensitive UNKNOWN sentinel after trimming
+     */
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
             justification = "Conservatively rejects case variants of the missing-HIN sentinel; never grants a patient match")
     public static boolean isMissingCmlHin(String hin) {

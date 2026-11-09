@@ -803,7 +803,8 @@ input[id^='acklabel_']{
         }
 
         function unlinkDemographic(labNo) {
-            var reason = unlinkDemographic.lastReason || "Incorrect demographic";
+            var reasons = unlinkDemographic.reasons || (unlinkDemographic.reasons = Object.create(null));
+            var reason = reasons[String(labNo)] || "Incorrect demographic";
             reason = prompt('${carlos:forJavaScript(msgUnlink)}', reason);
 
             //must include reason
@@ -811,7 +812,7 @@ input[id^='acklabel_']{
                 return false;
             }
 
-            unlinkDemographic.lastReason = reason;
+            reasons[String(labNo)] = reason;
             var urlStr = '<%=request.getContextPath()%>' + "/lab/CA/ALL/UnlinkDemographic";
             var dataStr = "reason=" + encodeURIComponent(reason) + "&labNo=" + encodeURIComponent(labNo) + "&CSRF-TOKEN=" + encodeURIComponent(getCsrfToken());
             fetch(urlStr, {
@@ -822,14 +823,14 @@ input[id^='acklabel_']{
             .then(function(response) {
                 return response.json().then(function(data) {
                     if (!response.ok || data.success !== true) {
-                        throw new Error('The lab could not be unlinked. Refresh the report and retry; your reason has been retained.');
+                        throw new Error('The lab could not be unlinked.');
                     }
                     return data;
                 });
             })
             .then(function(data) {
                 if (data.success) {
-                    unlinkDemographic.lastReason = null;
+                    delete reasons[String(labNo)];
                     // refresh the opening page with new results
                     top.opener.location.reload();
                     // refresh the lab display page and offer dialog to rematch.
@@ -838,7 +839,7 @@ input[id^='acklabel_']{
             })
             .catch(function(error) {
                 console.error('Failed to unlink demographic:', error);
-                alert('An error occurred while unlinking the demographic. Please refresh and try again.');
+                alert('The unlink could not be confirmed. Your reason is retained on this page for retry. Refreshing will clear the reason.');
             });
         }
 
