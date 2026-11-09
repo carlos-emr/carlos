@@ -4,7 +4,7 @@ carlos-emr (2026.09.0~snapshot30) resolute; urgency=medium
     Preserve unassigned DigitalSignature demographicId=-1 through an invisible
     nullable foreign-key projection; continue enforcing real patient IDs for
     all new signatures and resolve legacy read access only from unambiguous
-    clinical references.
+    clinical references frozen during import.
   * Ship physical ON/BC schema contracts and the format-3 import manifest for
     the new signature column. Pin carlos-ctl 1.3.3 for source provenance,
     eForm collision handling and final verification of restored files.

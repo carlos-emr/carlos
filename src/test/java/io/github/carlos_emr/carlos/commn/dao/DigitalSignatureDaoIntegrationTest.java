@@ -27,6 +27,7 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequestArchive;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
+import io.github.carlos_emr.carlos.commn.model.ImportedSignatureOwner;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
@@ -272,6 +273,9 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             entityManager.flush();
 
             assertThat(digitalSignatureDao.findMetadataById(saved.getId()).getDemographicId()).isEqualTo(-1);
+            // A form value created after import cannot grant ownership.
+            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
+            insertImportedOwner(saved, 789, ModuleType.E_FORM);
             DigitalSignature readable = digitalSignatureDao.findReadableMetadataById(saved.getId());
             assertThat(readable.getDemographicId()).isEqualTo(789);
             assertThat(readable.getModuleType()).isEqualTo(ModuleType.E_FORM);
@@ -333,6 +337,7 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             consult.setSignatureImg(String.valueOf(saved.getId()));
             entityManager.persist(consult);
             entityManager.flush();
+            insertImportedOwner(saved, 123, ModuleType.CONSULTATION);
 
             DigitalSignature mutatingMetadata = digitalSignatureDao.findMetadataById(saved.getId());
             DigitalSignature readableMetadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
@@ -386,8 +391,14 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             consult.setSignatureImg(String.valueOf(saved.getId()));
             entityManager.persist(consult);
             entityManager.flush();
+            insertImportedOwner(saved, 123, ModuleType.CONSULTATION);
 
             assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
+        }
+
+        private void insertImportedOwner(DigitalSignature signature, int patient, ModuleType module) {
+            entityManager.persist(new ImportedSignatureOwner(signature.getId(), patient, module));
+            entityManager.flush();
         }
 
         private DigitalSignature persistLegacySignature(Integer demographicId) {

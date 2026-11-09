@@ -73,8 +73,11 @@ an invisible generated column maps only that sentinel to SQL NULL for the
 patient foreign key. New signatures still require a real patient. Preflight
 blocks other invalid patient references and unknown signature module values;
 P7 checks the original signature values independently of the ETL mapping.
-Read access to a legacy unassigned signature is granted only when exactly one
-patient and module can be inferred from clinical references.
+P4 freezes a uniquely inferred patient and module from the staged OSCAR
+references in an app-owned receipt, and P7 checks that receipt against staging.
+Read access to an unassigned signature uses only that frozen decision; later
+eForm submissions cannot assign its patient. A row without a unique source
+owner remains preserved but unreadable until separately reconciled.
 
 This pair changes both the manifest and the ETL contract. A beta7 import that
 has already copied rows **cannot** resume after installation. Keep CARLOS
