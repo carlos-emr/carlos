@@ -1680,7 +1680,7 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
 
             String default_view = CarlosProperties.getInstance().getProperty("default_view", "");
 
-            url = bsurl + "/billing?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_name=" + java.net.URLEncoder.encode(bean.patientLastName + "," + bean.patientFirstName, "UTF-8") + "&demographic_no=" + bean.demographicNo
+            url = bsurl + "/billing?billRegion=" + java.net.URLEncoder.encode(province, "UTF-8") + "&billForm=" + java.net.URLEncoder.encode(default_view, "UTF-8") + "&hotclick=" + java.net.URLEncoder.encode("", "UTF-8") + "&appointment_no=" + bean.appointmentNo + "&appointment_date=" + bean.appointmentDate + "&start_time=" + Hour + ":" + Min + "&demographic_no=" + bean.demographicNo
                     + "&providerview=" + bean.curProviderNo + "&user_no=" + bean.providerNo + "&apptProvider_no=" + bean.curProviderNo + "&bNewForm=1&status=t";
 
             request.setAttribute("billing_url", url);
@@ -2549,7 +2549,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
             Integer noteApptNo = this.getCaseNote() != null ? this.getCaseNote().getAppointmentNo() : null;
             String appointmentNo = (noteApptNo != null && noteApptNo > 0) ?
                 String.valueOf(noteApptNo) : this.getAppointmentNo();
-            String name = this.getDemoName(demoNo);
             String date = this.getAppointmentDate();
             String start_time = this.getStart_time();
             String apptProvider = this.getApptProvider();
@@ -2585,7 +2584,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
                     + "&billForm=" + defaultView
                     + "&hotclick=&appointment_no="
                     + appointmentNo
-                    + "&demographic_name=" + java.net.URLEncoder.encode(name, "utf-8")
                     + "&amp;status=t&demographic_no=" + demoNo
                     + "&providerview=" + providerview
                     + "&user_no=" + providerNo

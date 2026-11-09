@@ -156,8 +156,11 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
                 return null;
             });
         } catch (Exception failure) {
-            MiscUtils.getLogger().error("BC Teleplan generation failed ({})", failure.getClass().getName());
-            request.setAttribute("error", "Teleplan export failed. Review the activity list before retrying.");
+            var error = io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportErrors.describe(failure);
+            MiscUtils.getLogger().error("BC Teleplan generation failed: " + error.message(),
+                    io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportErrors.diagnostic(failure));
+            response.setStatus(error.status());
+            request.setAttribute("error", error.message());
         }
         return SUCCESS;
     }

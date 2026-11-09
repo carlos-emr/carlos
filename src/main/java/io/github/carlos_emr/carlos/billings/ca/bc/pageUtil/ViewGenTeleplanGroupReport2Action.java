@@ -18,6 +18,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportErrors;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -80,8 +81,10 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
             SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService.class)
                     .generate(selection, loggedInInfo.getLoggedInProviderNo());
         } catch (Exception failure) {
-            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Legacy BC Teleplan export failed ({})", failure.getClass().getName());
-            response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Teleplan export failed. Review the activity list before retrying.");
+            var error = TeleplanExportErrors.describe(failure);
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Legacy BC Teleplan export failed: "
+                    + error.message(), TeleplanExportErrors.diagnostic(failure));
+            response.sendError(error.status(), error.message());
             return NONE;
         }
         return SUCCESS;

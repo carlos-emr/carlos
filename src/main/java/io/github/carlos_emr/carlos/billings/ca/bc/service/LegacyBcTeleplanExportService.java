@@ -107,6 +107,9 @@ public class LegacyBcTeleplanExportService {
         List<BillActivity> activity = new ArrayList<>();
         for (var group : groups.entrySet()) {
             int next = nextBatch(selection.monthCode(), group.getKey());
+            // Legacy filenames omit the year. Retain older exports and skip any occupied
+            // claim or provider-report name while the shared generation lock is held.
+            while (next <= 999 && batchExists(files, selection.monthCode(), group.getKey(), group.getValue(), next)) next++;
             if (next > 999) throw new IllegalStateException("Monthly Teleplan batch capacity is exhausted");
             String suffix = String.format(java.util.Locale.ROOT, "%03d", next);
             String claimFilename = "H" + selection.monthCode() + group.getKey() + "." + suffix;
@@ -120,8 +123,9 @@ public class LegacyBcTeleplanExportService {
                         + "AND b.billingtype IN ('MSP','ICBC','WCB') ORDER BY b.billing_no,bm.billingmaster_no FOR UPDATE")
                         .setParameter(1, provider.getOhipNo()).getResultList();
                 if (eligible.isEmpty()) continue;
-                entityManager.createNativeQuery("SELECT id FROM wcb WHERE billing_no IN (SELECT billing_no FROM billing "
-                        + "WHERE provider_ohip_no=?1 AND status IN ('O','W')) FOR UPDATE")
+                entityManager.createNativeQuery("SELECT id FROM wcb WHERE id IN (SELECT bm.wcb_id FROM billingmaster bm "
+                        + "JOIN billing b ON b.billing_no=bm.billing_no WHERE b.provider_ohip_no=?1 "
+                        + "AND b.status IN ('O','W') AND bm.billingstatus IN ('O','W')) FOR UPDATE")
                         .setParameter(1, provider.getOhipNo()).getResultList();
                 ExtractBean extract = new ExtractBean();
                 extract.seteFlag("1");
@@ -133,13 +137,17 @@ public class LegacyBcTeleplanExportService {
                 extract.setSpecialty(defaultCode(SxmlMisc.getXmlContent(provider.getComments(), "<xml_p_specialty_code>", "</xml_p_specialty_code>"), "00"));
                 extract.setBatchCount(String.valueOf(providerBatch++));
                 billing.generateExtract(extract);
-                if (extract.getMasterIdsToMark().isEmpty()) throw new IllegalStateException("Eligible claims produced no Teleplan records");
+                java.util.Set<Integer> marked = extract.getMasterIdsToMark();
+                if (marked.isEmpty()) throw new IllegalStateException("Eligible claims produced no Teleplan records");
+                Map<Integer, java.util.Set<Integer>> pendingByInvoice = new LinkedHashMap<>();
+                for (Object row : eligible) {
+                    Object[] ids = (Object[]) row;
+                    pendingByInvoice.computeIfAbsent(((Number) ids[0]).intValue(), ignored -> new java.util.HashSet<>())
+                            .add(((Number) ids[1]).intValue());
+                }
                 for (Integer billId : extract.getBillIdsToMark()) {
-                    List<?> pending = entityManager.createNativeQuery("SELECT billingmaster_no FROM billingmaster "
-                            + "WHERE billing_no=?1 AND billingstatus IN ('O','W')")
-                            .setParameter(1, billId).getResultList();
-                    if (pending.stream().map(value -> ((Number) value).intValue())
-                            .anyMatch(id -> !extract.getMasterIdsToMark().contains(id))) {
+                    java.util.Set<Integer> pending = pendingByInvoice.get(billId);
+                    if (pending == null || !marked.containsAll(pending)) {
                         throw new IllegalStateException("An invoice contains pending claims absent from the export");
                     }
                 }
@@ -184,6 +192,16 @@ public class LegacyBcTeleplanExportService {
                 .setParameter(1, month).setParameter(2, group)
                 .setParameter(3, java.sql.Date.valueOf(LocalDate.now(java.time.ZoneId.systemDefault()).withDayOfYear(1))).getSingleResult();
         return max == null ? 1 : Math.addExact(max.intValue(), 1);
+    }
+
+    private static boolean batchExists(LegacyTeleplanFiles files, String month, String group,
+            List<Provider> providers, int batch) throws java.io.IOException {
+        String suffix = String.format(java.util.Locale.ROOT, "%03d", batch);
+        if (files.exists("H" + month + group + "." + suffix)) return true;
+        for (Provider provider : providers) {
+            if (files.exists("H" + month + provider.getOhipNo() + "_" + suffix + ".htm")) return true;
+        }
+        return false;
     }
 
     private boolean hasCommittedActivity(Integer activityId, String filename) {

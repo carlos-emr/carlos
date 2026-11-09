@@ -68,6 +68,10 @@ final class LegacyTeleplanFiles {
         forceDirectory(home);
     }
 
+    boolean exists(String filename) throws IOException {
+        return Files.exists(target(filename), LinkOption.NOFOLLOW_LINKS);
+    }
+
     /** Must run under the database generation lock, outside the export transaction. */
     void recover(BiPredicate<Integer, String> hasCommittedActivity) throws IOException {
         try (var batches = Files.list(journal)) {
@@ -107,13 +111,13 @@ final class LegacyTeleplanFiles {
     }
 
     private void publishOne(Path batch, String name, String expected) throws IOException {
-        Path source = child(batch, name);
-        verify(source, expected);
         Path destination = target(name);
         if (Files.exists(destination, LinkOption.NOFOLLOW_LINKS)) {
             verify(destination, expected);
             return;
         }
+        Path source = child(batch, name);
+        verify(source, expected);
         // A hard link publishes the already forced complete bytes atomically, without replacing anything.
         try {
             Files.createLink(destination, source);
@@ -182,6 +186,10 @@ final class LegacyTeleplanFiles {
     }
 
     private static void removeBatch(Path batch) throws IOException {
+        // Retire the recovery witness before deleting staged bytes. Once this deletion is
+        // durable, an interrupted cleanup is just an unpublished directory on the next run.
+        Files.deleteIfExists(batch.resolve(MANIFEST));
+        forceDirectory(batch);
         try (var entries = Files.list(batch)) {
             for (Path entry : entries.toList()) {
                 if (Files.isSymbolicLink(entry) || !Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS)) {

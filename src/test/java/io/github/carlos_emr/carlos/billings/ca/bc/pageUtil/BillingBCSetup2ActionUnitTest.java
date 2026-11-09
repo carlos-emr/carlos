@@ -73,7 +73,9 @@ class BillingBCSetup2ActionUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         var patients = createAndRegisterMock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
-        when(patients.getDemographicFormattedName(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn("FAKE-Canonical, Patient");
+        var patient = new io.github.carlos_emr.carlos.commn.model.Demographic();
+        patient.setLastName("FAKE-Canonical"); patient.setFirstName("Patient");
+        when(patients.getDemographic(any(), org.mockito.ArgumentMatchers.anyInt())).thenReturn(patient);
         SecurityInfoManager securityInfoManager = createAndRegisterMock(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");

@@ -19,6 +19,42 @@ import static org.mockito.Mockito.*;
 @Tag("unit")
 @Tag("web")
 class BcCsvDownloadUnitTest extends CarlosWebTestBase {
+    @Override
+    protected void setUpActionContext() {
+        super.setUpActionContext();
+        org.apache.struts2.ActionContext.getContext().withServletContext(getMockRequest().getServletContext()).bind();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings={"REP_PAYREF","REP_PAYREF_SUM"})
+    void shouldRenderKnownOnlyPaymentPdf_whenPrivateHistoryCannotBeParsed(String reportType) throws Exception {
+        var unknown = new io.github.carlos_emr.carlos.entities.MSPBill();
+        unknown.billingtype="Pri"; unknown.amount="NaN"; unknown.paymentMethod="1";
+        unknown.paymentDate="20261101"; unknown.serviceDate="20261101";
+        unknown.recordUnparsedAmount();
+        var known = new io.github.carlos_emr.carlos.entities.MSPBill();
+        known.billingtype="Pri"; known.amount="12.50"; known.paymentMethod="1";
+        known.paymentDate="20261101"; known.serviceDate="20261101";
+        try (var reads=mockConstruction(MSPReconcile.class,(reader,context)->{
+            var search=reader.new BillSearch(); search.list=new java.util.ArrayList<>(java.util.List.of(unknown,known));
+            when(reader.getPayments(any(),any(),any(),any(),any(),anyBoolean(),anyBoolean(),anyBoolean(),anyBoolean(),any()))
+                    .thenReturn(search);
+            when(reader.getProvider(any(),anyInt())).thenReturn(new io.github.carlos_emr.carlos.entities.Provider());
+        })) {
+            var action=new CreateBillingReport2Action();
+            action.setDocFormat("pdf"); action.setRepType(reportType);
+            action.setSelAccount("ALL"); action.setSelPayee("ALL"); action.setSelProv("ALL");
+            assertThat(executeAction(action)).isEqualTo("none");
+            assertThat(getMockResponse().getStatus()).isEqualTo(200);
+            try(var pdf=org.apache.pdfbox.Loader.loadPDF(getMockResponse().getContentAsByteArray())) {
+                String text=new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
+                assertThat(text).contains("12.50").doesNotContain("$NaN");
+                if ("REP_PAYREF_SUM".equals(reportType)) assertThat(text).contains("Known amounts only", "Unparsed amount fields excluded: 1");
+                else assertThat(text.replaceAll("\\s+", "")).contains("Unknown:NaN");
+            }
+        }
+    }
+
     @BeforeEach
     void prepareSecurity() {
         replaceSpringUtilsBean(SecurityInfoManager.class, mockSecurityInfoManager);

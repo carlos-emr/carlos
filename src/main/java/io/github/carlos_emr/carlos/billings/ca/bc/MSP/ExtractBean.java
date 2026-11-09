@@ -152,13 +152,20 @@ public class ExtractBean extends Object implements Serializable {
 
                     for (var claim : bmDao.findBcExtractClaims(Integer.parseInt(invNo))) {
                         Billingmaster bm = formatterClaim(claim, Integer.parseInt(invNo));
-                        recordCount++;
                         logNo = getSequence();
-
-                        String dataLine = getClaimDetailRecord(bm, logNo);
-                        if (dataLine.length() != 424) {
-                            throw new IllegalStateException("Teleplan claim record length is invalid");
+                        String dataLine;
+                        BigDecimal amount;
+                        try {
+                            amount = claimAmount(bm.getBillAmount());
+                            dataLine = getClaimDetailRecord(bm, logNo);
+                            if (dataLine.length() != 424) throw new IllegalArgumentException("Teleplan claim record length is invalid");
+                        } catch (IllegalArgumentException | ArithmeticException invalid) {
+                            if ("1".equals(eFlag)) throw invalid;
+                            htmlContent += checkData.printErrorMsg(String.valueOf(bm.getBillingmasterNo()),
+                                    "Claim cannot be exported: check its amount and fixed-width fields.");
+                            continue;
                         }
+                        recordCount++;
 
                         value += "\n" + dataLine + "\r";
                         logValue = dataLine;
@@ -171,7 +178,7 @@ public class ExtractBean extends Object implements Serializable {
                             setLog(noteLogNo, noteRecordLine);
                         }
 
-                        BigTotal = BigTotal.add(claimAmount(bm.getBillAmount()));
+                        BigTotal = BigTotal.add(amount);
 
                         if (isMSPInsurer(bm)) {
                             htmlContent += htmlLine("" + bm.getBillingmasterNo(), invNo, demoName, bm.getPhn(), bm.getServiceDate(),
@@ -206,18 +213,27 @@ public class ExtractBean extends Object implements Serializable {
                     }
                     java.util.List<Billingmaster> claims = bmDao.findBcPendingExtractClaims(Integer.parseInt(invNo)).stream()
                             .map(claim -> formatterClaim(claim, Integer.parseInt(invNo))).toList();
-                    if (forms.size() != 1 || claims.size() != 1) {
-                        throw new IllegalStateException("A WCB invoice must have one open form and one eligible claim");
+                    Billingmaster wcbClaim;
+                    BigDecimal amount;
+                    try {
+                        if (forms.size() != 1 || claims.size() != 1) {
+                            throw new IllegalArgumentException("A WCB invoice must have one open form and one eligible claim");
+                        }
+                        wcbClaim = claims.getFirst();
+                        Wcb form = forms.values().iterator().next();
+                        if (!java.util.Objects.equals(form.getFeeItem(), wcbClaim.getBillingCode())
+                                && !java.util.Objects.equals(form.getExtraFeeItem(), wcbClaim.getBillingCode())) {
+                            throw new IllegalArgumentException("WCB form and claim fee codes do not match");
+                        }
+                        amount = claimAmount(wcbClaim.getBillAmount());
+                    } catch (IllegalArgumentException | ArithmeticException invalid) {
+                        if ("1".equals(eFlag)) throw invalid;
+                        htmlContent += checkData.printWarningMsg("WCB invoice " + invNo
+                                + " cannot be exported: check its linked form, fee code and amount.");
+                        continue;
                     }
-                    Billingmaster wcbClaim = claims.getFirst();
                     for (Wcb form : forms.values()) {
-                        if (!java.util.Objects.equals(form.getFeeItem(), wcbClaim.getBillingCode())) {
-                            throw new IllegalStateException("WCB form and claim fee codes do not match");
-                        }
-                        if (claimAmount(form.getBillAmount()).compareTo(claimAmount(wcbClaim.getBillAmount())) != 0) {
-                            throw new IllegalStateException("WCB form and billing amounts differ");
-                        }
-                        WcbSb sb = new WcbSb(form, String.valueOf(wcbClaim.getBillingmasterNo()));
+                        WcbSb sb = new WcbSb(form, wcbClaim);
                         htmlContent += sb.getHtmlLine();
                         htmlContent += checkData.printWarningMsg("");
 
@@ -272,7 +288,7 @@ public class ExtractBean extends Object implements Serializable {
                     }
 
                     setAsBilledMaster(String.valueOf(wcbClaim.getBillingmasterNo()));
-                    BigTotal = BigTotal.add(claimAmount(wcbClaim.getBillAmount()));
+                    BigTotal = BigTotal.add(amount);
                     recordCount++;
                     /////////////////////////////////////
                 }
@@ -460,7 +476,9 @@ public class ExtractBean extends Object implements Serializable {
         if (source == null || !source.strip().matches("[0-9]++(?:\\.[0-9]*+)?+")) {
             throw new IllegalArgumentException("A valid Teleplan claim amount is required");
         }
-        BigDecimal amount = new BigDecimal(source.strip()).setScale(2, java.math.RoundingMode.UNNECESSARY);
+        BigDecimal amount;
+        try { amount = new BigDecimal(source.strip()).setScale(2, java.math.RoundingMode.UNNECESSARY); }
+        catch (ArithmeticException invalid) { throw new IllegalArgumentException("Teleplan claim amount must use whole cents"); }
         if (amount.compareTo(new BigDecimal("99999.99")) > 0) {
             throw new IllegalArgumentException("Teleplan claim amount exceeds the wire capacity");
         }

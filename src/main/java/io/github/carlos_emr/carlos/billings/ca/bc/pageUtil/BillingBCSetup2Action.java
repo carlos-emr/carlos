@@ -196,9 +196,7 @@ public final class BillingBCSetup2Action extends ActionSupport {
 
     private void fillBean(HttpServletRequest request, BillingSessionBean bean) {
         bean.setApptProviderNo(request.getParameter("apptProvider_no"));
-        bean.setPatientName(SpringUtils.getBean(io.github.carlos_emr.carlos.managers.DemographicManager.class)
-                .getDemographicFormattedName(LoggedInInfo.getLoggedInInfoFromSession(request),
-                        Integer.valueOf(request.getParameter("demographic_no"))));
+        bean.setPatientName(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.name(request));
         bean.setProviderView(request.getParameter("providerview"));
         bean.setBillRegion(request.getParameter("billRegion"));
         bean.setBillForm(request.getParameter("billForm"));

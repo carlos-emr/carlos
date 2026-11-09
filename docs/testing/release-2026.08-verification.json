@@ -2691,7 +2691,7 @@
               "container": ""
             },
             {
-              "name": "shouldRollbackLogsAndStatuses_whenOutputCannotBeCreated",
+              "name": "shouldRollbackLogsAndStatuses_whenAllBatchNamesAreOccupied",
               "container": ""
             },
             {
@@ -2711,7 +2711,7 @@
               "container": ""
             },
             {
-              "name": "shouldKeepWcbClaimsPending_whenTheFormAndClaimAmountsDisagree",
+              "name": "shouldKeepWcbClaimsPending_whenTheFormAndClaimFeeCodesDisagree",
               "container": ""
             },
             {
@@ -2756,6 +2756,48 @@
                   "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[2]"
                 }
               ]
+            },
+            {
+              "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[1]"
+                },
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[2]"
+                },
+                {
+                  "name": "shouldSkipPriorYearArtifacts_withoutOverwritingOrRequiringCurrentYearActivity(String)[3]"
+                }
+              ]
+            },
+            {
+              "name": "shouldReadTheSameProductionWcbLink_inBothExportEngines",
+              "container": ""
+            },
+            {
+              "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)",
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[1]"
+                },
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[2]"
+                },
+                {
+                  "name": "shouldListInvalidClaimsAndKeepSimulating_withoutMutatingBilling(String)[3]"
+                }
+              ]
+            },
+            {
+              "name": "shouldListWcbLinkProblemsInSimulation_withoutAbortingThePreview",
+              "container": ""
+            },
+            {
+              "name": "shouldExportAnAdditionalWcbFee_fromTheClaimWithoutDuplicatingFormNotes",
+              "container": ""
             }
           ]
         }
@@ -2960,7 +3002,7 @@
         "Growth0To36FormPersistenceIntegrationTest": 19,
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
-        "LegacyBcTeleplanExportMariaDbIntegrationTest": 17
+        "LegacyBcTeleplanExportMariaDbIntegrationTest": 26
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5793,7 +5835,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportService.java": {
-      "reason": "The actual legacy export is tested on physical MariaDB for complete files/logs/status commit, collision rollback, retry idempotence and the cross-entry-point generation lock.",
+      "reason": "Physical MariaDB covers complete files/logs/status commit, prior-year claim/report collisions and capacity exhaustion, the real WCB form save and claim-side link used by both exporters, additional WCB fees, simulation diagnostics, rollback, retry idempotence and the shared generation lock.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyBcTeleplanExportMariaDbIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/LegacyTeleplanFilesUnitTest.java"
@@ -5801,6 +5843,20 @@
       "checks": [
         "java-all",
         "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrors.java": {
+      "reason": "Both endpoint refusal tests and privacy regressions verify canonical operator messages, HTTP status, retained cause/stack diagnostics and removal of patient/SQL exception text.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/service/TeleplanExportErrorsUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/GenerateTeleplanFile2ActionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcCompatibilityRoutesUnitTest.java"
+      ],
+      "checks": [
+        "java-all"
       ],
       "workstreams": [
         "T16"

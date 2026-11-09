@@ -18,6 +18,31 @@ import static org.mockito.Mockito.*;
 /** Retained route behavior, authorization and invalid opener refusal. @since 2026-11-09 */
 @Tag("unit")
 class BcCompatibilityRoutesUnitTest extends CarlosUnitTestBase {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource({
+            "A provider has an invalid billing group,400",
+            "Another Teleplan export is running; retry when it finishes,409",
+            "Teleplan artifact changed; operator review is required,503",
+            "FAKE-PATIENT unexpected database failure,500"})
+    void shouldExplainLegacyExportRefusals_withoutExposingUnexpectedMessages(String message,int status) throws Exception {
+        var request=new MockHttpServletRequest("POST","/billing/CA/BC/genTeleplanGroupReport");
+        var response=new MockHttpServletResponse();
+        var login=mock(io.github.carlos_emr.carlos.utility.LoggedInInfo.class);
+        when(login.getLoggedInProviderNo()).thenReturn("BC60");
+        io.github.carlos_emr.carlos.utility.LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(),login);
+        var security=createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(),eq("_report"),eq("r"),isNull())).thenReturn(true);
+        var service=createAndRegisterMock(io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService.class);
+        when(service.generate(any(),any())).thenThrow(new IllegalStateException("wrapper",new IllegalArgumentException(message)));
+        try(var servlet=mockStatic(ServletActionContext.class)) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request); servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            assertThat(new ViewGenTeleplanGroupReport2Action().execute()).isEqualTo("none");
+            assertThat(response.getStatus()).isEqualTo(status);
+            assertThat(response.getErrorMessage()).doesNotContain("FAKE-PATIENT");
+            if(status!=500) assertThat(response.getErrorMessage()).isEqualTo(message);
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(booleans={false,true})
     void shouldKeepPrivateBookmarksUseful_withoutAnUnassembledStatement(boolean preview) throws Exception {
@@ -88,6 +113,54 @@ class BcCompatibilityRoutesUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getRequest).thenReturn(request); servlet.when(ServletActionContext::getResponse).thenReturn(response);
             assertThat(new AssociateCodes2Action().execute()).isEqualTo("none");
             assertThat(response.getStatus()).isEqualTo(405); assertThat(persistence.constructed()).isEmpty();
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans={false,true})
+    void shouldSaveAssociationWithActualStrutsParameterBinding_forTypedAndEditorClients(boolean typed) throws Exception {
+        var request=new MockHttpServletRequest("POST","/billing/CA/BC/associateCodesAction");
+        request.setParameter(typed ? "svcAssoc.serviceCode" : "xml_other1", "00100");
+        request.setParameter(typed ? "svcAssoc.dxCodes" : "xml_diagnostic_detail1", "250");
+        var response=new MockHttpServletResponse();
+        var security=createAndRegisterMock(SecurityInfoManager.class);
+        when(security.hasPrivilege(any(),eq("_billing"),eq("w"),isNull())).thenReturn(true);
+        var previous=org.apache.struts2.ActionContext.getContext();
+        var previousDispatcher=org.apache.struts2.dispatcher.Dispatcher.getInstance();
+        var dispatcher=new org.apache.struts2.dispatcher.Dispatcher(request.getServletContext(),
+                java.util.Map.of("config","struts-default.xml","struts.devMode","false"));
+        dispatcher.init();
+        try(var servlet=mockStatic(ServletActionContext.class);
+            var persistence=mockConstruction(BillingAssociationPersistence.class,(mock,context)->{
+                when(mock.serviceCodeExists("00100")).thenReturn(true); when(mock.dxcodeExists("250")).thenReturn(true);
+            })) {
+            servlet.when(ServletActionContext::getRequest).thenReturn(request); servlet.when(ServletActionContext::getResponse).thenReturn(response);
+            var action=new AssociateCodes2Action();
+            var container=dispatcher.getContainer();
+            container.getInstance(org.apache.struts2.ognl.ThreadAllowlist.class).allowClassHierarchy(action.getClass());
+            var stack=container.getInstance(org.apache.struts2.util.ValueStackFactory.class).createValueStack();
+            stack.push(action);
+            var context=stack.getActionContext().withContainer(container).withValueStack(stack)
+                    .withServletRequest(request).withServletResponse(response)
+                    .withParameters(org.apache.struts2.dispatcher.HttpParameters.create(request.getParameterMap()).build()).bind();
+            var invocation=mock(org.apache.struts2.ActionInvocation.class);
+            var proxy=mock(org.apache.struts2.ActionProxy.class); when(proxy.getMethod()).thenReturn("execute");
+            when(invocation.getProxy()).thenReturn(proxy); when(invocation.getAction()).thenReturn(action);
+            when(invocation.getInvocationContext()).thenReturn(context); when(invocation.getStack()).thenReturn(stack);
+            when(invocation.invoke()).thenReturn("success");
+            var interceptor=new org.apache.struts2.interceptor.parameter.ParametersInterceptor();
+            container.inject(interceptor); interceptor.setRequireAnnotations("true"); interceptor.init();
+            try { interceptor.intercept(invocation); } finally { interceptor.destroy(); }
+            assertThat(action.getSvcAssoc().getServiceCode()).isEqualTo("00100");
+            assertThat(action.getSvcAssoc().getDxCodes()).containsExactly("250");
+            assertThat(action.execute()).isEqualTo("success");
+            verify(persistence.constructed().getFirst()).saveServiceCodeAssociation(action.getSvcAssoc(),"");
+        } finally {
+            dispatcher.getContainer().getInstance(org.apache.struts2.ognl.ThreadAllowlist.class).clearAllowlist();
+            dispatcher.cleanup();
+            if(previousDispatcher==null) org.apache.struts2.dispatcher.Dispatcher.clearInstance();
+            else org.apache.struts2.dispatcher.Dispatcher.setInstance(previousDispatcher);
+            if(previous==null) org.apache.struts2.ActionContext.clear(); else previous.bind();
         }
     }
 }

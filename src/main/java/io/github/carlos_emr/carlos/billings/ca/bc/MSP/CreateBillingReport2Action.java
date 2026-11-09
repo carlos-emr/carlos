@@ -234,12 +234,14 @@ public class CreateBillingReport2Action extends ActionSupport {
                 for (Iterator iter = billSearch.list.iterator(); iter.hasNext(); ) {
 
                     MSPBill item = (MSPBill) iter.next();
-                    double dblValue = Double.parseDouble(item.getAmount());
-                    if (dblValue < 0) {
-                        sumRefunded.addIncValue(item.getPaymentMethod(), dblValue);
+                    java.math.BigDecimal amount = PayRefSummary.knownAmount(item.getAmount());
+                    if (amount != null) {
+                        if (amount.signum() < 0) sumRefunded.addIncValue(item.getPaymentMethod(), amount);
+                        sumPayed.addIncValue(item.getPaymentMethod(), amount);
                     }
-                    sumPayed.addIncValue(item.getPaymentMethod(), dblValue);
-                    sumPayed.addAdjustmentAmount(item.getAdjustmentCodeAmt());
+                    if (PayRefSummary.knownAmount(item.getAdjustmentCodeAmt()) != null) {
+                        sumPayed.addAdjustmentAmount(item.getAdjustmentCodeAmt());
+                    }
                 }
                 reportParams.put("unparsedAmountCount", billSearch.list.stream().map(MSPBill.class::cast).mapToInt(MSPBill::getUnparsedAmounts).sum());
                 reportParams.put("sumPayed", sumPayed);

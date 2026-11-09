@@ -67,11 +67,11 @@ order by billing.billingtype;]]>
 		<expression><![CDATA["test"]]></expression>
 		<initialValueExpression><![CDATA["test"]]></initialValueExpression>
 	</variable>
-	<variable name="invTotal" class="java.lang.Double" calculation="Sum">
-		<expression><![CDATA[new Double($F{amount})]]></expression>
+	<variable name="invTotal" class="java.math.BigDecimal" calculation="Sum">
+		<expression><![CDATA[io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary.knownAmount($F{amount})]]></expression>
 	</variable>
-	<variable name="methTotal" class="java.lang.Double" resetType="Group" resetGroup="payMeth" calculation="Sum">
-		<expression><![CDATA[new Double($F{amount})]]></expression>
+	<variable name="methTotal" class="java.math.BigDecimal" resetType="Group" resetGroup="payMeth" calculation="Sum">
+		<expression><![CDATA[io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary.knownAmount($F{amount})]]></expression>
 	</variable>
 	<group name="payMeth">
 		<expression><![CDATA[$F{type}]]></expression>

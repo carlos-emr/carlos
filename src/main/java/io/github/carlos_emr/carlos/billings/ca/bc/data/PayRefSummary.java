@@ -73,28 +73,32 @@ public class PayRefSummary {
      * @param value         double
      */
     public void addIncValue(String paymentMethod, double value) {
+        addIncValue(paymentMethod, java.math.BigDecimal.valueOf(value));
+    }
+
+    public void addIncValue(String paymentMethod, java.math.BigDecimal value) {
         paymentMethod = paymentMethod == null ? "" : paymentMethod;
 
             if (paymentMethod.equals(BcBillingConstants.PAYTYPE_CASH)) {
-                this.cash = this.cash.add(java.math.BigDecimal.valueOf(value));
+                this.cash = this.cash.add(value);
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_CHEQUE)) {
-                this.cheque = this.cheque.add(java.math.BigDecimal.valueOf(value));
+                this.cheque = this.cheque.add(value);
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_VISA)) {
-                this.visa = this.visa.add(java.math.BigDecimal.valueOf(value));
+                this.visa = this.visa.add(value);
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_MC)) {
-                this.mc = this.mc.add(java.math.BigDecimal.valueOf(value));
+                this.mc = this.mc.add(value);
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_AMEX)) {
-                this.amex = this.amex.add(java.math.BigDecimal.valueOf(value));
+                this.amex = this.amex.add(value);
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_ELECTRONIC)) {
 
-                this.electronic = this.electronic.add(java.math.BigDecimal.valueOf(value));
+                this.electronic = this.electronic.add(value);
                 line += String.valueOf(electronic) + " " + String.valueOf(value) + "\n";
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_DEBIT)) {
-                this.debit = this.debit.add(java.math.BigDecimal.valueOf(value));
+                this.debit = this.debit.add(value);
             } else if (paymentMethod.equals(BcBillingConstants.PAYTYPE_OTHER)) {
-                this.other = this.other.add(java.math.BigDecimal.valueOf(value));
+                this.other = this.other.add(value);
             } else {
-                this.other = this.other.add(java.math.BigDecimal.valueOf(value));
+                this.other = this.other.add(value);
             }
     }
 
@@ -145,6 +149,13 @@ public class PayRefSummary {
      */
     public void addAdjustmentAmount(String amount) {
         if (amount != null && !amount.isBlank()) electronic = electronic.add(new java.math.BigDecimal(amount));
+    }
+
+    /** Null denotes an unavailable amount; never substitute a numeric zero for unknown money. */
+    public static java.math.BigDecimal knownAmount(String amount) {
+        if (amount == null || amount.isBlank()) return null;
+        try { return new java.math.BigDecimal(amount.trim()); }
+        catch (NumberFormatException invalid) { return null; }
     }
 
     private java.math.BigDecimal exactTotal() {

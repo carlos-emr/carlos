@@ -76,7 +76,10 @@ public class AssociateCodes2Action extends SaveAssoc2Action {
     @Override
     @StrutsParameter(depth = 1)
     public ServiceCodeAssociation getSvcAssoc() {
-        return legacyAssociation == null ? super.getSvcAssoc() : legacyAssociation;
+        // OGNL binds nested svcAssoc.* properties through this getter. Keep that same
+        // instance until execute(), rather than discarding the fields Struts populated.
+        if (legacyAssociation == null) legacyAssociation = super.getSvcAssoc();
+        return legacyAssociation;
     }
 
     @StrutsParameter

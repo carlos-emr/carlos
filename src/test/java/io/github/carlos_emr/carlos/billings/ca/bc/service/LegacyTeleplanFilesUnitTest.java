@@ -39,6 +39,40 @@ class LegacyTeleplanFilesUnitTest {
         assertThat(journal).doesNotExist();
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {CLAIM, HTML})
+    void shouldFinishCommittedCleanup_whenAStagedArtifactHasAlreadyBeenDeleted(String removed) throws Exception {
+        var files = new LegacyTeleplanFiles(directory);
+        Path journal = files.stage(Map.of(CLAIM, "synthetic claim", HTML, "synthetic report"), Map.of(CLAIM, 42, HTML, 42));
+        files.publish(journal);
+        Files.delete(journal.resolve(removed));
+        files.recover((id, filename) -> id == 42);
+        files.recover((id, filename) -> id == 42);
+        assertThat(directory.resolve(CLAIM)).hasContent("synthetic claim" + System.lineSeparator());
+        assertThat(directory.resolve(HTML)).hasContent("synthetic report" + System.lineSeparator());
+        assertThat(journal).doesNotExist();
+    }
+
+    @Test
+    void shouldFinishRetiredJournalCleanup_withoutConsultingTheDatabaseAgain() throws Exception {
+        var files = new LegacyTeleplanFiles(directory);
+        Path journal = files.stage(Map.of(CLAIM, "synthetic claim"), Map.of(CLAIM, 42));
+        files.publish(journal);
+        Files.delete(journal.resolve("manifest.properties"));
+        files.recover((id, filename) -> { throw new AssertionError("Retired journal must not query activity"); });
+        assertThat(directory.resolve(CLAIM)).hasContent("synthetic claim" + System.lineSeparator());
+        assertThat(journal).doesNotExist();
+    }
+
+    @Test
+    void shouldRetainEvidence_whenCommittedPublishedAndStagedArtifactsAreBothMissing() throws Exception {
+        var files = new LegacyTeleplanFiles(directory);
+        Path journal = files.stage(Map.of(CLAIM, "synthetic claim"), Map.of(CLAIM, 42));
+        Files.delete(journal.resolve(CLAIM));
+        assertThatThrownBy(() -> files.recover((id, filename) -> true)).isInstanceOf(java.io.IOException.class);
+        assertThat(journal.resolve("manifest.properties")).isRegularFile();
+    }
+
     @Test
     void shouldPreserveChangedArtifactsAndJournal_whenRecoveryCannotProveOwnership() throws Exception {
         var files = new LegacyTeleplanFiles(directory);

@@ -195,6 +195,19 @@ class GenerateTeleplanFile2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldExplainLockContention_withoutAttemptingGeneration() throws Exception {
+        request.setMethod("POST"); request.addParameter("providers",PRACTITIONER);
+        var coordinator=io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportCoordinator.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("Another Teleplan export is running; retry when it finishes"))
+                .when(coordinator).generate(any());
+        assertThat(execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(request.getAttribute("error")).isEqualTo("Another Teleplan export is running; retry when it finishes");
+        assertThat(writer.constructed()).isEmpty(); verifyNoInteractions(submission);
+    }
+
+    @Test
     void shouldGenerateForEveryProvider_whenAllIsPosted() throws Exception {
         request.setMethod("POST");
         request.addParameter("providers", "all");
