@@ -134,9 +134,11 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
                 "SELECT DISTINCT rx.demographicId FROM Prescription rx "
                         + "WHERE rx.digitalSignatureId = ?1 AND rx.demographicId > 0",
                 id, ModuleType.PRESCRIPTION);
+        // A signatureValue is written by the signature control. Letter HTML
+        // is editable document text and cannot establish patient ownership
+        // for a signature whose stored demographicId is -1.
         Query eform = entityManager.createQuery(
-                "SELECT DISTINCT ev.demographicId FROM EFormValue ev WHERE "
-                        + "(ev.varName = ?1 OR ev.varName = 'Letter') "
+                "SELECT DISTINCT ev.demographicId FROM EFormValue ev WHERE ev.varName = ?1 "
                         + "AND " + EFORM_REFERENCE_PREDICATE + " AND ev.demographicId > 0");
         eform.setParameter(1, EFORM_SIGNATURE_FIELD_NAME);
         bindEformSignatureReference(eform, idValue);

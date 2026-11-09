@@ -297,6 +297,22 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
+        @DisplayName("does not treat editable letter text as ownership of an unassigned signature")
+        void shouldNotInferUnassignedSignatureOwnerFromLetterContent() {
+            DigitalSignature saved = persistLegacySignature(-1);
+            EFormValue letter = new EFormValue();
+            letter.setDemographicId(789);
+            letter.setVarName("Letter");
+            letter.setVarValue("&lt;img src=&quot;/imageRenderingServlet?source=signature_stored"
+                    + "&amp;digitalSignatureId=" + saved.getId() + "&quot;&gt;");
+            entityManager.persist(letter);
+            entityManager.flush();
+
+            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
+        }
+
+        @Test
+        @Tag("query")
         @DisplayName("should leave legacy metadata unscoped when no owner reference exists")
         void shouldLeaveLegacyMetadataUnscoped_whenNoOwnerReferenceExists() {
             DigitalSignature saved = persistLegacySignature(123);
