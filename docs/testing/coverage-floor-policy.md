@@ -60,3 +60,14 @@ The Java files changed by PR #6100 meet their retained floors in this report.
 These wider comparison gaps are explicit failures;
 the required native-lane union and reviewed dispositions remain outstanding.
 This refresh is not a passing release coverage receipt.
+
+The `3192f601a58a` refresh includes release `1335e1b28ab4` and the inbox
+recovery follow-up. The complete H2 execution records 35,695 cases: 35,479
+executed passes and 216 explicit prerequisite/routed skips, with zero failures
+or errors. Its source-bound metadata records 673 floors and the same six
+nonexecutable exclusions. Higher historical metrics for 47 files and all four
+ZIP refusal lines are retained. The full H2 comparison still refuses 77
+unreviewed zero floors and misses 33 line, 41 instruction and 29 branch floors.
+No waiver or lower threshold is added; the complete native-lane union remains
+required. This metadata establishes freshness and does not qualify release
+coverage.

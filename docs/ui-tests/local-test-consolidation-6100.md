@@ -286,3 +286,16 @@ passed 34,778 cases with 172 explicit routed/prerequisite skips and no failures
 or errors; its 6,209 tested class bytes match its rebuilt 6,237-entry package.
 Those receipts qualify that earlier source only; the merged API production
 tree requires its own package, Java, coverage and installed browser retakes.
+
+The merged `3192f601a58a` source passes the complete H2 execution: 35,695
+cases, including 216 explicit prerequisite/routed skips, and no failures/errors.
+All 6,271 tested production classes match its normal Ubuntu 26.04 source-built
+WAR and Debian package; all 6,301 checked payload entries match the installed
+BC application. Actual APT install preservation and all nine same-candidate
+reinstall assertions pass. Node 22 passes all 7,828 cases and Python 3.14 passes
+375 tooling cases. The earlier installed CML recovery probe passes with exact
+source/preference restoration and no residue; the combined API source and the
+stronger four-row Select All control require their own complete installed
+retake. Coverage metadata retains 673 floors, six nonexecutable exclusions,
+47 higher historical metrics and all ZIP refusal lines. Seventy-seven zero
+floors remain unreviewed, and the full H2 comparison remains unqualified.
