@@ -49,7 +49,9 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
     // from the Rich Text Letter's stored Letter HTML, but not arbitrary fields.
     private static final String EFORM_REFERENCE_PREDICATE =
             "(ev.varValue LIKE ?2 OR ev.varValue LIKE ?3 OR ev.varValue LIKE ?4 "
-                    + "OR ev.varValue LIKE ?5 OR ev.varValue LIKE ?6 OR ev.varValue LIKE ?7)";
+                    + "OR ev.varValue LIKE ?5 OR ev.varValue LIKE ?6 OR ev.varValue LIKE ?7 "
+                    + "OR ev.varValue LIKE ?8 OR ev.varValue LIKE ?9 OR ev.varValue LIKE ?10 "
+                    + "OR ev.varValue LIKE ?11 OR ev.varValue LIKE ?12 OR ev.varValue LIKE ?13)";
 
     public DigitalSignatureDaoImpl() {
         super(DigitalSignature.class);
@@ -193,26 +195,28 @@ public class DigitalSignatureDaoImpl extends AbstractDaoImpl<DigitalSignature> i
         String jpql =
                 "SELECT ev.demographicId FROM EFormValue ev WHERE "
                         + "(ev.varName = ?1 OR ev.varName = 'Letter') "
-                        + "AND " + EFORM_REFERENCE_PREDICATE + " AND ev.demographicId = ?8";
+                        + "AND " + EFORM_REFERENCE_PREDICATE + " AND ev.demographicId = ?14";
 
         Query query = entityManager.createQuery(jpql);
         query.setParameter(1, EFORM_SIGNATURE_FIELD_NAME);
         bindEformSignatureReference(query, idValue);
-        query.setParameter(8, demographicId);
+        query.setParameter(14, demographicId);
         return referencedMetadata(query, ModuleType.E_FORM);
     }
 
     private void bindEformSignatureReference(Query query, String idValue) {
         String token = DIGITAL_SIGNATURE_ID_PARAM + idValue;
         // A saved eForm may HTML-escape '&' in its URL. Match the same
-        // query-parameter spellings the PDF renderer accepts, with an
-        // end-of-value or next-parameter boundary after the exact id.
-        query.setParameter(2, "%?" + token + "&%");
-        query.setParameter(3, "%&" + token + "&%");
-        query.setParameter(4, "%&amp;" + token + "&%");
-        query.setParameter(5, "%?" + token);
-        query.setParameter(6, "%&" + token);
-        query.setParameter(7, "%&amp;" + token);
+        // query-parameter spellings the PDF renderer accepts. A saved Letter
+        // can end the URL at a literal HTML attribute quote rather than at
+        // the end of the stored value or before another parameter. Keep the
+        // character after the exact id explicit so 42 cannot match 420.
+        int parameter = 2;
+        for (String suffix : new String[] {"&%", "", "\"%", "'%"}) {
+            for (String prefix : new String[] {"%?", "%&", "%&amp;"}) {
+                query.setParameter(parameter++, prefix + token + suffix);
+            }
+        }
     }
 
     private DigitalSignature referencedMetadata(
