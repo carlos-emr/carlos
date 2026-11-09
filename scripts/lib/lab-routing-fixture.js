@@ -100,4 +100,22 @@ function createRoutingLockFixture(sql, rows, labs, {exclusive = false, initialLo
     assert.deepEqual(snapshot(), before, 'routing lock presence was not restored');
   }};
 }
-module.exports = {createLabRoutingFixture, createRoutingLockFixture};
+/** Preserve a borrowed coordination row; remove only an owned newly introduced key. */
+function createHl7ChainLockFixture(sql, rows, type, accession, {exclusive = false} = {}) {
+  assert.equal(exclusive, true, 'chain lock restoration requires an exclusive disposable fixture');
+  assert.equal(typeof type, 'string');
+  assert.equal(typeof accession, 'string');
+  assert(type.length > 0 && accession.trim().length > 0, 'chain lock fixture needs a source and accession');
+  // Hl7ChainLocks uses the first signed digest word in its negative coordination namespace.
+  const chain = type === 'CLS' ? '*' : accession.trim();
+  const key = crypto.createHash('sha256').update(`${type.length}:${type}${chain}`).digest().readInt32BE() | -2147483648;
+  const select = `SELECT lab_no FROM providerLabRoutingLock WHERE lab_no IN (${key}) ORDER BY lab_no`;
+  const before = rows(select);
+  assert(before.length <= 1 && before.every(row => row.length === 1 && String(row[0]) === String(key)),
+    'invalid chain lock snapshot');
+  return {cleanup() {
+    if (!before.length) sql(`DELETE FROM providerLabRoutingLock WHERE lab_no IN (${key})`);
+    assert.deepEqual(rows(select), before, 'chain coordination lock presence was not restored');
+  }};
+}
+module.exports = {createLabRoutingFixture, createRoutingLockFixture, createHl7ChainLockFixture};

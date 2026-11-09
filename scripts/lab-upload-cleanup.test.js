@@ -37,7 +37,7 @@ async function fixture(t, type, fault) {
         return [...locks].map(id => [id]);
       }
       if (query.includes('SELECT lab_no FROM providerLabRoutingLock WHERE')) {
-        const ids = query.match(/IN \(([\d,]+)\)/)[1].split(',');
+        const ids = query.match(/IN \(([-\d,]+)\)/)[1].split(',');
         return [...locks].filter(id => ids.includes(id)).sort((a, b) => Number(a) - Number(b)).map(id => [id]);
       }
       if (query.includes('SELECT id FROM labPatientPhysicianInfo')) {
@@ -84,7 +84,7 @@ async function fixture(t, type, fault) {
             failLockDelete = false;
             throw new Error('synthetic routing lock delete failure');
           }
-          for (const id of statement.match(/IN \(([\d,]+)\)/)[1].split(',')) locks.delete(id);
+          for (const id of statement.match(/IN \(([-\d,]+)\)/)[1].split(',')) locks.delete(id);
         }
         if (statement.startsWith('DELETE FROM measurementsExt ')) {
           for (const id of statement.match(/IN \(([\d,]+)\)/)[1].split(',')) measurementLinks.delete(id);

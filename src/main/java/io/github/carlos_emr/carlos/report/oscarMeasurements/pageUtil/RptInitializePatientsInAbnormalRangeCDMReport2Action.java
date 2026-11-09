@@ -399,7 +399,7 @@ public class RptInitializePatientsInAbnormalRangeCDMReport2Action extends Action
                     }
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                throw new IllegalStateException("Unable to complete CDM range report", e);
             }
         } else {
             MiscUtils.getLogger().debug("guideline checkbox is null");

@@ -104,6 +104,21 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Test
+    void shouldKeepConfiguredFilterSelection_whenPreservingLiteralCase() {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult("Negative", "^NEGATIVE$", "2026-10-09 11:20:29", entered)).isNull();
+        assertThat(fileResult("Negative", "^[^A-Z]+$", "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo("Negative");
+    }
+
+    @Test
+    void shouldPreserveUnicodeLiteralBoundaries_whenLowercaseMappingExpands() {
+        LocalDateTime entered = LocalDateTime.parse("2026-10-13T10:05:19");
+        assertThat(fileResult("İNegative", "negative", "2026-10-09 11:20:29", entered).getDataField())
+                .isEqualTo("Negative");
+    }
+
     @ParameterizedTest(name = "dateObserved preserves {0}")
     @MethodSource("timesOfDay")
     void shouldPreserveObservationTime(String time) {

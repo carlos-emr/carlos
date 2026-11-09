@@ -277,6 +277,9 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
                     suffix = "D";
                     checkbox = "FrequencyCheckbox";
                     typePrefix = "measurementTypeD";
+                    ((RptInitializeFrequencyOfRelevantTestsCDMReport2Action) action).setExactly(new int[]{1});
+                    ((RptInitializeFrequencyOfRelevantTestsCDMReport2Action) action).setMoreThan(new int[]{0});
+                    ((RptInitializeFrequencyOfRelevantTestsCDMReport2Action) action).setLessThan(new int[]{2});
                 }
             }
             when(request.getParameter("value(" + typePrefix + "0)")).thenReturn("AACP");
@@ -290,6 +293,72 @@ class RptInitializePatientsMetGuidelineCDMReport2ActionUnitTest extends CarlosUn
             verify(request).setAttribute("actionErrors", new ArrayList<>(action.getActionErrors()));
             verify(response, never()).sendRedirect(anyString());
             verifyNoInteractions(measurementDao, formsDao);
+            verify(request, never()).setAttribute(eq("messages"), any());
+        }
+
+        private RptInitializeFrequencyOfRelevantTestsCDMReport2Action frequencyAction() {
+            when(request.getParameter("value(measurementTypeD0)")).thenReturn("AACP");
+            when(request.getParameter("value(mInstrcsCheckboxD00)")).thenReturn("Yes/No");
+            var action = new RptInitializeFrequencyOfRelevantTestsCDMReport2Action() {
+                @Override public String getText(String key) { return key; }
+                @Override public String getText(String key, String[] args) { return key; }
+            };
+            action.setFrequencyCheckbox(new String[]{"0"});
+            action.setStartDateD(new String[]{"2025-01-01"});
+            action.setEndDateD(new String[]{"2026-01-01"});
+            action.setExactly(new int[]{1});
+            action.setMoreThan(new int[]{0});
+            action.setLessThan(new int[]{2});
+            return action;
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Exactly", "MoreThan", "LessThan"})
+        void shouldRefuseSelectedFrequencyRow_whenCountArrayIsMissing(String field) throws Exception {
+            var action = frequencyAction();
+            action.getClass().getMethod("set" + field, int[].class).invoke(action, (Object) null);
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidSelection");
+            verifyNoInteractions(measurementDao, formsDao);
+            verify(request, never()).setAttribute(eq("messages"), any());
+        }
+
+        @Test
+        void shouldRefuseNegativeCounts_whenFrequencyRowIsSelected() throws Exception {
+            var action = frequencyAction();
+            action.setExactly(new int[]{-1});
+            assertThat(action.execute()).isEqualTo("input");
+            assertThat(action.getActionErrors()).containsExactly("oscarReport.CDMReport.msgInvalidValue");
+            verifyNoInteractions(measurementDao, formsDao);
+        }
+
+        @Test
+        void shouldFailReport_whenFrequencyQueryFailsAfterValidation() {
+            var action = frequencyAction();
+            when(measurementDao.findByCreateDate(any(Date.class), any(Date.class)))
+                    .thenThrow(new IllegalStateException("synthetic database fault"));
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Unable to complete CDM frequency report");
+            verify(request, never()).setAttribute(eq("messages"), any());
+        }
+
+        @Test
+        void shouldFailReport_whenRangeQueryFailsAfterValidation() {
+            when(request.getParameter("value(measurementTypeC0)")).thenReturn("AACP");
+            when(request.getParameter("value(mInstrcsCheckboxC00)")).thenReturn("Yes/No");
+            var action = new RptInitializePatientsInAbnormalRangeCDMReport2Action() {
+                @Override public String getText(String key) { return key; }
+                @Override public String getText(String key, String[] args) { return key; }
+            };
+            action.setAbnormalCheckbox(new String[]{"0"});
+            action.setStartDateC(new String[]{"2025-01-01"});
+            action.setEndDateC(new String[]{"2026-01-01"});
+            action.setLowerBound(new String[]{"No"});
+            action.setUpperBound(new String[]{"Yes"});
+            when(measurementDao.findLastEntered(any(Date.class), any(Date.class), eq("AACP"), eq("Yes/No")))
+                    .thenThrow(new IllegalStateException("synthetic database fault"));
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("Unable to complete CDM range report");
             verify(request, never()).setAttribute(eq("messages"), any());
         }
 

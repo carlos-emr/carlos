@@ -123,7 +123,8 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
             for (int i = 0; i < frequencyCheckbox.length; i++) {
                 // The index is request data: parse and range-check it before any array access.
                 int ctr = selection.acceptedRow(frequencyCheckbox[i], CdmReportSelectionValidator.length(startDateD),
-                        CdmReportSelectionValidator.length(endDateD));
+                        CdmReportSelectionValidator.length(endDateD), CdmReportSelectionValidator.length(getExactly()),
+                        CdmReportSelectionValidator.length(getMoreThan()), CdmReportSelectionValidator.length(getLessThan()));
                 if (ctr < 0) {
                     continue;
                 }
@@ -132,6 +133,11 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                 String measurementType = selection.acceptedMeasurementType(ctr, (String) this.getValue("measurementTypeD" + ctr));
                 if (measurementType == null) {
                     continue;
+                }
+
+                if (getExactly()[ctr] < 0 || getMoreThan()[ctr] < 0 || getLessThan()[ctr] < 0) {
+                    addActionError(getText("oscarReport.CDMReport.msgInvalidValue", new String[]{measurementType}));
+                    valid = false;
                 }
 
                 if (!ectValidation.isDate(startDate)) {
@@ -249,7 +255,7 @@ public class RptInitializeFrequencyOfRelevantTestsCDMReport2Action extends Actio
                     }
                 }
             } catch (Exception e) {
-                MiscUtils.getLogger().error("Error", e);
+                throw new IllegalStateException("Unable to complete CDM frequency report", e);
             }
         } else {
             MiscUtils.getLogger().debug("guideline checkbox is null");

@@ -84,8 +84,9 @@ used for retained browser/database evidence.
 - Numeric syntax now uses a bounded linear character parser (no regex), and
   browser admission uses a private monitor, addressing the subsequent security
   scan findings without suppressing them.
-- The measurement filter remains unchanged. Case-insensitive matching extracts
-  the original literal. Read-only lab history discovers reports through patient
+- The measurement filter keeps its existing matching semantics on a server-locale
+  lowercase shadow, and matched boundaries extract the original-case literal.
+  Matches splitting a Unicode case expansion are explicitly refused. Read-only lab history discovers reports through patient
   routing; the grid overlays exact source literals and visibly explains results
   without active measurements or multiple source observations. It never writes
   clinical projections. Unreadable source data produces an explicit failure.
@@ -117,3 +118,12 @@ used for retained browser/database evidence.
   binding and transaction faults. The review changes localize warnings/retry
   controls, retain healthy grid rows under an explicit source-load failure, and
   distinguish internal I/O defects from defined retryable availability failures.
+- Further compatibility checks: 129 cases pass without skips, covering the filter's
+  original regex selection semantics, Unicode expansion boundaries, missing/negative
+  frequency counts and actual query-failure propagation in frequency/range reports.
+  The native baseline confirms tab interference in all three report forms. Frequency
+  count fields are populated for this comparison; omitted counts must instead show
+  an explicit form error. Native candidate retakes remain pending.
+- Translation key parity and ASCII Unicode-escape policy pass for every locale;
+  the EPDS whole-bundle encoding regression also passes. These correct the two
+  current-head CI failures without changing any displayed translation.

@@ -38,8 +38,10 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import org.apache.commons.lang3.StringUtils;
@@ -129,6 +131,7 @@ public class Hl7textResultsData {
         return null;
     }
 
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Preserve the configured clinical extraction filter's existing server-locale matching semantics; project matches back to original source text")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
         SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
@@ -170,9 +173,7 @@ public class Hl7textResultsData {
          * table.  No more entire PDF documents written into measurements.
          */
         String patternstring = CarlosProperties.getInstance().getProperty("HL7_LAB_MEASUREMENT_FILTER", ".*");
-        // The filter selects/extracts without rewriting the clinical literal (#5828).
-        // Matching the original text also avoids offsets changing during Unicode lowercasing.
-        Pattern pattern = Pattern.compile(patternstring, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        Pattern pattern = Pattern.compile(patternstring);
 
         /*
          * Setting in OSCAR properties that toggles if a code
@@ -265,12 +266,23 @@ public class Hl7textResultsData {
                 // <br />) would otherwise reach the filter with a leading space and be filed with it, or, for a word
                 // result such as "<br />negative", not at all.
                 trimmed = StringUtils.trimToEmpty(trimmed.replaceAll("\\<br\\s?/?\\>", ""));
-                Matcher matcher = pattern.matcher(trimmed);
+                // Preserve the configured filter's existing matching semantics on a lowercase
+                // shadow; project its boundaries back to the unchanged clinical literal.
+                Locale filterLocale = Locale.getDefault();
+                String shadow = trimmed.toLowerCase(filterLocale);
+                Matcher matcher = pattern.matcher(shadow);
                 Measurement m = new Measurement();
 
                 if (matcher.find()) {
                     // The match, not the whole result, is the value filed: the filter both selects and extracts.
-                    String value = matcher.group();
+                    int start = originalBoundary(trimmed, shadow, matcher.start(), filterLocale);
+                    int end = originalBoundary(trimmed, shadow, matcher.end(), filterLocale);
+                    if (start < 0 || end < 0) {
+                        logger.warn("HL7 measurement filter splits a case-mapped character; not filing an ambiguous literal (lab {}, OBX {}-{})",
+                                LogSafe.sanitize(lab_no), i, j);
+                        continue;
+                    }
+                    String value = trimmed.substring(start, end);
                     // measurements.dataField holds 255 characters. The packaged install (MariaDB sql_mode="", and
                     // jdbcCompliantTruncation=false in the JDBC URL) would cut a longer value to fit without an error,
                     // and a strict server would roll back the whole lab. The lab report keeps the full result, so such
@@ -423,6 +435,23 @@ public class Hl7textResultsData {
             }
         }
         measurementsExtDao.batchPersistAtomically(measurementsExts, 50);
+    }
+
+    /** Map a lowercase-shadow boundary without cutting a source character in half. */
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Use the same server locale as the original extraction filter solely to map source-text boundaries")
+    private static int originalBoundary(String source, String shadow, int boundary, Locale locale) {
+        if (boundary == 0) return 0;
+        if (boundary == shadow.length()) return source.length();
+        if (source.length() == shadow.length()) return boundary;
+        int original = 0, folded = 0;
+        while (original < source.length()) {
+            int next = original + Character.charCount(source.codePointAt(original));
+            folded += source.substring(original, next).toLowerCase(locale).length();
+            if (folded == boundary) return next;
+            if (folded > boundary) return -1;
+            original = next;
+        }
+        return -1;
     }
 
     public static String getMatchingLabs_CLS(String lab_no) {
