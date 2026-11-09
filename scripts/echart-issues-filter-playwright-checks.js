@@ -481,8 +481,12 @@ async function workflow(s) {
       await chart.locator('select.encTypeCombo').selectOption(encounterType);
       const controls = await chart.locator('#observationDate, select.encTypeCombo, #noteIssues input[type="checkbox"]')
         .evaluateAll(fields => fields.map(field => [field.name, field.value, field.checked]));
-      const failChart = route => chartSaveRequest('edit')(route.request())
-        ? route.fulfill({status: 503, contentType: 'text/plain', body: 'temporary chart failure'}) : route.continue();
+      let failedUrl;
+      const failChart = route => {
+        if (!chartSaveRequest('edit')(route.request())) return route.continue();
+        failedUrl = route.request().url();
+        return route.fulfill({status: 503, contentType: 'text/plain', body: 'temporary chart failure'});
+      };
       await chart.route('**/CaseManagementEntry*', failChart);
       try {
         const dialogs = await h.withExpectedDialogs(chart, async () => {
@@ -519,6 +523,18 @@ async function workflow(s) {
         'Chart retry did not load the expected patient');
       await expectValue(sql, `SELECT COUNT(*) FROM casemgmt_note WHERE demographic_no=${patient}
         AND uuid=${q(uuid)} AND note_id>${oldId}`, '1', 'Chart retry duplicated the saved revision');
+      // Consume only the single response deliberately injected by this step.
+      // All other HTTP, console, script and cleanup failures remain strict.
+      const expected = s.recorder.badResponses.filter(entry => entry.status === 503 && entry.method === 'POST' && entry.url === failedUrl);
+      h.assert(expected.length === 1, 'The full-chart failure control did not record exactly one injected HTTP 503');
+      s.recorder.badResponses.splice(s.recorder.badResponses.indexOf(expected[0]), 1);
+      for (let i = s.recorder.consoleIssues.length - 1; i >= 0; i--) {
+        const entry = s.recorder.consoleIssues[i];
+        if (entry.type === 'error' && entry.location?.url === failedUrl
+            && /^Failed to load resource: the server responded with a status of 503 \(/.test(entry.text)) {
+          s.recorder.consoleIssues.splice(i, 1);
+        }
+      }
     });
     return;
   }
