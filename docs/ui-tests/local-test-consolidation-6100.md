@@ -262,3 +262,15 @@ comparison still refuses 32 unreviewed zero floors and unmet higher metrics;
 no waiver or lower floor substitutes for the required native-lane union.
 Failed browser, package and permission setup attempts remain separate evidence
 and do not count as passes.
+
+The installed missing-history probe exposed an additional inbox reader: the
+acknowledgement-count getter used a strict chain lookup and prevented every
+row from rendering. Only the typed incomplete-CML condition now withholds that
+optional aggregate. Both inbox views retain the report, show the translated
+warning and disable bulk selection; unrelated lookup/count failures propagate.
+The display flag is transient and Jackson-ignored so existing wire properties
+remain unchanged. Ten required unit cases cover normal formats, single and
+incomplete chains, cache replacement, failure propagation and JSON boundaries.
+The 73 focused lab cases pass. The preceding installed seven-check attempt
+passed six checks and failed this real inbox path; it is retained as failed
+evidence and requires a fresh source build and installed retake.

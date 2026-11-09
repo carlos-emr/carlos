@@ -224,12 +224,16 @@ async function workflow(s) {
           if(macrosBefore.length)sql.execute(`UPDATE property SET value=${q(macroValue)} WHERE id=${macrosBefore[0][0]} AND provider_no=${q(provider)} AND name='labMacroJSON'`);
           else sql.execute(`INSERT INTO property(provider_no,name,value) VALUES(${q(provider)},'labMacroJSON',${q(macroValue)})`);
           healthy=await inboxReport(corrected);
+          h.assert(await healthy.inbox.locator(`#labdoc_HL7_${corrected} input[name="flaggedLabs"]`).isEnabled(),'Healthy correction is not selectable in the inbox');
           h.assert(await healthy.report.locator('.macro-dropdown').isVisible()&&await healthy.report.locator('.macro-dropdown a').filter({hasText:marker+' read-only macro'}).count()===1,'Configured macro menu precondition was not established');
           await retireReports(healthy);healthy=null;
           cleared=true;
           sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND type='CML' AND message=${q(stored)}`);
           h.assert(sql.value(`SELECT LENGTH(message) FROM hl7TextMessage WHERE lab_id=${original}`)==='0','Missing-body probe was not established');
           probe=await inboxReport(corrected);await inspect(probe.report,corrected,'Incomplete history');
+          const inboxRow=probe.inbox.locator(`#labdoc_HL7_${corrected}`);
+          h.assert(await inboxRow.locator('[data-carlos-cml-count-warning="unavailable"]').isVisible(),'Incomplete acknowledgement history has no inbox warning');
+          h.assert(await inboxRow.locator('input[name="flaggedLabs"]').isDisabled(),'Incomplete acknowledgement history remains selectable for a bulk mutation');
           const warning=probe.report.locator('[data-carlos-hl7-chain-warning="unavailable"]');
           h.assert(await warning.isVisible()&&(await warning.innerText()).length>60,'Incomplete history has no visible explanation');
           h.assert(await probe.report.locator('.macro-dropdown').count()===0,'Incomplete history still exposes configured macro anchors');

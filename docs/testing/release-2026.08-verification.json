@@ -396,10 +396,11 @@
         "scripts/lab-qualified-results-playwright-checks.js",
         "scripts/lib/qualified-lab-oracle.js",
         "scripts/qualified-lab-oracle.test.js",
-        "docs/testing/lab-qualified-results-inventory.md"
+        "docs/testing/lab-qualified-results-inventory.md",
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java"
       ],
       "implementation": "Add native extension ambiguities and installed source-link authorization checks; retain the older-main timestamp/long measurement/import/routing regression sweep.",
-      "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal.",
+      "cases": "History, Health Tracker and flowsheets; null/duplicate/stale/invalid/overflow extension values; foreign-patient source lab; batched provenance query; older lab versions and merged patients; real HL7 observation/entry times at midnight/noon/23:59 and DST; long and partial results; missing public key. Native qualified/qualitative lab entry, exact stored HL7 and every report/history/grid/row/visible tooltip, offered Plot PNGs with independent printed-axis calibration and exact numeric controls, actual PDF clinical columns and unrelated-patient preservation. Bound-to-number coercion #5827 and shipped-filter literal/history loss #5828 remain fatal. Incomplete CML acknowledgement aggregates retain visible inbox rows with an explicit warning and disabled bulk selection; unrelated query errors propagate and existing JSON/XML count contracts remain unchanged.",
       "acceptance": "Exact clinical values and timestamps persist; links open only authorized source reports, remain deterministic under duplicate data, and add no per-reading query or false error storm.",
       "requiredChecks": [
         "evidence-self-tests",
@@ -1678,7 +1679,8 @@
         "AppointmentArchiveDateTimeContractUnitTest": 7,
         "PublishedXmlSchemaContractUnitTest": 28,
         "JaxbGeneratedSchemaUnitTest": 336,
-        "DemographicBirthDayTimezoneUnitTest": 27
+        "DemographicBirthDayTimezoneUnitTest": 27,
+        "LabResultDataAcknowledgementCountUnitTest": 10
       },
       "requireCoverage": true,
       "routedSkips": {
@@ -6303,6 +6305,48 @@
       "workstreams": [
         "T14",
         "T28"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultData.java": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/web/inboxhub/InboxhubListMode.jsp": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/oscarMDS/Page.jsp": {
+      "reason": "Keep authorized inbox reports readable when a related CML source prevents a verified acknowledgement aggregate; explain the missing history and withhold bulk selection. Preserve unrelated failures, strict mutations and existing wire properties.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/on/LabResultDataAcknowledgementCountUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14"
       ]
     }
   },
