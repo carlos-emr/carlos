@@ -1,0 +1,855 @@
+{
+  "baseline": "9004536dc8314d5f50542b48905ca3ca4099a916",
+  "candidate": "9b0bb15c9f2b391b2081ce76dc107d013b2404e9",
+  "browser": "154.0.8037.57",
+  "jdk": "Temurin 25.0.3",
+  "scope": "Actual Java chart configurations rendered with each revision's bundled scripts; these are renderer fixtures, not installed native UI qualification.",
+  "captures": [
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "constant-0_0",
+      "image": "before/edge-en-constant-0_0.png",
+      "imageSha256": "d4ecb302acc5c76cf8597381a4ae5a8068871754ebd67eed11a0b14cb0682d92",
+      "config": "configs/before-en/constant-0_0.json",
+      "configSha256": "cb551c21739f2262db1881ad665945989c8fb528ab442dc14bfbf5b9a571ec31",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "constant-0_05",
+      "image": "before/edge-en-constant-0_05.png",
+      "imageSha256": "25376ff4c1593861d58d4a4fab850e16a2156fc21c3d3c8a94f453dc5b8679d4",
+      "config": "configs/before-en/constant-0_05.json",
+      "configSha256": "7d08062961658f459c658fc2bd08b1781cc5a292a9ced9c56341d7bf85be8b89",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "constant-1_25E7",
+      "image": "before/edge-en-constant-1_25E7.png",
+      "imageSha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4",
+      "config": "configs/before-en/constant-1_25E7.json",
+      "configSha256": "c8e3347cbf562e43057b7a06a4af23db20db48d0840d80a94e1b8ba18f58a59f",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": "Chart numeric axis has too many ticks"
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "constant-4_5E7",
+      "image": "before/edge-en-constant-4_5E7.png",
+      "imageSha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4",
+      "config": "configs/before-en/constant-4_5E7.json",
+      "configSha256": "d8d814c061a85757aa6c0b8c9774208aa99969f71202225bb664cc6e72bdfcd9",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": "Chart numeric axis has too many ticks"
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "constant-5000000_0",
+      "image": "before/edge-en-constant-5000000_0.png",
+      "imageSha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4",
+      "config": "configs/before-en/constant-5000000_0.json",
+      "configSha256": "aa4883d09725bc733a28c1b3a91a3c7814a8a6dde5e15a8ad593f087b83953eb",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": "Chart numeric axis has too many ticks"
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "constant-99_0",
+      "image": "before/edge-en-constant-99_0.png",
+      "imageSha256": "68dfa680faa7f2ad3e04633b39b24130abd8039e5dcf34f7df0e1b65f85891ec",
+      "config": "configs/before-en/constant-99_0.json",
+      "configSha256": "a67d0caa24a765b7f785ed87f8df29e7c728223d80e42324641eb711b25f4453",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "constant-n0_05",
+      "image": "before/edge-en-constant-n0_05.png",
+      "imageSha256": "8347af448fcd59a8fa1e4bf3be4ee873b824973cdd1f95838ff72942d9a39ebf",
+      "config": "configs/before-en/constant-n0_05.json",
+      "configSha256": "8605d7150e5e3667b3dc6fae9c0f36a75d44d4df9848fc0c1ecd2d8a899996e1",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "constant-n6000000_0",
+      "image": "before/edge-en-constant-n6000000_0.png",
+      "imageSha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4",
+      "config": "configs/before-en/constant-n6000000_0.json",
+      "configSha256": "09ee2e7422a87a60b74d71e3f4429738367f5d88669c5bb943da836239b3358f",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": "Chart numeric axis has too many ticks"
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "qualified-results",
+      "image": "before/edge-en-qualified-results.png",
+      "imageSha256": "0ffd8d87475aa1e1c78e61c09c8239e7f3b7123a2a9120b0c23ecd4d485b2f84",
+      "config": "configs/before-en/qualified-results.json",
+      "configSha256": "02eeb99c8f7336cb9d3fc7561fccbb0c0a8f16b688c214302c7b10e2fd60f967",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "rounding-0_00",
+      "image": "before/edge-en-rounding-0_00.png",
+      "imageSha256": "b0d668ede45f796a75c6d77cd68369864131dc215e5b56ec7af97b8bb2d6ccc2",
+      "config": "configs/before-en/rounding-0_00.json",
+      "configSha256": "263e819a15d703ece870d08a9af4569558c380ac3acbc6198b06a23f609840e8",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "en_CA",
+      "case": "rounding-0_xxx",
+      "image": "before/edge-en-rounding-0_xxx.png",
+      "imageSha256": "ea410985898fb6666344355f569095aa7fa33f9510824a9e756ca8a9aced0105",
+      "config": "configs/before-en/rounding-0_xxx.json",
+      "configSha256": "cf5f2d6182979b1af665cd0043a711785deedd777853f3a042d978dce74d85d1",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "constant-0_0",
+      "image": "before/edge-fr-constant-0_0.png",
+      "imageSha256": "d4ecb302acc5c76cf8597381a4ae5a8068871754ebd67eed11a0b14cb0682d92",
+      "config": "configs/before-fr/constant-0_0.json",
+      "configSha256": "cb551c21739f2262db1881ad665945989c8fb528ab442dc14bfbf5b9a571ec31",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "constant-0_05",
+      "image": "before/edge-fr-constant-0_05.png",
+      "imageSha256": "25376ff4c1593861d58d4a4fab850e16a2156fc21c3d3c8a94f453dc5b8679d4",
+      "config": "configs/before-fr/constant-0_05.json",
+      "configSha256": "7d08062961658f459c658fc2bd08b1781cc5a292a9ced9c56341d7bf85be8b89",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "constant-1_25E7",
+      "image": "before/edge-fr-constant-1_25E7.png",
+      "imageSha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4",
+      "config": "configs/before-fr/constant-1_25E7.json",
+      "configSha256": "c8e3347cbf562e43057b7a06a4af23db20db48d0840d80a94e1b8ba18f58a59f",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": "Chart numeric axis has too many ticks"
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "constant-4_5E7",
+      "image": "before/edge-fr-constant-4_5E7.png",
+      "imageSha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4",
+      "config": "configs/before-fr/constant-4_5E7.json",
+      "configSha256": "d8d814c061a85757aa6c0b8c9774208aa99969f71202225bb664cc6e72bdfcd9",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": "Chart numeric axis has too many ticks"
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "constant-5000000_0",
+      "image": "before/edge-fr-constant-5000000_0.png",
+      "imageSha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4",
+      "config": "configs/before-fr/constant-5000000_0.json",
+      "configSha256": "aa4883d09725bc733a28c1b3a91a3c7814a8a6dde5e15a8ad593f087b83953eb",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": "Chart numeric axis has too many ticks"
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "constant-99_0",
+      "image": "before/edge-fr-constant-99_0.png",
+      "imageSha256": "68dfa680faa7f2ad3e04633b39b24130abd8039e5dcf34f7df0e1b65f85891ec",
+      "config": "configs/before-fr/constant-99_0.json",
+      "configSha256": "a67d0caa24a765b7f785ed87f8df29e7c728223d80e42324641eb711b25f4453",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "constant-n0_05",
+      "image": "before/edge-fr-constant-n0_05.png",
+      "imageSha256": "8347af448fcd59a8fa1e4bf3be4ee873b824973cdd1f95838ff72942d9a39ebf",
+      "config": "configs/before-fr/constant-n0_05.json",
+      "configSha256": "8605d7150e5e3667b3dc6fae9c0f36a75d44d4df9848fc0c1ecd2d8a899996e1",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "constant-n6000000_0",
+      "image": "before/edge-fr-constant-n6000000_0.png",
+      "imageSha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4",
+      "config": "configs/before-fr/constant-n6000000_0.json",
+      "configSha256": "09ee2e7422a87a60b74d71e3f4429738367f5d88669c5bb943da836239b3358f",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": "Chart numeric axis has too many ticks"
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "qualified-results",
+      "image": "before/edge-fr-qualified-results.png",
+      "imageSha256": "0ffd8d87475aa1e1c78e61c09c8239e7f3b7123a2a9120b0c23ecd4d485b2f84",
+      "config": "configs/before-fr/qualified-results.json",
+      "configSha256": "02eeb99c8f7336cb9d3fc7561fccbb0c0a8f16b688c214302c7b10e2fd60f967",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "rounding-0_00",
+      "image": "before/edge-fr-rounding-0_00.png",
+      "imageSha256": "b0d668ede45f796a75c6d77cd68369864131dc215e5b56ec7af97b8bb2d6ccc2",
+      "config": "configs/before-fr/rounding-0_00.json",
+      "configSha256": "263e819a15d703ece870d08a9af4569558c380ac3acbc6198b06a23f609840e8",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "before",
+      "locale": "fr_CA",
+      "case": "rounding-0_xxx",
+      "image": "before/edge-fr-rounding-0_xxx.png",
+      "imageSha256": "ea410985898fb6666344355f569095aa7fa33f9510824a9e756ca8a9aced0105",
+      "config": "configs/before-fr/rounding-0_xxx.json",
+      "configSha256": "cf5f2d6182979b1af665cd0043a711785deedd777853f3a042d978dce74d85d1",
+      "drawScriptSha256": "724c5f3d57b0fbf8621718e56ef1c06230b3f9fdb1fd2098b9208f820a48d129",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "constant-0_0",
+      "image": "after/edge-en-constant-0_0.png",
+      "imageSha256": "b90bb60e311515d9bedbcb4d1ab2435b4851b910550a07b0285fa14d03936897",
+      "config": "configs/after-en/constant-0_0.json",
+      "configSha256": "c9c77a46be6de59e8199d94631947061c7255fee719c7e24470bb97b148c9496",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "constant-0_05",
+      "image": "after/edge-en-constant-0_05.png",
+      "imageSha256": "88aceebe3987aa5c0c7f7c9c303f95d0c88c3f926179a7f87eab52019ec1a25c",
+      "config": "configs/after-en/constant-0_05.json",
+      "configSha256": "ef71945aeab7bce9af42d2dd4655789d81a51b2c9fbcf7fcd7f88c95d44c6e28",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "constant-1_25E7",
+      "image": "after/edge-en-constant-1_25E7.png",
+      "imageSha256": "7bd236fed752e28bd29331ef145c0c4b1fea4225f2ec9d5b06cff33bb881c11e",
+      "config": "configs/after-en/constant-1_25E7.json",
+      "configSha256": "7d81164d61d6565b8db586a51bc81ec4f15ec0bcdf6d7e7960cacaeda5785e77",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "constant-4_5E7",
+      "image": "after/edge-en-constant-4_5E7.png",
+      "imageSha256": "8fcd35f0b3e3e0d78a446864cf427f56002f4fdf6c981f304933e28e80a5e44b",
+      "config": "configs/after-en/constant-4_5E7.json",
+      "configSha256": "4380034a2ecbe4a7be4ebd3a82ed85ef1a3f2230a7dae766252aaab040813a20",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "constant-5000000_0",
+      "image": "after/edge-en-constant-5000000_0.png",
+      "imageSha256": "cfa8b45351e1e7338a6c9977615994b993526ffb944d381c736bbee40fd8970e",
+      "config": "configs/after-en/constant-5000000_0.json",
+      "configSha256": "6cdef80144936a8be6e0cbb3e4699452d35db619fd60a9e7530f9194e7ffb9ab",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "constant-99_0",
+      "image": "after/edge-en-constant-99_0.png",
+      "imageSha256": "792a6e3acce4c07d254dbf2ef26b02054fb8fb3115546a2780e5a8a2ec99d656",
+      "config": "configs/after-en/constant-99_0.json",
+      "configSha256": "55ecd30e3a9479062d1bc3808eba843e1b56522a8f5893f3b54dd76387cfa22d",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "constant-n0_05",
+      "image": "after/edge-en-constant-n0_05.png",
+      "imageSha256": "10e231a42e9c711342bfc8e4d2f3907233e165dc5f8b5f1f538132f287d215cd",
+      "config": "configs/after-en/constant-n0_05.json",
+      "configSha256": "35c270a0b8191ea16c6a54b97d4ea7c400ef694503e71994e5c2cebdda33cf2d",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "constant-n6000000_0",
+      "image": "after/edge-en-constant-n6000000_0.png",
+      "imageSha256": "b9d2074b8f34f110c0ae15c0a6ab092651ee7ca72edb6dce81768ef15de8119c",
+      "config": "configs/after-en/constant-n6000000_0.json",
+      "configSha256": "645a1b911c234f3501344592f5581b52968fed573fb637dc7878f6cfcdcc7b8b",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "qualified-results",
+      "image": "after/edge-en-qualified-results.png",
+      "imageSha256": "4406fb72e359a9060a5b327f184db1ea45713b5bbc424c33be15cf7c933ae9b3",
+      "config": "configs/after-en/qualified-results.json",
+      "configSha256": "b8b648e786afdc2bee45890182fe1c0a563c6b9cb4439ab21013d32d762f0597",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "rounding-0_00",
+      "image": "after/edge-en-rounding-0_00.png",
+      "imageSha256": "b343e048f82d9130898ac354275a544a90ff6931fe205cf34c4e946e336cd8d0",
+      "config": "configs/after-en/rounding-0_00.json",
+      "configSha256": "29aba17a5b5afe119e05235cbc231a02c2a43ac16b23c1cf4d2fa7bd321fe842",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "en_CA",
+      "case": "rounding-0_xxx",
+      "image": "after/edge-en-rounding-0_xxx.png",
+      "imageSha256": "30f86014a8e3965fe8d3b7ed1f24c1c1570745026922c1501f5a624238f0cd97",
+      "config": "configs/after-en/rounding-0_xxx.json",
+      "configSha256": "0edd4acfc9be24291ae5a1a0539a150457c631a355fd5246c810b833bb06f9ce",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "constant-0_0",
+      "image": "after/edge-fr-constant-0_0.png",
+      "imageSha256": "c0682059d15318146f0e3d34c413827c01dd00686b9d2ce105f930c47d7a6be9",
+      "config": "configs/after-fr/constant-0_0.json",
+      "configSha256": "09a3d53e5721669ad4b94b745c8b3597ea0775c05154088019e014ff5fa86546",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "constant-0_05",
+      "image": "after/edge-fr-constant-0_05.png",
+      "imageSha256": "b4e6895374fc076173c9401d2b9bf54f9b6f06ffac166b425aa03bf536c5fb21",
+      "config": "configs/after-fr/constant-0_05.json",
+      "configSha256": "cb96c447f55cc6e6c4eb744546695129307c8beca7046e903833a90adb533262",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "constant-1_25E7",
+      "image": "after/edge-fr-constant-1_25E7.png",
+      "imageSha256": "e8da7d4ca9040a035e974fe581f09ad992823343225677e3015ef97515a84d2d",
+      "config": "configs/after-fr/constant-1_25E7.json",
+      "configSha256": "217b86bf108d92d6f6b4a3723f0f3494045778542dbbc93ace80b3c5aca9269e",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "constant-4_5E7",
+      "image": "after/edge-fr-constant-4_5E7.png",
+      "imageSha256": "9455bc74d331b41f303caae079759bbb2c296b1d25d8bbeb8998cbc2eb1168a9",
+      "config": "configs/after-fr/constant-4_5E7.json",
+      "configSha256": "fbf7ca98e2e17e44d867430e8a86ea7a668394e31b39f65aa748f79d7d0341d3",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "constant-5000000_0",
+      "image": "after/edge-fr-constant-5000000_0.png",
+      "imageSha256": "1281fc74aae3dcf8404c4ee9830ca56b40ce99adcce02123bbe06be679d5ddf4",
+      "config": "configs/after-fr/constant-5000000_0.json",
+      "configSha256": "8c2181056af717030bfeeb64e906ed7387edfb15870ddcd6b7c5233477c7a802",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "constant-99_0",
+      "image": "after/edge-fr-constant-99_0.png",
+      "imageSha256": "792a6e3acce4c07d254dbf2ef26b02054fb8fb3115546a2780e5a8a2ec99d656",
+      "config": "configs/after-fr/constant-99_0.json",
+      "configSha256": "ae5e671ca6aa1c91064ddb9005977d5ae9bb43d5deaae6ae0875d39f963d1184",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "constant-n0_05",
+      "image": "after/edge-fr-constant-n0_05.png",
+      "imageSha256": "f8081d7fa89f932e5c8b97f84e07daa129a4341ce97449935e0677933739eed9",
+      "config": "configs/after-fr/constant-n0_05.json",
+      "configSha256": "f85075f0206f30faec8ce68a4b51b2fa03ff06916fd1473034d9689932de4a01",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "constant-n6000000_0",
+      "image": "after/edge-fr-constant-n6000000_0.png",
+      "imageSha256": "6811d8d2f4600b6d5c26baa5b62b6e9b8c3b9acd809ffb03bb96d7ef5d454fe5",
+      "config": "configs/after-fr/constant-n6000000_0.json",
+      "configSha256": "456a378e541cc578d40e305e12550c2d9d649c9497f8f9024bf5967904fd25e9",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "qualified-results",
+      "image": "after/edge-fr-qualified-results.png",
+      "imageSha256": "3de9e8a0c4ba119222e5b0effd16894df7c08d786afaf00001dca89446e28bbd",
+      "config": "configs/after-fr/qualified-results.json",
+      "configSha256": "c78f8ba69bdcc9a62c62311f388e8c623dc515166add90cb3b538cabb3c0c200",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "rounding-0_00",
+      "image": "after/edge-fr-rounding-0_00.png",
+      "imageSha256": "333d1df4235e7db69cf9fc2629ab806503413da4c7391ae4c6ee8481c9365d71",
+      "config": "configs/after-fr/rounding-0_00.json",
+      "configSha256": "52e275bed604961e50fd391a4c44ccbfa6881e5561318e8b015ff67ba878f06f",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    },
+    {
+      "phase": "after",
+      "locale": "fr_CA",
+      "case": "rounding-0_xxx",
+      "image": "after/edge-fr-rounding-0_xxx.png",
+      "imageSha256": "b22f15e1fa2878fd4d2419d47c5e5ea94e15b16735d518dc7c2f7340ad494e74",
+      "config": "configs/after-fr/rounding-0_xxx.json",
+      "configSha256": "94d8a41d63e19e85a6f66b621a331e36f09b6477468dff841dcee8b155bcb732",
+      "drawScriptSha256": "8e7146fff7d5cd927a5104d157d6bc0de79065b67d9742d59f66cb5bc2f0651d",
+      "error": null
+    }
+  ],
+  "allImages": [
+    {
+      "image": "before/actualLab-plusmeds-8pt.png",
+      "sha256": "6a4eab6dcb8026143643bfa372ffa83d75d7aa433f8170ef377b8996ea1fa72d"
+    },
+    {
+      "image": "before/actualLab-plusmeds.png",
+      "sha256": "6a58600a3b08d61998fd68939505f813f63ab33db3c8e2605f41f1b4e450547f"
+    },
+    {
+      "image": "before/actualLab-thousands.png",
+      "sha256": "2949acce59cabb08ab9fb3819cd12a27f403b1d81028654e2edddee03e4e910c"
+    },
+    {
+      "image": "before/actualLab.png",
+      "sha256": "dfce98fb54e6593a903ed8db7d6cee0861ccbbd1db4424b48b8c25bddd216431"
+    },
+    {
+      "image": "before/bp-lines.png",
+      "sha256": "cb80cb80dc74342581c03eef5f476a0c9c181c866f619a4d5132ba15a503b99d"
+    },
+    {
+      "image": "before/chartmeds-13.png",
+      "sha256": "70d5d0b8b28638f762db340d1bafd46e4e046549aead7174903454648f02314e"
+    },
+    {
+      "image": "before/chartmeds-2.png",
+      "sha256": "e4918358e25180b5524abcdee22c0d8de6cb8de1dea7a9566aeef04063a864cb"
+    },
+    {
+      "image": "before/chartmeds-empty.png",
+      "sha256": "9d15701b01d2c51ec74663df3f4e6df413e9db65096169b044bfc6ea2b436f97"
+    },
+    {
+      "image": "before/chartmeds-repeat.png",
+      "sha256": "2ded8de559038b2aa8efb234038cadc48de5a96bce22e4a3e730cc3837064c5a"
+    },
+    {
+      "image": "before/default-12pt.png",
+      "sha256": "f9b407e88cd6e951ef3c6ef300e6ba3a884fbd7ee531de5378ca12c16c602a01"
+    },
+    {
+      "image": "before/default-1pt.png",
+      "sha256": "2d5f576b977e436da22636fd189528d2abe40acf28a4d56b52a765b815ab3fdd"
+    },
+    {
+      "image": "before/default-2pt.png",
+      "sha256": "692a4766b5552ee31e51057c14d502538e59591b179b5d83427d9d1a73ee7e64"
+    },
+    {
+      "image": "before/default-scientific.png",
+      "sha256": "9e4874f958c13f042280878dfdf1307a0f39c1215073c34e0f67734f695019f6"
+    },
+    {
+      "image": "before/default-thousands.png",
+      "sha256": "c6440ab2ef7ff02055c3e39c73d5023ccebcf9c6891c0a5d169d9e5e255b2969"
+    },
+    {
+      "image": "before/default-two-types.png",
+      "sha256": "a8faaee03fe0238163e434b12f251cfc161df773cc424d572d2b7958ea164f92"
+    },
+    {
+      "image": "before/edge-en-constant-0_0.png",
+      "sha256": "d4ecb302acc5c76cf8597381a4ae5a8068871754ebd67eed11a0b14cb0682d92"
+    },
+    {
+      "image": "before/edge-en-constant-0_05.png",
+      "sha256": "25376ff4c1593861d58d4a4fab850e16a2156fc21c3d3c8a94f453dc5b8679d4"
+    },
+    {
+      "image": "before/edge-en-constant-1_25E7.png",
+      "sha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4"
+    },
+    {
+      "image": "before/edge-en-constant-4_5E7.png",
+      "sha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4"
+    },
+    {
+      "image": "before/edge-en-constant-5000000_0.png",
+      "sha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4"
+    },
+    {
+      "image": "before/edge-en-constant-99_0.png",
+      "sha256": "68dfa680faa7f2ad3e04633b39b24130abd8039e5dcf34f7df0e1b65f85891ec"
+    },
+    {
+      "image": "before/edge-en-constant-n0_05.png",
+      "sha256": "8347af448fcd59a8fa1e4bf3be4ee873b824973cdd1f95838ff72942d9a39ebf"
+    },
+    {
+      "image": "before/edge-en-constant-n6000000_0.png",
+      "sha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4"
+    },
+    {
+      "image": "before/edge-en-qualified-results.png",
+      "sha256": "0ffd8d87475aa1e1c78e61c09c8239e7f3b7123a2a9120b0c23ecd4d485b2f84"
+    },
+    {
+      "image": "before/edge-en-rounding-0_00.png",
+      "sha256": "b0d668ede45f796a75c6d77cd68369864131dc215e5b56ec7af97b8bb2d6ccc2"
+    },
+    {
+      "image": "before/edge-en-rounding-0_xxx.png",
+      "sha256": "ea410985898fb6666344355f569095aa7fa33f9510824a9e756ca8a9aced0105"
+    },
+    {
+      "image": "before/edge-fr-constant-0_0.png",
+      "sha256": "d4ecb302acc5c76cf8597381a4ae5a8068871754ebd67eed11a0b14cb0682d92"
+    },
+    {
+      "image": "before/edge-fr-constant-0_05.png",
+      "sha256": "25376ff4c1593861d58d4a4fab850e16a2156fc21c3d3c8a94f453dc5b8679d4"
+    },
+    {
+      "image": "before/edge-fr-constant-1_25E7.png",
+      "sha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4"
+    },
+    {
+      "image": "before/edge-fr-constant-4_5E7.png",
+      "sha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4"
+    },
+    {
+      "image": "before/edge-fr-constant-5000000_0.png",
+      "sha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4"
+    },
+    {
+      "image": "before/edge-fr-constant-99_0.png",
+      "sha256": "68dfa680faa7f2ad3e04633b39b24130abd8039e5dcf34f7df0e1b65f85891ec"
+    },
+    {
+      "image": "before/edge-fr-constant-n0_05.png",
+      "sha256": "8347af448fcd59a8fa1e4bf3be4ee873b824973cdd1f95838ff72942d9a39ebf"
+    },
+    {
+      "image": "before/edge-fr-constant-n6000000_0.png",
+      "sha256": "053bbf8f6e4c24945fe94cf3306bf214976d2ab4fb20f5aed13e43ec5b378ba4"
+    },
+    {
+      "image": "before/edge-fr-qualified-results.png",
+      "sha256": "0ffd8d87475aa1e1c78e61c09c8239e7f3b7123a2a9120b0c23ecd4d485b2f84"
+    },
+    {
+      "image": "before/edge-fr-rounding-0_00.png",
+      "sha256": "b0d668ede45f796a75c6d77cd68369864131dc215e5b56ec7af97b8bb2d6ccc2"
+    },
+    {
+      "image": "before/edge-fr-rounding-0_xxx.png",
+      "sha256": "ea410985898fb6666344355f569095aa7fa33f9510824a9e756ca8a9aced0105"
+    },
+    {
+      "image": "before/inclRef-2pt.png",
+      "sha256": "f7d5540c1f55ccd220841083ac91964eaede7235ec867f3eb59942e108320320"
+    },
+    {
+      "image": "before/inclRef-none.png",
+      "sha256": "f925d0c384532cee94ec7a996539b9361f62fcb1e1e9d4146720d04e62862817"
+    },
+    {
+      "image": "before/lab-bp.png",
+      "sha256": "2d68fa42f9eb305155bb7bb3d9046c95fd99cfba7ef3aa8a8002e820c7a33f35"
+    },
+    {
+      "image": "before/labRef.png",
+      "sha256": "128e1c6e0058f3f300e07d5b70a5c48642f41456713cc4753ed92b293e27ba19"
+    },
+    {
+      "image": "before/native-bar.png",
+      "sha256": "7ceb04cad32bf5cb5e9005100d31c92753d10a1a8527449f0f726ed2ebb9310f"
+    },
+    {
+      "image": "before/native-line.png",
+      "sha256": "ca705fed5f125a907ae35dd8497504954a834b3ff79ae4ce6c57be2690900dd3"
+    },
+    {
+      "image": "before/scatter-12pt.png",
+      "sha256": "18e91b1d19fae005609f62b34d2fca121db282d87317ba39f770e4178c42e560"
+    },
+    {
+      "image": "before/scatter-2pt.png",
+      "sha256": "14f2798437496863e4ac742ba45ae7d5b00da78106fd2f7929dc61584c63c5ef"
+    },
+    {
+      "image": "after/actualLab-plusmeds-8pt.png",
+      "sha256": "6a4eab6dcb8026143643bfa372ffa83d75d7aa433f8170ef377b8996ea1fa72d"
+    },
+    {
+      "image": "after/actualLab-plusmeds.png",
+      "sha256": "6a58600a3b08d61998fd68939505f813f63ab33db3c8e2605f41f1b4e450547f"
+    },
+    {
+      "image": "after/actualLab-thousands.png",
+      "sha256": "2949acce59cabb08ab9fb3819cd12a27f403b1d81028654e2edddee03e4e910c"
+    },
+    {
+      "image": "after/actualLab.png",
+      "sha256": "dfce98fb54e6593a903ed8db7d6cee0861ccbbd1db4424b48b8c25bddd216431"
+    },
+    {
+      "image": "after/bp-lines.png",
+      "sha256": "cb80cb80dc74342581c03eef5f476a0c9c181c866f619a4d5132ba15a503b99d"
+    },
+    {
+      "image": "after/chartmeds-13.png",
+      "sha256": "70d5d0b8b28638f762db340d1bafd46e4e046549aead7174903454648f02314e"
+    },
+    {
+      "image": "after/chartmeds-2.png",
+      "sha256": "e4918358e25180b5524abcdee22c0d8de6cb8de1dea7a9566aeef04063a864cb"
+    },
+    {
+      "image": "after/chartmeds-empty.png",
+      "sha256": "9d15701b01d2c51ec74663df3f4e6df413e9db65096169b044bfc6ea2b436f97"
+    },
+    {
+      "image": "after/chartmeds-repeat.png",
+      "sha256": "2ded8de559038b2aa8efb234038cadc48de5a96bce22e4a3e730cc3837064c5a"
+    },
+    {
+      "image": "after/default-12pt.png",
+      "sha256": "f9b407e88cd6e951ef3c6ef300e6ba3a884fbd7ee531de5378ca12c16c602a01"
+    },
+    {
+      "image": "after/default-1pt.png",
+      "sha256": "0952b68abf8cee8cbd5d534973aff882f0b778e1059bbca44e71c4e6c8e5495e"
+    },
+    {
+      "image": "after/default-2pt.png",
+      "sha256": "692a4766b5552ee31e51057c14d502538e59591b179b5d83427d9d1a73ee7e64"
+    },
+    {
+      "image": "after/default-scientific.png",
+      "sha256": "9e4874f958c13f042280878dfdf1307a0f39c1215073c34e0f67734f695019f6"
+    },
+    {
+      "image": "after/default-thousands.png",
+      "sha256": "c6440ab2ef7ff02055c3e39c73d5023ccebcf9c6891c0a5d169d9e5e255b2969"
+    },
+    {
+      "image": "after/default-two-types.png",
+      "sha256": "a8faaee03fe0238163e434b12f251cfc161df773cc424d572d2b7958ea164f92"
+    },
+    {
+      "image": "after/edge-en-constant-0_0.png",
+      "sha256": "b90bb60e311515d9bedbcb4d1ab2435b4851b910550a07b0285fa14d03936897"
+    },
+    {
+      "image": "after/edge-en-constant-0_05.png",
+      "sha256": "88aceebe3987aa5c0c7f7c9c303f95d0c88c3f926179a7f87eab52019ec1a25c"
+    },
+    {
+      "image": "after/edge-en-constant-1_25E7.png",
+      "sha256": "7bd236fed752e28bd29331ef145c0c4b1fea4225f2ec9d5b06cff33bb881c11e"
+    },
+    {
+      "image": "after/edge-en-constant-4_5E7.png",
+      "sha256": "8fcd35f0b3e3e0d78a446864cf427f56002f4fdf6c981f304933e28e80a5e44b"
+    },
+    {
+      "image": "after/edge-en-constant-5000000_0.png",
+      "sha256": "cfa8b45351e1e7338a6c9977615994b993526ffb944d381c736bbee40fd8970e"
+    },
+    {
+      "image": "after/edge-en-constant-99_0.png",
+      "sha256": "792a6e3acce4c07d254dbf2ef26b02054fb8fb3115546a2780e5a8a2ec99d656"
+    },
+    {
+      "image": "after/edge-en-constant-n0_05.png",
+      "sha256": "10e231a42e9c711342bfc8e4d2f3907233e165dc5f8b5f1f538132f287d215cd"
+    },
+    {
+      "image": "after/edge-en-constant-n6000000_0.png",
+      "sha256": "b9d2074b8f34f110c0ae15c0a6ab092651ee7ca72edb6dce81768ef15de8119c"
+    },
+    {
+      "image": "after/edge-en-qualified-results.png",
+      "sha256": "4406fb72e359a9060a5b327f184db1ea45713b5bbc424c33be15cf7c933ae9b3"
+    },
+    {
+      "image": "after/edge-en-rounding-0_00.png",
+      "sha256": "b343e048f82d9130898ac354275a544a90ff6931fe205cf34c4e946e336cd8d0"
+    },
+    {
+      "image": "after/edge-en-rounding-0_xxx.png",
+      "sha256": "30f86014a8e3965fe8d3b7ed1f24c1c1570745026922c1501f5a624238f0cd97"
+    },
+    {
+      "image": "after/edge-fr-constant-0_0.png",
+      "sha256": "c0682059d15318146f0e3d34c413827c01dd00686b9d2ce105f930c47d7a6be9"
+    },
+    {
+      "image": "after/edge-fr-constant-0_05.png",
+      "sha256": "b4e6895374fc076173c9401d2b9bf54f9b6f06ffac166b425aa03bf536c5fb21"
+    },
+    {
+      "image": "after/edge-fr-constant-1_25E7.png",
+      "sha256": "e8da7d4ca9040a035e974fe581f09ad992823343225677e3015ef97515a84d2d"
+    },
+    {
+      "image": "after/edge-fr-constant-4_5E7.png",
+      "sha256": "9455bc74d331b41f303caae079759bbb2c296b1d25d8bbeb8998cbc2eb1168a9"
+    },
+    {
+      "image": "after/edge-fr-constant-5000000_0.png",
+      "sha256": "1281fc74aae3dcf8404c4ee9830ca56b40ce99adcce02123bbe06be679d5ddf4"
+    },
+    {
+      "image": "after/edge-fr-constant-99_0.png",
+      "sha256": "792a6e3acce4c07d254dbf2ef26b02054fb8fb3115546a2780e5a8a2ec99d656"
+    },
+    {
+      "image": "after/edge-fr-constant-n0_05.png",
+      "sha256": "f8081d7fa89f932e5c8b97f84e07daa129a4341ce97449935e0677933739eed9"
+    },
+    {
+      "image": "after/edge-fr-constant-n6000000_0.png",
+      "sha256": "6811d8d2f4600b6d5c26baa5b62b6e9b8c3b9acd809ffb03bb96d7ef5d454fe5"
+    },
+    {
+      "image": "after/edge-fr-qualified-results.png",
+      "sha256": "3de9e8a0c4ba119222e5b0effd16894df7c08d786afaf00001dca89446e28bbd"
+    },
+    {
+      "image": "after/edge-fr-rounding-0_00.png",
+      "sha256": "333d1df4235e7db69cf9fc2629ab806503413da4c7391ae4c6ee8481c9365d71"
+    },
+    {
+      "image": "after/edge-fr-rounding-0_xxx.png",
+      "sha256": "b22f15e1fa2878fd4d2419d47c5e5ea94e15b16735d518dc7c2f7340ad494e74"
+    },
+    {
+      "image": "after/inclRef-2pt.png",
+      "sha256": "f7d5540c1f55ccd220841083ac91964eaede7235ec867f3eb59942e108320320"
+    },
+    {
+      "image": "after/inclRef-none.png",
+      "sha256": "f925d0c384532cee94ec7a996539b9361f62fcb1e1e9d4146720d04e62862817"
+    },
+    {
+      "image": "after/lab-bp.png",
+      "sha256": "2d68fa42f9eb305155bb7bb3d9046c95fd99cfba7ef3aa8a8002e820c7a33f35"
+    },
+    {
+      "image": "after/labRef.png",
+      "sha256": "128e1c6e0058f3f300e07d5b70a5c48642f41456713cc4753ed92b293e27ba19"
+    },
+    {
+      "image": "after/native-bar.png",
+      "sha256": "7ceb04cad32bf5cb5e9005100d31c92753d10a1a8527449f0f726ed2ebb9310f"
+    },
+    {
+      "image": "after/native-line.png",
+      "sha256": "ca705fed5f125a907ae35dd8497504954a834b3ff79ae4ce6c57be2690900dd3"
+    },
+    {
+      "image": "after/scatter-12pt.png",
+      "sha256": "18e91b1d19fae005609f62b34d2fca121db282d87317ba39f770e4178c42e560"
+    },
+    {
+      "image": "after/scatter-2pt.png",
+      "sha256": "14f2798437496863e4ac742ba45ae7d5b00da78106fd2f7929dc61584c63c5ef"
+    }
+  ]
+}

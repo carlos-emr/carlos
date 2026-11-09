@@ -1,0 +1,46 @@
+{
+  "title" : "SYNTHETIC qualified results",
+  "xLabel" : "Days",
+  "yLabel" : "g/L",
+  "datasets" : [ {
+    "label" : "Synthetic hemoglobin",
+    "kind" : "line",
+    "yAxisID" : "y",
+    "paint" : null,
+    "lines" : true,
+    "shapes" : true,
+    "data" : [ {
+      "y" : 137.0,
+      "x" : 1642118400000,
+      "labelValue" : "137",
+      "labelDate" : "2022.01.14"
+    }, {
+      "y" : 145.0,
+      "x" : 1705190400000,
+      "labelValue" : "145",
+      "labelDate" : "2024.01.14"
+    } ]
+  } ],
+  "locale" : "en-CA",
+  "months" : [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "" ],
+  "amPm" : [ "a.m.", "p.m." ],
+  "medications" : [ ],
+  "dateAxis" : true,
+  "timeZone" : "UTC",
+  "style" : {
+    "theme" : "jfree",
+    "plotBackground" : "#ffffff",
+    "gridlines" : "#c0c0c0",
+    "domainMargins" : [ 0.9, 0.9 ],
+    "rangeMargins" : [ 0.05, 0.34 ],
+    "rangeIncludesZero" : false,
+    "domainIncludesZero" : false,
+    "rangeAxisPaint" : null,
+    "itemLabels" : {
+      "format" : "{1} \n {2}",
+      "fontSize" : 12,
+      "decimals" : "0.###"
+    }
+  },
+  "exclusionNotice" : "3 qualified or nonnumeric results are not plotted; consult the source history."
+}

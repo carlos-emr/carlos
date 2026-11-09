@@ -1,0 +1,50 @@
+{
+  "title" : "SYNTHETIC rounding 0.###",
+  "xLabel" : "Days",
+  "yLabel" : "Units",
+  "datasets" : [ {
+    "label" : "Synthetic tie values",
+    "kind" : "line",
+    "yAxisID" : "y",
+    "paint" : null,
+    "lines" : true,
+    "shapes" : true,
+    "data" : [ {
+      "y" : 0.125,
+      "x" : 1705276800000,
+      "labelValue" : "0.125",
+      "labelDate" : "2024.01.15"
+    }, {
+      "y" : 0.0625,
+      "x" : 1705363200000,
+      "labelValue" : "0.062",
+      "labelDate" : "2024.01.16"
+    }, {
+      "y" : -0.125,
+      "x" : 1705449600000,
+      "labelValue" : "-0.125",
+      "labelDate" : "2024.01.17"
+    } ]
+  } ],
+  "locale" : "en-CA",
+  "months" : [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "" ],
+  "amPm" : [ "a.m.", "p.m." ],
+  "medications" : [ ],
+  "dateAxis" : true,
+  "timeZone" : "UTC",
+  "style" : {
+    "theme" : "jfree",
+    "plotBackground" : "#c0c0c0",
+    "gridlines" : "#ffffff",
+    "domainMargins" : [ 0.02, 0.02 ],
+    "rangeMargins" : [ 0.05, 0.05 ],
+    "rangeIncludesZero" : false,
+    "domainIncludesZero" : false,
+    "rangeAxisPaint" : null,
+    "itemLabels" : {
+      "format" : "{2}",
+      "decimals" : "0.###",
+      "fontSize" : 12
+    }
+  }
+}

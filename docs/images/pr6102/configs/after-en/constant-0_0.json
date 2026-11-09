@@ -1,0 +1,34 @@
+{
+  "title" : "SYNTHETIC constant 0.0",
+  "xLabel" : "Days",
+  "yLabel" : "Units",
+  "datasets" : [ {
+    "label" : "Synthetic reading",
+    "kind" : "line",
+    "yAxisID" : "y",
+    "paint" : null,
+    "lines" : true,
+    "shapes" : false,
+    "data" : [ {
+      "y" : 0.0,
+      "x" : 1705276800000
+    } ]
+  } ],
+  "locale" : "en-CA",
+  "months" : [ "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "" ],
+  "amPm" : [ "a.m.", "p.m." ],
+  "medications" : [ ],
+  "dateAxis" : true,
+  "timeZone" : "UTC",
+  "style" : {
+    "theme" : "jfree",
+    "plotBackground" : "#c0c0c0",
+    "gridlines" : "#ffffff",
+    "domainMargins" : [ 0.02, 0.02 ],
+    "rangeMargins" : [ 0.05, 0.05 ],
+    "rangeIncludesZero" : false,
+    "domainIncludesZero" : false,
+    "rangeAxisPaint" : null,
+    "itemLabels" : null
+  }
+}
