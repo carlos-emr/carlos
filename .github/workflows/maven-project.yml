@@ -126,6 +126,7 @@ jobs:
             shopt -s nullglob
             wars=(target/*.war)
             test "${#wars[@]}" -eq 1
+            mvn -B -ntp dependency:get -Dartifact=org.apache.tomcat:tomcat-jsp-api:11.0.27 -Dtransitive=false
             python3 scripts/ci/run-native-xml-binary-contracts.py \
               --main-package target/native-xml-input/main.deb \
               --candidate "${wars[0]}" \
