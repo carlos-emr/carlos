@@ -229,6 +229,10 @@
         <action name="rx/ViewShowPreviousPrints" class="io.github.carlos_emr.carlos.prescript.gate.ViewShowPreviousPrints2Action">
             <result name="success">/WEB-INF/jsp/rx/ShowPreviousPrints.jsp</result>
         </action>
+        <action name="rx/favoriteGroups" class="io.github.carlos_emr.carlos.prescript.pageUtil.RxFavoriteGroups2Action">
+            <result name="success">/WEB-INF/jsp/rx/FavoriteGroups.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
+        </action>
         <action name="rx/ViewEditFavorites2" class="io.github.carlos_emr.carlos.prescript.gate.ViewEditFavorites2Action">
             <result name="success">/WEB-INF/jsp/rx/EditFavorites2.jsp</result>
         </action>

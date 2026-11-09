@@ -124,6 +124,20 @@ class RxWebServiceUnitTest {
         }
     }
 
+    @Test
+    void shouldPreserveLegacyVersionOmission_whenNoCxfOptInIsPresent() throws Exception {
+        var drugs = service.rxManager.getDrugs(null, 1, RxStatus.ALL);
+        drugs.get(0).setRowVersion(31L);
+        drugs.get(1).setRowVersion(32L);
+        var legacy = service.getAllDrugs(1).getContent();
+        assertThat(legacy).allSatisfy(drug -> assertThat(drug.getRowVersion()).isNull());
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(legacy)).doesNotContain("rowVersion");
+        var context = jakarta.xml.bind.JAXBContext.newInstance(DrugTo1.class);
+        var xml = new java.io.StringWriter();
+        context.createMarshaller().marshal(legacy.get(0), xml);
+        assertThat(xml.toString()).doesNotContain("rowVersion");
+    }
+
     private DrugTo1 createTestTransferObject() {
         DrugTo1 t = new DrugTo1();
         Date startDate = new Date();

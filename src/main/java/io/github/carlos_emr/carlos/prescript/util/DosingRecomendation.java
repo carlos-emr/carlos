@@ -98,7 +98,7 @@ public class DosingRecomendation {
      "&lt;15"   less than 15
      "&gt;50"   greater than 50
      */
-    public boolean valueInRangeOfDose(int val, Hashtable<String, String> doseVal) {
+    public boolean valueInRangeOfDose(double val, Hashtable<String, String> doseVal) {
         boolean valueInRange = false;
         try {
             String toParse = doseVal.get("clcrrange");
@@ -124,7 +124,7 @@ public class DosingRecomendation {
                 toParse = toParse.replaceFirst(">", "");
 
                 int gt = Integer.parseInt(toParse);
-                if (val >= gt) {
+                if (val > gt) {
                     valueInRange = true;
                 }
             } else if (toParse.indexOf("&lt;") != -1 || toParse.indexOf("<") != -1) { // less than style
@@ -132,7 +132,7 @@ public class DosingRecomendation {
                 toParse = toParse.replaceFirst("<", "");
 
                 int lt = Integer.parseInt(toParse);
-                if (val <= lt) {
+                if (val < lt) {
                     valueInRange = true;
                 }
             } else if (!toParse.equals("")) { // less than style

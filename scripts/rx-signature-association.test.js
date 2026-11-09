@@ -12,7 +12,7 @@ function setup() {
   const warning = { hidden: true };
   let disabled;
   let refreshes = 0;
-  const context = vm.createContext({ URL, Promise,
+  const context = vm.createContext({notesConflict: false, URL, Promise,
     window: { location: { href: 'https://127.0.0.1/carlos/rx/ViewScript2' } },
     document: { getElementById: () => warning },
     signatureAssociationSequence: 0, signatureAssociationQueue: Promise.resolve(),
@@ -88,7 +88,7 @@ test('preview reload reflects the pending signature save and unlocks after confi
   const button = { disabled: false, style: {} };
   s.context.frames.preview = { document: { getElementById: () => button } };
   s.context.setComment = () => {};
-  const onload = jsp.match(/<iframe id='preview'[^>]*onload="([^"]+)"/)[1];
+  const onload = jsp.match(/getElementById\('preview'\)\.addEventListener\('load', function \(\) \{([\s\S]*?)\n\s*\}\);/)[1];
   vm.runInContext(onload, s.context);
   assert.equal(button.disabled, true);
   assert.equal(button.style.cursor, 'wait');

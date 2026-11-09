@@ -82,6 +82,7 @@ class DrugConverterUnitTest {
 
             Drug d = new Drug();
             d.setId(1);
+            d.setRowVersion(19L);
             d.setDemographicId(1);
             d.setProviderNo("1");
             d.setBrandName("Foobar");
@@ -108,6 +109,7 @@ class DrugConverterUnitTest {
             DrugTo1 t = converter.getAsTransferObject(info, d);
 
             assertThat(t.getDrugId()).isEqualTo(1);
+            assertThat(t.getRowVersion()).isNull(); // The REST endpoint owns the response opt-in.
             assertThat(t.getDemographicNo()).isEqualTo(1);
             assertThat(t.getProviderNo()).isEqualTo("1");
             assertThat(t.getBrandName()).isEqualTo("Foobar");
@@ -145,6 +147,7 @@ class DrugConverterUnitTest {
             Date archivedDate = new Date();
 
             DrugTo1 t = new DrugTo1();
+            t.setRowVersion(7L);
             t.setDemographicNo(1);
             t.setProviderNo("1");
             t.setGenericName("bangbar");
@@ -175,6 +178,7 @@ class DrugConverterUnitTest {
 
             Drug d = converter.getAsDomainObject(info, t);
 
+            assertThat(d.getRowVersion()).isEqualTo(7L);
             assertThat(d.getDemographicId()).isEqualTo(1);
             assertThat(d.getProviderNo()).isEqualTo("1");
             assertThat(d.getGenericName()).isEqualTo("bangbar");

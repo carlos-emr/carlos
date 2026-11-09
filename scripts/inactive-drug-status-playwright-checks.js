@@ -72,9 +72,13 @@ async function workflow(s) {
     assert(/^[A-Za-z0-9_]+$/.test(database), 'Invalid DRUGREF_TEST_DATABASE');
     const rows = s.sql.rows(`SELECT ds.id,ds.name,DATE(ip.history_date) FROM ${database}.cd_inactive_products ip
       JOIN ${database}.cd_drug_search ds ON ds.drug_code=CAST(ip.drug_code AS CHAR)
-      WHERE ip.drug_identification_number=${sqlString(din)} AND ds.category=13 ORDER BY ds.id LIMIT 1`);
-    assert(rows.length === 1, 'INACTIVE_DRUG_DIN has no brand-name row in the DrugRef search index');
-    const [searchId, searchName, storedDate] = rows[0];
+      WHERE ip.drug_identification_number=${sqlString(din)} AND ds.category=13 ORDER BY ds.id`);
+    assert(rows.length > 0, 'INACTIVE_DRUG_DIN has no brand-name row in the DrugRef search index');
+    const [, searchName, storedDate] = rows[0];
+    // DrugRef de-duplicates identical names. Database row IDs are implementation
+    // details: accept any indexed alias of this exact DIN, then verify the DIN
+    // of the staged product below. A different product with the same name fails.
+    const productIds = new Set(rows.filter(row => row[1] === searchName && row[2] === date).map(row => row[0]));
     assert(storedDate === date, 'INACTIVE_DRUG_DATE does not match the DrugRef inactive-product date');
     s.cleanup(() => {
       assert(s.sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${s.patient}`) === '0',
@@ -86,8 +90,9 @@ async function workflow(s) {
       page.locator('#searchString').pressSequentially(searchName, { delay: 30 }),
     ]);
     assert(response.ok(), 'Inactive product search failed');
-    const index = (await response.json()).results.findIndex(item => String(item.id) === searchId);
-    assert(index >= 0, 'The inactive product is missing from the rendered search result payload');
+    const payload = (await response.json()).results;
+    const index = payload.findIndex(item => productIds.has(String(item.id)));
+    assert(index >= 0, `The inactive product is missing from the rendered search result payload (expected public index IDs ${[...productIds].join(',')}; received ${payload.map(item => item.id).join(',')})`);
     const [status] = await Promise.all([
       page.waitForResponse(r => r.url().includes('/rx/searchDrug')
         && new URLSearchParams(r.request().postData() || '').get('method') === 'inactiveDate'

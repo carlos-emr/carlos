@@ -106,6 +106,9 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(UserPropertyDAO.class, mockUserPropertyDAO);
         registerMock(PartialDateDao.class, mockPartialDateDao);
@@ -744,7 +747,11 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(RxWriteScript2Action.NONE);
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(bean.getStashList()).containsExactly(stagedCard, second);
-        verifyNoInteractions(stagedCard, second, mockRxManager, mockSignatureStampService);
+        for (Object card : java.util.List.of(stagedCard, second)) {
+            assertThat(org.mockito.Mockito.mockingDetails(card).getInvocations())
+                    .allSatisfy(invocation -> assertThat(invocation.getMethod().getName()).startsWith("get"));
+        }
+        verifyNoInteractions(mockRxManager, mockSignatureStampService);
         logActionMock.verifyNoInteractions();
     }
 

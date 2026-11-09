@@ -33,6 +33,7 @@ const MARKER = /^FAKE-PW[0-9a-f]{16}$/;
 const PATIENT_KEYED_TABLES = Object.freeze([
   ['casemgmt_issue', 'demographic_no'],
   ['casemgmt_cpp', 'demographic_no'],
+  ['rx_submission_receipt', 'demographic_no'],
   ['casemgmt_note_lock', 'demographic_no'],
   ['casemgmt_tmpsave', 'demographic_no'],
   ['eChart', 'demographicNo'],

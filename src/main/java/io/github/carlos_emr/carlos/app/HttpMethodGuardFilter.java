@@ -172,6 +172,7 @@ public class HttpMethodGuardFilter implements Filter {
      * bare GET (opening the page, filtering a list) still passes.</p>
      */
     public static final Map<String, Set<String>> MUTATION_INTENT_PARAMS_BY_ROUTE = Map.of(
+            "/rx/favoriteGroups", Set.of("command"),
             // providerPrivilege.jsp: submit=Add|Delete writes a privilege row, buttonUpdate merges one.
             "/admin/ProviderPrivilege", Set.of("submit", "buttonUpdate"),
             // providerRole.jsp: submit (a localized Add or Delete), buttonUpdate and

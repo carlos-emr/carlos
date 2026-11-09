@@ -106,6 +106,7 @@ public final class QueryByExampleSqlValidator {
             "property",
             "publickeys",
             "report_date",
+            "rx_submission_receipt",
             "security",
             "securityarchive",
             "securitytoken",

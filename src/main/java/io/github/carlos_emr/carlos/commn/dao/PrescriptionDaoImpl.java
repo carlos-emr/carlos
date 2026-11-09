@@ -87,7 +87,7 @@ public class PrescriptionDaoImpl extends AbstractDaoImpl<Prescription> implement
 
     @Override
     public int updatePrescriptionsByScriptNo(Integer scriptNo, String comment) {
-        Query query = entityManager.createQuery("UPDATE Prescription p SET p.comments = ?1 WHERE p.id = ?2");
+        Query query = entityManager.createQuery("UPDATE Prescription p SET p.comments = ?1, p.rowVersion = p.rowVersion + 1 WHERE p.id = ?2");
         query.setParameter(1, comment);
         query.setParameter(2, scriptNo);
         return query.executeUpdate();

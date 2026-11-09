@@ -97,7 +97,7 @@ async function workflow(s) {
     await controlRx.bringToFront();await refresh();
     await rx.waitForFunction(id=>document.querySelector(id)?.textContent.includes('Clcr 20 ='),`#renalDosing_${card}`);
     const text=(await panel.innerText()).replace(/\s+/g,' ');
-    h.assert(text.includes('40.0') && text.includes('200.0 sCr'),'Refresh retained old clinical inputs');
+    h.assert(/(?:^|[^\d.])40\s*\[kg/.test(text) && /(?:^|[^\d.])200\s+sCr/.test(text),'Refresh retained old clinical inputs');
     const date=sql.value("SELECT DATE_FORMAT(CURDATE(),'%Y-%b-%d')");
     h.assert(text.split(date).length-1===2,'Refresh retained old observation dates');
     h.assert(await panel.locator('tr.selected').count()===1 && (await panel.locator('tr.selected').innerText()).includes('250-500 mg po q18h'),'New clearance selected the wrong dose');

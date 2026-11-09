@@ -27,7 +27,7 @@ function fixture(body, options = {}) {
     CREATE TABLE program_provider(provider_no TEXT,program_id INTEGER);
     INSERT INTO demographic VALUES(41,'${MARKER}','999998'),(42,'FOREIGN','888888');
     INSERT INTO program_provider VALUES('999998',7);`);
-  for (const [table, column] of [['casemgmt_note_lock','demographic_no'],['casemgmt_tmpsave','demographic_no'],
+  for (const [table, column] of [['rx_submission_receipt','demographic_no'],['casemgmt_note_lock','demographic_no'],['casemgmt_tmpsave','demographic_no'],
     ['measurementsDeleted','demographicNo'],['demographicExt','demographic_no'],['demographicArchive','demographic_no']]) {
     db.exec(`CREATE TABLE ${table}(${column} INTEGER)`);
   }

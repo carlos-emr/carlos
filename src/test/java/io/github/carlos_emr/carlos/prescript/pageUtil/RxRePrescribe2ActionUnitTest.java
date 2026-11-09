@@ -94,6 +94,9 @@ class RxRePrescribe2ActionUnitTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() {
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         mocks = MockitoAnnotations.openMocks(this);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();

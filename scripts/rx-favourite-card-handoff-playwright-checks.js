@@ -40,7 +40,7 @@ async function stageFavourite(rx, favourite) {
   try {
     const [staged] = await Promise.all([
       rx.waitForResponse(r => r.request().method() === 'POST' && h.pathOnly(r.url()).endsWith('/rx/useFavorite')),
-      rx.locator(`a[onclick="useFav2('${favourite}');"]`).click(),
+      rx.locator(`button[onclick="useFav2('${favourite}');"]`).click(),
     ]);
     h.assert(staged.status() === 200, `rx/useFavorite answered HTTP ${staged.status()}`);
     await rx.waitForFunction(count => document.querySelectorAll("[id^='drugName_']").length > count, before);

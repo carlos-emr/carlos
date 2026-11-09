@@ -40,12 +40,14 @@ class RxPrescribeTransactionIntegrationTest {
             RxManagerImpl target = new RxManagerImpl() {
                 @Override protected void writeCheck(LoggedInInfo info, int id) { }
                 @Override protected Boolean canPrescribe(Drug drug) { return true; }
-                @Override public Drug updateDrug(LoggedInInfo info, Drug drug) {
+                @Override public Drug addDrug(LoggedInInfo info, Drug drug) {
                     if (!success && "late".equals(drug.getGenericName())) return null;
                     jdbc.update("INSERT INTO write_receipt VALUES ('drug')");
                     return drug;
                 }
-                @Override public Drug addDrug(LoggedInInfo info, Drug drug) { return null; }
+                @Override public Drug updateDrug(LoggedInInfo info, Drug drug) {
+                    throw new AssertionError("New medications must use the add path");
+                }
             };
             target.prescriptionManager = mock(PrescriptionManager.class);
             when(target.prescriptionManager.createNewPrescription(any(), anyList(), anyInt())).thenAnswer(call -> {

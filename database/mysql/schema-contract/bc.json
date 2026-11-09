@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "dd8f58d4dca24a4dad97215254d8c08c32c1f8b8cbbf1427a62bfa10cf05c4f5",
+ "migration_sha256": "0987aa8cdeda96e465ef022d4fa8037a5dd1b66324abf500c1167d98c949aa78",
  "province": "bc",
  "schema": {
   "checks": [
@@ -10,9 +10,29 @@
     "`id` = 1"
    ],
    [
+    "billing_filename_import",
+    "billing_filename_file_status",
+    "`file_status` in ('unchanged','ambiguous','reconciled')"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_group_size",
+    "`group_size` >= 1"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_reason",
+    "`reason` in ('unchanged','collision')"
+   ],
+   [
     "cds_import_preparation",
     "payload",
     "octet_length(`payload`) <= 1048576"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_outcome",
+    "`outcome` = 'SAVED' and `prescription_id` is not null or `outcome` in ('PENDING','FAILED') and `prescription_id` is null"
    ]
   ],
   "columns": [
@@ -9435,6 +9455,150 @@
     "utf8mb4_general_ci",
     null,
     3
+   ],
+   [
+    "billing_filename_import",
+    "file_sha256",
+    "char(64)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    8
+   ],
+   [
+    "billing_filename_import",
+    "file_status",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    7
+   ],
+   [
+    "billing_filename_import",
+    "group_size",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    11
+   ],
+   [
+    "billing_filename_import",
+    "original_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "billing_filename_import",
+    "reason",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_at",
+    "datetime",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_by",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
+   ],
+   [
+    "billing_filename_import",
+    "source_id",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "billing_filename_import",
+    "source_table",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
    ],
    [
     "billing_history",
@@ -23403,6 +23567,18 @@
     "utf8mb4_general_ci",
     null,
     30
+   ],
+   [
+    "drugs",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    65
    ],
    [
     "drugs",
@@ -168690,6 +168866,18 @@
    ],
    [
     "prescription",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "prescription",
     "rx_comments",
     "mediumtext",
     "YES",
@@ -173667,6 +173855,234 @@
     "utf8mb4_general_ci",
     null,
     10
+   ],
+   [
+    "rx_favorite_group",
+    "id",
+    "int(11)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_favorite_group",
+    "name",
+    "varchar(80)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_favorite_group",
+    "position",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "favorite_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "group_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "attempt_id",
+    "char(36)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "rx_submission_receipt",
+    "created_at",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "rx_submission_receipt",
+    "demographic_no",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    7
+   ],
+   [
+    "rx_submission_receipt",
+    "outcome",
+    "varchar(7)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_submission_receipt",
+    "prescription_id",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_submission_receipt",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_submission_receipt",
+    "submission_hash",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
    ],
    [
     "scheduledate",
@@ -181419,6 +181835,50 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    1,
+    "source_table",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    2,
+    "source_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename_lookup",
+    1,
+    1,
+    "imported_filename",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "original_filename_lookup",
+    1,
+    1,
+    "original_filename",
     "A",
     null,
     "BTREE",
@@ -189543,6 +190003,116 @@
     "NO"
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    1,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    2,
+    "name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    1,
+    "group_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    2,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite",
+    1,
+    1,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    1,
+    "submission_hash",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    2,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    3,
+    "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_prescription",
+    1,
+    1,
+    "prescription_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     0,
@@ -191731,6 +192301,24 @@
     "PRIMARY",
     1,
     "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    1,
+    "source_table",
+    null,
+    null,
+    null
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    2,
+    "source_id",
     null,
     null,
     null
@@ -195453,6 +196041,96 @@
     null
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    1,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    2,
+    "name",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    1,
+    "group_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    2,
+    "favorite_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    1,
+    "favorite_id",
+    "$self",
+    "favorites",
+    "favoriteid"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    1,
+    "group_id",
+    "$self",
+    "rx_favorite_group",
+    "id"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    1,
+    "submission_hash",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    2,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    3,
+    "demographic_no",
+    null,
+    null,
+    null
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     1,
@@ -196318,6 +196996,20 @@
     "Facility",
     "RESTRICT",
     "RESTRICT"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    "favorites",
+    "RESTRICT",
+    "CASCADE"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    "rx_favorite_group",
+    "RESTRICT",
+    "CASCADE"
    ]
   ],
   "tables": [
@@ -196881,6 +197573,12 @@
    ],
    [
     "billing_cdm_service_codes",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "billing_filename_import",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"
@@ -198909,6 +199607,24 @@
    ],
    [
     "rschedule",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group_member",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_submission_receipt",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

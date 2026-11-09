@@ -95,6 +95,7 @@ public final class FormSubmissionGuard {
         /** {@code encounter/AddService} from Consultation configuration &gt; Add Service. */
         CONSULTATION_SERVICE_ADD,
         /** {@code Pregnancy} from the patient-bound Add pregnancy form. */
+        RX_FAVORITE_GROUP,
         PREGNANCY_CREATE
     }
 

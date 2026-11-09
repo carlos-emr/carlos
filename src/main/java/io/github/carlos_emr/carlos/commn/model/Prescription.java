@@ -50,6 +50,14 @@ import org.apache.commons.lang3.StringUtils;
 @Table(name = "prescription")
 public class Prescription extends AbstractModel<Integer> implements Serializable, DemographicData {
 
+    @jakarta.persistence.Version
+    @Column(name = "row_version", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
+    private Long rowVersion;
+
+    public Long getRowVersion() { return rowVersion; }
+    public void setRowVersion(Long version) { this.rowVersion = version; }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "script_no")

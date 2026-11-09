@@ -218,6 +218,7 @@ public class RxManagerImpl implements RxManager {
         // Have to set ID to null so that database
         // can auto-generate one for this drug.
         d.setId(null);
+        d.setRowVersion(null);
 
         if (this.drugDao.addNewDrug(d)) {
 
@@ -248,6 +249,7 @@ public class RxManagerImpl implements RxManager {
      * @return a drug object representing the new version, null otherwise.
      */
     @Override
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public Drug updateDrug(LoggedInInfo info, Drug d) {
 
         // Will throw an exception if access is denied.
@@ -270,14 +272,16 @@ public class RxManagerImpl implements RxManager {
         // nullable Integer and != would compare references. Done before addDrug() so a rejected request
         // never creates a replacement drug.
         if (!java.util.Objects.equals(old.getDemographicId(), d.getDemographicId())) {
-            // Deny EXPLICITLY, do not return null: prescribe() treats a null from updateDrug as
-            // "drug not in the DB, add it", which would launder this security denial into an insert
-            // (a phantom medication in the caller's own patient chart) reported as success. Throwing
-            // keeps the denial distinguishable from the legitimate not-found/not-persisted nulls above.
+            // Preserve the explicit authorization refusal. Existing IDs are update intents;
+            // prescribe() aborts and rolls back rather than treating a failed update as an insert.
             logger.info("Drug demographic ({}) does not match input demographic ({}), update denied.",
                     LogSafe.sanitize(String.valueOf(old.getDemographicId())),
                     LogSafe.sanitize(String.valueOf(d.getDemographicId()))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             throw new AccessDeniedException("_rx", "w", String.valueOf(d.getDemographicId()));
+        }
+
+        if (d.getRowVersion() != null && !Objects.equals(d.getRowVersion(), old.getRowVersion())) {
+            throw new RxSourceVersionValidator.Conflict();
         }
 
         // The legacy replacement DTO omits imported uncertainty and authority. Refuse
@@ -451,10 +455,12 @@ public class RxManagerImpl implements RxManager {
      * @param info   the current user's logged in information.
      * @param drugs  a non-empty list of the drugs to prescribe
      * @param demoNo the demographic to prescribe for.
-     * @return a record of the prescription and drugs, null if the prescription could not be created.
+     * @return a record of the prescription and drugs, or null for invalid/unprescribable inputs
+     * @throws PrescriptionWriteException when a medication write fails; the entire batch rolls back
+     * @throws RxSourceVersionValidator.Conflict when an original source version is stale
      */
     @Override
-    @org.springframework.transaction.annotation.Transactional
+    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
     public PrescriptionDrugs prescribe(LoggedInInfo info, List<Drug> drugs, Integer demoNo) {
 
         // sanity check on inputs
@@ -502,34 +508,17 @@ public class RxManagerImpl implements RxManager {
         // update drugs in the DB. This should be done
         // after all of the drugs are checked to see if they
         // can be prescribed.
-        Drug temp;
-        List<Drug> newDrugs = new ArrayList<Drug>();
-
+        List<Drug> newDrugs = new ArrayList<>();
         for (Drug d : drugs) {
-
-            // set the scriptNo field the prescription we just created.
             d.setScriptNo(p.getId());
-
-            temp = this.updateDrug(info, d);
-
-            if (temp == null) {
-
-                // if the update attempt returned
-                // null then it means the drug was not
-                // previously in the DB.
-                // Try adding it now.
-                temp = this.addDrug(info, d);
-
-                if (temp == null) {
-
-                    // A normal return would commit the header and preceding drugs.
-                    throw new PrescriptionWriteException();
-
-                }
+            // An existing ID represents an update intent. A failed update must never
+            // be reinterpreted as permission to insert a new active medication.
+            if (d.getId() != null && d.getId() <= 0) d.setId(null);
+            Drug saved = d.getId() == null ? this.addDrug(info, d) : this.updateDrug(info, d);
+            if (saved == null) {
+                throw new PrescriptionWriteException();
             }
-
-            newDrugs.add(temp);
-
+            newDrugs.add(saved);
         }
 
         return new PrescriptionDrugs(p, newDrugs);

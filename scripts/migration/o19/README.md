@@ -84,7 +84,8 @@ the shipped manifests. For verification, add `--check` to generation.
 
 Outputs (generated — never hand-edit): `debian/assets/o19-manifest/
 o19map_schema.json`, `o19map_props.json`, `o19_preflight.json` (each with
-`"format": 1`, which the CLI's loader checks) and, with `--ctl-src`, the
+schema `"format": 2` and properties/preflight `"format": 1`, which the
+CLI's loader checks) and, with `--ctl-src`, the
 marker-delimited data block in the CLI's `o19_preflight.py`. Any O19 table
 the overlays don't classify is emitted as
 class `unknown`, which `test_manifest_integrity.py` refuses — classify it in

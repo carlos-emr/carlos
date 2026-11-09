@@ -179,7 +179,7 @@ async function workflow(s) {
     const favorite = s.sql.value(`SELECT favoriteid FROM favorites
       WHERE provider_no=${h.sqlString(s.provider)} AND favoritename=${h.sqlString(s.marker)}`);
     h.assert(/^[1-9][0-9]*$/.test(favorite), 'Owned favorite is missing');
-    const link = page.locator(`a[title="${s.marker}"][onclick*="useFav2"]`);
+    const link = page.locator(`button[title="${s.marker}"][onclick*="useFav2"]`);
     await link.waitFor({ state: 'visible' });
     const isFavoritePost = response => new URL(response.url()).pathname.endsWith('/rx/useFavorite')
       && response.request().method() === 'POST';

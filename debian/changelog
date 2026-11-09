@@ -1,3 +1,16 @@
+carlos-emr (2026.09.0~snapshot29) resolute; urgency=medium
+
+  * Prepare 2026.08.0-beta7 on main with carlos-ctl 1.3.2 and the audited
+    OSCAR 19 Ontario billing filename mapping. Keep the release tag version
+    in Maven; release builds stamp this changelog from that tag.
+  * Preserve and reserve historical filenames and gate ambiguous downloads
+    and regeneration until their exact files are reconciled. Retain the
+    original-to-imported mapping in the live schema and archive export.
+  * Add the billing import audit schema, regenerate ON/BC manifests and
+    independently export physical contracts from fresh Flyway databases.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Sat, 07 Nov 2026 11:40:00 -0500
+
 carlos-emr (2026.09.0~snapshot28) resolute; urgency=medium
 
   * Proactively preserve OSCAR 19 character and text capacities in the

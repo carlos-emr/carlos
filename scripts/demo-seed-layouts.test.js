@@ -16,7 +16,7 @@ function literalRows(sql, table, headerCount, columnCount, key, positionalColumn
     emailLog: /^INSERT(?: IGNORE)? INTO `emailLog` \(([^)]+)\) VALUES\s*/gm,
     pharmacyInfo: /^INSERT(?: IGNORE)? INTO `pharmacyInfo` \(([^)]+)\) VALUES\s*/gm,
     formRourke2020: /^INSERT(?: IGNORE)? INTO `formRourke2020` \(([^)]+)\) VALUES\s*/gm,
-    prescription: /^INSERT(?: IGNORE)? INTO `prescription` VALUES\s*/gm,
+    prescription: /^INSERT(?: IGNORE)? INTO `prescription` \(([^)]+)\) VALUES\s*/gm,
     drugs: /^INSERT(?: IGNORE)? INTO `drugs` \(([^)]+)\) VALUES\s*/gm,
     document: /^INSERT(?: IGNORE)? INTO `document` \(([^)]+)\) VALUES\s*/gm,
     demographicExt: /^INSERT(?: IGNORE)? INTO `demographicExt` \(([^)]+)\) VALUES\s*/gm,

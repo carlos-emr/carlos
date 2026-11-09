@@ -505,7 +505,7 @@
 
                 </tr>
                 <tr>
-                    <td class="label">Provider-only Notes:</td>
+                    <td class="label">Comment:</td>
                     <td style="white-space: pre-wrap"><%= SafeEncode.forHtmlContent(drug.getComment()) %>
                     </td>
                 </tr>

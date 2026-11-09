@@ -42,6 +42,7 @@ public class BillingFileWriteException extends RuntimeException {
     /** Fixed public guidance; clinical values and filenames never enter these messages. */
     public enum Reason {
         GENERAL("The OHIP output could not be completed. Review the billing output and contact your billing administrator before retrying."),
+        IMPORTED_FILE_UNRESOLVED("This historical billing file requires reconciliation after the OSCAR import. Ask your billing administrator to verify the submission and its original file before downloading or regenerating it."),
         BUSY("An OHIP disk operation is already in progress; wait for it to finish before retrying"),
         LOCK_FAILED("OHIP output lock failed; reconcile any completed output before retrying"),
         /**
