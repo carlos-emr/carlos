@@ -1213,7 +1213,7 @@ input[id^='acklabel_']{
                 // the lab NEW, and telling the inbox to drop it would hide a lab nobody has
                 // dealt with.
                 if (json.acknowledged) {
-                    notifyInboxhubAfterMacro(formid, json.clearedCount);
+                    notifyInboxhubAfterMacro(formid, json.clearedCount, json);
                 }
                 if (closeOnSuccess) {
                     closeLabAfterMacro(formid, json.acknowledged);
@@ -1305,7 +1305,7 @@ input[id^='acklabel_']{
      * @param {number} clearedCount routing rows the server reported clearing
      * @return {boolean} whether the inbox was reached, by either route
      */
-    function notifyInboxhubAfterMacro(formid, clearedCount) {
+    function notifyInboxhubAfterMacro(formid, clearedCount, chain) {
         var segmentId = '';
         var labType = 'HL7';
         if (formid) {
@@ -1324,8 +1324,12 @@ input[id^='acklabel_']{
                 action: 'refresh',
                 segmentID: segmentId,
                 labType: labType,
-                clearedCount: clearedCount
+                clearedCount: clearedCount,
+                retainedVersionIds: chain ? chain.retainedVersionIds : undefined
             });
+            if (chain && Array.isArray(chain.retainedVersionIds) && chain.retainedVersionIds.length > 0) {
+                bc.postMessage({action: 'refresh', labType: labType, compatibilityFor: String(segmentId)});
+            }
             bc.close();
             return true;
         } catch (e) {
@@ -1333,7 +1337,7 @@ input[id^='acklabel_']{
             // rather than in the caller: a macro with closeOnSuccess:false never closes this
             // window, so hanging the fallback off the close path left exactly the macros this
             // PR exists to fix with a stale row and a stale badge.
-            return dropFromInboxhubDirectly(segmentId, labType, clearedCount);
+            return dropFromInboxhubDirectly(segmentId, labType, clearedCount, chain);
         }
     }
 
@@ -1359,7 +1363,7 @@ input[id^='acklabel_']{
      *
      * @return {boolean} whether an inbox window was actually reached
      */
-    function dropFromInboxhubDirectly(segmentId, labType, clearedCount) {
+    function dropFromInboxhubDirectly(segmentId, labType, clearedCount, chain) {
         if (!segmentId || segmentId.length === 0) { return false; }
         try {
             var inbox = null;
@@ -1378,6 +1382,13 @@ input[id^='acklabel_']{
                 legacyInbox = true;
             }
             if (!inbox) { return false; }
+            if (chain && Array.isArray(chain.retainedVersionIds) && chain.retainedVersionIds.length
+                    && typeof inbox.dropAcknowledgedInboxhubItem === 'function'
+                    && inbox.dropAcknowledgedInboxhubItem.length < 4
+                    && typeof inbox.refreshInboxhubAfterHrmRevoke === 'function') {
+                inbox.refreshInboxhubAfterHrmRevoke();
+                return true;
+            }
             var handledInPlace = false;
             if (legacyInbox) {
                 inbox.removeReport(segmentId, labType);
@@ -1390,7 +1401,7 @@ input[id^='acklabel_']{
                 // listener cannot drift apart. An inbox from before that return value
                 // existed answers undefined, which falls through to the re-fetch below
                 // exactly as it always did.
-                handledInPlace = inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount) === true;
+                handledInPlace = inbox.dropAcknowledgedInboxhubItem(segmentId, labType, clearedCount, chain ? chain.retainedVersionIds : undefined) === true;
             }
             // Only when the inbox could not deal with the item itself. It drops the row or
             // the preview card and moves the counters in place; re-fetching on top of that

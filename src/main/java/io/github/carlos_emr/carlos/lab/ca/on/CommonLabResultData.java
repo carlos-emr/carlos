@@ -491,6 +491,21 @@ public class CommonLabResultData {
     public static int updateReportStatusWithOlderVersions(int labNo, String providerNo, char status,
                                                           String comment, String labType,
                                                           boolean skipCommentOnUpdate, String multiId) {
+        return updateReportStatusWithOlderVersionsDetailed(labNo, providerNo, status, comment,
+                labType, skipCommentOnUpdate, multiId).clearedCount();
+    }
+
+    /** Transaction-authoritative filing metadata; retained sources must stay visible for review. */
+    public record ReportChainUpdate(int clearedCount, List<Integer> affectedVersionIds,
+            List<Integer> retainedVersionIds) {
+        public ReportChainUpdate {
+            affectedVersionIds = List.copyOf(affectedVersionIds);
+            retainedVersionIds = List.copyOf(retainedVersionIds);
+        }
+    }
+
+    public static ReportChainUpdate updateReportStatusWithOlderVersionsDetailed(int labNo, String providerNo,
+            char status, String comment, String labType, boolean skipCommentOnUpdate, String multiId) {
         // Static legacy callers cannot receive a Spring @Transactional proxy. Start an outer
         // REQUIRED transaction explicitly so all routing/archive DAO calls join one unit.
         TransactionTemplate transaction =
@@ -504,7 +519,7 @@ public class CommonLabResultData {
                 labNo, providerNo, status, comment, labType, skipCommentOnUpdate, multiId));
     }
 
-    private static int updateReportChainInTransaction(int labNo, String providerNo, char status,
+    private static ReportChainUpdate updateReportChainInTransaction(int labNo, String providerNo, char status,
                                                        String comment, String labType,
                                                        boolean skipCommentOnUpdate, String multiId) {
         // Resolve the chain BEFORE the first write. Resolving it queries the database, and if
@@ -518,7 +533,8 @@ public class CommonLabResultData {
         // Do not silently expand the filing set while waiting for routing locks. Such a new
         // arrival stays NEW for review; report locks serialize writes to the selected members,
         // not accession-wide ingestion or future chain membership.
-        List<Integer> olderLabNos = olderVersionsOf(labNo, labType, multiId);
+        FilingVersions filing = filingVersionsOf(labNo, labType, multiId);
+        List<Integer> olderLabNos = filing.eligible();
 
         // Count the conditional UPDATE, never a preceding snapshot SELECT: two concurrent
         // acknowledgements must not both report clearing the same NEW routing row. Acquire
@@ -545,8 +561,13 @@ public class CommonLabResultData {
                 updateReportStatusInTransaction(version, providerNo, 'F', "", labType, false, true);
             }
         }
-        return clearedFromNew;
+        List<Integer> retainedNew = filing.retained().stream().filter(id ->
+                providerLabRoutingDao.findByLabNoAndLabTypeAndProviderNo(id, labType, providerNo).stream()
+                        .anyMatch(row -> "N".equals(row.getStatus()))).toList();
+        return new ReportChainUpdate(clearedFromNew, new java.util.ArrayList<>(versions), retainedNew);
     }
+
+    record FilingVersions(List<Integer> eligible, List<Integer> retained) { }
 
     /**
      * Resolves the versions of {@code labNo} that are OLDER than it, oldest first.
@@ -567,12 +588,17 @@ public class CommonLabResultData {
      * same lab_type string, so accepting a spelling the lookup would miss buys nothing.
      */
     public static List<Integer> olderVersionsOf(int labNo, String labType, String multiId) {
+        return filingVersionsOf(labNo, labType, multiId).eligible();
+    }
+
+    static FilingVersions filingVersionsOf(int labNo, String labType, String multiId) {
         String chain = labType == null ? null
                 : new CommonLabResultData().getMatchingLabsForWrite(String.valueOf(labNo), labType);
         List<Integer> older = LabVersionChain.olderThan(labNo, chain);
-        return "HL7".equals(labType)
+        List<Integer> eligible = "HL7".equals(labType)
                 ? io.github.carlos_emr.carlos.lab.service.CmlVersionPolicy.coveredOlderReports(labNo, older,
                         id -> Factory.getHandler(Integer.toString(id))) : older;
+        return new FilingVersions(eligible, older.stream().filter(id -> !eligible.contains(id)).toList());
     }
 
     public static boolean updateReportStatus(int labNo, String providerNo, char status, String comment, String labType) {

@@ -228,7 +228,8 @@ function setup(mode, items, shortPreview = false, hasMoreData = false, page = 1)
 
   return {
     state, totals, context, form,
-    acknowledge: data => listener({ data }),
+    acknowledge: data => listener({data: data && typeof data === 'object' ? {retainedVersionIds: [], ...data} : data}),
+    acknowledgeLegacy: data => listener({data}),
     shown: () => rendered.map(item => item.labType + ':' + item.segmentId),
     // Replaces what is on screen, the way a re-fetched page 1 (then each later page) does.
     render: items => { rendered = items.map(([segmentId, labType]) => element(segmentId, labType)); },
@@ -375,7 +376,7 @@ test('Rapid Review opens exactly one result when the opener call and the broadca
   // clinician gets the successor and then, the remembered item being spent, the first row.
   const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']]);
   inbox.context.rapidReviewState = true;
-  inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1);   // the direct route
+  inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1, []);   // the direct route
   inbox.acknowledge({ action: 'refresh', segmentID: '171', labType: 'HL7', clearedCount: 1 });
   assert.deepEqual(inbox.state.opens, ['172']);
 });
@@ -385,14 +386,14 @@ test('Rapid Review advances on the no-BroadcastChannel route too', () => {
   // without BroadcastChannel must still get the next result opened.
   const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']]);
   inbox.context.rapidReviewState = true;
-  assert.equal(inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1), true);
+  assert.equal(inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1, []), true);
   assert.deepEqual(inbox.state.opens, ['172']);
 });
 
 test('the direct route arms the post-redraw advance when list mode is still loading', () => {
   const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
   inbox.context.rapidReviewState = true;
-  assert.equal(inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1), false, 'the caller re-fetches');
+  assert.equal(inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1, []), false, 'the caller re-fetches');
   assert.deepEqual(inbox.state.opens, [], 'nothing is opened before the redraw');
   assert.equal(inbox.context.pendingRapidReviewOpen, true);
   inbox.render([['170', 'HL7'], ['172', 'HL7']]);
@@ -455,7 +456,7 @@ test('a search the clinician makes while an advance is pending drops it and the 
 test('the direct route arms the advance for the re-fetch that follows it, not for a later search', () => {
   const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
   inbox.context.rapidReviewState = true;
-  inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1);
+  inbox.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1, []);
   inbox.reset();   // the popup's fetchInboxhubData()
   inbox.render([['170', 'HL7'], ['172', 'HL7']]);
   inbox.context.advancePendingRapidReview();
@@ -487,33 +488,30 @@ test('no fetch in flight means nothing to withdraw and nothing to resume', () =>
   assert.equal(inbox.state.viewFetches, 0);
 });
 
-test('the legacy removeReport opener entry point re-syncs a list still paging, once for the row on screen', () => {
-  const inbox = setup('list', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true);
+test('a legacy per-version opener refreshes server rows and totals once without guessing the filing set', () => {
+  const inbox = setup('preview', [['170','HL7'],['171','HL7'],['172','HL7']], false, true, 2);
   inbox.context.rapidReviewState = true;
-  inbox.context.removeReport('171', 'HL7');   // the row on screen: a full re-sync is required
-  inbox.context.removeReport('169', 'HL7');   // an older version in its chain: no row, no re-fetch
-  assert.equal(inbox.state.fetches, 1, 'one re-fetch for the chain, not one per version');
-  assert.equal(inbox.totals.totalLabsCount, 3);
-  assert.equal(inbox.context.pendingRapidReviewOpen, true);
-  inbox.render([['170', 'HL7'], ['172', 'HL7']]);
-  inbox.context.advancePendingRapidReview();
-  assert.deepEqual(inbox.state.opens, ['172'], 'the older version must not make the advance forget the successor');
+  inbox.context.removeReport('171','HL7');
+  inbox.context.removeReport('169','HL7');
+  assert.deepEqual(inbox.shown(),['HL7:170','HL7:171','HL7:172']);
+  assert.equal(inbox.totals.totalLabsCount,5);
+  assert.equal(inbox.state.submits,1);
+  assert.equal(inbox.state.fetches,0);
+  assert.equal(inbox.state.boundaryRequests.length,0);
+  assert.equal(inbox.state.scrolledTo,null);
 });
 
-test('the legacy removeReport opener entry point goes through the shared contract', () => {
-  // A popup running an older script calls this once per id in the chain and never asks for a
-  // re-fetch itself. Each call is one routing row; the row on screen goes, Rapid Review
-  // advances once, and an older version with no row of its own changes nothing further.
+test('a cached per-version opener refreshes authoritative rows and totals once', () => {
   const inbox = setup('preview', [['170', 'HL7'], ['171', 'HL7'], ['172', 'HL7']], false, true, 2);
   inbox.context.rapidReviewState = true;
   inbox.context.removeReport('171', 'HL7');
   inbox.context.removeReport('169', 'HL7');   // an older version in 171's chain: no card, still one row
-  assert.deepEqual(inbox.shown(), ['HL7:170', 'HL7:172']);
-  assert.equal(inbox.totals.totalLabsCount, 3, 'two calls, two routing rows');
-  assert.equal(inbox.state.boundaryRequests.length, 1, 'preview re-synced its boundary page');
-  assert.equal(inbox.state.fetches, 0, 'and no full re-fetch was started for the version with no card');
-  assert.equal(inbox.state.scrolledTo, '172');
-  assert.equal(inbox.context.pendingRapidReviewOpen, false, 'the version with no card must not arm a stray advance');
+  assert.deepEqual(inbox.shown(), ['HL7:170', 'HL7:171', 'HL7:172']);
+  assert.equal(inbox.totals.totalLabsCount, 5, 'a stale chain cannot decrement uncovered sources');
+  assert.equal(inbox.state.submits, 1);
+  assert.equal(inbox.state.boundaryRequests.length, 0);
+  assert.equal(inbox.state.fetches, 0);
+  assert.equal(inbox.state.scrolledTo, null);
 });
 
 test('Rapid Review on the re-fetch route opens the remembered row once a drawn page holds it', () => {
@@ -750,15 +748,15 @@ test('the drop helper itself reports whether a full re-sync is required, not jus
   // that browser would drop the item in place with pages still unloaded and reintroduce the
   // page-boundary bug. The contract is the shared guarantee, so it is asserted directly.
   const loading = setup('list', twoLabs, false, true);
-  assert.equal(loading.context.dropAcknowledgedInboxhubItem('170', 'HL7', 1), false,
+  assert.equal(loading.context.dropAcknowledgedInboxhubItem('170', 'HL7', 1, []), false,
     'a list still loading pages, so every caller must re-sync');
 
   const loaded = setup('preview', twoLabs, false, false);
-  assert.equal(loaded.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1), true,
+  assert.equal(loaded.context.dropAcknowledgedInboxhubItem('171', 'HL7', 1, []), true,
     'everything is loaded, so no caller needs to re-sync');
 
   const paged = setup('preview', twoLabs, false, true, 2);
-  assert.equal(paged.context.dropAcknowledgedInboxhubItem('170', 'HL7', 1), true,
+  assert.equal(paged.context.dropAcknowledgedInboxhubItem('170', 'HL7', 1, []), true,
     'preview with pages remaining re-syncs its own boundary page, so no caller may re-fetch on top');
   assert.equal(paged.state.boundaryRequests.length, 1);
 });
@@ -857,3 +855,33 @@ for (const raw of ['not JSON', 'null', JSON.stringify({filter: '&demographicFilt
     assert.equal(inbox.context.activeTypeFilter, null);
   });
 }
+
+for (const mode of ['list', 'preview']) {
+  test(mode + ' refreshes a fully loaded partial CML chain and prioritizes its retained source', () => {
+    const inbox = setup(mode, [['171','HL7'], ['190','HL7']], false, false);
+    inbox.context.rapidReviewState = true;
+    inbox.acknowledge({segmentID:'171',labType:'HL7',clearedCount:1,retainedVersionIds:[170]});
+    assert.equal(inbox.state.fetches,1);
+    assert.deepEqual(inbox.state.opens,[]);
+    inbox.render([['190','HL7'],['170','HL7']]);
+    inbox.context.hasMoreData = false;
+    if (mode === 'list') inbox.context.advancePendingRapidReview();
+    else inbox.context.settlePendingPreviewAdvance();
+    assert.equal(mode === 'list' ? inbox.state.opened : inbox.state.scrolledTo,'170');
+    // An opener call and its broadcast may carry the same acknowledgement.
+    inbox.acknowledge({segmentID:'171',labType:'HL7',clearedCount:1,retainedVersionIds:[170]});
+    inbox.acknowledge({action:'refresh',labType:'HL7',compatibilityFor:'171'});
+    assert.equal(inbox.state.fetches,1);
+    assert.equal(inbox.state.submits,0);
+    assert.equal(mode === 'list' ? inbox.state.opens.length : inbox.state.scrolls.length,1);
+    assert.ok(inbox.shown().includes('HL7:170'));
+    assert.equal(inbox.totals.totalLabsCount,4);
+  });
+}
+test('a cached HL7 sender without filing metadata refreshes instead of hiding uncovered results', () => {
+ const inbox=setup('list',twoLabs);
+ inbox.acknowledgeLegacy({segmentID:'171',labType:'HL7',clearedCount:1});
+ assert.equal(inbox.state.submits,1);
+ assert.equal(inbox.state.fetches,0);
+ assert.equal(inbox.totals.totalLabsCount,5);
+});

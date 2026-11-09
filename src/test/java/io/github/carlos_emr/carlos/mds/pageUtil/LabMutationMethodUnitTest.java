@@ -56,11 +56,15 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
             if (persistenceFails) data.when(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatus(
                     169, "999998", 'F', "PRIVATE_CLINICAL_COMMENT", "HL7"))
                     .thenThrow(new IllegalStateException("PRIVATE_PERSISTENCE_MESSAGE", new IllegalArgumentException("PRIVATE_PERSISTENCE_CAUSE")));
+            if (operation.equals("ack-response")) data.when(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(
+                    169, "999998", 'F', "PRIVATE_CLINICAL_COMMENT", "HL7", false, null))
+                    .thenReturn(new io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.ReportChainUpdate(
+                            0, java.util.List.of(169), java.util.List.of()));
             var action = new ReportStatusUpdate2Action();
             String result = operation.equals("ack-response") ? action.executemain() : action.addComment();
             assertThat(result).isEqualTo(persistenceFails ? "failure" : ActionSupport.NONE);
             if (operation.equals("ack-response")) {
-                data.verify(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersions(
+                data.verify(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(
                         169, "999998", 'F', "PRIVATE_CLINICAL_COMMENT", "HL7", false, null));
             } else {
                 data.verify(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatus(
@@ -75,7 +79,7 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @ValueSource(ints = {0, 1, 2})
     @DisplayName("should audit an acknowledgement only after the routing transaction succeeds")
-    void shouldAuditOnlyAfterSuccessfulRouting_whenAcknowledging(int failureStage) {
+    void shouldAuditOnlyAfterSuccessfulRouting_whenAcknowledging(int failureStage) throws Exception {
         boolean mutationFails = failureStage == 1;
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/oscarMDS/UpdateStatus");
         MockHttpServletResponse response = new MockHttpServletResponse();
@@ -102,13 +106,21 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
                         io.github.carlos_emr.carlos.log.LogConst.ACK, io.github.carlos_emr.carlos.log.LogConst.CON_HL7_LAB,
                         "169", request.getRemoteAddr(), "")).thenThrow(new IllegalStateException("injected audit failure"));
             }
-            data.when(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersions(
+            if (failureStage == 0) request.setParameter("ajaxcall", "yes");
+            data.when(() -> io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(
                     169, "999998", 'A', null, "HL7", false, null)).thenAnswer(invocation -> {
                         logActionMock.verifyNoInteractions();
                         if (mutationFails) throw new IllegalStateException("PRIVATE_ROUTING_MESSAGE", new IllegalArgumentException("PRIVATE_ROUTING_CAUSE"));
-                        return 2;
+                        return new io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.ReportChainUpdate(
+                                2, java.util.List.of(168,169), java.util.List.of(167));
                     });
-            assertThat(new ReportStatusUpdate2Action().executemain()).isEqualTo(mutationFails ? "failure" : ActionSupport.SUCCESS);
+            assertThat(new ReportStatusUpdate2Action().executemain()).isEqualTo(mutationFails ? "failure" : failureStage == 0 ? ActionSupport.NONE : ActionSupport.SUCCESS);
+            if (failureStage == 0) {
+                var result = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+                assertThat(result.path("clearedCount").asInt()).isEqualTo(2);
+                assertThat(result.path("affectedVersionIds").toString()).isEqualTo("[168,169]");
+                assertThat(result.path("retainedVersionIds").toString()).isEqualTo("[167]");
+            }
             if (mutationFails) {
                 assertThat(response.getStatus()).isEqualTo(500);
                 logActionMock.verifyNoInteractions();

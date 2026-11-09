@@ -444,7 +444,11 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
     @Test void shouldKeepOmittedObservationsUnreviewed_whenAcknowledgingAPartialCorrection() {
         int original=ingest("20260310080000","F","7010=5.1","7020=9.2");
         int partial=ingest("20260310120000","C","7010=12.7");
-        assertThat(io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.acknowledgeReport(partial,"999998","reviewed partial correction","HL7",false,null)).isEqualTo(1);
+        var update=io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(
+                partial,"999998",'A',"reviewed partial correction","HL7",false,null);
+        assertThat(update.clearedCount()).isEqualTo(1);
+        assertThat(update.affectedVersionIds()).containsExactly(partial);
+        assertThat(update.retainedVersionIds()).containsExactly(original);
         tx.executeWithoutResult(status->{
             assertThat(providers.findAllLabRoutingByIdandType(partial,"HL7").getFirst().getStatus()).isEqualTo("A");
             assertThat(providers.findAllLabRoutingByIdandType(original,"HL7").getFirst().getStatus()).isEqualTo("N");
@@ -452,5 +456,9 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
         int full=ingest("20260310140000","C","7010=15.2","7020=9.3");
         io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.acknowledgeReport(full,"999998","reviewed complete correction","HL7",false,null);
         tx.executeWithoutResult(status->{for(int id:List.of(original,partial,full))assertThat(providers.findAllLabRoutingByIdandType(id,"HL7").getFirst().getStatus()).isNotEqualTo("N");});
+        int laterPartial=ingest("20260310160000","C","7010=17.2");
+        var reviewed=io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(
+                laterPartial,"999998",'A',"already reviewed omitted source","HL7",false,null);
+        assertThat(reviewed.retainedVersionIds()).isEmpty();
     }
 }

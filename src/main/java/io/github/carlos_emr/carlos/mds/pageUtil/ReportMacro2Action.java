@@ -141,6 +141,8 @@ public class ReportMacro2Action extends ActionSupport {
         // flag, not success, to decide whether to drop the item from its list and counters.
         result.put("acknowledged", outcome.acknowledged());
         result.put("clearedCount", outcome.clearedCount());
+        result.set("affectedVersionIds", objectMapper.valueToTree(outcome.affectedVersionIds()));
+        result.set("retainedVersionIds", objectMapper.valueToTree(outcome.retainedVersionIds()));
         response.getWriter().write(result.toString());
         return NONE;
     }
@@ -155,7 +157,15 @@ public class ReportMacro2Action extends ActionSupport {
      *                     counters count routing rows, so the browser needs this number rather
      *                     than assuming one per acknowledged item.
      */
-    protected record MacroOutcome(boolean success, boolean acknowledged, int clearedCount) {
+    protected record MacroOutcome(boolean success, boolean acknowledged, int clearedCount,
+            java.util.List<Integer> affectedVersionIds, java.util.List<Integer> retainedVersionIds) {
+        protected MacroOutcome(boolean success, boolean acknowledged, int clearedCount) {
+            this(success, acknowledged, clearedCount, java.util.List.of(), java.util.List.of());
+        }
+        static MacroOutcome ran(boolean acknowledged, int clearedCount, CommonLabResultData.ReportChainUpdate chain) {
+            return chain == null ? ran(acknowledged, clearedCount)
+                    : new MacroOutcome(true, acknowledged, clearedCount, chain.affectedVersionIds(), chain.retainedVersionIds());
+        }
         static MacroOutcome notRun() {
             return new MacroOutcome(false, false, 0);
         }
@@ -178,7 +188,9 @@ public class ReportMacro2Action extends ActionSupport {
          */
         MacroOutcome combinedWith(MacroOutcome other) {
             return new MacroOutcome(success || other.success(), acknowledged || other.acknowledged(),
-                    Math.max(clearedCount, other.clearedCount()));
+                    Math.max(clearedCount, other.clearedCount()),
+                    java.util.stream.Stream.concat(affectedVersionIds.stream(), other.affectedVersionIds().stream()).distinct().toList(),
+                    java.util.stream.Stream.concat(retainedVersionIds.stream(), other.retainedVersionIds().stream()).distinct().toList());
         }
     }
 
@@ -214,6 +226,7 @@ public class ReportMacro2Action extends ActionSupport {
 
         boolean acknowledged = false;
         int clearedCount = 0;
+        CommonLabResultData.ReportChainUpdate chainUpdate = null;
 
         // The tickler's lab attachment is validated first, before the acknowledgement mutates
         // the routing rows: segmentID, labType and demographicNo are all request values, and a
@@ -275,8 +288,9 @@ public class ReportMacro2Action extends ActionSupport {
             // inbox shows one row per accession chain, so a macro that only stamped the newest
             // version left the row behind pointing at the previous version, and the lab looked
             // like the macro had done nothing. Same routine as the Acknowledge button.
-            clearedCount = CommonLabResultData.acknowledgeReport(segmentInt, providerNo, comment, labType,
-                    skipComment(providerNo), request.getParameter("multiID"));
+            chainUpdate = CommonLabResultData.updateReportStatusWithOlderVersionsDetailed(segmentInt, providerNo, 'A',
+                    comment, labType, skipComment(providerNo), request.getParameter("multiID"));
+            clearedCount = chainUpdate.clearedCount();
 
             // The routing transaction has already completed. A separate audit failure
             // must not hide the committed outcome or invite a duplicate macro retry.
@@ -309,7 +323,7 @@ public class ReportMacro2Action extends ActionSupport {
             ticklerAttachmentService.syncAttachments(loggedInInfo, t, pendingAttachment);
         }
 
-        return MacroOutcome.ran(acknowledged, clearedCount);
+        return MacroOutcome.ran(acknowledged, clearedCount, chainUpdate);
     }
 
     /**

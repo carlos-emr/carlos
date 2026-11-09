@@ -475,7 +475,8 @@ class CommonLabResultDataAcknowledgeUnitTest extends CarlosUnitTestBase {
                     if (wholeChain) {
                         // Exercise materialization of an older routing row too, independently
                         // of the already separately tested server-side version-chain lookup.
-                        common.when(() -> CommonLabResultData.olderVersionsOf(170, "DOC", null)).thenReturn(List.of(169));
+                        common.when(() -> CommonLabResultData.filingVersionsOf(170, "DOC", null))
+                                .thenReturn(new CommonLabResultData.FilingVersions(List.of(169), List.of()));
                         assertThat(CommonLabResultData.acknowledgeReport(170, "999998", "Keep [clinical] $1", "DOC", false, null))
                                 .isZero();
                         return true;
