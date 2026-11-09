@@ -127,8 +127,13 @@ public final class CmlVersionPolicy {
     public static List<Integer> order(Map<Integer, CMLHandler> reports) {
         record Revision(int report, int stage, Instant time, int correction) { }
         List<Revision> revisions = new ArrayList<>();
+        List<Observation> candidates = new ArrayList<>();
         for (var entry : reports.entrySet()) {
             CMLHandler handler = entry.getValue();
+            if (reports.size() > 1) {
+                if (hasUnsupportedStatus(handler)) throw new AmbiguousRevision("Unsupported CML observation status requires review");
+                candidates.addAll(observations(entry.getKey(), handler));
+            }
             int stage = 0, correction = 0;
             Instant time = Instant.MIN;
             for (int i = 0; i < handler.getOBRCount(); i++) {
@@ -146,6 +151,9 @@ public final class CmlVersionPolicy {
             }
             revisions.add(new Revision(entry.getKey(), stage, time, correction));
         }
+        // A report-level tie-break must never make conflicting observations appear
+        // superseded to automatic filing or current-report consumers.
+        winners(candidates);
         revisions.sort(Comparator.comparingInt(Revision::stage).thenComparing(Revision::time)
                 .thenComparingInt(Revision::correction).thenComparingInt(Revision::report));
         return revisions.stream().map(Revision::report).toList();

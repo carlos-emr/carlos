@@ -111,4 +111,17 @@ class CmlVersionPolicyUnitTest {
     void shouldCountAsciiFinalAndCorrectionStatuses_withoutUnicodeCaseFolding(String status) throws Exception {
         assertThat(handler("20260310120000", status, "7010=12.7").getOBXFinalResultCount()).isEqualTo(1);
     }
+
+    @Test void shouldRefuseClinicalReportOrdering_whenSameTimeCorrectionsConflict() throws Exception {
+        var sources=new LinkedHashMap<Integer,CMLHandler>();
+        sources.put(1,handler("20260310120000","C","7010=12.7"));
+        sources.put(2,handler("20260310120000","C","7010=13.1"));
+        assertThatThrownBy(()->CmlVersionPolicy.order(sources)).isInstanceOf(CmlVersionPolicy.AmbiguousRevision.class);
+    }
+    @Test void shouldRefuseClinicalReportOrdering_whenAnotherVersionHasAnUnsupportedStatus() throws Exception {
+        var sources=new LinkedHashMap<Integer,CMLHandler>();
+        sources.put(1,handler("20260310080000","F","7010=5.1"));
+        sources.put(2,handler("20260310120000","X","7010=13.1"));
+        assertThatThrownBy(()->CmlVersionPolicy.order(sources)).isInstanceOf(CmlVersionPolicy.AmbiguousRevision.class);
+    }
 }

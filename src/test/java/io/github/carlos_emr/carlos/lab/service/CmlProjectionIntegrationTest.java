@@ -414,4 +414,21 @@ class CmlProjectionIntegrationTest extends CarlosTestBase {
             assertThat(patients.findByLabNoAndLabType(incomplete.getLast(),"HL7")).allSatisfy(row->assertThat(row.getDemographicNo()).isEqualTo(patient));
         });
     }
+
+    @Test void shouldPreserveReviewStateAndExplicitSources_whenConflictingRevisionsCannotBeOrderedForFiling() {
+        int original=ingest("20260310080000","F","7010=5.1");
+        tx.executeWithoutResult(status->{var row=providers.findAllLabRoutingByIdandType(original,"HL7").getFirst();row.setStatus("A");providers.merge(row);});
+        int correction=ingest("20260310120000","C","7010=12.7");
+        int conflict=ingest("20260310120000","C","7010=13.1");
+        assertThat(active()).singleElement().satisfies(row->assertThat(row.getDataField()).isEqualTo("12.7"));
+        assertThat(service.status(conflict,actor).reason()).isEqualTo(CmlProjectionService.Reason.AMBIGUOUS_SOURCE);
+        assertThatThrownBy(()->new io.github.carlos_emr.carlos.lab.ca.on.CommonLabResultData().getMatchingLabsForMutation(Integer.toString(conflict),"HL7"))
+                .isInstanceOf(CmlVersionPolicy.AmbiguousRevision.class);
+        assertThat(Hl7textResultsData.getMatchingLabsForHistory(Integer.toString(conflict)).split(","))
+                .containsExactlyInAnyOrder(Integer.toString(original),Integer.toString(correction),Integer.toString(conflict));
+        tx.executeWithoutResult(status->{
+            assertThat(providers.findAllLabRoutingByIdandType(original,"HL7").getFirst().getStatus()).isEqualTo("A");
+            for(int id:List.of(correction,conflict))assertThat(providers.findAllLabRoutingByIdandType(id,"HL7").getFirst().getStatus()).isEqualTo("N");
+        });
+    }
 }
