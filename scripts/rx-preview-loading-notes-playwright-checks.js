@@ -46,7 +46,8 @@ async function workflow(s) {
     await s.context.unroute('**/rx/ViewPreview2?**',handler);
     await view.locator('#preview').evaluate(frame=>{frame.src=frame.src;});
     await view.frameLocator('#preview').locator('#preview2Form').waitFor();
-    h.assert(await view.locator('#rxPreviewLoading').isHidden(),'The transient preview loading notice did not clear');
+    // The form is attached before the iframe's load event applies notes and clears the notice.
+    await view.locator('#rxPreviewLoading').waitFor({state:'hidden'});
     await view.frameLocator('#preview').locator('#additNotes').filter({hasText:note}).waitFor();
     await rx.waitForLoadState('networkidle');
     await view.evaluate(()=>{window.onbeforeunload=null;});
