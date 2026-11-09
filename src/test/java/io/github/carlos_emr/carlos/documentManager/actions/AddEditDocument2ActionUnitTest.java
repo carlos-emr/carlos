@@ -510,11 +510,18 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     private void prepareReviewPost(boolean reviewDoc, boolean extraReviewDoc) {
-        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
-        action.setDocDesc("Synthetic review"); action.setDocType("Consultant Report"); action.setAppointmentNo("0");
-        action.setReviewDoc(reviewDoc); action.setExtraReviewDoc(extraReviewDoc);
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc("Synthetic review");
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+        action.setReviewDoc(reviewDoc);
+        action.setExtraReviewDoc(extraReviewDoc);
         // Forged page values: none of them may reach the stored review.
-        action.setReviewerId("999995"); action.setExtraReviewerId("999994"); action.setReviewDateTime("2001/01/01 00:00:00");
+        action.setReviewerId("999995");
+        action.setExtraReviewerId("999994");
+        action.setReviewDateTime("2001/01/01 00:00:00");
     }
 
     private static io.github.carlos_emr.carlos.commn.model.DocumentExtraReviewer extraReview(String provider) {
@@ -533,8 +540,11 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         } catch (Exception e) {
             throw new IllegalStateException(e);
         } finally {
-            if (previous == null) CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
-            else CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previous);
+            if (previous == null) {
+                CarlosProperties.getInstance().remove("ALLOW_UPDATE_DOCUMENT_CONTENT");
+            } else {
+                CarlosProperties.getInstance().setProperty("ALLOW_UPDATE_DOCUMENT_CONTENT", previous);
+            }
         }
     }
 
@@ -546,9 +556,13 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
         var documentsDao = mock(DocumentDao.class);
         when(documentsDao.find(123)).thenReturn(new io.github.carlos_emr.carlos.commn.model.Document(), null);
         registerMock(DocumentDao.class, documentsDao);
-        action.setMode("123"); action.setFunction("provider"); action.setFunctionId("999998");
-        action.setDocDesc("Synthetic review"); action.setDocType("Consultant Report");
-        action.setAppointmentNo("0"); action.setExtraReviewDoc(true);
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc("Synthetic review");
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+        action.setExtraReviewDoc(true);
         try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class);
              MockedStatic<PathValidationUtils> paths = mockStatic(PathValidationUtils.class)) {
             assertThat(action.execute2()).isEqualTo("failEdit");
