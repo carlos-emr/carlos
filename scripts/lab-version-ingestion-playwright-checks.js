@@ -273,7 +273,7 @@ async function workflow(s) {
           h.assert(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`)==='','Owned incomplete source was not established');
           const incomplete=labState(accession);
           report=await s.context.newPage();h.relabelStrictPage(report,'incomplete-cml-selected-report');
-          const response=await report.goto(h.appUrl(s.config.baseUrl,`/lab/CA/ALL/ViewLabDisplay?segmentID=${corrected}&showLatest=true`),{waitUntil:'networkidle'});
+          const response=await report.goto(h.appUrl(s.config.baseUrl,`/lab/CA/ALL/ViewLabDisplayAjax?segmentID=${corrected}&showLatest=true`),{waitUntil:'networkidle'});
           h.assert(response&&response.status()===200,'Incomplete history prevented selected-report display');
           await inspect(report,corrected,'Incomplete CML history');
           h.assert(await report.locator('[data-carlos-cml-chain="unavailable"]').isVisible(),'Incomplete history was silently presented as complete');
