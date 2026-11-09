@@ -7,10 +7,23 @@ passes, a registered script, and a successful unit test do not establish an
 installed workflow pass. Leave tickets open until their complete acceptance
 has current evidence.
 
-The follow-up clinical fixes have passing focused Java, Node and tooling
-regressions. Complete replacement packages and the new ON/BC audit, CML-version
-and literal-view installed checks are being qualified; earlier package retakes
-below are retained history and do not qualify the changed clinical paths.
+The complete `67495a962dc0` candidate matched 6,206 production-class,
+changed-JSP and translated-resource entries through its WAR, Debian payload
+and both local installations. ON/BC installed CI at `a040ff73b291`
+independently rebuilt the packages and passed all seven checks, including
+audit reads, native lab versions and qualified results. The stronger local
+lab matrix also passed on both provinces with a historical zero completeness
+counter and a same-time late final. Failed/interrupted runs remain retained;
+no expectation was waived.
+
+The clinical follow-up at `e2b2c4979a2f` retains the authorized note ID for
+auditing and explicitly refuses a missing consent type before a DAO query,
+while preserving inactive-type queries. Its complete shipping source build
+and lintian passed, all 6,206 checked package entries matched, and 34,526 actual
+H2 cases passed with 148 explicit prerequisite/routed skips. All 6,192 tested
+production classes match that package. The coverage/document follow-up retains
+this Java source tree. Final-head CI qualifies its own rebuilt artifacts;
+historical evidence never substitutes for that qualification.
 
 ## Scope and disposition
 
@@ -24,9 +37,9 @@ below are retained history and do not qualify the changed clinical paths.
 | #5709 | Retain lookup CRUD and consumer isolation. Provider add/edit forms omit inactive choices; edit explicitly preserves and labels its current retired value. The consumer test checks both that preservation and the new-provider boundary. Lookup add/remove/reorder now require POST and have direct/dispatcher GET/HEAD and authorized POST controls; current ON/BC lookup lifecycle and consumer-isolation retakes passed. |
 | #5708 | The current ON native multi-recipient/routing retake passed with no residue. The offered New/Filed status is source-wide; no per-recipient control is invented. This check is registered for ON. |
 | #5730 | PDF suffix matching now handles upper/mixed case; action tests inspect stored page count and MIME. Current ON/BC native eDoc/Inbox format, suffix-case, opaque/malformed-storage, retry and exact multipart-limit retakes passed; opaque storage is not represented as content validation. |
-| #5803 | Qualified bounds are excluded from exact numeric graph points. Accepted measurement literals now preserve source spelling. The explicit #5828 contract retains the shipped filter: final-status Pending remains unfiled, with visible unsupported-history and grid-scope explanations in all five languages. Original reports/PDFs must retain Pending exactly; fresh ON/BC installed retakes are required. |
+| #5803 | Qualified bounds are excluded from exact numeric graph points. Accepted measurement literals preserve source spelling. The explicit #5828 contract retains the shipped filter: final-status Pending remains unfiled, with visible unsupported-history and grid-scope explanations in all five language bundles. Original reports/PDFs retain Pending exactly. ON/BC installed CI and local retakes passed; final-head CI retains all report, graph, tooltip and PDF assertions. |
 | #5727 | Corrected request-scoped First Nations selected/original values and removed a missing focus handler; separate required First Nations round-trip and encoding profiles enable the module. Both profiles passed on current ON/BC packages. Two owned three-digit communities enabled round-trip setup; complete lookup bytes were restored and the application cache was restarted. |
-| #5726 | CML F/C observations both count as complete; clinical observation date and correction status precede the source-ID tie break. Existing correction metadata is interpreted from the stored source without rewriting it. Historical deliveries no longer replace active measurements. Preserve all raw versions, independent review state and duplicate handling. Fresh ON/BC ingestion retakes must qualify #5819/#5820. |
+| #5726 | CML F/C observations both count as complete; clinical observation date and correction status precede the source-ID tie break. Existing correction metadata is interpreted from the stored source without rewriting it. Historical deliveries no longer replace active measurements. ON/BC native retakes passed for original/correction/older/same-time-final ingestion, a deliberately simulated owned pre-fix completeness counter, independent review state, immutable raw sources and exact duplicate replay. Final-head installed CI includes this complete matrix. |
 | #5794 | Only the error check provisions temporary fault routes; exact descriptor restoration is required before its supervisor exits. Current ON/BC packaged retakes passed with exact descriptor restoration, fault-class removal and no residue. Broader development/lifecycle filter qualification remains required. |
 | #6025 | Growth persistence tests compare all five submitted headers, with H2 and physical MariaDB executions. |
 | #6093 | A real physical-table grouped history test covers independent MAX projections, historical ordering, the EctFormData caller and other-patient isolation. Required in generated and ON/BC Flyway native lanes. |
@@ -43,11 +56,11 @@ below are retained history and do not qualify the changed clinical paths.
 | #5973 | Native DAO URLs use the packaged ROUND/old-alias conversion options through the compatibility driver. |
 | #5977 | Source-contract tests pin both the DrugRef lock goal/path and absence of the lock-skip flag. The new PR package job executes the shipping source-build pipeline. |
 | #6048 | Jasper compiles all eight dynamically dispatched JSP fragments in addition to the ordinary JSP execution; an exposed source-level incompatibility was repaired. |
-| #6062 | Candidate coverage-floor regeneration, zero-coverage disposition and freshness enforcement remain outstanding. No waiver is implied. |
+| #6062 | Source/blob-bound candidate floors are regenerated; CI detects stale Java sources, comparison bases and missing/stale floors. Twenty-seven policy tests cover refusal paths and stale-result removal. Executable zero floors require an actual named, source-bound review permalink. Higher old floors and all required ZIP refusal lines are retained. No waiver was added: H2 still refuses 29 unreviewed zero floors and unmet higher metrics; the complete native-lane union remains required. See `docs/testing/coverage-floor-policy.md`. |
 | #6069 | Java runs on main/release pushes; PR CI now builds both complete Debian packages and tests ON/BC installs. The final head must pass these CI lanes. On restricted AppArmor kernels, the disposable container exposes securityfs before installation so the package can load its dedicated Chromium userns profile; the kernel restriction and renderer sandbox remain enabled. Installed CI also exercises a real eForm PDF. |
 | #6070 | Node, packaging Python and O19 generator CI use strict outcome runners. Native ON/BC references are provisioned for required generator cases. The pinned CLI's separate upstream suite retains its own contract. |
 | #6072 | Error-page detection recognizes colon-bearing HTTP status and the sanitizer heading/reference signature; failed body reads propagate. Controls cover legitimate reference prose. |
-| #6076 | Finding 141 passed on ON/BC and its pin is retired. Fixes for 206–208 add patient/note revision-read auditing, one chart-print audit before its first disclosed PDF byte, and structured patient IDs on consent/merge manager events. Audit persistence failures withhold clinical output. Focused tests, including actual H2 group-note audit rows, pass; findings remain fatal until fresh ON/BC installed retakes pass. |
+| #6076 | Finding 141 passed on ON/BC and its pin is retired. Fixes for 206–208 add patient/note revision-read auditing, exactly one patient/provider-identified print event before the first PDF byte, and structured patient IDs on consent/merge manager events. Audit failures withhold clinical output. Native ON/BC audit retakes and actual H2 group-note audit rows pass. The authorized note ID is retained instead of reparsing a nullable parameter; changing-request and audit-refusal controls pass. All assertions remain fatal without a pin. |
 
 ## Qualification accounting
 
@@ -66,9 +79,11 @@ control for manual reassignment. Both ON and BC passed, including profile restor
 The complete `b8f89793c5d7` package candidate matched 6,197 production-class/changed-JSP
 entries through the WAR, Debian payload and both installations. Later commits change
 test/CI infrastructure, rename an unused OAuth exception parameter, and repair
-CML versioning, literal views and audit events. Those clinical changes require a
-fresh complete package candidate; final-head build/install CI qualifies its own
-rebuilt artifacts separately. Earlier ON/BC document, OAuth and eForm
+CML versioning, literal views and audit events. The subsequent complete
+`67495a962dc0` candidate and `a040ff73b291` ON/BC installed CI qualify those
+clinical paths; `e2b2c4979a2f` adds the final nullable-input guards and full
+passing Java retake. Final-head build/install CI qualifies its own rebuilt
+artifacts separately. Earlier ON/BC document, OAuth and eForm
 widget/PDF bundles passed with no skips or residue; the ON guideline and forwarding
 retakes and BC billing selector retakes also passed. These focused passes do not
 substitute for the remaining full profiles, repetitions and lifecycle acceptance.
@@ -96,3 +111,22 @@ identified in the matrix. Their absence never becomes PASS. Local checks with
 restart/key persistence, crash recovery, load and production-view coverage stay
 in scope. This local scope cannot establish full vendor-qualified release
 readiness.
+
+## Additional local qualification and remaining gates
+
+The complete `67495a962dc0` installation passed all 16 backup-core assertions
+on both ON and BC: actual restic backup/drill, SQL/file/config/key restoration,
+application read denial, encryption/canary checks, missing-repository refusal,
+owned cleanup and private recovery escrow. These core passes do not qualify
+retention, interruption or terminal purge, and remain bound to their candidate.
+
+The explicit scope audit still has 2,573 unowned production paths; published
+beta5/beta6 migration bytes remain identical. The independent binary-client
+comparison against pinned beta6 retained 132 unreviewed observations: one
+baseline client rejection, 103 public-API findings in classes untouched by this
+PR, 26 changed wire values and two unqualified baseline outputs. These are
+release-wide compatibility decisions, not a passing compatibility receipt.
+Do not restore unsafe legacy SQL APIs or approve those changes implicitly.
+Full profiles/repetitions, current package lifecycle, crash/load and production
+view coverage remain distinct acceptance. The matrix refuses full release
+readiness while any of these local gates is incomplete.

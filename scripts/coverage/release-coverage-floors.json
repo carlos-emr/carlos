@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "81a2c2175f9a438f5195327e4783e7650375ffd8",
-  "comparisonSha256": "85163db32ecf2c43fdf2cd89f9a952f2fa836af5f111e288d724e8015f7c2d4c",
-  "baselineCommit": "a040ff73b291d76e301b1dd31857980bc3dc042f",
-  "baselineReportSha256": "aedea7aba70e08568550f78137ef1362ed9b2f1e43ca1ee45cc52fc62b63682b",
+  "sourceTree": "cb1cace51b74d9eb5e9ad0e1bfcee99b9f894532",
+  "comparisonSha256": "97504a1320b4e43f05d399167447ceed7553465313558e524a25d3e000552d5a",
+  "baselineCommit": "e2b2c4979a2f50e2a3fb90a163ef60e133f2c980",
+  "baselineReportSha256": "8274254dbec0fe3606181c4f02b8c71ef080702e1dcf849a39199ca0e9003235",
   "baselineLane": "Candidate Ubuntu 26.04/JDK 25 H2 baseline. Routed/prerequisite skips remain explicit. Previous higher floors and refusal lines are retained; native-lane union qualification and zero-floor review remain required.",
   "baselineTestCounts": {
-    "tests": 34523,
+    "tests": 34526,
     "failures": 0,
     "errors": 0,
     "skipped": 148
   },
-  "baselineTestReportsSha256": "206d2481251b9352f756d2893c3247f990bfaac8ab917864bbf13721b4fd99b0",
+  "baselineTestReportsSha256": "18aa2dbf84570c04b485f24da4f80ccb5ed617af71b93f6cd1d35ad5730332a7",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -360,7 +360,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "185c384cea15650573688283502d240322134c59"
+      "sourceBlob": "fc3f521c8add2211faf1693c406998df3a27d077"
     },
     "src/main/java/io/github/carlos_emr/carlos/casemgmt/web/CaseManagementView2Action.java": {
       "lines": 100.0,
@@ -1860,13 +1860,13 @@
       "lines": 98.03921568627452,
       "instructions": 97.5609756097561,
       "branches": 90.9090909090909,
-      "sourceBlob": "40b76cb4ddd34a0aab06aa25af7fac4757775977"
+      "sourceBlob": "028c5d5d891525656d0219a78583600b89af0ec0"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/parsers/CMLHandler.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "6ed005543cb5385edf133e9ec8ce3e6acfd592bd"
+      "sourceBlob": "4ca2bd6d3df6b0a77a816cc63ba05546d46fd6bf"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/upload/MessageUploader.java": {
       "lines": 100.0,
@@ -1992,7 +1992,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "34e54fae2f9f374fe0d3d8557759d0ca9f7e5c55"
+      "sourceBlob": "52ccb153fa268c54278ebe202e9cd58a23537d22"
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/RBTGroupManager.java": {
       "lines": 100.0,

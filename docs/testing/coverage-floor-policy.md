@@ -42,11 +42,11 @@ do not lower them to obtain a pass. Enumerate every changed source, retaining
 only the documented nonexecutable exclusions. Record current source blobs and
 report/test evidence hashes. Never carry a waiver to changed source bytes.
 
-The `a040ff73b291d76e301b1dd31857980bc3dc042f` H2 refresh has 34,523 actual
+The `e2b2c4979a2f50e2a3fb90a163ef60e133f2c980` H2 refresh has 34,526 actual
 test cases, no failures/errors, and 148 explicit prerequisite/routed skips.
 It records 467 source-file floors and six package-annotation exclusions,
 retaining higher pre-existing floors for 11 files and all four required ZIP
 refusal lines. Twenty-nine zero floors remain unreviewed. H2 alone also misses
-six line, six instruction and ten branch floors. These are explicit failures;
+seven line, six instruction and ten branch floors. These are explicit failures;
 the required native-lane union and reviewed dispositions remain outstanding.
 This refresh is not a passing release coverage receipt.
