@@ -134,15 +134,6 @@ jobs:
               --output target/native-xml-contracts
           '
 
-      - name: Preserve native XML compatibility evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: native-xml-compatibility
-          path: target/native-xml-contracts/
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Compile packaged Edit Appointment servlet
         run: |
           docker exec carlos-tomcat-dev bash -c '
@@ -158,6 +149,15 @@ jobs:
         # before the post steps run.
         if: always()
         run: sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE"
+
+      - name: Preserve native XML compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-xml-compatibility
+          path: target/native-xml-contracts/
+          if-no-files-found: error
+          retention-days: 14
 
   tests:
     # No dependency on the build job: make install --run-tests compiles from
