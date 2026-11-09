@@ -19171,6 +19171,21 @@
       ],
       "fixtures": "Five native source labs and a separate owned patient/control, preclaimed unique accessions, exact message/measurement/routing/checksum/archive cleanup. Read-only allocator checks refuse dangling references; unknown submitted writes retain all fixtures and private journals. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5803: literal qualified/qualitative/numeric results across actual entry, stored HL7, native reports/history/grid/rows/visible tooltips, every offered Plot and actual PDFs. Independent printed-axis OCR and pixel geometry reject bound coercion; exact PDF columns preserve attribution. #5827/#5828 remain fatal with no expected-failure pin. Requires Poppler and English Tesseract."
+    },
+    {
+      "name": "tickler-calendar-quick-picks",
+      "script": "scripts/tickler-calendar-quick-picks-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned patient and one native-created task with its attachment/link/comment/history rows; removed by owned marker and exact identifiers. Freezes Date in each composer only; no shared clock, preferences or provider state changes.",
+      "notes": "#6041 Add/Edit month-end and leap-year clamps, cumulative/negative/Clear/manual-base Add behavior, today-based Edit behavior and exact saved service dates."
     }
   ]
 }
