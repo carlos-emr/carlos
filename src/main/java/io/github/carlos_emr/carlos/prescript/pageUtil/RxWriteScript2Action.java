@@ -1864,7 +1864,7 @@ public final class RxWriteScript2Action extends ActionSupport {
         var messages = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         String link = request.getContextPath() + "/rx/choosePatient?demographicNo="
                 + RxSessionBeanResolver.requestedDemographicNo(request);
-        response.getWriter().write("<!doctype html><html><meta charset=\"UTF-8\"><body><p role=\"alert\">"
+        response.getWriter().write("<!doctype html><html><meta charset=\"UTF-8\"><body><p role=\"alert\">" // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss -- SafeEncode applies null-safe OWASP encoding to every dynamic value in its HTML context.
                 + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(messages.getString(messageKey))
                 + "</p><a href=\"" + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(link) + "\">"
                 + io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(messages.getString("oscarRx.groups.back"))

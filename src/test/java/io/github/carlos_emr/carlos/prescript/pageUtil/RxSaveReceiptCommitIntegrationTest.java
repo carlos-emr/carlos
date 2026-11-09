@@ -234,12 +234,19 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
             assertThat(response.getContentAsString()).contains("RX_ALREADY_SAVED");
             var legacyResponse = new MockHttpServletResponse();
             servlet.when(ServletActionContext::getResponse).thenReturn(legacyResponse);
+            // Even a malformed container context cannot escape the encoded recovery href.
+            request.setContextPath("/carlos\" onclick=\"alert(1)");
             var legacy = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
             legacy.setAction("updateAndPrint");
             assertThat(legacy.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
             assertThat(legacyResponse.getStatus()).isEqualTo(409);
             assertThat(legacyResponse.getContentType()).startsWith("text/html");
             assertThat(legacyResponse.getContentAsString()).contains("already saved").doesNotContain("RX_ALREADY_SAVED");
+            var recoveryPage = org.jsoup.Jsoup.parse(legacyResponse.getContentAsString());
+            assertThat(recoveryPage.select("script,[onclick]")).isEmpty();
+            assertThat(recoveryPage.select("a")).hasSize(1);
+            assertThat(recoveryPage.select("a").attr("href")).isEqualTo(
+                    request.getContextPath() + "/rx/choosePatient?demographicNo=1001");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class)).isEqualTo(1L);
         }
     }
