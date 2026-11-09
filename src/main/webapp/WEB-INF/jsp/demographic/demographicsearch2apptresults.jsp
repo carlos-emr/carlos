@@ -295,6 +295,12 @@
             <INPUT TYPE="hidden" NAME="ptstatus" VALUE="active">
 
             <input type="hidden" name="fromAppt" value="<carlos:encode value='<%= request.getParameter("fromAppt") != null ? request.getParameter("fromAppt") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
+            <input type="hidden" name="ticklerMessage" value="<carlos:encode value='<%= request.getParameter("ticklerMessage") != null ? request.getParameter("ticklerMessage") : "" %>' context="htmlAttribute"/>">
+            <input type="hidden" name="xml_appointment_date" value="<carlos:encode value='<%= java.util.Objects.toString(request.getParameter("xml_appointment_date"), "") %>' context="htmlAttribute"/>">
+            <input type="hidden" name="priority" value="<carlos:encode value='<%= java.util.Objects.toString(request.getParameter("priority"), "") %>' context="htmlAttribute"/>">
+            <% if (request.getParameter("taskTo") != null) { %>
+            <input type="hidden" name="taskTo" value="<carlos:encode value='<%= request.getParameter("taskTo") %>' context="htmlAttribute"/>">
+            <% } %>
             <input type="hidden" name="originalPage"
                    value="<carlos:encode value='<%= request.getParameter("originalPage") != null ? request.getParameter("originalPage") : "" %>' context="htmlAttribute"/>"><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
             <input type="hidden" name="bFirstDisp"

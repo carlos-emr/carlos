@@ -52,9 +52,11 @@ function checkFields() {
 
 // Field-specific guidance shared by the picker and save-time validation.
 function ticklerFormatMessage(format) {
+    var form = document.getElementById && document.getElementById('ticklerAddForm');
+    if (form) return form.getAttribute(format === 'Y-m-d' ? 'data-date-error' : 'data-time-error');
     return format === 'Y-m-d'
         ? 'Invalid service date. Use yyyy-MM-dd (for example 2030-12-31).'
-        : 'Invalid service time. Use hh:mm AM/PM (for example 10:30 AM).';
+        : 'Invalid service time. Use hh:mm AM/PM or 24-hour HH:mm (for example 14:30).';
 }
 
 // Flatpickr's default parser accepts partial matches and rolls impossible dates/times forward.
@@ -70,9 +72,14 @@ function parseTicklerValue(value, format) {
         if (date.getFullYear() !== +match[1] || date.getMonth() !== +match[2] - 1
                 || date.getDate() !== +match[3]) return undefined;
     } else if (format === 'h:i K') {
-        match = /^(0?[1-9]|1[0-2]):([0-5]\d) (AM|PM)$/.exec(value);
-        if (!match) return undefined;
-        date.setHours(+match[1] % 12 + (match[3] === 'PM' ? 12 : 0), +match[2], 0, 0);
+        match = /^(0?[1-9]|1[0-2]):([0-5]\d) (AM|PM)$/i.exec(value);
+        if (match) {
+            date.setHours(+match[1] % 12 + (match[3].toUpperCase() === 'PM' ? 12 : 0), +match[2], 0, 0);
+        } else {
+            match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+            if (!match) return undefined;
+            date.setHours(+match[1], +match[2], 0, 0);
+        }
     } else {
         return undefined;
     }
@@ -111,25 +118,32 @@ function initTicklerPickers() {
         }
         // Flatpickr recognizes "today" before calling parseDate. Check raw text before any
         // commit event, including outside pointer presses (which precede blur).
-        function rejectInvalidText() {
+        var invalidText = null;
+        function rejectInvalidText(event) {
             if (input.value && !parseTicklerValue(input.value, format)) {
-                input.value = '';
+                invalidText = input.value;
+                // Stop Flatpickr's commit handler from clearing/reinterpreting raw input.
+                if (event) event.stopImmediatePropagation();
                 showError();
             }
         }
         function rejectOnEnter(event) {
-            if (event.key === 'Enter') rejectInvalidText();
+            if (event.key === 'Enter') rejectInvalidText(event);
         }
         function rejectOnOutsidePress(event) {
+            if (input._flatpickr.calendarContainer.contains(event.target)) invalidText = null;
             if (event.target !== input && !input._flatpickr.calendarContainer.contains(event.target)) {
-                rejectInvalidText();
+                rejectInvalidText(event);
             }
         }
         input.addEventListener('blur', rejectInvalidText, true);
         input.addEventListener('keydown', rejectOnEnter, true);
         document.addEventListener('pointerdown', rejectOnOutsidePress, true);
+        document.addEventListener('mousedown', rejectOnOutsidePress, true);
+        document.addEventListener('touchstart', rejectOnOutsidePress, true);
         function clearIfValid() {
-            if (parseTicklerValue(input.value, format)) clearError();
+            invalidText = input.value && !parseTicklerValue(input.value, format) ? input.value : null;
+            if (!invalidText) clearError();
         }
         input.addEventListener('input', clearIfValid);
         flatpickr(input, {
@@ -145,13 +159,18 @@ function initTicklerPickers() {
             errorHandler: showError,
             onDestroy: function () {
                 document.removeEventListener('pointerdown', rejectOnOutsidePress, true);
+                document.removeEventListener('mousedown', rejectOnOutsidePress, true);
+                document.removeEventListener('touchstart', rejectOnOutsidePress, true);
                 input.removeEventListener('input', clearIfValid);
                 input.removeEventListener('blur', rejectInvalidText, true);
                 input.removeEventListener('keydown', rejectOnEnter, true);
                 feedback.remove();
             },
+            onClose: function () {
+                if (invalidText !== null) { input.value = invalidText; showError(); }
+            },
             onChange: function (dates) {
-                if (dates.length) clearError();
+                if (dates.length && invalidText === null) clearError();
             }
         });
     });

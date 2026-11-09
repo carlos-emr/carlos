@@ -123,7 +123,8 @@ async function workflow(s) {
   }
   async function save(page,id,actor,label,message=marker+' '+label) {
     h.assert(await field(page).inputValue()===id,'Composer has another patient');await assertAssignee(page,actor);
-    await page.locator('#ticklerMessage').fill(message);
+    if (arguments.length < 5) await page.locator('#ticklerMessage').fill(message);
+    else h.assert(await page.locator('#ticklerMessage').inputValue() === message, 'Draft changed before save');
     await page.locator('input[name="xml_appointment_date"]').fill(sql.value('SELECT CURDATE()'));
     const [response]=await Promise.all([page.waitForResponse(answer=>answer.request().method()==='POST'&&new URL(answer.url()).pathname.endsWith('/tickler/DbTicklerAdd')),
       waitForSaveSentinel(page,'ticklerSubmitFrame','tickler-save-ok'),page.locator('form[name="serviceform"] input.btn-primary[name="Button"]').first().click()]);
@@ -132,6 +133,7 @@ async function workflow(s) {
     h.assert(submitted.get('task_assigned_to')===actor.fixture.providerNo&&submitted.get('demographic_no')===id,'Native request submitted another patient/assignee');
     const rows=sql.rows(`SELECT tickler_no,demographic_no,task_assigned_to,creator,status FROM tickler WHERE message=${q(message)}`);
     h.assert(rows.length===1&&JSON.stringify(rows[0].slice(1))===JSON.stringify([id,actor.fixture.providerNo,author.fixture.providerNo,'A']),'Saved MRP task has wrong identity, assignee or creator');
+    h.assert(sql.value(`SELECT HEX(message) FROM tickler WHERE tickler_no=${rows[0][0]}`) === Buffer.from(submitted.get('ticklerMessage'), 'utf8').toString('hex').toUpperCase(), 'Stored task text differs from the submitted draft');
     if(!page.isClosed())await page.close();
     const view=views.get(page);
     if(view) {
@@ -228,7 +230,7 @@ async function workflow(s) {
   await unavailable('inactive',b.fixture.providerNo);
   h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no=${controlId}`))===controlState,'Unavailable MRP cases changed the control task');
   owner();
-  if(findings.length)throw h.markFailedStep(new AggregateError(findings,findings.map(error=>error.failedStep+': '+error.message).join('; ')),findings[0].failedStep);
+  require('./lib/workflow-findings').throwFindings(findings);
 }
 if(require.main===module)runWorkflow(NAME,workflow,{openMaster:false,preflightConfig:()=>{
   if(process.env.CARLOS_DISPOSABLE_HOST!=='true'||process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Requires CARLOS_DISPOSABLE_HOST=true and EXCLUSIVE=1 for owned MRP fixtures/cache retirement');
