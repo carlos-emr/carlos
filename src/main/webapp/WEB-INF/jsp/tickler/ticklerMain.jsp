@@ -308,6 +308,8 @@
             <fmt:message key="encounter.LeftNavBar.AllLabs" var="msgAllLabs"/>
             <fmt:message key="tickler.ticklerMain.errorLoadFailed" var="msgErrorLoadFailed"/>
             <fmt:message key="tickler.ticklerMain.errorSaveViewFailed" var="msgErrorSaveViewFailed"/>
+            <fmt:message key="tickler.ticklerMain.msgConfirmDelete" var="msgConfirmDelete"/>
+            const i18nConfirmDelete = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgConfirmDelete") %>' context="javaScriptBlock"/>';
             const i18nAllLabs = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgAllLabs") %>' context="javaScriptBlock"/>';
             const i18nErrorLoadFailed = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgErrorLoadFailed") %>' context="javaScriptBlock"/>';
             const i18nErrorSaveViewFailed = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgErrorSaveViewFailed") %>' context="javaScriptBlock"/>';
@@ -688,6 +690,21 @@
                 }
             }
 
+            /**
+             * Asks before Delete changes the status of the ticked tasks (#5683). Returns false when the
+             * clinician dismisses the prompt, so the caller must not submit. With nothing ticked the
+             * server only redirects back (DbTicklerMain2Action), so there is nothing to confirm.
+             */
+            function confirmDeleteSelected() {
+                var ml = document.ticklerform;
+                var len = ml.elements.length;
+                for (var i = 0; i < len; i++) {
+                    var e = ml.elements[i];
+                    if (e.name === "checkbox" && e.checked) return confirm(i18nConfirmDelete);
+                }
+                return true;
+            }
+
             function saveView() {
                 let url = ctx + "/saveWorkView";
                 let params = {
@@ -1039,7 +1056,7 @@
                         <input type="button" class="btn btn-danger status-action-live" id="deleteButton"
                                value="<fmt:message key="tickler.ticklerMain.btnDelete"/>"
                                hidden
-                               onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
+                               onclick="if (!confirmDeleteSelected()) return false; document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
                         <input type="button" class="btn btn-primary"
                                value="<fmt:message key='tickler.ticklerMain.btnAddTickler'/>"
                                onClick="popupPage('500','800', '<%= request.getContextPath() %>/tickler/ViewAddTickler?updateParent=true&parentAjaxId=<carlos:encode value='<%= parentAjaxId != null ? parentAjaxId : "" %>' context="uriComponent"/>&bFirstDisp=false&messageID=null&demographic_no=<carlos:encode value='<%= demoviewParam != null ? demoviewParam : "" %>' context="uriComponent"/>')">

@@ -2109,7 +2109,8 @@
       "env": [
         "MACRO_LAB_NO",
         "MACRO_PROVIDER_NO"
-      ]
+      ],
+      "fixtures": " The template lab is copied with an owned accession before staging; cleanup removes only that copy, its routing lock and its own review metadata, preserving all template routing."
     },
     {
       "name": "lab-macro-prefs-editor",
@@ -5759,7 +5760,7 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "The risk/checklist editors failed on 2026.08 loading a missing decision/annualreview/antenatalrecord.css; they now link the shared decision/antenatal/antenatalrecord.css.",
-      "fixtures": "Inserts a marker-named encounterForm row (the shipped Annual form is hidden) and the owned patient's desannualreviewplan rows; both deleted. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "fixtures": "Inserts a marker-named encounterForm row (the shipped Annual form is hidden) and the owned patient's desannualreviewplan rows; both deleted. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "lab-forwarding-rules",
@@ -6217,8 +6218,10 @@
         "all"
       ],
       "timeoutSec": 240,
-      "env": [],
-      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges.",
+      "env": [
+        "TICKLER_DST_GAP_ZONE"
+      ],
+      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges. Invalid keyboard input retains text and guidance without Save; supported 24-hour and mixed-case AM/PM values save their exact times. Optional TICKLER_DST_GAP_ZONE=America/Toronto or America/Vancouver requires that installed clinic timezone and verifies its real spring gap, explicit refusal, no writes, retained draft and successful correction. Vancouver uses the historical 2026-03-08 gap because it stays on daylight time afterwards.",
       "fixtures": "SQL-seeded dashboard and indicator template (no shipped dashboard, no working import UI), a throwaway login holding the dashboard privileges and three owned patients; all removed."
     },
     {
@@ -6563,7 +6566,7 @@
         "RX_FAX_DOCUMENT_DIR"
       ],
       "notes": "Fails at its last step on 2026.08: the patient tickler list (ticklerDemoMain) answers 500 for a patient with a tickler (LazyInitializationException). The WorkFlow step skips while WORKFLOW is off.",
-      "fixtures": "One owned patient with its suggestion, tickler and one PDF document (row, ctl_document link and file); pre-existing suggestions asserted unchanged."
+      "fixtures": "One owned patient with its suggestion, tickler and one PDF document (row, ctl_document link and file); pre-existing suggestions asserted unchanged. Also owns a throwaway login and unique role for revocation/403 checks; these grants never modify existing roles and cleanup asserts their removal."
     },
     {
       "name": "billing-on-invoice-third-party",
@@ -15065,14 +15068,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [
         "DOCUMENT_DIR"
       ],
       "fixtures": "Owned FAKE- patient; two marker-named text HRM reports (lib/gap-records-hrm-fixture.js: the XML file in DOCUMENT_DIR and its HRMDocument row), one linked to the owned patient (HRMDocumentToDemographic) and routed to the login (HRMDocumentToProvider), one linked to nobody. Cleanup deletes the check's ticklers (by marker) with their attachments, comments and history, then both reports with their links and files, and asserts none remain. No clinic-wide state is changed.",
-      "notes": "Making a tickler from an HRM report's Tickler button (displayHRMReport.jsp mainTickler_<id> > tickler/ForwardDemographicTickler, docType=HRM, then tickler/DbTicklerAdd); lab-linked-tickler (open PR) covers a lab's Tickler and document-tickler a document's; tickler-forward-filters leaves this forward out. Steps: E-Chart > HRM Documents > the owned report > Tickler opens Add Tickler naming the report's one linked patient with the report, and Save stores one tickler for that patient with the report attached (ticklerdocs H), asks nothing and closes; the patient's tickler list shows the tickler with one attachment; a report linked to no patient offers Tickler and Msg disabled."
+      "notes": "Making a tickler from an HRM report's Tickler button (displayHRMReport.jsp mainTickler_<id> > tickler/ForwardDemographicTickler, docType=HRM, then tickler/DbTicklerAdd); lab-linked-tickler (open PR) covers a lab's Tickler and document-tickler a document's; tickler-forward-filters leaves this forward out. Steps: E-Chart > HRM Documents > the owned report > Tickler opens Add Tickler naming the report's one linked patient with the report, and Save stores one tickler for that patient with the report attached (ticklerdocs H), asks nothing and closes; the patient's tickler list shows the tickler with one attachment; a report linked to no patient offers Tickler and Msg disabled. HRMUtil.listHRMDocuments deliberately returns no reports outside the Ontario billing region; this native HRM entry workflow runs on ON."
     },
     {
       "name": "rx-static-script-pickup",
@@ -15302,7 +15305,7 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "ON"
+        "all"
       ],
       "timeoutSec": 180,
       "env": [
@@ -15819,7 +15822,7 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "ON"
+        "all"
       ],
       "timeoutSec": 180,
       "env": [
@@ -15836,7 +15839,7 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "ON"
+        "all"
       ],
       "timeoutSec": 180,
       "env": [
@@ -18482,11 +18485,7 @@
       "envSet": {
         "DIALOG_CONFIRMATION_TARGET": "tickler"
       },
-      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently.",
-      "expectedFailure": {
-        "finding": 337,
-        "step": "dismissing task Delete confirms once and preserves every task and status history"
-      }
+      "notes": "Task 38: dismiss the real Delete confirmation before the existing accepted-write/control assertions; missing confirmation fails independently. Fixed for #5683."
     },
     {
       "name": "rx-save-failure-retry-only-new",
@@ -18651,7 +18650,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Verifies typed report field metadata and add/delete commits, provider role and PHCP counts, and authenticated CSV dispatch after JSP relocation."
     },
     {
@@ -18995,11 +18994,12 @@
         "CARLOS_DISPOSABLE_HOST",
         "EXCLUSIVE"
       ],
-      "notes": "#5812: native MRP preference, two owned patient/MRP pairs, actual task writes/recipient patient access, patient-free and changed-patient draft/assignee behavior, explicit manual assignment and missing/inactive MRP behavior. Semantic failures remain fatal while safe owned manual-recovery paths continue. Requires an active clinic and disposable/exclusive service management for fixture provider-cache retirement.",
-      "fixtures": "Four owned actors and two owned patients, separate unchanged control task; full known task/history cleanup, strict second-patient reference checks, original first-patient MRP restore, owned provider archive/property cleanup and post-browser application cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5812: native MRP preference, two owned patient/MRP pairs, exact task writes and recipient patient access; independent same-session drafts, repeated search and normal paging, Back, changed-patient defaults, deliberate recipient precedence and missing/inactive MRPs. A recipient made inactive after composition must answer 400, retain the draft and write nothing before manual recovery. Semantic failures remain fatal while safe owned recovery paths continue. Multisite coverage also checks MRP/Default preferences with deliberate recipients and clinic clears through patient selection and Back, refuses a cleared save and verifies recovered stored recipients. Requires an active clinic and disposable/exclusive service management for provider-cache retirement.",
+      "fixtures": "Four owned actors, two task patients and four additional owned patients for the normal five-row search pagination; a separate unchanged control task and, in multisite mode, two owned clinics with different recipients. Full task/history and patient cleanup, original first-patient MRP restore, owned provider archive/billing-centre/property cleanup and post-browser cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "provider",
         "providersite",
+        "site",
         "providerArchive",
         "property:tickler_task_assignee"
       ]
@@ -19225,6 +19225,21 @@
       ],
       "fixtures": "Five native source labs and a separate owned patient/control, preclaimed unique accessions, exact message/measurement/routing/checksum/archive cleanup. Read-only allocator checks refuse dangling references; unknown submitted writes retain all fixtures and private journals. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "#5803: literal qualified/qualitative/numeric results across actual entry, stored HL7, native reports/history/grid/rows/visible tooltips, every offered Plot and actual PDFs. Independent printed-axis OCR and pixel geometry reject bound coercion; exact PDF columns preserve attribution. #5827/#5828 remain fatal with no expected-failure pin. Requires Poppler and English Tesseract."
+    },
+    {
+      "name": "tickler-calendar-quick-picks",
+      "script": "scripts/tickler-calendar-quick-picks-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [],
+      "fixtures": "Owned patient and one native-created task with its attachment/link/comment/history rows; removed by owned marker and exact identifiers. Freezes Date in each composer only; no shared clock, preferences or provider state changes.",
+      "notes": "#6041 Add/Edit month-end and leap-year clamps, cumulative/negative/Clear/manual-base Add behavior, today-based Edit behavior and exact saved service dates."
     }
   ]
 }
