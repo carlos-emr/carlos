@@ -114,6 +114,16 @@ readiness.
 
 ## Additional local qualification and remaining gates
 
+The `f8e2771b0e6` full local Java retake again executed 34,526 cases with no
+test failures/errors and 148 explicit root/prerequisite skips. Its formal
+receipt correctly remained FAIL: the release matrix registered only 143 skip
+routes, while CI injected the other five permission destinations dynamically.
+The correction registers a real unprivileged permission lane, requires its
+exact five cases and same-class JaCoCo counters, and makes CI refuse a missing
+registered route. No skip is promoted to a pass. All 40 workstreams remain;
+the additional lane increases the matrix to 91 checks. The original failed
+formal receipt is retained, and qualification must be retaken on the correction.
+
 The complete `ca2bd8bf4836` source-built candidate passed lintian and matched
 all 6,206 checked payload entries in both installed provinces. Its 6,192
 production classes are byte-identical to the full `e2b2c4979a2f` Java retake.

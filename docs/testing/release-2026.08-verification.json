@@ -68,7 +68,10 @@
         "scripts/run-playwright-suite.js",
         "scripts/playwright-suite-manifest.test.js",
         "scripts/framingham-ukpds-calculator.test.js",
-        "scripts/nginx-rate-limit.test.js"
+        "scripts/nginx-rate-limit.test.js",
+        "scripts/check-ci-permission-test.sh",
+        "scripts/ci/permission-cases.json",
+        "scripts/ci/verify-h2-reports.py"
       ],
       "implementation": "Add an opt-in strict release mode and a Node result gate. Treat required SKIP, known-fail, unexpected-pass, TODO, cancellation, empty selection, missing structured result, timeout and cleanup failure as incomplete verification. Retain the existing diagnostic classifications.",
       "cases": "Exercise the outcome truth table using real child exit statuses and malformed/missing JUnit; cleanup failure overrides SKIP/known-fail; duplicate names, omitted shards and profile/province filters cannot hide checks.",
@@ -79,7 +82,8 @@
         "node-all",
         "java-all",
         "build",
-        "packaged-full"
+        "packaged-full",
+        "java-unprivileged-permission"
       ]
     },
     {
@@ -91,7 +95,10 @@
         "scripts/coverage/changed_line_audit.py",
         "scripts/coverage/test_changed_line_audit.py",
         ".github/workflows/maven-project.yml",
-        ".github/workflows/sonarcloud.yml"
+        ".github/workflows/sonarcloud.yml",
+        "scripts/check-ci-permission-test.sh",
+        "scripts/ci/permission-cases.json",
+        "scripts/ci/verify-h2-reports.py"
       ],
       "implementation": "Generate fresh JaCoCo reports in the authoritative test lane, collect changed-line instruction/branch misses, and enforce a reviewed diff coverage gate. Add source/SHA freshness checks and test-source-to-report discovery reconciliation. Keep Sonar failure-ignore analysis separate from the test verdict.",
       "cases": "Partially covered lines, unexecuted branches, missing classes, stale reports for the same filenames, new/removed/renamed tests, parameterized/nested/dynamic tests, empty reports and intentional non-executable changes.",
@@ -105,7 +112,8 @@
         "packaged-full",
         "coverage-ratchet",
         "jsp-compile",
-        "production-js-view-coverage"
+        "production-js-view-coverage",
+        "java-unprivileged-permission"
       ]
     },
     {
@@ -1191,7 +1199,7 @@
         "--output",
         "{run}/python.json"
       ],
-      "minimumCases": 331,
+      "minimumCases": 363,
       "runtimeConstraints": {
         "python": "3.14"
       },
@@ -2647,12 +2655,97 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.CarlosPropertiesModernChartPersistenceUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldRefuseCutover_whenUnsafeSourceIsReadOnly",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.integration.mcedt.mailbox.ActionUtilsOutboxTimestampUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldCopyNothing_whenTheLastOpenCannotBeRecorded",
+              "container": "ActionUtils outbox staging window",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.managers.ApplicationTempPurgeJobUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldCountScanFailure_whenDirectoryUnreadable",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.billings.ca.on.service.BillingOutputLockUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldReportUnavailableOutputFolder_whenFolderIsReadOnly",
+              "container": "",
+              "check": "java-unprivileged-permission"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.decision.AntenatalRiskConfigServiceUnitTest": {
+          "check": "java-unprivileged-permission",
+          "cases": [
+            {
+              "name": "shouldRefuse_whenExistingConfigurationIsUnreadable",
+              "container": "Antenatal risk configuration service",
+              "check": "java-unprivileged-permission"
+            }
+          ]
         }
       },
       "runtimeConstraints": {
         "java": "25"
       },
       "requireClassIdentity": true
+    },
+    {
+      "id": "java-unprivileged-permission",
+      "kind": "junit",
+      "profiles": [
+        "all"
+      ],
+      "repetitions": 1,
+      "command": [
+        "bash",
+        "scripts/check-ci-permission-test.sh"
+      ],
+      "environment": {
+        "CARLOS_PERMISSION_REPORTS": "{run}/reports",
+        "CARLOS_PERMISSION_EXECUTION": "{run}/jacoco.exec",
+        "CARLOS_PERMISSION_COVERAGE": "{run}/coverage"
+      },
+      "requiresExecutables": [
+        "bash",
+        "setpriv"
+      ],
+      "runtimeConstraints": {
+        "java": "25"
+      },
+      "minimumCases": 5,
+      "requiredFamilies": {
+        "CarlosPropertiesModernChartPersistenceUnitTest": 1,
+        "ActionUtilsOutboxTimestampUnitTest": 1,
+        "ApplicationTempPurgeJobUnitTest": 1,
+        "BillingOutputLockUnitTest": 1,
+        "AntenatalRiskConfigServiceUnitTest": 1
+      },
+      "requireCoverage": true,
+      "requireClassIdentity": true,
+      "timeoutSeconds": 300
     },
     {
       "id": "java-date-zones",

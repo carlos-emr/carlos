@@ -170,6 +170,8 @@ jobs:
           docker exec carlos-tomcat-dev bash scripts/check-ci-permission-test.sh
           python3 -m pip install --require-hashes -r scripts/ci/requirements.txt
           python3 scripts/ci/verify-h2-reports.py --reports target/surefire-reports --permission-reports target/ci-permission-reports
+          test -s target/ci-permission-reports/jacoco.exec
+          test -s target/ci-permission-reports/coverage/jacoco.xml
 
       - name: Exercise removed-library compatibility oracles
         run: |
@@ -286,6 +288,8 @@ jobs:
           path: |
             target/site/jacoco/jacoco.xml
             target/jacoco.exec
+            target/ci-permission-reports/jacoco.exec
+            target/ci-permission-reports/coverage/jacoco.xml
           if-no-files-found: error
           retention-days: 14
 
