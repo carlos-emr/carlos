@@ -283,6 +283,7 @@
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
+    boolean cmlVersionChainUnavailable = Boolean.TRUE.equals(request.getAttribute("cmlVersionChainUnavailable"));
 
     String duplicateOfLab = null;
     Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
@@ -306,7 +307,9 @@
 
             handler = handlers.get(0);
         } else {
-            multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
+            Hl7textResultsData.DisplayLabVersions displayVersions = Hl7textResultsData.getMatchingLabsForDisplay(segmentID);
+            multiLabId = displayVersions.labIds();
+            cmlVersionChainUnavailable |= !displayVersions.reliable();
             segmentIDs = multiLabId.split(",");
             LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
 
@@ -1048,6 +1051,10 @@ input[id^='acklabel_']{
 </head>
 
 <body onLoad="javascript:matchMe(); loadHL7hx();">
+<% if (cmlVersionChainUnavailable) { %>
+<div class="alert alert-warning" role="alert" data-carlos-cml-chain="unavailable"><fmt:message key="cml.versionChain.unavailable"/></div>
+<fieldset disabled style="border:0;margin:0;padding:0;">
+<% } %>
 
 <!-- form forwarding of the lab -->
 <%
@@ -3007,6 +3014,7 @@ input[id^='acklabel_']{
 <script type="text/javascript"
         src="${pageContext.servletContext.contextPath}/share/javascript/oscarMDSIndex.js"></script>
 
+<% if (cmlVersionChainUnavailable) { %></fieldset><% } %>
 </body>
 </html>
 <%!

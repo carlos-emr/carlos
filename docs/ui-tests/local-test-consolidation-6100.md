@@ -164,3 +164,33 @@ Do not restore unsafe legacy SQL APIs or approve those changes implicitly.
 Full profiles/repetitions, current package lifecycle, crash/load and production
 view coverage remain distinct acceptance. The matrix refuses full release
 readiness while any of these local gates is incomplete.
+
+## Final review retake
+
+At `3d892ab89c46`, all nineteen Actions workflows, the automatic DCO check
+and PR-label checks passed. Downloaded CI artifact hashes matched GitHub's
+digests: 34,526 H2 cases (148 explicit routed/prerequisite skips), five passing
+permission cases, four passing legacy compatibility cases, and native counts
+3,128/260/118. Both main and permission JaCoCo XML/execution pairs were present.
+The separate local same-class union completed all ten required Java executions
+but refused acceptance: 29 unreviewed zero floors and three line, four
+instruction and eight branch misses. No floor was lowered and no waiver added.
+
+The subsequent complete CodeRabbit review identified additional corrections:
+required Python/Node outcome retention; isolated permission-test working paths;
+specific JAXB and mount-refusal diagnostics; supervisor signal diagnostics;
+coverage freshness through squash/rebase merges; exact CML version de-duplication;
+accurate localized history notices; and the task warning/test-name conventions.
+Freshness still requires the exact Java tree, comparison and every source blob;
+unavailability of a historical commit is explicitly reported.
+
+Incomplete related CML sources now have a separate display-only resolver. The
+authorized selected report remains readable with a translated warning and
+disabled controls. Mutation and measurement resolution retain the strict API;
+query failures still propagate. Unit cases require the selected-only warning,
+normal version authorization, exact de-duplication and continued mutation
+refusal. The native browser workflow adds a temporary, owned unreadable-source
+probe with exact restoration and independent source/clinical/control snapshots.
+These production corrections require fresh source/package/browser qualification;
+the earlier `ca2bd8bf4836` installed-payload identity does not cover changed Java
+or JSP bytes. Historical failed and partial retakes remain retained separately.

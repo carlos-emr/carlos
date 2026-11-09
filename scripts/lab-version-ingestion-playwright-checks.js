@@ -196,6 +196,32 @@ async function workflow(s) {
       h.assert(sql.value(`SELECT COUNT(*) FROM fileUploadCheck WHERE filename LIKE ${q('%'+fileName+'%')}`)==='4','Correction replay changed checksum identities');
       h.assert(fs.readdirSync(process.env.LAB_UPLOAD_DOCUMENT_STORE).filter(name=>name.startsWith('LabUpload.'+fileName+'.')).length===4,'Correction replay changed archived-upload count');
       console.log('  Observed exact correction replay: no new version, route, clinical or measurement effect; original raw history preserved');
+      await s.step('an incomplete historical CML source retains a warned read-only selected report',async()=>{
+        const originalBody=sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`);
+        const before=labState(accession),clinicalBefore=readPatientState(sql,patient);
+        let report;
+        try {
+          // Only this workflow's owned source is made unreadable, then restored
+          // exactly. Neither the selected correction nor its measurements change.
+          sql.execute(`UPDATE hl7TextMessage SET message='' WHERE lab_id=${original} AND message=${q(originalBody)}`);
+          h.assert(sql.value(`SELECT message FROM hl7TextMessage WHERE lab_id=${original}`)==='','Owned incomplete source was not established');
+          const incomplete=labState(accession);
+          report=await s.context.newPage();h.relabelStrictPage(report,'incomplete-cml-selected-report');
+          const response=await report.goto(h.appUrl(s.config.baseUrl,`/lab/CA/ALL/ViewLabDisplay?segmentID=${corrected}&showLatest=true`),{waitUntil:'networkidle'});
+          h.assert(response&&response.status()===200,'Incomplete history prevented selected-report display');
+          await inspect(report,corrected,'Incomplete CML history');
+          h.assert(await report.locator('[data-carlos-cml-chain="unavailable"]').isVisible(),'Incomplete history was silently presented as complete');
+          const controls=report.locator('fieldset[disabled] input,fieldset[disabled] button,fieldset[disabled] select,fieldset[disabled] textarea');
+          h.assert(await controls.count()>0,'Read-only recovery has no guarded report controls');
+          for(const control of await controls.all())h.assert(await control.isDisabled(),'Incomplete history left a report control enabled');
+          h.assert(JSON.stringify(labState(accession))===JSON.stringify(incomplete),'Read-only recovery changed lab sources, reviews or measurements');
+          assertPatientStateUnchanged(clinicalBefore,readPatientState(sql,patient),'Incomplete CML history display');checkControl();
+        } finally {
+          sql.execute(`UPDATE hl7TextMessage SET message=${q(originalBody)} WHERE lab_id=${original} AND message=''`);
+          h.assert(JSON.stringify(labState(accession))===JSON.stringify(before),'Owned historical source was not restored exactly');
+          if(report&&!report.isClosed()){await report.waitForLoadState('networkidle',{timeout:30000});await report.close();}
+        }
+      });
     }});
     checkControl();
   }});

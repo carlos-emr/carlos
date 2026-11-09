@@ -48,6 +48,15 @@ does not require rewriting clinical records. Historical deliveries retain their
 raw messages and review/routing state but do not mutate active measurements.
 The other vendor ordering paths retain their existing contracts.
 
+The final recovery probe temporarily clears only the owned original source's
+encoded body. The independently ingested correction must remain readable through
+the native display action, with its exact patient/value/status, an explicit
+incomplete-chain warning and disabled report controls. Source, routing, review
+and measurement snapshots must remain unchanged during that read. The original
+body is restored and the complete source snapshot checked in `finally`. The
+strict resolver used by mutations still refuses incomplete chains; query failures
+are never converted into a selected-report fallback.
+
 Earlier native ON/BC retakes reproduced two separate findings, whose fixes now
 require fresh installed qualification:
 

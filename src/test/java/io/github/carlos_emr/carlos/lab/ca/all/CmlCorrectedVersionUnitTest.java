@@ -96,6 +96,8 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
                 Hl7TextMessage message = messages.find(id);
                 parsers.verify(() -> Factory.getHandler(message), times(1));
             }
+            assertThat(Hl7textResultsData.getMatchingLabsForDisplay(Integer.toString(selected)))
+                    .isEqualTo(new Hl7textResultsData.DisplayLabVersions(sameTimeFinal ? "11,13,12" : "13,11,12", true));
             parsers.verify(() -> Factory.getHandler(foreign), never());
         }
         assertThat(correction.getFinalResultCount()).isZero(); // A read does not rewrite historical metadata.
@@ -123,6 +125,14 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining(missing ? "no stored source" : "cannot be parsed");
             parsers.verify(() -> Factory.getHandler(previous), times(missing ? 0 : 1));
+            assertThat(Hl7textResultsData.getMatchingLabsForDisplay("12"))
+                    .isEqualTo(new Hl7textResultsData.DisplayLabVersions("12", false));
+            // Read recovery must never turn the strict mutation resolver into a fallback.
+            assertThatThrownBy(() -> Hl7textResultsData.getMatchingLabs("12"))
+                    .isInstanceOf(IllegalStateException.class);
+            when(infos.findByLabIdViaMagic(12)).thenThrow(new IllegalStateException("synthetic query failure"));
+            assertThatThrownBy(() -> Hl7textResultsData.getMatchingLabsForDisplay("12"))
+                    .isInstanceOf(IllegalStateException.class).hasMessage("synthetic query failure");
         }
     }
 
