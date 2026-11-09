@@ -104,6 +104,22 @@ def main():
         def classpath(webapp):
             return os.pathsep.join(map(str, [classes, webapp / 'WEB-INF/classes', webapp / 'WEB-INF/lib/*', args.tomcat_jsp_api.resolve()]))
         subprocess.run(['javac', '-cp', classpath(new), '-d', str(classes), str(PROBE)], check=True)
+        changed_inventory = root / 'changed-inventory.json'
+        changed_inventory.write_bytes(INVENTORY.read_bytes().replace(b'commn.model.Demographic', b'commn.model.Xemographic', 1))
+        oversized_inventory = root / 'oversized-inventory.json'
+        oversized_inventory.write_bytes(INVENTORY.read_bytes() + b' ')
+        input_guards = []
+        for label, provider, inventory, expected in [
+                ('unsupported-provider', 'java.lang.Runtime', INVENTORY, 'Unknown native probe provider or profile'),
+                ('changed-inventory', 'glassfish', changed_inventory, 'Native XML inventory differs from its reviewed pin'),
+                ('oversized-inventory', 'glassfish', oversized_inventory, 'Native XML inventory differs from its reviewed pin')]:
+            rejected_output = root / (label + '-output')
+            refusal = subprocess.run(['java', '-cp', classpath(new), 'NativeXmlContractProbe',
+                provider, 'none', str(inventory), str(rejected_output)], capture_output=True, text=True)
+            if (refusal.returncode == 0 or rejected_output.exists()
+                    or 'java.lang.IllegalArgumentException: ' + expected not in refusal.stderr):
+                raise EvidenceError('Native XML probe did not refuse ' + label + ' before output')
+            input_guards.append(label)
         runs = [('old-glassfish', old, 'glassfish', 'none', None),
                 ('old-moxy', old, 'moxy', 'none', None),
                 ('published', new, 'glassfish', 'published', None),
@@ -128,7 +144,7 @@ def main():
            for provider, rows in comparisons.items()}}
     details = args.output / 'comparison-details.json'
     gate.write_json(details, {'schemaVersion': 1, 'scope': 'issue-5721-native-objects-and-explicit-profiles',
-        'wholeReleaseQualified': False, 'invalidPublishedCases': invalid, 'comparisons': comparisons})
+        'wholeReleaseQualified': False, 'inputGuards': input_guards, 'invalidPublishedCases': invalid, 'comparisons': comparisons})
     result = args.result or args.output / 'result.json'
     if result.parent.resolve() not in (args.output.resolve(), args.output.parent.resolve()):
         raise EvidenceError('Native XML result must remain inside its evidence run')

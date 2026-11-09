@@ -23,7 +23,67 @@ public final class NativeXmlContractProbe {
     private static final TimeZone TORONTO=TimeZone.getTimeZone("America/Toronto");
     private static String provider, profile;
     private static JAXBContext context(String factory,Class<?> type) throws Exception {
-        return (JAXBContext)Class.forName(factory).getMethod("createContext",Class[].class,Map.class).invoke(null,new Class<?>[]{type},Map.of());
+        Class<?> allowed = switch (factory) {
+            case "org.glassfish.jaxb.runtime.v2.ContextFactory" -> Class.forName("org.glassfish.jaxb.runtime.v2.ContextFactory");
+            case "org.eclipse.persistence.jaxb.JAXBContextFactory" -> Class.forName("org.eclipse.persistence.jaxb.JAXBContextFactory");
+            default -> throw new IllegalArgumentException("Unsupported native JAXB factory");
+        };
+        return (JAXBContext)allowed.getMethod("createContext",Class[].class,Map.class).invoke(null,new Class<?>[]{type},Map.of());
+    }
+    /** Fixed issue inventory: no caller-selected class name reaches reflection. */
+    private static Class<?> fixtureClass(String name) throws ClassNotFoundException {
+        return switch (name) {
+            case "commn.model.Demographic" -> Class.forName(BASE+"commn.model.Demographic");
+            case "commn.model.ProfessionalSpecialist" -> Class.forName(BASE+"commn.model.ProfessionalSpecialist");
+            case "commn.model.Provider" -> Class.forName(BASE+"commn.model.Provider");
+            case "model.LookupCodeValue" -> Class.forName(BASE+"model.LookupCodeValue");
+            case "webserv.rest.to.AbstractSearchResponse" -> Class.forName(BASE+"webserv.rest.to.AbstractSearchResponse");
+            case "webserv.rest.to.AllergyResponse" -> Class.forName(BASE+"webserv.rest.to.AllergyResponse");
+            case "webserv.rest.to.AppointmentExtResponse" -> Class.forName(BASE+"webserv.rest.to.AppointmentExtResponse");
+            case "webserv.rest.to.DemographicResponse" -> Class.forName(BASE+"webserv.rest.to.DemographicResponse");
+            case "webserv.rest.to.DrugSearchResponse" -> Class.forName(BASE+"webserv.rest.to.DrugSearchResponse");
+            case "webserv.rest.to.InboxResponse" -> Class.forName(BASE+"webserv.rest.to.InboxResponse");
+            case "webserv.rest.to.MessagingResponse" -> Class.forName(BASE+"webserv.rest.to.MessagingResponse");
+            case "webserv.rest.to.NavbarResponse" -> Class.forName(BASE+"webserv.rest.to.NavbarResponse");
+            case "webserv.rest.to.OscarSearchResponse" -> Class.forName(BASE+"webserv.rest.to.OscarSearchResponse");
+            case "webserv.rest.to.PreventionResponse" -> Class.forName(BASE+"webserv.rest.to.PreventionResponse");
+            case "webserv.rest.to.ProviderApptsCountResponse" -> Class.forName(BASE+"webserv.rest.to.ProviderApptsCountResponse");
+            case "webserv.rest.to.ProviderPeriodAppsResponse" -> Class.forName(BASE+"webserv.rest.to.ProviderPeriodAppsResponse");
+            case "webserv.rest.to.SchedulingResponse" -> Class.forName(BASE+"webserv.rest.to.SchedulingResponse");
+            case "webserv.rest.to.TicklerResponse" -> Class.forName(BASE+"webserv.rest.to.TicklerResponse");
+            case "webserv.rest.to.model.AdmissionTo1" -> Class.forName(BASE+"webserv.rest.to.model.AdmissionTo1");
+            case "webserv.rest.to.model.AllergyTo1" -> Class.forName(BASE+"webserv.rest.to.model.AllergyTo1");
+            case "webserv.rest.to.model.AllowedAppointmentTypeTransfer" -> Class.forName(BASE+"webserv.rest.to.model.AllowedAppointmentTypeTransfer");
+            case "webserv.rest.to.model.AppointmentExtTo" -> Class.forName(BASE+"webserv.rest.to.model.AppointmentExtTo");
+            case "webserv.rest.to.model.AppointmentTo1" -> Class.forName(BASE+"webserv.rest.to.model.AppointmentTo1");
+            case "webserv.rest.to.model.BookingProviderTransfer" -> Class.forName(BASE+"webserv.rest.to.model.BookingProviderTransfer");
+            case "webserv.rest.to.model.BookingScheduleTemplateCodeTransfer" -> Class.forName(BASE+"webserv.rest.to.model.BookingScheduleTemplateCodeTransfer");
+            case "webserv.rest.to.model.CaseManagementIssueTo1" -> Class.forName(BASE+"webserv.rest.to.model.CaseManagementIssueTo1");
+            case "webserv.rest.to.model.ConsultationAttachmentTo1" -> Class.forName(BASE+"webserv.rest.to.model.ConsultationAttachmentTo1");
+            case "webserv.rest.to.model.ConsultationRequestTo1" -> Class.forName(BASE+"webserv.rest.to.model.ConsultationRequestTo1");
+            case "webserv.rest.to.model.ConsultationResponseTo1" -> Class.forName(BASE+"webserv.rest.to.model.ConsultationResponseTo1");
+            case "webserv.rest.to.model.DemographicTo1" -> Class.forName(BASE+"webserv.rest.to.model.DemographicTo1");
+            case "webserv.rest.to.model.DocumentTo1" -> Class.forName(BASE+"webserv.rest.to.model.DocumentTo1");
+            case "webserv.rest.to.model.EFormTo1" -> Class.forName(BASE+"webserv.rest.to.model.EFormTo1");
+            case "webserv.rest.to.model.FilterDefinitionTransfer" -> Class.forName(BASE+"webserv.rest.to.model.FilterDefinitionTransfer");
+            case "webserv.rest.to.model.MeasurementTo1" -> Class.forName(BASE+"webserv.rest.to.model.MeasurementTo1");
+            case "webserv.rest.to.model.PharmacyInfoTo1" -> Class.forName(BASE+"webserv.rest.to.model.PharmacyInfoTo1");
+            case "webserv.rest.to.model.PreventionTo1" -> Class.forName(BASE+"webserv.rest.to.model.PreventionTo1");
+            case "webserv.rest.to.model.ProgramProviderTo1" -> Class.forName(BASE+"webserv.rest.to.model.ProgramProviderTo1");
+            case "webserv.rest.to.model.ProgramTo1" -> Class.forName(BASE+"webserv.rest.to.model.ProgramTo1");
+            case "webserv.rest.to.model.ScheduleTemplateCodeTo" -> Class.forName(BASE+"webserv.rest.to.model.ScheduleTemplateCodeTo");
+            case "webserv.rest.to.model.SearchConfigTo1" -> Class.forName(BASE+"webserv.rest.to.model.SearchConfigTo1");
+            case "webserv.rest.to.model.TicklerTo1" -> Class.forName(BASE+"webserv.rest.to.model.TicklerTo1");
+            case "webserv.transfer_objects.AppointmentArchiveTransfer" -> Class.forName(BASE+"webserv.transfer_objects.AppointmentArchiveTransfer");
+            case "webserv.transfer_objects.AppointmentTransfer" -> Class.forName(BASE+"webserv.transfer_objects.AppointmentTransfer");
+            case "webserv.transfer_objects.CalendarScheduleCodePairTransfer" -> Class.forName(BASE+"webserv.transfer_objects.CalendarScheduleCodePairTransfer");
+            case "webserv.transfer_objects.DayWorkScheduleTransfer" -> Class.forName(BASE+"webserv.transfer_objects.DayWorkScheduleTransfer");
+            case "webserv.transfer_objects.DocumentTransfer" -> Class.forName(BASE+"webserv.transfer_objects.DocumentTransfer");
+            case "webserv.transfer_objects.DrugTransfer" -> Class.forName(BASE+"webserv.transfer_objects.DrugTransfer");
+            case "webserv.transfer_objects.PrescriptionTransfer" -> Class.forName(BASE+"webserv.transfer_objects.PrescriptionTransfer");
+            case "webserv.transfer_objects.ScheduleTemplateCodeTransfer" -> Class.forName(BASE+"webserv.transfer_objects.ScheduleTemplateCodeTransfer");
+            default -> throw new IllegalArgumentException("Unsupported native XML fixture class");
+        };
     }
     private static RuntimeTypeInfoSet model(Class<?> type) throws Exception {
         return ((JAXBContextImpl)context("org.glassfish.jaxb.runtime.v2.ContextFactory",type)).getTypeInfoSet();
@@ -247,13 +307,19 @@ public final class NativeXmlContractProbe {
         provider=args[0];profile=args[1];
         if(!Set.of("glassfish","moxy").contains(provider) || !Set.of("none","published","moxy-legacy","moxy-date-only-birthday","glassfish-numeric-characters","glassfish-legacy").contains(profile)) throw new IllegalArgumentException("Unknown native probe provider or profile");
         Class.forName(provider.equals("glassfish")?"org.glassfish.jaxb.runtime.v2.ContextFactory":"org.eclipse.persistence.jaxb.JAXBContextFactory");
-        Path inventory=Path.of(args[2]),output=Path.of(args[3]);Files.createDirectories(output);
+        Path inventory=Path.of(args[2]),output=Path.of(args[3]);
+        if(Files.size(inventory)!=2987)throw new IllegalArgumentException("Native XML inventory differs from its reviewed pin");
+        byte[] inventoryBytes=Files.readAllBytes(inventory);
+        String inventoryHash=HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(inventoryBytes));
+        if(!inventoryHash.equals("41d1fc8b1eba3c63effa2ead971490549c8c2d9a52d2b1d81a68bbe309a91693"))
+            throw new IllegalArgumentException("Native XML inventory differs from its reviewed pin");
+        Files.createDirectories(output);
         TimeZone.setDefault(TORONTO);
-        var json=new com.fasterxml.jackson.databind.ObjectMapper();List<String> ids=json.readValue(Files.readString(inventory),List.class);
+        var json=new com.fasterxml.jackson.databind.ObjectMapper();List<String> ids=json.readValue(inventoryBytes,List.class);
         if(ids.size()!=56 || new HashSet<>(ids).size()!=56)throw new IllegalArgumentException("Native inventory must contain all 56 unique issue observations");
         Map<String,Object> cases=new LinkedHashMap<>();
         for(String id:ids) {
-            String[] parts=id.split(":");Class<?> type=Class.forName(BASE+parts[0]);Map<String,Object> record=new LinkedHashMap<>();cases.put(id,record);
+            String[] parts=id.split(":");Class<?> type=fixtureClass(parts[0]);Map<String,Object> record=new LinkedHashMap<>();cases.put(id,record);
             try {
                 selected(() -> {
                     Object value=parts[1].equals("populated")?populated(type,new HashSet<>(),0,model(type)):instance(type);
