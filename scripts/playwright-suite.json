@@ -18992,6 +18992,7 @@
         "provider",
         "providersite",
         "providerArchive",
+        "providerbillcenter",
         "property:tickler_task_assignee"
       ]
     },

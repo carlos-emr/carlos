@@ -51,7 +51,7 @@ public class LookupListManager2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
 
-    private static LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
+    private final LookupListManager lookupListManager = SpringUtils.getBean(LookupListManager.class);
 
     public LookupListManager2Action() {
         super();
@@ -98,6 +98,7 @@ public class LookupListManager2Action extends ActionSupport {
 
     @SuppressWarnings("unused")
     public String order() {
+        if (rejectNonPost()) return NONE;
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String lookupListItemId = request.getParameter("lookupListItemId");
@@ -116,6 +117,7 @@ public class LookupListManager2Action extends ActionSupport {
 
     @SuppressWarnings("unused")
     public String add() {
+        if (rejectNonPost()) return NONE;
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String lookupListItemLabel = request.getParameter("lookupListItemLabel");
@@ -158,6 +160,7 @@ public class LookupListManager2Action extends ActionSupport {
 
     @SuppressWarnings("unused")
     public String remove() {
+        if (rejectNonPost()) return NONE;
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         String lookupListItemId = request.getParameter("lookupListItemId");
@@ -174,5 +177,12 @@ public class LookupListManager2Action extends ActionSupport {
         request.setAttribute("lookupLists", lookupListManager.findAllActiveLookupLists(loggedInInfo));
 
         return SUCCESS;
+    }
+
+    private boolean rejectNonPost() {
+        if ("POST".equals(request.getMethod())) return false;
+        response.setHeader("Allow", "POST");
+        response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+        return true;
     }
 }

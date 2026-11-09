@@ -1570,7 +1570,7 @@
         "{run}/node.json"
       ],
       "timeoutSeconds": 900,
-      "minimumCases": 7727,
+      "minimumCases": 7729,
       "requiresEnvironment": [
         "CARLOS_CTL_SRC"
       ],

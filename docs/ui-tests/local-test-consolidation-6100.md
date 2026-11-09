@@ -16,7 +16,7 @@ has current evidence.
 | #5812 | Retain native MRP routing assertions. The composer now carries its draft through patient search, refuses an unselected assignee in both site modes, and offers an explicit blank choice for an unavailable preferred provider (#5824/#5825). Current installed retakes remain required. |
 | #5806 | Retain actual signed callback/deny boundaries. Callback verification/storage now preserve internal percent escapes and invalid signatures map to 401 (#5823); real-parser signature controls cover header, form and query transports. All 262 selected OAuth/eForm/CSRF/report regression cases pass; current installed retakes remain required. |
 | #5801 | Explicit empty eForm values clear saved markup and PDF defaults; missing parameters remain distinct. Existing nonblank-only value rows and chart-template substitutions are preserved. Installed visual editor, checkbox, radio, image and signature acceptance remains required. |
-| #5709 | Retain lookup CRUD and consumer isolation. Provider add/edit forms omit inactive choices; edit explicitly preserves and labels its current retired value. The consumer test checks both that preservation and the new-provider boundary; installed retakes remain required. |
+| #5709 | Retain lookup CRUD and consumer isolation. Provider add/edit forms omit inactive choices; edit explicitly preserves and labels its current retired value. The consumer test checks both that preservation and the new-provider boundary. Lookup add/remove/reorder now require POST and have direct/dispatcher GET/HEAD and authorized POST controls; current installed retakes remain required. |
 | #5708 | Retain multi-recipient forwarding and independent ownership/restoration assertions; complete current installed retakes remain required. |
 | #5730 | PDF suffix matching now handles upper/mixed case; action tests inspect stored page count and MIME. All native format/malformed-content retakes remain required. |
 | #5803 | Qualified bounds are excluded from exact numeric graph points, with numeric and qualitative controls. Literal/history behavior (#5828) still requires an explicit clinical contract and installed retakes. |
@@ -46,11 +46,15 @@ has current evidence.
 
 ## Qualification accounting
 
-The merged-source H2 retake completed 34,472 cases with no failures/errors and
-143 explicitly routed skips. The subsequent OAuth callback changes passed all
+The merged-source H2 retake at `5c7977e30a8` completed 34,478 cases with no failures/errors and
+143 explicitly routed skips. The OAuth callback changes also passed all
 262 selected regression cases, including six independently signed transport and
-refusal cases. The strict Node inventory now has 7,727 passing cases in 547
-files. These source results do not substitute for rebuilding/reinstalling the
+refusal cases. The generated-schema MariaDB lane passed 3,128 cases without skips, and all
+177 selected lookup-guard/mutator/render cases pass. Native MRP fixture cleanup
+now reserves and removes owned provider billing-centre rows; the failing run is
+retained and its three synthetic orphan rows were recovered without changing
+unrelated rows. The strict Node inventory now has 7,729 passing cases in 547 files. Rebuilt
+package retakes for the lookup guard and visible MRP guidance remain required. These source results do not substitute for rebuilding/reinstalling the
 final candidate and rerunning its installed acceptance.
 
 The generator's old 289 count included twelve duplicate executions of

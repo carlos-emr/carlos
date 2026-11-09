@@ -804,6 +804,9 @@
                 <tr>
                     <td class="tickler-label"><fmt:message key="tickler.ticklerAdd.assignTaskTo"/>:</td>
                     <td>
+                        <% if (unavailableTaskAssignee) { %>
+                        <div class="alert alert-warning" role="status"><fmt:message key="tickler.ticklerAdd.msgMustAssignProvider"/></div>
+                        <% } %>
                         <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { // multisite start ==========================================
                             SiteDao siteDao = (SiteDao) WebApplicationContextUtils.getWebApplicationContext(application).getBean(SiteDao.class);
                             List<Site> sites = siteDao.getActiveSitesByProviderNo(user_no);
