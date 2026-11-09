@@ -116,7 +116,7 @@ public class PrintLabs2Action extends ActionSupport {
                 } finally {
                     if (f.exists() && !f.delete()) {
                         f.deleteOnExit();
-                        logger.warn("Failed to delete temporary lab report PDF for segmentID {}; scheduled deletion on JVM exit", labNo);
+                        logger.warn("Failed to delete temporary lab report PDF for segmentID {}; scheduled deletion on JVM exit", LogSafe.sanitizeObject(labNo));
                     }
                 }
             }

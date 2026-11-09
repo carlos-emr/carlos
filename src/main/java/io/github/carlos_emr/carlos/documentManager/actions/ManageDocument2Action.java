@@ -1229,7 +1229,7 @@ public class ManageDocument2Action extends ActionSupport {
         } else {
             if (docxml == null || docxml.trim().equals("")) {
                 // No stored HTML fallback is available, so fail before any response bytes are written.
-                log.warn("Local document file is missing for eDoc: documentId={}", d.getId());
+                log.warn("Local document file is missing for eDoc: documentId={}", LogSafe.sanitizeObject(d.getId()));
                 throw new IllegalStateException("Local document file is missing");
             }
         }
