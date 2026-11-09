@@ -75,8 +75,8 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
  *
  * <p>Each attached record must belong to the email's patient, since its manifest names that
  * patient: it is checked by the same rule as the send itself ({@link AttachmentOwnershipService}),
- * and a record that is not linked to that patient stops the send. A title longer than
- * {@value #MAX_TITLE_LENGTH} characters is shortened.</p>
+ * and a record that is not linked to that patient, or whose record is gone, stops the send. A
+ * title longer than {@value #MAX_TITLE_LENGTH} characters is shortened.</p>
  *
  * <p>{@code recipient_id} is {@code null} for now: CARLOS does not yet hold the patient's
  * portal recipient ID. {@code version} is 1 until corrections are tracked (#37).</p>
@@ -208,7 +208,11 @@ public class EmailDocumentManifestComposer {
 
         RecordDetails {
             if (title != null && title.length() > MAX_TITLE_LENGTH) {
-                title = title.substring(0, MAX_TITLE_LENGTH);
+                // Cut on a code point boundary: half a surrogate pair is not valid manifest text,
+                // and DocumentManifest refuses it, which would stop the send.
+                int end = Character.isHighSurrogate(title.charAt(MAX_TITLE_LENGTH - 1))
+                        ? MAX_TITLE_LENGTH - 1 : MAX_TITLE_LENGTH;
+                title = title.substring(0, end);
             }
         }
     }
@@ -230,36 +234,44 @@ public class EmailDocumentManifestComposer {
         }
     }
 
+    /**
+     * The record's title and service date. An eForm, document, lab or hospital report whose record
+     * is gone stops the send: the document, lab and report ownership checks read only the patient
+     * link, which can outlive its record, and a manifest must not name a record that no longer exists.
+     */
     private RecordDetails recordDetails(LoggedInInfo loggedInInfo, DocumentType type, int recordId,
             Integer demographicNo) {
         return switch (type) {
-            case EFORM -> eFormDetails(eFormDataDao.find(recordId));
-            case DOC -> documentDetails(documentDao.find(recordId));
-            case LAB -> labDetails(hl7TextInfoDao.findLabId(recordId));
-            case HRM -> reportDetails(hrmDocumentDao.find(recordId));
+            case EFORM -> eFormDetails(existing(eFormDataDao.find(recordId)));
+            case DOC -> documentDetails(existing(documentDao.find(recordId)));
+            case LAB -> labDetails(existing(hl7TextInfoDao.findLabId(recordId)));
+            case HRM -> reportDetails(existing(hrmDocumentDao.find(recordId)));
             case FORM -> formDetails(loggedInInfo, recordId, demographicNo);
         };
     }
 
+    private static <T> T existing(T record) {
+        if (record == null) {
+            throw new IllegalStateException("An attached record no longer exists");
+        }
+        return record;
+    }
+
     private static RecordDetails eFormDetails(EFormData eForm) {
-        return eForm == null ? RecordDetails.UNKNOWN
-                : new RecordDetails(firstPresent(eForm.getSubject(), eForm.getFormName()), isoDate(eForm.getFormDate()));
+        return new RecordDetails(firstPresent(eForm.getSubject(), eForm.getFormName()), isoDate(eForm.getFormDate()));
     }
 
     private static RecordDetails documentDetails(Document document) {
-        return document == null ? RecordDetails.UNKNOWN
-                : new RecordDetails(blankToNull(document.getDocdesc()), isoDate(document.getObservationdate()));
+        return new RecordDetails(blankToNull(document.getDocdesc()), isoDate(document.getObservationdate()));
     }
 
     private static RecordDetails labDetails(Hl7TextInfo lab) {
-        return lab == null ? RecordDetails.UNKNOWN
-                : new RecordDetails(firstPresent(lab.getLabel(), lab.getDiscipline()), isoDate(lab.getObrDate()));
+        return new RecordDetails(firstPresent(lab.getLabel(), lab.getDiscipline()), isoDate(lab.getObrDate()));
     }
 
     private static RecordDetails reportDetails(HRMDocument report) {
-        return report == null ? RecordDetails.UNKNOWN
-                : new RecordDetails(firstPresent(report.getDescription(), report.getReportType()),
-                        isoDate(report.getReportDate()));
+        return new RecordDetails(firstPresent(report.getDescription(), report.getReportType()),
+                isoDate(report.getReportDate()));
     }
 
     /** A form whose name cannot be read for this sender (no form privilege, say) gets no title. */

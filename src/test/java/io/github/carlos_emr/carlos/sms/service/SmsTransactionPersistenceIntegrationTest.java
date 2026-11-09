@@ -107,6 +107,7 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
                 SmsSendCommand.patientMessage(123, "416-555-1212", "Appointment reminder", "999998"),
                 SmsProviderType.STUB
         );
+        claimed.markSending(java.util.Date.from(Instant.parse("2026-06-08T11:59:00Z")));
         entityManager.persist(claimed);
         entityManager.flush();
         Long id = claimed.getId();
@@ -150,6 +151,8 @@ class SmsTransactionPersistenceIntegrationTest extends CarlosTestBase {
                 SmsProviderType.STUB,
                 SmsConsentDecisionDto.permitted(SmsConsentStatus.OPT_IN, 4321, Instant.parse("2026-09-01T14:30:00Z"))
         );
+        outbound = recorder.markSending(outbound,
+                java.util.Date.from(Instant.parse("2026-06-08T11:59:00Z")));
         String clientReferenceId = outbound.getClientReferenceId();
         assertThat(clientReferenceId).isEqualTo(SmsTransaction.clientReferenceIdFor(outbound.getId()));
         entityManager.detach(outbound);
