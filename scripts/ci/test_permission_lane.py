@@ -26,7 +26,10 @@ class PermissionLaneShellTest(unittest.TestCase):
         fake_maven = binary / 'mvn'
         fake_maven.write_text('#!/usr/bin/env python3\nimport json,os,sys\n'
             'from pathlib import Path\n'
-            'Path(os.environ["CAPTURE"]).write_text(json.dumps(sys.argv[1:]))\n'
+            'path=Path(os.environ["CAPTURE"])\n'
+            'calls=json.loads(path.read_text()) if path.exists() else []\n'
+            'calls.append(sys.argv[1:])\n'
+            'path.write_text(json.dumps(calls))\n'
             'sys.exit(int(os.environ.get("FAKE_MAVEN_EXIT","0")))\n')
         fake_maven.chmod(0o700)
         self.capture = self.root / 'argv.json'
@@ -46,7 +49,11 @@ class PermissionLaneShellTest(unittest.TestCase):
                  'CARLOS_PERMISSION_COVERAGE': str(self.root / 'private-coverage')}
         result = self.run_script(**paths)
         self.assertEqual(result.returncode, 0, result.stderr)
-        arguments = json.loads(self.capture.read_text())
+        calls = json.loads(self.capture.read_text())
+        self.assertEqual(len(calls), 2)
+        self.assertIn('test-compile', calls[0])
+        self.assertNotIn('surefire:test', calls[0])
+        arguments = calls[1]
         self.assertLess(arguments.index('jacoco:prepare-agent'), arguments.index('surefire:test'))
         self.assertLess(arguments.index('surefire:test'), arguments.index('jacoco:report'))
         self.assertIn('-Dtest.reportsDirectory=' + paths['CARLOS_PERMISSION_REPORTS'], arguments)
@@ -81,6 +88,9 @@ class PermissionLaneShellTest(unittest.TestCase):
     def test_maven_failure_is_returned_without_converting_it_to_success(self):
         result = self.run_script(FAKE_MAVEN_EXIT='37')
         self.assertEqual(result.returncode, 37)
+        calls = json.loads(self.capture.read_text())
+        self.assertEqual(len(calls), 1)
+        self.assertIn('test-compile', calls[0])
 
 
 if __name__ == '__main__':

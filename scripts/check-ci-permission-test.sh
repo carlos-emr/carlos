@@ -23,8 +23,10 @@ cases = json.loads(Path('scripts/ci/permission-cases.json').read_text())
 print(','.join(row['classname'] + '#' + row['name'] for row in cases))
 SELECTOR
 )
-# This dedicated Surefire goal requires compiled test classes from the prior
-# full Maven build. Keep an empty prefix safe under Bash <4.4 with nounset.
+# The source-bound verifier clears compiled classes before each Java lane.
+# Compile before dropping DAC bypass; run only the refusal cases afterward.
+mvn -B -ntp test-compile "$@"
+# Keep an empty prefix safe under Bash <4.4 with nounset.
 ${command[@]+"${command[@]}"} mvn -B -ntp jacoco:prepare-agent surefire:test jacoco:report \
   "-Dtest=$selector" \
   -Dtest.forkCount=1 -Dtest.reportsDirectory="$reports" \

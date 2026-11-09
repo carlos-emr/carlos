@@ -123,6 +123,9 @@ exact five cases and same-class JaCoCo counters, and makes CI refuse a missing
 registered route. No skip is promoted to a pass. All 40 workstreams remain;
 the additional lane increases the matrix to 91 checks. The original failed
 formal receipt is retained, and qualification must be retaken on the correction.
+The permission helper also compiles before dropping DAC bypass, because the
+source-bound verifier deliberately clears compiled classes before every Java
+lane. Its actual five-case execution and counters cannot qualify a stale build.
 
 The complete `ca2bd8bf4836` source-built candidate passed lintian and matched
 all 6,206 checked payload entries in both installed provinces. Its 6,192
