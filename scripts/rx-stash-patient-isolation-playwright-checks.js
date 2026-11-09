@@ -158,7 +158,8 @@ function clearOwnedPrescriptionRows(sql, demographicNo, marker) {
     'Invalid prescription fixture identity');
   h.assert(sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${demographicNo}
     AND last_name=${h.sqlString(marker)}`) === '1', 'Prescription fixture ownership changed');
-  sql.execute(`DELETE FROM prescription WHERE demographic_no=${demographicNo}
+  sql.execute(`DELETE FROM rx_submission_receipt WHERE demographic_no=${demographicNo};
+    DELETE FROM prescription WHERE demographic_no=${demographicNo}
     AND script_no IN (SELECT script_no FROM drugs WHERE demographic_no=${demographicNo}
       AND customName LIKE ${h.sqlString(`${marker}%`)});
     DELETE FROM drugs WHERE demographic_no=${demographicNo} AND customName LIKE ${h.sqlString(`${marker}%`)}`);
