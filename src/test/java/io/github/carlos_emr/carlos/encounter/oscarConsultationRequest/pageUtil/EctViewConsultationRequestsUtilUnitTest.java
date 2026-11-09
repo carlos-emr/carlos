@@ -140,6 +140,19 @@ class EctViewConsultationRequestsUtilUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldBatchCalendarDates_whenDefaultZoneChangesAfterRendererInitialization() {
+        java.util.TimeZone rendererZone = org.apache.commons.lang3.time.DateFormatUtils.ISO_DATE_FORMAT.getTimeZone();
+        java.util.TimeZone previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone(
+                    rendererZone.getRawOffset() == 14 * 60 * 60 * 1000 ? "GMT-12:00" : "GMT+14:00"));
+            shouldBatchLookups_forManyRowsWithRepeatedPatientAndProvider();
+        } finally {
+            java.util.TimeZone.setDefault(previous);
+        }
+    }
+
+    @Test
     void shouldBatchLookups_forManyRowsWithRepeatedPatientAndProvider() {
         when(requests.getConsultationListRows(filter())).thenReturn(List.of(row(1, 42, 0, "101", null), row(2, 42, 0, "101", 8)));
         when(demographics.getDemographicFormattedNames(info, Set.of(42))).thenReturn(Map.of(42, "Doe, Jane"));
