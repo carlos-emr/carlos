@@ -210,7 +210,8 @@ jobs:
               EXISTING_HASH=""
             fi
 
-            echo "Existing hash: ${EXISTING_HASH:-<none>}"
+            MISSING_HASH_MARKER='<none>'
+            echo "Existing hash: ${EXISTING_HASH:-$MISSING_HASH_MARKER}"
 
             if [ "$HASH" == "$EXISTING_HASH" ]; then
               echo "Container is up-to-date, skipping build"
@@ -254,8 +255,8 @@ jobs:
             --load \
             -t carlos-tomcat-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             .devcontainer/development
 
       - name: Test tomcat-dev container
@@ -352,7 +353,7 @@ jobs:
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
           docker load -i "$RUNNER_TEMP/container-images/carlos-tomcat-dev.tar"
-          docker tag carlos-tomcat-dev:test "$IMAGE:${{ github.sha }}"
+          docker tag carlos-tomcat-dev:test "$IMAGE:${GITHUB_SHA}"
           docker tag carlos-tomcat-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
@@ -361,8 +362,8 @@ jobs:
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:${GITHUB_SHA}"
+          echo "Pushed $IMAGE:${GITHUB_SHA}"
 
   # ===========================================================================
   # Build and push mariadb-dev container
@@ -392,8 +393,8 @@ jobs:
             --load \
             -t carlos-mariadb-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             -f .devcontainer/db/Dockerfile .
 
       - name: Test mariadb-dev container
@@ -504,7 +505,7 @@ jobs:
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
           docker load -i "$RUNNER_TEMP/container-images/carlos-mariadb-dev.tar"
-          docker tag carlos-mariadb-dev:test "$IMAGE:${{ github.sha }}"
+          docker tag carlos-mariadb-dev:test "$IMAGE:${GITHUB_SHA}"
           docker tag carlos-mariadb-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
@@ -513,8 +514,8 @@ jobs:
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:${GITHUB_SHA}"
+          echo "Pushed $IMAGE:${GITHUB_SHA}"
 
   # ===========================================================================
   # Build and push drugref container
@@ -544,8 +545,8 @@ jobs:
             --load \
             -t carlos-drugref-dev:test \
             --label "org.openosp.content-hash=$CONTENT_HASH" \
-            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
-            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             .devcontainer/drugref
 
       - name: Test drugref container
@@ -631,7 +632,7 @@ jobs:
           SHOULD_PUSH_LATEST: ${{ github.ref_name == 'develop' }}
         run: |
           docker load -i "$RUNNER_TEMP/container-images/carlos-drugref-dev.tar"
-          docker tag carlos-drugref-dev:test "$IMAGE:${{ github.sha }}"
+          docker tag carlos-drugref-dev:test "$IMAGE:${GITHUB_SHA}"
           docker tag carlos-drugref-dev:test "$IMAGE:$CACHE_TAG"
           docker push "$IMAGE:$CACHE_TAG"
           echo "Pushed $IMAGE:$CACHE_TAG"
@@ -640,8 +641,8 @@ jobs:
             docker push "$IMAGE:latest"
             echo "Pushed $IMAGE:latest"
           fi
-          docker push "$IMAGE:${{ github.sha }}"
-          echo "Pushed $IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:${GITHUB_SHA}"
+          echo "Pushed $IMAGE:${GITHUB_SHA}"
 
   # ===========================================================================
   # Summary job - reports what happened

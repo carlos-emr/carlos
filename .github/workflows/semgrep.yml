@@ -51,7 +51,7 @@ jobs:
     # for the custom rules and SARIF uploads rather than canceling those checks.
     timeout-minutes: 120
     container:
-      image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
+      image: semgrep/semgrep@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed # 1.184.0
     env:
       HAS_SEMGREP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN != '' }}
     if: github.actor != 'dependabot[bot]'
