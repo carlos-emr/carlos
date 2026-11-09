@@ -57,6 +57,12 @@ jobs:
         with:
           persist-credentials: false
       - name: Build both complete packages from source
+        # checkout's temporary HOME does not configure Maven's later git child.
+        # Trust exactly this CI checkout through inherited command-scope config.
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: safe.directory
+          GIT_CONFIG_VALUE_0: ${{ github.workspace }}
         run: |
           set -euo pipefail
           # Exercise the shipping debian/rules pipeline, including both Maven
