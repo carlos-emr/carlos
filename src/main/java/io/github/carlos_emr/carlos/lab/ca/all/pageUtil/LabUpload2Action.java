@@ -260,7 +260,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             try {
                 response.sendError(httpCode, outcome);
             } catch (IOException e) {
-                logger.error("Error", e);
+                logger.error("Error: {}", LogSafe.exceptionTrace(e));
             }
             return (null);
         } else return SUCCESS;
@@ -284,8 +284,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         try {
             Files.deleteIfExists(staged.toPath());
         } catch (IOException | RuntimeException e) {
-            logger.error("Could not remove the staged lab upload {}; remove this temporary copy: {}",
-                    LogSafe.sanitize(staged.getAbsolutePath()), LogSafe.exceptionTrace(e));
+            logger.error("Could not remove staged lab upload; temporary copy requires cleanup: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -339,7 +338,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             return (new BufferedInputStream(is));
 
         } catch (Exception e) {
-            logger.error("Could not decrypt the message", e);
+            logger.error("Could not decrypt the message: {}", LogSafe.exceptionTrace(e));
             return (null);
         }
     }
@@ -403,7 +402,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             info.add(type);
 
         } catch (Exception e) {
-            logger.error("Could not retrieve private key: ", e);
+            logger.error("Could not retrieve private key: {}", LogSafe.exceptionTrace(e));
         }
         return (info);
     }
@@ -424,7 +423,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             KeyFactory keyFactory = KeyFactory.getInstance("RSA");
             Key = keyFactory.generatePrivate(privKeySpec);
         } catch (Exception e) {
-            logger.error("Could not retrieve private key: ", e);
+            logger.error("Could not retrieve private key: {}", LogSafe.exceptionTrace(e));
         }
         return (Key);
     }

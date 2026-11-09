@@ -31,7 +31,6 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -42,6 +41,7 @@ import jakarta.xml.bind.annotation.XmlRootElement;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 
 @XmlRootElement(name = "encounterNote")
+@jakarta.xml.bind.annotation.XmlAccessorType(jakarta.xml.bind.annotation.XmlAccessType.NONE)
 public class NoteTo1 implements Serializable {
 
     private Integer noteId;
@@ -88,12 +88,13 @@ public class NoteTo1 implements Serializable {
     private Integer position;
 
     //???
-    private Set<CaseManagementIssue> issues = new HashSet<CaseManagementIssue>();
+    private Set<EmbeddedCaseManagementIssueTo1> issues = new java.util.LinkedHashSet<>();
 
     private List<CaseManagementIssueTo1> assignedIssues = new ArrayList<CaseManagementIssueTo1>();
 
     private NoteExtTo1 noteExt;
 
+    @jakarta.xml.bind.annotation.XmlElement(name="noteId")
     public Integer getNoteId() {
         return noteId;
     }
@@ -102,6 +103,7 @@ public class NoteTo1 implements Serializable {
         this.noteId = noteId;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="isSigned")
     public Boolean getIsSigned() {
         return isSigned;
     }
@@ -110,6 +112,7 @@ public class NoteTo1 implements Serializable {
         this.isSigned = isSigned;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="observationDate")
     public Date getObservationDate() {
         return observationDate;
     }
@@ -118,6 +121,7 @@ public class NoteTo1 implements Serializable {
         this.observationDate = observationDate;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="revision")
     public String getRevision() {
         return revision;
     }
@@ -126,6 +130,7 @@ public class NoteTo1 implements Serializable {
         this.revision = revision;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="updateDate")
     public Date getUpdateDate() {
         return updateDate;
     }
@@ -134,6 +139,7 @@ public class NoteTo1 implements Serializable {
         this.updateDate = updateDate;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="providerName")
     public String getProviderName() {
         return providerName;
     }
@@ -142,6 +148,7 @@ public class NoteTo1 implements Serializable {
         this.providerName = providerName;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="providerNo")
     public String getProviderNo() {
         return providerNo;
     }
@@ -153,17 +160,38 @@ public class NoteTo1 implements Serializable {
     /**
      * deprecated too inefficient and too many dependencies use CaseManagementIssueNotesDao
      */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @jakarta.xml.bind.annotation.XmlTransient
     public Set<CaseManagementIssue> getIssues() {
-        return issues;
+        if (issues == null) return null;
+        return issues.stream().map(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots::caseManagementIssueDomain)
+                .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
+    }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("issues")
+    public Set<EmbeddedCaseManagementIssueTo1> getIssueSnapshots() { return issues; }
+    public void setIssueSnapshots(Set<EmbeddedCaseManagementIssueTo1> value) {
+        issues = value == null ? null : new java.util.LinkedHashSet<>(value);
     }
 
     /**
      * deprecated too inefficient and too many dependencies use CaseManagementIssueNotesDao
      */
     public void setIssues(Set issues) {
-        this.issues = issues;
+        if (issues == null) { this.issues = null; return; }
+        if (!org.hibernate.Hibernate.isInitialized(issues)) {
+            throw new io.github.carlos_emr.carlos.webserv.rest.conversion.ConversionException("Note issues are not initialized");
+        }
+        Set<EmbeddedCaseManagementIssueTo1> detached = new java.util.LinkedHashSet<>();
+        for (Object value : issues) {
+            if (value instanceof CaseManagementIssue issue) detached.add(io.github.carlos_emr.carlos.webserv.rest.conversion.EmbeddedRecordSnapshots.caseManagementIssue(null, issue));
+            else if (value instanceof EmbeddedCaseManagementIssueTo1 issue) detached.add(issue);
+            else throw new IllegalArgumentException("Unsupported note issue type");
+        }
+        this.issues = detached;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="status")
     public String getStatus() {
         return status;
     }
@@ -172,6 +200,7 @@ public class NoteTo1 implements Serializable {
         this.status = status;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="programName")
     public String getProgramName() {
         return programName;
     }
@@ -180,6 +209,7 @@ public class NoteTo1 implements Serializable {
         this.programName = programName;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="location")
     public String getLocation() {
         return location;
     }
@@ -188,6 +218,7 @@ public class NoteTo1 implements Serializable {
         this.location = location;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="roleName")
     public String getRoleName() {
         return roleName;
     }
@@ -196,6 +227,7 @@ public class NoteTo1 implements Serializable {
         this.roleName = roleName;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="uuid")
     public String getUuid() {
         return uuid;
     }
@@ -204,6 +236,7 @@ public class NoteTo1 implements Serializable {
         this.uuid = uuid;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="hasHistory")
     public Boolean getHasHistory() {
         return hasHistory;
     }
@@ -212,6 +245,7 @@ public class NoteTo1 implements Serializable {
         this.hasHistory = hasHistory;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="locked")
     public Boolean getLocked() {
         return locked;
     }
@@ -220,6 +254,7 @@ public class NoteTo1 implements Serializable {
         this.locked = locked;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="archived")
     public boolean isArchived() {
         return archived;
     }
@@ -228,6 +263,7 @@ public class NoteTo1 implements Serializable {
         this.archived = archived;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="note")
     public String getNote() {
         return note;
     }
@@ -236,6 +272,7 @@ public class NoteTo1 implements Serializable {
         this.note = note;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="document")
     public boolean isDocument() {
         return isDocument;
     }
@@ -244,6 +281,7 @@ public class NoteTo1 implements Serializable {
         this.isDocument = isDocument;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="rxAnnotation")
     public boolean isRxAnnotation() {
         return isRxAnnotation;
     }
@@ -252,6 +290,7 @@ public class NoteTo1 implements Serializable {
         this.isRxAnnotation = isRxAnnotation;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="eformData")
     public boolean isEformData() {
         return isEformData;
     }
@@ -260,6 +299,7 @@ public class NoteTo1 implements Serializable {
         this.isEformData = isEformData;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="encounterForm")
     public boolean isEncounterForm() {
         return isEncounterForm;
     }
@@ -268,6 +308,7 @@ public class NoteTo1 implements Serializable {
         this.isEncounterForm = isEncounterForm;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="invoice")
     public boolean isInvoice() {
         return isInvoice;
     }
@@ -276,6 +317,7 @@ public class NoteTo1 implements Serializable {
         this.isInvoice = isInvoice;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="ticklerNote")
     public boolean isTicklerNote() {
         return isTicklerNote;
     }
@@ -284,6 +326,7 @@ public class NoteTo1 implements Serializable {
         this.isTicklerNote = isTicklerNote;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="encounterType")
     public String getEncounterType() {
         return encounterType;
     }
@@ -292,6 +335,7 @@ public class NoteTo1 implements Serializable {
         this.encounterType = encounterType;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="editorNames")
     public ArrayList<String> getEditorNames() {
         return editorNames;
     }
@@ -300,6 +344,7 @@ public class NoteTo1 implements Serializable {
         this.editorNames = editorNames;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="issueDescriptions")
     public ArrayList<String> getIssueDescriptions() {
         return issueDescriptions;
     }
@@ -308,6 +353,7 @@ public class NoteTo1 implements Serializable {
         this.issueDescriptions = issueDescriptions;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="readOnly")
     public boolean isReadOnly() {
         return isReadOnly;
     }
@@ -316,6 +362,7 @@ public class NoteTo1 implements Serializable {
         this.isReadOnly = isReadOnly;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="groupNote")
     public boolean isGroupNote() {
         return isGroupNote;
     }
@@ -324,6 +371,7 @@ public class NoteTo1 implements Serializable {
         this.isGroupNote = isGroupNote;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="cpp")
     public boolean isCpp() {
         return isCpp;
     }
@@ -332,6 +380,7 @@ public class NoteTo1 implements Serializable {
         this.isCpp = isCpp;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="summaryCode")
     public String getSummaryCode() {
         return summaryCode;
     }
@@ -340,6 +389,7 @@ public class NoteTo1 implements Serializable {
         this.summaryCode = code;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="encounterTime")
     public String getEncounterTime() {
         return encounterTime;
     }
@@ -349,6 +399,7 @@ public class NoteTo1 implements Serializable {
         this.encounterTime = encounterTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="encounterTransportationTime")
     public String getEncounterTransportationTime() {
         return encounterTransportationTime;
     }
@@ -357,6 +408,7 @@ public class NoteTo1 implements Serializable {
         this.encounterTransportationTime = encounterTransportationTime;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="editable")
     public Boolean isEditable() {
         return isEditable;
     }
@@ -369,6 +421,7 @@ public class NoteTo1 implements Serializable {
         this.isEditable = isEditable;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="appointmentNo")
     public Integer getAppointmentNo() {
         return appointmentNo;
     }
@@ -383,6 +436,7 @@ public class NoteTo1 implements Serializable {
         return getClass().getSimpleName() + "[protected]";
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="isVerified")
     public Boolean getIsVerified() {
         return isVerified;
     }
@@ -391,6 +445,7 @@ public class NoteTo1 implements Serializable {
         this.isVerified = isVerified;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="assignedIssues")
     public List<CaseManagementIssueTo1> getAssignedIssues() {
         return assignedIssues;
     }
@@ -399,6 +454,7 @@ public class NoteTo1 implements Serializable {
         this.assignedIssues = assignedIssues;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="position")
     public Integer getPosition() {
         return position;
     }
@@ -407,6 +463,7 @@ public class NoteTo1 implements Serializable {
         this.position = position;
     }
 
+    @jakarta.xml.bind.annotation.XmlElement(name="noteExt")
     public NoteExtTo1 getNoteExt() {
         return noteExt;
     }

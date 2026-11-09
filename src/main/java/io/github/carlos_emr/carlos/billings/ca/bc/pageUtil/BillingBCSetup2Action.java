@@ -86,7 +86,7 @@ public final class BillingBCSetup2Action extends ActionSupport {
         if (request.getParameter("demographic_no") != null
                 && request.getParameter("appointment_no") != null) {
             String demoNo = request.getParameter("demographic_no");
-            if (!demoNo.matches("\\d{1,9}")) {
+            if (!demoNo.matches("[0-9]{1,9}") || Integer.parseInt(demoNo) == 0) {
                 _log.warn("Invalid demographic_no rejected");
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST);
                 return NONE;
@@ -196,7 +196,7 @@ public final class BillingBCSetup2Action extends ActionSupport {
 
     private void fillBean(HttpServletRequest request, BillingSessionBean bean) {
         bean.setApptProviderNo(request.getParameter("apptProvider_no"));
-        bean.setPatientName(request.getParameter("demographic_name"));
+        bean.setPatientName(io.github.carlos_emr.carlos.billing.CA.BillingPatientContext.name(request));
         bean.setProviderView(request.getParameter("providerview"));
         bean.setBillRegion(request.getParameter("billRegion"));
         bean.setBillForm(request.getParameter("billForm"));

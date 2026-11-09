@@ -98,6 +98,7 @@ class BillingCreateBilling2ActionUnitTest extends CarlosUnitTestBase {
     @Test
     void shouldAddNoTimeWarning_whenNoServiceCodeNeedsATime() throws Exception {
         BillingCreateBilling2Action action = new BillingCreateBilling2Action();
+        org.springframework.test.util.ReflectionTestUtils.setField(action, "timeRules", List.of());
         ArrayList<BillingItem> items = new ArrayList<>();
         items.add(new BillingBillingManager().new BillingItem("00100", "1"));
         List<String> errors = new ArrayList<>();

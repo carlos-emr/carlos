@@ -357,6 +357,7 @@
     "test:billing-bc-bill-form-popups-playwright": "node scripts/billing-bc-bill-form-popups-playwright-checks.js",
     "test:billing-bc-day-sheet-unbill-playwright": "node scripts/billing-bc-day-sheet-unbill-playwright-checks.js",
     "test:billing-bc-quick-billing-playwright": "node scripts/billing-bc-quick-billing-playwright-checks.js",
+    "test:billing-bc-legacy-teleplan-playwright": "node scripts/billing-bc-legacy-teleplan-playwright-checks.js",
     "test:billing-bc-teleplan-file-playwright": "node scripts/billing-bc-teleplan-file-playwright-checks.js",
     "test:billing-bc-teleplan-sequence-playwright": "node scripts/billing-bc-teleplan-sequence-playwright-checks.js",
     "test:billing-bc-bill-status-filters-playwright": "node scripts/billing-bc-bill-status-filters-playwright-checks.js",
@@ -456,6 +457,8 @@
     "test:document-edit-replace-file-playwright": "node scripts/document-edit-replace-file-playwright-checks.js",
     "test:document-add-new-type-playwright": "node scripts/document-add-new-type-playwright-checks.js",
     "test:document-viewer-macro-playwright": "node scripts/document-viewer-macro-playwright-checks.js",
+    "test:report-fixed-jasper-playwright": "node scripts/report-fixed-jasper-playwright-checks.js",
+    "test:report-configured-jasper-playwright": "node scripts/report-configured-jasper-playwright-checks.js",
     "test:report-daysheet-labs-playwright": "node scripts/report-daysheet-labs-playwright-checks.js",
     "test:antenatal-annual-review-planner-playwright": "node scripts/antenatal-annual-review-planner-playwright-checks.js",
     "test:lab-forwarding-rules-playwright": "node scripts/lab-forwarding-rules-playwright-checks.js",
@@ -1019,7 +1022,8 @@
     "test:form-growth-clinical-geometry-playwright": "node scripts/form-growth-clinical-geometry-playwright-checks.js",
     "test:demographic-merge-clinical-history-playwright": "node scripts/demographic-merge-clinical-history-playwright-checks.js",
     "test:eform-visual-widgets-playwright": "node scripts/eform-visual-widgets-playwright-checks.js",
-    "test:lab-qualified-results-playwright": "node scripts/lab-qualified-results-playwright-checks.js"
+    "test:lab-qualified-results-playwright": "node scripts/lab-qualified-results-playwright-checks.js",
+    "test:tickler-calendar-quick-picks-playwright": "node scripts/tickler-calendar-quick-picks-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -1038,6 +1042,7 @@
     "acorn": "8.19.0",
     "axe-core": "4.14.0",
     "entities": "4.5.0",
+    "js-yaml": "4.3.2",
     "playwright": "1.61.1",
     "pngjs": "7.0.0",
     "xml-js": "1.6.11"

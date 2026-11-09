@@ -16,7 +16,7 @@ const DEFAULTS = Object.freeze({
 const AFFECTED = new Set(['application-health', 'document-upload', 'schedule-links','document-metadata-controls','document-clinical-followup','responsive-hit-test','accessibility-smoke','i18n-locale-walk','dialog-confirmations-tickler','tickler-demo-main-status','tickler-patient-erase','inbox-preview-boundary-resync','waf-clinical-text-corpus','incoming-docs-delete-pdf-mrp','incoming-docs-quick-pick-filing',
   // Inboxhub and document-viewer navigation can persist the default queue on first use.
   'inboxhub-filters', 'inbox-document-dates', 'xss-poison-documents-inbox',
-  'inbox-file-forward', 'inbox-acknowledge-per-provider', 'document-viewer-review-actions']);
+  'inbox-file-forward', 'inbox-acknowledge-per-provider', 'document-viewer-review-actions','workflow-tickler-suggested-text']);
 const quote = name => {
   assert(/^[A-Za-z_][A-Za-z0-9_]*$/.test(name), 'Invalid navigation fixture column');
   return `\`${name}\``;

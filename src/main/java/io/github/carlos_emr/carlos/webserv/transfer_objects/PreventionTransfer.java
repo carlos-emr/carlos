@@ -66,6 +66,8 @@ public final class PreventionTransfer {
         this.demographicId = demographicId;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getCreationDate() {
         return (creationDate);
     }
@@ -90,6 +92,8 @@ public final class PreventionTransfer {
         this.providerNo = providerNo;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getPreventionDate() {
         return (preventionDate);
     }
@@ -130,6 +134,8 @@ public final class PreventionTransfer {
         this.never = never;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getNextDate() {
         return (nextDate);
     }
@@ -146,6 +152,8 @@ public final class PreventionTransfer {
         this.creatorProviderNo = creatorProviderNo;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }

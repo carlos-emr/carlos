@@ -188,7 +188,7 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.getAsciiFile("3");
 
-        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
+        log.debug("Teleplan file selected");
 
         File file = tr.getFile();
         TeleplanCodesManager tcm = new TeleplanCodesManager();
@@ -209,7 +209,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         TeleplanAPI tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         TeleplanResponse tr = tAPI.getAsciiFile("2");
 
-        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
+        log.debug("Teleplan file selected");
 
         File file = tr.getFile();
 
@@ -282,7 +282,7 @@ public class ManageTeleplan2Action extends ActionSupport {
 
         TeleplanResponse tr = tAPI.getAsciiFile("1");
 
-        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
+        log.debug("Teleplan file selected");
 
         File file = tr.getFile();
 
@@ -391,7 +391,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug("Failed to connect to Teleplan API in getSequenceNumber", e);
+            log.debug("Failed to connect to Teleplan API in getSequenceNumber: {}", LogSafe.exceptionTrace(e));
             request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
@@ -455,7 +455,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug("Failed to connect to Teleplan API in sendFile", e);
+            log.debug("Failed to connect to Teleplan API in sendFile: {}", LogSafe.exceptionTrace(e));
             request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return "submission";
         }
@@ -480,9 +480,9 @@ public class ManageTeleplan2Action extends ActionSupport {
             // File.exists() returns a boolean.
             // nosemgrep: carlos.crlf-injection-logs
             log.debug("File exists: {}", f.exists());
-            log.debug("File Path {}", LogSafe.sanitize(f.getCanonicalPath()));
+            log.debug("Resolved Teleplan file");
         }
-        log.info("sending file {}", LogSafe.sanitize(f.getAbsolutePath()));
+        log.info("sending file");
 
         TeleplanResponse tr = tAPI.putMSPFile(f);
         log.debug("sendFile End {}", LogSafe.sanitize(tr.getResult()));
@@ -506,14 +506,14 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug("Failed to connect to Teleplan API in remit", e);
+            log.debug("Failed to connect to Teleplan API in remit: {}", LogSafe.exceptionTrace(e));
             request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
 
         TeleplanResponse tr = tAPI.getRemittance(true);
         log.debug("{}", LogSafe.sanitize(tr.toString()));
-        log.debug("real filename {}", LogSafe.sanitize(tr.getRealFilename()));
+        log.debug("Teleplan file selected");
         request.setAttribute("filename", tr.getRealFilename());
         return "remit";
     }
@@ -549,7 +549,7 @@ public class ManageTeleplan2Action extends ActionSupport {
 
 
         } catch (Exception e) {
-            log.debug("Failed to connect to Teleplan API in changePass", e);
+            log.debug("Failed to connect to Teleplan API in changePass: {}", LogSafe.exceptionTrace(e));
             request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return SUCCESS;
         }
@@ -584,7 +584,7 @@ public class ManageTeleplan2Action extends ActionSupport {
         try {
             tAPI = tService.getTeleplanAPI(userpass[0], userpass[1]);
         } catch (Exception e) {
-            log.debug("Failed to connect to Teleplan API in checkElig", e);
+            log.debug("Failed to connect to Teleplan API in checkElig: {}", LogSafe.exceptionTrace(e));
             request.setAttribute("error", "Failed to connect to Teleplan. Please try again or contact support.");
             return "checkElig";
         }

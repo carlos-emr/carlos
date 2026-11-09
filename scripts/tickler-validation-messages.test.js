@@ -85,7 +85,12 @@ test('all validation messages are encoded bundle strings and browser selectors m
     const calls = [...page.source.matchAll(/CarlosTicklerValidation\.show\(([^\n]*)\);/g)];
     assert.ok(calls.length >= 1);
     for (const [, argument] of calls) {
-      const match = argument.match(/^'<carlos:encode value='<%= oscarBundle\.getString\("(tickler\.tickler(?:Add\.[A-Za-z]+|Edit\.attachments\.error))"\) %>' context="javaScriptBlock"\/>'$/);
+      if (argument === 'i18nDraftSearchUnavailable') {
+        assert.match(page.source, /const i18nDraftSearchUnavailable = '<carlos:encode value='<%= oscarBundle\.getString\("tickler\.draft\.searchUnavailable"\) %>' context="javaScriptBlock"\/>';/);
+        assert.ok(bundle.includes('tickler.draft.searchUnavailable='));
+        continue;
+      }
+      const match = argument.match(/^'<carlos:encode value='<%= oscarBundle\.getString\("(tickler\.tickler(?:Add\.[A-Za-z]+|Edit\.attachments\.error)|tickler\.permission\.denied|tickler\.recipient\.required)"\) %>' context="javaScriptBlock"\/>'$/);
       assert.ok(match, 'Validation text must pass through the CARLOS JavaScript encoder');
       assert.ok(bundle.includes(match[1] + '='));
     }
