@@ -18981,11 +18981,12 @@
         "CARLOS_DISPOSABLE_HOST",
         "EXCLUSIVE"
       ],
-      "notes": "#5812: native MRP preference, two owned patient/MRP pairs, exact task writes and recipient patient access; independent same-session drafts, repeated search and normal paging, Back, changed-patient defaults, deliberate recipient precedence and missing/inactive MRPs. A recipient made inactive after composition must answer 400, retain the draft and write nothing before manual recovery. Semantic failures remain fatal while safe owned recovery paths continue. Requires an active clinic and disposable/exclusive service management for provider-cache retirement.",
-      "fixtures": "Four owned actors, two task patients and four additional owned patients for the normal five-row search pagination; a separate unchanged control task. Full task/history and patient cleanup, original first-patient MRP restore, owned provider archive/billing-centre/property cleanup and post-browser cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5812: native MRP preference, two owned patient/MRP pairs, exact task writes and recipient patient access; independent same-session drafts, repeated search and normal paging, Back, changed-patient defaults, deliberate recipient precedence and missing/inactive MRPs. A recipient made inactive after composition must answer 400, retain the draft and write nothing before manual recovery. Semantic failures remain fatal while safe owned recovery paths continue. Multisite coverage also checks MRP/Default preferences with deliberate recipients and clinic clears through patient selection and Back, refuses a cleared save and verifies recovered stored recipients. Requires an active clinic and disposable/exclusive service management for provider-cache retirement.",
+      "fixtures": "Four owned actors, two task patients and four additional owned patients for the normal five-row search pagination; a separate unchanged control task and, in multisite mode, two owned clinics with different recipients. Full task/history and patient cleanup, original first-patient MRP restore, owned provider archive/billing-centre/property cleanup and post-browser cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "provider",
         "providersite",
+        "site",
         "providerArchive",
         "property:tickler_task_assignee"
       ]
