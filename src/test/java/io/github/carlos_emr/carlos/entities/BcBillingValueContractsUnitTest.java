@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Tag("unit")
 class BcBillingValueContractsUnitTest {
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"12d", "1f", "0x1p3", " 12.00 ", "NaN", "Infinity"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"12d", "1f", "0x1p3", " 12.00 ", "NaN", "Infinity", "1e3", "1e999999999", "1e-999999999"})
     void shouldKeepNonDecimalArchiveAmountsUnknown_whenReadingHistory(String source) {
         BillHistory history = new BillHistory();
         history.setAmountText(source);

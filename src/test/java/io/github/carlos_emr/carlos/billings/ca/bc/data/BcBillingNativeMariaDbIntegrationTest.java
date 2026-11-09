@@ -269,12 +269,15 @@ class BcBillingNativeMariaDbIntegrationTest extends CarlosTestBase {
         assertThat(historyDao.getTotalPaidFromHistory(MASTER, false)).isEqualTo(0.30);
         assertThat(historyDao.getTotalPaidFromHistoryByBillingMasterNos(java.util.List.of(MASTER))).containsEntry(MASTER, 0.30);
         assertThat(historyDao.getPaymentTotalsByBillingMasterNos(java.util.List.of(MASTER)).get(MASTER).excludingAdjustments()).isEqualTo(0.30);
-        jdbc.update("INSERT INTO billing_history (billingmaster_no,amount_received,payment_type_id) VALUES (?,?,'10')", MASTER, "bad");
-        assertThat(historyDao.getTotalPaidFromHistory(MASTER, false)).isNaN();
-        assertThat(historyDao.getTotalPaidFromHistoryByBillingMasterNos(java.util.List.of(MASTER)).get(MASTER)).isNaN();
-        var totals = historyDao.getPaymentTotalsByBillingMasterNos(java.util.List.of(MASTER)).get(MASTER);
-        assertThat(totals.includingAdjustments()).isNaN();
-        assertThat(totals.excludingAdjustments()).isEqualTo(0.30);
+        for (String corrupt : java.util.List.of("bad", "1e3", "1E9999999", "1e-999999")) {
+            jdbc.update("INSERT INTO billing_history (billingmaster_no,amount_received,payment_type_id) VALUES (?,?,'10')", MASTER, corrupt);
+            assertThat(historyDao.getTotalPaidFromHistory(MASTER, false)).isNaN();
+            assertThat(historyDao.getTotalPaidFromHistoryByBillingMasterNos(java.util.List.of(MASTER)).get(MASTER)).isNaN();
+            var totals = historyDao.getPaymentTotalsByBillingMasterNos(java.util.List.of(MASTER)).get(MASTER);
+            assertThat(totals.includingAdjustments()).isNaN();
+            assertThat(totals.excludingAdjustments()).isEqualTo(0.30);
+            jdbc.update("DELETE FROM billing_history WHERE billingmaster_no=? AND amount_received=?", MASTER, corrupt);
+        }
     }
 
 }

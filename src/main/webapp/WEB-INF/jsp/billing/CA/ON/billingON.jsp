@@ -507,7 +507,7 @@
 
         function onHistory() {
             var dd = document.forms[0].day.value;
-            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.requestContext.demographicNo}' context='javaScript'/>&demo_name=<carlos:encode value='${formModel.requestContext.demoNameUrlEncoded}' context='javaScript'/>&orderby=appointment_date&day=" + dd);
+            popupPage("800", "1000", billingContextPath + "/billing/CA/ON/ViewBillingONHistorySpec?demographic_no=<carlos:encode value='${formModel.requestContext.demographicNo}' context='javaScript'/>&orderby=appointment_date&day=" + dd);
         }
 
         function prepareBack() {

@@ -101,12 +101,12 @@ async function workflow(s) {
     h.assert(fs.readFileSync(path.join(home, html), 'utf8').includes(claim.billingmasterNo.padStart(7, '0')), 'Legacy HTML lacks the owned claim');
     h.assert(sql.value(`SELECT billingstatus FROM billingmaster WHERE billingmaster_no=${claim.billingmasterNo}`) === 'B', 'Claim was not marked billed');
     h.assert(sql.value(`SELECT status FROM billing WHERE billing_no=${claim.billingNo}`) === 'B', 'Invoice was not marked billed');
-    h.assert(Number(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE log_no>${beforeLog}`)) >= 2, 'Legacy logs were not committed');
+    h.assert(Number(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE billingmaster_no=${claim.billingmasterNo}`)) >= 2, 'Legacy logs were not committed');
   });
   await s.step('retrying the same legacy selection creates no duplicate activity or claim output', async () => {
-    const logs = sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE log_no>${beforeLog}`);
+    const logs = sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE billingmaster_no=${claim.billingmasterNo}`);
     await generate(); h.assert(count() === '1', 'Retry created a duplicate activity');
-    h.assert(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE log_no>${beforeLog}`) === logs, 'Retry created duplicate claim logs');
+    h.assert(sql.value(`SELECT COUNT(*) FROM log_teleplantx WHERE billingmaster_no=${claim.billingmasterNo}`) === logs, 'Retry created duplicate claim logs');
   });
   }, () => saveFixtureProvider(true), () => fixturePage.close());
 }

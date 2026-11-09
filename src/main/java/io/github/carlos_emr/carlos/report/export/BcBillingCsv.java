@@ -18,6 +18,7 @@ import io.github.carlos_emr.carlos.entities.MSPBill;
  * @since 2026-11-02
  */
 public final class BcBillingCsv {
+    private static final String PATIENT = "Patient";
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd-MMM-yy", Locale.CANADA);
 
     private BcBillingCsv() {
@@ -58,30 +59,36 @@ public final class BcBillingCsv {
      */
     public static String money(String value) {
         if (value == null || value.isBlank()) return "";
-        try {
-            BigDecimal amount = new BigDecimal(value);
-            return Double.isFinite(amount.doubleValue())
-                    ? amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString() : value;
-        } catch (NumberFormatException invalid) {
-            return value;
-        }
+        BigDecimal amount = finiteMoney(value);
+        return amount == null ? value : amount.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
     private static String text(String value) {
         return value == null ? "" : value;
     }
 
+    private static BigDecimal finiteMoney(String source) {
+        try { return source == null ? null : finiteMoney(new BigDecimal(source)); }
+        catch (NumberFormatException _) { return null; }
+    }
+
+    private static BigDecimal finiteMoney(BigDecimal parsed) {
+        if (parsed == null) return null;
+        if (parsed.signum() == 0) return BigDecimal.ZERO;
+        double finite = parsed.doubleValue();
+        return Double.isFinite(finite) && finite != 0 ? parsed : null;
+    }
+
     private static boolean isKnownMoney(String source) {
-        try { return source != null && !source.isBlank() && Double.isFinite(new BigDecimal(source).doubleValue()); }
-        catch (NumberFormatException invalid) { return false; }
+        return finiteMoney(source) != null;
     }
 
     private static String arStatus(MSPBill bill) {
         String status = text(bill.getReason()) + text(bill.getExpString());
         if (bill.getAmtOwing() == null || bill.getAmtOwing().isBlank()) {
-            status += isKnownMoney(bill.getAmount()) ? " [Balance unavailable]"
-                    : " [Unparsed billed amount: " + (bill.getAmount() == null || bill.getAmount().isBlank()
-                            ? "missing" : bill.getAmount()) + "]";
+            String billed = bill.getAmount();
+            String source = billed == null || billed.isBlank() ? "missing" : billed;
+            status += isKnownMoney(billed) ? " [Balance unavailable]" : " [Unparsed billed amount: " + source + "]";
         }
         return status;
     }
@@ -123,44 +130,10 @@ public final class BcBillingCsv {
             writePaymentSummary(output, bills);
             return;
         }
-        String[] headers = switch (type) {
-            case BcBillingConstants.REP_ACCOUNT_REC -> new String[]{"Insurer", "Patient", "ServDate", "Invoice#", "91 Days+",
-                    "61 - 90 Days", "31 - 60 Days", "0 - 30 Days", "Status", "Unknown age"};
-            case BcBillingConstants.REP_INVOICE -> new String[]{"Account", "Insurer", "ServDate", "Inv#-Line#", "Patient",
-                    "Qty", "Item", "Amt", "Balance", "Status", "Adjustment Code"};
-            case BcBillingConstants.REP_WO -> new String[]{"ID#", "Type", "Insurer", "Account", "Patient", "Amount", "ServDate", "Item", "DX"};
-            case BcBillingConstants.REP_REJ -> new String[]{"Patient", "Invoice #", "ServDate", "RejDate", "ID#", "Qty", "Item",
-                    "Ins", "DX", "Ref", "Balance", "DOB", "Sex", "Phone 1", "Phone 2", "Start", "End", "ToDate",
-                    "MVA", "Family Doctor", "Location", "Explanation"};
-            case BcBillingConstants.REP_PAYREF -> new String[]{"Payment Date", "Type", "Insurer", "Account", "Patient",
-                    "Amount", "Explanations", "Sequence", "ServDate", "Provider", "Adjustment Amount", "Adjustment Description"};
-            default -> throw new IllegalArgumentException("Unsupported accounting export");
-        };
+        String[] headers = headers(type);
         try (var csv = new TabularExport(output, headers)) {
             for (MSPBill b : bills) {
-                String bucket = BcBillingConstants.REP_ACCOUNT_REC.equals(type) ? ageBucket(b.getServiceDate(), reportDate) : "";
-                switch (type) {
-                    case BcBillingConstants.REP_ACCOUNT_REC -> csv.row(b.getBillingtype(), patient(b), date(b.getServiceDate()), invoice(b),
-                            "4".equals(bucket) ? money(b.getAmtOwing()) : "",
-                            "3".equals(bucket) ? money(b.getAmtOwing()) : "",
-                            "2".equals(bucket) ? money(b.getAmtOwing()) : "",
-                            "1".equals(bucket) ? money(b.getAmtOwing()) : "", arStatus(b),
-                            "unknown".equals(bucket) ? money(b.getAmtOwing()) : "");
-                    case BcBillingConstants.REP_INVOICE -> csv.row(initial(b.getProviderFirstName()) + initial(b.getProviderLastName()),
-                            b.getBillingtype(), date(b.getServiceDate()), invoice(b), patient(b), b.getBillingUnit(), b.getCode(),
-                            money(b.getAmount()), money(b.getAmtOwing()), b.getReason(), b.getAdjustmentCode());
-                    case BcBillingConstants.REP_WO -> csv.row(b.getBillMasterNo(), "WO", b.getBillingtype(), b.getAcctInit(), patient(b),
-                            money(b.getAmount()), date(b.getServiceDate()), b.getCode(), b.getDx1());
-                    case BcBillingConstants.REP_REJ -> csv.row(patient(b), invoice(b), date(b.getServiceDate()), date(b.getRejectionDate()),
-                            b.getHin(), b.getBillingUnit(), b.getCode(), b.getBillingtype(), b.getDx1(), b.getExpString(), money(b.getAmount()),
-                            b.getDemoDOB(), b.getDemoSex(), b.getDemoPhone(), b.getDemoPhone2(), b.getServiceStartTime(), b.getServiceEndTime(),
-                            b.getServiceToDate(), b.getMvaCode(), text(b.getProviderFirstName()) + " " + text(b.getProviderLastName()),
-                            b.getServiceLocation(), b.getExpSum());
-                    case BcBillingConstants.REP_PAYREF -> csv.row(date(b.getPaymentDate()), b.getType(), b.getBillingtype(), b.getAcctInit(),
-                            patient(b), money(b.getAmount()), text(b.getExp1()) + text(b.getExp2()), b.getSeqNum(), date(b.getServiceDate()),
-                            b.getProvName(), money(b.getAdjustmentCodeAmt()), b.getAdjustmentCodeDesc());
-                    default -> throw new IllegalArgumentException("Unsupported accounting export");
-                }
+                writeRow(csv, type, b, reportDate);
             }
             if (skippedExplanations > 0 && BcBillingConstants.REP_INVOICE.equals(type)) {
                 Object[] warning = new Object[headers.length];
@@ -243,13 +216,49 @@ public final class BcBillingCsv {
      * @return BigDecimal parsed amount, or zero when no usable amount exists
      */
     private static BigDecimal summaryAmount(String value) {
-        if (value == null || value.isBlank()) return BigDecimal.ZERO;
-        try {
-            BigDecimal amount = new BigDecimal(value);
-            return Double.isFinite(amount.doubleValue()) ? amount : BigDecimal.ZERO;
-        } catch (NumberFormatException invalid) {
-            // Keep the remaining valid payments/refunds exportable, as for missing amounts.
-            return BigDecimal.ZERO;
+        BigDecimal amount = finiteMoney(io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary.knownAmount(value));
+        return amount == null ? BigDecimal.ZERO : amount;
+    }
+    private static String[] headers(String type) {
+        return switch (type) {
+            case BcBillingConstants.REP_ACCOUNT_REC -> new String[]{"Insurer", PATIENT, "ServDate", "Invoice#", "91 Days+",
+                    "61 - 90 Days", "31 - 60 Days", "0 - 30 Days", "Status", "Unknown age"};
+            case BcBillingConstants.REP_INVOICE -> new String[]{"Account", "Insurer", "ServDate", "Inv#-Line#", PATIENT,
+                    "Qty", "Item", "Amt", "Balance", "Status", "Adjustment Code"};
+            case BcBillingConstants.REP_WO -> new String[]{"ID#", "Type", "Insurer", "Account", PATIENT, "Amount", "ServDate", "Item", "DX"};
+            case BcBillingConstants.REP_REJ -> new String[]{PATIENT, "Invoice #", "ServDate", "RejDate", "ID#", "Qty", "Item",
+                    "Ins", "DX", "Ref", "Balance", "DOB", "Sex", "Phone 1", "Phone 2", "Start", "End", "ToDate",
+                    "MVA", "Family Doctor", "Location", "Explanation"};
+            case BcBillingConstants.REP_PAYREF -> new String[]{"Payment Date", "Type", "Insurer", "Account", PATIENT,
+                    "Amount", "Explanations", "Sequence", "ServDate", "Provider", "Adjustment Amount", "Adjustment Description"};
+            default -> throw new IllegalArgumentException("Unsupported accounting export");
+        };
+    }
+
+    private static void writeRow(TabularExport csv, String type, MSPBill b, LocalDate reportDate) throws IOException {
+        String bucket = BcBillingConstants.REP_ACCOUNT_REC.equals(type) ? ageBucket(b.getServiceDate(), reportDate) : "";
+        switch (type) {
+            case BcBillingConstants.REP_ACCOUNT_REC -> csv.row(b.getBillingtype(), patient(b), date(b.getServiceDate()), invoice(b),
+                    "4".equals(bucket) ? money(b.getAmtOwing()) : "",
+                    "3".equals(bucket) ? money(b.getAmtOwing()) : "",
+                    "2".equals(bucket) ? money(b.getAmtOwing()) : "",
+                    "1".equals(bucket) ? money(b.getAmtOwing()) : "", arStatus(b),
+                    "unknown".equals(bucket) ? money(b.getAmtOwing()) : "");
+            case BcBillingConstants.REP_INVOICE -> csv.row(initial(b.getProviderFirstName()) + initial(b.getProviderLastName()),
+                    b.getBillingtype(), date(b.getServiceDate()), invoice(b), patient(b), b.getBillingUnit(), b.getCode(),
+                    money(b.getAmount()), money(b.getAmtOwing()), b.getReason(), b.getAdjustmentCode());
+            case BcBillingConstants.REP_WO -> csv.row(b.getBillMasterNo(), "WO", b.getBillingtype(), b.getAcctInit(), patient(b),
+                    money(b.getAmount()), date(b.getServiceDate()), b.getCode(), b.getDx1());
+            case BcBillingConstants.REP_REJ -> csv.row(patient(b), invoice(b), date(b.getServiceDate()), date(b.getRejectionDate()),
+                    b.getHin(), b.getBillingUnit(), b.getCode(), b.getBillingtype(), b.getDx1(), b.getExpString(), money(b.getAmount()),
+                    b.getDemoDOB(), b.getDemoSex(), b.getDemoPhone(), b.getDemoPhone2(), b.getServiceStartTime(), b.getServiceEndTime(),
+                    b.getServiceToDate(), b.getMvaCode(), text(b.getProviderFirstName()) + " " + text(b.getProviderLastName()),
+                    b.getServiceLocation(), b.getExpSum());
+            case BcBillingConstants.REP_PAYREF -> csv.row(date(b.getPaymentDate()), b.getType(), b.getBillingtype(), b.getAcctInit(),
+                    patient(b), money(b.getAmount()), text(b.getExp1()) + text(b.getExp2()), b.getSeqNum(), date(b.getServiceDate()),
+                    b.getProvName(), money(b.getAdjustmentCodeAmt()), b.getAdjustmentCodeDesc());
+            default -> throw new IllegalArgumentException("Unsupported accounting export");
         }
     }
+
 }

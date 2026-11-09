@@ -83,6 +83,28 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
         doReturn(provider).when(reconcile).getProvider(anyString(), anyInt());
     }
 
+    @ParameterizedTest
+    @ValueSource(doubles = {Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY})
+    void shouldRefuseUnknownPrivateBalances_beforeTreatingTheBillAsSettled(double paid) {
+        doReturn(paid).when(reconcile).getAmountPaid("41", MSPReconcile.BILLTYPE_PRI);
+        assertThatThrownBy(() -> reconcile.isPrivateBillItemOutstanding("41", 12.50))
+                .isInstanceOf(IllegalStateException.class).hasMessage("Private bill balance is unavailable");
+    }
+
+    @Test
+    void shouldRetainUnparsedZeroPayment_withoutAnAdjustmentInTheSummary() {
+        createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
+        var reader = spy(new MSPReconcile(true));
+        doReturn(new Provider()).when(reader).getProvider(anyString(), anyInt());
+        when(billingmasterDao.findBcPayments(any(), any(), any(), any(), any(), anyBoolean(), anyBoolean(), anyBoolean(), anyBoolean()))
+                .thenReturn(List.of(paymentRow("bad", "", "", ""), paymentRow("001250", "", "", "")));
+        var result = reader.getPayments("ALL", "ALL", "ALL", "", "", false, false, true, false, MSPReconcile.REP_PAYREF_SUM);
+        assertThat(result.list).hasSize(2);
+        MSPBill unknown = (MSPBill) result.list.getFirst();
+        assertThat(unknown.getAmount()).isEqualTo("0.00");
+        assertThat(unknown.getUnparsedAmounts()).isEqualTo(1);
+    }
+
     @Test
     void shouldPreserveZeroOutputWithoutLoggingErrors_forSpacePaddedUnpaidAmounts() {
         try (LogCapture logs = LogCapture.forLogger(MSPReconcile.class)) {

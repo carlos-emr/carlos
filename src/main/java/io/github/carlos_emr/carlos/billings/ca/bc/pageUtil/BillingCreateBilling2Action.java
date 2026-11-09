@@ -358,8 +358,8 @@ public class BillingCreateBilling2Action extends ActionSupport {
      *
      * @param errors ActionMessages
      */
-    private List<BillingServiceDao.TimeRule> timeRules;
-    private List<BillingServiceDao.ConditionRule> conditionRules;
+    private transient List<BillingServiceDao.TimeRule> timeRules;
+    private transient List<BillingServiceDao.ConditionRule> conditionRules;
 
     private void validateServiceCodeTimes(ArrayList<BillingItem> billItems,
                                           List<String> errors) {

@@ -27,12 +27,13 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
 
     @ParameterizedTest
     @org.junit.jupiter.params.provider.CsvSource({
-            "REP_PAYREF,Pri,NaN,NaN",
-            "REP_PAYREF_SUM,Pri,NaN,Known amounts only",
-            "REP_PAYREF,MSP,Unparsed Teleplan amount: 12.3,Unparsed",
-            "REP_PAYREF_SUM,MSP,Unparsed Teleplan amount: 12.3,Known amounts only"})
+            "REP_PAYREF,Pri,NaN,NaN,NaN",
+            "REP_PAYREF_SUM,Pri,NaN,Known amounts only,12.50",
+            "REP_PAYREF_SUM,MSP,0.00,Known amounts only,12.50",
+            "REP_PAYREF,MSP,Unparsed Teleplan amount: 12.3,Unparsed,12.3",
+            "REP_PAYREF_SUM,MSP,Unparsed Teleplan amount: 12.3,Known amounts only,12.50"})
     void shouldRenderKnownOnlyPaymentPdf_whenAnAmountCannotBeParsed(
-            String reportType, String insurer, String source, String expectedText) throws Exception {
+            String reportType, String insurer, String source, String expectedText, String expectedVisibleAmount) throws Exception {
         var unknown = new io.github.carlos_emr.carlos.entities.MSPBill();
         unknown.billingtype = insurer;
         unknown.amount = source;
@@ -65,6 +66,7 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
                 String text = new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
                 assertThat(text).as(reportType).contains("12.50", expectedText, "Unparsed amount fields excluded: 1")
                         .doesNotContain("$NaN", "$12.30");
+                assertThat(text.replaceAll("\\s+", "")).contains(expectedVisibleAmount);
             }
         }
     }

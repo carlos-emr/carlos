@@ -27,15 +27,14 @@ public final class BcRemittanceExportDao {
     /**
      * Writes billed claim rows for one exact payee and remittance, with one CSV header.
      * No matching claims produces a header-only file.
+     * Malformed Teleplan amounts retain their source in an {@code Unparsed Teleplan amount:} cell;
+     * malformed dates retain their source text.
      *
      * @param output OutputStream receiving UTF-8 CSV; closed when generation finishes
      * @param payee String literal Teleplan payee identifier, matched exactly
      * @param s21 String remittance S21 identifier, bound as a query parameter
      * @throws SQLException if the billing query fails
      * @throws IOException if CSV output fails
-     * @throws java.time.DateTimeException if a report date is invalid
-     * @throws NumberFormatException if a Teleplan amount is invalid
-     * @throws ArithmeticException if a Teleplan amount contains fractional cents
      */
     public void writeBilled(OutputStream output, String payee, String s21) throws SQLException, IOException {
         String sql = """
@@ -65,14 +64,13 @@ public final class BcRemittanceExportDao {
     /**
      * Writes one header and discriminated S21/S22/S23/S25 rows without a Jasper layout grid.
      * Deleted remittances and practitioner rows are excluded; orphan adjustments remain included.
+     * Malformed Teleplan amounts retain their source in an {@code Unparsed Teleplan amount:} cell;
+     * malformed dates retain their source text.
      *
      * @param output OutputStream receiving UTF-8 CSV; closed when generation finishes
      * @param s21 String remittance S21 identifier, bound in every query
      * @throws SQLException if a query fails or the remittance is unavailable or deleted
      * @throws IOException if CSV output fails
-     * @throws java.time.DateTimeException if a report date is invalid
-     * @throws NumberFormatException if a Teleplan amount is invalid
-     * @throws ArithmeticException if a Teleplan amount contains fractional cents
      */
     public void writeSummary(OutputStream output, String s21) throws SQLException, IOException {
         String[] headers = {"Record Type", "Payment Date", "Payee No", "Payee Name", "Billed (CAD)", "Paid (CAD)",

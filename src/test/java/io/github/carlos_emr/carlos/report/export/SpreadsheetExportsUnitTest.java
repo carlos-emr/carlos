@@ -75,6 +75,15 @@ class SpreadsheetExportsUnitTest {
     }
 
     @Test
+    void shouldPreserveOutOfRangeAmounts_withoutExpandingExponentScales() {
+        for (String source : List.of("1e999999999", "1e-999999999")) {
+            assertThat(BcBillingCsv.money(source)).isEqualTo(source);
+        }
+        assertThat(BcBillingCsv.money("1e3")).isEqualTo("1000.00");
+        assertThat(BcBillingCsv.money(" 1.00 ")).isEqualTo(" 1.00 ");
+    }
+
+    @Test
     void shouldKeepIdentifiersAndFormulaLikeNamesAsText_whenStreamingRows() throws Exception {
         var patient = new DxRegistedPTInfo("=1+1", "Élodie,\"name\"\nline", "X", "00100101", "0012345", "0012345678",
                 "icd9", "001", "2026-10-01", "2026-10-02", "A");

@@ -233,7 +233,7 @@
                                                     </option>
                                                 </c:forEach>
                                             </select>
-                                            <a href="#" onClick="popupPage(${ctr.index}, '${carlos:forJavaScript(waitingListBean.patientName)}', '${carlos:forJavaScript(waitingListBean.demographicNo)}', '${carlos:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
+                                            <a href="#" onClick="popupPage(${ctr.index}, '${carlos:forJavaScript(waitingListBean.demographicNo)}', '${carlos:forJavaScript(today)}', 400, 780, '<%= request.getContextPath() %>/schedule/FlipView?originalpage=<%= request.getContextPath() %>/waitinglist/SetupDisplayWaitingList'); return false;">
                                                 <fmt:message key='oscarwaitinglist.displayWaitingList.makeAppointment'/>
                                             </a>
                                         </td>
@@ -312,7 +312,7 @@
             //alert("setParameters(): onListSinceSelected = " + document.forms[0].onListSinceSelected.value);
         }
 
-        function popupPage(ctr, patientName, demographicNo, startDate, vheight, vwidth, varpage) {
+        function popupPage(ctr, demographicNo, startDate, vheight, vwidth, varpage) {
             var nbPatients = parseInt('${carlos:forJavaScript(nbPatients)}');
             if (nbPatients > 1) {
                 var selected = document.forms[0].selectedProvider[ctr].options[document.forms[0].selectedProvider[ctr].selectedIndex].value;

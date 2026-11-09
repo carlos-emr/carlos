@@ -201,15 +201,19 @@ public class MSPReconcile {
      */
     private boolean keepCsvPayment(MSPBill bill) {
         if (bill.amount == null) bill.amount = "";
-        try {
-            int sign = new BigDecimal(bill.amount).signum();
-            bill.type = sign > 0 ? "PMT" : sign < 0 ? "RFD" : "";
-            return sign != 0 || !bill.adjustmentCode.isEmpty();
-        } catch (NumberFormatException invalid) {
+        BigDecimal amount = io.github.carlos_emr.carlos.billings.ca.bc.data.PayRefSummary.knownAmount(bill.amount);
+        if (amount == null) {
+            // Rejected scientific notation must not be reparsed as money downstream.
+            if (bill.amount.indexOf('e') >= 0 || bill.amount.indexOf('E') >= 0) {
+                if (!bill.amount.startsWith("Unparsed ")) bill.amount = "Unparsed billing amount: " + bill.amount;
+            }
             if (bill.getUnparsedAmounts() == 0) bill.recordUnparsedAmount();
             bill.type = "";
             return true;
         }
+        int sign = amount.signum();
+        bill.type = sign > 0 ? "PMT" : sign < 0 ? "RFD" : "";
+        return sign != 0 || !bill.adjustmentCode.isEmpty() || bill.getUnparsedAmounts() > 0;
     }
 
     public MSPReconcile() {
@@ -2033,6 +2037,9 @@ public class MSPReconcile {
      */
     public boolean isPrivateBillItemOutstanding(String billingmaster_no, double amount) {
         double amountPaid = Double.valueOf(getAmountPaid(billingmaster_no, BILLTYPE_PRI)).doubleValue();
+        if (!Double.isFinite(amountPaid) || !Double.isFinite(amount)) {
+            throw new IllegalStateException("Private bill balance is unavailable");
+        }
         return amountPaid < amount;
     }
 

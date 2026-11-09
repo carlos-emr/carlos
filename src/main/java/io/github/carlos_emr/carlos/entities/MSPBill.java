@@ -413,8 +413,11 @@ public class MSPBill {
         try {
             long days = java.time.temporal.ChronoUnit.DAYS.between(
                     java.time.LocalDate.parse(date, java.time.format.DateTimeFormatter.BASIC_ISO_DATE), asOf);
-            return days <= 30 ? "1" : days <= 60 ? "2" : days <= 90 ? "3" : "4";
-        } catch (java.time.format.DateTimeParseException invalid) { return "0"; }
+            if (days <= 30) return "1";
+            if (days <= 60) return "2";
+            if (days <= 90) return "3";
+            return "4";
+        } catch (java.time.format.DateTimeParseException _) { return "0"; }
     }
 
     public String getStatus() {

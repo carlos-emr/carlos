@@ -66,12 +66,51 @@ class BcPdfTemplatesUnitTest {
     }
 
     @Test
-    void shouldDiscardEntireDocument_whenALaterInvoiceAmountCannotBeRendered() throws Exception {
+    void shouldRenderExactS23Totals_fromMultipleDecodedAdjustmentRows() throws Exception {
+        var rows = new java.util.ArrayList<Map<String, ?>>();
+        for (String cents : List.of("000010", "000020")) {
+            var row = new HashMap<String, Object>();
+            for (String key : List.of("t_ajc", "adj_desc", "t_aji", "t_calcmethod", "t_rpercent", "t_opercent")) row.put(key, "0");
+            for (String key : List.of("t_gamount", "t_ramount", "t_oamount", "t_balancefwd", "t_adjmade", "t_adjoutstanding")) row.put(key, cents);
+            rows.add(row);
+        }
+        try (var template = getClass().getResourceAsStream(ROOT + "msppremsum.s23.jrxml")) {
+            var report = JasperCompileManager.compileReport(template);
+            var print = net.sf.jasperreports.engine.JasperFillManager.fillReport(report, new HashMap<>(),
+                    new JRMapCollectionDataSource(rows));
+            try (var pdf = Loader.loadPDF(net.sf.jasperreports.engine.JasperExportManager.exportReportToPdf(print))) {
+                assertThat(new PDFTextStripper().getText(pdf)).contains("0.30");
+            }
+        }
+    }
+
+    @Test
+    void shouldLogSanitizedCauseStacks_whenTheRendererFails() throws Exception {
+        var response = new MockHttpServletResponse();
+        try (var logs = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PdfDownload.class)) {
+            PdfDownload.inline(response, "report.pdf", output -> {
+                throw new java.io.IOException("FAKE-PHI-OUTER", new IllegalArgumentException("FAKE-PHI-CAUSE"));
+            });
+            assertThat(response.getStatus()).isEqualTo(500);
+            assertThat(logs.events()).anySatisfy(event -> {
+                Throwable error = event.getThrown();
+                assertThat(error).isNotNull();
+                assertThat(error.getMessage()).isEqualTo(java.io.IOException.class.getName());
+                assertThat(error.getCause().getMessage()).isEqualTo(IllegalArgumentException.class.getName());
+                assertThat(error.getStackTrace()).isNotEmpty();
+            });
+            assertThat(logs.messages()).allSatisfy(message -> assertThat(message).doesNotContain("FAKE-PHI"));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"invoice", "account_rec"})
+    void shouldDiscardEntireDocument_whenALaterAccountingAmountCannotBeRendered(String report) throws Exception {
         var response=new MockHttpServletResponse();
         response.setHeader("X-Partial-Receipt", "discard-me");
-        var invalid=row(); invalid.put("amount","synthetic-invalid-amount");
+        var invalid=row(); invalid.put("amount","synthetic-invalid-amount"); invalid.put("amtOwing", "");
         PdfDownload.inline(response,"report.pdf", output -> {
-            try(var template=getClass().getResourceAsStream(ROOT+"pdf_rep_invoice.jrxml")) {
+            try(var template=getClass().getResourceAsStream(ROOT+"pdf_rep_"+report+".jrxml")) {
                 new OscarDocumentCreator().fillDocumentStream(parameters(),output,"pdf",template,new JRMapCollectionDataSource(List.of(row(),invalid)));
             }
         });

@@ -4,11 +4,21 @@ package io.github.carlos_emr.carlos.billing.CA.BC.model;
 import java.math.BigDecimal;
 
 /**
- * Teleplan's implied-cents amount representation, including negative overpunch suffixes.
+ * Exact BC monetary parsing, including Teleplan's implied cents and negative overpunch suffixes.
  *
  * @since 2026-11-02
  */
 public final class TeleplanAmount {
+    private static final java.util.regex.Pattern DECIMAL =
+            java.util.regex.Pattern.compile("[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)");
+
+    /** Parses stored decimal dollars; invalid syntax remains unknown and exponents are never expanded. */
+    public static BigDecimal knownDecimal(String source) {
+        if (source == null || !DECIMAL.matcher(source).matches()) return null;
+        try { return new BigDecimal(source); }
+        catch (NumberFormatException _) { return null; }
+    }
+
     private TeleplanAmount() {
     }
 

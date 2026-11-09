@@ -34,6 +34,30 @@ class BillingPatientContextUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldOmitPatientNames_fromScheduleAndHistoryDestinations() throws Exception {
+        String schedule = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/webapp/WEB-INF/jsp/schedule/scheduleflipview.jsp"));
+        assertThat(schedule).contains("addappointment?demographic_no=").doesNotContain("&name=");
+        String history = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/webapp/WEB-INF/jsp/billing/CA/ON/billingON.jsp"));
+        assertThat(history).contains("ViewBillingONHistorySpec?demographic_no=").doesNotContain("&demo_name=");
+    }
+
+    @Test
+    void shouldResolveHistoryLabels_fromTheAuthorizedPatientInsteadOfTheRequestName() throws Exception {
+        request.setParameter("demographic_no", "17");
+        request.setParameter("demo_name", "Forged label");
+        when(manager.getDemographic(login, 17)).thenReturn(patient("FAKE-History", "Alice"));
+        var security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(security.hasPrivilege(login, "_billing", "r", null)).thenReturn(true);
+        var assembler = mock(io.github.carlos_emr.carlos.billings.ca.on.assembler.BillingOnHistorySpecialistViewModelAssembler.class);
+        try (var servlet = mockStatic(org.apache.struts2.ServletActionContext.class)) {
+            servlet.when(org.apache.struts2.ServletActionContext::getRequest).thenReturn(request);
+            var action = new io.github.carlos_emr.carlos.billings.ca.on.web.ViewBillingOnHistorySpecialist2Action(security, assembler);
+            assertThat(action.execute()).isEqualTo("success");
+            verify(assembler).assemble("17", "FAKE-History, Alice", null, null);
+        }
+    }
+
+    @Test
     void shouldIgnoreCallerNames_andUseTheAuthorizedPatient() {
         request.setParameter("demographic_no", "17");
         request.setParameter("demographic_name", "Forged patient");

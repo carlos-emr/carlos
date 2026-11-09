@@ -155,8 +155,7 @@ public class PayRefSummary {
     /** Null denotes an unavailable amount; never substitute a numeric zero for unknown money. */
     public static java.math.BigDecimal knownAmount(String amount) {
         if (amount == null || amount.isBlank()) return null;
-        try { return new java.math.BigDecimal(amount.trim()); }
-        catch (NumberFormatException invalid) { return null; }
+        return io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownDecimal(amount.trim());
     }
 
     private java.math.BigDecimal exactTotal() {

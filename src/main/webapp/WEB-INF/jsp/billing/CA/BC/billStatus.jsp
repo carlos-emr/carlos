@@ -572,9 +572,11 @@
                     paidTotal = paidTotal.add(valueToPaidAdd);
                     BigDecimal amtOwed = null;
                     try {
-                        amtOwed = BigDecimal.valueOf(msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals))
-                                .setScale(2, BigDecimal.ROUND_HALF_UP);
-                        owedTotal = owedTotal.add(amtOwed);
+                        if (!incorrectVal) {
+                            amtOwed = BigDecimal.valueOf(msp.getAmountOwing(b.billMasterNo, b.amount, b.billingtype, historyTotals))
+                                    .setScale(2, BigDecimal.ROUND_HALF_UP);
+                            owedTotal = owedTotal.add(amtOwed);
+                        }
                     } catch (NumberFormatException badValueException) {
                         // An unreadable amount remains unknown; query failures still propagate.
                     }

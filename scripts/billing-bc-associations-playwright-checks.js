@@ -36,7 +36,7 @@ async function workflow(s) {
     await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), page.locator('[name="submitButton"]').click()]);
   };
   const showOwnedRow = async () => {
-    const row = page.locator('table.displayGrid tbody tr').filter({ hasText: codes[0] });
+    const row = page.locator('table.displayGrid tbody tr').filter({ has: page.locator('td:first-child').getByText(ids[0], { exact: true }) });
     h.assert(await row.count() === 1, 'Saved BC association was not listed');
     // Use the visible pager, including its Next control when the target is outside its link group.
     while (!await row.isVisible()) {

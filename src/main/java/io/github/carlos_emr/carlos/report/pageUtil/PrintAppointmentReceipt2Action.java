@@ -79,6 +79,7 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "PATH_TRAVERSAL_IN"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision; path derived from trusted configuration/constant/DB value, not user-controllable input")
+    @Override
     public String execute() throws IOException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null)) {
@@ -177,6 +178,7 @@ public class PrintAppointmentReceipt2Action extends ActionSupport {
         return NONE;
     }
 
+    /** The override directory is the trusted JVM user.home setting; no request path enters this lookup. */
     private InputStream openReceiptTemplate() throws IOException {
         try {
             return new FileInputStream(PathValidationUtils.resolveTrustedPath(

@@ -149,7 +149,8 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
         private void add(String source, boolean includeWithoutAdjustments) {
             try {
                 java.math.BigDecimal amount = source == null || source.isBlank()
-                        ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(source);
+                        ? java.math.BigDecimal.ZERO : io.github.carlos_emr.carlos.billing.CA.BC.model.TeleplanAmount.knownDecimal(source);
+                if (amount == null) throw new NumberFormatException("Unparsed billing amount");
                 including = including.add(amount);
                 if (includeWithoutAdjustments) excluding = excluding.add(amount);
             } catch (NumberFormatException invalid) {

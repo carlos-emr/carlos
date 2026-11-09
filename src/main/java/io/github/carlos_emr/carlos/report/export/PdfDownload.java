@@ -22,7 +22,8 @@ public final class PdfDownload {
                 catch (Exception failure) { throw new IOException("PDF rendering failed", failure); }
             });
         } catch (Exception failure) {
-            MiscUtils.getLogger().error("PDF generation failed ({})", failure.getClass().getName());
+            MiscUtils.getLogger().error("PDF generation failed ({})", failure.getClass().getName(),
+                    diagnostic(failure, new java.util.IdentityHashMap<>()));
             if (response.isCommitted()) {
                 throw new IOException("PDF transfer failed");
             }
@@ -30,4 +31,18 @@ public final class PdfDownload {
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
+
+    private static Throwable diagnostic(Throwable failure, java.util.IdentityHashMap<Throwable, Throwable> seen) {
+        var safe = new IllegalStateException(failure.getClass().getName());
+        seen.put(failure, safe);
+        safe.setStackTrace(failure.getStackTrace());
+        if (failure.getCause() != null && !seen.containsKey(failure.getCause())) {
+            safe.initCause(diagnostic(failure.getCause(), seen));
+        }
+        for (Throwable suppressed : failure.getSuppressed()) {
+            if (!seen.containsKey(suppressed)) safe.addSuppressed(diagnostic(suppressed, seen));
+        }
+        return safe;
+    }
+
 }

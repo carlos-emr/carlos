@@ -52,7 +52,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 
 /** Compatibility writer for typed legacy clients and the supported association editor. */
 public class AssociateCodes2Action extends SaveAssoc2Action {
-    private ServiceCodeAssociation legacyAssociation;
+    private transient ServiceCodeAssociation legacyAssociation;
 
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "Redirect uses only the deployment context path and a fixed same-origin route; no request parameter enters the destination")
     @Override
