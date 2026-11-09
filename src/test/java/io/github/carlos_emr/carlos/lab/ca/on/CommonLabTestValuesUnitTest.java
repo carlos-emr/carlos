@@ -44,6 +44,17 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRetainClinicianCase_whenItIsNotTheExactLegacyLowercaseValue() {
+        Hashtable<String, Serializable> projected = new Hashtable<>();
+        projected.put("lab_no", "100"); projected.put("result", "NEGATIVE");
+        var raw = List.<Map<String, Serializable>>of(Map.of("lab_no", "100", "result", "Negative",
+                "collDate", "2026-01-02 09:00:00", "identifier", "3007"));
+        assertThat(CommonLabTestValues.overlaySourceValues(List.of(projected), raw, Set.of("3007")))
+                .singleElement().satisfies(row -> assertThat(row).containsEntry("result", "NEGATIVE")
+                        .containsEntry("differentSourceResult", true));
+    }
+
+    @Test
     void shouldRetainProjectedValuesAndAbnormalColours_whenSourceDisplayDiffers() {
         Hashtable<String, Serializable> old = new Hashtable<>();
         old.put("lab_no", "100"); old.put("result", "6.7"); old.put("date", "2026-01-02 09:00:00"); old.put("abn", "A");

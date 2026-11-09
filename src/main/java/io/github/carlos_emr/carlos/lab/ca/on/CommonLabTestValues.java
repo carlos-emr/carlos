@@ -536,7 +536,7 @@ public class CommonLabTestValues {
                 row.put("date", Objects.toString(observation.get("collDate"), ""));
                 row.put("collDateDate", Objects.toString(observation.get("collDate"), ""));
                 row.put("abn", gridFlag(observation.get("abn")));
-            } else if (literal.equalsIgnoreCase((String) projected.get("result"))) {
+            } else if (isOriginalOrLegacyLiteral(literal, (String) projected.get("result"))) {
                 row.put("result", literal); // Restore clinical case without changing the projected value.
             } else {
                 // A configured extractor or a clinician's replacement may deliberately differ.
@@ -550,6 +550,13 @@ public class CommonLabTestValues {
         ArrayList<Hashtable<String, Serializable>> result = new ArrayList<>(rows.values());
         result.sort(Comparator.comparing((Hashtable<String, Serializable> row) -> (String) row.get("date")).reversed());
         return result;
+    }
+
+    /** Display-only restoration of the exact lowercase transformation used by legacy ingestion. */
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE",
+            justification = "Compare exact original or legacy server-locale lowercase clinical text solely for display; never authorize or merge source identities")
+    private static boolean isOriginalOrLegacyLiteral(String literal, String projected) {
+        return literal.equals(projected) || literal.toLowerCase(Locale.getDefault()).equals(projected);
     }
 
     private static String gridFlag(Serializable flag) {
