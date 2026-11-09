@@ -10,6 +10,8 @@ from pathlib import Path
 import tempfile
 import subprocess
 import unittest
+from unittest import mock
+
 from unittest.mock import patch
 from git_environment import separate_checkout_environment
 from defusedxml.common import DefusedXmlException
@@ -165,6 +167,84 @@ class NativeEvidenceTest(unittest.TestCase):
                 self.assertEqual(len(names), total)
                 self.assertEqual(expected, not incomplete)
 
+
+class UpgradeEvidencePublicationTest(unittest.TestCase):
+    def test_publishes_over_a_read_only_container_report_using_a_private_new_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'upgrade-on.json'
+            path.write_text('{"status":"CLI_AND_RETENTION_PASSED"}\n')
+            path.chmod(0o444)
+            proof = {'status': 'PASSED', 'physicalSchemaAndSeedsMatched': True}
+            NATIVE.publish_upgrade_proof(path, proof)
+            self.assertEqual(proof, NATIVE.json.loads(path.read_text()))
+            self.assertEqual(0o600, path.stat().st_mode & 0o777)
+            self.assertEqual([path], list(root.iterdir()))
+
+    def test_rename_failure_retains_partial_evidence_and_removes_pending_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / 'upgrade-on.json'
+            original = '{"status":"CLI_AND_RETENTION_PASSED"}\n'
+            path.write_text(original)
+            with mock.patch.object(NATIVE.os, 'replace', side_effect=PermissionError('fixture')):
+                with self.assertRaises(PermissionError):
+                    NATIVE.publish_upgrade_proof(path, {'status': 'PASSED'})
+            self.assertEqual(original, path.read_text())
+            self.assertEqual([path], list(root.iterdir()))
+
+
+class CoordinatedInventoryTest(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        (self.root / 'scripts/ci').mkdir(parents=True)
+        self.inventory = self.root / 'scripts/ci/cds-coordinated-test-classes.json'
+
+    def source(self, qualified):
+        path = self.root / 'src/test/java' / (qualified.replace('.', '/') + '.java')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('class Fixture {}')
+
+    def write_inventory(self, values):
+        import json
+        self.inventory.write_text(json.dumps(values))
+
+    def test_real_inventory_is_covered_exactly_once_across_workflow_shards(self):
+        import json
+        repository = MODULE_PATH.resolve().parents[2]
+        partitions = [set(NATIVE.coordinated_classes(repository, shard)) for shard in ('import', 'export', 'shared')]
+        expected = json.loads((repository / 'scripts/ci/cds-coordinated-test-classes.json').read_text())
+        self.assertEqual(len(expected), len(set.union(*partitions)))
+        for first in range(len(partitions)):
+            for second in range(first + 1, len(partitions)):
+                self.assertFalse(partitions[first] & partitions[second])
+
+    def test_exact_source_resolution_keeps_owning_dao_and_simple_export_selectors(self):
+        self.source('example.commn.dao.CdsExportPhysicalTest')
+        self.source('example.cdsexport.service.ClinicalTest')
+        self.write_inventory(['CdsExportPhysicalTest', 'example.cdsexport.service.ClinicalTest'])
+        self.assertEqual(('example.commn.dao.CdsExportPhysicalTest', 'example.cdsexport.service.ClinicalTest'),
+                         NATIVE.coordinated_classes(self.root, 'export'))
+
+    def test_missing_ambiguous_and_wildcard_selectors_refuse_the_gate(self):
+        for values in (['Missing'], ['CdsExport*'], []):
+            with self.subTest(values=values):
+                self.write_inventory(values)
+                with self.assertRaises(ValueError):
+                    NATIVE.coordinated_classes(self.root, 'export')
+        self.source('one.CdsExportDuplicatedTest')
+        self.source('two.CdsExportDuplicatedTest')
+        self.write_inventory(['CdsExportDuplicatedTest'])
+        with self.assertRaises(ValueError):
+            NATIVE.coordinated_classes(self.root, 'export')
+
+    def test_two_spellings_of_the_same_class_cannot_double_count_coverage(self):
+        self.source('example.cdsexport.CdsExportFixtureTest')
+        self.write_inventory(['CdsExportFixtureTest', 'example.cdsexport.CdsExportFixtureTest'])
+        with self.assertRaises(ValueError):
+            NATIVE.coordinated_classes(self.root, 'export')
 
 
 class NativeReadinessTest(unittest.TestCase):

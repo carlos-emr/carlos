@@ -46,89 +46,267 @@ import static org.mockito.ArgumentMatchers.*;
 
 @Tag("unit")
 class CdsNativePreparationServiceUnitTest {
-    public record Source(String text, Map<String, String> values) { }
+    public record Source(String text, Map<String, String> values) {}
 
-    @Test void shouldPersistAndReuseCanonicalLargeDto_whenMapOrderChangesAfterRestart() throws Exception {
+    @Test
+    void shouldPersistAndReuseCanonicalLargeDto_whenMapOrderChangesAfterRestart() throws Exception {
         var dao = mock(CdsImportPreparationDao.class);
         Map<String, CdsImportPreparation> rows = new HashMap<>();
         when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
-        doAnswer(call -> { CdsImportPreparation row = call.getArgument(0); rows.put(row.getId(), row); return null; }).when(dao).persist(any());
+        doAnswer(
+                        call -> {
+                            CdsImportPreparation row = call.getArgument(0);
+                            rows.put(row.getId(), row);
+                            return null;
+                        })
+                .when(dao)
+                .persist(any());
         var service = service(dao);
-        Map<String, String> first = new LinkedHashMap<>(); first.put("b", "two"); first.put("a", "one");
-        Map<String, String> second = new LinkedHashMap<>(); second.put("a", "one"); second.put("b", "two");
-        service.store("run", 1, "a".repeat(64), "b".repeat(64), command(), new Source("x".repeat(100000), first));
-        assertThatCode(() -> service.store("run", 1, "a".repeat(64), "b".repeat(64), command(),
-                new Source("x".repeat(100000), second))).doesNotThrowAnyException();
+        Map<String, String> first = new LinkedHashMap<>();
+        first.put("b", "two");
+        first.put("a", "one");
+        Map<String, String> second = new LinkedHashMap<>();
+        second.put("a", "one");
+        second.put("b", "two");
+        service.store(
+                "run",
+                1,
+                "a".repeat(64),
+                "b".repeat(64),
+                command(),
+                new Source("x".repeat(100000), first));
+        assertThatCode(
+                        () ->
+                                service.store(
+                                        "run",
+                                        1,
+                                        "a".repeat(64),
+                                        "b".repeat(64),
+                                        command(),
+                                        new Source("x".repeat(100000), second)))
+                .doesNotThrowAnyException();
         verify(dao, times(1)).persist(any());
         assertThat(rows.values().iterator().next().getPayload()).contains("x".repeat(100000));
     }
 
-    @Test void shouldRegenerateOnlyIdenticalUncommittedCache_whenStoredPayloadIsCorrupt() throws Exception {
+    @Test
+    void shouldRegenerateOnlyIdenticalUncommittedCache_whenStoredPayloadIsCorrupt()
+            throws Exception {
         var dao = mock(CdsImportPreparationDao.class);
         var ledger = mock(CdsImportLedgerService.class);
-        var unit = new io.github.carlos_emr.carlos.commn.model.CdsImportUnit(); unit.setPatientKey("patient");
+        var unit = new io.github.carlos_emr.carlos.commn.model.CdsImportUnit();
+        unit.setPatientKey("patient");
         when(ledger.unit("run", "a".repeat(64))).thenReturn(unit);
         Map<String, CdsImportPreparation> rows = new HashMap<>();
         when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
-        doAnswer(call -> { CdsImportPreparation row = call.getArgument(0); rows.put(row.getId(), row); return null; }).when(dao).persist(any());
+        doAnswer(
+                        call -> {
+                            CdsImportPreparation row = call.getArgument(0);
+                            rows.put(row.getId(), row);
+                            return null;
+                        })
+                .when(dao)
+                .persist(any());
         var service = service(dao, ledger);
         var source = new Source("complete Unicode 😀", Map.of());
         service.store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
-        var row = rows.values().iterator().next(); String expected = row.getPayload(); row.setPayload("corrupt");
+        var row = rows.values().iterator().next();
+        String expected = row.getPayload();
+        row.setPayload("corrupt");
         service.store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
         assertThat(row.getPayload()).isEqualTo(expected);
         verify(ledger).requireExpectedCheckpointFree("run", 1, "a".repeat(64));
-        verify(ledger).diagnostic(eq("run"), eq(1L), eq("patient"), eq("a".repeat(64)), eq("INFO"),
-                eq("NATIVE_PREPARATION_CACHE_REGENERATED"), eq("RECOVERY"), isNull(), anyString(), isNull(), eq(false));
-        row.setOptionsDigest("c".repeat(64)); row.setPayload("corrupt again");
-        assertThatThrownBy(() -> service.store("run", 1, "a".repeat(64), "b".repeat(64), command(), source))
-                .isInstanceOf(CdsImportException.class).hasMessageContaining("NATIVE_PREPARATION_CONFLICT");
+        verify(ledger)
+                .diagnostic(
+                        eq("run"),
+                        eq(1L),
+                        eq("patient"),
+                        eq("a".repeat(64)),
+                        eq("INFO"),
+                        eq("NATIVE_PREPARATION_CACHE_REGENERATED"),
+                        eq("RECOVERY"),
+                        isNull(),
+                        anyString(),
+                        isNull(),
+                        eq(false));
+        row.setOptionsDigest("c".repeat(64));
+        row.setPayload("corrupt again");
+        assertThatThrownBy(
+                        () ->
+                                service.store(
+                                        "run",
+                                        1,
+                                        "a".repeat(64),
+                                        "b".repeat(64),
+                                        command(),
+                                        source))
+                .isInstanceOf(CdsImportException.class)
+                .hasMessageContaining("NATIVE_PREPARATION_CONFLICT");
         assertThat(row.getPayload()).isEqualTo("corrupt again");
     }
 
-    @Test void shouldRefuseOversizedPreparation_beforeOpeningMetadataTransaction() {
+    @Test
+    void shouldRefuseOversizedPreparation_beforeOpeningMetadataTransaction() {
         var dao = mock(CdsImportPreparationDao.class);
         var service = service(dao);
-        assertThatThrownBy(() -> service.store("run", 1, "a".repeat(64), "b".repeat(64), command(),
-                new Source("x".repeat(1100000), Map.of()))).isInstanceOf(Exception.class)
+        assertThatThrownBy(
+                        () ->
+                                service.store(
+                                        "run",
+                                        1,
+                                        "a".repeat(64),
+                                        "b".repeat(64),
+                                        command(),
+                                        new Source("x".repeat(1100000), Map.of())))
+                .isInstanceOf(Exception.class)
                 .hasStackTraceContaining("NATIVE_PREPARATION_CAPACITY_EXCEEDED");
         verifyNoInteractions(dao);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"2025-03-04T10:20:30.125-05:00", "-0004-12-31T23:59:59.123456789+05:45"})
-    void shouldPreserveExactSourceOffsetAndFraction_whenNativePreparationIsDecodedAfterRestart(String original) throws Exception {
+    @ValueSource(
+            strings = {"2025-03-04T10:20:30.125-05:00", "-0004-12-31T23:59:59.123456789+05:45"})
+    void shouldPreserveExactSourceOffsetAndFraction_whenNativePreparationIsDecodedAfterRestart(
+            String original) throws Exception {
         var dao = mock(CdsImportPreparationDao.class);
         Map<String, CdsImportPreparation> rows = new HashMap<>();
         when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
-        doAnswer(call -> { CdsImportPreparation row = call.getArgument(0); rows.put(row.getId(), row); return null; }).when(dao).persist(any());
+        doAnswer(
+                        call -> {
+                            CdsImportPreparation row = call.getArgument(0);
+                            rows.put(row.getId(), row);
+                            return null;
+                        })
+                .when(dao)
+                .persist(any());
         OffsetDateTime clock = OffsetDateTime.parse(original);
-        var temporal = new CdsTemporalDto(CdsTemporalDto.Precision.OFFSET_DATE_TIME, original,
-                clock.toLocalDate(), clock.toLocalDate(), clock.toLocalDateTime(), clock);
-        var source = new CdsLaboratoryNativeDto(Map.of("ResultStatus", "Final"), temporal, CdsTemporalDto.unknown());
+        var temporal =
+                new CdsTemporalDto(
+                        CdsTemporalDto.Precision.OFFSET_DATE_TIME,
+                        original,
+                        clock.toLocalDate(),
+                        clock.toLocalDate(),
+                        clock.toLocalDateTime(),
+                        clock);
+        var source =
+                new CdsLaboratoryNativeDto(
+                        Map.of("ResultStatus", "Final"), temporal, CdsTemporalDto.unknown());
         service(dao).store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
         // Only the unit ownership boundary is mocked; exercise the real persisted
         // JSON, digest verification and decode with a fresh service instance.
         try (var ownership = mockStatic(CdsImportUnitService.class)) {
-            var decoded = service(dao).load("run", 1, "a".repeat(64), "b".repeat(64), command(), CdsLaboratoryNativeDto.class);
+            var decoded =
+                    service(dao)
+                            .load(
+                                    "run",
+                                    1,
+                                    "a".repeat(64),
+                                    "b".repeat(64),
+                                    command(),
+                                    CdsLaboratoryNativeDto.class);
             assertThat(decoded).isEqualTo(source);
-            assertThat(decoded.collection().offsetDateTime().getOffset()).isEqualTo(clock.getOffset());
+            assertThat(decoded.collection().offsetDateTime().getOffset())
+                    .isEqualTo(clock.getOffset());
             assertThat(decoded.collection().offsetDateTime().getNano()).isEqualTo(clock.getNano());
             assertThat(decoded.collection().original()).isEqualTo(original);
         }
     }
 
+    @Test
+    void shouldKeepLegacyAllergyPayloadBytes_whenStrictlyDecodingTheOptionalArchiveExtension()
+            throws Exception {
+        for (boolean archived : new boolean[] {false, true})
+            for (boolean extensions : new boolean[] {false, true}) {
+                var dao = mock(CdsImportPreparationDao.class);
+                Map<String, CdsImportPreparation> rows = new HashMap<>();
+                when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
+                doAnswer(
+                                call -> {
+                                    CdsImportPreparation row = call.getArgument(0);
+                                    rows.put(row.getId(), row);
+                                    return null;
+                                })
+                        .when(dao)
+                        .persist(any());
+                var source =
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto(
+                                "Synthetic archive agent",
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                CdsTemporalDto.unknown(),
+                                CdsTemporalDto.unknown(),
+                                archived,
+                                extensions ? "0012" : null,
+                                extensions ? "2" : null);
+                service(dao).store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
+                var row = rows.values().iterator().next();
+                String payload = row.getPayload(), digest = row.getDigest();
+                assertThat(
+                                new com.fasterxml.jackson.databind.ObjectMapper()
+                                        .readTree(payload)
+                                        .has("archived"))
+                        .isEqualTo(archived);
+                assertThat(
+                                new com.fasterxml.jackson.databind.ObjectMapper()
+                                        .readTree(payload)
+                                        .has("ageOfOnset"))
+                        .isEqualTo(extensions);
+                assertThat(
+                                new com.fasterxml.jackson.databind.ObjectMapper()
+                                        .readTree(payload)
+                                        .has("onsetOfReaction"))
+                        .isEqualTo(extensions);
+                try (var ownership = mockStatic(CdsImportUnitService.class)) {
+                    var decoded =
+                            service(dao)
+                                    .load(
+                                            "run",
+                                            1,
+                                            "a".repeat(64),
+                                            "b".repeat(64),
+                                            command(),
+                                            io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                                    .CdsAllergyDto.class);
+                    assertThat(decoded).isEqualTo(source);
+                    assertThat(decoded.archived()).isEqualTo(archived);
+                }
+                assertThat(row.getPayload()).isEqualTo(payload);
+                assertThat(row.getDigest()).isEqualTo(digest);
+            }
+    }
+
     private static CdsNativePreparationService service(CdsImportPreparationDao dao) {
         return service(dao, mock(CdsImportLedgerService.class));
     }
-    private static CdsNativePreparationService service(CdsImportPreparationDao dao, CdsImportLedgerService ledger) {
+
+    private static CdsNativePreparationService service(
+            CdsImportPreparationDao dao, CdsImportLedgerService ledger) {
         var manager = mock(PlatformTransactionManager.class);
         when(manager.getTransaction(any())).thenReturn(new SimpleTransactionStatus(true));
-        return new CdsNativePreparationService(ledger, dao, manager,
-                new CdsImportConfigurationService(new Properties()));
+        return new CdsNativePreparationService(
+                ledger, dao, manager, new CdsImportConfigurationService(new Properties()));
     }
+
     private static CdsImportCommand command() {
-        return new CdsImportCommand(Path.of("/source/one.xml"), "request", "1", null, null, "test", "omd-5.2",
-                false, false, false, 0, null, false);
+        return new CdsImportCommand(
+                Path.of("/source/one.xml"),
+                "request",
+                "1",
+                null,
+                null,
+                "test",
+                "omd-5.2",
+                false,
+                false,
+                false,
+                0,
+                null,
+                false);
     }
 }

@@ -2598,6 +2598,13 @@ def build_profile(oscar: Path, province: str, ov_schema) -> Dict:
                     t, n, seed_counts.get(t, 0), province))
         seed_counts[t] -= n
 
+    # Curated literal SELECT seeds whose predicates hold on the fresh reference
+    # target. Do not infer arbitrary INSERT ... SELECT cardinality from SQL text.
+    for t, n in sorted(getattr(ov_schema, "SEED_COUNT_ADDITIONS", {}).items()):
+        if t not in seed_counts or type(n) is not int or n < 1:
+            raise SystemExit("SEED_COUNT_ADDITIONS: invalid fresh reference count for " + t)
+        seed_counts[t] += n
+
     tables = build_tables(o19, carlos, ov_schema, province)
     unknown = sorted(t for t, e in tables.items() if e["class"] == "unknown")
     if unknown:

@@ -110,7 +110,10 @@ class DevcontainerSecurityMigrationReapplyRegressionTest {
                                     assertThat(statement)
                                             .as("%s re-applies against a populated security table, so "
                                                     + "plain inserts must be guarded", p.getFileName())
-                                            .matches("(?is).*(WHERE\\s+NOT\\s+EXISTS|ON\\s+DUPLICATE\\s+KEY).*");
+                                            // An eligibility predicate may precede the duplicate guard:
+                                            // WHERE EXISTS (...) AND NOT EXISTS (...). The native CDS
+                                            // permission-seed suite also re-applies the actual SQL.
+                                            .matches("(?is).*((?:WHERE|AND)\\s+NOT\\s+EXISTS|ON\\s+DUPLICATE\\s+KEY).*");
                                 }
                             }
                         }

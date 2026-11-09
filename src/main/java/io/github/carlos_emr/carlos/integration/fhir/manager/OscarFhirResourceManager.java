@@ -113,6 +113,11 @@ public class OscarFhirResourceManager {
 
         if (prevention != null) {
             requireStructuredProjectionSupported(prevention.getDemographicId(), "Immunizations");
+            // Precision is stored among the same extensions; load them before
+            // evaluating it on the detached manager result.
+            // Prevention.preventionExts is lazy and this entity is detached, but the Immunization
+            // mapper reads lot/route/dose/site from the extensions. Attach them explicitly.
+            prevention.setPreventionExts(preventionManager.getPreventionExtByPrevention(configurationManager.getLoggedInInfo(), preventionId));
             requireExactImmunizationDate(prevention);
             LogAction.addLogSynchronous(configurationManager.getLoggedInInfo(), "OscarFhirResourceManager.getImmunizationsByDemographicNo", "Retrieved Immunization list for FHIR transport ");
             immunization = new Immunization<Prevention>(prevention, configurationManager);

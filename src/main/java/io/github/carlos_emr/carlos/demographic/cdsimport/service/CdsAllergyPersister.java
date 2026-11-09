@@ -89,7 +89,9 @@ public class CdsAllergyPersister {
         allergy.setLifeStage(source.lifeStage());
         allergy.setStartDate(source.start().dateStorageAnchor());
         allergy.setEntryDate(source.recorded().dateStorageAnchor());
-        allergy.setArchived(false);
+        allergy.setArchived(source.archived());
+        if (source.ageOfOnset() != null) allergy.setAgeOfOnset(source.ageOfOnset());
+        if (source.onsetOfReaction() != null) allergy.setOnsetOfReaction(source.onsetOfReaction());
         return allergy;
     }
 

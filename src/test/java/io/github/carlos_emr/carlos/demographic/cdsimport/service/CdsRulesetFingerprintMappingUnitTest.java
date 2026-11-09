@@ -42,6 +42,8 @@ class CdsRulesetFingerprintMappingUnitTest {
     void shouldChangeFullFingerprint_whenActualProgramOrAuthorizationMappingBytesChange() {
         assertMappedByteChanges(
                 List.of(
+                        "commn/model/CdsImportUnit",
+                        "commn/model/CdsImportCheckpoint",
                         "PMmodule/model/Program",
                         "PMmodule/model/ProgramProvider",
                         "commn/model/ProviderDefaultProgram",
@@ -71,6 +73,13 @@ class CdsRulesetFingerprintMappingUnitTest {
         assertMappedByteChanges(
                 List.of(
                         "commn/dao/DemographicDao",
+                        "commn/dao/CdsExportExactNumericReadSupport",
+                        "commn/dao/CdsExportPreventionDataReadDao",
+                        "commn/dao/PreventionDao",
+                        "commn/dao/PreventionExtDao",
+                        "commn/dao/PartialDateDao",
+                        "demographic/cds/contract/CdsExactNumeric",
+                        "demographic/cds/contract/CdsCareScalarContract",
                         "commn/dao/DemographicDaoImpl",
                         "commn/dao/DemographicExtDao",
                         "commn/dao/DemographicExtDaoImpl",

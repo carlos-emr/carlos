@@ -1,0 +1,56 @@
+{
+  "status": "RELEASE_REQUALIFICATION_PENDING",
+  "clinicalExportQualified": false,
+  "qualifiedProfiles": [],
+  "scope": "OntarioMD CDS 5.2 import/export coordinated on release/2026.08 with foreground/detached CLI and authenticated asynchronous browser jobs",
+  "verifiedBaseline": {
+    "javaChecks": 2747,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "packagedWarSha256": "85fec8a489862069a16a44b77d0dade801d87d8419f25049a66d5bddacf3cec7",
+    "actualRichImportReconciliationChecks": 27,
+    "clinicalPublication": false,
+    "scope": "Historical early implementation checkpoint; not release-base qualification"
+  },
+  "implemented": [
+    "Shared pinned wire contract, clinical scalar handling, strict MariaDB binary reads and immutable preparation/native witnesses",
+    "Independent import/export authorization, admission, durable jobs, maintenance fencing and audit",
+    "Canonical clinical export engine with explicit native/source reconciliation and review for unqualified facts",
+    "Typed domain assembly, schema/ZIP/ZIP64/supporting-file checks, recipient encryption, authorized downloads and retention",
+    "Foreground/detached CLI plus authenticated asynchronous browser acceptance, recovery, status and control",
+    "Fresh ON/BC and retained-data upgrades from the exact release base, packaged CLI/boot validation and unchanged prior migration history"
+  ],
+  "remaining": [
+    "Complete required GitHub CI, scanning, coordinated physical database shards and installed browser/CLI/resource qualification on the new release-based head"
+  ],
+  "integration": {
+    "coreBase": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
+    "cliHead": "cdc1302ca58df9b5de9f25a6e92b808fa95882ea",
+    "coreIntendedTarget": "release/2026.08",
+    "cliIntendedTarget": "main",
+    "modernImporterPresentInRelease": true,
+    "readyToMerge": false,
+    "releaseSqlUnchanged": 87,
+    "newMigrations": [
+      "1.0.59.38",
+      "1.0.59.39",
+      "1.0.59.40",
+      "1.0.59.41"
+    ],
+    "localProofs": {
+      "freshOnAndBc": true,
+      "retainedDataUpgrades": true,
+      "appliedHistoryUnchanged": true,
+      "physicalSchemasAndSeedsMatchFresh": true,
+      "cliMigrateAndValidate": true,
+      "bootValidate": true,
+      "manifestChecks": 298,
+      "ciHelperChecks": 395,
+      "javascriptContractChecks": 340,
+      "strictCustomSemgrepFindings": 0,
+      "strictCustomSemgrepExecutionErrors": 0
+    }
+  },
+  "evidenceLimits": "Component, transport, byte-level, metadata/control and synthetic-fixture checks do not establish a complete clinical migration or OntarioMD certification."
+}

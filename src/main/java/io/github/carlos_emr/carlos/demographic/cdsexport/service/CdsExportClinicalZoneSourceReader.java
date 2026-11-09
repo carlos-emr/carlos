@@ -1,0 +1,95 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import java.io.*;
+import java.util.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+/** Same explicit clinic setting used for native appointment import. Only this finite public configuration enters capture. */
+@Service
+public class CdsExportClinicalZoneSourceReader implements CdsExportNativeSourceReader {
+    private final String configured;
+
+    public CdsExportClinicalZoneSourceReader(
+            @Value("${cds.import.clinicalZone:}") String configured) {
+        this.configured = configured == null ? "" : configured.trim();
+    }
+
+    @Override
+    public String table() {
+        return "clinical_timezone";
+    }
+
+    @Override
+    public Set<String> columns() {
+        return Set.of("sha256", "tzdbVersion", "zoneId");
+    }
+
+    @Override
+    public Set<CdsCategory> categories() {
+        return Set.of(CdsCategory.APPOINTMENTS);
+    }
+
+    @Override
+    public CdsExportTableSchemaDto schema() {
+        try (var input =
+                getClass()
+                        .getResourceAsStream("/cds-export/source-schema/clinical_timezone.json")) {
+            if (input == null) throw new IOException("CDS_EXPORT_SOURCE_SCHEMA_CONTRACT_MISSING");
+            return new ObjectMapper().readValue(input, CdsExportTableSchemaDto.class);
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
+        }
+    }
+
+    @Override
+    public long count(int patient) {
+        if (patient < 1)
+            throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID");
+        try {
+            CdsExportClinicalZone.capture(configured);
+            return 1;
+        } catch (IOException failed) {
+            throw new UncheckedIOException(failed);
+        }
+    }
+
+    @Override
+    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output)
+            throws IOException {
+        if (patient < 1)
+            throw new IllegalArgumentException("CDS_EXPORT_CLINICAL_ZONE_SCOPE_INVALID");
+        var frozen = CdsExportClinicalZone.capture(configured);
+        output.row(
+                "configuration",
+                row -> {
+                    row.text("sha256", frozen.sha256());
+                    row.text("tzdbVersion", frozen.tzdbVersion());
+                    row.text("zoneId", frozen.zoneId());
+                });
+    }
+}

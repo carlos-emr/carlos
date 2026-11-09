@@ -473,7 +473,7 @@
         async function request(route, params = {}, options = {}) {
             params = {...params, apiVersion: API_VERSION};
             const method = options.method || 'GET';
-            const headers = {'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token(), ...(options.headers || {})};
+            const headers = {'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': token(), ...options.headers};
             const url = new URL(root.dataset.context + '/form/' + route, global.location.origin);
             let body = options.body;
             if (method === 'GET' || body !== undefined) {

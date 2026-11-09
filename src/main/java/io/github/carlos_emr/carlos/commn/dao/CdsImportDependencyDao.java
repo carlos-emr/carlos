@@ -28,28 +28,139 @@ import org.springframework.stereotype.Repository;
 
 /** Data access for one protected CDS import table; orchestration belongs in services. */
 @Repository
-public class CdsImportDependencyDao extends AbstractDaoImpl<CdsImportDependency> {
-    public CdsImportDependencyDao() { super(CdsImportDependency.class); }
-    public CdsImportDependency lock(String id) { return entityManager.find(CdsImportDependency.class, id, LockModeType.PESSIMISTIC_WRITE); }
-    public CdsImportDependency get(String id) { return entityManager.find(CdsImportDependency.class, id); }
-    public void flushAndClear() { entityManager.flush(); entityManager.clear(); }
-    public List<CdsImportDependency> page(String runId, String unitKey, String afterKey, int limit) {
-        return entityManager.createQuery("select d from CdsImportDependency d where d.runId=:run and d.unitKey=:unit and d.dependsOnUnitKey>:after order by d.dependsOnUnitKey", CdsImportDependency.class)
-                .setParameter("run", runId).setParameter("unit", unitKey).setParameter("after", afterKey).setMaxResults(limit).getResultList();
+public class CdsImportDependencyDao extends AbstractDaoImpl<CdsImportDependency>
+        implements CdsExportRetainedTableReadDao {
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto
+            readCdsExportRetainedSchema() {
+        return CdsExportPatientTableReadSupport.schema(
+                entityManager, CdsExportPatientTableReadSupport.Plan.IMPORT_DEPENDENCIES);
     }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRetainedRows(int patient, java.util.Set<String> categories) {
+        return CdsExportPatientTableReadSupport.retainedCount(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.IMPORT_DEPENDENCIES,
+                patient,
+                categories);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawKeyRowDto>
+            findCdsExportRetainedRowsAfter(
+                    int patient, java.util.Set<String> categories, String afterId, int limit) {
+        return CdsExportPatientTableReadSupport.retainedPage(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.IMPORT_DEPENDENCIES,
+                patient,
+                categories,
+                afterId,
+                limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(
+            readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportRetainedChunk(
+            int patient,
+            java.util.Set<String> categories,
+            String rowId,
+            String column,
+            long offset,
+            int length) {
+        return CdsExportPatientTableReadSupport.retainedChunk(
+                entityManager,
+                CdsExportPatientTableReadSupport.Plan.IMPORT_DEPENDENCIES,
+                patient,
+                categories,
+                rowId,
+                column,
+                offset,
+                length);
+    }
+
+    public CdsImportDependencyDao() {
+        super(CdsImportDependency.class);
+    }
+
+    public CdsImportDependency lock(String id) {
+        return entityManager.find(CdsImportDependency.class, id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    public CdsImportDependency get(String id) {
+        return entityManager.find(CdsImportDependency.class, id);
+    }
+
+    public void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
+    }
+
+    public List<CdsImportDependency> page(
+            String runId, String unitKey, String afterKey, int limit) {
+        return entityManager
+                .createQuery(
+                        "select d from CdsImportDependency d where d.runId=:run and d.unitKey=:unit and d.dependsOnUnitKey>:after order by d.dependsOnUnitKey",
+                        CdsImportDependency.class)
+                .setParameter("run", runId)
+                .setParameter("unit", unitKey)
+                .setParameter("after", afterKey)
+                .setMaxResults(limit)
+                .getResultList();
+    }
+
     public long incomplete(String runId, String unitKey) {
-        return entityManager.createQuery("select count(d) from CdsImportDependency d where d.runId=:run and d.unitKey=:unit and not exists(select u.id from CdsImportUnit u where u.runId=d.runId and u.unitKey=d.dependsOnUnitKey and u.state in ('COMMITTED','ALREADY_COMPLETE'))", Long.class)
-                .setParameter("run", runId).setParameter("unit", unitKey).getSingleResult();
+        return entityManager
+                .createQuery(
+                        "select count(d) from CdsImportDependency d where d.runId=:run and d.unitKey=:unit and not exists(select u.id from CdsImportUnit u where u.runId=d.runId and u.unitKey=d.dependsOnUnitKey and u.state in ('COMMITTED','ALREADY_COMPLETE'))",
+                        Long.class)
+                .setParameter("run", runId)
+                .setParameter("unit", unitKey)
+                .getSingleResult();
     }
+
     public List<CdsImportDependency> forUnits(String runId, java.util.Collection<String> unitKeys) {
         if (unitKeys.isEmpty()) return List.of();
-        return entityManager.createQuery("select d from CdsImportDependency d where d.runId=:run and d.unitKey in :keys order by d.unitKey,d.dependsOnUnitKey", CdsImportDependency.class)
-                .setParameter("run", runId).setParameter("keys", unitKeys).setMaxResults(1601).getResultList();
+        return entityManager
+                .createQuery(
+                        "select d from CdsImportDependency d where d.runId=:run and d.unitKey in :keys order by d.unitKey,d.dependsOnUnitKey",
+                        CdsImportDependency.class)
+                .setParameter("run", runId)
+                .setParameter("keys", unitKeys)
+                .setMaxResults(1601)
+                .getResultList();
     }
+
     public long count(String runId, String unitKey) {
-        return entityManager.createQuery("select count(d) from CdsImportDependency d where d.runId=:run and d.unitKey=:unit", Long.class).setParameter("run", runId).setParameter("unit", unitKey).getSingleResult();
+        return entityManager
+                .createQuery(
+                        "select count(d) from CdsImportDependency d where d.runId=:run and d.unitKey=:unit",
+                        Long.class)
+                .setParameter("run", runId)
+                .setParameter("unit", unitKey)
+                .getSingleResult();
     }
+
     public List<CdsImportDependency> all(String runId, String afterId, int limit) {
-        return entityManager.createQuery("select d from CdsImportDependency d where d.runId=:run and d.id>:after order by d.id", CdsImportDependency.class).setParameter("run", runId).setParameter("after", afterId).setMaxResults(limit).getResultList();
+        return entityManager
+                .createQuery(
+                        "select d from CdsImportDependency d where d.runId=:run and d.id>:after order by d.id",
+                        CdsImportDependency.class)
+                .setParameter("run", runId)
+                .setParameter("after", afterId)
+                .setMaxResults(limit)
+                .getResultList();
     }
 }

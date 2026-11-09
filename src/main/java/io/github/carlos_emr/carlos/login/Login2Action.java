@@ -549,8 +549,8 @@ public final class Login2Action extends ActionSupport {
         try {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
-            logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                    LogSafe.sanitize(userName), LogSafe.sanitize(ip), ajaxResponse, e);
+            logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}, failure={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(userName), LogSafe.sanitize(ip), LogSafe.sanitizeObject(ajaxResponse), LogSafe.exceptionTrace(e));
             recordAuthenticationExceptionFailure(cl, ip, userName);
             String unableToProcessMessage = message("login.errorUnableToProcess");
             String newURL = loginFailedRedirectUrl(unableToProcessMessage);

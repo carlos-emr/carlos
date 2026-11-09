@@ -34,20 +34,29 @@ import static org.mockito.Mockito.*;
 class CdsImportMaintenanceServiceUnitTest {
     @Test
     void shouldRefuseImportAcquisition_whenMaintenanceWasNotExplicitlyActivated() {
-        Properties policy=new Properties(); policy.setProperty("cds.import.enabled","true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
-        var pool=mock(OscarTrackingBasicDataSource.class);
-        var service=new CdsImportMaintenanceService(pool,new CdsImportConfigurationService(policy));
-        assertThatThrownBy(service::acquire).isInstanceOf(CdsImportException.class)
+        Properties policy = new Properties();
+        policy.setProperty("cds.import.enabled", "true");
+        policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
+        var pool = mock(OscarTrackingBasicDataSource.class);
+        var service =
+                new CdsImportMaintenanceService(pool, new CdsImportConfigurationService(policy));
+        assertThatThrownBy(service::acquire)
+                .isInstanceOf(CdsImportException.class)
                 .hasMessage("MAINTENANCE_MODE_NOT_ACTIVATED");
         verifyNoInteractions(pool);
     }
+
     @Test
     void shouldRefuseImportAcquisition_whenPhysicalGuardIsNotInstalled() {
-        Properties policy=new Properties(); policy.setProperty("cds.import.enabled","true"); policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
-        policy.setProperty("cds.import.maintenanceMode","true");
-        var pool=mock(OscarTrackingBasicDataSource.class);
-        var service=new CdsImportMaintenanceService(pool,new CdsImportConfigurationService(policy));
-        assertThatThrownBy(service::acquire).isInstanceOf(CdsImportException.class)
+        Properties policy = new Properties();
+        policy.setProperty("cds.import.enabled", "true");
+        policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
+        policy.setProperty("cds.import.maintenanceMode", "true");
+        var pool = mock(OscarTrackingBasicDataSource.class);
+        var service =
+                new CdsImportMaintenanceService(pool, new CdsImportConfigurationService(policy));
+        assertThatThrownBy(service::acquire)
+                .isInstanceOf(CdsImportException.class)
                 .hasMessage("MAINTENANCE_GUARD_NOT_READY");
     }
 }

@@ -39,7 +39,8 @@ import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 /** Bounded owner-authorized reads; DTO projections deliberately exclude physical report/detail locations. */
-@Component("cdsImportStatus2Action") @Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+@Component("cdsImportStatus2Action")
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
 public class CdsImportStatus2Action extends ActionSupport {
     private final transient SecurityInfoManager securityInfoManager;
     private final transient CdsWebService web;
@@ -48,34 +49,59 @@ public class CdsImportStatus2Action extends ActionSupport {
     private String section = "job", runId, uploadId, afterKey = "";
     private long afterId;
     private int limit = 50;
-    public CdsImportStatus2Action(CdsWebService web, CdsImportService imports, CdsUploadService uploads, SecurityInfoManager securityInfoManager) {
+
+    public CdsImportStatus2Action(
+            CdsWebService web,
+            CdsImportService imports,
+            CdsUploadService uploads,
+            SecurityInfoManager securityInfoManager) {
         this.securityInfoManager = securityInfoManager;
-        this.web = web; this.imports = imports; this.uploads = uploads;
+        this.web = web;
+        this.imports = imports;
+        this.uploads = uploads;
     }
-    @Override public String execute() throws Exception {
+
+    @Override
+    public String execute() throws Exception {
         HttpServletRequest request = ServletActionContext.getRequest();
         HttpServletResponse response = ServletActionContext.getResponse();
         if (!("GET".equals(request.getMethod()) || "HEAD".equals(request.getMethod()))) {
-            response.setHeader("Allow", "GET, HEAD"); response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED); return NONE;
+            response.setHeader("Allow", "GET, HEAD");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
-        LoggedInInfo loggedInInfo = request.getSession(false) == null ? null
-                : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
+        LoggedInInfo loggedInInfo =
+                request.getSession(false) == null
+                        ? null
+                        : LoggedInInfo.getLoggedInInfoFromSession(request.getSession(false));
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_demographic)");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", (String) null)
-                && !securityInfoManager.hasPrivilege(loggedInInfo, "_cds_import", "w", (String) null)) {
+                && !securityInfoManager.hasPrivilege(
+                        loggedInInfo, "_cds_import", "w", (String) null)) {
             throw new SecurityException("missing required sec object (_cds_import)");
         }
         try {
             var actor = web.authorize(request);
-            web.parameters(request, Set.of("section", "runId", "uploadId", "afterKey", "afterId", "limit", "autoRefresh"));
+            web.parameters(
+                    request,
+                    Set.of(
+                            "section",
+                            "runId",
+                            "uploadId",
+                            "afterKey",
+                            "afterId",
+                            "limit",
+                            "autoRefresh"));
             String background = request.getParameter("autoRefresh");
             if (background != null && !Set.of("true", "false").contains(background)) {
                 throw new CdsUploadException("IMPORT_PARAMETERS_INVALID", 400);
             }
-            if (limit < 1 || limit > 100 || afterId < 0) throw new CdsUploadException("IMPORT_PAGE_INVALID", 400);
-            Map<String, Object> result = new LinkedHashMap<>(); result.put("ok", true);
+            if (limit < 1 || limit > 100 || afterId < 0)
+                throw new CdsUploadException("IMPORT_PAGE_INVALID", 400);
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("ok", true);
             switch (section) {
                 case "job" -> {
                     var observed = imports.observe(actor, runId);
@@ -85,28 +111,62 @@ public class CdsImportStatus2Action extends ActionSupport {
                 case "patients" -> {
                     var rows = imports.patients(actor, runId, afterKey, limit);
                     result.put("rows", rows.stream().map(web::patient).toList());
-                    result.put("nextCursor", rows.isEmpty() ? null : rows.get(rows.size() - 1).patientKey());
+                    result.put(
+                            "nextCursor",
+                            rows.isEmpty() ? null : rows.get(rows.size() - 1).patientKey());
                     result.put("pageLimit", limit);
                 }
                 case "diagnostics" -> {
                     var rows = imports.diagnostics(actor, runId, afterId, limit);
                     result.put("rows", rows.stream().map(web::diagnostic).toList());
-                    result.put("nextCursor", rows.isEmpty() ? null : rows.get(rows.size() - 1).id());
+                    result.put(
+                            "nextCursor", rows.isEmpty() ? null : rows.get(rows.size() - 1).id());
                     result.put("pageLimit", limit);
                 }
-                case "uploads" -> result.put("rows", uploads.pending(web.operator(actor), afterKey, limit));
-                case "upload" -> result.put("upload", uploads.status(web.operator(actor), uploadId));
-                case "chunks" -> result.put("rows", uploads.chunks(web.operator(actor), uploadId, afterId, limit));
+                case "uploads" ->
+                        result.put("rows", uploads.pending(web.operator(actor), afterKey, limit));
+                case "upload" ->
+                        result.put("upload", uploads.status(web.operator(actor), uploadId));
+                case "chunks" ->
+                        result.put(
+                                "rows",
+                                uploads.chunks(web.operator(actor), uploadId, afterId, limit));
                 default -> throw new CdsUploadException("IMPORT_SECTION_INVALID", 400);
             }
             web.json(response, 200, result);
-        } catch (Exception failure) { web.failure(response, failure); }
+        } catch (Exception failure) {
+            web.failure(response, failure);
+        }
         return NONE;
     }
-    @StrutsParameter public void setSection(String value) { section = value; }
-    @StrutsParameter public void setRunId(String value) { runId = value; }
-    @StrutsParameter public void setUploadId(String value) { uploadId = value; }
-    @StrutsParameter public void setAfterKey(String value) { afterKey = value; }
-    @StrutsParameter public void setAfterId(long value) { afterId = value; }
-    @StrutsParameter public void setLimit(int value) { limit = value; }
+
+    @StrutsParameter
+    public void setSection(String value) {
+        section = value;
+    }
+
+    @StrutsParameter
+    public void setRunId(String value) {
+        runId = value;
+    }
+
+    @StrutsParameter
+    public void setUploadId(String value) {
+        uploadId = value;
+    }
+
+    @StrutsParameter
+    public void setAfterKey(String value) {
+        afterKey = value;
+    }
+
+    @StrutsParameter
+    public void setAfterId(long value) {
+        afterId = value;
+    }
+
+    @StrutsParameter
+    public void setLimit(int value) {
+        limit = value;
+    }
 }

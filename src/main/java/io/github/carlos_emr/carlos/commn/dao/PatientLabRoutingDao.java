@@ -38,7 +38,7 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 
-public interface PatientLabRoutingDao extends AbstractDao<PatientLabRouting> {
+public interface PatientLabRoutingDao extends AbstractDao<PatientLabRouting>, CdsExportPatientTableReadDao {
 
     public static final Integer UNMATCHED = 0;
     public static final String HL7 = "HL7";

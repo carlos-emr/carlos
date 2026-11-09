@@ -121,6 +121,16 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should refuse an unavailable source instead of returning an empty or partial chart")
+    void shouldRefuseUnavailableSource_insteadOfSilentlyDroppingPreventions() {
+        var failure = new org.springframework.dao.DataAccessResourceFailureException("synthetic source failure");
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenThrow(failure);
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
+                .isInstanceOf(IllegalStateException.class).hasMessage("PREVENTION_SOURCE_UNAVAILABLE").hasCause(failure);
+    }
+
+    @Test
     @DisplayName("should look the patient up once, however many types the page reads")
     void shouldLookPatientUpOnce_whenManyTypesAreRead() {
         PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);

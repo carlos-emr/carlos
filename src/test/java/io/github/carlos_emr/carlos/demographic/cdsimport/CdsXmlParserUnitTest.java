@@ -56,46 +56,73 @@ class CdsXmlParserUnitTest {
     private final AtomicInteger sequence = new AtomicInteger();
 
     @Test
-    void shouldReuseFirstDescriptorIndex_andKeepExplicitIndexesAndNamespacesExact() throws Exception {
-        List<CdsRecordDto> records = parse(fixture().replace("<ClinicalNotes>", "<MedicationsAndTreatments><ResidualInfo>"
-                + "<cdsd:DataElement><cdsd:Name>first</cdsd:Name><cdsd:DataType>string</cdsd:DataType><cdsd:Content>A</cdsd:Content></cdsd:DataElement>"
-                + "<cdsd:DataElement><cdsd:Name>second</cdsd:Name><cdsd:DataType>string</cdsd:DataType><cdsd:Content>B</cdsd:Content></cdsd:DataElement>"
-                + "</ResidualInfo><DrugName>INDEX</DrugName></MedicationsAndTreatments><ClinicalNotes>"));
+    void shouldReuseFirstDescriptorIndex_andKeepExplicitIndexesAndNamespacesExact()
+            throws Exception {
+        List<CdsRecordDto> records =
+                parse(
+                        fixture()
+                                .replace(
+                                        "<ClinicalNotes>",
+                                        "<MedicationsAndTreatments><ResidualInfo>"
+                                                + "<cdsd:DataElement><cdsd:Name>first</cdsd:Name><cdsd:DataType>string</cdsd:DataType><cdsd:Content>A</cdsd:Content></cdsd:DataElement>"
+                                                + "<cdsd:DataElement><cdsd:Name>second</cdsd:Name><cdsd:DataType>string</cdsd:DataType><cdsd:Content>B</cdsd:Content></cdsd:DataElement>"
+                                                + "</ResidualInfo><DrugName>INDEX</DrugName></MedicationsAndTreatments><ClinicalNotes>"));
         CdsRecordDto record = records.get(3);
         AtomicInteger scans = new AtomicInteger();
-        CdsFieldParser indexed = new CdsFieldParser() {
-            @Override public void forEachField(CdsRecordDto selected, java.util.function.Consumer<CdsFieldDto> consumer) throws java.io.IOException {
-                scans.incrementAndGet(); super.forEachField(selected, consumer);
-            }
-        };
+        CdsFieldParser indexed =
+                new CdsFieldParser() {
+                    @Override
+                    public void forEachField(
+                            CdsRecordDto selected,
+                            java.util.function.Consumer<CdsFieldDto> consumer)
+                            throws java.io.IOException {
+                        scans.incrementAndGet();
+                        super.forEachField(selected, consumer);
+                    }
+                };
         for (int i = 0; i < 50; i++) {
-            assertEquals("first", indexed.firstText(record, "ResidualInfo/DataElement/Name", "cds_dt", 10));
+            assertEquals(
+                    "first",
+                    indexed.firstText(record, "ResidualInfo/DataElement/Name", "cds_dt", 10));
             assertNull(indexed.firstText(record, "Absent" + i, 10));
         }
         assertEquals(1, scans.get());
         assertNull(indexed.firstText(record, "ResidualInfo/DataElement/Name", "cds", 10));
         assertEquals(1, scans.get());
-        assertEquals("second", indexed.firstText(record, "ResidualInfo[1]/DataElement[2]/Name[1]", "cds_dt", 10));
+        assertEquals(
+                "second",
+                indexed.firstText(record, "ResidualInfo[1]/DataElement[2]/Name[1]", "cds_dt", 10));
         assertEquals(2, scans.get());
-        assertEquals("first", indexed.firstText(record, "ResidualInfo[1]/DataElement[1]/Name[1]", "cds_dt", 10));
+        assertEquals(
+                "first",
+                indexed.firstText(record, "ResidualInfo[1]/DataElement[1]/Name[1]", "cds_dt", 10));
         assertEquals(2, scans.get());
     }
 
     @Test
-    void shouldPreserveNamespacedFieldsAndAttributes_whenExistingSyntheticFixtureIsValid() throws Exception {
+    void shouldPreserveNamespacedFieldsAndAttributes_whenExistingSyntheticFixtureIsValid()
+            throws Exception {
         List<CdsRecordDto> records = parse(fixture());
         assertEquals(4, records.size());
         CdsRecordDto demographic = records.get(0);
-        assertEquals("FAKE-PW0000000000004241", fields.firstText(demographic, "Names/LegalName/LastName/Part", 100));
+        assertEquals(
+                "FAKE-PW0000000000004241",
+                fields.firstText(demographic, "Names/LegalName/LastName/Part", 100));
         assertEquals("M", fields.firstText(demographic, "Address/@addressType", 1));
-        assertNull(fields.firstText(demographic, "Names/LegalName/LastName/Part", "wrong-namespace", 100));
+        assertNull(
+                fields.firstText(
+                        demographic, "Names/LegalName/LastName/Part", "wrong-namespace", 100));
         for (CdsRecordDto record : records) fields.verifyRecord(record);
     }
 
     @Test
     void shouldRefuseGlobalReportsRoot_whenItIsNotAPatientEnvelope() throws Exception {
-        CdsInputException failure = assertThrows(CdsInputException.class,
-                () -> parse("<Reports xmlns=\"cds\"><Format>Text</Format><Class>Medical Records Report</Class></Reports>"));
+        CdsInputException failure =
+                assertThrows(
+                        CdsInputException.class,
+                        () ->
+                                parse(
+                                        "<Reports xmlns=\"cds\"><Format>Text</Format><Class>Medical Records Report</Class></Reports>"));
         assertEquals("CDS_XML_ENVELOPE_INVALID", failure.code());
     }
 
@@ -113,17 +140,48 @@ class CdsXmlParserUnitTest {
 
     @Test
     void shouldRejectDtdAndExternalEntities_whenInputTriesToReadExternalBytes() throws Exception {
-        String input = fixture().replace("<OmdCds", "<!DOCTYPE OmdCds [<!ENTITY stolen SYSTEM 'file:///etc/passwd'>]><OmdCds")
-                .replace("FAKE-PW0000000000004241", "&stolen;");
+        String input =
+                fixture()
+                        .replace(
+                                "<OmdCds",
+                                "<!DOCTYPE OmdCds [<!ENTITY stolen SYSTEM 'file:///etc/passwd'>]><OmdCds")
+                        .replace("FAKE-PW0000000000004241", "&stolen;");
         assertThrows(CdsInputException.class, () -> parse(input));
         assertFalse(Files.exists(temp.resolve("spool-1/parse.seal")));
     }
 
     @Test
-    void shouldMatchTheOriginalXsdBase64Grammar_whenPaddingWhitespaceOrAlphabetIsUnusual() throws Exception {
-        String[] values = {"", "TQ==", "TWE=", "TWFu", " T W\nE =\t", "AA==", "AAA=", "AAAA",
-                "TR==", "TWF=", "TQ=", "TQ===", "=AAA", "A=AA", "AA=A", "AAA", "A", "TQ==A", "TQ\u00a0==",
-                "YWJjZA==", "////", "____", "AA==\nAA==", "A A A A", "\t\n", "AA?=", "AA\u0000=="};
+    void shouldMatchTheOriginalXsdBase64Grammar_whenPaddingWhitespaceOrAlphabetIsUnusual()
+            throws Exception {
+        String[] values = {
+            "",
+            "TQ==",
+            "TWE=",
+            "TWFu",
+            " T W\nE =\t",
+            "AA==",
+            "AAA=",
+            "AAAA",
+            "TR==",
+            "TWF=",
+            "TQ=",
+            "TQ===",
+            "=AAA",
+            "A=AA",
+            "AA=A",
+            "AAA",
+            "A",
+            "TQ==A",
+            "TQ\u00a0==",
+            "YWJjZA==",
+            "////",
+            "____",
+            "AA==\nAA==",
+            "A A A A",
+            "\t\n",
+            "AA?=",
+            "AA\u0000=="
+        };
         for (String value : values) {
             String input = report(fixture(), "Binary", "<cdsd:Media>" + value + "</cdsd:Media>");
             boolean expected = xsdAccepts(input);
@@ -132,17 +190,25 @@ class CdsXmlParserUnitTest {
                 assertTrue(expected, "Streaming parser accepted XSD-invalid binary lexical form");
                 fields.verifyRecord(records.get(records.size() - 1));
             } catch (CdsInputException rejected) {
-                assertFalse(expected, "Streaming parser refused XSD-valid binary lexical form: " + rejected.code());
+                assertFalse(
+                        expected,
+                        "Streaming parser refused XSD-valid binary lexical form: "
+                                + rejected.code());
             }
         }
     }
 
     @Test
     void shouldReturnDecodedBytes_whenBase64SpansCdataAndXmlTextBoundaries() throws Exception {
-        List<CdsRecordDto> records = parse(report(fixture(), "Binary", "<cdsd:Media>T<![CDATA[W]]>Fu</cdsd:Media>"));
+        List<CdsRecordDto> records =
+                parse(report(fixture(), "Binary", "<cdsd:Media>T<![CDATA[W]]>Fu</cdsd:Media>"));
         CdsRecordDto report = records.get(records.size() - 1);
         List<CdsFieldDto> binary = new ArrayList<>();
-        fields.forEachField(report, value -> { if (value.kind().equals("BINARY")) binary.add(value); });
+        fields.forEachField(
+                report,
+                value -> {
+                    if (value.kind().equals("BINARY")) binary.add(value);
+                });
         assertEquals(1, binary.size());
         try (InputStream bytes = fields.openValue(report, binary.get(0))) {
             assertArrayEquals("Man".getBytes(StandardCharsets.UTF_8), bytes.readNBytes(4));
@@ -151,43 +217,91 @@ class CdsXmlParserUnitTest {
     }
 
     @Test
-    void shouldNormalizeTokensWithinTheirLogicalCapacity_whenRawWhitespaceIsMuchLarger() throws Exception {
+    void shouldNormalizeTokensWithinTheirLogicalCapacity_whenRawWhitespaceIsMuchLarger()
+            throws Exception {
         String original = " ".repeat(100_000) + "F" + "\t".repeat(100_000);
-        CdsRecordDto demographic = parse(fixture().replace("<Gender>F</Gender>", "<Gender>" + original + "</Gender>")).get(0);
+        CdsRecordDto demographic =
+                parse(fixture().replace("<Gender>F</Gender>", "<Gender>" + original + "</Gender>"))
+                        .get(0);
         assertEquals("F", fields.firstToken(demographic, "Gender", 1));
         assertEquals("F", fields.firstText(demographic, "Gender", 1));
         List<CdsFieldDto> selected = new ArrayList<>();
-        fields.forEachField(demographic, value -> { if (value.path().equals("Gender[1]")) selected.add(value); });
+        fields.forEachField(
+                demographic,
+                value -> {
+                    if (value.path().equals("Gender[1]")) selected.add(value);
+                });
         assertEquals(original, fields.readText(demographic, selected.get(0), original.length()));
     }
 
-    @Test void shouldKeepExplicitFixedValueOriginal_whenItAlreadyMatchesSchema() throws Exception {
-        CdsRecordDto demographic=parse(fixture()).get(0);List<CdsFieldDto> matched=new ArrayList<>();
-        fields.forEachField(demographic,field->{if(field.path().equals("Names[1]/LegalName[1]/FirstName[1]/PartType[1]"))matched.add(field);});
-        assertEquals("",matched.get(0).schemaDefault());assertEquals("GIV",fields.readText(demographic,matched.get(0),3));
-        assertEquals("GIV",fields.firstText(demographic,"Names/LegalName/FirstName/PartType",3));
-    }
-
-    @Test void shouldCaptureOnlyValidatorSuppliedFixedDefault_whileRawEmptyFieldStaysEmpty() throws Exception {
-        CdsRecordDto demographic=parse(fixture().replace("<cdsd:PartType>GIV</cdsd:PartType>","<cdsd:PartType/>")).get(0);
-        List<CdsFieldDto> matched=new ArrayList<>();fields.forEachField(demographic,field->{if(field.path().equals("Names[1]/LegalName[1]/FirstName[1]/PartType[1]"))matched.add(field);});
-        assertEquals("GIV",matched.get(0).schemaDefault());assertEquals(0,matched.get(0).length());
-        assertEquals("",fields.readText(demographic,matched.get(0),0));
-        assertEquals("GIV",fields.firstText(demographic,"Names/LegalName/FirstName/PartType",3));
-        List<CdsRecordDto> children=new ArrayList<>();fields.forEachSubrecord(demographic,"Names",children::add);
-        assertEquals("GIV",fields.firstToken(children.get(0),"LegalName/FirstName/PartType",3));fields.verifyRecord(demographic);
-    }
-
-    @Test void shouldRefuseMissingFixedElementOrWrongExplicitValue_insteadOfInventingAnElement() throws Exception {
-        assertThrows(CdsInputException.class,()->parse(fixture().replace("<cdsd:PartType>GIV</cdsd:PartType>","")));
-        assertThrows(CdsInputException.class,()->parse(fixture().replace("<cdsd:PartType>GIV</cdsd:PartType>","<cdsd:PartType>FAMC</cdsd:PartType>")));
+    @Test
+    void shouldKeepExplicitFixedValueOriginal_whenItAlreadyMatchesSchema() throws Exception {
+        CdsRecordDto demographic = parse(fixture()).get(0);
+        List<CdsFieldDto> matched = new ArrayList<>();
+        fields.forEachField(
+                demographic,
+                field -> {
+                    if (field.path().equals("Names[1]/LegalName[1]/FirstName[1]/PartType[1]"))
+                        matched.add(field);
+                });
+        assertEquals("", matched.get(0).schemaDefault());
+        assertEquals("GIV", fields.readText(demographic, matched.get(0), 3));
+        assertEquals("GIV", fields.firstText(demographic, "Names/LegalName/FirstName/PartType", 3));
     }
 
     @Test
-    void shouldCountUnicodeCodepoints_whenMaximumLengthTextContainsAstralCharacters() throws Exception {
+    void shouldCaptureOnlyValidatorSuppliedFixedDefault_whileRawEmptyFieldStaysEmpty()
+            throws Exception {
+        CdsRecordDto demographic =
+                parse(fixture().replace("<cdsd:PartType>GIV</cdsd:PartType>", "<cdsd:PartType/>"))
+                        .get(0);
+        List<CdsFieldDto> matched = new ArrayList<>();
+        fields.forEachField(
+                demographic,
+                field -> {
+                    if (field.path().equals("Names[1]/LegalName[1]/FirstName[1]/PartType[1]"))
+                        matched.add(field);
+                });
+        assertEquals("GIV", matched.get(0).schemaDefault());
+        assertEquals(0, matched.get(0).length());
+        assertEquals("", fields.readText(demographic, matched.get(0), 0));
+        assertEquals("GIV", fields.firstText(demographic, "Names/LegalName/FirstName/PartType", 3));
+        List<CdsRecordDto> children = new ArrayList<>();
+        fields.forEachSubrecord(demographic, "Names", children::add);
+        assertEquals("GIV", fields.firstToken(children.get(0), "LegalName/FirstName/PartType", 3));
+        fields.verifyRecord(demographic);
+    }
+
+    @Test
+    void shouldRefuseMissingFixedElementOrWrongExplicitValue_insteadOfInventingAnElement()
+            throws Exception {
+        assertThrows(
+                CdsInputException.class,
+                () -> parse(fixture().replace("<cdsd:PartType>GIV</cdsd:PartType>", "")));
+        assertThrows(
+                CdsInputException.class,
+                () ->
+                        parse(
+                                fixture()
+                                        .replace(
+                                                "<cdsd:PartType>GIV</cdsd:PartType>",
+                                                "<cdsd:PartType>FAMC</cdsd:PartType>")));
+    }
+
+    @Test
+    void shouldCountUnicodeCodepoints_whenMaximumLengthTextContainsAstralCharacters()
+            throws Exception {
         String note = "\ud83d\ude00".repeat(32768);
-        String input = fixture().replace("</AllergiesAndAdverseReactions>", "<Notes>" + note + "</Notes></AllergiesAndAdverseReactions>");
-        CdsRecordDto allergy = parse(input).stream().filter(r -> r.section().equals("AllergiesAndAdverseReactions")).findFirst().orElseThrow();
+        String input =
+                fixture()
+                        .replace(
+                                "</AllergiesAndAdverseReactions>",
+                                "<Notes>" + note + "</Notes></AllergiesAndAdverseReactions>");
+        CdsRecordDto allergy =
+                parse(input).stream()
+                        .filter(r -> r.section().equals("AllergiesAndAdverseReactions"))
+                        .findFirst()
+                        .orElseThrow();
         assertEquals(note, fields.firstText(allergy, "Notes", 32768));
         assertThrows(CdsInputException.class, () -> fields.firstText(allergy, "Notes", 32767));
     }
@@ -196,9 +310,16 @@ class CdsXmlParserUnitTest {
     void shouldRejectChangedSpoolBytes_whenOriginalRecordReceiptIsReused() throws Exception {
         CdsRecordDto demographic = parse(fixture()).get(0);
         CdsFieldDto[] first = new CdsFieldDto[1];
-        fields.forEachField(demographic, value -> { if (first[0] == null && value.length() > 0) first[0] = value; });
-        try (var bytes = java.nio.channels.FileChannel.open(demographic.valuesFile(), java.nio.file.StandardOpenOption.WRITE)) {
-            bytes.position(first[0].offset()); bytes.write(java.nio.ByteBuffer.wrap(new byte[]{'X'}));
+        fields.forEachField(
+                demographic,
+                value -> {
+                    if (first[0] == null && value.length() > 0) first[0] = value;
+                });
+        try (var bytes =
+                java.nio.channels.FileChannel.open(
+                        demographic.valuesFile(), java.nio.file.StandardOpenOption.WRITE)) {
+            bytes.position(first[0].offset());
+            bytes.write(java.nio.ByteBuffer.wrap(new byte[] {'X'}));
         }
         assertThrows(CdsInputException.class, () -> fields.verifyRecord(demographic));
     }
@@ -208,8 +329,12 @@ class CdsXmlParserUnitTest {
         Path allowed = Files.createDirectory(temp.resolve("allowed"));
         Path outside = Files.writeString(temp.resolve("FAKE-PATIENT-1971-03-04.xml"), "fixture");
         try (LogCapture logs = LogCapture.forLogger(PathValidationUtils.class)) {
-            SecurityException failure = assertThrows(SecurityException.class,
-                    () -> PathValidationUtils.validatePrivateImportPath(outside.toFile(), allowed.toFile()));
+            SecurityException failure =
+                    assertThrows(
+                            SecurityException.class,
+                            () ->
+                                    PathValidationUtils.validatePrivateImportPath(
+                                            outside.toFile(), allowed.toFile()));
             assertEquals("CDS_PATH_OUTSIDE_ROOT", failure.getMessage());
             assertNull(failure.getCause());
             assertTrue(logs.events().isEmpty());
@@ -220,36 +345,70 @@ class CdsXmlParserUnitTest {
         int number = sequence.incrementAndGet();
         Path source = Files.writeString(temp.resolve("patient-" + number + ".xml"), input);
         List<CdsRecordDto> result = new ArrayList<>();
-        parser.parse(source, temp.resolve("spool-" + number), CdsInputLimitsDto.defaults(), () -> false, result::add);
+        parser.parse(
+                source,
+                temp.resolve("spool-" + number),
+                CdsInputLimitsDto.defaults(),
+                () -> false,
+                result::add);
         return result;
     }
 
     static String fixture() throws Exception {
-        try (InputStream input = CdsXmlParserUnitTest.class.getResourceAsStream("/demographic/cds-import-summary.xml")) {
+        try (InputStream input =
+                CdsXmlParserUnitTest.class.getResourceAsStream(
+                        "/demographic/cds-import-summary.xml")) {
             return new String(input.readNBytes(65536), StandardCharsets.UTF_8);
         }
     }
 
     static String report(String input, String format, String content) {
-        return input.replace("</PatientRecord>", "<Reports><Format>" + format + "</Format><Content>" + content
-                + "</Content><Class>Medical Records Report</Class></Reports></PatientRecord>");
+        return input.replace(
+                "</PatientRecord>",
+                "<Reports><Format>"
+                        + format
+                        + "</Format><Content>"
+                        + content
+                        + "</Content><Class>Medical Records Report</Class></Reports></PatientRecord>");
     }
 
     private static boolean xsdAccepts(String input) throws Exception {
         var validator = CdsSchemaValidator.newValidator();
         validator.setContentHandler(new DefaultHandler());
-        validator.setErrorHandler(new DefaultHandler() {
-            @Override public void error(SAXParseException invalid) throws SAXException { throw invalid; }
-            @Override public void fatalError(SAXParseException invalid) throws SAXException { throw invalid; }
-        });
-        var factory = SAXParserFactory.newInstance(); factory.setNamespaceAware(true);
+        validator.setErrorHandler(
+                new DefaultHandler() {
+                    @Override
+                    public void error(SAXParseException invalid) throws SAXException {
+                        throw invalid;
+                    }
+
+                    @Override
+                    public void fatalError(SAXParseException invalid) throws SAXException {
+                        throw invalid;
+                    }
+                });
+        var factory = SAXParserFactory.newInstance();
+        factory.setNamespaceAware(true);
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        var reader = factory.newSAXParser().getXMLReader(); reader.setContentHandler(validator);
-        reader.setErrorHandler(new DefaultHandler() {
-            @Override public void error(SAXParseException invalid) throws SAXException { throw invalid; }
-            @Override public void fatalError(SAXParseException invalid) throws SAXException { throw invalid; }
-        });
-        try { reader.parse(new InputSource(new StringReader(input))); return true; }
-        catch (SAXException invalid) { return false; }
+        var reader = factory.newSAXParser().getXMLReader();
+        reader.setContentHandler(validator);
+        reader.setErrorHandler(
+                new DefaultHandler() {
+                    @Override
+                    public void error(SAXParseException invalid) throws SAXException {
+                        throw invalid;
+                    }
+
+                    @Override
+                    public void fatalError(SAXParseException invalid) throws SAXException {
+                        throw invalid;
+                    }
+                });
+        try {
+            reader.parse(new InputSource(new StringReader(input)));
+            return true;
+        } catch (SAXException invalid) {
+            return false;
+        }
     }
 }

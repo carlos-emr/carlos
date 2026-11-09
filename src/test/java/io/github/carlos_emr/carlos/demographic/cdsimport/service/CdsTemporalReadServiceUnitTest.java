@@ -46,70 +46,121 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsTemporalReadServiceUnitTest {
-    @Test void shouldReadPrescriptionStartFromStartMetadata_notFromIndependentWrittenDate() {
-        var dao=mock(PartialDateDao.class);
-        when(dao.getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_STARTDATE)).thenReturn(PartialDate.YEARONLY);
-        when(dao.getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_WRITTENDATE)).thenReturn(PartialDate.YEARMONTH);
-        var service=new CdsTemporalReadService(dao);
-        assertEquals("2024",service.medicationStart(7,Date.valueOf("2024-01-01"),true).display());
-        verify(dao).getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_STARTDATE);
-        verify(dao,never()).getFormat(PartialDate.DRUGS,7,PartialDate.DRUGS_WRITTENDATE);
+    @Test
+    void shouldReadPrescriptionStartFromStartMetadata_notFromIndependentWrittenDate() {
+        var dao = mock(PartialDateDao.class);
+        when(dao.getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_STARTDATE))
+                .thenReturn(PartialDate.YEARONLY);
+        when(dao.getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_WRITTENDATE))
+                .thenReturn(PartialDate.YEARMONTH);
+        var service = new CdsTemporalReadService(dao);
+        assertEquals(
+                "2024", service.medicationStart(7, Date.valueOf("2024-01-01"), true).display());
+        verify(dao).getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_STARTDATE);
+        verify(dao, never()).getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_WRITTENDATE);
     }
-    @Test void shouldKeepPrescriptionUnknownDistinctFromActualJanuaryFirst_withoutGuessing() {
-        var service=new CdsTemporalReadService(mock(PartialDateDao.class));
-        assertEquals("Unknown",service.medicationStart(7,null,true).display());
-        assertEquals("2024-01-01",service.medicationStart(8,Date.valueOf("2024-01-01"),false).display());
-        assertThrows(CdsTemporalPrecisionException.class,
-                () -> service.medicationStart(9,Date.valueOf("2024-01-01"),true));
+
+    @Test
+    void shouldKeepPrescriptionUnknownDistinctFromActualJanuaryFirst_withoutGuessing() {
+        var service = new CdsTemporalReadService(mock(PartialDateDao.class));
+        assertEquals("Unknown", service.medicationStart(7, null, true).display());
+        assertEquals(
+                "2024-01-01",
+                service.medicationStart(8, Date.valueOf("2024-01-01"), false).display());
+        assertThrows(
+                CdsTemporalPrecisionException.class,
+                () -> service.medicationStart(9, Date.valueOf("2024-01-01"), true));
     }
-    @Test void shouldNotGuessExactJanuaryFirst_asPartial() {
+
+    @Test
+    void shouldNotGuessExactJanuaryFirst_asPartial() {
         var value = CdsTemporalNativeDateDto.from(Date.valueOf("2020-01-01"), null);
         assertEquals("FULL_DATE", value.getPrecision());
         assertEquals("2020-01-01", value.getValue());
         assertDoesNotThrow(value::requireDateOnlySafe);
     }
-    @Test void shouldRetainLeapIntervalForExplicitMonth_andRefuseDateOnly() {
-        var value = CdsTemporalNativeDateDto.from(Date.valueOf("2020-02-01"), PartialDate.YEARMONTH);
+
+    @Test
+    void shouldRetainLeapIntervalForExplicitMonth_andRefuseDateOnly() {
+        var value =
+                CdsTemporalNativeDateDto.from(Date.valueOf("2020-02-01"), PartialDate.YEARMONTH);
         assertEquals("MONTH", value.getPrecision());
         assertEquals("2020-02", value.getValue());
         assertEquals("2020-02-29", value.getIntervalEnd());
         assertThrows(CdsTemporalPrecisionException.class, value::requireDateOnlySafe);
     }
-    @Test void shouldNeverTurnUnknownDate_intoTodayOrFirstDay() {
+
+    @Test
+    void shouldNeverTurnUnknownDate_intoTodayOrFirstDay() {
         var value = CdsTemporalNativeDateDto.from(null, null);
         assertEquals("UNKNOWN", value.getPrecision());
-        assertNull(value.getValue()); assertNull(value.getIntervalStart()); assertNull(value.getIntervalEnd());
+        assertNull(value.getValue());
+        assertNull(value.getIntervalStart());
+        assertNull(value.getIntervalEnd());
         assertEquals("Unknown", value.display());
     }
-    @Test void shouldRequireReviewForUnrecognizedNativeTag_insteadOfAssumingExact() {
-        assertThrows(CdsTemporalPrecisionException.class,
+
+    @Test
+    void shouldRequireReviewForUnrecognizedNativeTag_insteadOfAssumingExact() {
+        assertThrows(
+                CdsTemporalPrecisionException.class,
                 () -> CdsTemporalNativeDateDto.from(Date.valueOf("2020-01-01"), "UNKNOWN"));
     }
-    @Test void shouldPreserveExistingExactFormatAndPartialMeaning_inMedicationLabels() {
+
+    @Test
+    void shouldPreserveExistingExactFormatAndPartialMeaning_inMedicationLabels() {
         PartialDateDao dao = mock(PartialDateDao.class);
-        when(dao.getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_STARTDATE)).thenReturn(PartialDate.YEARONLY);
-        var exact = new Drug(); exact.setId(6); exact.setRxDate(Date.valueOf("2020-01-01"));
-        var partial = new Drug(); partial.setId(7); partial.setRxDate(Date.valueOf("2020-01-01"));
-        var unknown = new Drug(); unknown.setId(8); unknown.setRxDate(null);
-        var labels = new CdsTemporalReadService(dao).medicationStartLabels(List.of(exact, partial, unknown));
+        when(dao.getFormat(PartialDate.DRUGS, 7, PartialDate.DRUGS_STARTDATE))
+                .thenReturn(PartialDate.YEARONLY);
+        var exact = new Drug();
+        exact.setId(6);
+        exact.setRxDate(Date.valueOf("2020-01-01"));
+        var partial = new Drug();
+        partial.setId(7);
+        partial.setRxDate(Date.valueOf("2020-01-01"));
+        var unknown = new Drug();
+        unknown.setId(8);
+        unknown.setRxDate(null);
+        var labels =
+                new CdsTemporalReadService(dao)
+                        .medicationStartLabels(List.of(exact, partial, unknown));
         assertEquals("01/01/20", labels.get(6));
         assertEquals("2020", labels.get(7));
         assertEquals("Unknown", labels.get(8));
     }
-    @Test void shouldRetainEveryRecordAndRawSemanticsInAllergyPrecisionResponse_withoutDateAnchors() throws Exception {
+
+    @Test
+    void shouldRetainEveryRecordAndRawSemanticsInAllergyPrecisionResponse_withoutDateAnchors()
+            throws Exception {
         PartialDateDao dao = mock(PartialDateDao.class);
-        when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE)).thenReturn(PartialDate.YEARONLY);
-        var partial = new Allergy(); partial.setId(7); partial.setDemographicNo(1); partial.setStartDate(Date.valueOf("2020-01-01"));
-        partial.setReactionType("AR"); partial.setNonDrug(null); partial.setReaction(null);
-        var unknown = new Allergy(); unknown.setId(8); unknown.setDemographicNo(1);
+        when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE))
+                .thenReturn(PartialDate.YEARONLY);
+        var partial = new Allergy();
+        partial.setId(7);
+        partial.setDemographicNo(1);
+        partial.setStartDate(Date.valueOf("2020-01-01"));
+        partial.setReactionType("AR");
+        partial.setNonDrug(null);
+        partial.setReaction(null);
+        var unknown = new Allergy();
+        unknown.setId(8);
+        unknown.setDemographicNo(1);
         LoggedInInfo info = new LoggedInInfo();
         AllergyManager manager = mock(AllergyManager.class);
         when(manager.getActiveAllergies(info, 1)).thenReturn(List.of(partial, unknown));
-        AllergyService service = new AllergyService() {
-            @Override protected LoggedInInfo getLoggedInInfo() { return info; }
-        };
+        AllergyService service =
+                new AllergyService() {
+                    @Override
+                    protected LoggedInInfo getLoggedInInfo() {
+                        return info;
+                    }
+                };
+        var security = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        when(security.hasPrivilege(info, "_allergy", "r", 1)).thenReturn(true);
+        ReflectionTestUtils.setField(service, "securityInfoManager", security);
         ReflectionTestUtils.setField(service, "allergyManager", manager);
-        ReflectionTestUtils.setField(service, "legacyProjection", mock(CdsLegacyProjectionService.class));
+        ReflectionTestUtils.setField(
+                service, "legacyProjection", mock(CdsLegacyProjectionService.class));
         ReflectionTestUtils.setField(service, "dates", new CdsTemporalReadService(dao));
         AllergyResponse result = service.getCurrentAllergiesWithPrecision(1);
         assertEquals(2, result.getAllergies().size());
@@ -118,7 +169,8 @@ class CdsTemporalReadServiceUnitTest {
         assertEquals("YEAR", first.getStartDateInfo().getPrecision());
         assertEquals("2020", first.getStartDateInfo().getValue());
         assertEquals("AR", first.getReactionType());
-        assertNull(first.getNonDrug()); assertNull(first.getReaction());
+        assertNull(first.getNonDrug());
+        assertNull(first.getReaction());
         assertEquals("UNKNOWN", result.getAllergies().get(1).getStartDateInfo().getPrecision());
         ObjectMapper json = new ObjectMapper();
         String wire = json.writeValueAsString(result);
@@ -126,18 +178,32 @@ class CdsTemporalReadServiceUnitTest {
         assertEquals("2020", restored.getAllergies().getFirst().getStartDateInfo().getValue());
         verify(manager).getActiveAllergies(info, 1);
     }
-    @Test void shouldKeepNativePartialAllergyAnchors_inLegacyRestAndSoapTransfers() throws Exception {
+
+    @Test
+    void shouldKeepNativePartialAllergyAnchors_inLegacyRestAndSoapTransfers() throws Exception {
         PartialDateDao dao = mock(PartialDateDao.class);
-        when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE)).thenReturn(PartialDate.YEARMONTH);
+        when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE))
+                .thenReturn(PartialDate.YEARMONTH);
         CdsTemporalReadService dates = new CdsTemporalReadService(dao);
-        Allergy source = new Allergy(); source.setId(7); source.setDemographicNo(1); source.setStartDate(Date.valueOf("2020-01-01"));
-        assertEquals(source.getStartDate(), new AllergyConverter(dates, false).getAsTransferObject(null, source).getStartDate());
-        assertEquals(409, new CdsTemporalPrecisionExceptionMapper()
-                .toResponse(new CdsTemporalPrecisionException()).getStatus());
+        Allergy source = new Allergy();
+        source.setId(7);
+        source.setDemographicNo(1);
+        source.setStartDate(Date.valueOf("2020-01-01"));
+        assertEquals(
+                source.getStartDate(),
+                new AllergyConverter(dates, false)
+                        .getAsTransferObject(null, source)
+                        .getStartDate());
+        assertEquals(
+                409,
+                new CdsTemporalPrecisionExceptionMapper()
+                        .toResponse(new CdsTemporalPrecisionException())
+                        .getStatus());
         try (var spring = mockStatic(SpringUtils.class)) {
             spring.when(() -> SpringUtils.getBean(CdsTemporalReadService.class)).thenReturn(dates);
             assertEquals(source.getStartDate(), AllergyTransfer.toTransfer(source).getStartDate());
-            when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE)).thenReturn(null);
+            when(dao.getFormat(PartialDate.ALLERGIES, 7, PartialDate.ALLERGIES_STARTDATE))
+                    .thenReturn(null);
             assertEquals(source.getStartDate(), AllergyTransfer.toTransfer(source).getStartDate());
         }
     }

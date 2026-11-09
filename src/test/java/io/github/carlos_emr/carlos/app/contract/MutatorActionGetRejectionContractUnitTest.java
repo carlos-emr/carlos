@@ -158,6 +158,8 @@ class MutatorActionGetRejectionContractUnitTest {
             Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsUpload2Action", "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.SubmitCdsImport2Action", "_demographic", "w"),
             Arguments.of("io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsImportControl2Action", "_demographic", "w"),
+            Arguments.of("io.github.carlos_emr.carlos.demographic.cdsexport.web.SubmitCdsExport2Action", "_demographic", "r"),
+            Arguments.of("io.github.carlos_emr.carlos.demographic.cdsexport.web.CdsExportControl2Action", "_demographic", "r"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmCreateImmunizationSetConfig2Action",
                     "_prevention", "w"),
             Arguments.of("io.github.carlos_emr.carlos.encounter.immunization.config.pageUtil.EctImmInitConfigDeleteImmuSet2Action",
@@ -679,6 +681,8 @@ class MutatorActionGetRejectionContractUnitTest {
         "io.github.carlos_emr.carlos.demographic.cdsimport.web.LegacyCdsImportLog2Action",
         "io.github.carlos_emr.carlos.demographic.cdsimport.web.CdsSourceFieldContent2Action",
         "io.github.carlos_emr.carlos.demographic.cdsimport.web.ViewCdsSourceFields2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsexport.web.ViewCdsExport2Action",
+        "io.github.carlos_emr.carlos.demographic.cdsexport.web.CdsExportStatus2Action",
         "io.github.carlos_emr.carlos.encounter.pageUtil.FormExists2Action",
         // Read-scope gates — permit GET, only 405 truly unsupported methods.
         "io.github.carlos_emr.carlos.appointment.gate.ViewAppointment2Action",
@@ -716,6 +720,7 @@ class MutatorActionGetRejectionContractUnitTest {
      */
     private static final List<String> IN_SCOPE_PACKAGE_PREFIXES = List.of(
         "io.github.carlos_emr.carlos.demographic.cdsimport.web.",
+        "io.github.carlos_emr.carlos.demographic.cdsexport.web.",
         "io.github.carlos_emr.carlos.appointment.",
         "io.github.carlos_emr.carlos.decision.",
         // Measurements (issue #3335): every *2Action in the slice was audited; the writes are
@@ -1221,7 +1226,8 @@ class MutatorActionGetRejectionContractUnitTest {
 
     private static Object instantiateAction(Class<?> actionClass, Map<Class<?>, Object> autoMocks)
             throws Exception {
-        if (actionClass.getPackageName().equals("io.github.carlos_emr.carlos.demographic.cdsimport.web")) {
+        if (Set.of("io.github.carlos_emr.carlos.demographic.cdsimport.web",
+                "io.github.carlos_emr.carlos.demographic.cdsexport.web").contains(actionClass.getPackageName())) {
             // New CDS actions use one explicit constructor; method rejection must run before any injected service.
             var constructors = actionClass.getConstructors();
             assertThat(constructors).as("one constructor for the CDS action boundary").hasSize(1);

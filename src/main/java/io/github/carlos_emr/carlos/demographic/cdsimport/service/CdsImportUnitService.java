@@ -46,13 +46,23 @@ import org.springframework.transaction.support.TransactionTemplate;
 /** Owns one bounded READ_COMMITTED transaction, including native writes, provenance and strict audit. */
 @Service
 public class CdsImportUnitService {
-    @FunctionalInterface public interface Work { CdsImportReceiptDto write() throws Exception; }
-    @FunctionalInterface public interface Verifier { boolean verify(CdsImportReceiptDto previous) throws Exception; }
+    @FunctionalInterface
+    public interface Work {
+        CdsImportReceiptDto write() throws Exception;
+    }
+
+    @FunctionalInterface
+    public interface Verifier {
+        boolean verify(CdsImportReceiptDto previous) throws Exception;
+    }
 
     static String requireActive(String runId, long epoch, String unitKey) {
         return CdsImportUnitContext.requireActive(runId, epoch, unitKey);
     }
-    public static boolean isActiveForMaintenance() { return CdsImportUnitContext.isActiveForMaintenance(); }
+
+    public static boolean isActiveForMaintenance() {
+        return CdsImportUnitContext.isActiveForMaintenance();
+    }
 
     private final CdsImportLedgerService ledger;
     private final CdsImportUnitDao units;
@@ -61,86 +71,170 @@ public class CdsImportUnitService {
     private final CdsImportCheckpointDao checkpoints;
     private final TransactionTemplate transaction;
 
-    public CdsImportUnitService(CdsImportLedgerService ledger, CdsImportUnitDao units, CdsImportPatientDao patients,
-            CdsImportDependencyDao dependencies, CdsImportCheckpointDao checkpoints, PlatformTransactionManager manager) {
-        this.ledger=ledger; this.units=units; this.patients=patients; this.dependencies=dependencies;
-        this.checkpoints=checkpoints; transaction=CdsImportLedgerService.template(manager);
+    public CdsImportUnitService(
+            CdsImportLedgerService ledger,
+            CdsImportUnitDao units,
+            CdsImportPatientDao patients,
+            CdsImportDependencyDao dependencies,
+            CdsImportCheckpointDao checkpoints,
+            PlatformTransactionManager manager) {
+        this.ledger = ledger;
+        this.units = units;
+        this.patients = patients;
+        this.dependencies = dependencies;
+        this.checkpoints = checkpoints;
+        transaction = CdsImportLedgerService.template(manager);
     }
 
     /**
      * Work and verifier run inside the actual owning transaction. A returned receipt is a commit acknowledgement.
      * A thrown uncertain-outcome exception requires fenced ledger reconciliation, never whole-unit blind retry.
      */
-    public CdsImportReceiptDto execute(String runId, long epoch, String unitKey, Work work, Verifier verifier) {
-        Objects.requireNonNull(work, "work"); Objects.requireNonNull(verifier, "verifier");
+    public CdsImportReceiptDto execute(
+            String runId, long epoch, String unitKey, Work work, Verifier verifier) {
+        Objects.requireNonNull(work, "work");
+        Objects.requireNonNull(verifier, "verifier");
         CdsImportLedgerService.requireNoTransaction();
-        AtomicBoolean transactionEntered=new AtomicBoolean();
-        AtomicBoolean callbackFinished=new AtomicBoolean();
+        AtomicBoolean transactionEntered = new AtomicBoolean();
+        AtomicBoolean callbackFinished = new AtomicBoolean();
         try {
-            return transaction.execute(status -> {
-                transactionEntered.set(true);
-                CdsImportRun run=ledger.lockOwned(runId, epoch);
-                if (run.isDryRun()) throw new CdsImportException("DRY_RUN_CLINICAL_WRITE_REFUSED");
-                if (run.isCancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
-                CdsImportUnit expected=ledger.unit(runId, unitKey);
-                CdsImportUnit unit=units.lock(expected.getId());
-                CdsImportPatient patient=ledger.patient(runId, unit.getPatientKey());
-                ledger.verifyCanonical(run, patient);
-                if ((CdsImportLedgerService.FINAL_PATIENT.contains(patient.getState()) && !java.util.Set.of("PARTIAL_COMMITTED", "RECONCILIATION_REQUIRED").contains(patient.getState())) || "FINALIZING".equals(patient.getState())) throw new CdsImportException("PATIENT_NOT_EXECUTABLE");
-                if (dependencies.incomplete(runId, unitKey)>0) throw new CdsImportException("DEPENDENCY_INCOMPLETE");
-                CdsImportCheckpoint checkpoint=checkpoints.lock(unitKey);
-                CdsImportUnitContext.bind(runId, epoch, unitKey);
-                try {
-                    CdsImportReceiptDto result;
-                    if (checkpoint!=null) {
-                        verifyIdentity(run, unit, checkpoint);
-                        result=new CdsImportReceiptDto(checkpoint.getTargetReferences(), checkpoint.getTargetDigest(), true);
-                        if (!verifier.verify(result)) throw new CdsImportException("TARGET_RECONCILIATION_REQUIRED");
-                        // Reused native rows still need this attempt's hold until every expected unit reconciles.
-                        if (patient.getTargetDemographicNo()==null) throw new CdsImportException("CHECKPOINT_TARGET_MISSING");
-                        ledger.bindTarget(runId, epoch, unit.getPatientKey(), patient.getTargetDemographicNo());
-                        if (!runId.equals(checkpoint.getFirstRunId())) unit.setState("ALREADY_COMPLETE");
-                        else if (!"COMMITTED".equals(unit.getState())) throw new CdsImportException("CHECKPOINT_RECONCILIATION_REQUIRED");
-                    } else {
-                        if (!"EXPECTED".equals(unit.getState())) throw new CdsImportException("CHECKPOINT_RECONCILIATION_REQUIRED");
-                        result=Objects.requireNonNull(work.write(), "unit receipt");
-                        validate(result);
-                        if (result.alreadyComplete()) throw new CdsImportException("UNVERIFIED_NOOP_REFUSED");
-                        CdsImportPatient bound=patients.get(patient.getId());
-                        if (bound==null || bound.getTargetDemographicNo()==null || !bound.isHeld()) throw new CdsImportException("UNIT_TARGET_HOLD_MISSING");
-                        checkpoint=new CdsImportCheckpoint(); checkpoint.setId(unitKey); checkpoint.setLineageKey(unit.getLineageKey());
-                        checkpoint.setSourceDigest(unit.getSourceDigest()); checkpoint.setOptionsDigest(run.getOptionsDigest());
-                        checkpoint.setRulesetDigest(run.getRulesetDigest()); checkpoint.setTargetReferences(result.targetReferences());
-                        checkpoint.setTargetDigest(result.targetDigest()); checkpoint.setFirstRunId(runId); checkpoint.setCommittedAt(Instant.now());
-                        checkpoints.persist(checkpoint); unit.setState("COMMITTED");
-                    }
-                    validate(result); unit.setTargetReferences(result.targetReferences()); unit.setTargetDigest(result.targetDigest());
-                    unit.setCommittedAt(Instant.now()); ledger.event(run, unitKey, result.alreadyComplete()?"UNIT_ALREADY_COMPLETE":"UNIT_COMMITTED");
-                    ledger.touch(run); units.flushAndClear(); callbackFinished.set(true);
-                    return result;
-                } catch (CdsImportException failure) { throw failure; }
-                catch (io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputException failure) { throw new CdsImportException(failure.code(), false, failure); }
-                catch (io.github.carlos_emr.carlos.commn.model.CdsClinicalException failure) { throw new CdsImportException(failure.code(), false, failure); }
-                catch (Exception failure) { throw new CdsImportException("UNIT_WRITE_FAILED", false, failure); }
-                finally { CdsImportUnitContext.unbind(); }
-            });
+            return transaction.execute(
+                    status -> {
+                        transactionEntered.set(true);
+                        CdsImportRun run = ledger.lockOwned(runId, epoch);
+                        if (run.isDryRun())
+                            throw new CdsImportException("DRY_RUN_CLINICAL_WRITE_REFUSED");
+                        if (run.isCancelRequested())
+                            throw new CdsImportException("IMPORT_CANCELLED");
+                        CdsImportUnit expected = ledger.unit(runId, unitKey);
+                        CdsImportUnit unit = units.lock(expected.getId());
+                        CdsImportPatient patient = ledger.patient(runId, unit.getPatientKey());
+                        ledger.verifyCanonical(run, patient);
+                        if ((CdsImportLedgerService.FINAL_PATIENT.contains(patient.getState())
+                                        && !java.util.Set.of(
+                                                        "PARTIAL_COMMITTED",
+                                                        "RECONCILIATION_REQUIRED")
+                                                .contains(patient.getState()))
+                                || "FINALIZING".equals(patient.getState()))
+                            throw new CdsImportException("PATIENT_NOT_EXECUTABLE");
+                        if (dependencies.incomplete(runId, unitKey) > 0)
+                            throw new CdsImportException("DEPENDENCY_INCOMPLETE");
+                        CdsImportCheckpoint checkpoint = checkpoints.lock(unitKey);
+                        CdsImportUnitContext.bind(runId, epoch, unitKey);
+                        try {
+                            CdsImportReceiptDto result;
+                            if (checkpoint != null) {
+                                verifyIdentity(run, unit, checkpoint);
+                                result =
+                                        new CdsImportReceiptDto(
+                                                checkpoint.getTargetReferences(),
+                                                checkpoint.getTargetDigest(),
+                                                true,
+                                                checkpoint.getNativeBaseline());
+                                if (!verifier.verify(result))
+                                    throw new CdsImportException("TARGET_RECONCILIATION_REQUIRED");
+                                // Reused native rows still need this attempt's hold until every
+                                // expected unit reconciles.
+                                if (patient.getTargetDemographicNo() == null)
+                                    throw new CdsImportException("CHECKPOINT_TARGET_MISSING");
+                                ledger.bindTarget(
+                                        runId,
+                                        epoch,
+                                        unit.getPatientKey(),
+                                        patient.getTargetDemographicNo());
+                                if (!runId.equals(checkpoint.getFirstRunId()))
+                                    unit.setState("ALREADY_COMPLETE");
+                                else if (!"COMMITTED".equals(unit.getState()))
+                                    throw new CdsImportException(
+                                            "CHECKPOINT_RECONCILIATION_REQUIRED");
+                            } else {
+                                if (!"EXPECTED".equals(unit.getState()))
+                                    throw new CdsImportException(
+                                            "CHECKPOINT_RECONCILIATION_REQUIRED");
+                                result = Objects.requireNonNull(work.write(), "unit receipt");
+                                validate(result);
+                                if (result.alreadyComplete())
+                                    throw new CdsImportException("UNVERIFIED_NOOP_REFUSED");
+                                CdsImportPatient bound = patients.get(patient.getId());
+                                if (bound == null
+                                        || bound.getTargetDemographicNo() == null
+                                        || !bound.isHeld())
+                                    throw new CdsImportException("UNIT_TARGET_HOLD_MISSING");
+                                checkpoint = new CdsImportCheckpoint();
+                                checkpoint.setId(unitKey);
+                                checkpoint.setLineageKey(unit.getLineageKey());
+                                checkpoint.setSourceDigest(unit.getSourceDigest());
+                                checkpoint.setOptionsDigest(run.getOptionsDigest());
+                                checkpoint.setRulesetDigest(run.getRulesetDigest());
+                                checkpoint.setTargetReferences(result.targetReferences());
+                                checkpoint.setTargetDigest(result.targetDigest());
+                                checkpoint.setNativeBaseline(result.nativeBaseline());
+                                checkpoint.setFirstRunId(runId);
+                                checkpoint.setCommittedAt(Instant.now());
+                                checkpoints.persist(checkpoint);
+                                unit.setState("COMMITTED");
+                            }
+                            validate(result);
+                            unit.setTargetReferences(result.targetReferences());
+                            unit.setTargetDigest(result.targetDigest());
+                            unit.setNativeBaseline(result.nativeBaseline());
+                            unit.setCommittedAt(Instant.now());
+                            ledger.event(
+                                    run,
+                                    unitKey,
+                                    result.alreadyComplete()
+                                            ? "UNIT_ALREADY_COMPLETE"
+                                            : "UNIT_COMMITTED");
+                            ledger.touch(run);
+                            units.flushAndClear();
+                            callbackFinished.set(true);
+                            return result;
+                        } catch (CdsImportException failure) {
+                            throw failure;
+                        } catch (
+                                io.github.carlos_emr.carlos.demographic.cdsimport.support
+                                                .CdsInputException
+                                        failure) {
+                            throw new CdsImportException(failure.code(), false, failure);
+                        } catch (
+                                io.github.carlos_emr.carlos.commn.model.CdsClinicalException
+                                        failure) {
+                            throw new CdsImportException(failure.code(), false, failure);
+                        } catch (Exception failure) {
+                            throw new CdsImportException("UNIT_WRITE_FAILED", false, failure);
+                        } finally {
+                            CdsImportUnitContext.unbind();
+                        }
+                    });
         } catch (RuntimeException failure) {
-            if (callbackFinished.get() || transactionEntered.get() && failure instanceof TransactionSystemException) {
+            if (callbackFinished.get()
+                    || transactionEntered.get() && failure instanceof TransactionSystemException) {
                 throw new CdsImportException("UNIT_COMMIT_OUTCOME_UNKNOWN", true, failure, unitKey);
             }
-            if (!transactionEntered.get() && failure instanceof org.springframework.transaction.TransactionException) throw new CdsImportException("UNIT_TRANSACTION_START_FAILED", false, failure, unitKey);
+            if (!transactionEntered.get()
+                    && failure instanceof org.springframework.transaction.TransactionException)
+                throw new CdsImportException(
+                        "UNIT_TRANSACTION_START_FAILED", false, failure, unitKey);
             throw failure;
         }
-        // Fatal Error deliberately escapes; supervision reconciles durable state after process failure.
+        // Fatal Error deliberately escapes; supervision reconciles durable state after process
+        // failure.
     }
 
-    private void verifyIdentity(CdsImportRun run, CdsImportUnit unit, CdsImportCheckpoint checkpoint) {
-        if (!checkpoint.getLineageKey().equals(unit.getLineageKey()) || !checkpoint.getSourceDigest().equals(unit.getSourceDigest())
-                || !checkpoint.getOptionsDigest().equals(run.getOptionsDigest()) || !checkpoint.getRulesetDigest().equals(run.getRulesetDigest())) {
+    private void verifyIdentity(
+            CdsImportRun run, CdsImportUnit unit, CdsImportCheckpoint checkpoint) {
+        if (!checkpoint.getLineageKey().equals(unit.getLineageKey())
+                || !checkpoint.getSourceDigest().equals(unit.getSourceDigest())
+                || !checkpoint.getOptionsDigest().equals(run.getOptionsDigest())
+                || !checkpoint.getRulesetDigest().equals(run.getRulesetDigest())) {
             throw new CdsImportException("SOURCE_REVISION_REVIEW_REQUIRED");
         }
         if (("COMMITTED".equals(unit.getState()) || "ALREADY_COMPLETE".equals(unit.getState()))
-                && (!Objects.equals(unit.getTargetDigest(), checkpoint.getTargetDigest()) || !Objects.equals(unit.getTargetReferences(), checkpoint.getTargetReferences()))) {
+                && (!Objects.equals(unit.getTargetDigest(), checkpoint.getTargetDigest())
+                        || !Objects.equals(
+                                unit.getTargetReferences(), checkpoint.getTargetReferences())
+                        || !Objects.equals(
+                                unit.getNativeBaseline(), checkpoint.getNativeBaseline()))) {
             throw new CdsImportException("CHECKPOINT_RECONCILIATION_REQUIRED");
         }
     }
@@ -148,5 +242,14 @@ public class CdsImportUnitService {
     private void validate(CdsImportReceiptDto receipt) {
         CdsImportKeys.required(receipt.targetReferences(), "target references", 65536);
         CdsImportKeys.digestValue(receipt.targetDigest(), "target digest");
+        if (receipt.nativeBaseline() != null)
+            try {
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.decode(
+                        receipt.nativeBaseline(),
+                        receipt.targetReferences(),
+                        receipt.targetDigest());
+            } catch (java.io.IOException | IllegalArgumentException invalid) {
+                throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW", false, invalid);
+            }
     }
 }

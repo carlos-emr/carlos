@@ -46,6 +46,14 @@ import io.github.carlos_emr.carlos.model.security.SecProvider;
 @SuppressWarnings("unchecked")
 public interface ProviderDao {
 
+    /** Snapshot-only schema check; includes the complete physical table but no private values. */
+    io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportPublicProviderSchema();
+    /** Counts only providers referenced through the selected patient categories. */
+    long countCdsExportPublicProviders(int patient, java.util.Set<String> categories);
+    /** Bounded binary text-key page; afterKey is the reader's reversible UTF-8 key, never a number. */
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto> findCdsExportPublicProvidersAfter(
+            int patient, java.util.Set<String> categories, String afterKey, int limit);
+
     public static final String PR_TYPE_DOCTOR = "doctor";
     public static final String PR_TYPE_RESIDENT = "resident";
 

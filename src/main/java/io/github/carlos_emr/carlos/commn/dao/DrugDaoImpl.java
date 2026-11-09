@@ -49,6 +49,38 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.DRUGS);
+    }
+
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.DRUGS);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DRUGS, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportExactNumericReadSupport.drugs(entityManager, patient,
+                CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DRUGS, patient, afterId, limit));
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.DRUGS, patient, rowId, column, offset, length);
+    }
+
     private static final Set<String> FIND_BY_PARAMETER_ALLOWED_COLUMNS =
             Set.of("customName", "regional_identifier", "BN");
 
@@ -97,6 +129,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicId(Integer demographicId, Boolean archived) {
 
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
@@ -136,6 +170,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
      */
     @Deprecated
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicIdOrderByDate(Integer demographicId, Boolean archived) {
         // build sql string
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
@@ -184,6 +220,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicIdOrderByPosition(Integer demographicId, Boolean archived) {
         // build sql string
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "

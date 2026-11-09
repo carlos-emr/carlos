@@ -1,0 +1,66 @@
+# Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
+name: CDS export byte-layer resources
+
+on:
+  pull_request:
+    branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
+    paths:
+      - 'src/main/**'
+      - 'scripts/ci/CdsExportResourceQualification.java'
+      - 'scripts/ci/run-cds-export-resources.py'
+      - 'scripts/ci/test_run_cds_export_resources.py'
+      - 'scripts/ci/cds_war_manifest.py'
+      - 'pom.xml'
+      - '.github/workflows/cds-export-resources.yml'
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: cds-export-resources-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  resources:
+    name: Export byte-layer / ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [large, disk]
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Free unused SDK space on this ephemeral runner
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet
+      - name: Set up Java25 for the external qualification helper
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v4.7.1
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Verify resource-evidence and recipient-failure boundaries
+        run: python3 -m unittest discover -s scripts/ci -p test_run_cds_export_resources.py
+      - name: Start Java25 build container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+      - name: Build the actual packaged application
+        run: docker exec --workdir /workspace carlos-tomcat-dev mvn -B -DskipTests package
+      - name: Qualify exact-WAR export resources with a bounded heap
+        run: python3 scripts/ci/run-cds-export-resources.py --profile '${{ matrix.profile }}'
+      - name: Preserve only synthetic counts, hashes and resource evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cds-export-byte-resources-${{ matrix.profile }}
+          path: ${{ runner.temp }}/cds-export-resources-*/public/*
+          if-no-files-found: error
+          retention-days: 14

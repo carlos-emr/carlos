@@ -46,6 +46,7 @@ import jakarta.servlet.http.HttpSession;
 import org.apache.logging.log4j.Logger;
 
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
@@ -72,9 +73,9 @@ public final class EformViewForPdfGenerationServlet extends HttpServlet {
     public final void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
         try {
             String remoteAddress = request.getRemoteAddr();
-            logger.debug("EformViewForPdfGenerationServlet request from : {}", remoteAddress);
+            logger.debug("EformViewForPdfGenerationServlet request from : {}", LogSafe.sanitize(remoteAddress));
             if (!isLocalRequest(remoteAddress)) {
-                logger.warn("Unauthorised request made to EformViewForPdfGenerationServlet from address : {}", remoteAddress);
+                logger.warn("Unauthorised request made to EformViewForPdfGenerationServlet from address : {}", LogSafe.sanitize(remoteAddress));
                 response.sendError(HttpServletResponse.SC_FORBIDDEN);
                 return;
             }

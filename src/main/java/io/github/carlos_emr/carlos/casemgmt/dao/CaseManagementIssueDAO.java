@@ -39,7 +39,7 @@ import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
-public interface CaseManagementIssueDAO {
+public interface CaseManagementIssueDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no);
 

@@ -98,6 +98,7 @@ class ContextStartupListenerUnitTest {
     @Test void shouldBootRecoveryContextWithoutClinicalQueries_whenMaintenanceIsRetained() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         var imports = mock(CdsImportService.class);
+        var exports = mock(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class);
         when(maintenance.isClinicalAccessBlocked()).thenReturn(true);
         var context = new MockServletContext();
         var listener = new ContextStartupListener();
@@ -107,6 +108,7 @@ class ContextStartupListenerUnitTest {
                 var resolvers = mockStatic(ResourceResolver.class)) {
             spring.when(() -> SpringUtils.getBean(CdsImportMaintenanceService.class)).thenReturn(maintenance);
             spring.when(() -> SpringUtils.getBean(CdsImportService.class)).thenReturn(imports);
+            spring.when(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class)).thenReturn(exports);
             listener.contextInitialized(new ServletContextEvent(context));
             resolvers.verify(() -> ResourceResolver.register(any(CidPrefixResourceResolver.class), eq(true)));
             var coordinator = (ClinicalStartupCoordinator) context.getAttribute(ClinicalStartupCoordinator.ATTRIBUTE);
@@ -115,6 +117,8 @@ class ContextStartupListenerUnitTest {
             spring.verify(() -> SpringUtils.getBean(CdsImportMaintenanceService.class));
             spring.verify(() -> SpringUtils.getBean(CdsImportService.class));
             verify(imports).start();
+            spring.verify(() -> SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class));
+            verify(exports).start();
             spring.verifyNoMoreInteractions();
             listener.contextDestroyed(new ServletContextEvent(context));
             assertThat(coordinator.state()).isEqualTo(ClinicalStartupCoordinator.State.CLOSED);
@@ -136,6 +140,7 @@ class ContextStartupListenerUnitTest {
                     .isInstanceOf(RuntimeException.class).hasRootCauseMessage("synthetic startup failure");
             resolvers.verify(() -> ResourceResolver.register(any(CidPrefixResourceResolver.class), eq(true)));
             spring.verify(()->SpringUtils.getBean(CdsImportService.class),never());
+            spring.verify(()->SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class),never());
             listener.contextDestroyed(new ServletContextEvent(context));
         } finally {MiscUtils.setShutdownSignaled(false);}
     }

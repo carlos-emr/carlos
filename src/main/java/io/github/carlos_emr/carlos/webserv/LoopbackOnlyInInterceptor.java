@@ -32,6 +32,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 
 /**
  * Restricts a web-service endpoint to callers on the host loopback address.
@@ -71,7 +72,7 @@ public class LoopbackOnlyInInterceptor extends AbstractPhaseInterceptor<Message>
         if (isLoopback(request.getRemoteAddr())) {
             return;
         }
-        logger.warn("Refused off-host request to a loopback-only web service from {}", request.getRemoteAddr());
+        logger.warn("Refused off-host request to a loopback-only web service from {}", LogSafe.sanitize(request.getRemoteAddr()));
         // Set the status explicitly: org.apache.cxf.interceptor.Fault defaults to
         // 500, which reads as an outage in monitoring rather than a deliberate
         // refusal. 403 says what actually happened, matching the deliberate

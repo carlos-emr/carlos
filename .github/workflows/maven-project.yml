@@ -181,9 +181,44 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           maven-cache: restore
 
+      - name: Verify focused CDS and legacy integration regressions
+        run: |
+          docker exec carlos-tomcat-dev install -d -m 0700 /opt/cds-export-test-documents
+          python3 - <<'PY'
+          import subprocess
+          selectors = [
+              'DevcontainerSecurityMigrationReapplyRegressionTest',
+              'FrmBCAR20202ActionPatientAccessUnitTest', 'FrmBCAR20202ActionPageRouteUnitTest',
+              'RxViewScript2ActionUnitTest',
+              'DemographicLoggedInInfoSessionGuard2ActionUnitTest',
+              'DemographicUpdate2ActionUnitTest', 'DemographicUpdate2ActionWebUnitTest',
+              'SaveClinicEmailLogo2ActionUnitTest', 'EctConsultationFormRequestUtilUnitTest',
+              'EctDisplayRequestIsolationUnitTest', 'PrescriptionPdfServletUnitTest',
+              'OscarFhirResourceManagerImmunizationUnitTest', 'UserActivityFooterSessionUnitTest',
+              'ConsultationManagerUnitTest', 'EmailComposeAttachmentCompletenessUnitTest',
+              'PreventionPageDataUnitTest', 'PreventionPrintLoaderIntegrationTest',
+              'PreventionDataExtensionLookupUnitTest',
+              'ProviderPropertyActionDocumentGroupingTest', 'ScheduleAvailabilityViewJspRegressionTest',
+              'JdkEncodingCompatibilityUnitTest', 'SonarPathTraversalExclusionPolicyUnitTest',
+              'JspEncodingRegressionTest', 'AbstractWsPrivilegeUnitTest', 'AllergyWsSecurityUnitTest',
+              'AllergyServiceUnitTest', 'LabServiceUnitTest', 'CdsExportDocumentInputStreamUnitTest',
+              'CdsExportSourceCatalogueUnitTest', 'CdsExportStagingServiceUnitTest',
+              'CdsExportExecutionServiceUnitTest', 'CdsExportCliUnitTest',
+          ]
+          subprocess.run([
+              'docker', 'exec', '-e',
+              'JAVA_TOOL_OPTIONS=-Dcds.export.test.documentRoot=/opt/cds-export-test-documents',
+              'carlos-tomcat-dev', 'mvn', '--batch-mode', '--no-transfer-progress', 'test',
+              '-Dtest.forkCount=1', '-Dtest=' + ','.join(selectors),
+          ], check=True)
+          PY
+
       - name: Run tests
         run: |
-          docker exec carlos-tomcat-dev bash -c "
+          # Native-file unit contracts need ancestry owned by the process or root;
+          # the host checkout is runner-owned. Keep the real trust checks intact.
+          docker exec carlos-tomcat-dev install -d -m 0700 /opt/cds-export-test-documents
+          docker exec -e JAVA_TOOL_OPTIONS=-Dcds.export.test.documentRoot=/opt/cds-export-test-documents carlos-tomcat-dev bash -c "
             echo '========================================='
             echo 'Running Tests (JUnit 5 with H2)'
             echo '========================================='
@@ -214,9 +249,6 @@ jobs:
               mvn --batch-mode test -Dtest.forkCount=1 \
               -Dtest=DemographicBirthDayTimezoneUnitTest,DemographicBirthDayPropertyUnitTest,DemographicServiceEndpointTest,DemographicConverterUnitTest,SmartDateModuleRoundTripUnitTest,RestBirthDateMapperConfigurationUnitTest
           done
-
-      - name: Verify Rourke PDFs with alternate fonts and cache permissions
-        run: docker exec carlos-tomcat-dev bash scripts/check-rourke-fonts.sh
 
       - name: Prepare sanitized Java test reports
         if: always()
@@ -281,6 +313,31 @@ jobs:
           path: ${{ runner.temp }}/carlos-ci-surefire-reports/
           if-no-files-found: warn
           retention-days: 14
+
+  report-fonts:
+    # The complete Java suite and six fresh-JVM font scenarios exceeded the
+    # shared 40-minute budget. Keep every scenario in an independent job.
+    name: Report font and cache matrix
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref != '' && inputs.ref || github.sha }}
+          persist-credentials: false
+
+      - name: Start dev container (Maven cache restore-only)
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+
+      - name: Verify every report renderer with alternate fonts and cache permissions
+        run: docker exec carlos-tomcat-dev bash scripts/check-rourke-fonts.sh
 
       - name: Preserve synthetic Rourke rendering evidence
         if: always()

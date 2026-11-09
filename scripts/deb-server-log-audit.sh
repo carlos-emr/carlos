@@ -93,7 +93,9 @@ trap 'rm -rf "$work"' EXIT
 boot_start_iso() {
   local first
   first="$(journalctl --no-pager -q -b -o short-unix 2>/dev/null | head -n 1 | cut -d. -f1 || true)"
-  case "$first" in ''|*[!0-9]*) return 1 ;; esac
+  case "$first" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
   date -d "@$first" '+%Y-%m-%d %H:%M:%S'
 }
 

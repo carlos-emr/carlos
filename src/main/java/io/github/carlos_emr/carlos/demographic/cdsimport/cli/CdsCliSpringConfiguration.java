@@ -63,8 +63,6 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissio
 import io.github.carlos_emr.carlos.managers.SecurityInfoManagerImpl;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import jakarta.persistence.EntityManagerFactory;
-import java.sql.Connection;
-import java.time.Duration;
 import java.util.Properties;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
@@ -76,9 +74,7 @@ import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
-import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
-import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
@@ -86,11 +82,12 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration(proxyBeanMethods = false)
 @Profile("cds-import-cli")
 @EnableTransactionManagement(proxyTargetClass=true)
+@org.springframework.context.annotation.EnableAspectJAutoProxy(proxyTargetClass=true)
 @ComponentScan(basePackages = "io.github.carlos_emr.carlos.demographic.cdsimport.service")
 @ComponentScan(basePackages = "io.github.carlos_emr.carlos.commn.dao", useDefaultFilters = false,
         includeFilters = @ComponentScan.Filter(type = FilterType.REGEX,
                 pattern = "io\\.github\\.carlos_emr\\.carlos\\.commn\\.dao\\.Cds(Import|Upload).*Dao"))
-@Import({DrugDaoImpl.class, PartialDateDaoImpl.class, PreventionDaoImpl.class,
+@Import({io.github.carlos_emr.carlos.demographic.cds.security.CdsFreshAuthorizationReadAspect.class, DrugDaoImpl.class, PartialDateDaoImpl.class, PreventionDaoImpl.class,
         io.github.carlos_emr.carlos.commn.dao.CVCMappingDaoImpl.class,
         io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDaoImpl.class,
         PreventionExtDaoImpl.class, SecObjPrivilegeDaoImpl.class, SecuserroleDaoImpl.class,
@@ -133,84 +130,32 @@ public class CdsCliSpringConfiguration {
 
     @Bean(destroyMethod = "close")
     public OscarTrackingBasicDataSource dataSource(@Qualifier("cdsImportProperties") Properties properties) {
-        OscarTrackingBasicDataSource source = new OscarTrackingBasicDataSource();
-        source.setBoundedCdsConnections(true);
-        source.setDriverClassName(required(properties, "db_driver"));
-        String metadata = properties.getProperty("db_default_use_information_schema");
-        if (metadata != null && !metadata.isBlank()) source.setDefaultUseInformationSchema(
-                org.springframework.core.convert.support.DefaultConversionService.getSharedInstance().convert(metadata, Boolean.class));
-        source.setUrl(required(properties, "db_uri") + required(properties, "db_name"));
-        source.setUsername(required(properties, "db_username"));
-        source.setPassword(required(properties, "db_password"));
-        source.setDefaultAutoCommit(true);
-        source.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
-        // This dedicated context changes transaction state through JDBC setters,
-        // including Spring/Hibernate. Raw SQL must not change that cached state.
-        source.addConnectionProperty("useLocalSessionState", "true");
-        // This pool serves only imports. Establish an additive strict baseline once
-        // per physical connection; guarded units still verify and restore sessions.
-        var initialization=new java.util.ArrayList<String>();
-        if (source.getConnectionInitSqls()!=null) initialization.addAll(source.getConnectionInitSqls());
-        initialization.add("SET SESSION sql_mode=IF(FIND_IN_SET('STRICT_ALL_TABLES',@@SESSION.sql_mode)>0,"
-                + "@@SESSION.sql_mode,CONCAT_WS(',',NULLIF(@@SESSION.sql_mode,''),'STRICT_ALL_TABLES'))");
-        source.setConnectionInitSqls(initialization);
-        // CLI has one foreground worker and a bounded progress reader, never the
-        // web server's full pool or abandoned-transaction recovery heuristics.
-        source.setMaxTotal(4); source.setMaxIdle(2); source.setMinIdle(0);
-        source.setMaxWait(Duration.ofSeconds(30));
-        source.setValidationQuery("SELECT 1"); source.setValidationQueryTimeout(Duration.ofSeconds(10));
-        source.setTestOnBorrow(true); source.setPoolPreparedStatements(false);
-        return source;
+        return io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessPersistence.dataSource(properties);
     }
 
     @Bean
     public FlywaySchemaValidator cdsCliSchemaGate(OscarTrackingBasicDataSource source,
             @Qualifier("cdsImportProperties") Properties properties) {
-        // Validation only: this command never applies an implicit migration.
-        return new FlywaySchemaValidator(source, "validate", properties.getProperty("carlos.flyway.locations", ""),
-                properties.getProperty("billregion", "ON"));
+        return io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessPersistence.schemaGate(source, properties);
     }
 
     @Bean(initMethod = "initialize")
     @DependsOn("cdsCliSchemaGate")
     public CdsJdbcAdmissionInitializer cdsCliAdmissionInitializer(OscarTrackingBasicDataSource source,
             @Qualifier("cdsImportProperties") Properties properties) {
-        // This dedicated runtime always understands the guard, including status
-        // queries after admission is disabled. It never starts ordinary writers.
-        return new CdsJdbcAdmissionInitializer(source, true, "validate");
+        return io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessPersistence.admissionInitializer(source);
     }
 
     @Bean(name = "entityManagerFactory")
     @DependsOn("cdsCliAdmissionInitializer")
     public LocalContainerEntityManagerFactoryBean entityManagerFactory(OscarTrackingBasicDataSource source,
             @Qualifier("cdsImportProperties") Properties properties) {
-        LocalContainerEntityManagerFactoryBean factory = new LocalContainerEntityManagerFactoryBean();
-        factory.setDataSource(source); factory.setPersistenceUnitName("entityManagerFactory");
-        // Use the same association-complete model packages as spring_jpa.xml.
-        factory.setPackagesToScan("io.github.carlos_emr.carlos.commn.model", "io.github.carlos_emr.carlos.model",
-                "io.github.carlos_emr.carlos.PMmodule.model", "io.github.carlos_emr.carlos.casemgmt.model",
-                "io.github.carlos_emr.carlos.entities", "io.github.carlos_emr.carlos.billing",
-                "io.github.carlos_emr.carlos.billings", "io.github.carlos_emr.carlos.hospitalReportManager.model",
-                "io.github.carlos_emr.carlos.form.model", "io.github.carlos_emr.carlos.decisionSupport.model");
-        factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-        Properties jpa = new Properties();
-        jpa.setProperty("hibernate.dialect", properties.getProperty("hibernate.dialect", "org.hibernate.dialect.MariaDBDialect"));
-        jpa.setProperty("hibernate.show_sql", "false"); jpa.setProperty("hibernate.generate_statistics", "false");
-        jpa.setProperty("hibernate.cache.use_second_level_cache", "false");
-        jpa.setProperty("hibernate.cache.use_query_cache", "false");
-        jpa.setProperty("hibernate.hbm2ddl.auto", "none");
-        jpa.setProperty("hibernate.max_fetch_depth", "3");
-        factory.setJpaProperties(jpa); return factory;
+        return io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessPersistence.entityManagerFactory(source, properties);
     }
 
     @Bean
     public PlatformTransactionManager transactionManager(EntityManagerFactory factory) {
-        return new JpaTransactionManager(factory);
+        return io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessPersistence.transactionManager(factory);
     }
 
-    private static String required(Properties properties, String key) {
-        String value = properties.getProperty(key);
-        if (value == null || value.isBlank()) throw new IllegalStateException("CDS_DATABASE_CONFIGURATION_REQUIRED");
-        return value;
-    }
 }

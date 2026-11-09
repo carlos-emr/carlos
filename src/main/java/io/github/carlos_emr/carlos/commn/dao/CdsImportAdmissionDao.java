@@ -28,9 +28,24 @@ import org.springframework.stereotype.Repository;
 /** Data access for one protected CDS import table; orchestration belongs in services. */
 @Repository
 public class CdsImportAdmissionDao extends AbstractDaoImpl<CdsImportAdmission> {
-    public CdsImportAdmissionDao() { super(CdsImportAdmission.class); }
-    public CdsImportAdmission lock(String id) { return entityManager.find(CdsImportAdmission.class, id, LockModeType.PESSIMISTIC_WRITE); }
-    public CdsImportAdmission readLock(String id) { return entityManager.find(CdsImportAdmission.class, id, LockModeType.PESSIMISTIC_READ); }
-    public CdsImportAdmission get(String id) { return entityManager.find(CdsImportAdmission.class, id); }
-    public void flushAndClear() { entityManager.flush(); entityManager.clear(); }
+    public CdsImportAdmissionDao() {
+        super(CdsImportAdmission.class);
+    }
+
+    public CdsImportAdmission lock(String id) {
+        return entityManager.find(CdsImportAdmission.class, id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    public CdsImportAdmission readLock(String id) {
+        return entityManager.find(CdsImportAdmission.class, id, LockModeType.PESSIMISTIC_READ);
+    }
+
+    public CdsImportAdmission get(String id) {
+        return entityManager.find(CdsImportAdmission.class, id);
+    }
+
+    public void flushAndClear() {
+        entityManager.flush();
+        entityManager.clear();
+    }
 }

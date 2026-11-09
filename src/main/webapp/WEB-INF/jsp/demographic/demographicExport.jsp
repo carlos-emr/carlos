@@ -408,6 +408,7 @@
             </div>
         </div>
         <h3><fmt:message key="demographic.demographicexport.title"/> </h3>
+        <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExport">Asynchronous CDS Export</a></p>
 
         <div class="col-md-2">
             <% if (demographicNo == null) { %>

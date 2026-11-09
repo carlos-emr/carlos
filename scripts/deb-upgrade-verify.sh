@@ -206,7 +206,7 @@ ht_ok=0
 if [ "$ht_pre" = "$ht_post" ] || { [ "$ht_pre" = health_tracker=false ] && [ "$ht_post" = health_tracker=true ] && [ "$ht_sentinel_pre" != yes ]; }; then ht_ok=1; fi
 od_ok=1; od_changed=""
 for pair in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
-  old_line=${pair%%|*}; new_line=${pair#*|}; k=${old_line%%=*}
+  old_line=${pair%%'|'*}; new_line=${pair#*'|'}; k=${old_line%%=*}
   pre=$(g "$PRE" "cfg.oscarDefault.$k" 2>/dev/null || true); post=$(g "$POST" "cfg.oscarDefault.$k" 2>/dev/null || true)
   [ "$pre" = "$post" ] && continue
   od_changed="$od_changed $k"
@@ -216,11 +216,13 @@ done
 # its sentinel, moved from one definition of any value to exactly the stock line.
 oa_ok=1; oa_changed=""
 for pair in "${OAUTH_ACCESS_DEFAULTS[@]}"; do
-  k=${pair%%|*}; new_line=${pair#*|}
+  k=${pair%%'|'*}; new_line=${pair#*'|'}
   pre=$(g "$PRE" "cfg.oauthAccess.$k" 2>/dev/null || true); post=$(g "$POST" "cfg.oauthAccess.$k" 2>/dev/null || true)
   [ "$pre" = "$post" ] && continue
   oa_changed="$oa_changed $k"
-  case "$pre" in *';'*|'') oa_ok=0; continue ;; esac
+  case "$pre" in
+    *';'*|'') oa_ok=0; continue ;;
+  esac
   { [ "$post" = "$new_line" ] && [ "$oa_sentinel_pre" != yes ]; } || oa_ok=0
 done
 # The lab filter either stayed put or, on the upgrade that first writes its
@@ -301,9 +303,11 @@ fi
 if [ "$oa_sentinel_pre" != yes ]; then
   oa_expected=0
   for pair in "${OAUTH_ACCESS_DEFAULTS[@]}"; do
-    k=${pair%%|*}; new_line=${pair#*|}
+    k=${pair%%'|'*}; new_line=${pair#*'|'}
     pre=$(g "$PRE" "cfg.oauthAccess.$k" 2>/dev/null || true)
-    case "$pre" in ''|*';'*) continue ;; esac
+    case "$pre" in
+      ''|*';'*) continue ;;
+    esac
     [ "$pre" = "$new_line" ] && continue
     oa_expected=1
     post=$(g "$POST" "cfg.oauthAccess.$k" 2>/dev/null || true)
@@ -334,7 +338,7 @@ fi
 if [ "$od_sentinel_pre" != yes ]; then
   od_expected=0
   for pair in "${OSCAR_DEFAULT_MIGRATIONS[@]}"; do
-    old_line=${pair%%|*}; new_line=${pair#*|}; k=${old_line%%=*}
+    old_line=${pair%%'|'*}; new_line=${pair#*'|'}; k=${old_line%%=*}
     if [ "$(g "$PRE" "cfg.oscarDefault.$k" 2>/dev/null || true)" = "$old_line" ]; then
       od_expected=1
       post=$(g "$POST" "cfg.oscarDefault.$k" 2>/dev/null || true)

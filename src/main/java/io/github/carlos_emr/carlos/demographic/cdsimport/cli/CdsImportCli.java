@@ -33,79 +33,132 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputExcepti
 
 /** Process protocol and operator output only. Clinical meaning and completion remain authoritative in the shared engine. */
 public final class CdsImportCli {
-    private CdsImportCli() { }
+    private CdsImportCli() {}
 
     // Console reasons are a finite public contract. Unknown or attacker-supplied
     // exception text remains in protected diagnostics, even if it resembles a token.
-    private static final Set<String> PUBLIC_REFUSALS = Set.of(
-            "IMPORT_BUSY", "IMPORT_ALREADY_RUNNING", "IMPORT_COORDINATOR_BUSY", "IMPORT_COORDINATOR_LOST",
-            "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE", "IMPORT_CANCELLED", "IMPORT_DISABLED",
-            "IMPORT_SCHEMA_NOT_READY", "IMPORT_CLINICAL_ZONE_REQUIRED", "IMPORT_CLINICAL_ZONE_INVALID",
-            "IMMUNIZATION_PREVENTION_CONFIG_UNAVAILABLE", "IMPORT_RUNTIME_ZONE_MISMATCH",
-            "OWNER_FENCED", "REVIEW_RESET_IN_PROGRESS", "REVIEW_REQUIRED", "REVIEW_WORKER_FATAL",
-            "SOURCE_REVISION_REVIEW_REQUIRED", "SUBMISSION_OUTCOME_NOT_YET_KNOWN",
-            "CONTROL_COMMIT_OUTCOME_UNKNOWN", "UNIT_COMMIT_OUTCOME_UNKNOWN",
-            "MAINTENANCE_OWNER_BUSY", "LOCAL_MAINTENANCE_OWNER_BUSY", "MAINTENANCE_MODE_NOT_ACTIVATED",
-            "MAINTENANCE_GUARD_NOT_READY", "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION",
-            "GLOBAL_HOLDS_REMAIN", "IMPORT_FILE_VERIFICATION_TIMEOUT", "IMPORT_PREPARATION_TIMEOUT",
-            "CDS_INPUT_CANCELLED", "CDS_INPUT_DISK_RESERVE", "CDS_SOURCE_SNAPSHOT_FAILED",
-            "PREACCEPT_INDEX_TIMEOUT", "PREACCEPT_INDEX_CANCELLED",
-            "CDS_XML_SCHEMA_INVALID", "CDS_XML_READ_FAILED", "CDS_CORRECTION_STAGE_INVALID");
+    private static final Set<String> PUBLIC_REFUSALS =
+            Set.of(
+                    "IMPORT_BUSY",
+                    "IMPORT_ALREADY_RUNNING",
+                    "IMPORT_COORDINATOR_BUSY",
+                    "IMPORT_COORDINATOR_LOST",
+                    "IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE",
+                    "IMPORT_CANCELLED",
+                    "IMPORT_DISABLED",
+                    "IMPORT_SCHEMA_NOT_READY",
+                    "IMPORT_CLINICAL_ZONE_REQUIRED",
+                    "IMPORT_CLINICAL_ZONE_INVALID",
+                    "IMMUNIZATION_PREVENTION_CONFIG_UNAVAILABLE",
+                    "IMPORT_RUNTIME_ZONE_MISMATCH",
+                    "OWNER_FENCED",
+                    "REVIEW_RESET_IN_PROGRESS",
+                    "REVIEW_REQUIRED",
+                    "REVIEW_WORKER_FATAL",
+                    "SOURCE_REVISION_REVIEW_REQUIRED",
+                    "SUBMISSION_OUTCOME_NOT_YET_KNOWN",
+                    "CONTROL_COMMIT_OUTCOME_UNKNOWN",
+                    "UNIT_COMMIT_OUTCOME_UNKNOWN",
+                    "MAINTENANCE_OWNER_BUSY",
+                    "LOCAL_MAINTENANCE_OWNER_BUSY",
+                    "MAINTENANCE_MODE_NOT_ACTIVATED",
+                    "MAINTENANCE_GUARD_NOT_READY",
+                    "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION",
+                    "GLOBAL_HOLDS_REMAIN",
+                    "IMPORT_FILE_VERIFICATION_TIMEOUT",
+                    "IMPORT_PREPARATION_TIMEOUT",
+                    "CDS_INPUT_CANCELLED",
+                    "CDS_INPUT_DISK_RESERVE",
+                    "CDS_SOURCE_SNAPSHOT_FAILED",
+                    "PREACCEPT_INDEX_TIMEOUT",
+                    "PREACCEPT_INDEX_CANCELLED",
+                    "CDS_XML_SCHEMA_INVALID",
+                    "CDS_XML_READ_FAILED",
+                    "CDS_CORRECTION_STAGE_INVALID");
 
-    private static final Set<String> PUBLIC_RELEASE_STATES = Set.of(
-            "NOT_APPLICABLE", "RELEASE_PENDING", "RELEASE_DEFERRED", "REQUIRES_RECONCILIATION", "RELEASED");
+    private static final Set<String> PUBLIC_RELEASE_STATES =
+            Set.of(
+                    "NOT_APPLICABLE",
+                    "RELEASE_PENDING",
+                    "RELEASE_DEFERRED",
+                    "REQUIRES_RECONCILIATION",
+                    "RELEASED");
 
     /** The first PROGRESS line follows the start of an import by this long. */
     static final long FIRST_PROGRESS_MILLIS = 5_000L;
+
     /** Longest gap between PROGRESS lines on a long import. */
     static final long MAXIMUM_PROGRESS_MILLIS = 60_000L;
 
     @FunctionalInterface
     public interface RuntimeFactory {
-        CdsCliRuntime open(CdsCliConfiguration config, CdsCliArguments arguments,
-                CdsDelegationVerifier.Delegation delegation) throws Exception;
+        CdsCliRuntime open(
+                CdsCliConfiguration config,
+                CdsCliArguments arguments,
+                CdsDelegationVerifier.Delegation delegation)
+                throws Exception;
     }
 
-    public static int run(String[] argv, Map<String, String> environment, PrintStream out, PrintStream err,
+    public static int run(
+            String[] argv,
+            Map<String, String> environment,
+            PrintStream out,
+            PrintStream err,
             RuntimeFactory factory) {
         if (argv.length == 1 && "--capabilities".equals(argv[0])) {
             try {
                 CdsCliConfiguration config = CdsCliConfiguration.load(environment);
                 if (Runtime.version().feature() != 25) throw new IOException("CDS_JAVA25_REQUIRED");
-                out.println("{\"protocol\":1,\"java\":25,\"cliHeapMiB\":" + config.heapMiB()
-                        + ",\"submissionLookup\":true,\"operations\":[\"import\",\"status\",\"resume\",\"cancel\",\"report\"]}");
+                out.println(
+                        "{\"protocol\":1,\"java\":25,\"cliHeapMiB\":"
+                                + config.heapMiB()
+                                + ",\"submissionLookup\":true,\"operations\":[\"import\",\"status\",\"resume\",\"cancel\",\"report\"]}");
                 return out.checkError() ? 2 : 0;
             } catch (IOException | RuntimeException failure) {
-                err.println("CDS_CONFIGURATION: a trusted production configuration and Java25 runtime are required");
+                err.println(
+                        "CDS_CONFIGURATION: a trusted production configuration and Java25 runtime are required");
                 return 2;
             }
         }
         final CdsCliArguments arguments;
-        try { arguments = CdsCliArguments.parse(argv); }
-        catch (RuntimeException failure) {
-            err.println("CDS_ARGUMENTS: invalid or conflicting arguments"); return 1;
+        try {
+            arguments = CdsCliArguments.parse(argv);
+        } catch (RuntimeException failure) {
+            err.println("CDS_ARGUMENTS: invalid or conflicting arguments");
+            return 1;
         }
         final CdsCliConfiguration config;
         try {
             config = CdsCliConfiguration.load(environment);
             if (Runtime.version().feature() != 25) throw new IOException("CDS_JAVA25_REQUIRED");
         } catch (IOException | RuntimeException failure) {
-            err.println("CDS_CONFIGURATION: a trusted production configuration and Java25 runtime are required"); return 2;
+            err.println(
+                    "CDS_CONFIGURATION: a trusted production configuration and Java25 runtime are required");
+            return 2;
         }
         final CdsDelegationVerifier.Delegation delegation;
-        try { delegation = CdsDelegationVerifier.verify(environment, arguments, argv, Instant.now()); }
-        catch (IOException | RuntimeException failure) {
-            err.println("CDS_AUTHORIZATION: root-issued operator delegation could not be verified"); return 3;
+        try {
+            delegation = CdsDelegationVerifier.verify(environment, arguments, argv, Instant.now());
+        } catch (IOException | RuntimeException failure) {
+            err.println("CDS_AUTHORIZATION: root-issued operator delegation could not be verified");
+            return 3;
         }
         if (("import".equals(arguments.operation()) || "resume".equals(arguments.operation()))
-                && !Boolean.parseBoolean(config.properties().getProperty("cds.import.enabled", "false"))) {
-            err.println("CDS_REFUSED: import admission is disabled in production configuration"); return 4;
+                && !Boolean.parseBoolean(
+                        config.properties().getProperty("cds.import.enabled", "false"))) {
+            err.println("CDS_REFUSED: import admission is disabled in production configuration");
+            return 4;
         }
         return runAuthorized(config, arguments, delegation, out, err, factory);
     }
 
-    static int runAuthorized(CdsCliConfiguration config, CdsCliArguments arguments,
-            CdsDelegationVerifier.Delegation delegation, PrintStream out, PrintStream err, RuntimeFactory factory) {
+    static int runAuthorized(
+            CdsCliConfiguration config,
+            CdsCliArguments arguments,
+            CdsDelegationVerifier.Delegation delegation,
+            PrintStream out,
+            PrintStream err,
+            RuntimeFactory factory) {
         CdsCliRuntime runtime = null;
         int outcome = 2;
         try {
@@ -113,38 +166,60 @@ public final class CdsImportCli {
             runtime = factory.open(config, arguments, delegation);
             outcome = operate(runtime, arguments, delegation, out, err);
         } catch (CdsCliBootstrapException bootstrap) {
-            err.println("CDS_BOOTSTRAP: production runtime initialization failed; original submission outcome remains in durable state");
-            err.println(bootstrap.diagnostic()==null ? "CDS_DIAGNOSTIC: protected startup evidence could not be delivered"
-                    : "CDS_DIAGNOSTIC: protected startup evidence="+bootstrap.diagnostic()); outcome=2;
+            err.println(
+                    "CDS_BOOTSTRAP: production runtime initialization failed; original submission outcome remains in durable state");
+            err.println(
+                    bootstrap.diagnostic() == null
+                            ? "CDS_DIAGNOSTIC: protected startup evidence could not be delivered"
+                            : "CDS_DIAGNOSTIC: protected startup evidence="
+                                    + bootstrap.diagnostic());
+            outcome = 2;
         } catch (SecurityException denied) {
-            err.println("CDS_AUTHORIZATION: operator/provider/source access denied"); outcome = 3;
+            err.println("CDS_AUTHORIZATION: operator/provider/source access denied");
+            outcome = 3;
         } catch (CdsImportException | CdsInputException refused) {
-            String code = refused instanceof CdsImportException engine ? engine.getCode() : ((CdsInputException) refused).code();
-            boolean uncertain = refused instanceof CdsImportException engine && engine.isOutcomeUnknown();
-            if (code == null || code.length() > 96 || !code.matches("[A-Z][A-Z0-9_]{0,95}") || !PUBLIC_REFUSALS.contains(code)) {
+            String code =
+                    refused instanceof CdsImportException engine
+                            ? engine.getCode()
+                            : ((CdsInputException) refused).code();
+            boolean uncertain =
+                    refused instanceof CdsImportException engine && engine.isOutcomeUnknown();
+            if (code == null
+                    || code.length() > 96
+                    || !code.matches("[A-Z][A-Z0-9_]{0,95}")
+                    || !PUBLIC_REFUSALS.contains(code)) {
                 code = "DETAILS_PROTECTED";
             }
             err.println("CDS_REASON: safeCode=" + code + " outcomeUnknown=" + uncertain);
-            err.println(!uncertain && arguments.submissionKey() == null
-                    ? "CDS_INCOMPLETE: import was refused, failed or requires reconciliation; inspect the durable run"
-                    : "CDS_INCOMPLETE: submission outcome is not yet known; retain original source and submission evidence before retrying"); outcome = 4;
+            err.println(
+                    !uncertain && arguments.submissionKey() == null
+                            ? "CDS_INCOMPLETE: import was refused, failed or requires reconciliation; inspect the durable run"
+                            : "CDS_INCOMPLETE: submission outcome is not yet known; retain original source and submission evidence before retrying");
+            outcome = 4;
         } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt(); err.println("CDS_INTERRUPTED: inspect the durable run before resuming"); outcome = 130;
+            Thread.currentThread().interrupt();
+            err.println("CDS_INTERRUPTED: inspect the durable run before resuming");
+            outcome = 130;
         } catch (Exception failure) {
             // Never print raw exception messages: source paths, XML values and SQL
             // diagnostics may contain PHI. The protected run/report carries detail.
             err.println("CDS_RUNTIME: operation failed; inspect durable run state before retrying");
             var evidence = CdsCliLogging.operationFailure(config.properties(), failure);
-            err.println(evidence.protectedPath() == null
-                    ? "CDS_DIAGNOSTIC: protected operation evidence could not be delivered"
-                    : "CDS_DIAGNOSTIC: protected operation evidence=" + evidence.protectedPath());
-            if (evidence.technicalJson() != null) err.println("CDS_TECHNICAL: " + evidence.technicalJson());
+            err.println(
+                    evidence.protectedPath() == null
+                            ? "CDS_DIAGNOSTIC: protected operation evidence could not be delivered"
+                            : "CDS_DIAGNOSTIC: protected operation evidence="
+                                    + evidence.protectedPath());
+            if (evidence.technicalJson() != null)
+                err.println("CDS_TECHNICAL: " + evidence.technicalJson());
             outcome = 2;
         } finally {
             if (runtime != null) {
-                try { runtime.close(); }
-                catch (Exception cleanupFailure) {
-                    err.println("CDS_CLEANUP: process resources did not retire cleanly; clinical results remain in durable run state");
+                try {
+                    runtime.close();
+                } catch (Exception cleanupFailure) {
+                    err.println(
+                            "CDS_CLEANUP: process resources did not retire cleanly; clinical results remain in durable run state");
                     if (outcome == 0) outcome = 2;
                 }
             }
@@ -154,61 +229,94 @@ public final class CdsImportCli {
         // never become a fabricated clean completion or a retry of a clinical unit.
     }
 
-    private static int operate(CdsCliRuntime runtime, CdsCliArguments arguments,
-            CdsDelegationVerifier.Delegation delegation, PrintStream out, PrintStream err) throws Exception {
-            String run = runtime.resolveRunId(arguments.runId());
-            if ("import".equals(arguments.operation())) {
-                line(out, Map.of("event", "SUBMISSION", "submissionKey", delegation.nonce()));
-                run = runtime.accept();
-                // Emit the durable run handle before any clinical unit starts.
-                line(out, Map.of("event", "ACCEPTED", "runId", run));
-            }
-            runtime.observe(run, arguments.operation());
-            if ("import".equals(arguments.operation()) || "resume".equals(arguments.operation())) {
-                execute(runtime, run, "resume".equals(arguments.operation()), out, err);
-            } else if ("cancel".equals(arguments.operation())) runtime.cancel(run);
-            Map<String, Object> summary = runtime.summary(run);
-            line(out, consoleSummary(summary, arguments.operation(), "RESULT"));
-            if ("report".equals(arguments.operation())) line(out, runtime.reports(run));
-            if (out.checkError() || err.checkError()) {
-                err.println("CDS_DELIVERY: console delivery failed; clinical results remain in durable run state"); return 2;
-            }
-            if ("status".equals(arguments.operation()) || "report".equals(arguments.operation())) return 0;
-            if ("cancel".equals(arguments.operation())) return 4;
-            return Boolean.TRUE.equals(summary.get("cleanComplete")) ? 0 : 4;
+    private static int operate(
+            CdsCliRuntime runtime,
+            CdsCliArguments arguments,
+            CdsDelegationVerifier.Delegation delegation,
+            PrintStream out,
+            PrintStream err)
+            throws Exception {
+        String run = runtime.resolveRunId(arguments.runId());
+        if ("import".equals(arguments.operation())) {
+            line(out, Map.of("event", "SUBMISSION", "submissionKey", delegation.nonce()));
+            run = runtime.accept();
+            // Emit the durable run handle before any clinical unit starts.
+            line(out, Map.of("event", "ACCEPTED", "runId", run));
+        }
+        runtime.observe(run, arguments.operation());
+        if ("import".equals(arguments.operation()) || "resume".equals(arguments.operation())) {
+            execute(runtime, run, "resume".equals(arguments.operation()), out, err);
+        } else if ("cancel".equals(arguments.operation())) runtime.cancel(run);
+        Map<String, Object> summary = runtime.summary(run);
+        line(out, consoleSummary(summary, arguments.operation(), "RESULT"));
+        if ("report".equals(arguments.operation())) line(out, runtime.reports(run));
+        if (out.checkError() || err.checkError()) {
+            err.println(
+                    "CDS_DELIVERY: console delivery failed; clinical results remain in durable run state");
+            return 2;
+        }
+        if ("status".equals(arguments.operation()) || "report".equals(arguments.operation()))
+            return 0;
+        if ("cancel".equals(arguments.operation())) return 4;
+        return Boolean.TRUE.equals(summary.get("cleanComplete")) ? 0 : 4;
     }
 
-    private static void execute(CdsCliRuntime runtime, String run, boolean resume, PrintStream out,
-            PrintStream err) throws Exception {
+    private static void execute(
+            CdsCliRuntime runtime, String run, boolean resume, PrintStream out, PrintStream err)
+            throws Exception {
         AtomicBoolean finished = new AtomicBoolean();
         Thread owner = Thread.currentThread();
-        Thread hook = new Thread(() -> {
-            owner.interrupt();
-            try { runtime.cancel(run); }
-            catch (Exception unavailable) { err.println("CDS_INTERRUPTED: cancellation requires durable reconciliation"); }
-        }, "cds-cli-cancellation");
-        Thread progress = new Thread(() -> {
-            long delay = 0;
-            while (!finished.get()) {
-                try {
-                    delay = nextProgressDelayMillis(delay);
-                    Thread.sleep(delay);
-                    if (!finished.get()) line(out, consoleSummary(runtime.summary(run), resume ? "resume" : "import", "PROGRESS"));
-                } catch (InterruptedException stopped) {
-                    Thread.currentThread().interrupt(); return;
-                } catch (Exception unavailable) {
-                    err.println("CDS_PROGRESS: progress unavailable; final durable receipt remains authoritative"); return;
-                }
-            }
-        }, "cds-cli-progress");
+        Thread hook =
+                new Thread(
+                        () -> {
+                            owner.interrupt();
+                            try {
+                                runtime.cancel(run);
+                            } catch (Exception unavailable) {
+                                err.println(
+                                        "CDS_INTERRUPTED: cancellation requires durable reconciliation");
+                            }
+                        },
+                        "cds-cli-cancellation");
+        Thread progress =
+                new Thread(
+                        () -> {
+                            long delay = 0;
+                            while (!finished.get()) {
+                                try {
+                                    delay = nextProgressDelayMillis(delay);
+                                    Thread.sleep(delay);
+                                    if (!finished.get())
+                                        line(
+                                                out,
+                                                consoleSummary(
+                                                        runtime.summary(run),
+                                                        resume ? "resume" : "import",
+                                                        "PROGRESS"));
+                                } catch (InterruptedException stopped) {
+                                    Thread.currentThread().interrupt();
+                                    return;
+                                } catch (Exception unavailable) {
+                                    err.println(
+                                            "CDS_PROGRESS: progress unavailable; final durable receipt remains authoritative");
+                                    return;
+                                }
+                            }
+                        },
+                        "cds-cli-progress");
         progress.setDaemon(true);
         Runtime.getRuntime().addShutdownHook(hook);
         try {
-            progress.start(); runtime.execute(run, resume);
+            progress.start();
+            runtime.execute(run, resume);
         } finally {
-            finished.set(true); progress.interrupt();
-            try { Runtime.getRuntime().removeShutdownHook(hook); }
-            catch (IllegalStateException shuttingDown) { /* The signal supervisor is already retiring this process. */ }
+            finished.set(true);
+            progress.interrupt();
+            try {
+                Runtime.getRuntime().removeShutdownHook(hook);
+            } catch (IllegalStateException shuttingDown) {
+                /* The signal supervisor is already retiring this process. */
+            }
             progress.join(2000);
         }
     }
@@ -226,16 +334,47 @@ public final class CdsImportCli {
         return Math.min(MAXIMUM_PROGRESS_MILLIS, previousMillis * 2);
     }
 
-    private static Map<String, Object> consoleSummary(Map<String, Object> summary, String operation, String event) {
+    private static Map<String, Object> consoleSummary(
+            Map<String, Object> summary, String operation, String event) {
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("event", event); result.put("operation", operation);
-        for (String key : new String[]{"runId", "state", "dryRun", "discoveryComplete", "inventoryState",
-                "discoveredFiles", "patientXmlFiles", "sourceBytes", "sourcePatientsIdentified", "sourcePatients",
-                "targetCopiesPlanned", "expectedPatients", "expectedUnits", "plannedUnits", "committedUnits",
-                "alreadyCompleteUnits", "pendingUnits", "outcomes", "categories", "blockingDiagnostics",
-                "clinicalComplete", "reportState", "reportsDelivered", "cleanupState", "cleanupComplete",
-                "cleanComplete", "operationTerminal", "reviewVersion", "reviewState", "reviewId",
-                "pendingReviewCount", "inactiveDraftCount", "reviewErrorCode"}) {
+        result.put("event", event);
+        result.put("operation", operation);
+        for (String key :
+                new String[] {
+                    "runId",
+                    "state",
+                    "dryRun",
+                    "discoveryComplete",
+                    "inventoryState",
+                    "discoveredFiles",
+                    "patientXmlFiles",
+                    "sourceBytes",
+                    "sourcePatientsIdentified",
+                    "sourcePatients",
+                    "targetCopiesPlanned",
+                    "expectedPatients",
+                    "expectedUnits",
+                    "plannedUnits",
+                    "committedUnits",
+                    "alreadyCompleteUnits",
+                    "pendingUnits",
+                    "outcomes",
+                    "categories",
+                    "blockingDiagnostics",
+                    "clinicalComplete",
+                    "reportState",
+                    "reportsDelivered",
+                    "cleanupState",
+                    "cleanupComplete",
+                    "cleanComplete",
+                    "operationTerminal",
+                    "reviewVersion",
+                    "reviewState",
+                    "reviewId",
+                    "pendingReviewCount",
+                    "inactiveDraftCount",
+                    "reviewErrorCode"
+                }) {
             if (summary.containsKey(key)) result.put(key, summary.get(key));
         }
         for (String key : java.util.List.of("resumeRequested", "maintenanceReleasePending")) {

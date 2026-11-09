@@ -36,20 +36,67 @@ public class CdsContactImportService implements CdsCategoryImportService {
     private final CdsContactNormalizationService normalization;
     private final CdsContactPersister persister;
     private final CdsNativePreparationService preparation;
-    public CdsContactImportService(CdsContactNormalizationService normalization, CdsContactPersister persister,
+
+    public CdsContactImportService(
+            CdsContactNormalizationService normalization,
+            CdsContactPersister persister,
             CdsNativePreparationService preparation) {
-        this.normalization = normalization; this.persister = persister; this.preparation = preparation;
+        this.normalization = normalization;
+        this.persister = persister;
+        this.preparation = preparation;
     }
-    @Override public Set<String> sections() { return Set.of("Contact"); }
-    @Override public void validate(CdsRecordDto record, CdsImportCommand command, CdsSnapshotDto snapshot,
-            String xmlRelative) throws IOException { normalization.normalize(record); }
-    @Override public void prepare(String run, long epoch, String unitKey, CdsRecordDto record,
-            CdsImportCommand command, CdsSnapshotDto snapshot, String xmlRelative) throws IOException {
-        preparation.store(run, epoch, unitKey, record.effectiveSha256(), command, normalization.normalize(record));
+
+    @Override
+    public Set<String> sections() {
+        return Set.of("Contact");
     }
-    @Override public Map<String, String> write(String run, long epoch, String unitKey, int demographicNo,
-            CdsRecordDto record, CdsImportCommand command) throws IOException {
-        CdsContactDto prepared = preparation.load(run, epoch, unitKey, record.effectiveSha256(), command, CdsContactDto.class);
+
+    @Override
+    public void validate(
+            CdsRecordDto record,
+            CdsImportCommand command,
+            CdsSnapshotDto snapshot,
+            String xmlRelative)
+            throws IOException {
+        normalization.normalize(record);
+    }
+
+    @Override
+    public void prepare(
+            String run,
+            long epoch,
+            String unitKey,
+            CdsRecordDto record,
+            CdsImportCommand command,
+            CdsSnapshotDto snapshot,
+            String xmlRelative)
+            throws IOException {
+        preparation.store(
+                run,
+                epoch,
+                unitKey,
+                record.effectiveSha256(),
+                command,
+                normalization.normalize(record));
+    }
+
+    @Override
+    public Map<String, String> write(
+            String run,
+            long epoch,
+            String unitKey,
+            int demographicNo,
+            CdsRecordDto record,
+            CdsImportCommand command)
+            throws IOException {
+        CdsContactDto prepared =
+                preparation.load(
+                        run,
+                        epoch,
+                        unitKey,
+                        record.effectiveSha256(),
+                        command,
+                        CdsContactDto.class);
         return persister.write(run, epoch, unitKey, demographicNo, record, command, prepared);
     }
 }

@@ -36,36 +36,60 @@ import org.springframework.stereotype.Service;
 public class CdsImportViewModelAssembler {
     private final CdsImportConfigurationService configuration;
     private final CdsProgramContextService programs;
-    public CdsImportViewModelAssembler(CdsImportConfigurationService configuration, CdsProgramContextService programs) {
-        this.configuration = configuration; this.programs = programs;
+
+    public CdsImportViewModelAssembler(
+            CdsImportConfigurationService configuration, CdsProgramContextService programs) {
+        this.configuration = configuration;
+        this.programs = programs;
     }
 
     public CdsImportViewModel assemble(LoggedInInfo actor) {
         String configured = configuration.value("cds.import.sourceNamespaces", "");
-        if (configured.length() > 8192) throw new IllegalStateException("IMPORT_SOURCE_REGISTRY_TOO_LARGE");
+        if (configured.length() > 8192)
+            throw new IllegalStateException("IMPORT_SOURCE_REGISTRY_TOO_LARGE");
         Set<String> namespaces = new LinkedHashSet<>();
         for (String value : configured.split(",")) {
             if (!value.isBlank()) namespaces.add(value.trim());
-            if (namespaces.size() > 200) throw new IllegalStateException("IMPORT_SOURCE_REGISTRY_TOO_LARGE");
+            if (namespaces.size() > 200)
+                throw new IllegalStateException("IMPORT_SOURCE_REGISTRY_TOO_LARGE");
         }
         List<CdsImportViewModel.Source> sources = new ArrayList<>();
         for (String namespace : namespaces) {
             CdsImportConfigurationService.requireToken(namespace);
             for (String profile : List.of("pcon-2024-02", "omd-5.2")) {
-                if (java.util.Arrays.stream(configuration.value("cds.import.source." + namespace + ".profiles", "").split(","))
-                        .map(String::trim).anyMatch(profile::equals)) {
-                    sources.add(new CdsImportViewModel.Source(namespace, profile,
-                            namespace + " — " + (profile.equals("omd-5.2") ? "OntarioMD 5.2" : "PCON-2024-02 / 5.1")));
+                if (java.util.Arrays.stream(
+                                configuration
+                                        .value("cds.import.source." + namespace + ".profiles", "")
+                                        .split(","))
+                        .map(String::trim)
+                        .anyMatch(profile::equals)) {
+                    sources.add(
+                            new CdsImportViewModel.Source(
+                                    namespace,
+                                    profile,
+                                    namespace
+                                            + " — "
+                                            + (profile.equals("omd-5.2")
+                                                    ? "OntarioMD 5.2"
+                                                    : "PCON-2024-02 / 5.1")));
                 }
             }
         }
         Integer selectedProgram = programs.defaultProgramId(actor.getLoggedInProviderNo());
         String program = selectedProgram == null ? "" : selectedProgram.toString();
-        String facility = actor.getCurrentFacility() == null ? "" : String.valueOf(actor.getCurrentFacility().getId());
-        return new CdsImportViewModel(configuration.enabled(),
+        String facility =
+                actor.getCurrentFacility() == null
+                        ? ""
+                        : String.valueOf(actor.getCurrentFacility().getId());
+        return new CdsImportViewModel(
+                configuration.enabled(),
                 configuration.value("OSCAR_LEARNING", "no").equalsIgnoreCase("yes"),
-                "web-" + actor.getLoggedInSecurity().getId(), actor.getLoggedInProviderNo(), program, facility,
+                "web-" + actor.getLoggedInSecurity().getId(),
+                actor.getLoggedInProviderNo(),
+                program,
+                facility,
                 Math.toIntExact(configuration.number("cds.import.upload.maxChunkBytes", 4L << 20)),
-                configuration.number("cds.import.upload.maxFileBytes", 64L << 30), sources);
+                configuration.number("cds.import.upload.maxFileBytes", 64L << 30),
+                sources);
     }
 }

@@ -45,99 +45,183 @@ import org.springframework.stereotype.Service;
 public class CdsImportFailureEvidenceService {
     private final CdsImportJobService jobs;
     private final CdsImportFileService files;
-    public CdsImportFailureEvidenceService(CdsImportJobService jobs, CdsImportFileService files) { this.jobs=jobs; this.files=files; }
+
+    public CdsImportFailureEvidenceService(CdsImportJobService jobs, CdsImportFileService files) {
+        this.jobs = jobs;
+        this.files = files;
+    }
 
     /** Evidence delivery is secondary: callers retain the original outcome if storage fails. */
     public String write(String runId, long epoch, Throwable failure) {
         CdsImportLedgerService.requireNoTransaction();
         try {
-            Path root=jobs.root(runId), directory=root.resolve("diagnostics");
+            Path root = jobs.root(runId), directory = root.resolve("diagnostics");
             if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
-                try { CdsPaths.privateDirectory(directory, root); }
-                catch (java.nio.file.FileAlreadyExistsException concurrent) { /* Validate below. */ }
+                try {
+                    CdsPaths.privateDirectory(directory, root);
+                } catch (java.nio.file.FileAlreadyExistsException concurrent) {
+                    /* Validate below. */
+                }
             }
-            directory=CdsPaths.within(directory, root);
-            if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(directory)
-                    || (((int) Files.getAttribute(directory, "unix:mode", LinkOption.NOFOLLOW_LINKS)) & 0077)!=0) return null;
-            byte[] bytes=document(epoch, failure);
-            Path file=directory.resolve("failure-"+epoch+"-"+UUID.randomUUID()+".json");
-            try (var output=CdsPaths.newPrivateFile(file, directory)) { output.write(bytes); }
-            CdsPaths.forceFile(file); CdsPaths.forceDirectory(directory);
-            files.reconcilePublication(runId, epoch, file.toString(), CdsPaths.hex(CdsPaths.sha256().digest(bytes)), bytes.length);
+            directory = CdsPaths.within(directory, root);
+            if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
+                    || Files.isSymbolicLink(directory)
+                    || (((int)
+                                            Files.getAttribute(
+                                                    directory,
+                                                    "unix:mode",
+                                                    LinkOption.NOFOLLOW_LINKS))
+                                    & 0077)
+                            != 0) return null;
+            byte[] bytes = document(epoch, failure);
+            Path file = directory.resolve("failure-" + epoch + "-" + UUID.randomUUID() + ".json");
+            try (var output = CdsPaths.newPrivateFile(file, directory)) {
+                output.write(bytes);
+            }
+            CdsPaths.forceFile(file);
+            CdsPaths.forceDirectory(directory);
+            files.reconcilePublication(
+                    runId,
+                    epoch,
+                    file.toString(),
+                    CdsPaths.hex(CdsPaths.sha256().digest(bytes)),
+                    bytes.length);
             return file.toString();
-        } catch (IOException | RuntimeException unavailable) { return null; }
+        } catch (IOException | RuntimeException unavailable) {
+            return null;
+        }
     }
 
     /** Internal: the facade must authorize the operator and exact diagnostic/run association first. */
     public Map<String, Object> read(String runId, String location) throws IOException {
         CdsImportLedgerService.requireNoTransaction();
-        Path path=CdsPaths.within(Path.of(location), jobs.root(runId).resolve("diagnostics"));
-        var registered=files.findOwnedPublishedLocation(runId, path.toString(), 65536);
-        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) || Files.size(path)!=registered.byteLength()) throw invalid();
-        byte[] bytes=CdsImportJobService.boundedFile(path, 65536);
-        if (bytes.length!=registered.byteLength() || !CdsPaths.hex(CdsPaths.sha256().digest(bytes)).equals(registered.digest())) throw invalid();
-        var factory=com.fasterxml.jackson.core.JsonFactory.builder()
-                .enable(com.fasterxml.jackson.core.StreamReadFeature.STRICT_DUPLICATE_DETECTION).build();
-        var document=com.fasterxml.jackson.databind.json.JsonMapper.builder(factory)
-                .enable(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build().readTree(bytes);
-        if (document==null || !document.isObject() || !only(document, Set.of("version", "ownerEpoch", "causes"))
-                || !document.path("version").isInt() || document.path("version").intValue()!=1
-                || !document.path("ownerEpoch").isIntegralNumber() || !document.path("ownerEpoch").canConvertToLong()
-                || document.path("ownerEpoch").longValue()<0 || !document.path("causes").isArray() || document.path("causes").size()>16) throw invalid();
-        List<Map<String, Object>> causes=new ArrayList<>(); int totalFrames=0;
-        for (var source:document.path("causes")) {
-            if (!source.isObject() || !only(source, Set.of("type", "sqlState", "vendorCode", "frames"))
-                    || !source.path("type").isTextual() || !source.path("type").asText().equals(safe(source.path("type").asText(), 512))
+        Path path = CdsPaths.within(Path.of(location), jobs.root(runId).resolve("diagnostics"));
+        var registered = files.findOwnedPublishedLocation(runId, path.toString(), 65536);
+        if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
+                || Files.size(path) != registered.byteLength()) throw invalid();
+        byte[] bytes = CdsImportJobService.boundedFile(path, 65536);
+        if (bytes.length != registered.byteLength()
+                || !CdsPaths.hex(CdsPaths.sha256().digest(bytes)).equals(registered.digest()))
+            throw invalid();
+        var factory =
+                com.fasterxml.jackson.core.JsonFactory.builder()
+                        .enable(
+                                com.fasterxml.jackson.core.StreamReadFeature
+                                        .STRICT_DUPLICATE_DETECTION)
+                        .build();
+        var document =
+                com.fasterxml.jackson.databind.json.JsonMapper.builder(factory)
+                        .enable(
+                                com.fasterxml.jackson.databind.DeserializationFeature
+                                        .FAIL_ON_TRAILING_TOKENS)
+                        .build()
+                        .readTree(bytes);
+        if (document == null
+                || !document.isObject()
+                || !only(document, Set.of("version", "ownerEpoch", "causes"))
+                || !document.path("version").isInt()
+                || document.path("version").intValue() != 1
+                || !document.path("ownerEpoch").isIntegralNumber()
+                || !document.path("ownerEpoch").canConvertToLong()
+                || document.path("ownerEpoch").longValue() < 0
+                || !document.path("causes").isArray()
+                || document.path("causes").size() > 16) throw invalid();
+        List<Map<String, Object>> causes = new ArrayList<>();
+        int totalFrames = 0;
+        for (var source : document.path("causes")) {
+            if (!source.isObject()
+                    || !only(source, Set.of("type", "sqlState", "vendorCode", "frames"))
+                    || !source.path("type").isTextual()
+                    || !source.path("type").asText().equals(safe(source.path("type").asText(), 512))
                     || !source.path("frames").isArray()) throw invalid();
-            Map<String, Object> cause=new LinkedHashMap<>(); cause.put("type", source.path("type").asText());
+            Map<String, Object> cause = new LinkedHashMap<>();
+            cause.put("type", source.path("type").asText());
             if (source.has("sqlState")) {
-                if (!source.path("sqlState").isTextual() || !source.path("sqlState").asText().matches("[A-Z0-9]{5}")) throw invalid();
+                if (!source.path("sqlState").isTextual()
+                        || !source.path("sqlState").asText().matches("[A-Z0-9]{5}"))
+                    throw invalid();
                 cause.put("sqlState", source.path("sqlState").asText());
             }
             if (source.has("vendorCode")) {
-                if (!source.path("vendorCode").isIntegralNumber() || !source.path("vendorCode").canConvertToInt()) throw invalid();
+                if (!source.path("vendorCode").isIntegralNumber()
+                        || !source.path("vendorCode").canConvertToInt()) throw invalid();
                 cause.put("vendorCode", source.path("vendorCode").intValue());
             }
-            List<String> frames=new ArrayList<>();
-            for (var frame:source.path("frames")) {
-                if (++totalFrames>32 || !frame.isTextual() || frame.asText().length()>800
-                        || !frame.asText().matches("[A-Za-z0-9_.$/<>-]+#[A-Za-z0-9_.$/<>-]+:-?[0-9]{1,10}")) throw invalid();
+            List<String> frames = new ArrayList<>();
+            for (var frame : source.path("frames")) {
+                if (++totalFrames > 32
+                        || !frame.isTextual()
+                        || frame.asText().length() > 800
+                        || !frame.asText()
+                                .matches("[A-Za-z0-9_.$/<>-]+#[A-Za-z0-9_.$/<>-]+:-?[0-9]{1,10}"))
+                    throw invalid();
                 frames.add(frame.asText());
             }
-            cause.put("frames", List.copyOf(frames)); causes.add(cause);
+            cause.put("frames", List.copyOf(frames));
+            causes.add(cause);
         }
-        return Map.of("version", 1, "ownerEpoch", document.path("ownerEpoch").longValue(), "causes", List.copyOf(causes));
+        return Map.of(
+                "version",
+                1,
+                "ownerEpoch",
+                document.path("ownerEpoch").longValue(),
+                "causes",
+                List.copyOf(causes));
     }
-    private static boolean only(com.fasterxml.jackson.databind.JsonNode object, Set<String> allowed) {
-        var names=object.fieldNames(); while (names.hasNext()) if (!allowed.contains(names.next())) return false; return true;
+
+    private static boolean only(
+            com.fasterxml.jackson.databind.JsonNode object, Set<String> allowed) {
+        var names = object.fieldNames();
+        while (names.hasNext()) if (!allowed.contains(names.next())) return false;
+        return true;
     }
-    private static CdsImportException invalid() { return new CdsImportException("IMPORT_FAILURE_EVIDENCE_INVALID"); }
+
+    private static CdsImportException invalid() {
+        return new CdsImportException("IMPORT_FAILURE_EVIDENCE_INVALID");
+    }
 
     static byte[] document(long epoch, Throwable failure) throws IOException {
-        List<Map<String, Object>> causes=new ArrayList<>();
-        Set<Throwable> seen=Collections.newSetFromMap(new IdentityHashMap<>());
-        int framesRemaining=32;
-        for (Throwable cursor=failure; cursor!=null && causes.size()<16 && seen.add(cursor); cursor=cursor.getCause()) {
-            Map<String, Object> cause=new LinkedHashMap<>(); cause.put("type", safe(cursor.getClass().getName(), 512));
+        List<Map<String, Object>> causes = new ArrayList<>();
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        int framesRemaining = 32;
+        for (Throwable cursor = failure;
+                cursor != null && causes.size() < 16 && seen.add(cursor);
+                cursor = cursor.getCause()) {
+            Map<String, Object> cause = new LinkedHashMap<>();
+            cause.put("type", safe(cursor.getClass().getName(), 512));
             if (cursor instanceof SQLException sql) {
-                if (sql.getSQLState()!=null && sql.getSQLState().matches("[A-Z0-9]{5}")) cause.put("sqlState", sql.getSQLState());
+                if (sql.getSQLState() != null && sql.getSQLState().matches("[A-Z0-9]{5}"))
+                    cause.put("sqlState", sql.getSQLState());
                 cause.put("vendorCode", sql.getErrorCode());
             }
-            List<String> frames=new ArrayList<>();
+            List<String> frames = new ArrayList<>();
             // Reserve frames for deeper causes instead of spending the budget
             // on a wrapping exception's entire framework stack.
-            int localLimit=Math.min(4, framesRemaining);
-            for (var frame:cursor.getStackTrace()) {
-                if (frames.size()==localLimit) break;
-                frames.add(safe(frame.getClassName(), 512)+"#"+safe(frame.getMethodName(), 256)+":"+frame.getLineNumber());
+            int localLimit = Math.min(4, framesRemaining);
+            for (var frame : cursor.getStackTrace()) {
+                if (frames.size() == localLimit) break;
+                frames.add(
+                        safe(frame.getClassName(), 512)
+                                + "#"
+                                + safe(frame.getMethodName(), 256)
+                                + ":"
+                                + frame.getLineNumber());
             }
-            framesRemaining-=frames.size(); cause.put("frames", frames); causes.add(cause);
+            framesRemaining -= frames.size();
+            cause.put("frames", frames);
+            causes.add(cause);
         }
-        byte[] bytes=new ObjectMapper().writeValueAsBytes(Map.of("version", 1, "ownerEpoch", epoch, "causes", causes));
-        if (bytes.length>65536) throw new IOException("IMPORT_FAILURE_EVIDENCE_CAPACITY");
+        byte[] bytes =
+                new ObjectMapper()
+                        .writeValueAsBytes(
+                                Map.of("version", 1, "ownerEpoch", epoch, "causes", causes));
+        if (bytes.length > 65536) throw new IOException("IMPORT_FAILURE_EVIDENCE_CAPACITY");
         return bytes;
     }
+
     private static String safe(String value, int maximum) {
-        return value.length()<=maximum && value.matches("[A-Za-z0-9_.$/<>-]+")?value:"_unavailable";
+        return value.length() <= maximum && value.matches("[A-Za-z0-9_.$/<>-]+")
+                ? value
+                : "_unavailable";
     }
 }

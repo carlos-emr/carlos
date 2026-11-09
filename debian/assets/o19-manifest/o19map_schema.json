@@ -2,7 +2,7 @@
  "format": 2,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-7+81c32ac6",
+ "SCHEMA_MAP_VERSION": "o19map-7+2dc35822",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -98,8 +98,8 @@
     "deleted"
    ],
    "value_exprs": {
-    "optout": "COALESCE(s.`optout`, 1)",
-    "deleted": "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
+    "optout": "IFNULL(s.`optout`, 1)",
+    "deleted": "IFNULL((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
    },
    "fk_remap": {
     "consent_type_id": "consentType"
@@ -23000,7 +23000,7 @@
   "scheduleholiday": 28,
   "scheduletemplate": 1,
   "scheduletemplatecode": 23,
-  "secObjPrivilege": 514,
+  "secObjPrivilege": 516,
   "secObjectName": 133,
   "secRole": 33,
   "secUserRole": 2,
@@ -24774,7 +24774,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-7+e44c15d5",
+   "SCHEMA_MAP_VERSION": "o19map-7+5fe35f10",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -24869,8 +24869,8 @@
       "deleted"
      ],
      "value_exprs": {
-      "optout": "COALESCE(s.`optout`, 1)",
-      "deleted": "COALESCE((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
+      "optout": "IFNULL(s.`optout`, 1)",
+      "deleted": "IFNULL((SELECT r.`deleted` FROM {archive}.`Consent__live` r WHERE r.`id` = s.`id`), 1)"
      },
      "fk_remap": {
       "consent_type_id": "consentType"
@@ -57409,7 +57409,7 @@
     "scheduleholiday": 28,
     "scheduletemplate": 1,
     "scheduletemplatecode": 23,
-    "secObjPrivilege": 516,
+    "secObjPrivilege": 518,
     "secObjectName": 134,
     "secRole": 33,
     "secUserRole": 2,

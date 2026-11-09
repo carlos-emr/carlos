@@ -47,10 +47,11 @@ jobs:
   semgrep:
     name: Semgrep SAST Analysis
     runs-on: ubuntu-24.04
-    # Full Cloud scans can take 89 minutes; leave time for custom rules and SARIF uploads.
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 20 || 120 }}
+    # Full Cloud scans can take 89 minutes, including on a large PR. Leave time
+    # for the custom rules and SARIF uploads rather than canceling those checks.
+    timeout-minutes: 120
     container:
-      image: semgrep/semgrep@sha256:7810f1d7884974ab6dda7bef8f4a2c8e165ea2142fd8260515d380e4f1407263
+      image: semgrep/semgrep@sha256:cc1b68266f267878b39739373ea9985b9a78e5d64497dd875c8de100b22695ed # 1.184.0
     env:
       HAS_SEMGREP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN != '' }}
     if: github.actor != 'dependabot[bot]'
@@ -63,12 +64,23 @@ jobs:
       - name: Run Semgrep CI
         id: run_semgrep
         if: env.HAS_SEMGREP_TOKEN == 'true'
-        continue-on-error: true
         env:
           SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
         run: |
-          semgrep ci \
-            --sarif --output semgrep.sarif
+          # Keep findings non-blocking, as before; execution errors and absent
+          # evidence must not silently become a successful security scan.
+          set +e
+          semgrep ci --strict --timeout 30 --sarif --output semgrep.sarif
+          status=$?
+          set -e
+          if [ "$status" -gt 1 ]; then
+            echo "::error::Semgrep CI exited $status: scanner execution failed."
+            exit "$status"
+          fi
+          if [ ! -s semgrep.sarif ]; then
+            echo "::error::Semgrep CI produced no SARIF evidence."
+            exit 1
+          fi
 
       # Runs every rule in .semgrep/, not just the JSP one. The CRLF and path
       # traversal rules are sanitizer-aware replacements for built-ins that
@@ -91,7 +103,7 @@ jobs:
         # 7 rules failed to parse, 8 unknown language).
         run: |
           set +e
-          semgrep scan --config .semgrep/ --sarif --output semgrep-carlos.sarif
+          semgrep scan --strict --timeout 30 --config .semgrep/ --sarif --output semgrep-carlos.sarif
           status=$?
           set -e
           if [ "$status" -gt 1 ]; then

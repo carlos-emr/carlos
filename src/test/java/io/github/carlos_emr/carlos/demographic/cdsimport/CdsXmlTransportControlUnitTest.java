@@ -1,23 +1,20 @@
 /**
  * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
  *
- * This software is published under the GPL GNU General Public License.
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+ * <p>This software is published under the GPL GNU General Public License. This program is free
+ * software; you can redistribute it and/or modify it under the terms of the GNU General Public
+ * License as published by the Free Software Foundation; either version 2 of the License, or (at
+ * your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
+ * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * <p>You should have received a copy of the GNU General Public License along with this program; if
+ * not, write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+ * 02111-1307, USA.
  *
- * CARLOS EMR Project
- * https://github.com/carlos-emr/carlos
+ * <p>CARLOS EMR Project https://github.com/carlos-emr/carlos
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport;
 
@@ -124,8 +121,8 @@ class CdsXmlTransportControlUnitTest {
     @Test
     void shouldEnforceTransportDeadline_evenWithAnExistingParkPermit() throws Exception {
         var input = new ControlledSource("comment", "deadline-permit");
-        CdsInputException failure = assertThrows(CdsInputException.class,
-                () -> input.parse(limits(500), () -> false));
+        CdsInputException failure =
+                assertThrows(CdsInputException.class, () -> input.parse(limits(500), () -> false));
         assertEquals("CDS_INPUT_DEADLINE", failure.code());
         input.assertStoppedInSuffix();
     }
@@ -254,10 +251,14 @@ class CdsXmlTransportControlUnitTest {
                                     if (mode.equals("cancel")) LockSupport.parkNanos(2_000_000L);
                                     else if (triggered.compareAndSet(false, true)) {
                                         if (mode.startsWith("deadline")) {
-                                            // parkNanos may return spuriously or consume a permit left by
-                                            // another test. Hold this controlled source until its deadline
-                                            // has actually elapsed, rather than assuming one park waited.
-                                            if (mode.equals("deadline-permit")) LockSupport.unpark(Thread.currentThread());
+                                            // parkNanos may return spuriously or consume a permit
+                                            // left by
+                                            // another test. Hold this controlled source until its
+                                            // deadline
+                                            // has actually elapsed, rather than assuming one park
+                                            // waited.
+                                            if (mode.equals("deadline-permit"))
+                                                LockSupport.unpark(Thread.currentThread());
                                             long resumeAt = System.nanoTime() + 800_000_000L;
                                             long remaining;
                                             while ((remaining = resumeAt - System.nanoTime()) > 0

@@ -126,14 +126,23 @@ say() { echo "deb-docker-validation: $*"; }
 
 usage() { sed -n '/^# Usage:/,/^set -euo pipefail/p' "${BASH_SOURCE[0]}" | sed '$d; s/^# \{0,1\}//'; }
 
-case "$CARLOS_PROVINCE" in on|bc|other) ;; *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;; esac
-case "$INSTALL_DEMO_DATA" in true|false) ;; *) die "INSTALL_DEMO_DATA must be true or false" ;; esac
-case "$CONTAINER_NETWORK" in host|bridge) ;; *) die "CONTAINER_NETWORK must be host or bridge" ;; esac
+case "$CARLOS_PROVINCE" in
+  on|bc|other) ;;
+  *) die "CARLOS_PROVINCE must be on, bc or other (got '$CARLOS_PROVINCE')" ;;
+esac
+case "$INSTALL_DEMO_DATA" in
+  true|false) ;;
+  *) die "INSTALL_DEMO_DATA must be true or false" ;;
+esac
+case "$CONTAINER_NETWORK" in
+  host|bridge) ;;
+  *) die "CONTAINER_NETWORK must be host or bridge" ;;
+esac
 # Both values are written into shell text that runs as root in the container
 # (and RESET_PASSWORD into /root/suite-env.sh), so refuse anything that quoting
 # could not carry through unchanged.
 case "$RESET_PASSWORD" in
-  *[\'\"\$\`\\]*|'') die "RESET_PASSWORD must not be empty or contain quotes, \$, backticks or backslashes" ;;
+  *"'"*|*'"'*|*'$'*|*'`'*|*'\'*|'') die "RESET_PASSWORD must not be empty or contain quotes, \$, backticks or backslashes" ;;
 esac
 [ -z "$BUILD_PROXY" ] || [[ "$BUILD_PROXY" =~ ^https?://[A-Za-z0-9._:-]+/?$ ]] \
   || die "BUILD_PROXY must be a plain http(s)://host:port URL"
@@ -283,10 +292,15 @@ cmd_up() {
   local state="" i
   for i in $(seq 1 60); do
     state=$(docker exec "$CONTAINER" systemctl is-system-running 2>/dev/null || true)
-    case "$state" in running|degraded) break ;; esac
+    case "$state" in
+      running|degraded) break ;;
+    esac
     sleep 2
   done
-  case "$state" in running|degraded) ;; *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;; esac
+  case "$state" in
+    running|degraded) ;;
+    *) die "systemd did not come up in $CONTAINER (state '${state:-none}')" ;;
+  esac
 
   preseed | docker exec -i "$CONTAINER" debconf-set-selections
   say "installing $emr, $drugref and $ctl (log: $LOG_DIR/install.log)"
@@ -419,7 +433,10 @@ first_login_reset() {
 # (runbook section 2), so it takes the Ontario-compatible checks: leaving it empty would run every
 # province-specific check, the BC billing ones included, against a schema they cannot use.
 suite_province() {
-  case "$CARLOS_PROVINCE" in on|other) printf ON ;; bc) printf BC ;; esac
+  case "$CARLOS_PROVINCE" in
+    on|other) printf ON ;;
+    bc) printf BC ;;
+  esac
 }
 
 write_suite_env() {
@@ -516,7 +533,9 @@ cmd_suite() {
   active=$(active_profile)
   for arg in "$@"; do [ "$prev" = --profile ] && requested=$arg; prev=$arg; done
   local managed=false
-  case "$requested" in address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options) managed=true ;; esac
+  case "$requested" in
+    address-lock|no-pin|multisite|caisi-admin|legacy-contacts|private-consent|appointment-options) managed=true ;;
+  esac
   if [ "$managed" = true ]; then
     [ -z "$active" ] || die "restore the manual profile before running an automatic profile"
   else
@@ -628,7 +647,8 @@ PROFILE_WAS='#carlos-validation-profile-was: '
 # Sets PROFILE_KEY and PROFILE_VALUE to the one carlos.properties setting profile $1
 # replaces (none for default). Not in a subshell, so an unknown name stops the script.
 select_profile() {
-  PROFILE_KEY='' PROFILE_VALUE=''
+  PROFILE_KEY=''
+  PROFILE_VALUE=''
   case "$1" in
     legacy-teleplan) PROFILE_KEY=NEW_BC_TELEPLAN; PROFILE_VALUE=no ;;
     default) ;;

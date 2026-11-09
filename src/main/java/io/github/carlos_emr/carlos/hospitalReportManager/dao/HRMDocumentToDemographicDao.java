@@ -38,6 +38,29 @@ public class HRMDocumentToDemographicDao extends AbstractDaoImpl<HRMDocumentToDe
     }
 
 
+    /** Physical report-link contract, including dangling associations that an inner join would hide. */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.schema(entityManager,
+                io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.HRM_REPORT_LINKS);
+    }
+
+    /**
+     * Metadata-only absence guard. Numeric aliases in the legacy VARCHAR patient key are
+     * conservatively refused too; no hospital-report body or joined document is loaded.
+     */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true,
+            propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public void requireCdsExportAbsent(int patient) {
+        if (patient < 1) throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SCOPE_INVALID");
+        var found = entityManager.createNativeQuery("select 1,1 from HRMDocumentToDemographic d "
+                + "where CAST(d.demographicNo AS UNSIGNED)=:patient")
+                .setParameter("patient", patient).setMaxResults(1).setHint("org.hibernate.timeout", 120).getResultList();
+        if (!found.isEmpty()) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.UNMAPPED_DATA);
+    }
+
     public List<HRMDocumentToDemographic> findByDemographicNo(String demographicNo) {
         String sql = "select x from " + this.modelClass.getName() + " x, HRMDocument h where x.hrmDocumentId = h.id and  x.demographicNo=?1 order by h.reportDate DESC";
         Query query = entityManager.createQuery(sql);
