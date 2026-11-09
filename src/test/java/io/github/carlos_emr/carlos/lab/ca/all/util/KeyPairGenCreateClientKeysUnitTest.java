@@ -61,7 +61,8 @@ import static org.mockito.Mockito.when;
 class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
 
     private static final String SERVICE = "fake-lab.client";
-    private static final String CARLOS_PUBLIC_KEY = "c3ludGhldGljIENBUkxPUyBwdWJsaWMga2V5";
+    // Readable placeholders, not key material: these tests never decode a key.
+    private static final String CARLOS_PUBLIC_KEY = "FAKE-carlos-public-key";
 
     @Mock
     private PublicKeyDao mockPublicKeyDao;
@@ -80,7 +81,7 @@ class KeyPairGenCreateClientKeysUnitTest extends CarlosUnitTestBase {
         OscarKey key = new OscarKey();
         key.setName("oscar");
         key.setPublicKey(publicKey);
-        key.setPrivateKey("c3ludGhldGljIENBUkxPUyBwcml2YXRlIGtleQ==");
+        key.setPrivateKey("FAKE-carlos-private-key");
         return key;
     }
 

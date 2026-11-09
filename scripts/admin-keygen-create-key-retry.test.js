@@ -33,8 +33,9 @@ test('the oscar branch tolerates a failed creation instead of dereferencing null
 test('the key file the page writes is the one the browser check parses', () => {
   const template = jsp.match(/String keyPairOut = ([\s\S]*?);\n/);
   assert.ok(template, 'createKey.jsp no longer builds keyPairOut');
-  const clientKey = 'TUlJQ2xpZW50UHJpdmF0ZUtleQ==';
-  const oscarKey = 'TUlJQ0FSTE9TUHVibGljS2V5+/==';
+  // Readable placeholders in the base64 alphabet (+, / and = included), not key material.
+  const clientKey = 'FAKEclientPrivateKey==';
+  const oscarKey = 'FAKE+CARLOS/publicKey=';
   const text = vm.runInNewContext(template[1], {name: 'fake-lab.client', clientKey, oscarKey});
   assert.deepEqual(parseKeyFile(text), {service: 'fake-lab.client', clientPrivate: clientKey, carlosPublic: oscarKey});
 });
