@@ -378,6 +378,11 @@ public class RxUtil {
      * weight must be greater than zero
      */
     public static int getClcr(int age, double weight, double sCr, boolean female) throws Exception {
+        return (int) Math.round(getClcrUnrounded(age, weight, sCr, female));
+    }
+
+    /** Classify renal guidance using the actual value, before presentation rounding. */
+    public static double getClcrUnrounded(int age, double weight, double sCr, boolean female) throws Exception {
         if (age < 0) {
             throw new Exception("age must be greater than 0");
         }
@@ -393,7 +398,7 @@ public class RxUtil {
             Clcr = Clcr * 0.85;
         }
 
-        return (int) Math.round(Clcr);
+        return Clcr;
     }
 
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
