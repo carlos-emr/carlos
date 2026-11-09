@@ -919,7 +919,7 @@
                             const prefOption = document.createElement('option');
                             prefOption.value = taskToValue;
                             prefOption.textContent = taskToName;
-                            prefOption.selected = true;
+                            prefOption.setAttribute('selected', 'selected');
                             _providers.push(prefOption.outerHTML);
 
                             var newItemKey = _providers.length - 1;

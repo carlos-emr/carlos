@@ -5709,7 +5709,7 @@
       "timeoutSec": 300,
       "env": [],
       "notes": "The risk/checklist editors failed on 2026.08 loading a missing decision/annualreview/antenatalrecord.css; they now link the shared decision/antenatal/antenatalrecord.css.",
-      "fixtures": "Inserts a marker-named encounterForm row (the shipped Annual form is hidden) and the owned patient's desannualreviewplan rows; both deleted. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
+      "fixtures": "Inserts a marker-named encounterForm row (the shipped Annual form is hidden) and the owned patient's desannualreviewplan rows; both deleted. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "lab-forwarding-rules",
@@ -6167,8 +6167,10 @@
         "all"
       ],
       "timeoutSec": 240,
-      "env": [],
-      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges.",
+      "env": [
+        "TICKLER_DST_GAP_ZONE"
+      ],
+      "notes": "Checks dashboard counts, filtering, CSV export, selected-patient ticklers and diagnoses, GET refusal, and drilldown without provider-switch privileges. Invalid keyboard input retains text and guidance without Save; supported 24-hour and mixed-case AM/PM values save their exact times. Optional TICKLER_DST_GAP_ZONE=America/Toronto or America/Vancouver requires that installed clinic timezone and verifies its real spring gap, explicit refusal, no writes, retained draft and successful correction. Vancouver uses the historical 2026-03-08 gap because it stays on daylight time afterwards.",
       "fixtures": "SQL-seeded dashboard and indicator template (no shipped dashboard, no working import UI), a throwaway login holding the dashboard privileges and three owned patients; all removed."
     },
     {
@@ -18597,7 +18599,7 @@
       ],
       "timeoutSec": 300,
       "env": [],
-      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. Must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "fixtures": "Owns the runWorkflow patient, a marker-named report with generated configuration/filter rows and a marker-named legacy billing header/detail and a synthetic provider/role; cleanup recovers generated identifiers by marker and asserts owned rows are gone. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "notes": "Verifies typed report field metadata and add/delete commits, provider role and PHCP counts, and authenticated CSV dispatch after JSP relocation."
     },
     {
@@ -18941,8 +18943,8 @@
         "CARLOS_DISPOSABLE_HOST",
         "EXCLUSIVE"
       ],
-      "notes": "#5812: native MRP preference, two owned patient/MRP pairs, actual task writes/recipient patient access, patient-free and changed-patient draft/assignee behavior, explicit manual assignment and missing/inactive MRP behavior. Semantic failures remain fatal while safe owned manual-recovery paths continue. Requires an active clinic and disposable/exclusive service management for fixture provider-cache retirement.",
-      "fixtures": "Four owned actors and two owned patients, separate unchanged control task; full known task/history cleanup, strict second-patient reference checks, original first-patient MRP restore, owned provider archive/property cleanup and post-browser application cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
+      "notes": "#5812: native MRP preference, two owned patient/MRP pairs, exact task writes and recipient patient access; independent same-session drafts, repeated search and normal paging, Back, changed-patient defaults, deliberate recipient precedence and missing/inactive MRPs. A recipient made inactive after composition must answer 400, retain the draft and write nothing before manual recovery. Semantic failures remain fatal while safe owned recovery paths continue. Requires an active clinic and disposable/exclusive service management for provider-cache retirement.",
+      "fixtures": "Four owned actors, two task patients and four additional owned patients for the normal five-row search pagination; a separate unchanged control task. Full task/history and patient cleanup, original first-patient MRP restore, owned provider archive/billing-centre/property cleanup and post-browser cache reset. Explicit taskTo precedence is also independently covered by lab-recall-delegate-delivery. must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
       "mutates": [
         "provider",
         "providersite",
