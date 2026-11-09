@@ -52,7 +52,7 @@ class JasperTemplateFontPolicyUnitTest {
     private static final List<String> BUNDLED_FACE_PREFIXES =
             List.of("net/sf/jasperreports/fonts/dejavu/", "fonts/liberation/");
     private static final FontRenderContext MEASURING = new FontRenderContext(null, true, true);
-    // Templates kept as copies beside their Java service as well as on the classpath.
+    // Also scan Java sources so misplaced template copies cannot evade the inventory check.
     private static final List<Path> TEMPLATE_ROOTS = List.of(Path.of("src/main/resources"), Path.of("src/main/java"));
 
     private static List<Template> templates;
@@ -131,7 +131,13 @@ class JasperTemplateFontPolicyUnitTest {
     @Test
     @DisplayName("should find every shipped template, so the policy checks below are never vacuous")
     void shouldDiscoverShippedTemplates_forTheWholeApplication() {
-        assertThat(templates).hasSizeGreaterThanOrEqualTo(42);
+        // The two obsolete Java-source statement copies were removed; all 40 runtime
+        // templates remain under resources and must still compile and satisfy the font policy.
+        assertThat(templates).hasSizeGreaterThanOrEqualTo(40);
+        assertThat(templates).extracting(Template::path)
+                .allMatch(path -> path.startsWith(Path.of("src/main/resources")))
+                .contains(Path.of("src/main/resources/oscar/oscarBilling/ca/on/reports/end_year_statement_report.jrxml"),
+                        Path.of("src/main/resources/oscar/oscarBilling/ca/on/reports/end_year_statement_subreport.jrxml"));
         assertThat(templates).extracting(t -> t.path().getFileName().toString())
                 .contains("end_year_statement_report.jrxml", "page1.jrxml", "BCAR2020_pg1.jrxml",
                         "label.xml", "reflabel.xml", "pdf_rep_wo.jrxml", "billDaySheet.xml");

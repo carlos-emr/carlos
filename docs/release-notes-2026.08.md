@@ -1,5 +1,18 @@
 # CARLOS 2026.08 release notes
 
+## Fixed Jasper report downloads
+
+Lab/billing day sheets and Ontario patient end-year statements now load bound,
+typed queries before rendering and prohibit PDF cache storage. A failed report
+returns an error instead of an empty or partial successful download. Statements
+with missing invoice total/paid amounts fail explicitly without substituting zero.
+
+The bundled day-sheet route now returns HTTP 204 for no appointments instead of
+HTTP 200 with a blank PDF. Its `input_date` must use `yyyy-MM-dd`; missing, invalid
+and non-padded dates return HTTP 400. A configured `Addresslabel.xml` still takes
+precedence and retains its date parameter behavior. A present but unreadable or
+non-file override now returns an error rather than silently using a bundled report.
+
 ## Patient birthday XML compatibility
 
 Patient birthday XML retains the published `xs:dateTime` form, including midnight
