@@ -201,8 +201,8 @@ async function workflow(s) {
     const search=one.locator('form[name="ADDAPPT"]');
     await search.locator('input[name="keyword"]').fill(marker);
     await ui.clickAndAwaitReload(one,search.locator('input[type="submit"][name="Submit"]'));
-    await one.locator('#searchPopUpButton').click();
     const repeated=one.locator('form[name="titlesearch"]');
+    if(!await repeated.locator('input[name="keyword"]').isVisible())await one.locator('#searchPopUpButton').click();
     h.assert(sql.value("SELECT COUNT(*) FROM demographic WHERE last_name LIKE 'FAKE-PW%' ")==='2','Paging namespace contains unexpected patients');
     await repeated.locator('input[name="keyword"]').fill('FAKE-PW');
     await repeated.locator('input[name="limit2"]').evaluate(input=>{input.value='1';});
