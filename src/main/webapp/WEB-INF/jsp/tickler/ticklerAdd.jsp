@@ -898,6 +898,7 @@
                         </script>
 
                         <div id="selectWrapper">
+                            <label for="site" class="visually-hidden"><fmt:message key="tickler.ticklerAdd.selectClinic"/></label>
                             <select id="site" class="form-select" name="site" onchange="changeSite(this, true)">
                                 <option value="none" style="background-color: white"><fmt:message key="tickler.ticklerAdd.selectClinic"/></option>
                                 <%
