@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.appt;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.File;
@@ -175,11 +177,11 @@ public class AppointmentMailer implements MessageMailer {
                         lineIndex++;
                     }
                 } catch (FileNotFoundException fnf) {
-                    logger.error("No Appointment Reminder Template found", fnf);
+                    logger.error("No Appointment Reminder Template found: {}", LogSafe.exceptionTrace(fnf));
                 } catch (IOException io) {
-                    logger.error("IOException occurred", io);
+                    logger.error("IOException occurred: {}", LogSafe.exceptionTrace(io));
                 } catch (SecurityException se) {
-                    logger.error("Invalid appointment reminder template path", se);
+                    logger.error("Invalid appointment reminder template path: {}", LogSafe.exceptionTrace(se));
                 } catch (AddressException addr) {
                     logger.error("Invalid appointment reminder recipient address");
                 } finally {
@@ -192,7 +194,7 @@ public class AppointmentMailer implements MessageMailer {
                             fstream.close();
                         }
                     } catch (IOException io) {
-                        logger.error("IOException occurred", io);
+                        logger.error("IOException occurred: {}", LogSafe.exceptionTrace(io));
                     }
                 }
             }

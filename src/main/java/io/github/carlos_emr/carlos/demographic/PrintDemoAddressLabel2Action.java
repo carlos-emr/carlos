@@ -24,6 +24,8 @@
 
 package io.github.carlos_emr.carlos.demographic;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -164,7 +166,7 @@ public class PrintDemoAddressLabel2Action extends ActionSupport {
         try {
             ins = new FileInputStream(PathValidationUtils.resolveTrustedPath(new File(System.getProperty("user.home") + "/Addresslabel.xml")));
         } catch (FileNotFoundException | SecurityException ex1) {
-            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead", ex1);
+            logger.debug("Addresslabel.xml not found in user's home directory. Using default instead: {}", LogSafe.exceptionTrace(ex1));
         }
 
         if (ins == null) {

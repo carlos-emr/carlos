@@ -116,16 +116,16 @@ public class PrintLabs2Action extends ActionSupport {
                 } finally {
                     if (f.exists() && !f.delete()) {
                         f.deleteOnExit();
-                        logger.warn("Failed to delete temporary lab report PDF at path [{}] for segmentID [{}]; scheduled deletion on JVM exit", LogSafe.sanitize(f.getAbsolutePath()), LogSafe.sanitizeObject(labNo));
+                        logger.warn("Failed to delete temporary lab report PDF for segmentID {}; scheduled deletion on JVM exit", labNo);
                     }
                 }
             }
         } catch (IOException ioe) {
-            logger.error("IOException occurred inside PrintLabs2Action", ioe);
+            logger.error("IOException occurred inside PrintLabs2Action: {}", LogSafe.exceptionTrace(ioe));
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";
         } catch (Exception e) {
-            logger.error("Unknown Exception occurred inside PrintLabs2Action", e);
+            logger.error("Unknown Exception occurred inside PrintLabs2Action: {}", LogSafe.exceptionTrace(e));
             request.setAttribute("printError", Boolean.valueOf(true));
             return "error";
         }

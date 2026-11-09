@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.billings.ca.bc.MSP;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.LogTeleplanTxDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.LogTeleplanTx;
@@ -339,9 +341,9 @@ public class ExtractBean extends Object implements Serializable {
             p.println(value1);
             p.close();
         } catch (SecurityException e) {
-            logger.error("Invalid file path detected in writeFile", e);
+            logger.error("Invalid file path detected in writeFile: {}", LogSafe.exceptionTrace(e));
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Unexpected error: {}", LogSafe.exceptionTrace(e));
         }
     }
 
@@ -368,9 +370,9 @@ public class ExtractBean extends Object implements Serializable {
                 p.println(htmlvalue1);
                 p.close();
             } catch (SecurityException e) {
-                logger.error("Invalid file path detected in writeHtml", e);
+                logger.error("Invalid file path detected in writeHtml: {}", LogSafe.exceptionTrace(e));
             } catch (Exception e) {
-                logger.error("Unexpected error", e);
+                logger.error("Unexpected error: {}", LogSafe.exceptionTrace(e));
             }
         }
     }
@@ -464,7 +466,7 @@ public class ExtractBean extends Object implements Serializable {
         try {
             retval = new java.math.BigDecimal(str).setScale(0, BigDecimal.ROUND_UP).toString();
         } catch (Exception e) {
-            logger.error("Unexpected error", e);
+            logger.error("Unexpected error: {}", LogSafe.exceptionTrace(e));
         }
         return retval;
     }
@@ -537,7 +539,7 @@ public class ExtractBean extends Object implements Serializable {
             }
         } catch (Exception e) {
             retval = false;
-            logger.error("Unexpected error", e);
+            logger.error("Unexpected error: {}", LogSafe.exceptionTrace(e));
         }
         return retval;
     }

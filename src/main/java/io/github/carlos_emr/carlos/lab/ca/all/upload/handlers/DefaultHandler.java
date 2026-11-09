@@ -75,7 +75,7 @@ public class DefaultHandler implements MessageHandler {
     }
 
     public String parse(LoggedInInfo loggedInInfo, String serviceName, String fileName, int fileId, String ipAddr) {
-        logger.info("DefaultHandler.parse: fileId={}", fileId);
+        logger.info("DefaultHandler.parse: fileId=");
         Document xmlDoc = getXML(fileName);
 
         /*

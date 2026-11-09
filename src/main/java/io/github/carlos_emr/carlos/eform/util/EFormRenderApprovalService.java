@@ -5,6 +5,8 @@
  */
 package io.github.carlos_emr.carlos.eform.util;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Scheduler;
@@ -465,14 +467,14 @@ public class EFormRenderApprovalService {
             try {
                 Files.deleteIfExists(path);
             } catch (Exception e) {
-                logger.warn("Unable to delete unclaimed staged fax preview PDF: {}", path, e);
+                logger.warn("Unable to delete unclaimed staged fax preview PDF: {}", LogSafe.exceptionTrace(e));
             }
         }
         private void deleteClaimed() {
             try {
                 Files.deleteIfExists(path);
             } catch (Exception e) {
-                logger.warn("Unable to delete claimed staged fax preview PDF: {}", path, e);
+                logger.warn("Unable to delete claimed staged fax preview PDF: {}", LogSafe.exceptionTrace(e));
             }
         }
     }

@@ -146,7 +146,7 @@ public class DocumentService extends AbstractServiceImpl {
             if (isFileValidationFailure(e)) {
                 return responseForFileValidation();
             }
-            logger.error("Document could not be saved: {}", LogSafe.sanitize(documentTo1.getFileName()), e);
+            logger.error("Document could not be saved: {}", LogSafe.exceptionTrace(e));
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(createResponseMap(null, "Failed", "The document could not be saved.")).build();
         }
 
