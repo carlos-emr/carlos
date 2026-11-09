@@ -160,7 +160,9 @@ public class MSPReconcile {
         } catch (NumberFormatException invalid) {
             if (!failOnReadError) throw invalid;
             bill.recordUnparsedAmount();
-            return summary ? "0.00" : value;
+            // A rejected wire value may still parse as decimal dollars (12.3, 1e3).
+            // Preserve its source text with a diagnostic so downstream totals cannot reinterpret it.
+            return summary ? "0.00" : "Unparsed Teleplan amount: " + value;
         } catch (ArithmeticException invalid) {
             if (!failOnReadError) throw invalid;
             // A fractional cent string must not be reinterpreted as decimal dollars by money().

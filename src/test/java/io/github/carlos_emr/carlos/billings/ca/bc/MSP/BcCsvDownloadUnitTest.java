@@ -26,10 +26,11 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings={"REP_PAYREF","REP_PAYREF_SUM"})
-    void shouldRenderKnownOnlyPaymentPdf_whenPrivateHistoryCannotBeParsed(String reportType) throws Exception {
+    @org.junit.jupiter.params.provider.CsvSource({"REP_PAYREF,Pri,NaN","REP_PAYREF_SUM,Pri,NaN",
+            "REP_PAYREF,MSP,Unparsed Teleplan amount: 12.3","REP_PAYREF_SUM,MSP,Unparsed Teleplan amount: 12.3"})
+    void shouldRenderKnownOnlyPaymentPdf_whenAnAmountCannotBeParsed(String reportType,String insurer,String source) throws Exception {
         var unknown = new io.github.carlos_emr.carlos.entities.MSPBill();
-        unknown.billingtype="Pri"; unknown.amount="NaN"; unknown.paymentMethod="1";
+        unknown.billingtype=insurer; unknown.amount=source; unknown.paymentMethod="1";
         unknown.paymentDate="20261101"; unknown.serviceDate="20261101";
         unknown.recordUnparsedAmount();
         var known = new io.github.carlos_emr.carlos.entities.MSPBill();
@@ -48,9 +49,9 @@ class BcCsvDownloadUnitTest extends CarlosWebTestBase {
             assertThat(getMockResponse().getStatus()).isEqualTo(200);
             try(var pdf=org.apache.pdfbox.Loader.loadPDF(getMockResponse().getContentAsByteArray())) {
                 String text=new org.apache.pdfbox.text.PDFTextStripper().getText(pdf);
-                assertThat(text).contains("12.50").doesNotContain("$NaN");
+                assertThat(text).contains("12.50").doesNotContain("$NaN","$12.30");
                 if ("REP_PAYREF_SUM".equals(reportType)) assertThat(text).contains("Known amounts only", "Unparsed amount fields excluded: 1");
-                else assertThat(text.replaceAll("\\s+", "")).contains("Unknown:NaN");
+                else assertThat(text).contains(source.equals("NaN")?"NaN":"Unparsed");
             }
         }
     }

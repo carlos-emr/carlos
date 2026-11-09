@@ -170,7 +170,7 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"bad", "12.3"})
+    @ValueSource(strings = {"bad", "12.3", "1e3", "+123"})
     void shouldRetainValidPaymentsAndAdjustments_whenTeleplanFieldsAreMalformed(String malformedAmount) throws Exception {
         createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.BillingPaymentTypeDao.class);
         var csv = spy(new MSPReconcile(true));
@@ -187,7 +187,13 @@ class MSPReconcileHistoryUnitTest extends CarlosUnitTestBase {
             assertThat(result.list).hasSize(4);
             var first = (MSPBill) result.list.getFirst();
             if (MSPReconcile.REP_PAYREF.equals(type)) {
-                assertThat(first.getAmount()).isEqualTo(malformedAmount);
+                assertThat(first.getAmount()).isEqualTo("Unparsed Teleplan amount: " + malformedAmount);
+                assertThat(first.getType()).isEmpty();
+                var detail = new java.io.ByteArrayOutputStream();
+                io.github.carlos_emr.carlos.report.export.BcBillingCsv.write(detail,type,
+                        result.list.stream().map(MSPBill.class::cast).toList());
+                assertThat(detail.toString(java.nio.charset.StandardCharsets.UTF_8))
+                        .contains("Unparsed Teleplan amount: " + malformedAmount);
                 assertThat(first.getAdjustmentCodeAmt()).contains("bad adjustment", "2.25");
                 assertThat(((MSPBill) result.list.get(1)).getType()).isEqualTo("PMT");
                 assertThat(((MSPBill) result.list.get(2)).getType()).isEqualTo("RFD");
