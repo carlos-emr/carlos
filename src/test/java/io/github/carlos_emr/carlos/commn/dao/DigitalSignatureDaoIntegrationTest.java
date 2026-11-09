@@ -37,6 +37,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -281,52 +283,20 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
             assertThat(readable.getModuleType()).isEqualTo(ModuleType.E_FORM);
         }
 
-        @Test
+        @ParameterizedTest
         @Tag("query")
-        @DisplayName("infers a legacy eForm signature in a double-quoted letter URL")
-        void shouldInferLegacyEformMetadata_fromLetterContent() {
+        @ValueSource(strings = {
+                "<img src=\"/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=%s\">",
+                "<img src='/imageRenderingServlet?source=signature_stored&digitalSignatureId=%s'>",
+                "&lt;img src=&quot;/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=%s&quot;&gt;"
+        })
+        @DisplayName("infers a legacy eForm signature from saved letter HTML")
+        void shouldInferLegacyEformMetadata_fromLetterContent(String letterHtmlTemplate) {
             DigitalSignature saved = persistLegacySignature(789);
             EFormValue letter = new EFormValue();
             letter.setDemographicId(789);
             letter.setVarName("Letter");
-            letter.setVarValue("<img src=\"/imageRenderingServlet?source=signature_stored"
-                    + "&amp;digitalSignatureId=" + saved.getId() + "\">");
-            entityManager.persist(letter);
-            entityManager.flush();
-
-            DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
-            assertThat(metadata.getDemographicId()).isEqualTo(789);
-            assertThat(metadata.getModuleType()).isEqualTo(ModuleType.E_FORM);
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("infers a legacy eForm signature in a single-quoted letter URL")
-        void shouldInferLegacyEformMetadata_fromSingleQuotedLetterContent() {
-            DigitalSignature saved = persistLegacySignature(789);
-            EFormValue letter = new EFormValue();
-            letter.setDemographicId(789);
-            letter.setVarName("Letter");
-            letter.setVarValue("<img src='/imageRenderingServlet?source=signature_stored"
-                    + "&digitalSignatureId=" + saved.getId() + "'>");
-            entityManager.persist(letter);
-            entityManager.flush();
-
-            DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
-            assertThat(metadata.getDemographicId()).isEqualTo(789);
-            assertThat(metadata.getModuleType()).isEqualTo(ModuleType.E_FORM);
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("infers a legacy eForm signature in encoded letter HTML")
-        void shouldInferLegacyEformMetadata_fromEncodedLetterContent() {
-            DigitalSignature saved = persistLegacySignature(789);
-            EFormValue letter = new EFormValue();
-            letter.setDemographicId(789);
-            letter.setVarName("Letter");
-            letter.setVarValue("&lt;img src=&quot;/imageRenderingServlet?source=signature_stored"
-                    + "&amp;digitalSignatureId=" + saved.getId() + "&quot;&gt;");
+            letter.setVarValue(letterHtmlTemplate.formatted(saved.getId()));
             entityManager.persist(letter);
             entityManager.flush();
 
