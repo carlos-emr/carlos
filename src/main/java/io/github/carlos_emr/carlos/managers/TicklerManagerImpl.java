@@ -699,6 +699,7 @@ public class TicklerManagerImpl implements TicklerManager {
     }
 
     @Override
+    @Transactional
     public void resolveTicklers(LoggedInInfo loggedInInfo, String providerNo, List<String> cdmPatientNos,
                                 String remString) {
         resolveTicklersBySubstring(loggedInInfo, providerNo, cdmPatientNos, remString);

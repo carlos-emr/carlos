@@ -71,6 +71,7 @@ RX_REQUIRED_CASES = {
 TICKLER_REQUIRED_CASES = {
     "shouldRetainClinicalPriorityOrdering_whenUsingTypedCriteria",
     "shouldRollbackLegacyResolution_whenALaterStoredPatientIsDenied",
+        "shouldRollbackLegacyResolutionAlias_whenALaterStoredPatientIsDenied",
     "shouldBindFilterValues_andKeepSortHintsOutOfNativeQueryText",
 
     "shouldAuthorizeTheStoredAndRequestedPatients_beforeFlushingAManagedEdit",

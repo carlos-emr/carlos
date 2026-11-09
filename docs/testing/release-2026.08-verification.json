@@ -807,7 +807,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -2834,7 +2834,8 @@
             {
               "name": "shouldRetainClinicalPriorityOrdering_whenUsingTypedCriteria",
               "container": ""
-            }
+            },
+            "shouldRollbackLegacyResolutionAlias_whenALaterStoredPatientIsDenied"
           ]
         },
         "io.github.carlos_emr.carlos.managers.ProgramAdmissionAuditMariaDbIntegrationTest": {
@@ -2914,7 +2915,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2567,
+      "minimumCases": 2568,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2942,7 +2943,7 @@
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
-        "TicklerPatientAccessMariaDbIntegrationTest": 11,
+        "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "AppointmentUpdateDaoIntegrationTest": 17
       },
@@ -2983,7 +2984,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 152,
+      "minimumCases": 153,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -3009,7 +3010,7 @@
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
-        "TicklerPatientAccessMariaDbIntegrationTest": 11,
+        "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3
       },
       "requiresEnvironment": [
@@ -3049,7 +3050,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 149,
+      "minimumCases": 150,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 10,
@@ -3072,7 +3073,7 @@
         "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
         "ScheduleSyncMariaDbIntegrationTest": 9,
         "RxPrescribeMariaDbIntegrationTest": 4,
-        "TicklerPatientAccessMariaDbIntegrationTest": 11,
+        "TicklerPatientAccessMariaDbIntegrationTest": 12,
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3
       },
       "requiresEnvironment": [

@@ -111,8 +111,14 @@ class TicklerPatientAccessMariaDbIntegrationTest {
         var result=resource.search(body("{}"),1,1);assertThat(result.getTotal()).isEqualTo(2);assertThat(result.getContent()).extracting(t -> t.getId()).containsExactly(1);
     }
     @Test void shouldRollbackLegacyResolution_whenALaterStoredPatientIsDenied() throws Exception {
+        assertLegacyResolutionRollsBack(() -> manager.resolveTicklersBySubstring(actor,"FAKE",java.util.List.of("42","43"),"clinical"));
+    }
+    @Test void shouldRollbackLegacyResolutionAlias_whenALaterStoredPatientIsDenied() throws Exception {
+        assertLegacyResolutionRollsBack(() -> manager.resolveTicklers(actor,"FAKE",java.util.List.of("42","43"),"clinical"));
+    }
+    private void assertLegacyResolutionRollsBack(Runnable resolve) throws Exception {
         seed(1,42); seed(2,43);
-        assertThatThrownBy(() -> manager.resolveTicklersBySubstring(actor,"FAKE",java.util.List.of("42","43"),"clinical"))
+        assertThatThrownBy(resolve::run)
                 .isInstanceOf(io.github.carlos_emr.carlos.commn.exception.AccessDeniedException.class);
         assertThat(status(1)).isEqualTo("A"); assertThat(status(2)).isEqualTo("A");
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM tickler_update",Integer.class)).isZero();
