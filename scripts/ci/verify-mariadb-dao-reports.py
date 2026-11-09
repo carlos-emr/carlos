@@ -18,6 +18,17 @@ CRITICAL = {
 # Surefire's default JUnit 5 names distinguish both boolean invocations. Counts
 # alone cannot prove archive-failure or demographic-audit regressions executed.
 REQUIRED_CASES = {
+    "ScheduleSyncMariaDbIntegrationTest": {
+        "shouldApplyProgramProviderPatientFilters_whilePagingNativeTies",
+        "shouldContinuePastConsentBlockedRows_withoutReturningAFalseEmptyNativePage",
+        "shouldFaultLegacyTiePages_andKeepCompleteNativeTimestampGroups",
+        "shouldKeepASingleRepeatableReadSnapshot_acrossNativeBatchQueries",
+        "shouldPageArchiveTiesWithoutLoss_onTheNativeSchema",
+        "shouldPageCurrentTiesWithoutLoss_onTheNativeSchema",
+        "shouldPropagateASecondNativeQueryFailure_withoutReturningAPartialPage",
+        "shouldRequireReconciliationForLateWritesBehindAnAlreadyReturnedCursor",
+        "shouldRetainTheDaoHardPageLimit_atMaximumNativePageSize",
+    },
     "SoapTokenHousekeepingDaoIntegrationTest": {
         *(f"shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[{index}]"
           for index in (1, 2, 3)),
@@ -59,6 +70,7 @@ REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, 
                           "RxCorrectionSaveRollbackIntegrationTest": 2,
                           "DemographicMergeMariaDbIntegrationTest": 9,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+                          "ScheduleSyncMariaDbIntegrationTest": 9,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                           "Growth0To36FormPersistenceIntegrationTest": 19},
             "flyway": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementIntegrationTest": 5, "PatientEndYearStatementTransactionIntegrationTest": 2, "LegacyLabUploadDaoIntegrationTest": 6, "LabRoutingLookupDaoIntegrationTest": 4,
@@ -70,6 +82,7 @@ REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, 
                        "RxCorrectionSaveRollbackIntegrationTest": 2,
                        "DemographicMergeMariaDbIntegrationTest": 9,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+                          "ScheduleSyncMariaDbIntegrationTest": 9,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                        "Growth0To36FormPersistenceIntegrationTest": 19},
             "bc-flyway": {"FixedJasperReportDaoIntegrationTest": 2, "PatientEndYearStatementTransactionIntegrationTest": 2, "LabRoutingLookupDaoIntegrationTest": 4,
@@ -87,6 +100,7 @@ REQUIRED = {"generated": {**CRITICAL, "FixedJasperReportDaoIntegrationTest": 2, 
                            "BCAR2020FormSaveTransactionIntegrationTest": 15,
                            "DemographicMergeMariaDbIntegrationTest": 9,
                           "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+                          "ScheduleSyncMariaDbIntegrationTest": 9,
                           "SoapTokenHousekeepingDaoIntegrationTest": 8,
                            "Growth0To36FormPersistenceIntegrationTest": 19}}
 

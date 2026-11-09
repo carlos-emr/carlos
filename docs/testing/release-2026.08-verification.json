@@ -256,7 +256,12 @@
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceEndpointTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/ScheduleServiceUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/rest/conversion/AppointmentConverterUnitTest.java",
-        "docs/testing/release-2026.08-main-release-browser-findings.json"
+        "docs/testing/release-2026.08-main-release-browser-findings.json",
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java",
+        "docs/soap-schedule-sync-profiles.md"
       ],
       "implementation": "Qualify full/status/type/urgency edits with omitted/null/blank editVersion compatibility, explicit stale conflicts, row locking and committed archive/audit behavior.",
       "cases": "Full edit plus status/type/urgency routes; omitted/null/blank token preserves legacy compatibility; invalid request 400, stale token 409, missing row 404; legacy null timestamp; multiple writes in one second; bulk and legacy-JDBC updates invalidate tokens; one winner under contention; original audit fields preserved; failed mutation rolls back archive and audit.",
@@ -2705,6 +2710,47 @@
               "container": ""
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.managers.ScheduleSyncMariaDbIntegrationTest": {
+          "check": "java-native-generated",
+          "cases": [
+            {
+              "name": "shouldPageCurrentTiesWithoutLoss_onTheNativeSchema",
+              "container": ""
+            },
+            {
+              "name": "shouldPageArchiveTiesWithoutLoss_onTheNativeSchema",
+              "container": ""
+            },
+            {
+              "name": "shouldApplyProgramProviderPatientFilters_whilePagingNativeTies",
+              "container": ""
+            },
+            {
+              "name": "shouldFaultLegacyTiePages_andKeepCompleteNativeTimestampGroups",
+              "container": ""
+            },
+            {
+              "name": "shouldContinuePastConsentBlockedRows_withoutReturningAFalseEmptyNativePage",
+              "container": ""
+            },
+            {
+              "name": "shouldKeepASingleRepeatableReadSnapshot_acrossNativeBatchQueries",
+              "container": ""
+            },
+            {
+              "name": "shouldPropagateASecondNativeQueryFailure_withoutReturningAPartialPage",
+              "container": ""
+            },
+            {
+              "name": "shouldRetainTheDaoHardPageLimit_atMaximumNativePageSize",
+              "container": ""
+            },
+            {
+              "name": "shouldRequireReconciliationForLateWritesBehindAnAlreadyReturnedCursor",
+              "container": ""
+            }
+          ]
         }
       },
       "runtimeConstraints": {
@@ -2756,7 +2802,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
+        "-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,QueryReturnTypeIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,JdbcConnectorMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2766,7 +2812,7 @@
         "-DexcludedGroups=flyway-schema",
         "-Dcarlos.test.schema.expected=generated"
       ],
-      "minimumCases": 2537,
+      "minimumCases": 2546,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "RxCorrectionSaveRollbackIntegrationTest": 2,
@@ -2791,7 +2837,8 @@
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
-        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5
+        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+        "ScheduleSyncMariaDbIntegrationTest": 9
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2821,7 +2868,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=MariaDbDaoHarnessIntegrationTest,MeasurementDaoIntegrationTest,MeasurementsExtDaoIntegrationTest,ProviderLabRoutingDaoIntegrationTest,BillingONCHeader1DaoIntegrationTest,CaseManagementIssueDAOIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,ConsultationListProjectionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,BilledProviderReportDaoIntegrationTest,LegacyLabUploadDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2830,7 +2877,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 125,
+      "minimumCases": 134,
       "requiredFamilies": {
         "RxCorrectionSaveRollbackIntegrationTest": 2,
         "ConsultationListProjectionIntegrationTest": 17,
@@ -2853,7 +2900,8 @@
         "PatientEndYearStatementIntegrationTest": 5,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
-        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5
+        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+        "ScheduleSyncMariaDbIntegrationTest": 9
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -2883,7 +2931,7 @@
         "-ntp",
         "test",
         "jacoco:report",
-        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
+        "-Dtest=BcBillingNativeMariaDbIntegrationTest,BcBillingDaoTransactionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,DemographicMergeMariaDbIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,CaseManagementNoteLockMariaDbIntegrationTest,ConsultationArchiveDaoIntegrationTest,LabRoutingLookupDaoIntegrationTest,LegacyLabNativeMariaDbIntegrationTest,ArchiveAuditTimestampIntegrationTest,FormXmlImportServiceIntegrationTest,EFormApColumnLookupIntegrationTest,AppointmentDaySheetServiceIntegrationTest,AntenatalReportDaoIntegrationTest,EFormGroupDaoIntegrationTest,Growth0To36FormPersistenceIntegrationTest,FixedJasperReportDaoIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,SoapTokenHousekeepingDaoIntegrationTest",
         "-Dgroups=spring-context | mariadb-native",
         "-Dtest.forkCount=1",
         "-Dtest.reportsDirectory={run}/reports",
@@ -2892,7 +2940,7 @@
         "-Dtest.coverageDirectory={run}/coverage",
         "-Dcarlos.test.schema.expected=flyway"
       ],
-      "minimumCases": 122,
+      "minimumCases": 131,
       "requiredFamilies": {
         "BCAR2020FormSaveTransactionIntegrationTest": 15,
         "BcBillingNativeMariaDbIntegrationTest": 10,
@@ -2912,7 +2960,8 @@
         "FixedJasperReportDaoIntegrationTest": 2,
         "PatientEndYearStatementTransactionIntegrationTest": 2,
         "SoapTokenHousekeepingDaoIntegrationTest": 8,
-        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5
+        "DemographicIdentifierPreservationMariaDbIntegrationTest": 5,
+        "ScheduleSyncMariaDbIntegrationTest": 9
       },
       "requiresEnvironment": [
         "CARLOS_TEST_MARIADB_URL"
@@ -5754,6 +5803,222 @@
       ],
       "workstreams": [
         "T08"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePage.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePages.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleSyncBoundaryException.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncHeaders.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncOutInterceptor.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManager.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleManagerImpl.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/webserv/ScheduleWs.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AppointmentArchiveDao.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/AppointmentArchiveDaoImpl.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDao.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/OscarAppointmentDaoImpl.java": {
+      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
+      ],
+      "checks": [
+        "java-all",
+        "java-native-generated",
+        "java-native-flyway",
+        "java-native-bc-flyway"
+      ],
+      "workstreams": [
+        "T09"
       ]
     }
   },
