@@ -26,7 +26,7 @@ from pathlib import Path
 FIXTURE = "io.github.carlos_emr.carlos.demographic.cdsimport.cli.CdsCliEngineFixture"
 
 
-def main() -> None:
+def validated_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--classpath", required=True, help="real test-fixture helper plus candidate JDBC dependencies")
     parser.add_argument("--jdbc-properties", type=Path, required=True, help="protected synthetic JDBC properties; never credentials in argv")
@@ -57,6 +57,68 @@ def main() -> None:
     # an existing configuration and non-test database before any mutation.
     if Path("/etc/carlos-emr/carlos.properties").exists() and not continuing:
         parser.error("refusing to replace existing production configuration")
+    return args
+
+
+def rows(path: Path) -> list[dict]:
+    values = []
+    with path.open("r", encoding="utf-8") as stream:
+        for _ in range(4096):
+            line = stream.readline(65538)
+            if not line:
+                break
+            if len(line) > 65536:
+                raise RuntimeError("CLI operational row exceeded its documented bound")
+            if not line.endswith("\n"):
+                # A foreground println may still be in flight while the
+                # cancellation gate waits for its accepted handle.
+                break
+            if line.startswith("{"):
+                value = json.loads(line)
+                if not isinstance(value, dict):
+                    raise RuntimeError("CLI operational row was not an object")
+                if value.get("event") not in {"INITIALIZING", "SUBMISSION", "ACCEPTED", "PROGRESS", "RESULT", "PROTECTED_REPORTS"}:
+                    raise RuntimeError("unexpected JSON was emitted into the operational console")
+                if value.get("event") != "PROGRESS":
+                    values.append(value)
+        else:
+            raise RuntimeError("CLI evidence exceeded the bounded gate limit")
+    return values
+
+
+
+def stop(process: subprocess.Popen) -> None:
+    if process.poll() is None:
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait(timeout=30)
+            raise RuntimeError("forced CLI termination requires durable reconciliation; gate stopped")
+
+
+
+def result(values: list[dict]) -> dict:
+    selected = [row for row in values if row.get("event") == "RESULT"]
+    if len(selected) != 1:
+        raise RuntimeError("CLI did not deliver exactly one terminal operational result")
+    return selected[0]
+
+
+
+def assert_complete(outcome: dict, copies: int = 1) -> None:
+    if not (outcome.get("clinicalComplete") is True and outcome.get("discoveryComplete") is True
+            and outcome.get("inventoryState") == "SEALED" and outcome.get("pendingUnits") == 0
+            and outcome.get("targetCopiesPlanned") == copies and outcome.get("reportsDelivered") is True
+            and outcome.get("cleanupComplete") is True and outcome.get("resumeRequested") is False
+            and outcome.get("maintenanceReleasePending") is False and outcome.get("maintenanceReleaseState") == "RELEASED"):
+        raise RuntimeError("clinical completion counters or delivery were incomplete")
+
+
+
+def main() -> None:
+    args = validated_arguments()
     environment = {key: value for key, value in os.environ.items()
                    if key not in {"JAVA_TOOL_OPTIONS", "JDK_JAVA_OPTIONS", "_JAVA_OPTIONS", "CLASSPATH"}}
     helper = [args.java, "-Xmx128m", "-cp", args.classpath, FIXTURE]
@@ -100,40 +162,7 @@ def main() -> None:
             raise RuntimeError("fixture supplied a path outside its private root")
         return path
 
-    def rows(path: Path) -> list[dict]:
-        values = []
-        with path.open("r", encoding="utf-8") as stream:
-            for _ in range(4096):
-                line = stream.readline(65538)
-                if not line:
-                    break
-                if len(line) > 65536:
-                    raise RuntimeError("CLI operational row exceeded its documented bound")
-                if not line.endswith("\n"):
-                    # A foreground println may still be in flight while the
-                    # cancellation gate waits for its accepted handle.
-                    break
-                if line.startswith("{"):
-                    value = json.loads(line)
-                    if not isinstance(value, dict):
-                        raise RuntimeError("CLI operational row was not an object")
-                    if value.get("event") not in {"INITIALIZING", "SUBMISSION", "ACCEPTED", "PROGRESS", "RESULT", "PROTECTED_REPORTS"}:
-                        raise RuntimeError("unexpected JSON was emitted into the operational console")
-                    if value.get("event") != "PROGRESS":
-                        values.append(value)
-            else:
-                raise RuntimeError("CLI evidence exceeded the bounded gate limit")
-        return values
 
-    def stop(process: subprocess.Popen) -> None:
-        if process.poll() is None:
-            os.killpg(process.pid, signal.SIGTERM)
-            try:
-                process.wait(timeout=30)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait(timeout=30)
-                raise RuntimeError("forced CLI termination requires durable reconciliation; gate stopped")
 
     def hard_crash_engine(process: subprocess.Popen, run: str, observed: dict, label: str) -> None:
         # runuser and Java have their own session. Killing the outer CLI group
@@ -264,11 +293,6 @@ print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'pro
                 stop(process)
         return rows(log)
 
-    def result(values: list[dict]) -> dict:
-        selected = [row for row in values if row.get("event") == "RESULT"]
-        if len(selected) != 1:
-            raise RuntimeError("CLI did not deliver exactly one terminal operational result")
-        return selected[0]
 
     def submit(label: str, source: str, *extra: str, clean: bool = True, selected_provider: str | None = None) -> dict:
         source_path = path_from(source)
@@ -330,13 +354,6 @@ print(json.dumps({'signal':'SIGKILL','verifiedServiceUid':uid,'javaPid':pid,'pro
             raise RuntimeError("terminal outcome did not match the accepted run and expected completeness")
         return outcome
 
-    def assert_complete(outcome: dict, copies: int = 1) -> None:
-        if not (outcome.get("clinicalComplete") is True and outcome.get("discoveryComplete") is True
-                and outcome.get("inventoryState") == "SEALED" and outcome.get("pendingUnits") == 0
-                and outcome.get("targetCopiesPlanned") == copies and outcome.get("reportsDelivered") is True
-                and outcome.get("cleanupComplete") is True and outcome.get("resumeRequested") is False
-                and outcome.get("maintenanceReleasePending") is False and outcome.get("maintenanceReleaseState") == "RELEASED"):
-            raise RuntimeError("clinical completion counters or delivery were incomplete")
 
     dry = submit("dry-run", metadata["sources"]["dryrun"], "--dry-run")
     if dry.get("state") != "DRY_RUN_COMPLETE" or dry.get("clinicalComplete") is not False or dry.get("committedUnits") != 0:

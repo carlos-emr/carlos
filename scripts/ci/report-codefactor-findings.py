@@ -109,7 +109,14 @@ def main() -> int:
             document = collect(fetch, repository, analysis_commit, check)
             document["requestedCommit"] = commit
             document["analysisMayPrecedeCurrentCommit"] = analysis_commit != commit
-            break
+            if document["complete"] or time.monotonic() >= deadline:
+                break
+            # CodeFactor can append annotations after marking the check complete.
+            # Retry a whole capture; never combine pages from different counts.
+            print(json.dumps({"retryingUnstableAnnotations": document["incomplete"],
+                              "retainedAnnotations": document["annotationCount"]}), flush=True)
+            time.sleep(15)
+            continue
         if time.monotonic() >= deadline:
             raise RuntimeError("Completed CodeFactor check unavailable within bounded history")
         time.sleep(15)
