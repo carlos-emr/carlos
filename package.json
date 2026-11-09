@@ -1026,7 +1026,8 @@
     "test:rx-favorite-groups-playwright": "node scripts/rx-favorite-groups-playwright-checks.js",
     "test:rx-original-version-playwright": "node scripts/rx-original-version-playwright-checks.js",
     "test:rx-renal-waf-privacy-playwright": "node scripts/rx-renal-waf-privacy-playwright-checks.js",
-    "test:rx-preview-loading-notes-playwright": "node scripts/rx-preview-loading-notes-playwright-checks.js"
+    "test:rx-preview-loading-notes-playwright": "node scripts/rx-preview-loading-notes-playwright-checks.js",
+    "test:tickler-calendar-quick-picks-playwright": "node scripts/tickler-calendar-quick-picks-playwright-checks.js"
   },
   "dependencies": {
     "@docusaurus/core": "^3.9.2",
@@ -1045,6 +1046,7 @@
     "acorn": "8.19.0",
     "axe-core": "4.14.0",
     "entities": "4.5.0",
+    "js-yaml": "4.3.2",
     "playwright": "1.61.1",
     "pngjs": "7.0.0",
     "xml-js": "1.6.11"

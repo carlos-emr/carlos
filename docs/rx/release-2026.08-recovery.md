@@ -1,6 +1,6 @@
 # RX recovery and compatibility in release/2026.08
 
-The integrated change targets `release/2026.08`, including release head `6eddfa9bd1e` and published beta7 (`d40d2939afd`). Published migrations remain byte-for-byte unchanged: beta7 owns common `1.0.59.33`; the unpublished BC history migration is `.34`. The RX forward migrations are `.35` (provider-owned favourite groups and transactional engine qualification), `.36` (durable submission evidence) and `.37` (original versions).
+The integrated change targets `release/2026.08`, including release head `1062fe6a02f` and published beta7 (`d40d2939afd`). Published migrations remain byte-for-byte unchanged: beta7 owns common `1.0.59.33`; the unpublished BC history migration is `.34`. The RX forward migrations are `.35` (provider-owned favourite groups and transactional engine qualification), `.36` (durable submission evidence) and `.37` (original versions).
 
 Before upgrading, finish and finalize any checkpointed CDS import. Adding `drugs.row_version` changes the physical target schema fingerprint and older import receipts require reconciliation if resumed across this upgrade. Do not discard the import ledger or reinterpret a changed fingerprint as proof of a failed import.
 

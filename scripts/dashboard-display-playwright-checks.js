@@ -36,6 +36,19 @@ const TIMEOUT = 20000;
 const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_dashboardManager', 'r'], ['_dashboardChgUser', 'r']];
 const DX_CODE = '250';
 
+/** Bootstrap focuses the dialog after its transition; type only after that native event. */
+async function openTicklerModal(page, trigger) {
+  await page.locator('#assignTickler').evaluate(modal => {
+    modal.dataset.playwrightTicklerShown = 'false';
+    modal.addEventListener('shown.bs.modal', () => { modal.dataset.playwrightTicklerShown = 'true'; }, { once: true });
+  });
+  const result = await trigger();
+  await page.waitForFunction(() => document.getElementById('assignTickler').dataset.playwrightTicklerShown === 'true',
+    null, { timeout: TIMEOUT });
+  return result;
+}
+
+/** Build an indicator scoped to the current owned provider, with the run marker identifying its UI and stored metadata. */
 function templateXml(marker) {
   const scope = "FROM demographic d WHERE d.provider_no = '${provider}'";
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -78,6 +91,7 @@ function templateXml(marker) {
 </indicatorTemplateXML>`;
 }
 
+/** Qualify native dashboard reads and Tickler saves using owned indicators/patients, retaining deferred failures until cleanup. */
 async function workflow(s) {
   const { sql, marker, recorder } = s;
   const M = h.sqlString(marker);
@@ -270,10 +284,10 @@ async function workflow(s) {
   await s.step('Actions > Assign Tickler requests the tickler form for exactly the checked owned patients', async () => {
     for (const id of [alpha, bravo]) await dashboard.locator(`input.patientChecked[id="${id}"]`).check();
     await dashboard.locator('#actionMenuLink').click();
-    const [request] = await Promise.all([
+    const [request] = await openTicklerModal(dashboard, () => Promise.all([
       dashboard.waitForRequest(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname) && r.method() === 'POST'),
       dashboard.locator('#assignTicklerChecked').click(),
-    ]);
+    ]));
     h.assert(new URLSearchParams(request.postData() || '').get('demographics') === `${alpha},${bravo}`,
       'The tickler form request does not carry exactly the checked patients');
     const modal = dashboard.locator('#assignTickler');
@@ -330,7 +344,7 @@ async function workflow(s) {
           await field.pressSequentially(value);
           await field.press(commit);
           await form.locator('textarea[name="messageAppend"]').click();
-          h.assert(await field.inputValue() === '', `Invalid typed value ${value} was reinterpreted`);
+          h.assert(await field.inputValue() === value, `Invalid typed value ${value} became ${JSON.stringify(await field.inputValue())}`);
           h.assert((field === dateInput ? /Invalid service date/ : /Invalid service time/)
             .test(await field.evaluate(input => input.validationMessage)),
             `Invalid typed value ${value} has no validation explanation`);
@@ -345,6 +359,10 @@ async function workflow(s) {
       }
       // Correct the date through the actual picker and the time by typing; assert
       // their submitted AND stored values below. Keep the calendar walk bounded.
+      await dateInput.fill('31/12/2030');
+      await dateInput.press('Tab');
+      await form.locator('textarea[name="messageAppend"]').click();
+      h.assert(await dateInput.inputValue() === '31/12/2030', 'Calendar correction lost the refused date before selection');
       await ui.pickDate(dashboard, dateInput, '2030-12-31',
         { timeout: TIMEOUT, maxMonthSteps: 120 });
       await timeInput.fill('');
@@ -398,6 +416,83 @@ async function workflow(s) {
         'The tickler service date/time was not stored as entered');
     });
   }
+
+  if (ticklerForm) await s.step('supported 24-hour and mixed-case AM/PM inputs save their exact intended times', async () => {
+    const control=JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${alpha},${bravo}) ORDER BY tickler_no`));
+    const controlIds=sql.rows(`SELECT tickler_no FROM tickler WHERE demographic_no IN (${alpha},${bravo}) ORDER BY tickler_no`).flat().join(',');
+    for (const [index, [typed, display, stored]] of [
+      ['14:30','2:30 PM','14:30'],['10:30 am','10:30 AM','10:30'],['2:30 Pm','2:30 PM','14:30'],
+      ['00:00','12:00 AM','00:00'],['23:59','11:59 PM','23:59'],
+    ].entries()) {
+      await dashboard.locator('#actionMenuLink').click();
+      await openTicklerModal(dashboard, () => dashboard.locator('#assignTicklerChecked').click());
+      const modal=dashboard.locator('#assignTickler'),form=modal.locator('#ticklerAddForm');await form.waitFor({state:'visible'});
+      await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
+      await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
+      await form.locator('select[name="priority"]').selectOption('High');
+      await form.locator('input[name="serviceDate"]').fill('2030-12-31');
+      const time=form.locator('input[name="serviceTime"]');await time.fill(typed);await time.press('Tab');
+      await modal.locator('.modal-header').click();
+      h.assert(await time.inputValue()===display,'Supported typed service time was changed incorrectly');
+      const stamp=`${marker} supported time ${index}`;
+      await form.locator('textarea[name="messageAppend"]').fill(stamp);
+      const [response]=await Promise.all([
+        dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+        dashboard.locator('#saveTicklerBtn').click(),
+      ]);
+      h.assert(response.status()===200&&(await response.json()).success==='true','A supported time did not receive a complete save acknowledgement');
+      await modal.waitFor({state:'hidden'});
+      for(const id of [alpha,bravo]) h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${id}
+        AND message=${h.sqlString(' '+stamp)} AND DATE_FORMAT(service_date,'%Y-%m-%d %H:%i')=${h.sqlString('2030-12-31 '+stored)}
+        AND creator=${P} AND task_assigned_to=${P} AND priority='High' AND status='A'`)==='1','A supported time stored another patient, recipient, date or time');
+      h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`)==='0','A supported time save changed the unchecked patient');
+    }
+    h.assert(JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE tickler_no IN (${controlIds}) ORDER BY tickler_no`))===control,'Supported time saves changed the original control tasks');
+  });
+
+  if (ticklerForm && process.env.TICKLER_DST_GAP_ZONE) await s.step('the configured daylight-saving gap is refused without writes and correction saves the retained draft', async () => {
+    const zone=process.env.TICKLER_DST_GAP_ZONE;
+    // BC observes permanent daylight time after March 2026. Use its real last
+    // spring gap rather than inventing a Vancouver transition in a later year.
+    const gapDate=zone==='America/Vancouver'?'2026-03-08':'2030-03-10';
+    h.assert(['America/Toronto','America/Vancouver'].includes(zone),'Unsupported DST qualification zone');
+    const config=fs.readFileSync('/etc/carlos-emr/carlos-emr.env','utf8');
+    h.assert(config.split('\n').filter(line=>line===`CARLOS_TZ="${zone}"`).length===1,'The installed clinic is not configured for the requested DST gap');
+    await dashboard.locator('#actionMenuLink').click();
+    await openTicklerModal(dashboard, () => dashboard.locator('#assignTicklerChecked').click());
+    const modal=dashboard.locator('#assignTickler'),form=modal.locator('#ticklerAddForm');await form.waitFor({state:'visible'});
+    await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
+    await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
+    await form.locator('select[name="priority"]').selectOption('High');
+    await form.locator('input[name="serviceDate"]').fill(gapDate);
+    const time=form.locator('input[name="serviceTime"]');await time.fill('02:30 AM');await time.press('Tab');await modal.locator('.modal-header').click();
+    const stamp=`${marker} DST recovered`;await form.locator('textarea[name="messageAppend"]').fill(stamp);
+    const snapshot=()=>JSON.stringify(sql.rows(`SELECT * FROM tickler WHERE demographic_no IN (${alpha},${bravo},${charlie}) ORDER BY tickler_no`));
+    const initial=snapshot(),mark=failureMark(recorder);
+    const dialogs=await h.withExpectedDialogs(dashboard,async()=>{
+      const [response]=await Promise.all([
+        dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+        dashboard.locator('#saveTicklerBtn').click(),
+      ]);
+      const submitted=new URLSearchParams(response.request().postData());
+      h.assert(submitted.get('serviceDate')===gapDate&&submitted.get('serviceTime')==='2:30 AM','DST request did not carry the chosen date and time');
+      const body=await response.json();
+      h.assert(response.status()===400&&body.success==='false'&&/daylight saving/i.test(body.message),'The nonexistent clinic time was not explicitly refused');
+      await dashboard.waitForFunction(()=>document.getElementById('saveTicklerBtn').disabled===false);
+    });
+    h.assert(dialogs.length===1&&dialogs[0].type==='alert'&&/Nothing was saved.*daylight saving/i.test(dialogs[0].text),'DST refusal was not shown to the user');
+    h.assert(await modal.isVisible()&&await form.locator('textarea[name="messageAppend"]').inputValue()===stamp&&await time.inputValue()==='2:30 AM'&&snapshot()===initial,'DST refusal changed tasks or discarded the draft');
+    consumeExpectedFailure(recorder,mark,{status:400,path:/\/web\/dashboard\/display\/AssignTickler$/});
+    await time.fill('03:30 AM');await time.press('Tab');await modal.locator('.modal-header').click();
+    const [saved]=await Promise.all([
+      dashboard.waitForResponse(r=>r.request().method()==='POST'&&new URL(r.url()).pathname.endsWith('/web/dashboard/display/AssignTickler')),
+      dashboard.locator('#saveTicklerBtn').click(),
+    ]);
+    h.assert(saved.status()===200&&(await saved.json()).success==='true','Correcting the refused time did not save');await modal.waitFor({state:'hidden'});
+    for(const id of [alpha,bravo])h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${id} AND message=${h.sqlString(' '+stamp)}
+      AND DATE_FORMAT(service_date,'%Y-%m-%d %H:%i')=${h.sqlString(gapDate+' 03:30')} AND creator=${P} AND task_assigned_to=${P}`)==='1','Corrected DST time was not saved exactly once for the intended recipient and patient');
+    h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${charlie}`)==='0','DST recovery changed the unchecked patient');
+  });
 
   const dxRows = id => `SELECT COUNT(*) FROM dxresearch WHERE demographic_no=${id} AND dxresearch_code='${DX_CODE}'
     AND coding_system='icd9' AND status='A' AND providerNo=${P}`;
@@ -549,4 +644,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('dashboard-display', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, openTicklerModal };

@@ -53,6 +53,8 @@ const { authenticatedProbe } = require('./lib/authenticated-probe');
 const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
+const {selectTicklerAssignee}=require('./lib/tickler-clinic');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { masterRecordLink } = require('./lib/master-record-link');
 
@@ -190,6 +192,7 @@ async function postInvalidForm(context, popup, changes, expectedStatus, sentinel
   h.assert(!(await response.text()).includes(sentinel), 'Invalid tickler form reported success');
 }
 
+/** Exercise repeated native Add/Edit validation attempts and verify recovery without duplicate messages or unauthorized writes. */
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
   const missingDate = bundleMessage(MISSING_DATE_KEY, MISSING_DATE_FALLBACK);
@@ -197,20 +200,22 @@ async function workflow(s) {
   const addDate = '2026-03-04';
   const editDate = '2026-03-05';
   let ticklerNo;
+  const frenchMessages=['Normal','Low','High'].map(priority=>`${marker} French Add ${priority}`);
+  const ownedMessages=[ticklerMessage,...frenchMessages].map(h.sqlString).join(',');
 
   s.cleanup(() => {
     // Own rows only: the message carries this run's marker, and the row must
     // still belong to the owned patient before anything is deleted.
     const rows = sql.rows(`SELECT tickler_no FROM tickler WHERE demographic_no=${patient}
-      AND message=${h.sqlString(ticklerMessage)}`);
+      AND message IN (${ownedMessages})`);
     for (const [id] of rows) {
       h.assert(/^[1-9]\d*$/.test(id), "Owned tickler ID is invalid");
       sql.execute(`DELETE FROM tickler_comments WHERE tickler_no=${id}`);
       sql.execute(`DELETE FROM tickler_update WHERE tickler_no=${id}`);
     }
-    sql.execute(`DELETE FROM tickler WHERE demographic_no=${patient} AND message=${h.sqlString(ticklerMessage)}`);
+    sql.execute(`DELETE FROM tickler WHERE demographic_no=${patient} AND message IN (${ownedMessages})`);
     h.assert(sql.value(`SELECT COUNT(*) FROM tickler WHERE demographic_no=${patient}
-      AND message=${h.sqlString(ticklerMessage)}`) === '0',
+      AND message IN (${ownedMessages})`) === '0',
       'Tickler fixture cleanup left rows behind');
   });
 
@@ -350,6 +355,25 @@ async function workflow(s) {
       h.assert(sql.value(`SELECT COUNT(*) FROM tickler_comments WHERE tickler_no=${ticklerNo}
         AND message=${h.sqlString(comment)}`) !== '0', 'Translated edit lost its comment');
       if (!popup.isClosed()) await popup.close();
+    }
+  });
+
+  await s.step('French Add drafts retain priority, date and message through patient-search Back and save the chosen priority',async()=>{
+    for(const [index,priority] of ['Normal','Low','High'].entries()) {
+      const popup=await s.popup(ticklerList,ticklerList.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(),'tickler-add-french');
+      await popup.setExtraHTTPHeaders({'Accept-Language':'fr'});await popup.reload({waitUntil:'networkidle'});
+      const select=popup.locator('select[name="priority"]');
+      const options=await select.locator('option').evaluateAll(items=>items.map(item=>({value:item.value,label:item.textContent.trim()})));
+      h.assert(JSON.stringify(options)===JSON.stringify([{value:'High',label:'Élevée'},{value:'Normal',label:'Normale'},{value:'Low',label:'Faible'}]),'Translated Add priorities lost their stable IDs or labels');
+      await select.selectOption(priority);await popup.locator('#ticklerMessage').fill(frenchMessages[index]);
+      await popup.locator(SELECTORS.date).fill(addDate);await selectTicklerAssignee(popup,provider);
+      const search=popup.locator('form[name="ADDAPPT"]');await search.locator('input[name="keyword"]').fill(marker);
+      await ui.clickAndAwaitReload(popup,search.locator('input[type="submit"][name="Submit"]'));
+      await ui.clickAndAwaitReload(popup,popup.locator('#ticklerReturnDraft'));
+      h.assert(await popup.locator('select[name="priority"]').inputValue()===priority&&await popup.locator(SELECTORS.date).inputValue()===addDate&&await popup.locator('#ticklerMessage').inputValue()===frenchMessages[index],'Returning a translated draft changed its priority, date or message');
+      await popup.locator(SELECTORS.addSave).first().click();await waitForSaveSentinel(popup,SELECTORS.addSavedMarker,'tickler-save-ok');
+      await expectValue(sql,`SELECT priority FROM tickler WHERE demographic_no=${patient} AND message=${h.sqlString(frenchMessages[index])}`,priority,'Translated Add saved another priority');
+      if(!popup.isClosed())await popup.close();
     }
   });
 
