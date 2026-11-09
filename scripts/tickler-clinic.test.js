@@ -4,16 +4,19 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 
-function form(sites) {
+function form(sites, {preferredHidden=false}={}) {
   const actions = [];
   let currentSite = 'none';
+  let visible=!preferredHidden;
   const page = {
     locator(selector) {
+      if(selector==='#nameWrapper a[onclick*="toggleWrappers"]')return {click:async()=>{visible=true;actions.push(['change']);}};
       if (selector === 'select#site') return {
         count: async () => sites === null ? 0 : 1,
+        isVisible:async()=>visible,
         locator: () => ({ evaluateAll: async fn => fn([{ value: 'none' },
           ...Object.keys(sites).map(value => ({ value }))]) }),
-        selectOption: async value => { currentSite = value; actions.push(['clinic', value]); },
+        selectOption: async value => { assert(visible,'clinic cannot be selected while its saved preference is displayed');currentSite = value; actions.push(['clinic', value]); },
       };
       assert.equal(selector, 'select[name="task_assigned_to"]');
       return {
@@ -48,4 +51,10 @@ test('a multisite install with no clinics fails explicitly', async () => {
   const { page, actions } = form({});
   await assert.rejects(selectTicklerAssignee(page, '999998'), /No available Tickler clinic/);
   assert.deepEqual(actions, []);
+});
+
+test('a saved multisite preference is changed through the visible native control before choosing a clinic',async()=>{
+ const {page,actions}=form({Matching:['999998']},{preferredHidden:true});
+ await selectTicklerAssignee(page,'999998');
+ assert.deepEqual(actions,[['change'],['clinic','Matching'],['assignee','999998']]);
 });

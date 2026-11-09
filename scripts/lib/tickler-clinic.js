@@ -6,6 +6,8 @@ async function selectTicklerAssignee(page, providerNo) {
   const assignee = page.locator('select[name="task_assigned_to"]');
   const clinic = page.locator('select#site');
   if (await clinic.count()) {
+    // A saved preference initially shows its name; use the native Change control.
+    if(!await clinic.isVisible())await page.locator('#nameWrapper a[onclick*="toggleWrappers"]').click();
     const sites = await clinic.locator('option').evaluateAll(options =>
       options.map(option => option.value).filter(value => value && value !== 'none'));
     let found = false;
