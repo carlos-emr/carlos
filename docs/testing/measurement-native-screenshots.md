@@ -1,10 +1,10 @@
 # Installed measurement and chart screenshots
 
-**126 before/after Playwright screenshot pairs** across installed Ontario and BC packages. The [renderer gallery](measurement-chart-screenshots.md) adds 45 pairs. Supplemental repair/routing/eForm screenshots and five-profile server-locale PNG/PDF controls are linked below. All clinical fixtures are synthetic and owned by the tests.
+**134 before/after Playwright screenshot pairs** across installed Ontario and BC packages. The [renderer gallery](measurement-chart-screenshots.md) adds 45 pairs. Supplemental repair/routing/eForm screenshots and five-profile server-locale PNG/PDF controls are linked below. All clinical fixtures are synthetic and owned by the tests.
 
-Installed candidate: `989f0eb94a529c2cdb30f3c6b93e8b0ca2062389`; target `release/2026.08`, release base `74f240a4b9f`. The original 98 native pairs use baseline `9004536dc8314d5f50542b48905ca3ca4099a916`. The 24 CML pairs and supplemental locale controls use `a7b22e9b63f9481dcb34ea776a31dfba254cb9cb` as their explicitly identified before revision. Four partial-review pairs use intermediate revision `a3934f88a44e` before the final acknowledgment coverage fix.
+Installed candidate: `0b55edf86d94df7575c4ad02d9bf928b0562d861`; target `release/2026.08`, release base `74f240a4b9f`. The original 98 native pairs use baseline `9004536dc8314d5f50542b48905ca3ca4099a916`. The 24 CML pairs and supplemental locale controls use `a7b22e9b63f9481dcb34ea776a31dfba254cb9cb` as their explicitly identified before revision. Four partial-review pairs use intermediate revision `a3934f88a44e` before the final acknowledgment coverage fix. Eight live-inbox comparisons use runtime `989f0eb94a52` (reviewed head `df6df59bcf0e`) before the client retention fix.
 
-The final Ubuntu 26.04 packages pass all 18 checks in each province. Runtime verification checks 6,216 deployed classes, 253 dependency jars and their resources before and after qualification. The two Debian build/JNDI property rewrites are verified against the exact `.deb` payload. [Artifact/package/helper hashes](../images/pr6102/native/manifest.json) · [Acceptance register](measurement-integrity-acceptance.md)
+The final Ubuntu 26.04 packages pass all 19 checks in each province. Runtime verification checks 6,218 deployed classes, 253 dependency jars, 1,366 JSP/JavaScript/CSS assets and associated resources before and after qualification. The two Debian build/JNDI property rewrites are verified against the exact `.deb` payload. [Artifact/package/helper hashes](../images/pr6102/native/manifest.json) · [Acceptance register](measurement-integrity-acceptance.md)
 
 ## What the comparisons establish
 
@@ -148,6 +148,19 @@ Before revision: `a3934f88a44e1a9e06d9890926cb758086076471`. Its partial acknowl
 
 ![fully-covered-history-reviewed](../images/pr6102/native/on/after/cml-review/005-fully-covered-history-reviewed.png)
 
+### Live inbox retention and Rapid Review
+
+Before application: `989f0eb94a529c2cdb30f3c6b93e8b0ca2062389` (reviewed head `df6df59bcf0e`). Both before runs reproduce the list-mode loss of an older NEW source and the skipped Rapid Review result. Preview is a passing control in this fixture. Each run proves the result set is fully loaded and Rapid Review is enabled. No manual refresh occurs after acknowledgment.
+
+| Case | Before | After |
+| --- | --- | --- |
+| list-partial-before-ack | ![Before list-partial-before-ack](../images/pr6102/native/on/before/cml-inbox/001-list-partial-before-ack.png) | ![After list-partial-before-ack](../images/pr6102/native/on/after/cml-inbox/001-list-partial-before-ack.png) |
+| list-live-inbox-after-ack | ![Before list-live-inbox-after-ack](../images/pr6102/native/on/before/cml-inbox/002-list-live-inbox-after-ack.png) | ![After list-live-inbox-after-ack](../images/pr6102/native/on/after/cml-inbox/002-list-live-inbox-after-ack.png) |
+| preview-partial-before-ack | ![Before preview-partial-before-ack](../images/pr6102/native/on/before/cml-inbox/003-preview-partial-before-ack.png) | ![After preview-partial-before-ack](../images/pr6102/native/on/after/cml-inbox/003-preview-partial-before-ack.png) |
+| preview-live-inbox-after-ack | ![Before preview-live-inbox-after-ack](../images/pr6102/native/on/before/cml-inbox/004-preview-live-inbox-after-ack.png) | ![After preview-live-inbox-after-ack](../images/pr6102/native/on/after/cml-inbox/004-preview-live-inbox-after-ack.png) |
+
+[Before clinical failure log](../images/pr6102/native/on/before/cml-inbox/workflow.log) · [After passing workflow](../images/pr6102/native/on/after/cml-inbox/workflow.log) · [Before Java and browser-asset integrity](../images/pr6102/native/on/before/cml-inbox/artifact-integrity.json)
+
 ### Actual native PNG/PDF response bytes
 
 These are the unmodified endpoint responses, separate from the browser screenshots.
@@ -162,16 +175,16 @@ These are the unmodified endpoint responses, separate from the browser screensho
 | Constant 12500000 | HTTP 503; retained in the browser comparison | [PNG](../images/pr6102/native/on/after/boundary-artifacts/constant-12500000.png) |
 | Constant 45000000 | HTTP 503; retained in the browser comparison | [PNG](../images/pr6102/native/on/after/boundary-artifacts/constant-45000000.png) |
 | Constant -6000000 | HTTP 503; retained in the browser comparison | [PNG](../images/pr6102/native/on/after/boundary-artifacts/constant-n6000000.png) |
-| Hemoglobin plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2010.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-2010.png) |
-| Hematocrit plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2013.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-2013.png) |
-| Sodium plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3210.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-3210.png) |
-| Glucose plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3007.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-3007.png) |
-| Cholesterol plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3120.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-3120.png) |
-| Raw report 2021-01-01 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-173.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-314.pdf) |
-| Raw report 2022-05-07 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-174.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-315.pdf) |
-| Raw report 2023-12-29 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-175.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-316.pdf) |
-| Raw report 2025-10-02 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-176.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-317.pdf) |
-| Raw report 2026-11-01 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-177.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PWeed63daf2bd5e570-318.pdf) |
+| Hemoglobin plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2010.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-2010.png) |
+| Hematocrit plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-2013.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-2013.png) |
+| Sodium plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3210.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-3210.png) |
+| Glucose plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3007.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-3007.png) |
+| Cholesterol plot | [PNG](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-3120.png) | [PNG](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-3120.png) |
+| Raw report 2021-01-01 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-173.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-359.pdf) |
+| Raw report 2022-05-07 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-174.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-360.pdf) |
+| Raw report 2023-12-29 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-175.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-361.pdf) |
+| Raw report 2025-10-02 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-176.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-362.pdf) |
+| Raw report 2026-11-01 | [PDF](../images/pr6102/native/on/before/qualified-artifacts/FAKE-PWb75ce7d6459c83cd-177.pdf) | [PDF](../images/pr6102/native/on/after/qualified-artifacts/FAKE-PW4f84dfe55e4b19ba-363.pdf) |
 
 ### Reviewed repair and recovery
 
@@ -353,6 +366,19 @@ Before revision: `a3934f88a44e1a9e06d9890926cb758086076471`. Its partial acknowl
 
 ![fully-covered-history-reviewed](../images/pr6102/native/bc/after/cml-review/005-fully-covered-history-reviewed.png)
 
+### Live inbox retention and Rapid Review
+
+Before application: `989f0eb94a529c2cdb30f3c6b93e8b0ca2062389` (reviewed head `df6df59bcf0e`). Both before runs reproduce the list-mode loss of an older NEW source and the skipped Rapid Review result. Preview is a passing control in this fixture. Each run proves the result set is fully loaded and Rapid Review is enabled. No manual refresh occurs after acknowledgment.
+
+| Case | Before | After |
+| --- | --- | --- |
+| list-partial-before-ack | ![Before list-partial-before-ack](../images/pr6102/native/bc/before/cml-inbox/001-list-partial-before-ack.png) | ![After list-partial-before-ack](../images/pr6102/native/bc/after/cml-inbox/001-list-partial-before-ack.png) |
+| list-live-inbox-after-ack | ![Before list-live-inbox-after-ack](../images/pr6102/native/bc/before/cml-inbox/002-list-live-inbox-after-ack.png) | ![After list-live-inbox-after-ack](../images/pr6102/native/bc/after/cml-inbox/002-list-live-inbox-after-ack.png) |
+| preview-partial-before-ack | ![Before preview-partial-before-ack](../images/pr6102/native/bc/before/cml-inbox/003-preview-partial-before-ack.png) | ![After preview-partial-before-ack](../images/pr6102/native/bc/after/cml-inbox/003-preview-partial-before-ack.png) |
+| preview-live-inbox-after-ack | ![Before preview-live-inbox-after-ack](../images/pr6102/native/bc/before/cml-inbox/004-preview-live-inbox-after-ack.png) | ![After preview-live-inbox-after-ack](../images/pr6102/native/bc/after/cml-inbox/004-preview-live-inbox-after-ack.png) |
+
+[Before clinical failure log](../images/pr6102/native/bc/before/cml-inbox/workflow.log) · [After passing workflow](../images/pr6102/native/bc/after/cml-inbox/workflow.log) · [Before Java and browser-asset integrity](../images/pr6102/native/bc/before/cml-inbox/artifact-integrity.json)
+
 ### Actual native PNG/PDF response bytes
 
 These are the unmodified endpoint responses, separate from the browser screenshots.
@@ -367,16 +393,16 @@ These are the unmodified endpoint responses, separate from the browser screensho
 | Constant 12500000 | HTTP 503; retained in the browser comparison | [PNG](../images/pr6102/native/bc/after/boundary-artifacts/constant-12500000.png) |
 | Constant 45000000 | HTTP 503; retained in the browser comparison | [PNG](../images/pr6102/native/bc/after/boundary-artifacts/constant-45000000.png) |
 | Constant -6000000 | HTTP 503; retained in the browser comparison | [PNG](../images/pr6102/native/bc/after/boundary-artifacts/constant-n6000000.png) |
-| Hemoglobin plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2010.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-2010.png) |
-| Hematocrit plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2013.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-2013.png) |
-| Sodium plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3210.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-3210.png) |
-| Glucose plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3007.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-3007.png) |
-| Cholesterol plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3120.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-3120.png) |
-| Raw report 2021-01-01 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-173.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-306.pdf) |
-| Raw report 2022-05-07 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-174.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-307.pdf) |
-| Raw report 2023-12-29 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-175.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-308.pdf) |
-| Raw report 2025-10-02 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-176.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-309.pdf) |
-| Raw report 2026-11-01 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-177.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PW49eeee01d507eef7-310.pdf) |
+| Hemoglobin plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2010.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-2010.png) |
+| Hematocrit plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-2013.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-2013.png) |
+| Sodium plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3210.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-3210.png) |
+| Glucose plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3007.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-3007.png) |
+| Cholesterol plot | [PNG](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-3120.png) | [PNG](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-3120.png) |
+| Raw report 2021-01-01 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-173.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-351.pdf) |
+| Raw report 2022-05-07 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-174.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-352.pdf) |
+| Raw report 2023-12-29 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-175.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-353.pdf) |
+| Raw report 2025-10-02 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-176.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-354.pdf) |
+| Raw report 2026-11-01 | [PDF](../images/pr6102/native/bc/before/qualified-artifacts/FAKE-PWb8c7a5463e8bc71b-177.pdf) | [PDF](../images/pr6102/native/bc/after/qualified-artifacts/FAKE-PWede8a06213d1b049-355.pdf) |
 
 ### Reviewed repair and recovery
 
@@ -443,6 +469,8 @@ export CML_REPAIR_SCREENSHOT_DIR=/root/native-proof/cml-repair
 node docs/images/pr6102/capture/cml-repair-native.cjs
 export CML_REVIEW_SCREENSHOT_DIR=/root/native-proof/cml-review
 node docs/images/pr6102/capture/cml-review-native.cjs
+export CML_INBOX_SCREENSHOT_DIR=/root/native-proof/cml-inbox
+node docs/images/pr6102/capture/cml-inbox-retention-native.cjs
 node docs/images/pr6102/capture/cls-coordination-native.cjs
 ```
 

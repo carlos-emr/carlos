@@ -1,10 +1,10 @@
 # Measurement and chart integrity acceptance
 
 Target: `release/2026.08`; release base `74f240a4b9f92188300a8700cf11f1d74bc2b58d`.
-Qualified runtime: `989f0eb94a529c2cdb30f3c6b93e8b0ca2062389`.
+Qualified runtime: `0b55edf86d94df7575c4ad02d9bf928b0562d861`.
 All retained clinical fixtures are synthetic and owned by the tests.
 
-[Installed ON/BC gallery: 126 Playwright pairs](measurement-native-screenshots.md) ·
+[Installed ON/BC gallery: 134 Playwright pairs](measurement-native-screenshots.md) ·
 [Renderer gallery: 45 pairs](measurement-chart-screenshots.md) ·
 [Artifact, package and helper hashes](../images/pr6102/native/manifest.json) ·
 [Live PR checks](https://github.com/carlos-emr/carlos/pull/6102/checks)
@@ -43,7 +43,11 @@ review state and source provenance remain retained. Acknowledging or filing a
 partial correction cannot automatically file an older source containing omitted
 observations. Only fully covered older reports are eligible; prior acknowledgments
 retain their audit data. An unresolved conflict blocks automatic chain review
-without changing any routing rows and shows a visible recovery message.
+without changing any routing rows and shows a visible recovery message. The
+transaction returns exact affected IDs and older versions still NEW for the
+acting provider. Live inbox updates retain those sources, refresh partial chains
+and prioritize them in Rapid Review. Fully covered chains retain their in-place
+update. Cached senders receive a full server resync of rows and totals.
 
 Missing/unusable revision times keep explicit raw reports, inbox counts, PDFs and
 attachments readable. Their views explain the review requirement; no arbitrary
@@ -66,15 +70,16 @@ remain readable.
 - [x] Prove actual repair/import and unlink/import transactions wait on the same physical MariaDB coordination row; verify the final clinical state.
 - [x] Measure controlled CLS contention while an unrelated CML upload completes.
 - [x] Verify partial-review coverage, blocked conflicting acknowledgment and recovery through a newer explicit correction with actual native upload/review controls.
+- [x] Verify fully loaded list/preview inboxes retain omitted NEW observations without a manual refresh, Rapid Review reaches them, and the badge decrements exactly once.
 - [x] Preserve raw HTML/PDF access and unlink when clinical time is unavailable.
 - [x] Verify actual graph/PDF contents, independent geometry, numeric controls, other-patient isolation and unchanged clinical reads.
 - [x] Compile all 996 JSPs; exercise actual EL 6 record-property resolution beyond compilation.
-- [x] Build/install Ubuntu 26.04 packages and run all 18 installed checks in both provinces: 36 passes.
-- [x] Verify 6,216 deployed classes, 253 jars and associated resources before and after tests: 7,070 artifact entries per province. Check the two intentional Debian property rewrites against exact package bytes.
+- [x] Build/install Ubuntu 26.04 packages and run all 19 installed checks in both provinces: 38 passes.
+- [x] Verify 6,218 deployed classes, 253 jars and associated resources before and after tests: 8,437 artifact entries per province. Include all 1,366 JSP/JavaScript/CSS assets and check the two intentional Debian property rewrites against exact package bytes.
 - [x] Exercise renderer outage/retry, actual mixed work, bounded queues, PDF fairness, queued interruption and recovery with zero remaining sessions and both permits restored.
 - [x] Exercise five server-locale PNG/PDF profiles, actual eForm PDF, spreadsheet/JSTL controls and unrestricted/boundary/empty range printing.
 - [x] Retain extensive unmodified before/after screenshots, actual PNG/PDF bytes, workflow receipts and hashes.
-- [x] Resolve valid review findings and request another CodeRabbit review. CodeRabbit acknowledged the latest command but subsequently rate limited analysis; no fresh approval is claimed.
+- [x] Resolve valid review findings and request another CodeRabbit review. CodeRabbit review requests and the resolution of valid findings are recorded in the PR; no fresh approval is claimed.
 
 Required CI remains a merge condition; consult the live PR checks for the current
 head. All local/native qualification above is complete. Every branch commit has
@@ -82,26 +87,30 @@ Signed-off-by.
 
 ## Validation records and compatibility
 
-The final focused package passes 771 Java cases with zero failures/errors/skips,
+The final focused package passes 825 Java cases with zero failures/errors/skips,
 including 28 real-DAO CML projection cases, 43 acknowledgment cases, filing,
-consultation and actual browser PNG/PDF smoke controls. The separate routing-audit
-integration fixture also passes. The full Node suite passes 7,712 cases with four
+consultation and actual browser PNG/PDF smoke controls. The routing-audit integration
+case is included. The 27-case inbox notification wiring class also passes after
+updating its source assertions for retained-version metadata. The full Node suite passes 7,721 cases with four
 existing optional skips. Final-head CI supplies the complete Java, database,
 packaging and static-analysis checks.
 
-The native gallery contains 290 browser screenshots, 64 additional raw/native
+The native gallery contains 306 browser screenshots, 64 additional raw/native
 renderer PNGs and 44 actual PDFs. Together with the renderer gallery there are
-380 browser screenshots, 171 Playwright before/after pairs and 444 PNGs overall.
+396 browser screenshots, 179 Playwright before/after pairs and 460 PNGs overall.
 The ten native server-locale PNG/PDF pairs are counted separately from Playwright
 screenshots. The original 98 native pairs use revision `9004536dc831`; the 24 CML
 pairs and supplemental locale controls explicitly use `a7b22e9b63f` as their
 before revision. Four partial-review pairs use `a3934f88a44e` as their explicit
 before revision and demonstrate the previously unread observation being filed.
+Eight additional inbox comparisons use runtime `989f0eb94a52` (reviewed head
+`df6df59bcf0e`) before the live inbox fix. Their list-mode failure and passing
+preview control are retained independently of the earlier backend-review defect.
 
 The qualified WAR SHA-256 is
-`0899c34796b1cf81283d3964b4e9b165d67a6604104e8afa9e43cf3f5a8b8ecf`;
+`996876515ef5d71d957fc606af117ec4b186adc451ad30ce286ebd4057c9e403`;
 the application `.deb` SHA-256 is
-`351ec478b5243c15b929cbf54ad41ff921cd04daae527d834d40d0914dbaeb1a`.
+`2a48ef1892db1e93c2e7495944fee68e0a00e8f41239ef7c69171877f8af040b`.
 The existing Debian version `2026.09.0~snapshot28` contains Maven application
 version `2026.08.0-beta7-SNAPSHOT`; this PR targets `release/2026.08`.
 

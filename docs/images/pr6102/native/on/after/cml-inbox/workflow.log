@@ -1,0 +1,7 @@
+  PASS cml-live-inbox-retention: rejected content stays retryable without a checksum
+  PASS cml-live-inbox-retention: first HL7 upload is filed
+  PASS cml-live-inbox-retention: the same file again is refused as already uploaded
+PRECONDITION {"hasMoreData":false,"isFetchingData":false,"rapidReviewState":true}
+PRECONDITION {"hasMoreData":false,"isFetchingData":false,"rapidReviewState":true}
+EVIDENCE {"sourceVersions":3,"results":[{"mode":"list","partial":"382","retained":true,"rapidReview":true,"originalRemainsNew":true,"badgeBefore":2,"badgeAfter":1},{"mode":"preview","partial":"383","retained":true,"rapidReview":true,"originalRemainsNew":true,"badgeBefore":2,"badgeAfter":1}],"manualRefreshesAfterAck":0}
+PASS cml-live-inbox-retention

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
-"""Verify deployed classes, dependency jars and locale bundles against the qualified WAR."""
+"""Verify deployed classes, dependencies, resources and browser assets against the qualified WAR."""
 import hashlib
 import json
 from pathlib import Path
@@ -18,7 +18,7 @@ def prepare(war_path, package_path, output_path):
             name = item.filename
             if not item.is_dir() and (name.startswith("WEB-INF/classes/")
                     or name.startswith("WEB-INF/lib/") and name.endswith(".jar")
-                    or name == "WEB-INF/web.xml" or name.endswith(".tld")):
+                    or name == "WEB-INF/web.xml" or name.endswith((".tld", ".jsp", ".jspx", ".jspf", ".js", ".css"))):
                 files[name] = hashlib.sha256(archive.read(name)).hexdigest()
         properties = archive.read("WEB-INF/classes/buildNumber.properties").decode().splitlines()
         revision = next(line.split("=", 1)[1] for line in properties if line.startswith("git-sha-1="))
@@ -68,7 +68,7 @@ receipt = {'runtimeRevision': expected['runtimeRevision'], 'warSha256': expected
            'expectedManifestSha256': hashlib.sha256(expected_path.read_bytes()).hexdigest(),
            'packageSha256': expected.get('packageSha256'), 'packagingOverrides': expected.get('packagingOverrides', {}),
            'verifiedFiles': len(expected['files']), 'verifiedClasses': len(expected_classes),
-           'verifiedJars': len(expected_jars), 'failures': failures}
+           'verifiedJars': len(expected_jars), 'verifiedBrowserAssets': sum(name.endswith(('.jsp','.jspx','.jspf','.js','.css')) for name in expected['files']), 'failures': failures}
 output_path.write_text(json.dumps(receipt, indent=2) + '\n')
 if failures:
     raise SystemExit('FAIL deployed runtime differs from the qualified artifact; see receipt')

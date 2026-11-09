@@ -3,8 +3,8 @@
   "mixedRealRenders" : 10,
   "peakAdmission" : 2,
   "boundedQueues" : {
-    "pdf" : 4,
-    "chart" : 16
+    "chart" : 16,
+    "pdf" : 4
   },
   "pdfFairness" : true,
   "queuedInterruptionPreserved" : true,

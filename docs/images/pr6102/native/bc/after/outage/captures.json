@@ -3,48 +3,48 @@
     "image": "001-insideLabUpload.png",
     "route": "/carlos/lab/CA/ALL/insideLabUpload",
     "browser": "154.0.8025.0",
-    "sha256": "74b044acd29f1af71e7862400a0c6d2103b6a735ad226f2e27e3907faae4f9c4"
+    "sha256": "95e7311e20d9750886bd7b1ccaf61d85b563622f4d37c85527ea1e2ae146b92b"
   },
   {
     "image": "002-insideLabUpload.png",
     "route": "/carlos/lab/CA/ALL/insideLabUpload",
     "browser": "154.0.8025.0",
-    "sha256": "37274f88a010466e0405487390db9c7fb6c3d31d52e1d21904d3f8fe20f069fa"
+    "sha256": "95e7311e20d9750886bd7b1ccaf61d85b563622f4d37c85527ea1e2ae146b92b"
   },
   {
     "image": "003-insideLabUpload.png",
     "route": "/carlos/lab/CA/ALL/insideLabUpload",
     "browser": "154.0.8025.0",
-    "sha256": "a28f491ff39746f1d4c634bf61e3bd62a21fa44a449835a42b05953c2b933f83"
+    "sha256": "aa211eef4da2a25f7a227310126b1bda4a684baac4e6c7d56fd56326b2c7e262"
   },
   {
     "image": "004-insideLabUpload.png",
     "route": "/carlos/lab/CA/ALL/insideLabUpload",
     "browser": "154.0.8025.0",
-    "sha256": "d0df9c969094f129e5114a20890d53f02d195f8bb7cd39b1463e8d17efe23481"
+    "sha256": "27287cb38cf687b13e586239fcbb5744169a2bcef28ff60a50dec3a1be5b44bc"
   },
   {
     "image": "005-ViewLabValuesGraph.png",
     "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
     "browser": "154.0.8025.0",
-    "sha256": "b3670cf7a79cd3a6efa7f8ca99dee0c9276ca6af4fcca29414f993f08ed5ecc8"
+    "sha256": "272fd38f85863f98c7c92aef80521a9b60b1755390bb173fd21eba0c654b35b4"
   },
   {
     "image": "006-ViewLabValuesGraph.png",
     "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
     "browser": "154.0.8025.0",
-    "sha256": "37da16ba8e93b72db3630391f538ab0ed671227fb075690aba5709e8a29694e1"
+    "sha256": "d9d507aac293f520f7b49f4c079834346f40a0f29e1a8b780ac9f9d8674aeca5"
   },
   {
     "image": "007-ViewLabValuesGraph.png",
     "route": "/carlos/lab/CA/ON/ViewLabValuesGraph",
     "browser": "154.0.8025.0",
-    "sha256": "fbdade6e9707fc7e3a3ab8e064eb6f47d0d48547bbcc6d537e246c535fc62c1d"
+    "sha256": "7fbb3434c550b7f3ea9caa81442701d2fe7a3ae4f70ebc5ced57f1fa12950eb2"
   },
   {
     "image": "008-ViewLabDisplay.png",
     "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
     "browser": "154.0.8025.0",
-    "sha256": "c6871a23839d27298320f804cdfb9df8aae85e3b9bc77c485271ea0ac28112ae"
+    "sha256": "59fba1456e64b5118f82c5520e58dbe74b5c1fa039ebbd88c06aabe95e2d258c"
   }
 ]

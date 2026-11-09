@@ -1,0 +1,30 @@
+[
+  {
+    "image": "001-list-partial-before-ack.png",
+    "label": "list-partial-before-ack",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "22c8bad0ed57da3838ae5ff6bd839925796d3c0a5b51408fbc963219b49b456b"
+  },
+  {
+    "image": "002-list-live-inbox-after-ack.png",
+    "label": "list-live-inbox-after-ack",
+    "route": "/carlos/web/inboxhub/Inboxhub",
+    "browser": "154.0.8025.0",
+    "sha256": "1668f55fa6ab04baf3a2d307ac5cfc45b09f76c79c09e47a8e2184a7b6077197"
+  },
+  {
+    "image": "003-preview-partial-before-ack.png",
+    "label": "preview-partial-before-ack",
+    "route": "/carlos/web/inboxhub/Inboxhub",
+    "browser": "154.0.8025.0",
+    "sha256": "4ade4a71fcead53091d2082fc4a67cd5da8d35ef319408447c97d1741fc167b7"
+  },
+  {
+    "image": "004-preview-live-inbox-after-ack.png",
+    "label": "preview-live-inbox-after-ack",
+    "route": "/carlos/web/inboxhub/Inboxhub",
+    "browser": "154.0.8025.0",
+    "sha256": "481187792af631952e4ffa4a96b1e671191f6dd1f3f4833d216a7995ba556626"
+  }
+]

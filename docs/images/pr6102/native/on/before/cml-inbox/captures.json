@@ -1,0 +1,30 @@
+[
+  {
+    "image": "001-list-partial-before-ack.png",
+    "label": "list-partial-before-ack",
+    "route": "/carlos/lab/CA/ALL/ViewLabDisplay",
+    "browser": "154.0.8025.0",
+    "sha256": "53c6fded77b7e52398a05c1cb9a8f4c8d62621eb8e71e7d235ddda8b982dcc7c"
+  },
+  {
+    "image": "002-list-live-inbox-after-ack.png",
+    "label": "list-live-inbox-after-ack",
+    "route": "/carlos/web/inboxhub/Inboxhub",
+    "browser": "154.0.8025.0",
+    "sha256": "35199911478b95e00845778f24189f93929c3e6089f2cf8a644b842739f9a6c3"
+  },
+  {
+    "image": "003-preview-partial-before-ack.png",
+    "label": "preview-partial-before-ack",
+    "route": "/carlos/web/inboxhub/Inboxhub",
+    "browser": "154.0.8025.0",
+    "sha256": "05b6658ed9e084020c261486137d2fb80492763bc856ff6292d1890e5b87daaa"
+  },
+  {
+    "image": "004-preview-live-inbox-after-ack.png",
+    "label": "preview-live-inbox-after-ack",
+    "route": "/carlos/web/inboxhub/Inboxhub",
+    "browser": "154.0.8025.0",
+    "sha256": "3f462abe3cee4e347f655e518e51ebe610d88377618e4f020991d7caa0b7e28c"
+  }
+]

@@ -3,7 +3,7 @@
     "image": "001-duplicate-preview.png",
     "label": "duplicate-preview",
     "browser": "154.0.8025.0",
-    "sha256": "0f326449399aebbab0c4a426f1da8072239545fad90a810884f0dc7c8f8cb0cd"
+    "sha256": "9a39b7a12622487f1f4251575a70b8258336650d0244dd6db4a8679a444936e0"
   },
   {
     "image": "002-audit-failure-rollback.png",
@@ -15,24 +15,24 @@
     "image": "003-repair-committed.png",
     "label": "repair-committed",
     "browser": "154.0.8025.0",
-    "sha256": "f8127cd0c2155118d2b44c89c4d74b7824316d821878eea947887dd6244ed2d5"
+    "sha256": "531b1a79a73d84d04df6ac7a71c2967fff7bc9f21c66bff0e24f85ddb0da516f"
   },
   {
     "image": "004-idempotent-preview.png",
     "label": "idempotent-preview",
     "browser": "154.0.8025.0",
-    "sha256": "31d850a4424eff4c9e768a6bb91de465882b153671cc9d7b3677f982bf271be5"
+    "sha256": "f2eb73ec04fabf85780c00342d842b150a3adf87b6ed0f55808e5be095995529"
   },
   {
     "image": "005-concurrent-repair-import.png",
     "label": "concurrent-repair-import",
     "browser": "154.0.8025.0",
-    "sha256": "31d850a4424eff4c9e768a6bb91de465882b153671cc9d7b3677f982bf271be5"
+    "sha256": "f2eb73ec04fabf85780c00342d842b150a3adf87b6ed0f55808e5be095995529"
   },
   {
     "image": "006-missing-revision-source-review.png",
     "label": "missing-revision-source-review",
     "browser": "154.0.8025.0",
-    "sha256": "868cfd308251bff75b65c727c10949e212bc9a62d2210befdaed3c678f3a9d4d"
+    "sha256": "139ac3a4632ca0154c71e8e9c5900e349c2ff09b90187d1378e2854473cf7909"
   }
 ]
