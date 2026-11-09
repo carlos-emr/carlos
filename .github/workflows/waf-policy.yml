@@ -51,7 +51,7 @@ jobs:
         with:
           script: |
             require('node:fs').writeFileSync('/tmp/waf-apt-roots.pem',
-              require('node:tls').rootCertificates.join('\n') + '\n', {mode: 0o600});
+              require('node:tls').rootCertificates.join('\n') + '\n', {mode: 0o644});
       - name: Install real-engine dependencies
         id: dependencies
         run: |
