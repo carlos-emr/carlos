@@ -27,4 +27,12 @@ class AppointmentMailerHeaderUnitTest {
         AppointmentMailer.applyTemplateHeader(target,":");
         assertThat(target.getSubject()).isEqualTo("Unchanged");
     }
+    @Test void shouldFoldOnlyAsciiHeaderNames_whilePreservingUnicodeValues() {
+        var target = new SimpleMailMessage(); target.setSubject("Unchanged");
+        AppointmentMailer.applyTemplateHeader(target,"ſubject: confusable");
+        assertThat(target.getSubject()).isEqualTo("Unchanged");
+        AppointmentMailer.applyTemplateHeader(target,"sUbJeCt: Réappel: suivi");
+        assertThat(target.getSubject()).isEqualTo(" Réappel: suivi");
+    }
+
 }

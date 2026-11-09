@@ -247,6 +247,9 @@ class SafeDiagnosticSinksUnitTest extends CarlosUnitTestBase {
         when(security.isAllowedAccessToPatientRecord(info, 23)).thenReturn(true);
         injectDependency(service, "securityInfoManager", security);
         injectDependency(service, "caseManagementMgr", manager);
+        var ticklers = mock(io.github.carlos_emr.carlos.managers.TicklerManager.class);
+        when(ticklers.getTicklerDemographicNo(info,31)).thenReturn(23);
+        injectDependency(service,"noteTicklerManager",ticklers);
         var program = new ProgramProvider();
         program.setProgramId(7L);
         program.setRoleId(1L);

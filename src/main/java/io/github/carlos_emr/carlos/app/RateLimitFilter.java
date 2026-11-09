@@ -308,7 +308,7 @@ public final class RateLimitFilter implements Filter {
                 long retryAfterSeconds = pathCounter.retryAfterSeconds();
                 if (enforcing) {
                     logger.warn("RATE BLOCK: ip={} rule=rate-limit-path limit={} windowSeconds={}",
-                            LogSafe.sanitize(clientIp), pathConfig.requests, pathConfig.windowSeconds);
+                            LogSafe.sanitize(clientIp), LogSafe.sanitizeObject(pathConfig.requests), LogSafe.sanitizeObject(pathConfig.windowSeconds));
                     if (!httpResponse.isCommitted()) {
                         httpResponse.setHeader("Retry-After", String.valueOf(retryAfterSeconds));
                         httpResponse.sendError(429, "Too Many Requests");
@@ -316,7 +316,7 @@ public final class RateLimitFilter implements Filter {
                     return;
                 } else {
                     logger.warn("RATE DETECT: ip={} rule=rate-limit-path limit={} windowSeconds={}",
-                            LogSafe.sanitize(clientIp), pathConfig.requests, pathConfig.windowSeconds);
+                            LogSafe.sanitize(clientIp), LogSafe.sanitizeObject(pathConfig.requests), LogSafe.sanitizeObject(pathConfig.windowSeconds));
                 }
             }
         }

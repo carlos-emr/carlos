@@ -200,8 +200,8 @@ public class AppointmentMailer implements MessageMailer {
     static void applyTemplateHeader(SimpleMailMessage target, String line) {
         int separator = line.indexOf(':');
         String key = separator < 0 ? line : line.substring(0, separator);
-        boolean from = "From".equalsIgnoreCase(key);
-        boolean subject = "Subject".equalsIgnoreCase(key);
+        boolean from = io.github.carlos_emr.carlos.utility.AsciiStrings.equalsIgnoreCase("From", key);
+        boolean subject = io.github.carlos_emr.carlos.utility.AsciiStrings.equalsIgnoreCase("Subject", key);
         if (!from && !subject) return;
         if (separator < 0 || separator == line.length() - 1) {
             throw new IllegalArgumentException("Invalid appointment reminder template header");
