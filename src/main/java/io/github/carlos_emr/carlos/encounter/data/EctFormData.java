@@ -233,13 +233,9 @@ public class EctFormData {
             }
             return null;
         }
-        if ("form".equals(normalizedTable) || isKnownEncounterFormTable(normalizedTable)) {
-            return normalizedTable;
-        }
-        if (logger.isWarnEnabled()) {
-            logger.warn("Rejected unknown encounter form table name: {}", LogSafe.sanitize(normalizedTable));
-        }
-        return null;
+        // The DAO validates registry membership immediately before constructing
+        // SQL. Repeating that query here adds one lookup per form on chart open.
+        return normalizedTable;
     }
 
     private static ArrayList<PatientForm> growthForms(String patient, String formName, String jsp, boolean grouped) {
@@ -258,10 +254,7 @@ public class EctFormData {
         return results;
     }
 
-    private static boolean isKnownEncounterFormTable(String table) {
-        // EncounterFormDaoImpl caches form-table lookups; keep validation here as the boundary.
-        return !encounterFormDao().findByFormTable(table).isEmpty();
-    }
+
 
     public static PatientForm[] getPatientForms(String demoNo, String table) {
         return (getPatientFormsAsArrayList(demoNo, null, table).toArray(new PatientForm[0]));
