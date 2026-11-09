@@ -5681,6 +5681,43 @@
       "fixtures": "Owns a patient, two PDFs (rows and files) and the refiled copy, all removed. Snapshots and restores the test provider's edoc_browser_in_document_report preference, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
+      "name": "report-configured-jasper",
+      "script": "scripts/report-configured-jasper-playwright-checks.js",
+      "tiers": [
+        "extended"
+      ],
+      "manual": true,
+      "assertsDatabase": false,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "CARLOS_REPORT_SERVER_HOME",
+        "CARLOS_FIXED_JASPER_OVERRIDE_TEXT"
+      ],
+      "notes": "Requires pdftotext and an intentionally installed synthetic Addresslabel.xml in the mounted server user.home. Verifies its own output marker, precedence over both bundled styles, null-date compatibility and no-store headers. Separate from report-fixed-jasper evidence.",
+      "fixtures": "Does not create or alter configuration or clinical rows; the operator owns installation and removal of the synthetic override."
+    },
+    {
+      "name": "report-fixed-jasper",
+      "script": "scripts/report-fixed-jasper-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 300,
+      "env": [
+        "MYSQL_PASSWORD",
+        "CARLOS_REPORT_SERVER_HOME"
+      ],
+      "notes": "Both typed fixed Jasper PDF templates, explicit empty-result response, malformed-date error, complete output and unchanged appointment status (#5692). Requires pdftotext and CARLOS_REPORT_SERVER_HOME identifying the mounted server user.home, with no Addresslabel.xml. Configured override output is qualified separately; override mode cannot replace this core check.",
+      "fixtures": "Owns one patient and one appointment in 2091 with marker/id-scoped cleanup; no shared clinical fixtures."
+    },
+    {
       "name": "report-daysheet-labs",
       "script": "scripts/report-daysheet-labs-playwright-checks.js",
       "tiers": [

@@ -28,7 +28,6 @@ import java.util.regex.Pattern;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.PatientEndYearStatementSummary;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.billings.ca.on.service.PatientEndYearStatementService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -95,13 +94,13 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
         String demographicNo = shown ? statementDemographicNo : getDemographicNoParam();
         String from = shown ? statementFromDate : getFromDateParam();
         String to = shown ? statementToDate : getToDateParam();
-        PatientEndYearStatementSummary summary;
+        PatientEndYearStatementService.Result result;
         try {
             Date fromDate = PatientEndYearStatements.parseIso(from, "from date");
             Date toDate = PatientEndYearStatements.parseIso(to, "to date");
             Demographic demographic = statementService.findUniquePatient(loggedInInfo, demographicNo,
                     shown ? null : getFirstNameParam(), shown ? null : getLastNameParam());
-            summary = statementService.aggregateInvoices(demographic, fromDate, toDate).summary();
+            result = statementService.aggregateInvoices(demographic, fromDate, toDate);
         } catch (PatientEndYearStatements.InvalidDateFilterException ex) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, ex.getMessage());
             return NONE;
@@ -116,7 +115,7 @@ public class PrintEndYearStatementPdf2Action extends ActionSupport {
             return NONE;
         }
         try {
-            statementService.writePdfResponse(response, PDF_FILENAME_BASE, summary, from, to);
+            statementService.writePdfResponse(response, PDF_FILENAME_BASE, result, from, to);
         } catch (PatientEndYearStatementService.Failure ex) {
             PatientEndYearStatements.logFailure(ex, demographicNo);
             if (!response.isCommitted()) {
