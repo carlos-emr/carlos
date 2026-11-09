@@ -808,7 +808,7 @@
         "scripts/ci/lifecycle_baselines.py",
         "scripts/ci/test_lifecycle_baselines.py"
       ],
-      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27–32 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
+      "implementation": "Execute actual clinical JavaScript and persisted workflows for the older-main form/measurement/prevention/rule changes; promote the HDL defect regressions once the product is fixed. Require distinct pinned beta5 and current-main beta6 installs on ON/BC; beta5 exercises V1.0.59.27\u201332 and CLI 1.3.0-to-1.3.1. A source-identical current-main install alone does not cover historical migration.",
       "cases": "Framingham/UKPDS HDL equal/greater than total and stale-answer clearing; renal thresholds/source selection; WHtR and waist units; valid/impossible dates and leap/DST days; missing patient/catalog/rules; age/sex/hide filters; shared/private/null flowsheet scopes; selected preventions in print; duplicate linked diagnosis/drug and intact long lab values.",
       "acceptance": "Clinical calculations use the intended inputs, invalid input clears stale results, persisted dates/values are exact, and no missing-data case logs an error per prevention type.",
       "requiredChecks": [
@@ -6125,7 +6125,7 @@
       ]
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsData.java": {
-      "reason": "CML source-derived completeness/date/correction ordering, historical-delivery measurement isolation, accepted literal spelling and Unicode extraction refusal; existing source/filter, clinical-state and cleanup acceptance remains required.",
+      "reason": "CML source-derived completeness/date/correction ordering, historical-delivery measurement isolation, accepted literal spelling and Unicode extraction refusal; existing source/filter, clinical-state and cleanup acceptance remains required. Display-only incomplete-chain recovery is separate from strict mutation resolution.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/Hl7textResultsDataUnitTest.java",
@@ -6255,6 +6255,54 @@
       ],
       "workstreams": [
         "T16"
+      ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/lab/gate/ViewLabDisplay2Action.java": {
+      "reason": "Authorize selected report reads, retain a warned read-only CML report when related source data cannot be parsed, and preserve strict mutation refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/gate/LabPatientReadSecurityUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplay.jsp": {
+      "reason": "Authorize selected report reads, retain a warned read-only CML report when related source data cannot be parsed, and preserve strict mutation refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/gate/LabPatientReadSecurityUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
+      ]
+    },
+    "src/main/webapp/WEB-INF/jsp/lab/CA/ALL/labDisplayAjax.jsp": {
+      "reason": "Authorize selected report reads, retain a warned read-only CML report when related source data cannot be parsed, and preserve strict mutation refusal.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/lab/ca/all/CmlCorrectedVersionUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/lab/gate/LabPatientReadSecurityUnitTest.java",
+        "scripts/lab-version-ingestion-playwright-checks.js"
+      ],
+      "checks": [
+        "java-all",
+        "packaged-full"
+      ],
+      "workstreams": [
+        "T14",
+        "T28"
       ]
     }
   },

@@ -11,6 +11,11 @@ counts. Test/document-only commits can retain that baseline. Changed Java
 sources, a different comparison base, missing/stale floors, dirty Java files or
 a baseline from another source tree fail freshness. A failed invocation removes
 any previous result file before validation, so an old success cannot survive.
+Squash/rebase merges may rewrite or discard the historical baseline commit.
+Freshness therefore requires the exact source tree, comparison and per-file
+blobs rather than commit ancestry. When the historical commit is available,
+its source tree is also checked; its availability is recorded explicitly.
+An absent commit does not waive any source identity or coverage requirement.
 
 Squash and rebase merges may rewrite the baseline commit without changing its
 Java sources. Freshness therefore checks source identity rather than commit
@@ -33,7 +38,7 @@ floor checker validates freshness before applying line, instruction, branch and
 required-refusal assertions. Freshness output explicitly says
 `coverageEvaluated: false`; it cannot replace that union result.
 
-A zero line floor on executable changed lines fails as
+A zero line floor on changed executable lines fails as
 `unreviewed-zero-floor`, even if a later run happens to cover those lines. A
 waiver requires a reason, a named reviewer, a concrete PR review/discussion
 permalink and the exact source blob reviewed. An issue link, boolean, blank

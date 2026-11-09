@@ -93,6 +93,9 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
             }
             assertThat(Hl7textResultsData.getMatchingLabs(Integer.toString(selected)))
                     .isEqualTo(sameTimeFinal ? "11,13,12" : "13,11,12");
+            assertThat(Hl7textResultsData.getMatchingLabsForDisplay(Integer.toString(selected)))
+                    .isEqualTo(new Hl7textResultsData.DisplayLabVersions(
+                            sameTimeFinal ? "11,13,12" : "13,11,12", true));
             parsers.verify(() -> Factory.getHandler(foreign), never());
         }
         assertThat(correction.getFinalResultCount()).isZero(); // A read does not rewrite historical metadata.
@@ -138,11 +141,13 @@ class CmlCorrectedVersionUnitTest extends CarlosUnitTestBase {
             assertThatThrownBy(() -> Hl7textResultsData.getMatchingLabs("12"))
                     .isInstanceOf(Hl7textResultsData.IncompleteCmlVersionChainException.class)
                     .hasMessageContaining(missing ? "no stored source" : "cannot be parsed");
+            assertThat(Hl7textResultsData.getMatchingLabsForDisplay("12"))
+                    .isEqualTo(new Hl7textResultsData.DisplayLabVersions("12", false));
             assertThatThrownBy(() -> Hl7textResultsData.populateMeasurementsTable("12", "101"))
                     .isInstanceOf(Hl7textResultsData.IncompleteCmlVersionChainException.class);
             verifyNoInteractions(mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementDao.class),
                     mockedBeans.get(io.github.carlos_emr.carlos.commn.dao.MeasurementsDeletedDao.class));
-            parsers.verify(() -> Factory.getHandler(previous), times(missing ? 0 : 2));
+            parsers.verify(() -> Factory.getHandler(previous), times(missing ? 0 : 3));
         }
     }
 

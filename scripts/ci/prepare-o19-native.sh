@@ -11,10 +11,7 @@ fi
 # A rerun gets a fresh private workspace; never reuse or delete an old socket.
 work=$(mktemp -d "$RUNNER_TEMP/carlos-o19-native.XXXXXXXX")
 mkdir "$work/socket"
-version=13.12.0
-curl -fsSL --retry 3 "https://github.com/flyway/flyway/releases/download/flyway-$version/flyway-commandline-$version-linux-x64.tar.gz" -o "$work/flyway.tgz"
-echo "e332704f4bbb16baba4ac565a822ccb24354003a284deaa11668c1be77013c34  $work/flyway.tgz" | sha256sum -c -
-tar xzf "$work/flyway.tgz" -C "$work"
+bash "$(dirname "$0")/fetch-flyway.sh" "$work/flyway"
 docker run -d --name carlos-o19-ci -p 127.0.0.1:13308:3306 \
   -e MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=1 \
   --mount "type=bind,src=$work/socket,dst=/run/mysqld" \
@@ -35,7 +32,7 @@ docker exec carlos-o19-ci chmod 0711 /run/mysqld
 for province in on bc; do
   database="carlos_o19_reference_$province"
   docker exec carlos-o19-ci mariadb -uroot -e "CREATE DATABASE $database CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
-  "$work/flyway-$version/flyway" -url="jdbc:mariadb://127.0.0.1:13308/$database" -user=root -password= \
+  "$work/flyway/flyway" -url="jdbc:mariadb://127.0.0.1:13308/$database" -user=root -password= \
     -initSql="SET SESSION sql_mode='', innodb_strict_mode=0" \
     -locations="filesystem:database/mysql/migration/common,filesystem:database/mysql/migration/$province" migrate
 done

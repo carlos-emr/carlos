@@ -6,6 +6,12 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest import mock
+
+environment_spec = importlib.util.spec_from_file_location('git_environment',
+    Path(__file__).resolve().parents[1] / 'ci/git_environment.py')
+git_environment = importlib.util.module_from_spec(environment_spec)
+environment_spec.loader.exec_module(git_environment)
 
 spec = importlib.util.spec_from_file_location('floors', Path(__file__).with_name('check-coverage-floors.py'))
 floors = importlib.util.module_from_spec(spec)
@@ -122,6 +128,8 @@ class CoverageFloorsTest(unittest.TestCase):
 
 class CoverageFreshnessTest(unittest.TestCase):
     def setUp(self):
+        self.enterContext(mock.patch.dict(os.environ,
+            git_environment.separate_checkout_environment(), clear=True))
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
@@ -224,3 +232,36 @@ class CoverageFreshnessTest(unittest.TestCase):
         self.policy['files']['src/main/java/example/Absent.java'] = self.policy['files'][other]
         self.assertIn('sourceOutsideComparison:src/main/java/example/Absent.java',
                       floors.check_freshness(self.policy, self.base)['problems'])
+
+
+class CoverageFixtureIsolationTest(unittest.TestCase):
+    def test_inherited_git_locations_cannot_change_another_checkout_or_prune_its_objects(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            external = Path(temporary)
+            environment = git_environment.separate_checkout_environment()
+
+            def git(*arguments):
+                return subprocess.check_output(['git', '-C', str(external), '-c', 'user.name=Fixture',
+                    '-c', 'user.email=fixture@example.invalid', *arguments],
+                    env=environment, text=True).strip()
+
+            git('init', '-q')
+            (external / 'owned.txt').write_text('retained data')
+            git('add', '.'); git('commit', '-qm', 'retained')
+            head = git('rev-parse', 'HEAD')
+            (external / 'owned.txt').write_text('unreachable data that must not be pruned')
+            git('commit', '-qam', 'unreachable')
+            unreachable = git('rev-parse', 'HEAD')
+            git('reset', '--hard', head)
+            index = (external / '.git/index').read_bytes()
+            with mock.patch.dict(os.environ, GIT_DIR=str(external / '.git'),
+                    GIT_WORK_TREE=str(external), GIT_INDEX_FILE=str(external / '.git/index')):
+                case = CoverageFreshnessTest(
+                    'test_rewritten_history_retains_the_measured_tree_even_when_the_original_commit_is_gone')
+                result = unittest.TestResult()
+                case.run(result)
+                self.assertTrue(result.wasSuccessful(), (result.errors, result.failures))
+            self.assertEqual(git('rev-parse', 'HEAD'), head)
+            self.assertEqual((external / 'owned.txt').read_text(), 'retained data')
+            self.assertEqual((external / '.git/index').read_bytes(), index)
+            self.assertEqual(git('cat-file', '-t', unreachable), 'commit')

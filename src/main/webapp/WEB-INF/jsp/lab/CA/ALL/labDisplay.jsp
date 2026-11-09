@@ -283,7 +283,7 @@
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
-    boolean versionChainReliable = !Boolean.TRUE.equals(request.getAttribute("hl7VersionChainUnavailable"));
+    boolean versionChainReliable = !Boolean.TRUE.equals(request.getAttribute("cmlVersionChainUnavailable"));
 
     String duplicateOfLab = null;
     Map<String, ExcellerisOntarioHandler.OrderStatus> missingTests = new HashMap<>();
@@ -302,13 +302,9 @@
             LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo,
                     multiLabId.split(","), "HL7");
         }
-        String resolvedLabIds;
-        try {
-            resolvedLabIds = Hl7textResultsData.getMatchingLabs(segmentID);
-        } catch (Hl7textResultsData.IncompleteCmlVersionChainException unavailable) {
-            versionChainReliable = false;
-            resolvedLabIds = segmentID;
-        }
+        Hl7textResultsData.DisplayLabVersions display = Hl7textResultsData.getMatchingLabsForDisplay(segmentID);
+        String resolvedLabIds = display.labIds();
+        versionChainReliable = versionChainReliable && display.reliable();
         if (!versionChainReliable) showAll = false;
         if (showAll) {
             multiLabId = request.getParameter("multiID");
@@ -1485,6 +1481,7 @@ input[id^='acklabel_']{
     </dialog>
     <% } %>
 
+    <fieldset <%= versionChainReliable ? "" : "disabled" %>>
     <form name="acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
           id="acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
@@ -3010,6 +3007,7 @@ input[id^='acklabel_']{
         </table>
 
     </form>
+    </fieldset>
 
     <%String s = "" + System.currentTimeMillis();%>
     <a style="color:lightgrey;" href="javascript: void(0);" onclick="showHideItem('rawhl7<%=s%>');">show</a>

@@ -22,7 +22,7 @@ while preserving inactive-type queries. Its complete shipping source build
 and lintian passed, all 6,206 checked package entries matched, and 34,526 actual
 H2 cases passed with 148 explicit prerequisite/routed skips. All 6,192 tested
 production classes match that package. The coverage/document follow-up retains
-this Java source tree. Final-head CI qualifies its own rebuilt artifacts;
+this Java source tree. CI at the final commit qualifies its own rebuilt artifacts;
 historical evidence never substitutes for that qualification.
 
 ## Scope and disposition
@@ -37,9 +37,9 @@ historical evidence never substitutes for that qualification.
 | #5709 | Retain lookup CRUD and consumer isolation. Provider add/edit forms omit inactive choices; edit explicitly preserves and labels its current retired value. The consumer test checks both that preservation and the new-provider boundary. Lookup add/remove/reorder now require POST and have direct/dispatcher GET/HEAD and authorized POST controls; current ON/BC lookup lifecycle and consumer-isolation retakes passed. |
 | #5708 | The current ON native multi-recipient/routing retake passed with no residue. The offered New/Filed status is source-wide; no per-recipient control is invented. This check is registered for ON. |
 | #5730 | PDF suffix matching now handles upper/mixed case; action tests inspect stored page count and MIME. Current ON/BC native eDoc/Inbox format, suffix-case, opaque/malformed-storage, retry and exact multipart-limit retakes passed; opaque storage is not represented as content validation. |
-| #5803 | Qualified bounds are excluded from exact numeric graph points. Accepted measurement literals preserve source spelling. The explicit #5828 contract retains the shipped filter: final-status Pending remains unfiled, with visible unsupported-history and grid-scope explanations in all five language bundles. Original reports/PDFs retain Pending exactly. ON/BC installed CI and local retakes passed; final-head CI retains all report, graph, tooltip and PDF assertions. |
+| #5803 | Qualified bounds are excluded from exact numeric graph points. Accepted measurement literals preserve source spelling. The explicit #5828 contract retains the shipped filter: final-status Pending remains unfiled, with visible unsupported-history and grid-scope explanations in all five language bundles. Original reports/PDFs retain Pending exactly. ON/BC installed CI and local retakes passed; CI at the final commit retains all report, graph, tooltip and PDF assertions. |
 | #5727 | Corrected request-scoped First Nations selected/original values and removed a missing focus handler; separate required First Nations round-trip and encoding profiles enable the module. Both profiles passed on current ON/BC packages. Two owned three-digit communities enabled round-trip setup; complete lookup bytes were restored and the application cache was restarted. |
-| #5726 | CML F/C observations both count as complete; clinical observation date and correction status precede the source-ID tie break. Existing correction metadata is interpreted from the stored source without rewriting it. Historical deliveries no longer replace active measurements. ON/BC native retakes passed for original/correction/older/same-time-final ingestion, a deliberately simulated owned pre-fix completeness counter, independent review state, immutable raw sources and exact duplicate replay. Final-head installed CI includes this complete matrix. |
+| #5726 | CML F/C observations both count as complete; clinical observation date and correction status precede the source-ID tie break. Existing correction metadata is interpreted from the stored source without rewriting it. Historical deliveries no longer replace active measurements. ON/BC native retakes passed for original/correction/older/same-time-final ingestion, a deliberately simulated owned pre-fix completeness counter, independent review state, immutable raw sources and exact duplicate replay. Installed CI at the final commit includes this complete matrix. |
 | #5794 | Only the error check provisions temporary fault routes; exact descriptor restoration is required before its supervisor exits. Current ON/BC packaged retakes passed with exact descriptor restoration, fault-class removal and no residue. Broader development/lifecycle filter qualification remains required. |
 | #6025 | Growth persistence tests compare all five submitted headers, with H2 and physical MariaDB executions. |
 | #6093 | A real physical-table grouped history test covers independent MAX projections, historical ordering, the EctFormData caller and other-patient isolation. Required in generated and ON/BC Flyway native lanes. |
@@ -82,7 +82,7 @@ test/CI infrastructure, rename an unused OAuth exception parameter, and repair
 CML versioning, literal views and audit events. The subsequent complete
 `67495a962dc0` candidate and `a040ff73b291` ON/BC installed CI qualify those
 clinical paths; `e2b2c4979a2f` adds the final nullable-input guards and full
-passing Java retake. Final-head build/install CI qualifies its own rebuilt
+passing Java retake. Build/install CI at the final commit qualifies its own rebuilt
 artifacts separately. Earlier ON/BC document, OAuth and eForm
 widget/PDF bundles passed with no skips or residue; the ON guideline and forwarding
 retakes and BC billing selector retakes also passed. These focused passes do not
@@ -164,3 +164,53 @@ Do not restore unsafe legacy SQL APIs or approve those changes implicitly.
 Full profiles/repetitions, current package lifecycle, crash/load and production
 view coverage remain distinct acceptance. The matrix refuses full release
 readiness while any of these local gates is incomplete.
+
+## Final review retake
+
+At `3d892ab89c46`, all nineteen Actions workflows, the automatic DCO check
+and PR-label checks passed. Downloaded CI artifact hashes matched GitHub's
+digests: 34,526 H2 cases (148 explicit routed/prerequisite skips), five passing
+permission cases, four passing legacy compatibility cases, and native counts
+3,128/260/118. Both main and permission JaCoCo XML/execution pairs were present.
+The separate local same-class union completed all ten required Java executions
+but refused acceptance: 29 unreviewed zero floors and three line, four
+instruction and eight branch misses. No floor was lowered and no waiver added.
+
+The subsequent complete CodeRabbit review identified additional corrections:
+required Python/Node outcome retention; isolated permission-test working paths;
+specific JAXB and mount-refusal diagnostics; supervisor signal diagnostics;
+coverage freshness through squash/rebase merges; exact CML version de-duplication;
+accurate localized history notices; and the task warning/test-name conventions.
+Freshness still requires the exact Java tree, comparison and every source blob;
+unavailability of a historical commit is explicitly reported.
+
+Incomplete related CML sources now have a separate display-only resolver. The
+authorized selected report remains readable with a translated warning and
+disabled controls. Mutation and measurement resolution retain the strict API;
+query failures still propagate. Unit cases require the selected-only warning,
+normal version authorization, exact de-duplication and continued mutation
+refusal. The native browser workflow adds a temporary, owned unreadable-source
+probe with exact restoration and independent source/clinical/control snapshots.
+These production corrections require fresh source/package/browser qualification;
+the earlier `ca2bd8bf4836` installed-payload identity does not cover changed Java
+or JSP bytes. Historical failed and partial retakes remain retained separately.
+
+The release branch subsequently advanced to `6eddfa9bd1ec` (#6097). The merge
+retains its BC history migration, billing repairs, explicit native zero-date
+policy controls and 29-case legacy-export family, alongside this PR's grouped
+history case, old-alias JDBC behavior, ROUND default and exact five permission
+routes. Before that integration, `b0ef15c990c1` passed the full 34,527-case H2
+run, five permissions, both 118-case timezone profiles, native 3,128/262/118,
+four browser/PDF cases and four legacy compatibility cases. Those nine Java
+executions remain bound to that earlier source; they do not qualify the newly
+merged billing production bytes. The merged source needs its own CI report,
+coverage-baseline refresh, source-built packages and installed browser retakes.
+
+The next release update, `1062fe6a02f4` (#6101), advances tickler drafts,
+recipients, dates and cancellation handling. Its complete draft transport and
+real-signal note-dialog harness are retained. Conflict resolution also retains
+the unique visible clinic Change guard, explicit multisite prerequisite,
+billing-centre fixture ownership, document-format navigation restoration and
+translated unavailable-recipient warning. The repeated-draft regression now
+executes the production transport function and verifies every transported field.
+All 115 focused fixture, cancellation, draft and validation cases pass together.

@@ -279,6 +279,7 @@
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-calendar.js"></script>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -343,7 +344,7 @@
             function addTime(num, type) {
                 let currentDate = new Date();
                 if (type === "months") {
-                    currentDate.setMonth(currentDate.getMonth() + num);
+                    currentDate = CarlosTicklerCalendar.offset(currentDate, num, 0);
                 } else {
                     currentDate.setDate(currentDate.getDate() + num);
                 }
@@ -417,6 +418,11 @@
                             // SecurityError: cross-origin redirect — almost certainly a session timeout
                             console.error('[ticklerEdit] iframe cross-origin access blocked — possible session expiry:', e);
                             alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        if (iframe.contentDocument && iframe.contentDocument.getElementById('carlos-permission-denied')) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.permission.denied") %>' context="javaScriptBlock"/>');
                             enableSubmitButtons();
                             return;
                         }

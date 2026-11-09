@@ -510,6 +510,23 @@ public class Hl7textResultsData {
         }
     }
 
+    /** A display fallback never certifies the complete chain for a mutation. */
+    public record DisplayLabVersions(String labIds, boolean reliable) { }
+
+    /**
+     * Retains the selected report when a related CML source is unavailable.
+     * Callers must explain the incomplete history and disable mutation controls.
+     * Database failures and invalid source identifiers still propagate.
+     */
+    public static DisplayLabVersions getMatchingLabsForDisplay(String labNo) {
+        try {
+            return new DisplayLabVersions(getMatchingLabs(labNo), true);
+        } catch (IncompleteCmlVersionChainException incomplete) {
+            logger.warn("CML version chain is incomplete; only the selected report may be displayed read-only");
+            return new DisplayLabVersions(labNo, false);
+        }
+    }
+
     public static String getMatchingLabs(String lab_no) {
         String ret = "";
         int monthsBetween = 0;

@@ -67,12 +67,9 @@ public final class ViewLabDisplay2Action extends ActionSupport {
         if (showAll) {
             versions = request.getParameter("multiID");
         } else {
-            try {
-                versions = Hl7textResultsData.getMatchingLabs(segment);
-            } catch (Hl7textResultsData.IncompleteCmlVersionChainException unavailable) {
-                request.setAttribute("hl7VersionChainUnavailable", Boolean.TRUE);
-                versions = segment;
-            }
+            Hl7textResultsData.DisplayLabVersions display = Hl7textResultsData.getMatchingLabsForDisplay(segment);
+            versions = display.labIds();
+            request.setAttribute("cmlVersionChainUnavailable", !display.reliable());
         }
         if (versions == null || versions.isEmpty()) {
             ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -92,11 +89,8 @@ public final class ViewLabDisplay2Action extends ActionSupport {
         }
         if (showAll) {
             // Explicit comparison identities must be authorized before source parsing.
-            try {
-                Hl7textResultsData.getMatchingLabs(segment);
-            } catch (Hl7textResultsData.IncompleteCmlVersionChainException unavailable) {
-                request.setAttribute("hl7VersionChainUnavailable", Boolean.TRUE);
-            }
+            Hl7textResultsData.DisplayLabVersions display = Hl7textResultsData.getMatchingLabsForDisplay(segment);
+            request.setAttribute("cmlVersionChainUnavailable", !display.reliable());
         }
 
         return SUCCESS;

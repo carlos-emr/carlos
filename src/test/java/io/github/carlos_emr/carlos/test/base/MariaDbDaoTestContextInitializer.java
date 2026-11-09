@@ -50,7 +50,7 @@ public class MariaDbDaoTestContextInitializer
             throw new IllegalArgumentException("MariaDB test province bc requires CARLOS_TEST_MARIADB_SCHEMA=flyway");
         }
         String database = "carlos_test_5399_dao_" + UUID.randomUUID().toString().replace("-", "");
-        String zeroDates = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_ZERO_DATES", "CONVERT_TO_NULL");
+        String zeroDates = System.getenv().getOrDefault("CARLOS_TEST_MARIADB_ZERO_DATES", "ROUND");
         if (!List.of("DEFAULT", "CONVERT_TO_NULL", "EXCEPTION", "ROUND").contains(zeroDates)) {
             throw new IllegalArgumentException("Unsupported MariaDB test zero-date policy");
         }

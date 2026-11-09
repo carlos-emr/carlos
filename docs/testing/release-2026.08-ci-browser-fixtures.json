@@ -87,8 +87,8 @@
         "scripts/dashboard-tickler-picker-browser-check.js"
       ],
       "source": "scripts/dashboard-tickler-picker-browser-check.js",
-      "sourceSha256": "2c79b7f5e8e812ff075fed8e0dfd78f5cb0d6f0ecf2660f9187a0115fa172396",
-      "minimumAssertions": 242
+      "sourceSha256": "de2dc855f2337fa4bb5434b8c069e4cc058f91ccb2b06e5006fd307a52a89e85",
+      "minimumAssertions": 314
     },
     {
       "id": "calendar-eform-browser-check",
@@ -167,7 +167,7 @@
         "scripts/ui-scroll-quick-pick-browser-check.js"
       ],
       "source": "scripts/ui-scroll-quick-pick-browser-check.js",
-      "sourceSha256": "ecc33617b8339f9562af84fac128060c2e6384dd3319842571d3a1b415091dc3",
+      "sourceSha256": "430d6db01861dead2c080de2bf50f85ceeef3d70c75a4ce38466245096dd561f",
       "minimumAssertions": 61
     },
     {

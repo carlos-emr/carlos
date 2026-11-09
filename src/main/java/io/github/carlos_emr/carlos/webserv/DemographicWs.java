@@ -157,6 +157,7 @@ public class DemographicWs extends AbstractWs {
     public Integer[] getConsentedDemographicIdsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
         ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
+        if (consentType == null) return new Integer[0];
         List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());
         List<Integer> demoIds = new ArrayList<Integer>();
         for (Consent c : consents) {
