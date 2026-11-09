@@ -164,7 +164,7 @@ class CoverageFreshnessTest(unittest.TestCase):
                          GIT_INDEX_FILE=str(self.root / '.git/index'), GIT_COMMON_DIR=str(self.root / '.git'),
                          GIT_OBJECT_DIRECTORY=str(self.root / '.git/objects'))
         child = subprocess.run([sys.executable, '-m', 'unittest',
-            'test_check_coverage_floors.CoverageFreshnessTest.test_rewritten_merge_preserves_source_identity_even_without_the_original_commit'],
+            'test_check_coverage_floors.CoverageFreshnessTest.test_rewritten_history_retains_the_measured_tree_even_when_the_original_commit_is_gone'],
             cwd=Path(__file__).resolve().parent, env=inherited, capture_output=True, text=True, timeout=30)
         self.assertEqual(child.returncode, 0, child.stderr)
         after = (self.git('rev-parse', 'HEAD'), (self.root / '.git/index').read_bytes(),
