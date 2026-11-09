@@ -3173,26 +3173,43 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         HttpSession session = request.getSession();
         if (session.getAttribute("userrole") == null) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return null;
+            return NONE;
         }
-        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
-        request.setAttribute("change_flag", "true");
-        request.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         String demono = getDemographicNo(request);
         String sessionFrmName = ChartProgramContext.formKey(request, demono);
         CaseManagementEntryFormBean sessionFrm = (CaseManagementEntryFormBean) session.getAttribute(sessionFrmName); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session form bean keyed by validated demographic scope
 
-        if (sessionFrm != null && sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
-
+        int ind;
+        try {
+            ind = Integer.parseInt(this.getLineId());
+        } catch (NumberFormatException invalid) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (sessionFrm == null || sessionFrm.getIssueCheckList() == null
+                || ind < 0 || ind >= sessionFrm.getIssueCheckList().size()) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        List<CheckBoxBean> oldList = sessionFrm.getIssueCheckList();
+        // Re-read the issue and its current role/program grants. The rendered
+        // IssueDisplay and the session's issue may predate a permission change.
+        Long issueId = oldList.get(ind).getIssue().getId();
+        String program = ChartProgramContext.resolve(request);
+        int programId = program == null || program.isBlank() ? 0 : Integer.parseInt(program);
+        CaseManagementIssue currentIssue = issueId == null ? null : caseManagementIssueDao.findById(issueId);
+        if (currentIssue == null || !Integer.valueOf(demono).equals(currentIssue.getDemographic_no())
+                || !currentIssue.isWriteAccess(providerNo, programId)) {
+            throw new SecurityException("missing required security object (_casemgmt.issues w)");
+        }
+        request.setAttribute("from", sanitizeFromParam(request.getParameter("from")));
+        request.setAttribute("change_flag", "true");
+        request.setAttribute("issueStatusChanged", "true"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
         request.setAttribute("demoName", getDemoName(demono));
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
-
-        String inds = this.getLineId();
-        Integer ind = Integer.valueOf(inds);
-
-        // Get the list from session
-        List<CheckBoxBean> oldList = sessionFrm.getIssueCheckList();
+        if (sessionFrm.getCaseNote() != null) times.applyTo(sessionFrm.getCaseNote());
+        oldList.get(ind).setIssue(currentIssue);
 
         // Read the changed values directly from request parameters
         String acuteParam = request.getParameter("issueCheckList[" + ind + "].issue.acute");
@@ -3217,15 +3234,15 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         }
 
         List<CaseManagementIssue> iss = new ArrayList<CaseManagementIssue>();
-        oldList.get(ind.intValue()).getIssue().setUpdate_date(new Date());
-        iss.add(oldList.get(ind.intValue()).getIssue());
+        oldList.get(ind).getIssue().setUpdate_date(new Date());
+        iss.add(oldList.get(ind).getIssue());
         caseManagementMgr.saveAndUpdateCaseIssues(iss);
 
         //Change issueDisplay if this issue is successfully saved.
-        sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setAcute(oldList.get(ind.intValue()).getIssue().isAcute() ? "acute" : "chronic");
-        sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setCertain(oldList.get(ind.intValue()).getIssue().isCertain() ? "certain" : "uncertain");
-        sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setMajor(oldList.get(ind.intValue()).getIssue().isMajor() ? "major" : "not major");
-        sessionFrm.getIssueCheckList().get(ind.intValue()).getIssueDisplay().setResolved(oldList.get(ind.intValue()).getIssue().isResolved() ? "resolved" : "unresolved");
+        sessionFrm.getIssueCheckList().get(ind).getIssueDisplay().setAcute(currentIssue.isAcute() ? "acute" : "chronic");
+        sessionFrm.getIssueCheckList().get(ind).getIssueDisplay().setCertain(currentIssue.isCertain() ? "certain" : "uncertain");
+        sessionFrm.getIssueCheckList().get(ind).getIssueDisplay().setMajor(currentIssue.isMajor() ? "major" : "not major");
+        sessionFrm.getIssueCheckList().get(ind).getIssueDisplay().setResolved(currentIssue.isResolved() ? "resolved" : "unresolved");
 
         if (CarlosProperties.getInstance().isCaisiLoaded()) {
             // get access right

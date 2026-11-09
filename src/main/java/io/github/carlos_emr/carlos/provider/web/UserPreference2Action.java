@@ -142,7 +142,15 @@ public class UserPreference2Action extends ActionSupport {
         String warning = request.getParameter("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING);
         if (!io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.isValid(warning)) {
             addActionError(getText("provider.consultationWarning.invalid"));
-            return form();
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            form();
+            @SuppressWarnings("unchecked")
+            Map<String, String> prefs = (Map<String, String>) request.getAttribute("prefs");
+            request.getParameterMap().forEach((key, values) -> {
+                if (key.startsWith("pref.") && values != null) prefs.put(key, String.join(",", values));
+            });
+            request.setAttribute("preferenceValidationError", getText("provider.consultationWarning.invalid"));
+            return "form";
         }
 
         //Is there a password change?
@@ -160,6 +168,9 @@ public class UserPreference2Action extends ActionSupport {
             if (!key.startsWith("pref.")) continue;
 
             String value = request.getParameter(key);
+            if (key.equals("pref." + UserProperty.CONSULTATION_TIME_PERIOD_WARNING)) {
+                value = io.github.carlos_emr.carlos.utility.ConsultationWarningPeriod.normalized(value);
+            }
 
             //a couple special cases
             if (key.equals("pref." + UserProperty.ENCOUNTER_FORM_NAME) || key.equals("pref." + UserProperty.EFORM_NAME)) {

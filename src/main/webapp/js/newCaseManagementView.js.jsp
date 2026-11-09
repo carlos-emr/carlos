@@ -427,47 +427,69 @@
 
     var fullChart = "false";
     function viewFullChart(displayFullChart) {
+        if (deferNoteSaveUntilIssues(function () { viewFullChart(displayFullChart); })) return false;
+        var editor = $(caseNote);
+        if (editor && (origCaseNote !== editor.value || noteIssuesChanged
+                || ($("observationDate") && origObservationDate !== $("observationDate").value))) {
+            if (!confirm(unsavedNoteWarning)) return false;
+            var noteId = editor.parentNode.id.substr(1);
+            ajaxSaveNote('sig' + noteId, noteId, editor.value, function (succeeded) {
+                if (succeeded) loadFullChart(displayFullChart);
+            });
+            return false;
+        }
+        return loadFullChart(displayFullChart);
+    }
+
+    function loadFullChart(displayFullChart) {
 
         var url = chartActionUrl("/CaseManagementEntry");
         var params = assembleMainChartParams(displayFullChart);
 
-        if (displayFullChart) {
-            fullChart = "true";
-        } else {
-            fullChart = "false";
-        }
-
-        destroyNoteIssueAutocomplete();
-        $("notCPP").update("Loading...");
-        CarlosAjax.request(
-            url,
-            {
-                method: 'post',
-                postBody: params,
-                evalScripts: true,
-                onSuccess: function (request) {
-                    destroyNoteIssueAutocomplete();
-                    $("notCPP").update(request.responseText);
-                    var qc = $("quickChart");
-                    if (displayFullChart) {
-                        if (qc) {
-                            qc.textContent = quickChartMsg;
-                            qc.onclick = function () { return viewFullChart(false); }
+        // Keep the live editor until the request succeeds. Freeze its controls
+        // after serialization so edits cannot race the replacement response.
+        var restoreControls = beginNoteSwitchSave();
+        try {
+            CarlosAjax.request(
+                url,
+                {
+                    method: 'post',
+                    postBody: params,
+                    evalScripts: true,
+                    onSuccess: function (request) {
+                        var responseChart = new DOMParser().parseFromString(request.responseText, 'text/html').getElementById('encMainDiv');
+                        if (!responseChart || responseChart.getAttribute('data-chart-patient') !== String(demographicNo)) {
+                            showChartLoadError("notCPP", request.status);
+                            return;
                         }
-                        scrollDownInnerBar();
-                    } else {
-                        if (qc) {
-                            qc.textContent = fullChartMsg;
-                            qc.onclick = function () { return viewFullChart(true); }
+                        fullChart = displayFullChart ? "true" : "false";
+                        destroyNoteIssueAutocomplete();
+                        $("notCPP").update(request.responseText);
+                        var qc = $("quickChart");
+                        if (displayFullChart) {
+                            if (qc) {
+                                qc.textContent = quickChartMsg;
+                                qc.onclick = function () { return viewFullChart(false); }
+                            }
+                            scrollDownInnerBar();
+                        } else {
+                            if (qc) {
+                                qc.textContent = fullChartMsg;
+                                qc.onclick = function () { return viewFullChart(true); }
+                            }
+                            scrollDownInnerBar();
                         }
-                        scrollDownInnerBar();
-                    }
-                },
-                onFailure: function (request) {
-                    showChartLoadError("notCPP", request.status);
+                    },
+                    onFailure: function (request) {
+                        showChartLoadError("notCPP", request.status);
+                    },
+                    onComplete: function () { restoreControls(); }
                 }
-            }
-        );
+            );
+        } catch (error) {
+            restoreControls();
+            showChartLoadError("notCPP", 0);
+        }
         return false;
     }
     /*
@@ -1423,7 +1445,7 @@ function updateCPPNote() {
                     complete(false);
                     $('showEditNote').style.display = 'block';
                     if ($('channel')) $('channel').style.visibility = 'hidden';
-                    alert(savingNoteError + " " + request.status);
+                    alert(updateIssueError + " " + request.status);
                 }
             }
         );
@@ -1431,7 +1453,7 @@ function updateCPPNote() {
         if (complete) complete(false);
         $('showEditNote').style.display = 'block';
         if ($('channel')) $('channel').style.visibility = 'hidden';
-        alert(savingNoteError);
+        alert(updateIssueError);
         console.error("updateCPPNote error:", e);
     }
     return false;
@@ -3363,6 +3385,8 @@ function updateCPPNote() {
     function beginNoteSwitchSave() {
         noteSwitchSavePending = true;
         var form = document.forms["caseManagementEntryForm"];
+        // The first chart load runs before the note form has been rendered.
+        if (!form) return function () { noteSwitchSavePending = false; };
         var controls = Array.from(form.elements).map(function (control) {
             var disabled = control.disabled;
             control.disabled = true;
@@ -3391,7 +3415,16 @@ function updateCPPNote() {
             return true;
         }
         if (issueUpdateFailed) {
-            alert(updateIssueError);
+            // Reconcile an uncertain/refused issue update with the server before
+            // honoring this new Save/Sign/navigation intent. Never resurrect the
+            // intent dropped by the failed operation.
+            var editor = $(caseNote);
+            if (!editor || !editor.parentNode) {
+                alert(updateIssueError);
+                return true;
+            }
+            queuedNoteSave = {editor: caseNote, save: save};
+            ajaxUpdateIssues('edit', 'sig' + editor.parentNode.id.substr(1), true);
             return true;
         }
         return false;
@@ -3531,7 +3564,10 @@ function updateCPPNote() {
                 succeeded = succeeded && ok;
                 if (--pending === 0) {
                     if (!succeeded) alert(updateIssueError);
-                    complete(succeeded);
+                    // The editor's clinical fields were confirmed before these
+                    // optional presentation requests. A sidebar failure must not
+                    // poison Save/Sign or discard a queued save.
+                    complete(true);
                 }
             });
         });

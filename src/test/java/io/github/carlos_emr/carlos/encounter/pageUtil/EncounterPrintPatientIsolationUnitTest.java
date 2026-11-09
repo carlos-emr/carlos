@@ -269,7 +269,8 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
             assertThat(properties).contains("EChartId").doesNotContain("eChartId");
 
             assertThat(source("Index2.jsp"))
-                    .contains("<input type=\"hidden\" name=\"eChartId\" value=\"${carlos:forHtmlAttribute(bean.EChartId)}\">")
+                    .contains("response.sendRedirect(hrefurl)")
+                    .doesNotContain("name=\"eChartId\"")
                     .doesNotContain("bean.eChartId");
             assertThat(source("includes/encounter-row-three.jspf")).doesNotContain("bean.eChartId");
         }
@@ -289,7 +290,9 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
             // "SaveEncounter2" posted to /carlos/SaveEncounter2 (404) and no editor save reached it.
             assertThat(source("includes/encounter-head.jspf")).contains("<base href=");
             assertThat(source("Index2.jsp"))
-                    .contains("<form name=\"encForm\" action=\"${pageContext.request.contextPath}/encounter/SaveEncounter2\" method=\"POST\">")
+                    .contains("/casemgmt/ViewForward?action=view&demographicNo=")
+                    .contains("response.sendRedirect(hrefurl)")
+                    .doesNotContain("<form name=\"encForm\"")
                     .doesNotContain("action=\"SaveEncounter2\"");
         }
     }

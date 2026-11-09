@@ -110,7 +110,7 @@ test('a failed CPP save restores the editor without requesting issue refreshes',
   assert.equal(h.fields.channel.style.visibility, 'hidden');
   assert.equal(h.requests.length, 1);
   assert.equal(h.updates.length, 0);
-  assert.deepEqual(h.alerts, ['save failed 500']);
+  assert.deepEqual(h.alerts, ['issue refresh failed 500']);
   assert.deepEqual(h.errors, []);
 });
 
@@ -177,7 +177,7 @@ test('an encounter save requested before the CPP response waits for both refresh
   assert.equal(h.context.issueUpdatesPending, 0);
 });
 
-for (const phase of ['CPP POST', 'note refresh', 'Unresolved Issues', 'panel rendering', 'request setup', 'refresh setup', 'selection restore']) {
+for (const phase of ['CPP POST', 'note refresh', 'request setup', 'refresh setup', 'selection restore']) {
   test(`a failed ${phase} releases the CPP barrier, cancels the queued save, and permits explicit recovery`, () => {
     const h = harness();
     let saves = 0;
@@ -343,5 +343,52 @@ test('a module failure displays text without inserting response HTML', () => {
 
 test('resolved issue refresh has a real Struts route and the correct module handler', () => {
   const mappings = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/classes/struts-encounter.xml'), 'utf8');
+  assert.equal((mappings.match(/<action name="encounter\/displayResolvedIssues"/g) || []).length, 1);
   assert.match(mappings, /action name="encounter\/displayResolvedIssues" class="io\.github\.carlos_emr\.carlos\.encounter\.pageUtil\.EctDisplayResolvedIssues2Action"/);
 });
+
+for (const failedModule of ['unresolvedIssues', 'resolvedIssues']) {
+  test(`a failed ${failedModule} presentation refresh permits queued and subsequent Save/Sign`, () => {
+    const h = harness();
+    h.fields.resolvedIssues = {};
+    const done = h.context.beginIssueUpdate();
+    const pending = [];
+    h.context.loadDiv = (id, url, limit, complete) => pending.push({id, complete});
+    h.context.onIssueUpdate(done);
+    let saves = 0;
+    assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), true);
+    for (const module of pending) module.complete(module.id !== failedModule);
+    assert.equal(saves, 1);
+    assert.equal(h.context.issueUpdateFailed, false);
+    assert.equal(h.context.deferNoteSaveUntilIssues(() => saves++), false);
+    // Re-rendering the failed module succeeds without a new clinical mutation.
+    h.context.loadDiv = (id, url, limit, complete) => complete(true);
+    h.context.onIssueUpdate(value => assert.equal(value, true));
+    assert.equal(h.context.issueUpdatesPending, 0);
+  });
+}
+
+for (const intent of ['Save', 'Sign & Save']) {
+  test(`${intent} reconciles a failed CPP request before saving and never revives its dropped intent`, () => {
+    const h = harness();
+    h.fields.caseNote_note01 = {parentNode: {id: 'n01'}};
+    let dropped = 0; let saved = 0;
+    h.context.updateCPPNote();
+    h.context.deferNoteSaveUntilIssues(() => dropped++);
+    h.requests[0].options.onFailure({status: 409});
+    assert.equal(dropped, 0);
+    assert.equal(h.context.queuedNoteSave, null);
+    assert.equal(h.context.deferNoteSaveUntilIssues(() => saved++), true);
+    assert.equal(saved, 0);
+    assert.equal(h.updates.length, 1);
+    h.updates[0].options.onSuccess({status: 200});
+    h.updates[0].options.onComplete({status: 200, updateSucceeded: true});
+    assert.equal(saved, 0);
+    h.requests[1].options.onSuccess({status: 200, responseText: 'confirmed clinical issues'});
+    h.requests[1].options.onComplete({status: 200});
+    assert.equal(saved, 1);
+    assert.equal(dropped, 0);
+    assert.equal(h.context.issueUpdateFailed, false);
+    assert.equal(h.context.issueUpdatesPending, 0);
+  });
+}

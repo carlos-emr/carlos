@@ -57,7 +57,7 @@ test('all outstanding issue updates complete before a save resumes', () => {
   assert.equal(saves, 1);
 });
 
-for (const phase of ['issue list', 'panel']) {
+for (const phase of ['issue list']) {
   test(`failed ${phase} refresh prevents saving incomplete issue state and permits retry after recovery`, () => {
     const h = harness(); let saves = 0;
     h.context.ajaxUpdateIssues('edit', 'sig1'); h.context.deferNoteSaveUntilIssues(() => saves++);
@@ -122,9 +122,9 @@ for (const [name, argument, boundary] of [
       h.context.ajaxUpdateIssues('edit', 'sig1');
       assert.equal(h.context[name](argument), false);
       assert.ok(!events.includes('teardown'));
-      h.updates[0].onComplete({ updateSucceeded: true, status: 200 });
+      h.updates[0].onComplete({ updateSucceeded: succeeded, status: succeeded ? 200 : 503 });
       assert.ok(!events.includes('teardown'));
-      h.panels[0](succeeded);
+      if (succeeded) h.panels[0](true);
       assert.equal(events.filter(event => event === 'teardown').length, succeeded ? 1 : 0);
       assert.equal(h.context.caseNote, 'editor1');
     });
@@ -286,3 +286,100 @@ for (const values of [['1', '12', '2', '34'], ['', '', '', '']]) {
     });
   }
 }
+
+for (const failure of ['503', 'unacknowledged 200', 'different patient', 'setup']) {
+  test(`full-chart ${failure} retains the editor and permits retry`, () => {
+    const h = switchHarness();
+    const errors = [];
+    const replacements = [];
+    h.fields.notCPP = { update: html => replacements.push(html) };
+    h.context.caseNote = 'editor1';
+    h.context.noteIssuesChanged = false;
+    h.context.origCaseNote = h.editor.value;
+    Object.assign(h.context, {
+      assembleMainChartParams: () => 'demographicNo=123',
+      showChartLoadError: (id, status) => errors.push(status),
+      destroyNoteIssueAutocomplete: () => h.effects.push('destroy autocomplete'),
+    });
+    vm.runInContext(source.slice(source.indexOf('    var fullChart ='), source.indexOf('    var socHistoryLabel;')), h.context);
+    if (failure === 'setup') h.context.CarlosAjax.request = () => { throw new Error('setup'); };
+    h.context.viewFullChart(true);
+    assert.equal(h.editor.value, 'typed clinical text');
+    assert.deepEqual(replacements, []);
+    if (failure !== 'setup') {
+      if (failure === '503') h.updates[0].onFailure({status: 503});
+      else {
+        h.context.DOMParser = class {
+          parseFromString() { return {getElementById: () => failure === 'different patient' ? {getAttribute: () => '999'} : null}; }
+        };
+        h.updates[0].onSuccess({status: 200, responseText: '<html>login or wrong chart</html>'});
+      }
+      h.updates[0].onComplete();
+    }
+    assert.equal(h.context.fullChart, 'false');
+    assert.equal(h.editor.disabled, false);
+    assert.equal(h.context.noteSwitchSavePending, false);
+    assert.deepEqual(replacements, []);
+    assert.equal(h.effects.includes('destroy autocomplete'), false);
+    assert.equal(errors.length, 1);
+    h.context.CarlosAjax.request = (url, options) => h.updates.push(options);
+    h.context.viewFullChart(true);
+    assert.equal(h.context.noteSwitchSavePending, true);
+  });
+}
+
+test('full-chart navigation waits for acknowledgement of a dirty note save', () => {
+  const h = switchHarness();
+  h.context.caseNote = 'editor1';
+  h.context.noteIssuesChanged = true;
+  let loads = 0;
+  vm.runInContext(source.slice(source.indexOf('    var fullChart ='), source.indexOf('    var socHistoryLabel;')), h.context);
+  h.context.loadFullChart = () => loads++;
+  h.context.viewFullChart(true);
+  assert.equal(loads, 0);
+  h.updates[0].onFailure({status: 503});
+  h.updates[0].onComplete({status: 503});
+  assert.equal(loads, 0);
+  assert.equal(h.editor.value, 'typed clinical text');
+  assert.equal(h.context.noteIssuesChanged, true);
+});
+
+for (const [index, kind] of ['resolved', 'unresolved'].entries()) {
+  test(`a ${kind} checklist-only edit enters save-on-switch and retains the selection on failure`, () => {
+    const h = switchHarness();
+    h.context.origCaseNote = h.editor.value;
+    const markup = fs.readFileSync(path.join(__dirname, '../src/main/webapp/WEB-INF/jsp/casemgmt/noteIssueList.jsp'), 'utf8');
+    const inputs = markup.match(/<input type="checkbox"[^\n]+name="issueCheckList[^\n]+/g);
+    assert.equal(inputs.length, 2);
+    const handler = inputs[index].match(/onchange="([^"]+)"/);
+    assert.ok(handler, 'AJAX-rendered checkboxes must retain their change handler');
+    vm.runInContext(handler[1], h.context);
+    assert.equal(h.context.noteIssuesChanged, true);
+    h.context.changeToView('editor1');
+    assert.equal(h.updates.length, 1, 'an issue-only change must save before the UI is removed');
+    h.updates[0].onFailure({status: 503});
+    h.updates[0].onComplete({status: 503});
+    assert.equal(h.context.noteIssuesChanged, true);
+    assert.equal(h.effects.includes('teardown'), false);
+  });
+}
+
+test('the first chart load succeeds before a note form or editor exists', () => {
+  const h = switchHarness();
+  h.context.document.forms = {};
+  h.context.caseNote = undefined;
+  const replacements = [];
+  h.fields.notCPP = {update: html => replacements.push(html)};
+  Object.assign(h.context, {
+    assembleMainChartParams: () => 'demographicNo=123',
+    destroyNoteIssueAutocomplete() {}, scrollDownInnerBar() {},
+    DOMParser: class {parseFromString() {return {getElementById: () => ({getAttribute: () => '123'})};}},
+  });
+  vm.runInContext(source.slice(source.indexOf('    var fullChart ='), source.indexOf('    var socHistoryLabel;')), h.context);
+  h.context.viewFullChart(false);
+  assert.equal(h.context.noteSwitchSavePending, true);
+  h.updates[0].onSuccess({status: 200, responseText: 'initial chart'});
+  h.updates[0].onComplete();
+  assert.deepEqual(replacements, ['initial chart']);
+  assert.equal(h.context.noteSwitchSavePending, false);
+});

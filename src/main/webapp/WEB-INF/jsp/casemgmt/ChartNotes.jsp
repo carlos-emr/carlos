@@ -603,7 +603,7 @@
         </table>
     </div>
     <div id="encMainDivWrapper">
-        <div id="encMainDiv">
+        <div id="encMainDiv" data-chart-patient="<carlos:encode value='<%= demographicNo %>' context='htmlAttribute'/>">
 
         </div>
     </div>

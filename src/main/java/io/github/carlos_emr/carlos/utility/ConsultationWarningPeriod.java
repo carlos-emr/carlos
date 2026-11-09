@@ -22,6 +22,12 @@ public final class ConsultationWarningPeriod {
         if (!isValid(value)) throw new IllegalArgumentException("Invalid consultation warning period in months");
     }
 
+    /** Store a canonical value while preserving blank's established default. */
+    public static String normalized(String value) {
+        validate(value);
+        return value == null || value.isBlank() ? "" : Integer.toString(Integer.parseInt(value.trim()));
+    }
+
     /** Historical malformed values must not prevent the clinical panel from loading. */
     public static int monthsOrDefault(String value) {
         if (value == null || value.isBlank()) return 1;

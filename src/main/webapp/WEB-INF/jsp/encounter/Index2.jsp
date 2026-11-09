@@ -53,13 +53,10 @@
 
 <%@ taglib uri="/WEB-INF/caisi-tag.tld" prefix="caisi" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 
-<%@ taglib uri="carlos" prefix="carlos" %>
 
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 

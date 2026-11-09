@@ -308,7 +308,7 @@
                 <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
                 <c:set var="disabled" value="${!writeAccess}" />
 
-                <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
+                <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" onchange="noteIssuesChanged = true;" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''}/>
 
                 <a href="#" onclick="return displayIssue('${winame}');">
                     ${carlos:forHtml(issueCheckList.issueDisplay.description)}
@@ -328,10 +328,10 @@
                 <div id="${winame}" style="margin-left: 20px; display: none;">
                     <div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> <label for="${winame}-acute-true">acute</label>
+                            <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-acute-true">acute</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> <label for="${winame}-acute-false">chronic</label>
+                            <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-acute-false">chronic</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
                             <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-true">certain</label>
@@ -346,10 +346,10 @@
                             <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-false">not major</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline;">
-                            <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> <label for="${winame}-resolved-true">resolved</label>
+                            <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-resolved-true">resolved</label>
                         </div>
                         <div style="width: 50%; float: left; display: inline; clear: right;">
-                            <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> <label for="${winame}-resolved-false">unresolved</label>
+                            <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-resolved-false">unresolved</label>
                         </div>
                         <div style="text-align: center;">
                             <label for="${winame}-role"><fmt:message key="role"/></label>
@@ -391,7 +391,7 @@
             <c:set var="writeAccess" value="${issueCheckList.issueDisplay.writeAccess}" />
             <c:set var="disabled" value="${!writeAccess}" />
 
-            <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
+            <input type="checkbox" id="${id}" data-issue-id="<carlos:encode value='${issueCheckList.issue.id}' context='htmlAttribute'/>" name="issueCheckList[${status.index}].checked" value="on" onchange="noteIssuesChanged = true;" ${issueCheckList.checked == 'on' ? 'checked="checked"' : ''} ${disabled ? 'disabled="disabled"' : ''} />
 
             <a href="#" onclick="return displayIssue('${winame}');">
                 ${carlos:forHtml(issueCheckList.issueDisplay.description)}
@@ -410,10 +410,10 @@
             <div id="${winame}" style="margin-left: 20px; display: none;">
                 <div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" onchange="${submitString}"> <label for="${winame}-acute-true">Acute</label>
+                        <input type="radio" id="${winame}-acute-true" name="issueCheckList[${status.index}].issue.acute" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-acute-true">Acute</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" onchange="${submitString}"> <label for="${winame}-acute-false">Chronic</label>
+                        <input type="radio" id="${winame}-acute-false" name="issueCheckList[${status.index}].issue.acute" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-acute-false">Chronic</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
                         <input type="radio" id="${winame}-certain-true" name="issueCheckList[${status.index}].issue.certain" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-certain-true">Certain</label>
@@ -428,10 +428,10 @@
                         <input type="radio" id="${winame}-major-false" name="issueCheckList[${status.index}].issue.major" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-major-false">Not Major</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline;">
-                        <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" onchange="${submitString}"> <label for="${winame}-resolved-true">Resolved</label>
+                        <input type="radio" id="${winame}-resolved-true" name="issueCheckList[${status.index}].issue.resolved" value="true" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-resolved-true">Resolved</label>
                     </div>
                     <div style="width: 50%; float: left; display: inline; clear: right;">
-                        <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" onchange="${submitString}"> <label for="${winame}-resolved-false">Unresolved</label>
+                        <input type="radio" id="${winame}-resolved-false" name="issueCheckList[${status.index}].issue.resolved" value="false" ${disabled ? 'disabled="disabled"' : ''} onchange="${submitString}"> <label for="${winame}-resolved-false">Unresolved</label>
                     </div>
                     <div style="text-align: center;">
                         <label for="${winame}-role"><fmt:message key="role"/></label>

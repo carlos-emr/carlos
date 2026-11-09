@@ -340,7 +340,7 @@ test('CPP save conflict reopens the filled dialog without replacing the saved ro
   vm.runInContext(block('function updateCPPNote()', '    function clickLoadDiv('), h.context);
   Object.assign(h.context, { sanitizeElementByPattern() {}, CONTROL_CHAR_PATTERN_2: '', caseNote: 'caseNote_note31',
     noteSwitchSavePending: false, beginIssueUpdate: () => () => {},
-    savingNoteError: 'Save failed', CarlosAjax: { request: (url, options) => requests.push(options) } });
+    savingNoteError: 'Save failed', updateIssueError: 'Refresh issues and retry Save', CarlosAjax: { request: (url, options) => requests.push(options) } });
   h.cpp.elements.noteEditTxt = { value: 'dirty CPP draft' };
   Object.assign(h.cpp, { action: '/CaseManagementEntry?method=issueNoteSave', serialize: () => 'noteEditTxt=dirty&issue_id=12' });
   Object.assign(h.fields, { frmIssueNotes: h.cpp, reloadUrl: { value: '/reload' }, containerDiv: { value: 'cppList' },
@@ -349,7 +349,7 @@ test('CPP save conflict reopens the filled dialog without replacing the saved ro
   requests[0].onFailure({ status: 409 });
   assert.equal(h.fields.showEditNote.style.display, 'block');
   assert.equal(h.cpp.elements.noteEditTxt.value, 'dirty CPP draft');
-  assert.equal(rowReplaced, false); assert.deepEqual(h.alerts, ['Save failed 409']);
+  assert.equal(rowReplaced, false); assert.deepEqual(h.alerts, ['Refresh issues and retry Save 409']);
 });
 
 test('assignment controls stay disabled through the sidebar refresh and reenable on completion', () => {

@@ -59,3 +59,43 @@ signing; failed attachment generation cannot replace valid staged attachments.
 - Full-package installation, before/after screenshots and final-head CI remain
   outstanding. Do not mark this draft ready or close the 17 issues based on
   these initial-stage results.
+
+## PR review repair — 9 November 2026
+
+Merged `release/2026.08` at `1335e1b28ab493daf634dfed4d2ba093a9131f82`,
+preserving both sets of localization keys. The following review findings are repaired:
+
+- Resolved and unresolved checklist changes mark the note dirty, including after
+  fragment replacement. All mutation controls respect the rendered issue permission.
+- `issueChange` re-reads the selected patient issue and checks its current program/role
+  write grant before changing the session model or calling persistence.
+- Optional sidebar failures no longer invalidate confirmed clinical issue fields or
+  cancel a queued note save. After an uncertain clinical update, a new Save/Sign attempt
+  reconciles clinical fields with the server while preserving current issue selections;
+  it never resurrects the intent dropped by the failed operation.
+- Quick/Full Chart navigation saves dirty notes before loading, retains the live editor
+  while the request runs, and rejects responses without the expected patient marker.
+  Failure restores controls and leaves the existing chart available for retry.
+- Preference validation displays an escaped error and retains submitted non-secret
+  values. Warning periods are normalized and the schedule consultation tag uses the
+  same safe parser, applying the month offset once.
+- Removed three unused legacy JSP taglibs and the duplicate resolved-issues action.
+  Updated obsolete Java regressions while retaining historical revision/patient checks.
+  The CPP encoding test executes the actual production text encoder.
+
+Validation in an Ubuntu 26.04.1 container with Ubuntu OpenJDK 25.0.5:
+
+- 78 focused JavaScript tests passed without skips.
+- 88 focused Java tests passed without failures, errors or skips, including historical
+  DAO integration, per-issue denial, preference rejection and schedule-alert coverage.
+- WAR/JSP compilation passed; JSP directive audit reports zero dead directives.
+- Pinned DrugRef `93775a045670d5d6b90238ce1dbc551d174ed788` verified successfully:
+  309 tests reported, six existing skips, no failures or errors.
+- Chromium revision 1685886 and chromedriver were downloaded from the supported
+  `storage.googleapis.com` endpoint and verified against `debian/chromium.pin`.
+  carlos-ctl 1.3.1 was downloaded and its published SHA-256 verified.
+
+These results qualify the repaired paths, not the entire 17-ticket completion effort.
+The lock lease/draft lifecycle, Messenger modern encounter PDF, complete legacy
+retirement, installed navigation/concurrency matrix, package lifecycle qualification
+and final-head CI remain outstanding. This ledger does not authorize issue closure.

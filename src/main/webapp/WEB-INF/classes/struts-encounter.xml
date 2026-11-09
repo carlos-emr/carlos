@@ -310,26 +310,6 @@
         </action>
 
 
-        <action name="encounter/displayResolvedIssues" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayResolvedIssues2Action">
-            <result name="labs">/encounter/displayLabs</result>
-            <result name="forms">/encounter/displayForms</result>
-            <result name="msgs">/encounter/displayMessages</result>
-            <result name="eforms">/encounter/displayEForms</result>
-            <result name="docs">/encounter/displayDocuments</result>
-            <result name="measurements">/encounter/displayMeasurements</result>
-            <result name="tickler">/encounter/displayTickler</result>
-            <result name="Dx">/encounter/displayDisease</result>
-            <result name="preventions">/encounter/displayPrevention</result>
-            <result name="consultation">/encounter/displayConsultation</result>
-            <result name="allergies">/encounter/displayAllergy</result>
-            <result name="unresolvedIssues">/encounter/displayIssues</result>
-            <result name="resolvedIssues">/encounter/displayResolvedIssues</result>
-            <result name="Rx">/encounter/displayRx</result>
-            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
-            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
-            <result name="HRM">/encounter/displayHRM</result>
-            <result name="eams">/eaaps/displayEctEaaps</result>
-        </action>
 
         <action name="encounter/displayIssues" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayIssues2Action">
             <result name="labs">/encounter/displayLabs</result>

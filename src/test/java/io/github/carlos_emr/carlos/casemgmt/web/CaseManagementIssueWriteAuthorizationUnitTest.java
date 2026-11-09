@@ -260,6 +260,29 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         assertThat(fixture.action.request.getAttribute("change_flag")).isNull();
     }
 
+    @Test
+    void shouldRefuseIssueChangeWithoutModelMutation_whenFreshIssuePermissionIsDenied() throws Exception {
+        var fixture = issueFixture(true);
+        fixture.action.request.getSession().setAttribute(
+                io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "23");
+        var rendered = fixture.form.getIssueCheckList().get(0).getIssue();
+        var fresh = spy(new io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue());
+        fresh.setId(91L);
+        fresh.setDemographic_no(101);
+        doReturn(false).when(fresh).isWriteAccess("999998", 23);
+        var issues = (io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO)
+                org.springframework.test.util.ReflectionTestUtils.getField(fixture.action, "caseManagementIssueDao");
+        when(issues.findById(91L)).thenReturn(fresh);
+
+        assertThatThrownBy(fixture.action::issueChange).isInstanceOf(SecurityException.class);
+
+        verify(fresh).isWriteAccess("999998", 23);
+        verifyNoInteractions(fixture.manager);
+        assertThat(fresh.isResolved()).isFalse();
+        assertThat(rendered.isResolved()).isFalse();
+        assertThat(fixture.form.getIssueCheckList().get(0).getIssue()).isSameAs(rendered);
+    }
+
     record Fixture(CaseManagementEntry2Action action,CaseManagementManager manager,CaseManagementEntryFormBean form) {}
     Fixture issueFixture(boolean accessible) {
         var action=mock(CaseManagementEntry2Action.class,CALLS_REAL_METHODS);
@@ -275,7 +298,15 @@ class CaseManagementIssueWriteAuthorizationUnitTest extends CarlosUnitTestBase {
         injectDependency(action,"securityInfoManager",permissions);
         var manager=mock(CaseManagementManager.class);action.caseManagementMgr=manager;
         var form=new CaseManagementEntryFormBean();var box=new CheckBoxBean();
-        box.getIssue().setDemographic_no(101);form.setIssueCheckList(new ArrayList<>(List.of(box)));
+        var issue = spy(box.getIssue());
+        issue.setId(91L);
+        issue.setDemographic_no(101);
+        doReturn(true).when(issue).isWriteAccess("999998", 0);
+        box.setIssue(issue);
+        var issues = mock(io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO.class);
+        when(issues.findById(91L)).thenReturn(issue);
+        injectDependency(action, "caseManagementIssueDao", issues);
+        form.setIssueCheckList(new ArrayList<>(List.of(box)));
         request.getSession().setAttribute("caseManagementEntryForm101",form);action.setLineId("0");
         request.getSession().setAttribute(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.class.getName() + ".101", "0");
         return new Fixture(action,manager,form);

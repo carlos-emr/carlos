@@ -28,9 +28,11 @@ test('CPP issue components preserve delimiters, Unicode and literal percent esca
   const payload = ['17', 'A;B', description].map(encodeURIComponent).join(';');
   const start = source.indexOf('        var noteIssueUl =');
   const end = source.indexOf('        var noteInfo =', start);
-  const context = {noteIssues: payload, escapeNoteText: s => String(s).replaceAll('<', '&lt;').replaceAll('>', '&gt;'), getCPP: () => ''};
-  vm.createContext(context); vm.runInContext(source.slice(start, end), context);
+  const context = {noteIssues: payload, getCPP: () => ''};
+  vm.createContext(context);
+  vm.runInContext(section('    function escapeNoteText(', '    function completeChangeToView('), context);
+  vm.runInContext(source.slice(start, end), context);
   assert.match(context.noteIssueUl, /value='17'/);
-  assert.ok(context.noteIssueUl.includes("Patient's; Other Meds %20 &lt;b&gt;ü&lt;/b&gt;"));
+  assert.ok(context.noteIssueUl.includes("Patient&#39;s; Other Meds %20 &lt;b&gt;ü&lt;/b&gt;"));
   assert.equal(context.noteIssueUl.includes('<b>'), false);
 });
