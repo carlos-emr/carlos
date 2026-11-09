@@ -1832,7 +1832,30 @@
             },
             {
               "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)",
-              "container": ""
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[1]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[2]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[3]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[4]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[5]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[6]"
+                },
+                {
+                  "name": "shouldArchiveEntireSourceAmount_withoutNumericCoercion(String)[7]"
+                }
+              ]
             },
             {
               "name": "shouldPreserveAllCodeCharacters_whenBodyPartSearchIsWrapped",
@@ -2697,11 +2720,42 @@
             },
             {
               "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)",
-              "container": ""
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[1]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[2]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[3]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[4]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[5]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[6]"
+                },
+                {
+                  "name": "shouldRefuseUnrepresentableAmounts_withoutPublishingOrMarkingBilled(String)[7]"
+                }
+              ]
             },
             {
               "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)",
-              "container": ""
+              "container": "",
+              "destinations": [
+                {
+                  "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[1]"
+                },
+                {
+                  "name": "shouldEncodeDecimalDollarsAsExactCents_andKeepTheActivityTotalConsistent(boolean)[2]"
+                }
+              ]
             }
           ]
         }
