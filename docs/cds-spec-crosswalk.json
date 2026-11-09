@@ -39141,7 +39141,7 @@
       "immunization-clinical": {
         "destination": "Prevention preventionType/refused/preventionDate; PreventionExt cdsName/manufacture/lot/route/location/dose/comments/instructions/cdsCode/cdsCodeSystem/cdsType/cdsDateOriginal/cdsDatePrecision.",
         "disposition": "native-and-source",
-        "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
+        "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion. Unexpected legacy list, single-record and extension-linked source failures propagate PREVENTION_SOURCE_UNAVAILABLE instead of returning an empty or partial chart; protected logs contain only exception types and code locations.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationPersister.java",
@@ -39175,7 +39175,7 @@
           "src/main/java/io/github/carlos_emr/carlos/commn/dao/PartialDateDaoImpl.java",
           "src/main/java/io/github/carlos_emr/carlos/commn/model/PartialDate.java"
         ],
-        "normalization": "RefusedFlag required, both enum/Boolean choices precise. Optional unknown date stays null; year/month anchors require partial_date and precision-aware readers. No importing-provider attribution as administering clinician. Calendar-only dates use strict native civil anchors without asserting a source clock/instant; year/month precision remains separate. Exact timestamps must retain their reverse native instant, including DST folds, or require preflight review. DATETIME(0) floors seconds with full-source subsecond diagnostics; no blanket year-1000 minimum is imposed. ImmunizationType selects a configured PREVENTION_ITEMS injection key through healthCanadaType, matching native CVC preference and generic overrides; absent/unmapped types use OtherA. The source name remains cdsName, not a native prevention key.",
+        "normalization": "RefusedFlag required, both enum/Boolean choices precise. Optional unknown date stays null; year/month anchors require partial_date and precision-aware readers. No importing-provider attribution as administering clinician. Calendar-only dates use strict native civil anchors without asserting a source clock/instant; year/month precision remains separate. Exact timestamps must retain their reverse native instant, including DST folds, or require preflight review. DATETIME(0) floors seconds with full-source subsecond diagnostics; no blanket year-1000 minimum is imposed. ImmunizationType selects a configured PREVENTION_ITEMS injection key through healthCanadaType, matching native CVC preference and generic overrides; absent/unmapped types use OtherA. The source name remains cdsName, not a native prevention key. Owning legacy list queries fetch precision extensions before detachment. The single-record reader uses its already loaded extension projection, and FHIR checks date precision after explicitly loading extensions; neither substitutes a native date for uncertain imported precision.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 11 (Immunizations)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39186,7 +39186,9 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalSourceService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/web/ViewCdsSourceFields2Action.java",
           "src/main/webapp/WEB-INF/jsp/demographic/cdsSourceFields.jsp",
-          "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDateService.java"
+          "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionDateService.java",
+          "src/main/java/io/github/carlos_emr/carlos/prevention/PreventionData.java#getPreventionById",
+          "src/main/java/io/github/carlos_emr/carlos/integration/fhir/manager/OscarFhirResourceManager.java#getImmunizationById"
         ],
         "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
         "tests": [
@@ -39200,7 +39202,10 @@
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalPersisterUnitTest.java#shouldRefuseUnrepresentableNativeDatesInCompletePreflight_beforeAnyClinicalDaoWrite",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalStorageMariaDbIntegrationTest.java#shouldPreserveEarlyCivilDatesAndRecordedPrecision_throughNativeImmunizationWriter",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationProjectionIntegrationTest.java",
-          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCvcCatalogueMariaDbIntegrationTest.java#existingNativeCvcFindersKeepTheirHistoricalContractsBesideTheRawReaders"
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportCvcCatalogueMariaDbIntegrationTest.java#existingNativeCvcFindersKeepTheirHistoricalContractsBesideTheRawReaders",
+          "src/test/java/io/github/carlos_emr/carlos/prevention/pageUtil/PreventionPrintLoaderIntegrationTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/prevention/PreventionDataExtensionLookupUnitTest.java",
+          "src/test/java/io/github/carlos_emr/carlos/integration/fhir/manager/OscarFhirResourceManagerImmunizationUnitTest.java"
         ],
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
@@ -40490,7 +40495,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described.",
-    "sha256": "9053cd93329e22c7190f12c256d0f93d3669a0d2e16b1c5455794f1268c554e1"
+    "sha256": "172f462aeb33136c01e9b554f76355801b58788e120200b086eeb988d36cc49c"
   },
   "root": "cds:OmdCds",
   "schemas": [

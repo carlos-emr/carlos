@@ -58,6 +58,20 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRefuseASourceFailure_insteadOfReturningTheAlreadyReadClinicalRows() {
+        when(extensionDao.findByKeyAndValue("workflowId", "17")).thenReturn(List.of(link(41), link(42)));
+        when(preventionDao.find(Integer.valueOf(41))).thenReturn(injection(41));
+        when(preventionDao.find(Integer.valueOf(42)))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException(CLINICAL_MARKER));
+        try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class);
+             LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> PreventionData.getPreventionDataFromExt("workflowId", "17"))
+                    .isInstanceOf(IllegalStateException.class).hasMessage("PREVENTION_SOURCE_UNAVAILABLE");
+            assertThat(logs.messages()).noneMatch(message -> message.contains(CLINICAL_MARKER));
+        }
+    }
+
+    @Test
     void shouldReturnLinkedInjectionFields_withoutParsingOrLoggingClinicalEntityText() {
         Prevention injection = injection(41);
         when(extensionDao.findByKeyAndValue("workflowId", "17")).thenReturn(List.of(link(41)));

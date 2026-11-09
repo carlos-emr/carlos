@@ -66,6 +66,11 @@ public class PreventionData {
         // prevent instantiation
     }
 
+    private static IllegalStateException sourceUnavailable(Exception failure) {
+        log.error("PREVENTION_SOURCE_UNAVAILABLE {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failure));
+        return new IllegalStateException("PREVENTION_SOURCE_UNAVAILABLE", failure);
+    }
+
     private static PreventionDateDTO dateOf(Prevention prevention) {
         return PreventionDateDTO.from(prevention.getPreventionDate(), prevention.getId() == null ? null
                 : partialDateDao.getFormat(PartialDate.PREVENTION, prevention.getId(), PartialDate.PREVENTION_PREVENTIONDATE));
@@ -286,7 +291,7 @@ public class PreventionData {
                 }
             }
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw sourceUnavailable(e);
         }
         return list;
     }
@@ -461,8 +466,7 @@ public class PreventionData {
         } catch (PreventionDatePrecisionException unsafeDate) {
             throw unsafeDate;
         } catch (Exception e) {
-            log.error("PREVENTION_SOURCE_UNAVAILABLE {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
-            throw new IllegalStateException("PREVENTION_SOURCE_UNAVAILABLE", e);
+            throw sourceUnavailable(e);
         }
         return list;
     }
@@ -661,7 +665,7 @@ public class PreventionData {
         } catch (PreventionDatePrecisionException unsafeDate) {
             throw unsafeDate;
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            throw sourceUnavailable(e);
         }
         return h;
     }
