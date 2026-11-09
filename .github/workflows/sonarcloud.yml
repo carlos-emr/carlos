@@ -212,7 +212,8 @@ jobs:
                   issues = []
                   for page in range(1, 21):
                       params = urlencode({"componentKeys": "carlos-emr_carlos", "pullRequest": pr,
-                                          "resolved": "false", "ps": 500, "p": page})
+                                          "issueStatuses": "OPEN,CONFIRMED",
+                                          "sinceLeakPeriod": "true", "ps": 500, "p": page})
                       connection = HTTPSConnection("sonarcloud.io", timeout=30,
                                                    context=ssl.create_default_context())
                       try:
@@ -232,7 +233,8 @@ jobs:
                           break
                   print("Sonar maintainability issues on this PR: " + str(len(issues)))
                   for index, issue in enumerate(issues[:50], 1):
-                      detail = {key: issue.get(key) for key in ("rule", "component", "line", "message")}
+                      detail = {key: issue.get(key) for key in
+                                ("rule", "component", "line", "effort", "message")}
                       preview = json.dumps(detail, ensure_ascii=True).replace(token, "[REDACTED]")
                       preview = preview.replace("%", "%25")[:2000]
                       print(f"::notice title=Sonar maintainability {index} of {len(issues)}::{preview}")
