@@ -3257,8 +3257,6 @@ public class CaseManagementEntry2Action extends ActionSupport implements Session
         request.setAttribute("demoAge", getDemoAge(demono));
         request.setAttribute("demoDOB", getDemoDOB(demono));
 
-        logger.debug("issueChange field={} value={}", LogSafe.sanitize(field), value);
-
         CaseManagementIssue changed = applyIssueFlag(target.getIssue(), field, value);
         caseManagementMgr.saveAndUpdateCaseIssues(new ArrayList<>(List.of(changed)));
         // Change issueDisplay if this issue is successfully saved.
