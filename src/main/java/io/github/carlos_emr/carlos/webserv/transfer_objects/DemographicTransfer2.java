@@ -134,6 +134,8 @@ public final class DemographicTransfer2 {
         this.patientStatus = patientStatus;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getPatientStatusDate() {
         return (patientStatusDate);
     }
@@ -224,6 +226,8 @@ public final class DemographicTransfer2 {
         this.sexDesc = sexDesc;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getDateJoined() {
         return (dateJoined);
     }
@@ -264,6 +268,8 @@ public final class DemographicTransfer2 {
         this.postal = postal;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getHcRenewDate() {
         return (hcRenewDate);
     }
@@ -288,6 +294,8 @@ public final class DemographicTransfer2 {
         this.pcnIndicator = pcnIndicator;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getEndDate() {
         return (endDate);
     }
@@ -336,6 +344,8 @@ public final class DemographicTransfer2 {
         this.yearOfBirth = yearOfBirth;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getEffDate() {
         return (effDate);
     }
@@ -344,6 +354,8 @@ public final class DemographicTransfer2 {
         this.effDate = effDate;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getRosterDate() {
         return (rosterDate);
     }
@@ -352,6 +364,8 @@ public final class DemographicTransfer2 {
         this.rosterDate = rosterDate;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getRosterTerminationDate() {
         return (rosterTerminationDate);
     }
@@ -480,6 +494,8 @@ public final class DemographicTransfer2 {
         this.lastUpdateUser = lastUpdateUser;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getLastUpdateDate() {
         return (lastUpdateDate);
     }

@@ -111,7 +111,7 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
     /** Exercises legacy JSON payloads through CXF and the real update manager. */
     @ParameterizedTest
     @org.junit.jupiter.params.provider.MethodSource("legacyAppointmentEdits")
-    void shouldAcceptLegacyPayload_whenEditVersionIsAbsentOrBlank(String path, String versionField) {
+    void shouldAcceptLegacyPayload_whenEditVersionIsAbsentOrBlank(String path, String versionField, String mode) {
         registerMock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class,
                 mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class));
         registerMock(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao.class,
@@ -144,7 +144,9 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
             return null;
         }).when(appointments).flush();
 
-        try (Response response = request().path(path).post("{\"id\":42," + versionField
+        var editRequest = request().path(path);
+        if (mode != null) editRequest.header(ScheduleService.APPOINTMENT_WRITE_MODE_HEADER, mode);
+        try (Response response = editRequest.post("{\"id\":42," + versionField
                         + "\"status\":\"new\",\"type\":\"new\",\"urgency\":\"new\","
                         + "\"reason\":\"FAKE-edit\",\"creator\":\"over-posted\"}")) {
             assertThat(response.getStatus()).isEqualTo(200);
@@ -171,9 +173,12 @@ class ScheduleServiceEndpointTest extends CarlosRestTestBase {
     static java.util.stream.Stream<org.junit.jupiter.params.provider.Arguments> legacyAppointmentEdits() {
         return java.util.stream.Stream.of("/schedule/updateAppointment", "/schedule/appointment/42/updateStatus",
                 "/schedule/appointment/42/updateType", "/schedule/appointment/42/updateUrgency").flatMap(path ->
-                java.util.stream.Stream.of("", "\"editVersion\":null,", "\"editVersion\":\"\",",
-                        "\"editVersion\":\"   \",").map(version ->
-                        org.junit.jupiter.params.provider.Arguments.of(path, version)));
+                java.util.stream.Stream.concat(
+                        java.util.stream.Stream.of("", "\"editVersion\":null,", "\"editVersion\":\"\",",
+                                "\"editVersion\":\"   \",").map(version ->
+                                org.junit.jupiter.params.provider.Arguments.of(path, version, null)),
+                        java.util.stream.Stream.of(org.junit.jupiter.params.provider.Arguments.of(path,
+                                "\"editVersion\":\"stale-unaware-echo\",", "legacy-echo"))));
     }
 
     /** Verifies that version failures survive CXF routing and JSON serialization. */

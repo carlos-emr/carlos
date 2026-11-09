@@ -1,0 +1,43 @@
+# XML compatibility profiles
+
+The default remains the published WSDL contract. No header is required. Profiles
+are selected explicitly per HTTP request with `X-Carlos-XML-Profile`; SOAP and
+both application REST servers use the same selection. They do not change JSON,
+authentication or authorization. Requests must continue to specify their media
+type and authentication normally.
+
+| Header value | XML behavior |
+| --- | --- |
+| `published` (or no header) | Literal character values, empty NUL sentinel, and birthday `xs:dateTime` with the calendar's zone offset. |
+| `moxy-date-only-birthday` | Retains the historical MOXy birthday representation, including a date-only value for a cleared date-only Calendar. Other properties retain the published contract. |
+| `glassfish-numeric-characters` | Character scalars, arrays, list entries and map keys use decimal UTF-16 code units from 0 through 65535, as the historical Glassfish reader expects. Other properties retain the published contract. |
+
+For example, numeric `<code>0</code>` is U+0000 under the numeric profile, while
+literal `<code>0</code>` is U+0030 under the published and MOXy birthday profiles.
+The server never infers a profile from field content. Numeric clients must send
+the header for **reads and writes**, including each request in a paged export.
+No deployment-wide switch or remembered session state changes another client.
+
+The response identifies the selected profile and includes the profile header
+in `Vary`. Clients must retain this header through their reverse proxy and verify
+it when selecting an alternate format. Unknown, blank, duplicate or combined
+profile selections fail explicitly (REST 400; SOAP client fault), rather than
+falling back. XML binding errors also fail: an invalid character must not become
+a null property or null map key. A profile grants no permission to fetch a
+patient or field that the caller cannot otherwise access.
+
+The names deliberately describe individual compatibility differences. These
+are not complete emulations of a JAXB provider. In particular, the numeric
+character profile does not change prescription element ordering or publish a
+different WSDL. Clients requiring historical prescription sequences still need
+the outstanding versioned contract work recorded in the acceptance ledger.
+The published schemas, clinical precision carriers and both JSON surfaces stay
+covered by their existing contract tests.
+
+Rollback requires client coordination: a server without these profiles cannot
+honor the header. Keep the release candidate and its configuration together;
+do not route profiled traffic to an older instance. Restore the client to the
+published contract before removing profile support. The default contract has
+no migration or database requirement.
+
+Optional Date properties in SOAP transfer objects accept absent, empty and whitespace-only values as null. Malformed values produce a fault, and real date-time instants retain fractional seconds. All 45 current Date properties keep their published xs:dateTime schema type under both JAXB providers. This does not alter JSON date representation or unrelated REST XML date recovery.

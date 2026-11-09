@@ -173,6 +173,8 @@ public final class DocumentTransfer {
         this.programId = programId;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getUpdatedatetime() {
         return (updatedatetime);
     }
@@ -197,6 +199,8 @@ public final class DocumentTransfer {
         this.contenttype = contenttype;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getContentdatetime() { return contentdatetime; }
     public void setContentdatetime(Date value) { contentdatetime=value; }
     /** Imported source precision; no timestamp is inferred for an absent source clock. */
@@ -211,6 +215,8 @@ public final class DocumentTransfer {
         this.public1 = public1;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getObservationdate() {
         return (observationdate);
     }
@@ -227,6 +233,8 @@ public final class DocumentTransfer {
         this.reviewer = reviewer;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getReviewdatetime() {
         return (reviewdatetime);
     }

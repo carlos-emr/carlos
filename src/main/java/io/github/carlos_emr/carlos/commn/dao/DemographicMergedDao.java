@@ -43,5 +43,10 @@ public interface DemographicMergedDao extends AbstractDao<DemographicMerged> {
 
     public List<DemographicMerged> findByDemographicNo(int demographicNo);
 
+    /** Current links only; historical lookup remains available to existing consumers. */
+    default List<DemographicMerged> findActiveByParentAndChildIds(Integer parentId, Integer childId) {
+        return findByParentAndChildIds(parentId, childId).stream().filter(link -> link.getDeleted() == 0).toList();
+    }
+
     public List<DemographicMerged> findByParentAndChildIds(Integer parentId, Integer childId);
 }

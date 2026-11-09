@@ -172,6 +172,8 @@ public final class ProviderTransfer {
         this.specialty = specialty;
     }
 
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getDob() {
         return (dob);
     }
@@ -214,6 +216,8 @@ public final class ProviderTransfer {
 
     // On the getter: the field is named SignedConfidentiality and would not bind to this property.
     @JsonFormat(shape = JsonFormat.Shape.NUMBER)
+    @jakarta.xml.bind.annotation.adapters.XmlJavaTypeAdapter(io.github.carlos_emr.carlos.utility.xml.OptionalDateXmlAdapter.class)
+    @jakarta.xml.bind.annotation.XmlSchemaType(name = "dateTime")
     public Date getSignedConfidentiality() {
         return (SignedConfidentiality);
     }

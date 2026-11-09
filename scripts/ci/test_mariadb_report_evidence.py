@@ -26,6 +26,19 @@ GROWTH_REQUIRED_CASES = {
 }
 
 
+TOKEN_REQUIRED_CASES = {
+    "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[1]",
+    "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[2]",
+    "shouldUseEpochExpiryAcrossDatabaseZones_withoutDeletingRecentOrOtherPurposeTokens(String)[3]",
+    "shouldBoundDeletionBatches_andReportActualIdempotentCounts",
+    "shouldRefuseCorruptSoapMetadata_withoutPartiallyDeletingValidRows",
+    "shouldRollbackEarlierDeletes_whenALaterDeleteFails",
+    "shouldRefuseNonTransactionalStorage_beforeAnyDeletion",
+    "shouldRefuseAnExistingTransaction_withoutCommittingOrRollingBackCallerWork",
+}
+MERGE_REQUIRED_CASES = {"shouldRefuseDeniedParticipants_beforeAnyDatabaseOrAuditChange"}
+
+
 class MariaDbReportEvidenceTest(unittest.TestCase):
     def setUp(self):
         directory = tempfile.TemporaryDirectory()
@@ -53,7 +66,11 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
             for family, count in required.items():
                 suite = self.suite(family)
                 suffix = "" if selected == "generated" else "-" + selected
-                required_names = sorted(GROWTH_REQUIRED_CASES) if family == "Growth0To36FormPersistenceIntegrationTest" else []
+                required_names = sorted({
+                    "Growth0To36FormPersistenceIntegrationTest": GROWTH_REQUIRED_CASES,
+                    "SoapTokenHousekeepingDaoIntegrationTest": TOKEN_REQUIRED_CASES,
+                    "DemographicMergeMariaDbIntegrationTest": MERGE_REQUIRED_CASES,
+                }.get(family, set()))
                 def case(index):
                     fault = tag if selected == mode and family == next(iter(required)) and index == 0 else ""
                     name = required_names[index] if index < len(required_names) else f"shouldRead_forRow{index}"
@@ -110,6 +127,22 @@ class MariaDbReportEvidenceTest(unittest.TestCase):
                 finally:
                     report.write_text(original)
                     foreign.unlink()
+
+    def test_cleanup_and_chart_denial_cases_are_required_without_changing_family_counts(self):
+        self.seed()
+        for mode in MODULE.REQUIRED:
+            suffix = "" if mode == "generated" else "-" + mode
+            for family, names in (("SoapTokenHousekeepingDaoIntegrationTest", TOKEN_REQUIRED_CASES),
+                                  ("DemographicMergeMariaDbIntegrationTest", MERGE_REQUIRED_CASES)):
+                report = self.reports / ("TEST-" + self.suite(family) + suffix + ".xml")
+                original = report.read_text()
+                for name in names:
+                    with self.subTest(mode=mode, family=family, case=name):
+                        report.write_text(original.replace('name="' + name + '"', 'name="unrelatedCase"'))
+                        try:
+                            self.assert_refused(self.invoke(), f"Required MariaDB {mode} cases missing: {family}")
+                        finally:
+                            report.write_text(original)
 
     def test_clean_controls_pass_in_both_python_modes(self):
         self.seed()

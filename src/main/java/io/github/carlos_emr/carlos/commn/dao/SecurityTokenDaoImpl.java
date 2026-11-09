@@ -48,8 +48,25 @@ public class SecurityTokenDaoImpl extends AbstractDaoImpl<SecurityToken> impleme
     }
 
     @Override
+    public SecurityToken findSoapToken(String tokenHash) {
+        if (tokenHash == null || !tokenHash.matches("soap1:[0-9a-f]{64}")) throw new IllegalArgumentException("Invalid SOAP token hash");
+        var rows = entityManager.createQuery("SELECT t FROM SecurityToken t WHERE t.token = :token", SecurityToken.class)
+                .setParameter("token", tokenHash).setMaxResults(2).getResultList();
+        if (rows.size() > 1) throw new IllegalStateException("Ambiguous SOAP token storage");
+        return rows.isEmpty() ? null : rows.getFirst();
+    }
+
+    @Override
+    public int revokeSoapTokens(String ownerPrefix) {
+        if (ownerPrefix == null || !ownerPrefix.matches("soap1:[1-9][0-9]*:")) throw new IllegalArgumentException("Invalid SOAP token owner");
+        return entityManager.createQuery("DELETE FROM SecurityToken t WHERE t.token LIKE 'soap1:%' "
+                        + "AND t.data LIKE :owner")
+                .setParameter("owner", ownerPrefix + "%").executeUpdate();
+    }
+
+    @Override
     public SecurityToken getByTokenAndExpiry(String token, Date expiry) {
-        Query query = entityManager.createQuery("select t from SecurityToken t where t.token=?1 and t.expiry >= ?2 ");
+        Query query = entityManager.createQuery("select t from SecurityToken t where t.token=?1 and t.expiry >= ?2 and t.token NOT LIKE 'soap1:%' ");
         query.setParameter(1, token);
         query.setParameter(2, expiry);
 

@@ -245,9 +245,12 @@ public class DemographicService extends AbstractServiceImpl {
      * A null or zero offset starts at the first row; a null or zero limit uses the DAO
      * maximum (500). Negative values and limits above the maximum are rejected with HTTP 400.
      *
-     * @param offset First record in the entire result set to be returned
-     * @param limit  Maximum total number of records that should be returned
-     * @return Returns all demographics.
+     * Rows and totals include only active patients the caller may read. Offset and limit
+     * apply to that permitted set, so restricted rows cannot create premature empty pages.
+     *
+     * @param offset First permitted active patient to return
+     * @param limit Maximum number of permitted patients to return
+     * @return Permitted active demographics with an authorized total.
      * @throws BadRequestException if pagination is negative or the limit exceeds the DAO maximum
      */
     @GET

@@ -30,9 +30,43 @@ class DateXmlAdapterUnitTest extends CarlosUnitTestBase {
             var actual = adapter.marshal(value);
             assertThat(actual.toXMLFormat()).isEqualTo(expected);
             assertThat(adapter.unmarshal(actual)).isEqualTo(value);
+            var optional = new OptionalDateXmlAdapter();
+            assertThat(optional.marshal(value)).isEqualTo(expected);
+            assertThat(optional.unmarshal(optional.marshal(value))).isEqualTo(value);
         } finally {
             TimeZone.setDefault(previous);
         }
+    }
+
+    @Test
+    void shouldPreserveNullAndWholeSeconds_forOptionalMeasurementDates() {
+        var optional = new OptionalDateXmlAdapter();
+        assertThat(optional.marshal(null)).isNull();
+        assertThat(optional.unmarshal(null)).isNull();
+        Date whole = Date.from(Instant.parse("2026-01-01T12:34:56Z"));
+        assertThat(optional.marshal(whole)).doesNotContain(".0");
+        assertThat(optional.unmarshal(optional.marshal(whole))).isEqualTo(whole);
+    }
+
+    @Test
+    void shouldAcceptBlankOptionalDates_withStrictSoapReader() throws Exception {
+        var context = jakarta.xml.bind.JAXBContext.newInstance(
+                io.github.carlos_emr.carlos.webserv.transfer_objects.MeasurementTransfer.class);
+        var reader = context.createUnmarshaller();
+        reader.setEventHandler(event -> false);
+        for (String content : new String[]{"", "   "}) {
+            var input = new javax.xml.transform.stream.StreamSource(new java.io.StringReader(
+                    "<measurement><createDate>" + content + "</createDate><dateObserved/> </measurement>"));
+            var value = reader.unmarshal(input,
+                    io.github.carlos_emr.carlos.webserv.transfer_objects.MeasurementTransfer.class).getValue();
+            assertThat(value.getCreateDate()).isNull();
+            assertThat(value.getDateObserved()).isNull();
+        }
+        var invalid = new javax.xml.transform.stream.StreamSource(new java.io.StringReader(
+                "<measurement><createDate>invalid</createDate></measurement>"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> reader.unmarshal(invalid,
+                io.github.carlos_emr.carlos.webserv.transfer_objects.MeasurementTransfer.class))
+                .isInstanceOf(jakarta.xml.bind.UnmarshalException.class);
     }
 
     @Test

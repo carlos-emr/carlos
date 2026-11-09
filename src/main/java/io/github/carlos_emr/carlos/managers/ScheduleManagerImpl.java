@@ -285,7 +285,7 @@ public class ScheduleManagerImpl implements ScheduleManager {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
         }
         if (!hasVersion) {
-            logger.warn("Appointment update without editVersion uses legacy last-writer-wins behavior; "
+            logger.debug("Appointment update without editVersion uses legacy last-writer-wins behavior; "
                     + "clients should echo editVersion to enable conflict detection");
         }
         // Archive the unmodified locked row. Validation, archive and mutation share this
@@ -389,8 +389,8 @@ public class ScheduleManagerImpl implements ScheduleManager {
         Date sDate = null;
         Date eDate = null;
         try {
-            sDate = IsoDates.parseIso8601Date(sDateStr);
-            eDate = IsoDates.parseIso8601Date(eDateStr);
+            sDate = IsoDates.parseStrictDate(sDateStr);
+            eDate = IsoDates.parseStrictDate(eDateStr);
         } catch (Exception e) {
             throw new WebApplicationException(Response.status(Status.BAD_REQUEST).entity("Path parameter has the wrong format").build());
         }

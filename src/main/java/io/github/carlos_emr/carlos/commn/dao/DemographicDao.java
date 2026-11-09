@@ -76,6 +76,11 @@ public interface DemographicDao {
 
     public List<Demographic> getActiveDemographics(final int offset, final int limit);
 
+    /** Bounded identifier-only scan used to count authorized active patients. */
+    default List<Integer> getActiveDemographicIds(int offset, int limit) {
+        return getActiveDemographics(offset, limit).stream().map(Demographic::getDemographicNo).toList();
+    }
+
     public Demographic getDemographicById(Integer demographic_id);
 
     /** Reads only ID and name columns, in batches of at most 500 distinct IDs. */

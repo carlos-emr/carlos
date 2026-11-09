@@ -245,26 +245,33 @@ public class OAuth1SignatureVerifierImplementation implements OAuth1SignatureVer
         return r == 0 && a.length() == b.length();
     }
 
-    // NOTE: this decodes each %XX as one char (byte-as-char), so a multi-byte
-    // UTF-8 escape such as %C3%A9 yields "Ã©" rather than "é". This is a
-    // pre-existing trait of the signature base-string normalisation, not added
-    // by the nonce-replay work. Replay protection stays correct regardless: the
-    // nonce key is decoded with this same function, and pct() (the re-encoder)
-    // is injective, so the replay-key equivalence classes match the signature's
-    // exactly. Making this RFC 3986 UTF-8-aware would change the base string for
-    // every OAuth1 client and so is deferred to a dedicated, signature-tested
-    // change rather than bundled here.
+    // Signature normalization and replay-key canonicalization share this decoder.
+    // Keep their UTF-8 interpretation identical while retaining literal '+' semantics.
     private static String pctDecode(String s) {
         if (s == null || s.isEmpty()) return s;
-        int n = s.length(); StringBuilder out = new StringBuilder(n);
-        for (int i = 0; i < n; i++) {
-            char c = s.charAt(i);
-            if (c == '%' && i + 2 < n) {
+        StringBuilder out = new StringBuilder(s.length());
+        for (int i = 0; i < s.length();) {
+            if (s.charAt(i) != '%' || i + 2 >= s.length()
+                    || Character.digit(s.charAt(i + 1), 16) < 0
+                    || Character.digit(s.charAt(i + 2), 16) < 0) {
+                out.append(s.charAt(i++));
+                continue;
+            }
+            // Decode the full escaped byte sequence together; a UTF-8 character may span
+            // several percent escapes. Do not replace malformed bytes and sign altered text.
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            while (i + 2 < s.length() && s.charAt(i) == '%') {
                 int hi = Character.digit(s.charAt(i + 1), 16);
                 int lo = Character.digit(s.charAt(i + 2), 16);
-                if (hi >= 0 && lo >= 0) { out.append((char) ((hi << 4) + lo)); i += 2; continue; }
+                if (hi < 0 || lo < 0) break;
+                bytes.write((hi << 4) + lo);
+                i += 3;
             }
-            out.append(c);
+            try {
+                out.append(UTF8.newDecoder().decode(java.nio.ByteBuffer.wrap(bytes.toByteArray())));
+            } catch (java.nio.charset.CharacterCodingException invalid) {
+                throw new IllegalArgumentException("Invalid percent-encoded UTF-8");
+            }
         }
         return out.toString();
     }

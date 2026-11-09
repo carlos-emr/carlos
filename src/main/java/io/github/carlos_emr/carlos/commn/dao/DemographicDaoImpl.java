@@ -237,9 +237,19 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     }
 
     @Override
+    public List<Integer> getActiveDemographicIds(int offset, int limit) {
+        if (offset < 0 || limit < 1 || limit > MAX_SEARCH_RESULT_SIZE) {
+            throw new IllegalArgumentException("Invalid demographic scan pagination");
+        }
+        return entityManager().createQuery("SELECT d.demographicNo FROM Demographic d "
+                + "WHERE d.patientStatus = 'AC' ORDER BY d.demographicNo", Integer.class)
+                .setFirstResult(offset).setMaxResults(limit).getResultList();
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public List<Demographic> getActiveDemographics(final int offset, final int limit) {
-        Query query = entityManager().createQuery("FROM Demographic d WHERE d.patientStatus = 'AC'");
+        Query query = entityManager().createQuery("FROM Demographic d WHERE d.patientStatus = 'AC' ORDER BY d.demographicNo");
         if (offset > 0) {
             query.setFirstResult(offset);
         }
@@ -501,7 +511,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 if (where.length() > 0)
                     sqlCommand = sqlCommand + " where " + where;
             }
-            var q = session.createQuery(sqlCommand, Demographic.class);
+            var q = session.createQuery(sqlCommand + " order by x.demographicNo", Demographic.class);
             if (ln.length() > 0)
                 q.setParameter("ln", ln + "%");
             if (fn.length() > 0)
@@ -1330,7 +1340,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         else {
             sqlCommand = "from Demographic d where"
                 + sqlParameters.substring(" and".length(), sqlParameters.length())
-                + (orderByName ? " order by d.lastName, d.firstName" : "");
+                + (orderByName ? " order by d.lastName, d.firstName, d.demographicNo" : " order by d.demographicNo");
         }
 
         EntityManager session = entityManager();
@@ -3205,7 +3215,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             orderBy = "d.sex " + orderDir;
         }
 
-        orderBy = " ORDER BY " + orderBy;
+        orderBy = "count(*)".equals(select) ? "" : " ORDER BY " + orderBy + ",d.demographic_no asc";
         return "select " + select
             + " from demographic d left join provider p on d.provider_no = p.provider_no left join demographic_merged dm on d.demographic_no = dm.demographic_no where "
             + fieldname + " " + regularexp + " :keyword " + ptstatusexp + domainRestriction + orderBy;

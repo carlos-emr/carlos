@@ -1,0 +1,135 @@
+# REST/SOAP release hardening acceptance ledger
+
+Base: release/2026.08 at 9004536dc8314d5f50542b48905ca3ca4099a916.
+
+This PR is incomplete until every outstanding requirement below is reconciled with source and executable evidence. Ticket closure, prior PR checks and documentation alone are not validation of this candidate. No closure keywords are used while work remains.
+
+## Primary tickets
+
+| Issue | Scope | State |
+| --- | --- | --- |
+| [#4679](https://github.com/carlos-emr/carlos/issues/4679) | Expose allergy ATC/class identity through compatible REST and SOAP contracts | Explicit release-contract disposition in allergy-api-identity-decision.md; no additional field/WSDL claimed |
+| [#3052](https://github.com/carlos-emr/carlos/issues/3052) | Complete DTO exposure and logging umbrella (all transferred work below) | Outstanding |
+| [#5840](https://github.com/carlos-emr/carlos/issues/5840) | Correct prevention clinical flags and original timestamps | Implemented; 55-case focused suite passed; installed qualification outstanding |
+| [#5873](https://github.com/carlos-emr/carlos/issues/5873) | Lossless SOAP updated-after paging for current, archive and filtered queries | Outstanding |
+| [#5912](https://github.com/carlos-emr/carlos/issues/5912) | Blank optional SOAP Date inputs | All 45 discovered SOAP Date properties implemented; strict blank/malformed readers, generated dateTime schemas under both JAXB providers and all 14 published WSDL contracts pass; final installed qualification pending |
+| [#5721](https://github.com/carlos-emr/carlos/issues/5721) | Remaining XML readers, characters, maps, schemas and ordering contracts | Outstanding |
+| [#5748](https://github.com/carlos-emr/carlos/issues/5748) | Birthday XML compatibility for historical MOXy clients | Explicit per-request birthday profile implemented; default published dateTime retained; final qualification pending |
+| [#5879](https://github.com/carlos-emr/carlos/issues/5879) | Patient-level authorization of demographic list rows and totals | Implemented; readonly batched policy, permitted paging/count and focused manager/DAO/endpoint tests pass; final qualification pending |
+| [#5774](https://github.com/carlos-emr/carlos/issues/5774) | Unique ordering for active demographic pages | Implemented; physical DAO validation pending |
+| [#5784](https://github.com/carlos-emr/carlos/issues/5784) | Appointment echo-client concurrency compatibility and warning volume | Explicit guarded/legacy-echo write modes and DEBUG legacy diagnostic implemented; 111 manager/REST checks pass; final physical qualification pending |
+| [#5867](https://github.com/carlos-emr/carlos/issues/5867) | Atomic prescribing and explicit failure/retry outcomes | Transaction and rollback/legacy REST response implemented and tested; unknown-commit/retry and physical acceptance outstanding |
+| [#6005](https://github.com/carlos-emr/carlos/issues/6005) | Schedule client errors must return appropriate 400/404 statuses | Implemented; focused endpoint tests pass; installed qualification outstanding |
+| [#242](https://github.com/carlos-emr/carlos/issues/242) | Structured safe REST exception mapping | Implemented; initial 59 tests pass; expanded registration/privacy and final regression qualification pending |
+| [#5896](https://github.com/carlos-emr/carlos/issues/5896) | Strict date-only schedule path parameters | Implemented; strict boundary tests pass; client change notice required |
+| [#5895](https://github.com/carlos-emr/carlos/issues/5895) | Explicit date semantics across session and OAuth JSON | Declared OAuth calendar/clock semantics and explicit legacy profile implemented; session numeric types retained and documented; UTC/Toronto/Vancouver/Apia boundary checks pass; final qualification pending |
+| [#5749](https://github.com/carlos-emr/carlos/issues/5749) | Appointment/drug JSON order compatibility | Both actual mappers probed; existing appointment order retained and drug order explicitly announced in rest-json-order-notice.md, as the issue permits |
+| [#6084](https://github.com/carlos-emr/carlos/issues/6084) | Merge authorization, actor/time metadata and chart-privilege parity | Authorization and metadata implemented; chart-permission behavior explicitly dispositioned in demographic-merge-api-policy.md; final qualification pending |
+| [#6079](https://github.com/carlos-emr/carlos/issues/6079) | Active-link-only unmerge and truthful audit outcomes | Active-only query, deduplication, whole-batch prevalidation and HTTP 409 implemented; final qualification pending |
+
+## Consolidated #3052 source requirements
+
+- [x] [#2840](https://github.com/carlos-emr/carlos/issues/2840): Base #5512 reconciled: all three named REST DTOs have structural diagnostics, no reflective diagnostics remain in the REST DTO tree, and SafeDiagnosticUnitTest exercises their populated fields.
+- [ ] [#2813](https://github.com/carlos-emr/carlos/issues/2813): Document metadata versus explicitly authorized content; reconcile current call paths and acceptance.
+- [ ] [#2812](https://github.com/carlos-emr/carlos/issues/2812): HIN exposure in demographic search/list DTOs; reconcile current call paths and acceptance.
+- [ ] [#2811](https://github.com/carlos-emr/carlos/issues/2811): Raw JPA entities embedded in REST DTOs; reconcile current call paths and acceptance.
+- [ ] [#2809](https://github.com/carlos-emr/carlos/issues/2809): Provider billing identifiers; reconcile current call paths and acceptance.
+- [ ] [#2805](https://github.com/carlos-emr/carlos/issues/2805): Inbox HIN exposure; reconcile current call paths and acceptance.
+- [ ] [#2804](https://github.com/carlos-emr/carlos/issues/2804): SOAP bulk demographic access (reconcile absent getAllDemographics method); reconcile current call paths and acceptance.
+- [ ] [#2802](https://github.com/carlos-emr/carlos/issues/2802): NoteTo1 clinical-text diagnostics and embedded entities; reconcile current call paths and acceptance.
+- [x] [#2801](https://github.com/carlos-emr/carlos/issues/2801): Base #5512 reconciled: all thirteen named SOAP DTOs use structural diagnostics; the populated-field tests and source scan cover the entire named family.
+- [ ] [#2800](https://github.com/carlos-emr/carlos/issues/2800): SIN exposure through web-service DTOs; reconcile current call paths and acceptance.
+- [ ] [#5486](https://github.com/carlos-emr/carlos/issues/5486): Base/entity credential and clinical diagnostics, equality and logging sinks; reconcile current call paths and acceptance.
+- [ ] [#2694](https://github.com/carlos-emr/carlos/issues/2694): DHIR review output encoding; reconcile current call paths and acceptance.
+- [ ] [#3020](https://github.com/carlos-emr/carlos/issues/3020): PHI-bearing filename/path logging audit; reconcile current call paths and acceptance.
+- [x] [#2943](https://github.com/carlos-emr/carlos/issues/2943): Documentation disposition implemented in production-integration-overrides.md and the override template; current DrugRef default, modern persisted email config and FHIR sender-metadata role corrected against source. Actual enabled-service qualification is an operator release gate, not a repository assertion.
+- [ ] [#2819](https://github.com/carlos-emr/carlos/issues/2819): NotesService clinical-content logging; reconcile current call paths and acceptance.
+- [x] [#2807](https://github.com/carlos-emr/carlos/issues/2807): Base #5512 reconciled: SummaryTo1 returns only a protected type marker; populated-field diagnostics and functional summary values remain covered.
+- [ ] [#2799](https://github.com/carlos-emr/carlos/issues/2799): Random hashed SOAP credentials, absolute expiry, credential/account binding, authenticated revocation and strict audit transactions implemented; bounded expiry housekeeping is qualified on generated/ON/BC MariaDB schemas; operator scheduling, client cutover and installed multi-node qualification remain outstanding.
+- [ ] [#2693](https://github.com/carlos-emr/carlos/issues/2693): OneID token logging in DHIR submission; reconcile current call paths and acceptance.
+- [ ] [#2282](https://github.com/carlos-emr/carlos/issues/2282): Role-only versus patient-specific REST authorization sweep; reconcile current call paths and acceptance.
+- [x] [#2403](https://github.com/carlos-emr/carlos/issues/2403): Distinct public inbound/outbound interfaces retained; shared safe XML parsing and caller mapping documented in oauth-configuration-contracts.md; focused round-trip, malformed/DTD/duplicate refusal and signed-request tests pass.
+- [x] [#3007](https://github.com/carlos-emr/carlos/issues/3007): UTF-8 percent decoding and independent real signed-request/replay continuity are implemented and pass the focused/full OAuth suites; ASCII behavior is retained.
+
+#5512 and #5722 are already merged into the base. Preserve their implementation and tests. #2804's named getAllDemographics SOAP method does not exist; audit the actual search, ID-list and incremental methods. The two AppOAuth1Config classes have different interfaces and configuration schemas; do not substitute one for the other without caller mapping.
+
+## Compatibility requirements
+
+- [ ] Define supported legacy behavior for all three SOAP timestamp-limited query paths, consent filtering, empty pages, same-second ties, late commits and concurrent writes. A new operation alone does not fix existing callers.
+- [ ] Resolve numeric/literal XML character ambiguity, birthday forms and prescription sequence using explicit supported-client contracts; preserve all fourteen published WSDLs.
+- [ ] Preserve appointment clients intentionally using editVersion while avoiding accidental opt-in by legacy echo clients. Identical request bodies cannot reveal intent.
+- [ ] Preserve endpoint-specific date and success-response shapes; changes to faulty input acceptance and error statuses must be documented and tested.
+- [ ] Protect clinical/identifier fields without breaking legitimate privileged consumers; verify detached DTO serialization and bounded document content retrieval.
+- [ ] Define token issue/validation/storage/revocation/cutover and migration recovery. Preserve supported password authentication and never restore deterministic tokens as a fallback.
+- [ ] Verify prescription rollback and unknown-commit/retry behavior independently; atomicity alone is not idempotency.
+
+## Final candidate gates
+
+- [ ] Issue-to-code-to-test mapping, including every transferred requirement.
+- [ ] Focused regression tests and strict schemas/old clients on both production REST configurations.
+- [ ] Full Java verification and JSP compilation; physical MariaDB, ON/BC, timezone and relevant browser lanes.
+- [ ] Required CI passes on the actual final SHA; required skips and unavailable checks remain explicit blockers.
+- [ ] CodeRabbit full review requested and valid findings fixed with tests; invalid findings explained with evidence.
+- [ ] Installed package identity, upgrade/recovery checks and release/API documentation reconciled.
+
+
+## Candidate validation and review log
+
+- Focused date/prevention/schedule/strict SOAP/published-WSDL suite: 55 cases, zero failures/errors/skips after narrowing the optional-Date adapter. The first global Date adapter change failed schema checks and was replaced; no schema oracle was relaxed.
+- Prescription transaction implementation and H2/JDBC commit/rollback integration tests are in progress; this is not evidence of retry idempotency or installed MariaDB acceptance.
+- DHIR review HTML text and UUID attribute encoding implemented; JSP/browser qualification outstanding.
+- CodeRabbit full review requested on PR #6098. The service reports its review quota exhausted and no review completed. Do not mark review acceptance complete.
+
+- af68cbe02f4: selected `verify -Pjspc` passed 328 tests with zero failures/errors/skips, compiled all 995 JSPs, and packaged the WAR/Javadoc. This was selected coverage, not the full suite or installed acceptance.
+- UTF-8 signature/replay change: 21 focused OAuth tests passed, including independently signed ASCII/accented/multibyte requests and malformed-byte rejection. Additional final-head checks remain required.
+
+- User compatibility policy: published WSDLs remain the default; alternate historical formats require explicit compatibility profiles. The narrowly named birthday and character profiles are implemented; prescription sequence compatibility remains outstanding.
+- Authorization validation: isolated worktree tests passed 326 cases without failures/errors/skips, followed by 216 manager/DAO cases including ID-only paging and continuation past a wholly restricted batch. Manager/list totals now use the same readonly patient policy; SOAP incremental exports filter restricted rows and explicit bulk ID reads refuse denied batches before fetching records. Name/attribute SOAP searches and REST search pages/totals now enforce the same policy; admitted/consent-ID and broader manager paths remain under audit.
+- Full b740bc0d025 suite recorded 34,435 cases, one failure and 142 conditional skips. The failure pinned the old NUL prevention deletion flag; its correction retains the full payload comparison and now asserts the original source creation time. The corrected endpoint fixture passes in the 326-case validation. Full final-head/physical/installed checks remain required.
+
+- #242 response contract and mapper tests adapted from PR #3305 (daaf5cd4e987031b9f43ede4a5768b4557394266), preserving source notices. Review identified raw message/path/throwable logging in that draft; this candidate instead emits generic client messages and redacted diagnostic types/call sites, excluding payloads, filenames and request paths. Catch-all covers Exception, preserves existing WebApplicationException responses, and leaves more-specific CDS/OAuth mappings in force. Duplicate authorization providers are replaced on both application REST servers; token endpoints are unchanged. Focused initial mapper/regression validation passed 59 cases; isolated-bus and expanded final checks remain pending.
+
+- Expanded mapper/authorization/SPI compatibility validation: 349 cases, zero failures/errors/skips. This includes a private CXF bus per integration fixture, all six provider registrations on both REST servers, redacted cyclic causes, preserved explicit HTTP responses, and legacy interface-default adapters.
+- CDS reader binding: reviewed the DemographicService Javadoc-only diff and regenerated only the reader hash and canonical inventory binding. All schema pins, fixture bytes and classifications remain unchanged; 25 crosswalk refusal/contract tests pass.
+- Release-tooling Python suite: 356 cases PASS after supplying the same xmllint validator used in CI from a workspace-local Debian tool extraction. The initial two missing-tool failures are retained in work logs; no test was skipped or weakened.
+
+- 8bf819b20652fab4634d151969b9f698db7eed69: full `verify -Pjspc` passed 34,475 cases, zero failures/errors, 142 conditional skips, and compiled all 995 JSPs. Conditional skips are not physical/installed acceptance; later changes require their own checks.
+- XML profiles now explicitly select published, MOXy date-only birthday or Glassfish numeric characters per request. REST transport tests cover scalar/array/map identities, unchanged old numeric readers, malformed binding refusal and concurrent/default isolation; SOAP dispatch is tested separately. These narrowly named profiles do not claim provider-wide emulation; historical prescription order remains outstanding. See rest-soap-xml-profiles.md.
+- Merge privilege-row disposition: preserve the REST API's established link-only policy and all existing chart access rules, rather than deleting rules with unknown provenance. Administrative merge is a distinct workflow. See demographic-merge-api-policy.md for the source correction, only-read semantics and ownership requirement for any future unified cleanup.
+
+- Profile/merge focused run: 967 cases, zero failures and one test-fixture error (the frozen numeric reader omitted the required bookinglimit property). Corrected the reader fixture to match all seven historical properties; the complete seven-case CXF REST profile retake passes. The SOAP profile dispatch cases and all 14 WSDL/schema checks passed in the expanded run. Earlier setup failures and the inclusive date-boundary assertion correction remain in work logs. Full final-candidate checks are still required.
+- Installed resource CI on 8bf819b: disk-reserve and disk-enospc failed during runtime image package setup because archive.ubuntu.com connections timed out and APT accepted incomplete indexes. Preserved sanitized artifacts identify the prerequisite failure before WAR build. The runtime Dockerfile now retries downloads and fails index updates explicitly; no acceptance assertion was removed or waived.
+
+- Appointment write modes: 111 cases passed with zero failures/errors/skips, including real CXF full/status/type/urgency legacy-echo submissions, token-aware failure contracts, invalid/duplicate header refusal and guarded missing-token refusal. Existing no-header requests retain their behavior. The physical locked-write/archive and concurrency suite is required in final qualification.
+
+- Appointment modes plus actual locked-write storage regression: 125 cases passed, zero failures/errors/skips, including AppointmentUpdateDaoIntegrationTest's competing writers, archive rollback, same-second version advancement and legacy null timestamps. This is H2 storage evidence; MariaDB CI and final-candidate gates remain required.
+- OAuth configuration: 24 focused cases passed, zero failures/errors/skips, covering both public schemas, XML/DOM and token round trips, escaped/Unicode credentials, duplicate/nested/malformed/DTD refusal, request-token callback validation and independently signed imported-token continuity. Expanded OAuth regression follows.
+
+- Expanded OAuth and configuration regression: 229 cases passed with zero failures/errors/skips, including signature/import continuity, nonce/audit budgets, scope enforcement, token lifetimes and both REST-context mappings.
+
+- SOAP token replacement uses the existing indexed token table without schema or published-WSDL changes. The 48-case focused lifecycle/DAO/REST/schema run passed with zero failures/errors/skips, including committed token-plus-audit and real rollback of issuance and revocation on strict-audit failure. Expanded XML/profile/OAuth/security regression passed 70 cases; three additional token negative cases passed in a 10-case unit retake. The subsequent login/WS-Security boundary expansion caught a test lookup-overload mismatch and missing XML-security test initialization; its corrected five-case login/WS-Security boundary retake passed. The expanded run recorded 90 cases, zero assertion failures and one setup error before that correction. All failures are preserved in work logs, and no acceptance check was weakened.
+- Static-analysis review findings: parser-boundary DOCTYPE/external-access settings are now explicit in addition to the secure shared factory; unsupported parser protections propagate as internal setup failures. Protocol header and Origin identifiers use ASCII-only case comparison, with long-s and dotted/dotless-I regressions. These changes address the three posted code-scanning threads; final-head analysis and thread replies remain required.
+
+- Prescription patient consistency: 121 focused manager/REST/DAO cases passed with zero failures/errors/skips. Mixed new/existing medication batches must match the prescription patient even when the caller can write both charts; rejection occurs before header/drug creation. JDBC transaction fixtures now declare their patient identity explicitly.
+- All three posted code-scanning threads were answered with source/test evidence and resolved after 66414d1ef491214c9b8db579d740b466bf58615b. Final-head scans remain required.
+- CodeRabbit full review was requested again for 66414d1; the service again declined under its included-review quota and reported an eight-minute wait. No completed CodeRabbit review is claimed.
+- GitGuardian incident 39840000 identified a plainly synthetic Mockito-only username/password fixture in LoginWsTokenUnitTest. No service credential was present. The fixture now generates values at runtime, retaining the same login assertions without an exclusion or history rewrite; final secret-scan status remains pending.
+
+- Optional SOAP Date inventory: all 45 properties across 11 transfer types are discovered from the production JAXB graph. Both Glassfish and MOXy accept blanks as null, reject malformed dates without recovery, retain real fractional instants and generate xs:dateTime; both JSON mappers retain their prior Date representation. The 583-case focused run passes, including published WSDLs, token transactions, OAuth denial and registration parity. The earlier broader 1,164-case run also passed native/schema compatibility. REST retains its legacy handling for unrelated date bindings; only typed compatibility-value failures force rejection.
+- Full 61fc90f suite recorded 34,546 cases with three failures and 142 conditional skips. Two tests pinned intentionally removed credential diagnostics; they now assert functional login/config continuity and reject those diagnostics. The new token resource now registers on both REST servers and is explicitly blocked by OAuth in every access mode, restoring registration parity without granting OAuth revocation. All three focused regressions pass; full candidate rerun remains required.
+- Stored SOAP digests are excluded from generic token lookup; custom DAO issuance checks fail closed if that namespace is not isolated. DAO tests cover canonical/case-alias lookup rejection and unchanged unrelated token purposes.
+
+- Declared JSON dates: 27 focused production-mapper/CXF tests pass. Every existing calendar/clock property in the OAuth response inventory is now checked at epoch-day and non-midnight values. Explicit legacy requests, response/Vary headers, refused profile names and concurrent request isolation pass. The session mapper retains numeric dates; published per-surface differences and the legacy profile are documented. Additional timezone and final-head checks remain required.
+
+- JSON date qualification: 31 focused cases pass with zero failures/errors/skips, including all seven demographic date properties and appointment clock fields across UTC, Toronto, Vancouver and Apia. Both session numeric values and explicit OAuth timestamp precision are retained.
+
+- 6fd984ec01dc9b3946aa3c796b61056ff241d195: full `verify -Pjspc` passed 35,076 cases, zero failures/errors, 142 conditional skips, WAR/Javadoc packaging and the incremental 995-JSP phase. This candidate includes the two newly merged release PRs; later changes require their own full checks.
+- Search authorization now applies public offsets/counts to readable patients and continues past blocked raw pages. Name/attribute APIs preserve large legacy requests while bounding each data/policy batch to 500; REST search retains its existing maximum. Unique patient-ID ordering resolves ties in all three DAO search paths. The first combined run exposed ORDER BY on a count aggregate; that clause is now omitted. The next run had only a mixed-case synthetic search-fixture failure; the corrected 94-case DAO/security retake and subsequent 162-case large-page/manager/revocation run pass without failures/errors/skips.
+- Additional static-analysis findings are repaired: the compatibility DAO compares digest bytes with MessageDigest.isEqual, and browser revocation checks a trusted configured origin rather than request Host/proxy headers. Revocation tests cover host spoofing, unconfigured/malformed origins, default ports and cross-origin refusal. Final-head scans and thread replies follow the push.
+- MariaDB CI on 6fd984e failed because its manually constructed merge manager did not receive the newly required security dependency. The storage fixture now grants only its four participants and includes a denied-participant/no-write/no-audit case. All nine cases pass on physical MariaDB 11.8.8 using generated schema, Ontario Flyway schema and BC Flyway schema (27 executions, no skips/failures/errors). The original transaction, late-fault, audit and contention assertions remain.
+
+- Full d4c1f5e suite recorded 35,099 cases, two assertion failures and 143 conditional skips. Both failures pinned historical JSON date shapes now intentionally changed by #5895 (DocumentTo1.observationDate and ProviderTransfer.dob). Historical fixture bytes remain unchanged: the full legacy-profile comparison retains them, and the default comparison explicitly checks the newly declared calendar fields while preserving every other member. The expanded 901-case JSON/XML/native-provider/published-WSDL retake passes without failures/errors/skips.
+- SOAP expiry housekeeping: eight real MariaDB tests pass on generated, Ontario Flyway and BC Flyway schemas (24 executions, no skips/failures/errors). They cover epoch/time-zone boundaries, recent/unexpired/other-purpose preservation, 500-row batches and actual counts, corrupt storage refusal, rollback of a later delete failure, nontransactional-engine refusal and preservation of an existing caller transaction. The CI workflow now selects this family in all three lanes, and evidence verification requires every case identity plus the new denied-merge case. All 22 report-evidence refusal/control tests pass. No migration or clinical fixture was altered.
+- CodeRabbit again refused both requests on d4c1f5e (including the retry after its stated 50-second window); its latest reply reports a 58-minute wait. No completed review is claimed. All five posted static-analysis threads have source/test replies and are resolved; final-head scans remain required.
+
+- Release tooling qualification: the broad suite initially identified six missing native-family floors in the authoritative release manifest plus two locally unavailable xmllint checks. The manifest now requires all new physical cases and explicitly routes conditional Java skips to their native executions; supplying the CI validator locally gives 357 passing tooling tests. Case counts and named identities were strengthened, not waived.

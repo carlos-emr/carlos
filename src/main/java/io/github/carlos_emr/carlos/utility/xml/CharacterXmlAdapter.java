@@ -22,13 +22,19 @@
 package io.github.carlos_emr.carlos.utility.xml;
 
 
-/** Keeps the character-valued XML contract established by MOXy before Metro was removed. */
+/** Published literal characters by default; numeric code units require an explicit historical profile. */
 public final class CharacterXmlAdapter extends XmlCompatibilityAdapter<String, Character> {
     @Override
     public Character unmarshal(String value) {
         if (value == null) return null;
+        if (XmlWireProfile.current() == XmlWireProfile.GLASSFISH_NUMERIC_CHARACTERS) {
+            if (!value.matches("[0-9]{1,5}")) throw new XmlCompatibilityValueException("Expected an unsigned XML character code");
+            int code = Integer.parseInt(value);
+            if (code > Character.MAX_VALUE) throw new XmlCompatibilityValueException("XML character code is out of range");
+            return (char) code;
+        }
         if (value.isEmpty()) return '\0';
-        if (value.length() != 1) throw new IllegalArgumentException("Expected one XML character");
+        if (value.length() != 1) throw new XmlCompatibilityValueException("Expected one XML character");
         return value.charAt(0);
     }
 
@@ -36,6 +42,9 @@ public final class CharacterXmlAdapter extends XmlCompatibilityAdapter<String, C
     public String marshal(Character value) {
         // MOXy omits null but writes the NUL sentinel as an empty element, never a numeric zero.
         if (value == null) return null;
+        if (XmlWireProfile.current() == XmlWireProfile.GLASSFISH_NUMERIC_CHARACTERS) {
+            return Integer.toString(value);
+        }
         return value == '\0' ? "" : value.toString();
     }
 }

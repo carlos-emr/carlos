@@ -206,6 +206,17 @@ class RestTransferObjectDateShapeContractUnitTest {
                     violations.add(property.key() + " is listed in STRING_SHAPED but is written as " + atMidnight
                             + "; remove it from the list");
                 }
+                JsonNode epochCalendar = write(mapper, property, epochDayTime);
+                String reason = STRING_SHAPED.get(property.key());
+                if (reason.startsWith("calendar date")) {
+                    assertThat(epochCalendar.asText()).as(property.key()).isEqualTo("1970-01-01");
+                    assertThat(write(mapper, property, local(2026, Calendar.MARCH, 11, 13, 17)).asText())
+                            .as(property.key()).isEqualTo("2026-03-11");
+                } else if (reason.startsWith("clock time")) {
+                    assertThat(epochCalendar.asText()).as(property.key()).isEqualTo("09:30:00");
+                    assertThat(write(mapper, property, local(2026, Calendar.MARCH, 11, 13, 17)).asText())
+                            .as(property.key()).isEqualTo("13:17:00");
+                }
                 continue;
             }
             JsonNode atEpochDay = write(mapper, property, epochDayTime);

@@ -47,8 +47,15 @@
     </bean>
     <bean id="loggingOutInterceptor" class="org.apache.cxf.ext.logging.LoggingOutInterceptor" parent="abstractLoggingInterceptor"/>
 
+    <bean id="strictXmlValidationHandler" class="io.github.carlos_emr.carlos.utility.xml.StrictXmlValidationHandler"/>
+    <bean id="xmlProfileInInterceptor" class="io.github.carlos_emr.carlos.webserv.XmlProfileInInterceptor"/>
+    <bean id="xmlProfileOutInterceptor" class="io.github.carlos_emr.carlos.webserv.XmlProfileOutInterceptor"/>
     <cxf:bus>
+        <cxf:inInterceptors><ref bean="xmlProfileInInterceptor"/></cxf:inInterceptors>
+        <cxf:outInterceptors><ref bean="xmlProfileOutInterceptor"/></cxf:outInterceptors>
+        <cxf:outFaultInterceptors><ref bean="xmlProfileOutInterceptor"/></cxf:outFaultInterceptors>
 		<cxf:properties>
+			<entry key="jaxb-reader-validation-event-handler" value-ref="strictXmlValidationHandler"/>
 			<entry key="ws-security.ut.validator" value-ref="oscarUsernameTokenValidator" />
 		</cxf:properties>
 		
@@ -204,7 +211,7 @@
 		</jaxrs:inInterceptors>
 		
 		<jaxrs:providers>
-			<bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.AccessDeniedExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.CdsMedicationCompatibilityExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.CdsTemporalPrecisionExceptionMapper"/>
 		    <ref bean="jaxb"/>
@@ -212,7 +219,11 @@
 			<bean class="com.fasterxml.jackson.jakarta.rs.json.JacksonJsonProvider"/>
 			<!-- A privilege refusal escaping a resource is HTTP 403, not the generic 500 error
 			     page (#2798). Keep in step with the OAuth surface in applicationContextREST.xml. -->
-			<bean class="io.github.carlos_emr.carlos.webserv.rest.util.SecurityExceptionMapper"/>
+			<bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.SecurityExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.PatientDirectiveExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.IllegalArgumentExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.ConversionExceptionMapper"/>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.exceptionMapping.GeneralExceptionMapper"/>
 		</jaxrs:providers>
 		
 	
@@ -224,6 +235,7 @@
 		     and the OAuth surface (/ws/services, applicationContextREST.xml). Keep the two
 		     service-bean lists consistent so every data service is reachable on both. -->
 		<jaxrs:serviceBeans>
+            <bean class="io.github.carlos_emr.carlos.webserv.rest.SoapTokenResource"/>
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.PharmacyService" autowire="byName"/>
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.DemographicService" autowire="byName"/>
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.ScheduleService" autowire="byName"/>
@@ -268,7 +280,7 @@
 		</jaxrs:extensionMappings>
 	</jaxrs:server>
 	
-	<bean id="jaxb" class="org.apache.cxf.jaxrs.provider.JAXBElementProvider">
+	<bean id="jaxb" class="io.github.carlos_emr.carlos.utility.xml.CompatibilityJaxbProvider">
       <property name="singleJaxbContext" value="true"/>
  
       <property name="extraClass">

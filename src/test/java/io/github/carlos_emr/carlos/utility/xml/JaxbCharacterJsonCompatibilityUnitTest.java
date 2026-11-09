@@ -39,6 +39,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /** Frozen JSON from both unmodified production mappers, including NUL in scalar and collection values. */
 @Tag("unit")
 @Tag("rest")
+@org.junit.jupiter.api.parallel.ResourceLock("java.util.TimeZone")
 class JaxbCharacterJsonCompatibilityUnitTest {
     private static final List<String> TYPES = List.of(
             "webserv.transfer_objects.ScheduleTemplateCodeTransfer",
@@ -54,6 +55,24 @@ class JaxbCharacterJsonCompatibilityUnitTest {
 
     @Test
     void shouldPreserveJson_withXmlCompatibilityAdapters() throws Exception {
+        java.util.TimeZone previous = java.util.TimeZone.getDefault();
+        try {
+            java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("UTC"));
+            assertFrozenJson(false);
+        } finally { java.util.TimeZone.setDefault(previous); }
+    }
+
+    @Test
+    void shouldPreserveTheWholeHistoricalJsonPayload_underTheExplicitLegacyDateProfile() throws Exception {
+        try (var selected = org.mockito.Mockito.mockStatic(
+                io.github.carlos_emr.carlos.webserv.rest.util.JsonDateProfile.class, org.mockito.Mockito.CALLS_REAL_METHODS)) {
+            selected.when(io.github.carlos_emr.carlos.webserv.rest.util.JsonDateProfile::current)
+                    .thenReturn(io.github.carlos_emr.carlos.webserv.rest.util.JsonDateProfile.LEGACY_VALUE_INFERENCE);
+            assertFrozenJson(true);
+        }
+    }
+
+    private void assertFrozenJson(boolean legacyDates) throws Exception {
         JsonNode expected;
         try (var input = getClass().getResourceAsStream("/xml/jaxb-character-json-baseline.json")) {
             expected = new ObjectMapper().readTree(input);
@@ -64,9 +83,12 @@ class JaxbCharacterJsonCompatibilityUnitTest {
                 Class<?> type = Class.forName("io.github.carlos_emr.carlos." + name);
                 for (String scenario : List.of("default", "null", "ascii", "nul", "unicode")) {
                     JsonNode actual = surface.getValue().valueToTree(fixture(type, scenario));
-                    assertThat(actual)
-                            .as("%s %s %s", surface.getKey(), name, scenario)
-                            .isEqualTo(expected.path(surface.getKey()).path(name).path(scenario));
+                    JsonNode contract = expected.path(surface.getKey()).path(name).path(scenario).deepCopy();
+                    if (!legacyDates && surface.getKey().equals("oauth") && name.equals("webserv.rest.to.model.DocumentTo1")) {
+                        // #5895 deliberately declares this DATE property; every other member stays pinned.
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) contract).put("observationDate", "2026-07-15");
+                    }
+                    assertThat(actual).as("%s %s %s", surface.getKey(), name, scenario).isEqualTo(contract);
                 }
             }
         }

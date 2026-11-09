@@ -198,7 +198,7 @@ public class DemographicManagerImpl implements DemographicManager {
         // Check every patient before reading any names. Keep the patient-specific
         // privilege path (including directives/session effects), rather than a global check.
         if (!ids.isEmpty() && !securityInfoManager.hasDemographicReadPrivileges(loggedInInfo, ids)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
         Map<Integer, String> names = new HashMap<>();
         if (!ids.isEmpty()) {
@@ -225,11 +225,12 @@ public class DemographicManagerImpl implements DemographicManager {
                                                      int itemsToReturn) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
 
-        List<Demographic> results = demographicDao.searchDemographicByNameString(searchString, startIndex,
-                itemsToReturn);
+        List<Demographic> results = readableSearchPage(loggedInInfo, startIndex, itemsToReturn,
+                (offset, size) -> demographicDao.searchDemographicByNameString(searchString, offset, size),
+                Demographic::getDemographicNo);
 
         if (logger.isDebugEnabled()) {
-            logger.debug("searchDemographicByName, searchString=" + searchString + ", result.size=" + results.size());
+            logger.debug("Demographic name search returned {} permitted rows", results.size());
         }
 
         // --- log action ---
@@ -246,6 +247,19 @@ public class DemographicManagerImpl implements DemographicManager {
         // lastDate format: yyyy-MM-dd HH:mm:ss
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
         List<Demographic> results = demographicDao.getActiveDemographicAfter(afterDateExclusive);
+        if (results != null) {
+            List<Demographic> permitted = new ArrayList<>();
+            for (int start = 0; start < results.size(); start += DemographicDao.MAX_SEARCH_RESULT_SIZE) {
+                List<Demographic> batch = results.subList(start,
+                        Math.min(results.size(), start + DemographicDao.MAX_SEARCH_RESULT_SIZE));
+                Set<Integer> readable = securityInfoManager.getReadableDemographicIds(loggedInInfo,
+                        batch.stream().map(Demographic::getDemographicNo).toList());
+                for (Demographic patient : batch) {
+                    if (readable.contains(patient.getDemographicNo())) permitted.add(patient);
+                }
+            }
+            results = permitted;
+        }
 
         // --- log action ---
         if (results != null) {
@@ -688,6 +702,7 @@ public class DemographicManagerImpl implements DemographicManager {
     @Override
     @Transactional
     public void mergeDemographics(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        authorizeMergeParticipants(loggedInInfo, parentId, children);
         lockMergeParticipants(parentId, children);
         children = new ArrayList<>(new LinkedHashSet<>(children));
         // Reject before the first write: merging a record into itself, or involving a record that is already
@@ -705,6 +720,8 @@ public class DemographicManagerImpl implements DemographicManager {
             DemographicMerged dm = new DemographicMerged();
             dm.setDemographicNo(child);
             dm.setMergedTo(parentId);
+            dm.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+            dm.setLastUpdateDate(new Date());
             demographicMergedDao.persist(dm);
 
             // --- log action ---
@@ -716,21 +733,34 @@ public class DemographicManagerImpl implements DemographicManager {
     @Override
     @Transactional
     public void unmergeDemographics(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        authorizeMergeParticipants(loggedInInfo, parentId, children);
         lockMergeParticipants(parentId, children);
-        for (Integer childId : children) {
-            List<DemographicMerged> dms = demographicMergedDao.findByParentAndChildIds(parentId, childId);
-            if (dms.isEmpty()) {
-                throw new IllegalArgumentException(
-                        "Unable to find merge record for parent " + parentId + " and child " + childId);
-            }
-            for (DemographicMerged dm : demographicMergedDao.findByParentAndChildIds(parentId, childId)) {
-                dm.setDeleted(1);
-                demographicMergedDao.merge(dm);
-
-                // --- log action ---
-                LogAction.addLogStrict(loggedInInfo, "DemographicManager.unmergeDemographics", null, null, Integer.toString(dm.getDemographicNo()), "id=" + dm.getId());
-            }
+        // Inspect every unique pair before the first write: a stale pair cannot partially change a batch.
+        List<DemographicMerged> active = new ArrayList<>();
+        for (Integer childId : new LinkedHashSet<>(children)) {
+            List<DemographicMerged> links = demographicMergedDao.findActiveByParentAndChildIds(parentId, childId);
+            if (links.isEmpty()) throw new DemographicMergeConflictException();
+            active.addAll(links);
         }
+        Date now = new Date();
+        for (DemographicMerged dm : active) {
+            dm.setDeleted(1);
+            dm.setLastUpdateUser(loggedInInfo.getLoggedInProviderNo());
+            dm.setLastUpdateDate(now);
+            demographicMergedDao.merge(dm);
+            LogAction.addLogStrict(loggedInInfo, "DemographicManager.unmergeDemographics", null, null,
+                    Integer.toString(dm.getDemographicNo()), "id=" + dm.getId());
+        }
+    }
+
+    private void authorizeMergeParticipants(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        if (parentId == null || children == null || children.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Merge participants must be patient records");
+        }
+        checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
+        var ids = new TreeSet<Integer>(children);
+        ids.add(parentId);
+        for (Integer id : ids) checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE, id);
     }
 
     /** Lock the same patients in the same order before inspecting merge heads. */
@@ -749,27 +779,47 @@ public class DemographicManagerImpl implements DemographicManager {
 
     @Override
     public Long getActiveDemographicCount(LoggedInInfo loggedInInfo) {
-        Long count = demographicDao.getActiveDemographicCount();
-
-        // --- log action ---
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        long count = 0;
+        int offset = 0;
+        while (true) {
+            List<Integer> ids = demographicDao.getActiveDemographicIds(offset, DemographicDao.MAX_SEARCH_RESULT_SIZE);
+            count += securityInfoManager.getReadableDemographicIds(loggedInInfo, ids).size();
+            if (ids.size() < DemographicDao.MAX_SEARCH_RESULT_SIZE) break;
+            offset = Math.addExact(offset, ids.size());
+        }
         LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getActiveDemographicCount", "");
-
         return count;
     }
 
     @Override
     public List<Demographic> getActiveDemographics(LoggedInInfo loggedInInfo, int offset, int limit) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
-        List<Demographic> result = demographicDao.getActiveDemographics(offset, limit);
-
-        if (result != null) {
-            for (Demographic d : result) {
-                // --- log action ---
-                LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getActiveDemographics result",
-                        "demographicNo=" + d.getDemographicNo());
-            }
+        if (offset < 0 || limit < 0 || limit > DemographicDao.MAX_SEARCH_RESULT_SIZE) {
+            throw new IllegalArgumentException("Invalid demographic list pagination");
         }
-
+        int requested = limit == 0 ? DemographicDao.MAX_SEARCH_RESULT_SIZE : limit;
+        List<Demographic> result = new ArrayList<>();
+        int scanOffset = 0;
+        long accessibleIndex = 0;
+        while (result.size() < requested) {
+            List<Demographic> batch = demographicDao.getActiveDemographics(scanOffset,
+                    DemographicDao.MAX_SEARCH_RESULT_SIZE);
+            Set<Integer> readable = securityInfoManager.getReadableDemographicIds(loggedInInfo,
+                    batch.stream().map(Demographic::getDemographicNo).toList());
+            for (Demographic patient : batch) {
+                if (readable.contains(patient.getDemographicNo()) && accessibleIndex++ >= offset) {
+                    result.add(patient);
+                    if (result.size() == requested) break;
+                }
+            }
+            if (batch.size() < DemographicDao.MAX_SEARCH_RESULT_SIZE) break;
+            scanOffset = Math.addExact(scanOffset, batch.size());
+        }
+        for (Demographic patient : result) {
+            LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getActiveDemographics result",
+                    "demographicNo=" + patient.getDemographicNo());
+        }
         return result;
     }
 
@@ -834,8 +884,9 @@ public class DemographicManagerImpl implements DemographicManager {
                                                             String lastName, Gender gender, Calendar dateOfBirth, String city, String province, String phone,
                                                             String email, String alias, int startIndex, int itemsToReturn) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
-        List<Demographic> results = demographicDao.findByAttributes(hin, firstName, lastName, gender, dateOfBirth, city,
-                province, phone, email, alias, startIndex, itemsToReturn);
+        List<Demographic> results = readableSearchPage(loggedInInfo, startIndex, itemsToReturn,
+                (offset, size) -> demographicDao.findByAttributes(hin, firstName, lastName, gender, dateOfBirth, city,
+                        province, phone, email, alias, offset, size), Demographic::getDemographicNo);
 
         // log all items read
         for (Demographic d : results) {
@@ -844,6 +895,34 @@ public class DemographicManagerImpl implements DemographicManager {
         }
 
         return (results);
+    }
+
+    /** Applies the public offset to permitted rows and continues past wholly blocked raw pages. */
+    private <T> List<T> readableSearchPage(LoggedInInfo actor, int offset, int limit,
+            java.util.function.BiFunction<Integer, Integer, List<T>> fetch,
+            java.util.function.Function<T, Integer> patientId) {
+        if (offset < 0 || limit < 0) {
+            throw new IllegalArgumentException("Invalid demographic search pagination");
+        }
+        if (limit == 0) return List.of(); // Existing search operations return an empty zero-size page.
+        int batchSize = Math.min(limit, DemographicDao.MAX_SEARCH_RESULT_SIZE);
+        List<T> results = new ArrayList<>();
+        long accessible = 0;
+        int rawOffset = 0;
+        while (results.size() < limit) {
+            List<T> page = fetch.apply(rawOffset, batchSize);
+            Set<Integer> readable = securityInfoManager.getReadableDemographicIds(actor,
+                    page.stream().map(patientId).toList());
+            for (T row : page) {
+                if (readable.contains(patientId.apply(row)) && accessible++ >= offset) {
+                    results.add(row);
+                    if (results.size() == limit) break;
+                }
+            }
+            if (page.size() < batchSize) break;
+            rawOffset = Math.addExact(rawOffset, page.size());
+        }
+        return results;
     }
 
     @Override
@@ -859,8 +938,13 @@ public class DemographicManagerImpl implements DemographicManager {
     @Override
     public List<DemographicSearchResult> searchPatients(LoggedInInfo loggedInInfo,
                                                         DemographicSearchRequest searchRequest, int startIndex, int itemsToReturn) {
-        List<DemographicSearchResult> results = demographicDao.searchPatients(loggedInInfo, searchRequest, startIndex,
-                itemsToReturn);
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        if (itemsToReturn > DemographicDao.MAX_SEARCH_RESULT_SIZE) {
+            throw new IllegalArgumentException("Requested demographic search page is too large");
+        }
+        List<DemographicSearchResult> results = readableSearchPage(loggedInInfo, startIndex, itemsToReturn,
+                (offset, size) -> demographicDao.searchPatients(loggedInInfo, searchRequest, offset, size),
+                DemographicSearchResult::getDemographicNo);
 
         for (DemographicSearchResult demographic : results) {
             LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchPatients result",
@@ -872,7 +956,20 @@ public class DemographicManagerImpl implements DemographicManager {
 
     @Override
     public int searchPatientsCount(LoggedInInfo loggedInInfo, DemographicSearchRequest searchRequest) {
-        return demographicDao.searchPatientCount(loggedInInfo, searchRequest);
+        checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
+        int count = 0;
+        int offset = 0;
+        while (true) {
+            List<DemographicSearchResult> page = demographicDao.searchPatients(loggedInInfo, searchRequest,
+                    offset, DemographicDao.MAX_SEARCH_RESULT_SIZE);
+            Set<Integer> readable = securityInfoManager.getReadableDemographicIds(loggedInInfo,
+                    page.stream().map(DemographicSearchResult::getDemographicNo).toList());
+            for (DemographicSearchResult row : page) {
+                if (readable.contains(row.getDemographicNo())) count = Math.addExact(count, 1);
+            }
+            if (page.size() < DemographicDao.MAX_SEARCH_RESULT_SIZE) return count;
+            offset = Math.addExact(offset, page.size());
+        }
     }
 
     /**
@@ -900,6 +997,9 @@ public class DemographicManagerImpl implements DemographicManager {
         if (loggedInInfo == null)
             throw (new SecurityException("user not logged in?"));
 
+        if (!securityInfoManager.hasDemographicReadPrivileges(loggedInInfo, demographicIds)) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
         List<Demographic> demographics = demographicDao.getDemographics(demographicIds);
 
         LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.getDemographics",
@@ -1123,14 +1223,14 @@ public class DemographicManagerImpl implements DemographicManager {
     @Override
     public void checkPrivilege(LoggedInInfo loggedInInfo, String privilege) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", privilege, null)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
     }
 
     @Override
     public void checkPrivilege(LoggedInInfo loggedInInfo, String privilege, int demographicNo) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", privilege, demographicNo)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
     }
 
