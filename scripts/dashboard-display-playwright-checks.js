@@ -36,6 +36,18 @@ const TIMEOUT = 20000;
 const GRANTS = [['_dashboardDisplay', 'x'], ['_dashboardDrilldown', 'x'], ['_dashboardManager', 'r'], ['_dashboardChgUser', 'r']];
 const DX_CODE = '250';
 
+/** Bootstrap focuses the dialog after its transition; type only after that native event. */
+async function openTicklerModal(page, trigger) {
+  await page.locator('#assignTickler').evaluate(modal => {
+    modal.dataset.playwrightTicklerShown = 'false';
+    modal.addEventListener('shown.bs.modal', () => { modal.dataset.playwrightTicklerShown = 'true'; }, { once: true });
+  });
+  const result = await trigger();
+  await page.waitForFunction(() => document.getElementById('assignTickler').dataset.playwrightTicklerShown === 'true',
+    null, { timeout: TIMEOUT });
+  return result;
+}
+
 function templateXml(marker) {
   const scope = "FROM demographic d WHERE d.provider_no = '${provider}'";
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -270,10 +282,10 @@ async function workflow(s) {
   await s.step('Actions > Assign Tickler requests the tickler form for exactly the checked owned patients', async () => {
     for (const id of [alpha, bravo]) await dashboard.locator(`input.patientChecked[id="${id}"]`).check();
     await dashboard.locator('#actionMenuLink').click();
-    const [request] = await Promise.all([
+    const [request] = await openTicklerModal(dashboard, () => Promise.all([
       dashboard.waitForRequest(r => /\/web\/dashboard\/display\/AssignTickler$/.test(new URL(r.url()).pathname) && r.method() === 'POST'),
       dashboard.locator('#assignTicklerChecked').click(),
-    ]);
+    ]));
     h.assert(new URLSearchParams(request.postData() || '').get('demographics') === `${alpha},${bravo}`,
       'The tickler form request does not carry exactly the checked patients');
     const modal = dashboard.locator('#assignTickler');
@@ -410,7 +422,8 @@ async function workflow(s) {
       ['14:30','2:30 PM','14:30'],['10:30 am','10:30 AM','10:30'],['2:30 Pm','2:30 PM','14:30'],
       ['00:00','12:00 AM','00:00'],['23:59','11:59 PM','23:59'],
     ].entries()) {
-      await dashboard.locator('#actionMenuLink').click();await dashboard.locator('#assignTicklerChecked').click();
+      await dashboard.locator('#actionMenuLink').click();
+      await openTicklerModal(dashboard, () => dashboard.locator('#assignTicklerChecked').click());
       const modal=dashboard.locator('#assignTickler'),form=modal.locator('#ticklerAddForm');await form.waitFor({state:'visible'});
       await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
       await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
@@ -443,7 +456,8 @@ async function workflow(s) {
     h.assert(['America/Toronto','America/Vancouver'].includes(zone),'Unsupported DST qualification zone');
     const config=fs.readFileSync('/etc/carlos-emr/carlos-emr.env','utf8');
     h.assert(config.split('\n').filter(line=>line===`CARLOS_TZ="${zone}"`).length===1,'The installed clinic is not configured for the requested DST gap');
-    await dashboard.locator('#actionMenuLink').click();await dashboard.locator('#assignTicklerChecked').click();
+    await dashboard.locator('#actionMenuLink').click();
+    await openTicklerModal(dashboard, () => dashboard.locator('#assignTicklerChecked').click());
     const modal=dashboard.locator('#assignTickler'),form=modal.locator('#ticklerAddForm');await form.waitFor({state:'visible'});
     await form.locator('select[name="ticklerCategoryId"]').selectOption({index:0});
     await form.locator('select[name="taskAssignedTo"]').selectOption(fixture.providerNo);
@@ -628,4 +642,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('dashboard-display', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, openTicklerModal };
