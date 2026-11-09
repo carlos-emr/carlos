@@ -256,7 +256,7 @@
                             </td>
                             <td><carlos:encode value='<%= String.valueOf(h.get("units")) %>' context="html"/>
                             </td>
-                            <td><carlos:encode value='<%= String.valueOf(h.get("collDate")) %>' context="html"/>
+                            <td><carlos:encode value='<%= java.util.Objects.toString(h.get("collDate"), "") %>' context="html"/>
                             </td>
                         </tr>
 
