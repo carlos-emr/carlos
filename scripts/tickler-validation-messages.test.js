@@ -70,6 +70,28 @@ test('add validation reports all current failures and drops corrected failures o
   s.context.validate(s.form);
   assert.deepEqual(s.messages(), ['tickler.ticklerAdd.msgMustAssignProvider']);
 });
+for(const multisite of [false,true])test(`Add Tickler refuses an unselected assignee with guidance (multisite=${multisite})`,()=>{
+  const s=setup(pages[0],multisite);
+  s.form.xml_appointment_date.value='2026-03-04';
+  s.form.task_assigned_to.value='';
+  assert.equal(s.context.validateDemoNo(),false);
+  assert.deepEqual(s.messages(),['tickler.ticklerAdd.msgMustAssignProvider']);
+  s.context.CarlosTicklerValidation.reset();
+  s.form.task_assigned_to.value='999998';
+  assert.equal(s.context.validateDemoNo(),true);
+  assert.deepEqual(s.messages(),[]);
+});
+test('native patient search carries the current Tickler draft through repeated attachment and patient changes',()=>{
+  const search=pages[0].source.match(/<form name="ADDAPPT"[\s\S]*?<\/form>/)[0];
+  const submit=search.match(/onsubmit="([^"]+)"/)[1];
+  assert.match(search,/<input type="hidden" name="ticklerMessage"/);
+  const carried={value:'old draft'},message={value:''};
+  const form={elements:{namedItem(name){assert.equal(name,'ticklerMessage');return carried;}}};
+  const submitDraft=vm.runInNewContext('(function(){'+submit+'})',{document:{getElementById(id){assert.equal(id,'ticklerMessage');return message;}}});
+  for(const draft of ['Unsaved H&P + "quotes" <tag>\nsecond line','Changed patient: é & %26','']){
+    message.value=draft;submitDraft.call(form);assert.equal(carried.value,draft);
+  }
+});
 test('shared rendering keeps hostile message text inert and resetting hides and empties the alert', () => {
   const s = setup(pages[0]);
   const message = '<img src=x onerror="bad()"> & </script>';

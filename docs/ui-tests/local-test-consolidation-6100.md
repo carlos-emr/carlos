@@ -13,9 +13,9 @@ has current evidence.
 | --- | --- |
 | #4102 | Actual develop SMS/consent locking implementations are absent from this branch. Keep branch-inapplicable races open; do not substitute unrelated locks or synthetic production tables. See `test-only-release-issues.md`. |
 | #5718 | Corrected the all-sex operator and added matching/nonmatching multi-value and alias controls. Broader installed guideline acceptance remains required. |
-| #5812 | Retain native MRP routing assertions. Draft loss (#5824) and unavailable-MRP routing (#5825) remain product blockers. |
-| #5806 | Retain actual signed callback/deny boundaries. Encoded callback handling and invalid-signature response (#5823) remain product blockers. |
-| #5801 | Explicit empty eForm values now reach persistence; missing parameters remain distinct. Installed visual editor, checkbox, radio, image and signature acceptance remains required. |
+| #5812 | Retain native MRP routing assertions. The composer now carries its draft through patient search, refuses an unselected assignee in both site modes, and offers an explicit blank choice for an unavailable preferred provider (#5824/#5825). Current installed retakes remain required. |
+| #5806 | Retain actual signed callback/deny boundaries. Callback verification/storage now preserve internal percent escapes and invalid signatures map to 401 (#5823); real-parser signature controls cover header, form and query transports. All 262 selected OAuth/eForm/CSRF/report regression cases pass; current installed retakes remain required. |
+| #5801 | Explicit empty eForm values clear saved markup and PDF defaults; missing parameters remain distinct. Existing nonblank-only value rows and chart-template substitutions are preserved. Installed visual editor, checkbox, radio, image and signature acceptance remains required. |
 | #5709 | Retain lookup CRUD and consumer isolation. Provider add/edit forms omit inactive choices; edit explicitly preserves and labels its current retired value. The consumer test checks both that preservation and the new-provider boundary; installed retakes remain required. |
 | #5708 | Retain multi-recipient forwarding and independent ownership/restoration assertions; complete current installed retakes remain required. |
 | #5730 | PDF suffix matching now handles upper/mixed case; action tests inspect stored page count and MIME. All native format/malformed-content retakes remain required. |
@@ -45,6 +45,13 @@ has current evidence.
 | #6076 | Finding 141 remains pinned until a current installed audit-log retake proves the fix. Source inspection alone does not retire it. |
 
 ## Qualification accounting
+
+The merged-source H2 retake completed 34,472 cases with no failures/errors and
+143 explicitly routed skips. The subsequent OAuth callback changes passed all
+262 selected regression cases, including six independently signed transport and
+refusal cases. The strict Node inventory now has 7,727 passing cases in 547
+files. These source results do not substitute for rebuilding/reinstalling the
+final candidate and rerunning its installed acceptance.
 
 The generator's old 289 count included twelve duplicate executions of
 `TestOverlayRulingsReachTheManifest`: unittest also discovered the `_base` loop

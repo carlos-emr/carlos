@@ -391,6 +391,14 @@ public class AddEForm2Action extends ActionSupport {
         //ActionMessages errors = curForm.setMeasurements(paramNames, paramValues);
         curForm.setFormSubject(subject);
         curForm.setValues(paramNames, paramValues);
+        // Rendering must see explicit clears, while value rows and chart-template substitutions
+        // retain the historical nonblank-only contract used by existing eForm consumers.
+        for (int i = paramValues.size() - 1; i >= 0; i--) {
+            if (paramValues.get(i).trim().isEmpty()) {
+                paramNames.remove(i);
+                paramValues.remove(i);
+            }
+        }
         if (!openerNames.isEmpty()) curForm.setOpenerValues(openerNames, openerValues);
         if (eform_link != null) curForm.setEformLink(eform_link);
         curForm.setAction();

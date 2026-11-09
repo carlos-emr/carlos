@@ -210,6 +210,11 @@
 
 <%
     ProviderDao providerDao = SpringUtils.getBean(ProviderDao.class);
+    List<Provider> activeTaskProviders = providerDao.getActiveProviders();
+    String requestedTaskAssignee = taskTo;
+    boolean unavailableTaskAssignee = activeTaskProviders.stream()
+            .noneMatch(provider -> Objects.equals(provider.getProviderNo(), requestedTaskAssignee));
+    if (unavailableTaskAssignee) taskTo = "";
 %>
 
 <%
@@ -597,14 +602,12 @@
                 CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMissingDate") %>' context="javaScriptBlock"/>');
                 valid = false;
             }
-            <% if (io.github.carlos_emr.carlos.commn.IsPropertiesOn.isMultisitesEnable()) { %>
             if (!document.serviceform.task_assigned_to ||
                     document.serviceform.task_assigned_to.options.length === 0 ||
                     document.serviceform.task_assigned_to.value === "") {
                 CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider") %>' context="javaScriptBlock"/>');
                 valid = false;
             }
-            <% } %>
             return valid;
         }
 
@@ -705,7 +708,9 @@
             }
             ChartNo = bFirstDisp ? "" : request.getParameter("chart_no") == null ? "" : request.getParameter("chart_no");
         %>
-        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch">
+        <form name="ADDAPPT" method="post" action="<%= request.getContextPath() %>/demographic/DemographicSearch"
+              onsubmit="this.elements.namedItem('ticklerMessage').value = document.getElementById('ticklerMessage').value;">
+            <input type="hidden" name="ticklerMessage" value="<carlos:encode value='<%= suggestedMessage %>' context="htmlAttribute"/>">
             <input type="hidden" name="orderby" value="last_name">
             <input type="hidden" name="search_mode" value="<carlos:encode value='<%= searchMode %>' context="htmlAttribute"/>">
             <input type="hidden" name="originalpage" value="<carlos:encode value='<%= request.getContextPath() + "/tickler/ViewAddTickler" %>' context="htmlAttribute"/>">
@@ -811,10 +816,10 @@
                             var _providers = [];
 
                             <%
-                            String taskToName = "";
+                            String taskToName = oscarBundle.getString("tickler.ticklerAdd.msgMustAssignProvider");
                             boolean taskToIsMRP = false;
 
-                            if(defaultTaskAssignee.equals("mrp")) {
+                            if(defaultTaskAssignee.equals("mrp") && demographic == null) {
                                 taskToName = "Preference set to MRP, attach a patient.";
                                 taskToIsMRP = true;
                             }
@@ -870,7 +875,7 @@
                             changeSite(document.getElementById("site"));
                         </script>
 
-                        <% if (prop != null) {%>
+                        <% if (prop != null || request.getParameter("taskTo") != null) {%>
                         <script>
                             //prop exists so hide selectWrapper
                             document.getElementById("selectWrapper").style.display = "none";
@@ -913,11 +918,12 @@
                         %>
 
                         <select name="task_assigned_to" class="form-select">
+                            <option value="" <%= unavailableTaskAssignee ? "selected" : "" %>><fmt:message key="tickler.ticklerAdd.msgMustAssignProvider"/></option>
                             <% String proFirst = "";
                                 String proLast = "";
                                 String proOHIP = "";
 
-                                for (Provider p : providerDao.getActiveProviders()) {
+                                for (Provider p : activeTaskProviders) {
 
                                     proFirst = p.getFirstName();
                                     proLast = p.getLastName();
