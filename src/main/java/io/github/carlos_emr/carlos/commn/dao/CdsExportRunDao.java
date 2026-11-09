@@ -44,6 +44,25 @@ public class CdsExportRunDao extends AbstractDaoImpl<CdsExportRun> {
                 .getResultList().stream().findFirst().orElse(null);
     }
     public CdsExportRun get(String id) { return entityManager.find(CdsExportRun.class, id); }
+    /**
+     * A heartbeat changes ownership timing, not browser control intent. The caller must hold
+     * the row lock and have checked the live lease and cancellation. Keep Hibernate's version
+     * for every other mutation; refresh the managed row after this explicitly unversioned update.
+     */
+    public void renewLease(CdsExportRun run, Instant now, Instant until) {
+        if (!entityManager.contains(run)
+                || entityManager.getLockMode(run) != LockModeType.PESSIMISTIC_WRITE)
+            throw new IllegalStateException("CDS_EXPORT_LEASE_LOCK_REQUIRED");
+        int changed = entityManager.createQuery(
+                "update CdsExportRun r set r.leaseUntil=:until,r.updatedAt=:now"
+                        + " where r.id=:id and r.ownerEpoch=:epoch and r.ownerToken=:token and r.revision=:revision")
+                .setParameter("until", until).setParameter("now", now)
+                .setParameter("id", run.getId()).setParameter("epoch", run.getOwnerEpoch())
+                .setParameter("token", run.getOwnerToken()).setParameter("revision", run.getRevision())
+                .executeUpdate();
+        if (changed != 1) throw new IllegalStateException("CDS_EXPORT_LEASE_LOST");
+        entityManager.refresh(run, LockModeType.PESSIMISTIC_WRITE);
+    }
     public void flush() { entityManager.flush(); }
     public CdsExportRun submission(String operator, String key) {
         return entityManager.createQuery("select r from CdsExportRun r where r.operator=:operator and r.submissionKey=:key", CdsExportRun.class)

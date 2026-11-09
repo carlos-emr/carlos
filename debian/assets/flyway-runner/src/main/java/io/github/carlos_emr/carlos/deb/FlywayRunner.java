@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.deb;
 
+import io.github.carlos_emr.carlos.db.FlywayReleasedMigrationBackfill;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
@@ -143,7 +144,7 @@ public final class FlywayRunner {
         if ("migrate".equals(command)) {
             LogFactory.setFallbackLogCreator(notes);
         }
-        final Flyway flyway = Flyway.configure(FlywayRunner.class.getClassLoader())
+        final Flyway flyway = FlywayReleasedMigrationBackfill.load(Flyway.configure(FlywayRunner.class.getClassLoader())
                 .loggers("migrate".equals(command) ? "console" : "auto")
                 .dataSource(url, user, password == null ? "" : password)
                 .locations(locations)
@@ -165,8 +166,7 @@ public final class FlywayRunner {
                 // migrations.
                 .ignoreMigrationPatterns(new String[0])
                 .failOnMissingLocations(true)
-                .cleanDisabled(true)
-                .load();
+                .cleanDisabled(true));
 
         int exitCode = 0;
         try {
@@ -179,7 +179,7 @@ public final class FlywayRunner {
                     System.out.println("schema validates against the migrations shipped in this WAR");
                     break;
                 case "migrate":
-                    final MigrateResult result = flyway.migrate();
+                    final MigrateResult result = FlywayReleasedMigrationBackfill.migrate(flyway);
                     System.out.printf("applied %d migration(s); schema is at %s%n",
                             result.migrationsExecuted,
                             result.targetSchemaVersion == null ? "(unchanged)" : result.targetSchemaVersion);
@@ -189,7 +189,7 @@ public final class FlywayRunner {
                     System.out.println("stamped flyway_schema_history at " + BASELINE_VERSION);
                     break;
                 case "repair":
-                    flyway.repair();
+                    FlywayReleasedMigrationBackfill.repair(flyway);
                     System.out.println("repaired flyway_schema_history");
                     break;
                 default:

@@ -205,17 +205,16 @@ public class FlywaySchemaValidator implements InitializingBean {
         // recreates province tables). Conversions must use the explicit, operator-gated
         // `carlos-ctl db baseline --version=1.0.2` (the full genesis) instead; an unadopted
         // non-empty schema fails loud here.
-        Flyway flyway = Flyway.configure()
+        Flyway flyway = FlywayReleasedMigrationBackfill.load(Flyway.configure()
                 .dataSource(dataSource)
                 .locations(locations)
                 // Flyway's default ignores future migrations during validate; CARLOS must fail
                 // when an older WAR starts against a database migrated by a newer WAR.
                 .ignoreMigrationPatterns(new String[0])
-                .failOnMissingLocations(true)
-                .load();
+                .failOnMissingLocations(true));
 
         if (MODE_MIGRATE.equals(mode)) {
-            MigrateResult result = flyway.migrate();
+            MigrateResult result = FlywayReleasedMigrationBackfill.migrate(flyway);
             logger.info("Flyway boot migrate complete: {} migration(s) applied, schema now at {}",
                     result.migrationsExecuted, result.targetSchemaVersion);
             return;

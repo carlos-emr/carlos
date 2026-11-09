@@ -35,7 +35,12 @@ for jar in flyway-core flyway-mysql mysql-connector-j; do
     fi
 done
 
-cp="$(find "$work/libs" -name '*.jar' | tr '\n' ':')"
+# Compile against the policy bytecode shipped by this exact WAR. The installed runner already
+# includes WEB-INF/classes on its runtime classpath; do not bundle a second policy copy.
+policy=WEB-INF/classes/io/github/carlos_emr/carlos/db/FlywayReleasedMigrationBackfill.class
+( cd "$work/libs" && "$javahome/bin/jar" xf "$war" "$policy" )
+test -f "$work/libs/$policy"
+cp="$work/libs/WEB-INF/classes:$(find "$work/libs" -name '*.jar' | tr '\n' ':')"
 "$javahome/bin/javac" -nowarn -encoding UTF-8 --release 25 \
     -cp "$cp" -d "$work/classes" \
     debian/assets/flyway-runner/src/main/java/io/github/carlos_emr/carlos/deb/FlywayRunner.java

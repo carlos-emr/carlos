@@ -30,6 +30,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import shutil
 import re
 import stat
 import subprocess
@@ -44,6 +45,7 @@ except ImportError:
     sys.exit("Install hash-pinned dependencies from scripts/ci/requirements.txt before running this gate")
 
 IMAGE = 'mariadb:11.8@sha256:f16d7a344413e519dff518f27bdb221388f84b0d274c97c4fb5f2cb0dc1b34fa'
+DEVELOP_UPGRADE_BASE = '497896230576b492284b1c29efa77f4c4a2409ea'
 CLASSES = (
     'CdsImportMaintenanceMariaDbIntegrationTest', 'CdsIdentityMariaDbIntegrationTest',
     'CdsImportCoordinatorMariaDbIntegrationTest',
@@ -56,6 +58,10 @@ CLASSES = (
 )
 
 REQUIRED_CASES = {
+    'CdsExportLedgerIntegrationTest': (
+        'shouldPreserveTheObservedCancelRevision_acrossACommittedLeaseHeartbeat',
+        'shouldRejectAStaleBrowserControl_withoutChangingTheNewerAttempt',
+    ),
     'CdsImportCoordinatorMariaDbIntegrationTest': (
         'shouldPrefetchOneImmutableBinding_withoutTransactionOrRetainedConnection',
     ),
@@ -186,10 +192,34 @@ def verify_admission_seeds(repository, client, run, log):
     print('Admission seed replay preserved all existing state and surfaced unrelated constraint failure.', flush=True)
 
 
-def main():
+def materialize_develop_migrations(repository, destination):
+    """Use the actual pinned develop commit, including its original SQL bytes and file inventory."""
+    prefix = 'database/mysql/migration/'
+    listing = subprocess.run(['git', 'ls-tree', '-r', '--name-only', DEVELOP_UPGRADE_BASE, '--',
+                              prefix + 'common', prefix + 'on', prefix + 'bc'],
+                             cwd=repository, check=True, capture_output=True, text=True).stdout.splitlines()
+    scripts = [item for item in listing if item.endswith('.sql')]
+    if len(scripts) < 60:
+        raise RuntimeError('Pinned develop migration inventory is incomplete')
+    for item in scripts:
+        if not re.fullmatch(re.escape(prefix) + r'(?:common|on|bc)/V[0-9.]+__[A-Za-z0-9_]+\.sql', item):
+            raise RuntimeError('Pinned develop migration path is not an owned SQL resource')
+        target = destination / item.removeprefix(prefix)
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        content = subprocess.run(['git', 'show', DEVELOP_UPGRADE_BASE + ':' + item],
+                                 cwd=repository, check=True, capture_output=True).stdout
+        if not content or len(content) > 16 * 1024 * 1024:
+            raise RuntimeError('Pinned develop migration resource is missing or oversized')
+        target.write_bytes(content)
+        target.chmod(0o600)
+
+
+def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--container', default='carlos-tomcat-dev')
     parser.add_argument('--container-workspace', default='/workspace')
+    parser.add_argument('--container-user', type=int,
+                        help='Docker exec UID for required protected fixtures; defaults to the container identity')
     parser.add_argument('--maven', default='mvn')
     parser.add_argument('--maven-repository')
     parser.add_argument('--classpath-file', type=Path,
@@ -200,13 +230,52 @@ def main():
                         help='Regenerate ON/BC physical contracts from this newly owned full-chain reference server')
     parser.add_argument('--coordinated-shard', choices=('import', 'export', 'shared'),
                         help='Run an exact partition of the complete import/export inventory, with no skipped suites')
+    parser.add_argument('--catalogue-case-folded', action='store_true',
+                        help='Run physical source-catalogue and ledger contracts with MariaDB table-name case mode 1')
+    parser.add_argument('--develop-upgrade', action='store_true',
+                        help='Qualify retained-data ON/BC upgrades from the exact develop base through CLI and boot validation')
     args = parser.parse_args()
+    if args.container_user is not None and args.container_user < 0:
+        parser.error('--container-user must be a nonnegative UID')
     if args.schema_only and not args.refresh_schema_contracts:
         parser.error('--schema-only requires --refresh-schema-contracts')
     if args.coordinated_shard and args.schema_only:
         parser.error('--coordinated-shard cannot be combined with --schema-only')
+    if args.catalogue_case_folded and (args.coordinated_shard or args.schema_only):
+        parser.error('--catalogue-case-folded is an independent required physical database profile')
+    if args.develop_upgrade and (args.coordinated_shard or args.schema_only or args.refresh_schema_contracts or args.catalogue_case_folded):
+        parser.error('--develop-upgrade is an independent ON/BC upgrade profile')
+    return args
+
+
+def database_profiles(args):
+    profiles = [('carlos_cds_test', 'jdbc.properties', 'on')]
+    if not args.schema_only:
+        profiles.append(('cds_ledger_test', 'ledger.properties', 'on'))
+    if args.coordinated_shard or args.catalogue_case_folded:
+        profiles.append(('cds_export_test', 'export.properties', 'on'))
+    if args.refresh_schema_contracts:
+        profiles.append(('cds_full_test', 'bc.properties', 'bc'))
+    if args.develop_upgrade:
+        profiles = [('cds_export_test', 'upgrade-on.properties', 'on'),
+                    ('cds_full_test', 'upgrade-bc.properties', 'bc')]
+    return profiles
+
+
+def verify_case_mode(client, run, log, folded):
+    case_mode = run(client + ['--batch', '--skip-column-names', '-e',
+                              'SELECT @@lower_case_table_names'], log, capture=True).stdout.strip()
+    if case_mode != ('1' if folded else '0'):
+        raise RuntimeError('Disposable MariaDB table-name case mode differs from the required profile')
+
+
+def main():
+    args = parse_args()
     repository = Path(__file__).resolve().parents[2]
     selectors = coordinated_classes(repository, args.coordinated_shard) if args.coordinated_shard else CLASSES
+    if args.catalogue_case_folded:
+        selectors = ('CdsExportDocumentReadMariaDbIntegrationTest', 'CdsExportSchemaVisibilityMariaDbIntegrationTest',
+                     'CdsExportLedgerIntegrationTest')
     required = tuple(item.rsplit('.', 1)[-1] for item in selectors)
     nonce = uuid.uuid4().hex
     name = 'cds-native-' + nonce
@@ -232,7 +301,8 @@ def main():
                               stdout=subprocess.PIPE if capture else log, stderr=log)
 
     def build(command, log, check=True):
-        return run(docker + ['exec', '--workdir', args.container_workspace, args.container] + command, log, check=check)
+        identity = ['--user', str(args.container_user)] if args.container_user is not None else []
+        return run(docker + ['exec'] + identity + ['--workdir', args.container_workspace, args.container] + command, log, check=check)
 
     maven = [args.maven, '-B', '-q']
     if args.maven_repository:
@@ -247,7 +317,8 @@ def main():
                           '--tmpfs', '/var/lib/mysql:rw,nosuid,noexec,size=1536m',
                           '--mount', 'type=bind,src=' + str(private) + ',dst=/run/cds-test,readonly',
                           '-e', 'MARIADB_ROOT_PASSWORD_FILE=/run/cds-test/password', '-e', 'MARIADB_ROOT_HOST=%',
-                          IMAGE, '--innodb-page-size=32768', '--innodb-snapshot-isolation=ON',
+                          IMAGE, '--lower-case-table-names=' + ('1' if args.catalogue_case_folded else '0'),
+                          '--innodb-page-size=32768', '--innodb-snapshot-isolation=ON',
                           '--character-set-server=utf8mb4', '--collation-server=utf8mb4_general_ci',
                           # Match the repository config for very wide legacy form DDL. SQL
                           # strict mode stays enabled, including all native storage tests.
@@ -266,13 +337,8 @@ def main():
                 if time.monotonic() > deadline:
                     raise RuntimeError('Disposable MariaDB did not become ready')
                 time.sleep(1)
-            profiles = [('carlos_cds_test', 'jdbc.properties', 'on')]
-            if not args.schema_only:
-                profiles.append(('cds_ledger_test', 'ledger.properties', 'on'))
-            if args.coordinated_shard:
-                profiles.append(('cds_export_test', 'export.properties', 'on'))
-            if args.refresh_schema_contracts:
-                profiles.append(('cds_full_test', 'bc.properties', 'bc'))
+            verify_case_mode(client, run, log, args.catalogue_case_folded)
+            profiles = database_profiles(args)
             run(client + ['-e', '; '.join('CREATE DATABASE ' + database + ' CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci'
                                          for database, _, _ in profiles)], log)
             for database, filename, _ in profiles:
@@ -292,6 +358,45 @@ def main():
                 build(maven + ['dependency:build-classpath', '-Dmdep.outputFile=' + container_output + '/classpath'], log)
                 dependencies = (output / 'classpath').read_text().strip()
             classpath = args.container_workspace + '/target/classes' + os.pathsep + dependencies
+            def run_develop_upgrade():
+                materialize_develop_migrations(repository, private / 'develop-base')
+                build(['python3', 'scripts/ci/verify-cds-consent-forward.py',
+                       '--settings', container_private + '/upgrade-on.properties',
+                       '--client-defaults', container_private + '/client.cnf',
+                       '--proof', container_output + '/consent-forward-guard.json'], log)
+                consent_guard = json.loads((output / 'consent-forward-guard.json').read_text())
+                if consent_guard != {'status': 'PASSED', 'cases': 5, 'validShapes': 2,
+                                     'nonStrictModeRefusals': 3, 'rowsPreserved': 5}:
+                    raise RuntimeError('Consent forward migration evidence is incomplete')
+                build(['javac', '-cp', classpath, '-d', container_output + '/classes',
+                       'scripts/ci/CdsDevelopUpgradeProof.java',
+                       'debian/assets/flyway-runner/src/main/java/io/github/carlos_emr/carlos/deb/FlywayRunner.java'], log)
+                for database, filename, province in profiles:
+                    build(['java', '-cp', container_output + '/classes' + os.pathsep + classpath,
+                           'CdsDevelopUpgradeProof', container_private + '/' + filename,
+                           container_private + '/develop-base', province,
+                           container_output + '/upgrade-' + province + '.json'], log)
+                    proof = json.loads((output / ('upgrade-' + province + '.json')).read_text())
+                    expected = {'status': 'CLI_AND_RETENTION_PASSED', 'baseCommit': DEVELOP_UPGRADE_BASE, 'province': province,
+                                'baseMigrations': 68 if province == 'on' else 65,
+                                'headMigrations': 98 if province == 'on' else 96, 'retainedClinicalRows': 4, 'retainedAuditRows': 2, 'retainedPropertyRows': 1, 'interruptedColumnRecovery': True, 'concurrentRecoveryFenced': True, 'unreviewedSchemaRefused': True,
+                                'appliedHistoryUnchanged': True, 'cliMigrate': True, 'cliValidate': True,
+                                'bootValidate': True, 'pending': 0}
+                    if proof != expected:
+                        raise RuntimeError('Develop upgrade proof is incomplete or bound to another baseline')
+                    physical = ['python3', 'scripts/schema-contract.py', '--database', database,
+                                '--province', province, '--client-arg=--defaults-extra-file=' + container_private + '/client.cnf',
+                                '--client-arg=-h', '--client-arg=' + name]
+                    if build(physical + ['--check'], log, check=False).returncode:
+                        build(physical + ['--output', container_output + '/schema-' + province + '.json'], log)
+                        raise RuntimeError('Develop upgrade differs from the canonical fresh physical schema')
+                    proof.update(status='PASSED', physicalSchemaAndSeedsMatched=True)
+                    (output / ('upgrade-' + province + '.json')).write_text(json.dumps(proof, sort_keys=True) + '\n')
+                print('CDS develop upgrade passed for both provinces; CLI, boot, retained data and original checksums verified.')
+                return 0
+
+            if args.develop_upgrade:
+                return run_develop_upgrade()
             build(['javac', '-cp', classpath, '-d', container_output + '/classes',
                    'scripts/ci/CdsImportMariaDbBootstrap.java'], log)
             for _, filename, province in profiles:
@@ -323,7 +428,7 @@ def main():
                                     '-Dtest=' + ','.join(selectors),
                                     '-Dcds.test.properties=' + container_private + '/jdbc.properties',
                                     '-Dcds.ledger.test.properties=' + container_private + '/ledger.properties']
-            if args.coordinated_shard:
+            if args.coordinated_shard or args.catalogue_case_folded:
                 test_command.append('-Dcds.export.test.properties=' + container_private + '/export.properties')
                 # The native-file tests exercise real trusted ancestry. A bind-mounted
                 # checkout can be owned by the host runner; do not relax its ownership
@@ -360,7 +465,10 @@ def main():
                 if run(docker + ['network', 'rm', network], log, check=False).returncode:
                     cleanup_failures.append('network')
         for credential in private.iterdir():
-            credential.unlink()
+            if credential.is_dir() and not credential.is_symlink():
+                shutil.rmtree(credential)
+            else:
+                credential.unlink()
         private.rmdir()
         if cleanup_failures:
             raise RuntimeError('Owned CDS native-tier cleanup failed: ' + ', '.join(cleanup_failures))

@@ -61,6 +61,8 @@ The database source gate needs full schema visibility to detect unreadable or
 unreviewed sources. Capturing the stock nontransactional Rourke table additionally
 requires its bounded READ lock. A missing permission or unknown populated source
 requires review; deleting clinical rows or weakening the gate is not a resolution.
+Catalogue matching follows MariaDB's existing table-name case mode. Column names, types,
+collations and keys remain exact, and unknown or ambiguous table mappings still require review.
 
 ## Submit and recover a browser job
 
@@ -81,7 +83,8 @@ and disclosure authorization. A stale/offline status disables controls until the
 server confirms the job again. Download diagnostics separately when a job needs
 review; a diagnostic report is not a clinical package.
 
-Cancellation and resume use the observed revision. If a control outcome cannot
+Cancellation and resume use the observed revision. Lease-only heartbeats preserve that revision;
+state, progress and control changes still invalidate stale observations. If a control outcome cannot
 be confirmed, refresh the original job before retrying. Logging out or closing
 the page does not cancel an accepted export.
 

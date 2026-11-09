@@ -361,6 +361,33 @@ class CdsExportLedgerIntegrationTest {
     }
 
     @Test
+    void shouldPreserveTheObservedCancelRevision_acrossACommittedLeaseHeartbeat() throws Exception {
+        var job = ledger.accept(document("recipient"));
+        var lease = ledger.claim(job.id(), COMPATIBLE);
+        var observed = ledger.status(job.id());
+        var before =
+                sql.queryForObject(
+                        "select lease_until from cds_export_run where id=?",
+                        java.sql.Timestamp.class,
+                        job.id());
+        Thread.sleep(1100);
+        ledger.checkpoint(lease);
+        var renewed = ledger.status(job.id());
+        assertThat(renewed.revision()).isEqualTo(observed.revision());
+        assertThat(renewed.updatedAt()).isAfter(observed.updatedAt());
+        assertThat(
+                        sql.queryForObject(
+                                "select lease_until from cds_export_run where id=?",
+                                java.sql.Timestamp.class,
+                                job.id()))
+                .isAfter(before);
+        ledger.cancel(job.id(), operatorKey(), observed.revision());
+        assertThat(ledger.status(job.id()).cancelRequested()).isTrue();
+        assertThatThrownBy(() -> ledger.checkpoint(lease))
+                .isInstanceOf(java.util.concurrent.CancellationException.class);
+    }
+
+    @Test
     void shouldRejectAStaleBrowserControl_withoutChangingTheNewerAttempt() {
         var job = ledger.accept(document("recipient"));
         ledger.cancel(job.id(), operatorKey(), job.revision());

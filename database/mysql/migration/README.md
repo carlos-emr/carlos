@@ -74,6 +74,7 @@ migration/
            V1.0.59.27__preserve_oscar19_text_capacity.sql
            V1.0.59.30__one_live_consent_per_type.sql
            V1.0.59.32__preserve_native_archive_capacity.sql
+           V1.0.59.33__audit_imported_billing_filenames.sql
            V1.0.60__portal_booking_prompt_security_object.sql
            V1.0.61__portal_booking_offer.sql
            # Develop-only migrations, in develop's order, above the release line's V1.0.59.7. All were
@@ -97,6 +98,8 @@ migration/
            V1.0.82__cds_native_field_baselines.sql
            V1.0.83__cds_export_ledger.sql
            V1.0.84__cds_export_artifact_attempts.sql
+           V1.0.85__seed_admin_cds_import_permission.sql
+           V1.0.86__reconcile_forward_merged_consent_audit.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -118,14 +121,56 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The combined high-water mark is `common/V1.0.84`,
-so the next unallocated version for ANY location is `V1.0.85`. The portal booking migrations
+`V1.0.3` onward is a forward delta. The combined high-water mark is `common/V1.0.86`,
+so the next unallocated version for ANY location is `V1.0.87`. The portal booking migrations
 occupy `V1.0.60`–`V1.0.61`; appointment locations retain develop's `V1.0.81`, native field baselines use `V1.0.82`, and the unpublished export ledger moves to `V1.0.83`.
 Published SQL files retain their numbers and bytes. The merge ledger preserves develop's history,
-then records the lower release arrivals as `forward-merge`; a database already past those lower
-versions requires the documented rebuild/upgrade handling rather than silent out-of-order execution.
+then records the lower release arrivals as `forward-merge`. Existing develop databases use the
+guarded upgrade described below; rebuilding a clinic database is not an upgrade requirement.
 
-The imported release history runs through `common/V1.0.59.32`.
+### Upgrade an existing develop database without rewriting history
+
+Stop application nodes and retain database, document and durable CDS-store backups. Run the
+deployed candidate's normal `sudo carlos-ctl db-migrate`, followed by `sudo carlos-ctl db-validate`.
+The packaged runner and application boot gate share `FlywayReleasedMigrationBackfill`: databases
+already through develop `V1.0.81` may apply only the 27 exact historical release arrivals pinned
+there by script name and Flyway checksum. Each province receives only its selected locations.
+An unknown historical arrival, edited release script or unreviewed earlier high-water mark is
+refused. The consent preparation callback verifies the exact develop audit-table shape before any
+backfill and supplies only the timestamp default required by the frozen release INSERT. Forward
+`V1.0.86` then reconciles its keys, additive audit metadata and final consent defaults. Both the
+callback and the forward SQL reject unknown shapes; wider identities or timestamp precision cannot
+be silently narrowed, including under non-strict SQL mode. Original audit values remain intact.
+Applied checksum drift, missing migrations and future history still fail Flyway validation.
+
+Develop `V1.0.79` widened `property.value` to TEXT, while frozen release `V1.0.59.27` names
+VARCHAR(4000). The guarded callback preserves the original TEXT column and its values under a
+temporary versioned column name, exposes an empty placeholder to that one released statement,
+then restores the original column. A process interruption retains the original column. Validation
+refuses that incomplete state; an explicit `db-migrate` validates history and restores it under Flyway's schema-history lock
+before the next SQL migration, only when the placeholder remains empty. Unexpected placeholder writes require review and are retained.
+A shared database-scoped operation lock fences concurrent migrate/repair requests. Recovery runs
+inside Flyway's own migration lock as well. This recovery never repairs or fabricates a Flyway history entry; an actual failed migration still
+requires the normal reviewed repair-and-retry procedure.
+
+Flyway executes every missing SQL migration and writes its normal history row. This policy never
+repairs, deletes, ignores or fabricates applied history. Boot validation refuses pending work and
+does not migrate a production database. Do not enable general `outOfOrder` in configuration or
+use `repair` to bypass this policy. Fresh databases retain normal version ordering.
+
+`CDS compatibility / develop-upgrade` starts with the exact develop base
+`497896230576b492284b1c29efa77f4c4a2409ea`, migrates both provinces to their original `V1.0.81`
+history, retains synthetic patient, consent-history and message/BLOB rows, then runs the real
+packaged runner and normal boot validation. It checks every original history row/checksum and
+the retained clinical and audit row bytes after upgrade, and compares the complete physical
+schema and seed contract against a fresh install. Five additional migration cases exercise both
+known audit shapes and non-strict refusal of wider identities/timestamps or an unknown primary key.
+The retained-data drill includes a long Unicode property, interrupted column staging, refusal of
+unexpected placeholder writes and validation refusal before recovery. The separate case-folded
+profile initializes MariaDB with
+`lower_case_table_names=1` and runs the physical source-catalogue suites without skips.
+
+The imported release history runs through `common/V1.0.59.33`, including billing-filename audit safeguards.
 `V1.0.48`–`V1.0.51` are claimed by open pull requests. `develop` already uses
 `V1.0.60` and above, so this release line stays below its floor (`scripts/flyway-released-migrations.txt`):
 `common/V1.0.59.2` is #5089's, the two BC migrations of #5062 and #5051 are `V1.0.59.3` and `V1.0.59.4`,
@@ -164,7 +209,8 @@ PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.3
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.
 Gaps in the sequence are intentional: they are numbers once claimed by pull requests that were
 renumbered or not merged. Apply the present migrations in version order;
-do not enable `outOfOrder` to fill gaps. The version line is global:
+do not enable general `outOfOrder` to fill gaps. The exact released-forward-merge policy above
+is the only supported exception. The version line is global:
 the shared `common/` line is in EVERY database's path, and on an **already-migrated database**
 Flyway (no `outOfOrder`) never applies a new migration numbered below the highest it has already
 run — `common/V1.0.81` on both provinces. A hypothetical new `bc/V1.0.11` would

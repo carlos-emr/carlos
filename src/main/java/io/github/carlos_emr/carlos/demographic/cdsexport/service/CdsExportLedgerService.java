@@ -385,8 +385,7 @@ public class CdsExportLedgerService {
         CdsExportRun run = owned(lease);
         Instant now = runs.now();
         if (run.isCancelRequested()) throw new CancellationException("CDS_EXPORT_CANCELLED");
-        run.setLeaseUntil(now.plusSeconds(LEASE_SECONDS));
-        run.setUpdatedAt(now);
+        runs.renewLease(run, now, now.plusSeconds(LEASE_SECONDS));
     }
 
     /** Files are fully verified/fsynced before this short, idempotent, fenced metadata publication. */

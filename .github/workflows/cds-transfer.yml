@@ -11,6 +11,9 @@ on:
       - 'src/test/resources/**'
       - 'database/mysql/migration/**'
       - 'scripts/ci/*cds*'
+      - 'scripts/ci/CdsDevelopUpgradeProof.java'
+      - 'debian/assets/flyway-runner/**'
+      - 'debian/build-flyway-runner.sh'
       - 'scripts/schema-contract.py'
       - 'scripts/verify-cds-export-source-catalogue.py'
       - 'pom.xml'
@@ -71,4 +74,52 @@ jobs:
           name: cds-transfer-${{ matrix.shard }}-reports
           path: target/cds-native-*/reports/TEST-*.xml
           if-no-files-found: warn
+          retention-days: 7
+
+  compatibility-contracts:
+    name: CDS compatibility / ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [case-folded-catalogue, develop-upgrade]
+    steps:
+      - name: Checkout candidate and the actual develop upgrade baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Start Java 25 build container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+      - name: Compile actual application and tests
+        run: docker exec carlos-tomcat-dev mvn -B -DskipTests test-compile
+      - name: Prepare harness workspace ownership
+        run: sudo chown -R "$(id -u):$(id -g)" target
+      - name: Install hash-pinned harness dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/cds-compatibility-venv"
+          "$RUNNER_TEMP/cds-compatibility-venv/bin/python" -m pip install \
+            --disable-pip-version-check --require-hashes -r scripts/ci/requirements.txt
+          echo "$RUNNER_TEMP/cds-compatibility-venv/bin" >> "$GITHUB_PATH"
+      - name: Verify catalogue under actual case-folded MariaDB identifiers
+        if: matrix.profile == 'case-folded-catalogue'
+        run: python3 scripts/ci/run-cds-native-tier.py --catalogue-case-folded
+      - name: Upgrade both provinces from develop with retained clinical data
+        if: matrix.profile == 'develop-upgrade'
+        run: python3 scripts/ci/run-cds-native-tier.py --develop-upgrade
+      - name: Preserve sanitized compatibility evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cds-compatibility-${{ matrix.profile }}-reports
+          path: |
+            target/cds-native-*/reports/TEST-*.xml
+            target/cds-native-*/upgrade-*.json
+            target/cds-native-*/consent-forward-guard.json
+            target/cds-native-*/schema-*.json
+          if-no-files-found: error
           retention-days: 7

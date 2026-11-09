@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "dcf8df803da4878bde81d6399e5199bfd49b24b9be8513817121420fe515f27d",
+ "migration_sha256": "726ed60ad323d53a560ed2e5fa2d53015e448f5785eefde95c4ca4b0a5918495",
  "province": "on",
  "schema": {
   "checks": [
