@@ -236,7 +236,7 @@ class RxPatientLinkJspRegressionUnitTest {
                         .contains("<carlos:encode value='<%= " + value + " %>' context=\"htmlAttribute\"/>");
             }
             String[] favoriteText = name.equals("rx/SideLinksEditFavorites2.jsp")
-                    ? new String[] {"favorite.name()"}
+                    ? new String[] {"favorite.name() != null && favorite.name().length() > 13 ? favorite.name().substring(0, 10) + \"...\" : favorite.name()"}
                     : new String[] {"favorites[j].getFavoriteName()", "favorites[j].getFavoriteName().substring(0, 10) + \"...\""};
             String favoriteAttribute = name.equals("rx/SideLinksEditFavorites2.jsp") ? "favorite.name()" : "favorites[j].getFavoriteName()";
             assertThat(jsp).contains("<carlos:encode value='<%= " + favoriteAttribute + " %>' context=\"htmlAttribute\"/>");

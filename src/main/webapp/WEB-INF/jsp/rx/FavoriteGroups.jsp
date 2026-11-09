@@ -1,12 +1,13 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later --%>
 <%@ page pageEncoding="UTF-8" contentType="text/html; charset=UTF-8" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.RxFavoriteGroupManager" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.RxFavoriteGroupService" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="oscarRx.groups.confirmDelete" var="msg_confirmGroupDelete"/>
 <%
-    RxFavoriteGroupManager.View view = (RxFavoriteGroupManager.View) request.getAttribute("favoriteGroupView");
+    RxFavoriteGroupService.View view = (RxFavoriteGroupService.View) request.getAttribute("favoriteGroupView");
     int patient = (Integer) request.getAttribute("favoriteGroupPatient");
     String action = request.getContextPath() + "/rx/favoriteGroups";
 %>
@@ -23,38 +24,41 @@
 <% } %>
 <p><fmt:message key="oscarRx.groups.description"/></p>
 <form action="<%= action %>" method="post">
+<input type="hidden" name="carlosFormSubmission" value="<carlos:encode value="${requestScope.favoriteGroupSubmission}" context="htmlAttribute"/>">
 <input type="hidden" name="demographicNo" value="<%= patient %>"><input type="hidden" name="command" value="create">
 <label><fmt:message key="oscarRx.groups.name"/> <input name="name" required maxlength="80"></label>
 <button type="submit"><fmt:message key="oscarRx.groups.create"/></button>
 </form>
-<% for (RxFavoriteGroupManager.Group group : view.groups()) { %>
+<% for (RxFavoriteGroupService.Group group : view.groups()) { %>
 <details open><summary><carlos:encode value='<%= group.name() %>' context="html"/></summary>
 <form action="<%= action %>" method="post">
+<input type="hidden" name="carlosFormSubmission" value="<carlos:encode value="${requestScope.favoriteGroupSubmission}" context="htmlAttribute"/>">
 <input type="hidden" name="demographicNo" value="<%= patient %>"><input type="hidden" name="groupId" value="<%= group.id() %>">
 <label><fmt:message key="oscarRx.groups.name"/> <input name="name" required maxlength="80" value="<carlos:encode value='<%= group.name() %>' context="htmlAttribute"/>"></label>
 <button name="command" value="rename"><fmt:message key="oscarRx.groups.rename"/></button>
 <button name="command" value="up" formnovalidate><fmt:message key="oscarRx.groups.up"/></button>
 <button name="command" value="down" formnovalidate><fmt:message key="oscarRx.groups.down"/></button>
-<button name="command" value="delete" formnovalidate><fmt:message key="oscarRx.groups.delete"/></button>
+<button name="command" value="delete" formnovalidate onclick="return confirm('${carlos:forJavaScript(msg_confirmGroupDelete)}')"><fmt:message key="oscarRx.groups.delete"/></button>
 </form>
 <ul>
-<% for (RxFavoriteGroupManager.Favorite favorite : view.favorites()) { if (favorite.groupIds().contains(group.id())) { %>
+<% for (RxFavoriteGroupService.Favorite favorite : view.favorites()) { if (favorite.groupIds().contains(group.id())) { %>
 <li><a href="<%= request.getContextPath() %>/rx/choosePatient?demographicNo=<%= patient %>&amp;usefav=true&amp;favid=<%= favorite.id() %>"><carlos:encode value='<%= favorite.name() %>' context="html"/></a></li>
 <% } } %>
 </ul></details>
 <% } %>
 <details open><summary><fmt:message key="oscarRx.groups.ungrouped"/></summary><ul>
-<% for (RxFavoriteGroupManager.Favorite favorite : view.favorites()) { if (favorite.groupIds().isEmpty()) { %>
+<% for (RxFavoriteGroupService.Favorite favorite : view.favorites()) { if (favorite.groupIds().isEmpty()) { %>
 <li><a href="<%= request.getContextPath() %>/rx/choosePatient?demographicNo=<%= patient %>&amp;usefav=true&amp;favid=<%= favorite.id() %>"><carlos:encode value='<%= favorite.name() %>' context="html"/></a></li>
 <% } } %>
 </ul></details>
 <h2><fmt:message key="oscarRx.groups.assign"/></h2>
-<% for (RxFavoriteGroupManager.Favorite favorite : view.favorites()) { %>
+<% for (RxFavoriteGroupService.Favorite favorite : view.favorites()) { %>
 <form action="<%= action %>" method="post"><fieldset>
 <legend><carlos:encode value='<%= favorite.name() %>' context="html"/></legend>
+<input type="hidden" name="carlosFormSubmission" value="<carlos:encode value="${requestScope.favoriteGroupSubmission}" context="htmlAttribute"/>">
 <input type="hidden" name="demographicNo" value="<%= patient %>"><input type="hidden" name="command" value="assign">
 <input type="hidden" name="favoriteId" value="<%= favorite.id() %>">
-<% for (RxFavoriteGroupManager.Group group : view.groups()) { %>
+<% for (RxFavoriteGroupService.Group group : view.groups()) { %>
 <label><input type="checkbox" name="groupIds" value="<%= group.id() %>" <%= favorite.groupIds().contains(group.id()) ? "checked" : "" %>><carlos:encode value='<%= group.name() %>' context="html"/></label>
 <% } %>
 <button type="submit"><fmt:message key="oscarRx.groups.save"/></button>

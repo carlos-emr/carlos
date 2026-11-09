@@ -71,7 +71,9 @@
         divId = "renalDosing";
     }
 
-    DosingRecomendation rd = RenalDosingFactory.getDosingInformation(atc);
+    DosingRecomendation rd;
+    try { rd = RenalDosingFactory.getDosingInformation(atc); }
+    catch (IllegalStateException unavailable) { response.setStatus(503); return; }
     if (rd == null) {  // Explicitly distinguish no guidance from an unusable response.
         response.setContentType("application/json");
         out.write("{\"renalState\":\"no-guidance\"}");
@@ -89,6 +91,7 @@
 
     Date wtDate = null;
     boolean invalidInput = age < 0;
+    boolean undatedCreatinine = false;
     if (measurementHash != null && measurementHash.get("value") != null) {
         weight = RenalDosingInput.weightKilograms((String) measurementHash.get("value"),
                 (String) measurementHash.get("measuringInstruction"));
@@ -119,7 +122,8 @@
         java.util.Map hash = (java.util.Map) labs.get(0);
         String sCrStr = (String) hash.get("result");
         sCrDate = (Date) hash.get("collDateDate");
-        invalidInput |= sCrDate == null;
+        undatedCreatinine = sCrDate == null;
+        invalidInput |= undatedCreatinine;
         sCr = RenalDosingInput.creatinineMicromoles(sCrStr, (String) hash.get("units"));
     }
 
@@ -149,26 +153,17 @@
     ageb = weightb = sCrb = equate = false;
 
 
-    // This is adult creatinine-clearance guidance. Unknown sex must not silently use the male factor.
-    if (age >= 18 && age <= 120 && ("M".equalsIgnoreCase(demographic.getSex())
-            || "F".equalsIgnoreCase(demographic.getSex()))) {
-        ageb = true;
-    }
-    if (weight >= 20 && weight <= 500) {
-        weightb = true;
-    }
-    if (sCr >= 10 && sCr <= 3000) {
-        sCrb = true;
-    }
-
-
-    int Clcr = 0;
-    if (!invalidInput && ageb && RenalDosingInput.supportsAutomaticHighlight(age, weight, sCr)) {
+    ageb = RenalDosingInput.supportsAge(age);
+    weightb = RenalDosingInput.supportsWeight(weight);
+    sCrb = RenalDosingInput.supportsCreatinine(sCr);
+    boolean knownSex = "M".equalsIgnoreCase(demographic.getSex()) || "F".equalsIgnoreCase(demographic.getSex());
+    double Clcr = 0;
+    if (!invalidInput && knownSex && RenalDosingInput.supportsAutomaticHighlight(age, weight, sCr)) {
         equate = true;
-        Clcr = RxUtil.getClcr(age, weight, sCr, female);
+        // Conservative integer bands avoid both upward rounding and gaps between adjacent table rows.
+        Clcr = Math.floor(RxUtil.getClcrUnrounded(age, weight, sCr, female));
     }
 
-//int Clcr = RxUtil.getClcr(age,weight,sCr,female);
     ArrayList list = rd.getDose();
 
 
@@ -223,7 +218,8 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
     <% if (!equate) { %>
     <p role="status"><fmt:message key="oscarRx.renal.unusableObservations"/> <fmt:message key="oscarRx.renal.highlightRange"/></p>
     <% } %>
-    <details open><summary>Renal dosing details</summary>
+    <details open><summary><fmt:message key="oscarRx.renal.details"/></summary>
+    <% if (undatedCreatinine) { %><p role="status"><fmt:message key="oscarRx.renal.undated"/></p><% } %>
     <table class="sofT">
         <tr class="heading">
             <th>Clcr</th>
@@ -299,7 +295,7 @@ Clcr = {(140 - <%=age%> ) X <%=weight%>[kg] )} / (sCr [umol/L] X 0.8)   <% if (f
 
     String setNA(boolean valb, double value) {
         if (valb) {
-            return "" + value;
+            return java.math.BigDecimal.valueOf(value).setScale(2, java.math.RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
         }
         return "<span style=\"color:orange\">N/A</span>";
     }

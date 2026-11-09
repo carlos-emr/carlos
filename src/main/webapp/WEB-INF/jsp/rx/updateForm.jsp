@@ -97,7 +97,8 @@
         <br/>
         <b>Select new drug form :</b>
 
-        <select name="drugForm">
+        <select name="drugForm" required>
+        <option value=""></option>
             <option value="Aerosol metered-dose">Aerosol metered-dose</option>
             <option value="Aerosol with propellants">Aerosol with propellants</option>
             <option value="Bar chewable">Bar chewable</option>
@@ -195,13 +196,20 @@
 
         </select>
         <script type="text/javascript">
-            document.querySelector('select[name="drugForm"]').value = '<carlos:encode value='<%= drugForm %>' context="javaScriptBlock"/>';
+            var formSelect = document.querySelector('select[name="drugForm"]');
+            var storedForm = '<carlos:encode value='<%= drugForm %>' context="javaScriptBlock"/>';
+            formSelect.value = '';
+            Array.from(formSelect.options).some(function (option) {
+                if (option.value.toLowerCase() === storedForm.toLowerCase()) { formSelect.value = option.value; return true; }
+                return false;
+            });
         </script>
         <input type="hidden" name="id" value="<carlos:encode value='<%= id %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="action" value="update"/>
         <input type="hidden" name="originalVersion" value="<carlos:encode value='${requestScope.drugFormVersion}' context="htmlAttribute"/>"/>
         <% if (Boolean.TRUE.equals(request.getAttribute("drugFormConflict"))) { %>
-        <p role="alert"><fmt:message key="oscarRx.sourceChanged"/> <a href="<%= request.getContextPath() %>/rx/ViewUpdateForm?id=<carlos:encode value='<%= id %>' context="uriComponent"/>"><fmt:message key="oscarRx.groups.back"/></a></p>
+        <p><fmt:message key="oscarRx.rejectedForm"/> <carlos:encode value="${requestScope.rejectedDrugForm}"/></p>
+        <p role="alert"><fmt:message key="oscarRx.sourceChanged"/> <a href="<%= request.getContextPath() %>/rx/ViewUpdateForm?id=<carlos:encode value='<%= id %>' context="uriComponent"/>"><fmt:message key="oscarRx.reloadCurrentForm"/></a></p>
         <% } %>
         <input type="submit" class="btn btn-primary" value="submit">
     </form>

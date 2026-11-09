@@ -58,8 +58,12 @@ public final class RenalDosingInput {
      * Outside it the complete dosing table remains available for manual clinical assessment.
      */
     public static boolean supportsAutomaticHighlight(int age, double kilograms, double micromoles) {
-        return age >= 18 && age <= 120 && Double.isFinite(kilograms) && kilograms >= 20 && kilograms <= 500
-                && Double.isFinite(micromoles) && micromoles >= 10 && micromoles <= 3000;
+        return supportsAge(age) && supportsWeight(kilograms) && supportsCreatinine(micromoles);
+    }
+
+    public static boolean supportsAge(int age) { return age >= 18 && age <= 120; }
+    public static boolean supportsWeight(double value) { return Double.isFinite(value) && value >= 20 && value <= 500; }
+    public static boolean supportsCreatinine(double value) { return Double.isFinite(value) && value >= 10 && value <= 3000;
     }
 
     /** Fold only ASCII unit letters and explicitly supported micro signs; reject Unicode look-alikes. */

@@ -32,7 +32,7 @@ async function workflow(s) {
         const select=document.getElementById('faxNumber');
         if(!select.options.length)select.add(new Option('Synthetic','0000000000'));
         const unload=()=>undefined;window.onbeforeunload=unload;
-        return {refused:sendFax(false)===false,pending:faxSubmissionPending,unloadUnchanged:window.onbeforeunload===unload,warning:!document.getElementById('faxPreviewChanged').hidden};
+        return {refused:sendFax(false)===false,pending:faxSubmissionPending,unloadUnchanged:window.onbeforeunload===unload,warning:!document.getElementById('rxPreviewLoading').hidden};
       });
       h.assert(result.refused&&!result.pending&&result.unloadUnchanged&&result.warning,'Early fax changed state or lost its visible warning');
       await view.locator('#additionalNotes').fill(note);
@@ -46,6 +46,7 @@ async function workflow(s) {
     await s.context.unroute('**/rx/ViewPreview2?**',handler);
     await view.locator('#preview').evaluate(frame=>{frame.src=frame.src;});
     await view.frameLocator('#preview').locator('#preview2Form').waitFor();
+    h.assert(await view.locator('#rxPreviewLoading').isHidden(),'The transient preview loading notice did not clear');
     await view.frameLocator('#preview').locator('#additNotes').filter({hasText:note}).waitFor();
     await rx.waitForLoadState('networkidle');
     await view.evaluate(()=>{window.onbeforeunload=null;});

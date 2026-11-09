@@ -4,7 +4,7 @@
  "generator": "scripts/migration/o19/generate_manifests.py",
  "SCHEMA_MAP_VERSION": "o19map-7+81c32ac6",
  "O19_PROFILE": "on",
- "O19_SOURCE_COMMIT": "unknown",
+ "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
   "AppDefinition": {
    "class": "copy",

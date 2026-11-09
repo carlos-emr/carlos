@@ -106,9 +106,9 @@ class RxWriteScript2ActionWriteIsolationUnitTest extends CarlosUnitTestBase {
     @BeforeEach
     void setUp() {
         mocks = MockitoAnnotations.openMocks(this);
-        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class);
-        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
-        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class, receipts);
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         registerMock(SecurityInfoManager.class, mockSecurityInfoManager);
         registerMock(UserPropertyDAO.class, mockUserPropertyDAO);
         registerMock(PartialDateDao.class, mockPartialDateDao);

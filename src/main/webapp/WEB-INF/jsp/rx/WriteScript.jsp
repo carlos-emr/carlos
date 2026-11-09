@@ -889,7 +889,7 @@
     </form>
 
     <% for (RxPrescriptionData.Prescription pendingCard : bean.getStash()) { if (pendingCard.getPendingSubmission() != null) { %>
-    <p role="alert"><fmt:message key="SearchDrug.js.saveUncertain"/></p>
+    <p role="alert"><fmt:message key="oscarRx.pendingSubmission"/></p>
     <% break; } } %>
     <form action="${pageContext.request.contextPath}/rx/writeScript" method="post" id="frm" name="frm">
 
@@ -1660,7 +1660,24 @@
                     var ran_number = Math.round(Math.random() * 1000000);
                     var params = "demographicNo=<%=bean.getDemographicNo()%>&atcCode=<%=atcCode%>&rand=" + ran_number;  //hack to get around ie caching the page
                     //alert(params);
-                    CarlosAjax.updater('renalDosing', url, {method: 'GET', parameters: params});
+                    var panel = document.getElementById('renalDosing');
+                    var sequence = (panel.renalDosingRequest || 0) + 1;
+                    panel.renalDosingRequest = sequence;
+                    CarlosAjax.request(url, {method: 'GET', parameters: params, onComplete: function (transport) {
+                        if (panel.renalDosingRequest !== sequence) return;
+                        if (transport.status === 200 && transport.responseJSON && transport.responseJSON.renalState === 'no-guidance') {
+                            panel.innerHTML = '';
+                            return;
+                        }
+                        var fragment = document.createElement('template');
+                        fragment.innerHTML = transport.responseText || '';
+                        if (transport.status >= 200 && transport.status < 300 && fragment.content.querySelector('[data-renal-dosing-panel]')) {
+                            panel.innerHTML = transport.responseText;
+                        } else {
+                            panel.innerHTML = '<p role="status"><fmt:message key="oscarRx.renal.unavailable"/> <button type="button"><fmt:message key="eform.download.msgRefresh"/></button></p>';
+                            panel.querySelector('button').onclick = getRenalDosingInformation;
+                        }
+                    }});
                     //alert(origRequest.responseText);
                 }
 

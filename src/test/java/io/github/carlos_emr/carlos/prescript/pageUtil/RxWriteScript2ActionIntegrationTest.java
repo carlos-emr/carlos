@@ -81,9 +81,9 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
 
     @BeforeEach
     void setUp() {
-        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class);
-        when(receipts.start(any(), anyInt(), any())).thenReturn(true);
-        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class, receipts);
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        when(receipts.start(any(), anyInt(), any(), any(), any())).thenReturn(true);
+        replaceSpringUtilsBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         replaceSpringUtilsBean(DrugDao.class, mockDrugDao);
         replaceSpringUtilsBean(RxManager.class, mockRxManager);
         // Patient-level Rx access (the shared Rx write check, #3908) is granted unless a test denies it.

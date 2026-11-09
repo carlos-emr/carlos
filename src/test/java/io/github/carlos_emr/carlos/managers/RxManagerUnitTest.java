@@ -199,6 +199,29 @@ class RxManagerUnitTest extends RxManagerImpl {
     class UpdateDrug {
 
         @Test
+        void shouldRejectStaleVersion_beforeAnyMedicationWrite() {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setRowVersion(5L);
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA"); incoming.setRowVersion(4L);
+            assertThatThrownBy(() -> updateDrug(new LoggedInInfo(), incoming)).isInstanceOf(RxSourceVersionValidator.Conflict.class);
+            assertThat(mergedDrug).isNull();
+            assertThat(stored.isArchived()).isFalse();
+        }
+
+        @ParameterizedTest @org.junit.jupiter.params.provider.NullSource @ValueSource(longs = {5L})
+        void shouldReplaceMedication_withMatchingOrLegacyVersion(Long token) {
+            Drug stored = new Drug(); stored.setId(4); stored.setDemographicId(1);
+            stored.setGenericName("ASA"); stored.setRowVersion(5L);
+            ((MockDrugDao) drugDao).seed(stored);
+            Drug incoming = new Drug(); incoming.setId(4); incoming.setDemographicId(1);
+            incoming.setGenericName("ASA"); incoming.setRowVersion(token);
+            assertThat(updateDrug(new LoggedInInfo(), incoming)).isNotNull();
+            assertThat(mergedDrug.isArchived()).isTrue();
+        }
+
+        @Test
         @DisplayName("should archive old drug and return new version")
         void shouldArchiveOldDrug_andReturnNewVersion() {
             LoggedInInfo info = new LoggedInInfo();

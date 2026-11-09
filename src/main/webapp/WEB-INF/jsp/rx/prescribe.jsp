@@ -316,7 +316,7 @@ List<RxPrescriptionData.Prescription> listRxDrugs=(List)request.getAttribute("li
      <%-- Splice in the Indication field --%>
 
     <% if (rx.getPendingSubmission() != null) { %>
-    <p role="alert" class="alert alert-warning"><fmt:message key="SearchDrug.js.saveUncertain"/></p>
+    <p role="alert" class="alert alert-warning"><fmt:message key="oscarRx.pendingSubmission"/></p>
     <% } %>
     <%-- Modern flexbox layout for instructions field - improves alignment and collapsible special instructions section --%>
     <div style="margin-bottom:5px;">

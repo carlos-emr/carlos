@@ -14,7 +14,7 @@ for (const scenario of ['uninitialized', 'empty', 'missing-frame', 'ready', 'leg
   test(`ordinary prescription print handles ${scenario} preview without a missing-frame exception`, () => {
     const calls = [];
     const unload = () => {};
-    const context = vm.createContext({
+    const context = vm.createContext({notesConflict: false,
       frames: {}, navigator: { appName: scenario === 'legacy-browser' ? 'Microsoft Internet Explorer' : 'Netscape' },
       window: { onbeforeunload: unload }, alert() { calls.push('alert'); },
       self: { focus() { calls.push('self-focus'); } },
@@ -62,7 +62,7 @@ for (const scenario of ['empty', 'missing-frame', 'missing-document', 'missing-f
         getElementsByName: () => scenario === 'ready' ? [hidden] : [],
       };
     }
-    const context = vm.createContext({ frames, hasPreview: scenario !== 'empty',
+    const context = vm.createContext({notesConflict: false, frames, hasPreview: scenario !== 'empty',
       document: { getElementById: () => null } });
     vm.runInContext(commentSource, context);
     assert.doesNotThrow(() => context.setComment());
@@ -103,7 +103,7 @@ for (const inaccessible of [false, true]) {
     const notice = {hidden: true}; const unload = () => {};
     const frame = {focus() { assert.fail('unfinished preview focused'); }, print() { assert.fail('unfinished preview printed'); }};
     Object.defineProperty(frame, 'document', {get() { if (inaccessible) throw new Error('unavailable'); return {getElementById() {return null;}}; }});
-    const context = vm.createContext({hasPreview: true, frames: {preview: frame}, document: {getElementById() {return notice;}}, window: {onbeforeunload: unload}});
+    const context = vm.createContext({notesConflict: false,hasPreview: true, frames: {preview: frame}, document: {getElementById() {return notice;}}, window: {onbeforeunload: unload}});
     vm.runInContext(printSource, context);
     assert.doesNotThrow(() => context.printIframe());
     assert.equal(context.window.onbeforeunload, unload);

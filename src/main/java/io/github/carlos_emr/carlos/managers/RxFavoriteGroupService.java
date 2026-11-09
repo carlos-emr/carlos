@@ -15,9 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
 /** Provider-owned presentation groups; memberships never change the medication template itself. */
 @Service
 @Transactional
-public class RxFavoriteGroupManager {
+public class RxFavoriteGroupService {
     private final JdbcTemplate jdbc;
-    public RxFavoriteGroupManager(DataSource dataSource) { jdbc = new JdbcTemplate(dataSource); }
+    public RxFavoriteGroupService(DataSource dataSource) { jdbc = new JdbcTemplate(dataSource); }
+
+    public static final class GroupLimitException extends IllegalArgumentException {
+        public GroupLimitException() { super("Too many favourite groups"); }
+    }
 
     public record Group(int id, String name, int position) { }
     public record Favorite(int id, String name, List<Integer> groupIds) { }
@@ -46,19 +50,21 @@ public class RxFavoriteGroupManager {
         // Serialize group creation for this provider, including creation of the first group.
         lockProvider(provider);
         List<Group> groups = groups(provider, true);
-        if (groups.size() >= 100) throw new IllegalArgumentException("Too many favourite groups");
+        if (groups.size() >= 100) throw new GroupLimitException();
         int position = groups.stream().mapToInt(Group::position).max().orElse(-1) + 1;
-        jdbc.update("INSERT INTO rx_favorite_group(provider_no,name,position) VALUES (?,?,?)",
-                provider, requireName(name), position);
+        jdbc.update("INSERT INTO rx_favorite_group(provider_no,name,position,lastUpdateUser) VALUES (?,?,?,?)",
+                provider, requireName(name), position, provider);
     }
 
     public void rename(String provider, int group, String name) {
+        lockProvider(provider);
         ownedGroup(provider, group);
-        jdbc.update("UPDATE rx_favorite_group SET name=? WHERE id=? AND provider_no=?",
-                requireName(name), group, provider);
+        jdbc.update("UPDATE rx_favorite_group SET name=?,lastUpdateUser=?,lastUpdateDate=? WHERE id=? AND provider_no=?",
+                requireName(name), provider, new java.sql.Timestamp(System.currentTimeMillis()), group, provider);
     }
 
     public void delete(String provider, int group) {
+        lockProvider(provider);
         ownedGroup(provider, group);
         // The foreign key removes memberships, never favourites or prescriptions.
         jdbc.update("DELETE FROM rx_favorite_group WHERE id=? AND provider_no=?", group, provider);
@@ -78,8 +84,8 @@ public class RxFavoriteGroupManager {
         var reordered = new ArrayList<>(groups);
         java.util.Collections.swap(reordered, index, target);
         for (int i = 0; i < reordered.size(); i++) {
-            jdbc.update("UPDATE rx_favorite_group SET position=? WHERE id=? AND provider_no=?",
-                    i, reordered.get(i).id(), provider);
+            jdbc.update("UPDATE rx_favorite_group SET position=?,lastUpdateUser=?,lastUpdateDate=? WHERE id=? AND provider_no=?",
+                    i, provider, new java.sql.Timestamp(System.currentTimeMillis()), reordered.get(i).id(), provider);
         }
     }
 
@@ -91,6 +97,7 @@ public class RxFavoriteGroupManager {
             if (id == null || id <= 0) throw new IllegalArgumentException("Invalid group");
             unique.add(id);
         }
+        lockProvider(provider);
         // All ownership checks precede deletion. Sorted group locks avoid opposing assignment orders.
         for (Integer id : unique) {
             ownedGroup(provider, id);
@@ -98,9 +105,16 @@ public class RxFavoriteGroupManager {
         List<Integer> favorites = jdbc.queryForList("SELECT favoriteid FROM favorites "
                 + "WHERE favoriteid=? AND provider_no=? FOR UPDATE", Integer.class, favorite, provider);
         if (favorites.isEmpty()) throw new NoSuchElementException();
-        jdbc.update("DELETE FROM rx_favorite_group_member WHERE favorite_id=?", favorite);
+        var existing = new TreeSet<>(jdbc.queryForList(
+                "SELECT group_id FROM rx_favorite_group_member WHERE favorite_id=?", Integer.class, favorite));
+        for (Integer group : existing) {
+            if (!unique.contains(group)) jdbc.update(
+                    "DELETE FROM rx_favorite_group_member WHERE group_id=? AND favorite_id=?", group, favorite);
+        }
         for (Integer group : unique) {
-            jdbc.update("INSERT INTO rx_favorite_group_member(group_id,favorite_id) VALUES (?,?)", group, favorite);
+            if (!existing.contains(group)) jdbc.update(
+                    "INSERT INTO rx_favorite_group_member(group_id,favorite_id,lastUpdateUser) VALUES (?,?,?)",
+                    group, favorite, provider);
         }
     }
 

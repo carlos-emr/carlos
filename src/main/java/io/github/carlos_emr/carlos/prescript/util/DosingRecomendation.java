@@ -98,7 +98,7 @@ public class DosingRecomendation {
      "&lt;15"   less than 15
      "&gt;50"   greater than 50
      */
-    public boolean valueInRangeOfDose(int val, Hashtable<String, String> doseVal) {
+    public boolean valueInRangeOfDose(double val, Hashtable<String, String> doseVal) {
         boolean valueInRange = false;
         try {
             String toParse = doseVal.get("clcrrange");

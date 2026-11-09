@@ -28,16 +28,19 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration")
 @Tag("mariadb-native")
 class RxFavoriteGroupIntegrationTest {
-    @Autowired private RxFavoriteGroupManager manager;
+    @Autowired private RxFavoriteGroupService manager;
     @Autowired private DataSource dataSource;
     private JdbcTemplate jdbc;
 
-    @BeforeEach void seed() {
+    @BeforeEach void seed() throws Exception {
         jdbc = new JdbcTemplate(dataSource);
         jdbc.execute("CREATE TABLE IF NOT EXISTS provider (provider_no VARCHAR(6) PRIMARY KEY, lastUpdateDate TIMESTAMP)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS favorites (favoriteid INT PRIMARY KEY, provider_no VARCHAR(6), favoritename VARCHAR(50), special VARCHAR(255), dispenseInternal TINYINT NOT NULL DEFAULT 0)");
-        var migration = new ResourceDatabasePopulator(new FileSystemResource(
-                "database/mysql/migration/common/V1.0.59.33__rx_favorite_groups.sql"));
+        String ddl = java.nio.file.Files.readString(java.nio.file.Path.of(
+                "database/mysql/migration/common/V1.0.59.35__rx_favorite_groups.sql"));
+        // H2 has no engine conversions; the MariaDB adoption sentinel below exercises those.
+        var migration = new ResourceDatabasePopulator(new org.springframework.core.io.ByteArrayResource(
+                ddl.substring(ddl.indexOf("-- Provider-owned")).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         migration.execute(dataSource);
         migration.execute(dataSource); // The forward migration is safe when reapplied.
         jdbc.update("DELETE FROM rx_favorite_group");
@@ -47,7 +50,8 @@ class RxFavoriteGroupIntegrationTest {
         jdbc.update("INSERT INTO favorites(favoriteid,provider_no,favoritename,special,dispenseInternal) VALUES (700001,'997001','Synthetic favourite','Keep dose and instructions',0),(700002,'997002','Private favourite','Private',0)");
     }
 
-    @Test void shouldKeepTemplates_whenGroupsAreRenamedReorderedAndDeleted() {
+    @Test void shouldKeepTemplates_whenGroupsAreRenamedReorderedAndDeleted() throws Exception {
+        verifyAdoptedEngines();
         manager.create("997001", "Second");
         manager.create("997001", "First");
         var groups = manager.view("997001").groups();
@@ -55,7 +59,7 @@ class RxFavoriteGroupIntegrationTest {
         manager.assign("997001", 700001, List.of(second, first, second));
         manager.move("997001", first, -1);
         manager.rename("997001", first, "First renamed");
-        assertThat(manager.view("997001").groups()).extracting(RxFavoriteGroupManager.Group::name)
+        assertThat(manager.view("997001").groups()).extracting(RxFavoriteGroupService.Group::name)
                 .containsExactly("First renamed", "Second");
         assertThat(manager.view("997001").favorites().getFirst().groupIds()).containsExactly(first, second);
         manager.delete("997001", first);
@@ -109,6 +113,72 @@ class RxFavoriteGroupIntegrationTest {
         assertThat(manager.view("997001").groups()).hasSize(1);
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldSerializeConcurrentGroupChanges_withoutDeadlocksOrTemplateChanges(boolean differentProviders) throws Exception {
+        manager.create("997001", "Zeta"); manager.create("997001", "Alpha");
+        manager.create("997002", "Zeta"); manager.create("997002", "Alpha");
+        var first = manager.view("997001").groups().stream().map(RxFavoriteGroupService.Group::id).toList();
+        var second = manager.view("997002").groups().stream().map(RxFavoriteGroupService.Group::id).toList();
+        var barrier = new java.util.concurrent.CyclicBarrier(2);
+        var pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+        try {
+            var assignment = pool.submit(() -> {
+                for (int index = 0; index < 20; index++) {
+                    barrier.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                    manager.assign("997001", 700001, index % 2 == 0 ? first : List.of());
+                }
+                return true;
+            });
+            var competing = pool.submit(() -> {
+                for (int index = 0; index < 20; index++) {
+                    barrier.await(10, java.util.concurrent.TimeUnit.SECONDS);
+                    if (differentProviders) manager.assign("997002", 700002, index % 2 == 0 ? second : List.of());
+                    else manager.move("997001", first.getFirst(), index % 2 == 0 ? 1 : -1);
+                }
+                return true;
+            });
+            assertThat(assignment.get(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(competing.get(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            assertThat(jdbc.queryForObject("SELECT special FROM favorites WHERE favoriteid=700001", String.class))
+                    .isEqualTo("Keep dose and instructions");
+        } finally {
+            pool.shutdownNow();
+            assertThat(pool.awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
+    }
+
+    private void verifyAdoptedEngines() throws Exception {
+        try (var connection = dataSource.getConnection()) {
+            if (!connection.getMetaData().getDatabaseProductName().contains("MariaDB")) return;
+        }
+        try (var adopted = new IsolatedJpaTestDatabase("rx_adoption_engine")) {
+            var target = new JdbcTemplate(adopted.dataSource());
+            target.execute("CREATE TABLE favorites(favoriteid INT PRIMARY KEY) ENGINE=MyISAM");
+            for (String table : List.of("drugs", "prescription", "log")) {
+                target.execute("CREATE TABLE " + table + "(id INT PRIMARY KEY) ENGINE=MyISAM");
+                target.update("INSERT INTO " + table + "(id) VALUES (1)");
+            }
+            new ResourceDatabasePopulator(new FileSystemResource(
+                    "database/mysql/migration/common/V1.0.59.35__rx_favorite_groups.sql")).execute(adopted.dataSource());
+            for (String table : List.of("drugs", "prescription", "log", "favorites")) {
+                assertThat(target.queryForObject("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?",
+                        String.class, table)).isEqualTo("InnoDB");
+            }
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    new DataSourceTransactionManager(adopted.dataSource()));
+            transaction.executeWithoutResult(status -> {
+                target.update("INSERT INTO drugs(id) VALUES (2)");
+                target.update("INSERT INTO prescription(id) VALUES (2)");
+                target.update("INSERT INTO log(id) VALUES (2)");
+                status.setRollbackOnly();
+            });
+            for (String table : List.of("drugs", "prescription", "log")) {
+                assertThat(target.queryForObject("SELECT COUNT(*) FROM " + table, Long.class)).isEqualTo(1);
+            }
+        }
+    }
+
     @Configuration @EnableTransactionManagement(proxyTargetClass = true)
     static class Config {
         @Bean(destroyMethod = "close") IsolatedJpaTestDatabase database() throws Exception {
@@ -116,6 +186,6 @@ class RxFavoriteGroupIntegrationTest {
         }
         @Bean DataSource dataSource(IsolatedJpaTestDatabase database) { return database.dataSource(); }
         @Bean PlatformTransactionManager transactionManager(DataSource source) { return new DataSourceTransactionManager(source); }
-        @Bean RxFavoriteGroupManager manager(DataSource source) { return new RxFavoriteGroupManager(source); }
+        @Bean RxFavoriteGroupService manager(DataSource source) { return new RxFavoriteGroupService(source); }
     }
 }

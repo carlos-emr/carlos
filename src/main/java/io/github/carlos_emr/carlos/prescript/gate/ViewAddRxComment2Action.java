@@ -85,17 +85,21 @@ public final class ViewAddRxComment2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
-        if (request.getParameter("originalVersion") != null || request.getParameter("originalComment") != null) {
+        if (request.getParameter("originalVersion") != null || request.getParameter("originalComment") != null || request.getParameter("originalCommentHash") != null) {
             try {
-                Long original = io.github.carlos_emr.carlos.managers.RxConcurrencyManager.originalVersion(request.getParameter("originalVersion"));
-                long version = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxConcurrencyManager.class)
-                        .updateComment(loggedInProvider, prescription.getDemographicId(), scriptNo, original,
+                Long original = io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.originalVersion(request.getParameter("originalVersion"));
+                var validator = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.class);
+                long version = request.getParameter("originalCommentHash") != null
+                        ? validator.updateCommentDigest(loggedInProvider, prescription.getDemographicId(), scriptNo, original,
+                                request.getParameter("originalCommentHash"), comment)
+                        : validator.updateComment(loggedInProvider, prescription.getDemographicId(), scriptNo, original,
                                 request.getParameter("originalComment"), request.getParameter("originalComment") != null, comment);
+                response.setHeader("X-Carlos-Rx-Comment-Hash", io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.commentDigest(comment));
                 response.setHeader("X-Carlos-Rx-Comment", "written");
                 response.setHeader("X-Carlos-Rx-Comment-Version", Long.toString(version));
                 response.setStatus(HttpServletResponse.SC_NO_CONTENT);
                 return NONE;
-            } catch (io.github.carlos_emr.carlos.managers.RxConcurrencyManager.Conflict conflict) {
+            } catch (io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict conflict) {
                 response.sendError(HttpServletResponse.SC_CONFLICT); return NONE;
             } catch (IllegalArgumentException invalid) {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST); return NONE;

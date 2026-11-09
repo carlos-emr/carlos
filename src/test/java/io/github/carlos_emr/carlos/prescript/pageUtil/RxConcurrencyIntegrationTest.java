@@ -6,7 +6,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import io.github.carlos_emr.carlos.commn.model.Drug;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
-import io.github.carlos_emr.carlos.managers.RxConcurrencyManager;
+import io.github.carlos_emr.carlos.managers.RxSourceVersionValidator;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("integration") @Tag("mariadb-native") @Tag("prescription")
 class RxConcurrencyIntegrationTest extends CarlosUnitTestBase {
     @Autowired private PlatformTransactionManager transactions;
-    @Autowired private RxConcurrencyManager concurrency;
+    @Autowired private RxSourceVersionValidator concurrency;
     @PersistenceContext private EntityManager em;
     private TransactionTemplate tx() { return new TransactionTemplate(transactions); }
 
@@ -52,11 +52,11 @@ class RxConcurrencyIntegrationTest extends CarlosUnitTestBase {
         long current = concurrency.updateForm("999998", 1001, saved.getId(), original, "Tablet");
         assertThat(current).isGreaterThan(original);
         assertThatThrownBy(() -> tx().executeWithoutResult(status -> concurrency.checkSources(1001, Map.of(saved.getId(), original))))
-                .isInstanceOf(RxConcurrencyManager.Conflict.class);
+                .isInstanceOf(RxSourceVersionValidator.Conflict.class);
         assertThatThrownBy(() -> concurrency.updateForm("999998", 1001, saved.getId(), original, "Stale"))
-                .isInstanceOf(RxConcurrencyManager.Conflict.class);
+                .isInstanceOf(RxSourceVersionValidator.Conflict.class);
         assertThatThrownBy(() -> concurrency.updateForm("999998", 1002, saved.getId(), current, "Foreign"))
-                .isInstanceOf(RxConcurrencyManager.Conflict.class);
+                .isInstanceOf(RxSourceVersionValidator.Conflict.class);
         String actualForm = tx().execute(status -> em.find(Drug.class, saved.getId()).getDrugForm());
         assertThat(actualForm).isEqualTo("Tablet");
     }
@@ -68,7 +68,7 @@ class RxConcurrencyIntegrationTest extends CarlosUnitTestBase {
         });
         long updated = concurrency.updateComment("999998", 1001, saved.getId(), null, "Original", true, "First edit");
         assertThatThrownBy(() -> concurrency.updateComment("999998", 1001, saved.getId(), null, "Original", true, "Stale edit"))
-                .isInstanceOf(RxConcurrencyManager.Conflict.class);
+                .isInstanceOf(RxSourceVersionValidator.Conflict.class);
         assertThat(concurrency.updateComment("999998", 1001, saved.getId(), null, "Original", true, "First edit")).isEqualTo(updated);
         String actualComment = tx().execute(status -> em.find(Prescription.class, saved.getId()).getComments());
         assertThat(actualComment).isEqualTo("First edit");
@@ -83,10 +83,38 @@ class RxConcurrencyIntegrationTest extends CarlosUnitTestBase {
         long updated = concurrency.updateComment("999998", 1001, saved.getId(), null, "", true, "First notes");
         assertThat(updated).isGreaterThan(saved.getRowVersion());
         assertThatThrownBy(() -> concurrency.updateComment("999998", 1001, saved.getId(), null, "", true, "Stale notes"))
-                .isInstanceOf(RxConcurrencyManager.Conflict.class);
+                .isInstanceOf(RxSourceVersionValidator.Conflict.class);
         assertThat(concurrency.updateComment("999998", 1001, saved.getId(), null, "", true, "First notes")).isEqualTo(updated);
         String stored = tx().execute(status -> em.find(Prescription.class, saved.getId()).getComments());
         assertThat(stored).isEqualTo("First notes");
+    }
+
+    @Test
+    void shouldCompareNoteDigest_andAcknowledgeExactRetryWithoutOriginalText() {
+        Prescription saved = tx().execute(status -> {
+            var header = new Prescription(); header.setDemographicId(1001); header.setProviderNo("999998");
+            header.setComments("Original clinical prose"); em.persist(header); return header;
+        });
+        String digest = RxSourceVersionValidator.commentDigest("Original clinical prose");
+        long version = concurrency.updateCommentDigest("999998", 1001, saved.getId(), null, digest, "First edit");
+        assertThat(concurrency.updateCommentDigest("999998", 1001, saved.getId(), null, digest, "First edit")).isEqualTo(version);
+        assertThatThrownBy(() -> concurrency.updateCommentDigest("999998", 1001, saved.getId(), null, digest, "Stale edit"))
+                .isInstanceOf(RxSourceVersionValidator.Conflict.class);
+        assertThat(concurrency.currentForm(1001, -1)).isNull();
+    }
+
+    @Test
+    void shouldKeepClinicalVersion_whenOnlyPresentationFieldsChange() {
+        Drug saved = tx().execute(status -> {
+            var drug = new Drug(); drug.setDemographicId(1001); drug.setProviderNo("999998"); em.persist(drug); return drug;
+        });
+        long version = saved.getRowVersion();
+        tx().executeWithoutResult(status -> {
+            Drug current = em.find(Drug.class, saved.getId());
+            current.setPosition(42); current.setHideFromCpp(true); current.setHideFromDrugProfile(true);
+        });
+        assertThat(concurrency.currentForm(1001, saved.getId()).version()).isEqualTo(version);
+        tx().executeWithoutResult(status -> concurrency.checkSources(1001, Map.of(saved.getId(), version)));
     }
 
 }

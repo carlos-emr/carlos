@@ -220,41 +220,13 @@ public class LogAction {
 
     private static OscarLog buildEntry(LoggedInInfo loggedInInfo, String action, String content, String contentId,
             String demographicNo, String data) {
-        OscarLog logEntry = new OscarLog();
-        if (loggedInInfo.getLoggedInSecurity() != null)
-            logEntry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
-        if (loggedInInfo.getLoggedInProvider() != null) logEntry.setProviderNo(loggedInInfo.getLoggedInProviderNo());
-        logEntry.setAction(action);
-        logEntry.setContent(content);
-        logEntry.setContentId(contentId);
-        logEntry.setIp(loggedInInfo.getIp());
-
-        setDemographicIdIfNumeric(logEntry, demographicNo);
-        logEntry.setData(data);
-        return logEntry;
+        OscarLog entry = buildEntry(loggedInInfo.getLoggedInProvider() == null ? null : loggedInInfo.getLoggedInProviderNo(),
+                action, content, contentId, loggedInInfo.getIp(), demographicNo, data);
+        if (loggedInInfo.getLoggedInSecurity() != null) entry.setSecurityId(loggedInInfo.getLoggedInSecurity().getSecurityNo());
+        return entry;
     }
 
-    /**
-     * This method will add a log entry asynchronously in a separate thread.
-     */
-    public static void addLog(String provider_no, String action, String content, String contentId, String ip, String demographicNo, String data) {
-        OscarLog oscarLog = new OscarLog();
-
-        oscarLog.setProviderNo(provider_no);
-        oscarLog.setAction(action);
-        oscarLog.setContent(content);
-        oscarLog.setContentId(contentId);
-        oscarLog.setIp(ip);
-
-        setDemographicIdIfNumeric(oscarLog, demographicNo);
-
-        oscarLog.setData(data);
-
-        executeAsync(oscarLog);
-    }
-
-    /** Authoritative audit in the caller's transaction; a failed write must abort the clinical save. */
-    public static void addLogStrict(String providerNo, String action, String content, String contentId,
+    private static OscarLog buildEntry(String providerNo, String action, String content, String contentId,
             String ip, String demographicNo, String data) {
         OscarLog entry = new OscarLog();
         entry.setProviderNo(providerNo);
@@ -264,7 +236,20 @@ public class LogAction {
         entry.setIp(ip);
         setDemographicIdIfNumeric(entry, demographicNo);
         entry.setData(data);
-        getOscarLogDao().persist(entry);
+        return entry;
+    }
+
+    /**
+     * This method will add a log entry asynchronously in a separate thread.
+     */
+    public static void addLog(String provider_no, String action, String content, String contentId, String ip, String demographicNo, String data) {
+        executeAsync(buildEntry(provider_no, action, content, contentId, ip, demographicNo, data));
+    }
+
+    /** Authoritative audit in the caller's transaction; a failed write must abort the clinical save. */
+    public static void addLogStrict(String providerNo, String action, String content, String contentId,
+            String ip, String demographicNo, String data) {
+        getOscarLogDao().persist(buildEntry(providerNo, action, content, contentId, ip, demographicNo, data));
     }
 
     /**

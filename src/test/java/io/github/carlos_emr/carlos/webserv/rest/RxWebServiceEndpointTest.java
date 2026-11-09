@@ -97,7 +97,7 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
 
     @Override
     protected List<Object> additionalProviders() {
-        return List.of(new AccessDeniedExceptionMapper());
+        return List.of(new AccessDeniedExceptionMapper(), new io.github.carlos_emr.carlos.webserv.rest.util.RxConcurrencyExceptionMapper());
     }
 
     @Test
@@ -120,6 +120,59 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
             assertThat(response.getStatus()).isEqualTo(403);
         }
         org.mockito.Mockito.verify(mockPrescriptionManager, org.mockito.Mockito.never()).print(any(), anyInt());
+    }
+
+    @Test
+    void shouldReturnConflict_whenRxUpdateSourceIsStale() throws Exception {
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
+        when(mockRxManager.updateDrug(any(), any())).thenThrow(new io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict());
+        try (Response response = request().path("/rx/update").query("demographicNo", "100")
+                .post(jakarta.ws.rs.client.Entity.json(aspirinTransfer()))) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(responseJson(response).at("/error").asText()).isEqualTo("RX_SOURCE_CHANGED");
+        }
+    }
+
+    @Test
+    void shouldReturnConflict_whenRxUpdateHasOptimisticFailure() throws Exception {
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
+        when(mockRxManager.updateDrug(any(), any())).thenThrow(new org.springframework.orm.ObjectOptimisticLockingFailureException(Drug.class, 1));
+        try (Response response = request().path("/rx/update").query("demographicNo", "100")
+                .post(jakarta.ws.rs.client.Entity.json(aspirinTransfer()))) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(responseJson(response).at("/error").asText()).isEqualTo("RX_SOURCE_CHANGED");
+        }
+    }
+
+    @Test
+    void shouldReturnConflict_whenRxPrescribeSourceIsStale() throws Exception {
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
+        when(mockRxManager.prescribe(any(), any(), any())).thenThrow(new io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict());
+        try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
+                .post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
+            assertThat(response.getStatus()).isEqualTo(409);
+            assertThat(responseJson(response).at("/error").asText()).isEqualTo("RX_SOURCE_CHANGED");
+        }
+    }
+
+    @Test
+    void shouldReturnJsonFailure_whenPrescriptionWriteRollsBack() throws Exception {
+        when(mockDrugConverter.getAsDomainObject(any(), any())).thenReturn(new Drug());
+        when(mockRxManager.prescribe(any(), any(), any())).thenThrow(new io.github.carlos_emr.carlos.managers.RxPrescriptionWriteException());
+        try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
+                .post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
+            assertThat(response.getStatus()).isEqualTo(200);
+            assertThat(responseJson(response).at("/success").asBoolean()).isFalse();
+        }
+    }
+
+    @Test
+    void shouldRejectInvalidVersionPreference_beforeAnyPrescriptionWrite() {
+        try (Response response = request().path("/rx/prescribe").query("demographicNo", "100")
+                .query("includeRowVersion", "1").post(jakarta.ws.rs.client.Entity.json(List.of(aspirinTransfer())))) {
+            assertThat(response.getStatus()).isEqualTo(400);
+        }
+        org.mockito.Mockito.verifyNoInteractions(mockRxManager, mockDrugConverter);
     }
 
     @Override
@@ -163,7 +216,7 @@ class RxWebServiceEndpointTest extends CarlosRestTestBase {
                 assertThat(response.getStatus()).isEqualTo(200);
                 assertThat(responseJson(response).at("/drug/0/rowVersion").isMissingNode()).isTrue();
             }
-            try (Response response = request().path("/rx/drugs/all/1").query("includeRowVersion", "true").get()) {
+            try (Response response = request().path("/rx/drugs/all/1").query("includeRowVersion", "TRUE").get()) {
                 assertThat(response.getStatus()).isEqualTo(200);
                 var token = responseJson(response).at("/drug/0/rowVersion");
                 assertThat(token.isIntegralNumber()).isTrue();

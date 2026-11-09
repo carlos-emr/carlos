@@ -15,9 +15,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Durable evidence of exactly which rendered draft versions a clinical transaction consumed. */
 @Service
-public class RxSubmissionReceiptManager {
+public class RxSubmissionReceiptService {
     private final JdbcTemplate jdbc;
-    public RxSubmissionReceiptManager(DataSource source) { jdbc = new JdbcTemplate(source); }
+    public RxSubmissionReceiptService(DataSource source) { jdbc = new JdbcTemplate(source); }
 
     public record Receipt(Integer scriptId, String outcome) { }
 
@@ -33,7 +33,7 @@ public class RxSubmissionReceiptManager {
 
     /** A durable intent precedes clinical work, including the first attempt after a restart. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean start(String provider, int patient, String token) {
+    public boolean start(String provider, int patient, String token, String attempt, String ip) {
         validate(provider, patient, token);
         try {
             jdbc.update("INSERT INTO rx_submission_receipt(submission_hash,provider_no,demographic_no,outcome) "
@@ -46,10 +46,10 @@ public class RxSubmissionReceiptManager {
                 + "WHERE submission_hash=? AND provider_no=? AND demographic_no=? FOR UPDATE",
                 String.class, token, provider, patient);
         if (!"FAILED".equals(outcome)) return false;
-        jdbc.update("UPDATE rx_submission_receipt SET outcome='PENDING' WHERE submission_hash=? "
-                + "AND provider_no=? AND demographic_no=?", token, provider, patient);
-        io.github.carlos_emr.carlos.log.LogAction.addLogStrict(provider, "SAVE_ATTEMPT",
-                io.github.carlos_emr.carlos.log.LogConst.CON_PRESCRIPTION, token, "", Integer.toString(patient), "");
+        jdbc.update("UPDATE rx_submission_receipt SET outcome='PENDING',attempt_id=?,lastUpdateUser=?,lastUpdateDate=? WHERE submission_hash=? "
+                + "AND provider_no=? AND demographic_no=?", attempt, provider, new java.sql.Timestamp(System.currentTimeMillis()), token, provider, patient);
+        io.github.carlos_emr.carlos.log.LogAction.addLogStrict(provider, io.github.carlos_emr.carlos.log.LogConst.SAVE_ATTEMPT,
+                io.github.carlos_emr.carlos.log.LogConst.CON_PRESCRIPTION, token, ip, Integer.toString(patient), "");
         return true;
     }
 
@@ -58,17 +58,17 @@ public class RxSubmissionReceiptManager {
     public void record(String provider, int patient, String token, int script) {
         validate(provider, patient, token);
         if (script <= 0) throw new IllegalArgumentException("Invalid prescription receipt");
-        int rows = jdbc.update("UPDATE rx_submission_receipt SET prescription_id=?,outcome='SAVED' "
+        int rows = jdbc.update("UPDATE rx_submission_receipt SET prescription_id=?,outcome='SAVED',lastUpdateUser=?,lastUpdateDate=? "
                 + "WHERE submission_hash=? AND provider_no=? AND demographic_no=? AND outcome='PENDING'",
-                script, token, provider, patient);
+                script, provider, new java.sql.Timestamp(System.currentTimeMillis()), token, provider, patient);
         if (rows != 1) throw new IllegalStateException("Prescription receipt was not pending");
     }
 
     /** Only a callback failure followed by a confirmed rollback permits the exact draft to retry. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void failed(String provider, int patient, String token) {
-        jdbc.update("UPDATE rx_submission_receipt SET outcome='FAILED' WHERE submission_hash=? "
-                + "AND provider_no=? AND demographic_no=? AND outcome='PENDING'", token, provider, patient);
+    public void failed(String provider, int patient, String token, String attempt) {
+        jdbc.update("UPDATE rx_submission_receipt SET outcome='FAILED',lastUpdateUser=?,lastUpdateDate=? WHERE submission_hash=? "
+                + "AND provider_no=? AND demographic_no=? AND outcome='PENDING' AND attempt_id=?", provider, new java.sql.Timestamp(System.currentTimeMillis()), token, provider, patient, attempt);
     }
 
     private static void validate(String provider, int patient, String token) {

@@ -6,9 +6,9 @@ const {runWorkflow}=require('./lib/workflow-session');
 const {failureMark,consumeExpectedFailure}=require('./lib/concurrency-support');
 async function workflow(s) {
   const {sql,provider,patient,marker,config}=s,q=h.sqlString;
-  const script=h.insertId(sql,`INSERT INTO prescription(provider_no,demographic_no,date_prescribed,rx_comments) VALUES(${q(provider)},${patient},CURDATE(),'Original')`,'owned prescription');
+  const script=h.insertId(sql,`INSERT INTO prescription(provider_no,demographic_no,date_prescribed,rx_comments,lastUpdateDate) VALUES(${q(provider)},${patient},CURDATE(),'Original',NOW())`,'owned prescription');
   s.cleanup(()=>sql.execute(`DELETE FROM prescription WHERE script_no=${script} AND demographic_no=${patient}`));
-  const drug=h.insertId(sql,`INSERT INTO drugs(provider_no,demographic_no,customName,special,script_no,drug_form,position,archived) VALUES(${q(provider)},${patient},${q(marker+' version')},'1 tab PO OD',${script},'Tablet',1,0)`,'owned drug');
+  const drug=h.insertId(sql,`INSERT INTO drugs(provider_no,demographic_no,customName,special,script_no,drug_form,position,archived,lastUpdateDate,dispenseInternal) VALUES(${q(provider)},${patient},${q(marker+' version')},'1 tab PO OD',${script},'Tablet',1,0,NOW(),0)`,'owned drug');
   s.cleanup(()=>sql.execute(`DELETE FROM drugs WHERE demographic_no=${patient} AND customName=${q(marker+' version')}`));
   const first=await s.context.newPage(),second=await s.context.newPage();
   const url=`${config.baseUrl}/rx/ViewUpdateForm?id=${drug}`;
@@ -27,17 +27,31 @@ async function workflow(s) {
     await second.getByRole('alert').filter({hasText:'changed after you opened it'}).waitFor();
     await second.waitForLoadState('networkidle');
     consumeExpectedFailure(s.recorder,mark,{status:409,method:'POST',path:/\/rx\/ViewUpdateForm$/});
-    h.assert(await second.locator('select[name="drugForm"]').inputValue()==='Powder','The conflict lost the second editor\'s draft');
+    h.assert(await second.locator('select[name="drugForm"]').inputValue()==='Capsule','The conflict did not display the stored clinical form');
+    h.assert((await second.locator('body').textContent()).includes('Powder'),'The rejected choice was not shown separately');
     h.assert(sql.value(`SELECT drug_form FROM drugs WHERE drugid=${drug}`)==='Capsule','The stale edit changed the clinical row');
   });
-  await s.step('comment writes compare original text, acknowledge exact retries and preserve another window\'s notes',async()=>{
+  await s.step('comment writes compare original digests, acknowledge exact retries and preserve another window\'s notes',async()=>{
     const csrf=await first.locator('input[name="CSRF-TOKEN"]').first().inputValue();
     const endpoint=`${config.baseUrl}/rx/ViewAddRxComment`;
-    const post=comment=>s.context.request.post(endpoint,{form:{scriptNo:script,comment,originalComment:'Original'},headers:{'CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'}});
+    const post=comment=>s.context.request.post(endpoint,{form:{scriptNo:script,comment,originalCommentHash:require('node:crypto').createHash('sha256').update('Original').digest('hex')},headers:{'CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'}});
     const saved=await post('First notes');h.assert(saved.status()===204&&saved.headers()['x-carlos-rx-comment']==='written','Notes were not acknowledged');
     const stale=await post('Stale notes');h.assert(stale.status()===409,'Stale notes were not refused');
     h.assert(sql.value(`SELECT rx_comments FROM prescription WHERE script_no=${script}`)==='First notes','Stale notes overwrote the first edit');
     const replay=await post('First notes');h.assert(replay.status()===204,'An exact confirmed notes retry was not idempotent');
+  });
+  await s.step('clinical notes can be edited twice through the installed WAF without resending original text',async()=>{
+    const csrf=await first.locator('input[name="CSRF-TOKEN"]').first().inputValue();
+    const endpoint=`${config.baseUrl}/rx/ViewAddRxComment`;
+    const digest=value=>require('node:crypto').createHash('sha256').update(value).digest('hex');
+    let original='First notes';
+    for(const comment of ['Reviewed labs with the patient; find attached the CBC and lytes. ../../images/ecg.png', 'Select one of the two and order 1,2 tests. Wound <2cm']) {
+      const result=await s.context.request.post(endpoint,{form:{scriptNo:script,comment,originalCommentHash:digest(original)},headers:{'CSRF-TOKEN':csrf,'X-Requested-With':'XMLHttpRequest'}});
+      h.assert(result.status()===204,'The installed front door blocked an ordinary note edit');
+      h.assert(result.headers()['x-carlos-rx-comment-hash']===digest(comment),'The note digest was not acknowledged');
+      h.assert(sql.value(`SELECT rx_comments FROM prescription WHERE script_no=${script}`)===comment,'The acknowledged note did not land exactly');
+      original=comment;
+    }
   });
   await s.step('legacy REST responses keep their shape and opted-in versions reject a stale update',async()=>{
     const endpoint=`${config.baseUrl}/ws/rs/rx/drugs/all/${patient}`;

@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "b0361eb840594ffcc3beb840c843e7501267fc280978700132c26975125c71b8",
+ "migration_sha256": "0987aa8cdeda96e465ef022d4fa8037a5dd1b66324abf500c1167d98c949aa78",
  "province": "bc",
  "schema": {
   "checks": [
@@ -8,6 +8,21 @@
     "OceanSetting",
     "chk_ocean_setting_singleton",
     "`id` = 1"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_file_status",
+    "`file_status` in ('unchanged','ambiguous','reconciled')"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_group_size",
+    "`group_size` >= 1"
+   ],
+   [
+    "billing_filename_import",
+    "billing_filename_reason",
+    "`reason` in ('unchanged','collision')"
    ],
    [
     "cds_import_preparation",
@@ -9442,9 +9457,153 @@
     3
    ],
    [
+    "billing_filename_import",
+    "file_sha256",
+    "char(64)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    8
+   ],
+   [
+    "billing_filename_import",
+    "file_status",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    7
+   ],
+   [
+    "billing_filename_import",
+    "group_size",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "billing_filename_import",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    11
+   ],
+   [
+    "billing_filename_import",
+    "original_filename",
+    "varchar(50)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "billing_filename_import",
+    "reason",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_at",
+    "datetime",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    10
+   ],
+   [
+    "billing_filename_import",
+    "reconciled_by",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    9
+   ],
+   [
+    "billing_filename_import",
+    "source_id",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "billing_filename_import",
+    "source_table",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
+   ],
+   [
     "billing_history",
     "amount",
-    "varchar(7)",
+    "varchar(9)",
     "NO",
     "''",
     "",
@@ -173711,6 +173870,30 @@
    ],
    [
     "rx_favorite_group",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_favorite_group",
     "name",
     "varchar(80)",
     "NO",
@@ -173770,6 +173953,42 @@
     1
    ],
    [
+    "rx_favorite_group_member",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "attempt_id",
+    "char(36)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
     "rx_submission_receipt",
     "created_at",
     "timestamp",
@@ -173779,7 +173998,7 @@
     null,
     null,
     null,
-    6
+    9
    ],
    [
     "rx_submission_receipt",
@@ -173792,6 +174011,30 @@
     null,
     null,
     3
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    7
    ],
    [
     "rx_submission_receipt",
@@ -181592,6 +181835,50 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    1,
+    "source_table",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    0,
+    2,
+    "source_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "imported_filename_lookup",
+    1,
+    1,
+    "imported_filename",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "billing_filename_import",
+    "original_filename_lookup",
+    1,
+    1,
+    "original_filename",
     "A",
     null,
     "BTREE",
@@ -192019,6 +192306,24 @@
     null
    ],
    [
+    "billing_filename_import",
+    "PRIMARY",
+    1,
+    "source_table",
+    null,
+    null,
+    null
+   ],
+   [
+    "billing_filename_import",
+    "PRIMARY",
+    2,
+    "source_id",
+    null,
+    null,
+    null
+   ],
+   [
     "billing_history",
     "PRIMARY",
     1,
@@ -197268,6 +197573,12 @@
    ],
    [
     "billing_cdm_service_codes",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "billing_filename_import",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

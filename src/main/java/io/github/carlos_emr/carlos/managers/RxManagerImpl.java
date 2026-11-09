@@ -272,10 +272,8 @@ public class RxManagerImpl implements RxManager {
         // nullable Integer and != would compare references. Done before addDrug() so a rejected request
         // never creates a replacement drug.
         if (!java.util.Objects.equals(old.getDemographicId(), d.getDemographicId())) {
-            // Deny EXPLICITLY, do not return null: prescribe() treats a null from updateDrug as
-            // "drug not in the DB, add it", which would launder this security denial into an insert
-            // (a phantom medication in the caller's own patient chart) reported as success. Throwing
-            // keeps the denial distinguishable from the legitimate not-found/not-persisted nulls above.
+            // Preserve the explicit authorization refusal. Existing IDs are update intents;
+            // prescribe() aborts and rolls back rather than treating a failed update as an insert.
             logger.info("Drug demographic ({}) does not match input demographic ({}), update denied.",
                     LogSafe.sanitize(String.valueOf(old.getDemographicId())),
                     LogSafe.sanitize(String.valueOf(d.getDemographicId()))); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
@@ -283,7 +281,7 @@ public class RxManagerImpl implements RxManager {
         }
 
         if (d.getRowVersion() != null && !Objects.equals(d.getRowVersion(), old.getRowVersion())) {
-            throw new RxConcurrencyManager.Conflict();
+            throw new RxSourceVersionValidator.Conflict();
         }
 
         // The legacy replacement DTO omits imported uncertainty and authority. Refuse
@@ -457,7 +455,9 @@ public class RxManagerImpl implements RxManager {
      * @param info   the current user's logged in information.
      * @param drugs  a non-empty list of the drugs to prescribe
      * @param demoNo the demographic to prescribe for.
-     * @return a record of the prescription and drugs, null if the prescription could not be created.
+     * @return a record of the prescription and drugs, or null for invalid/unprescribable inputs
+     * @throws RxPrescriptionWriteException when a medication write fails; the entire batch rolls back
+     * @throws RxSourceVersionValidator.Conflict when an original source version is stale
      */
     @Override
     @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
@@ -483,6 +483,9 @@ public class RxManagerImpl implements RxManager {
         // Complete every imported-source compatibility check before creating the
         // prescription or mutating any candidate. A mixed batch must not partly write.
         for (Drug candidate : drugs) {
+            if (!Objects.equals(candidate.getDemographicId(), demoNo)) {
+                throw new AccessDeniedException("_rx", "w", String.valueOf(demoNo));
+            }
             CdsMedicationCompatibilityException.requireLegacyCompatible(candidate);
             if (candidate.getId() != null) {
                 Drug source = drugDao.find(candidate.getId());
@@ -507,9 +510,10 @@ public class RxManagerImpl implements RxManager {
             d.setScriptNo(p.getId());
             // An existing ID represents an update intent. A failed update must never
             // be reinterpreted as permission to insert a new active medication.
+            if (d.getId() != null && d.getId() <= 0) d.setId(null);
             Drug saved = d.getId() == null ? this.addDrug(info, d) : this.updateDrug(info, d);
             if (saved == null) {
-                throw new IllegalStateException("Prescription medication write failed");
+                throw new RxPrescriptionWriteException();
             }
             newDrugs.add(saved);
         }

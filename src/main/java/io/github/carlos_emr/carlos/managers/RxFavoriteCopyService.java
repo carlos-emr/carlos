@@ -11,10 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Copies a complete selection atomically; new templates begin Ungrouped in the destination. */
 @Service
-public class RxFavoriteCopyManager {
+public class RxFavoriteCopyService {
     private final FavoritesDao favorites;
     private final FavoritesPrivilegeDao privileges;
-    public RxFavoriteCopyManager(FavoritesDao favorites, FavoritesPrivilegeDao privileges) {
+    public RxFavoriteCopyService(FavoritesDao favorites, FavoritesPrivilegeDao privileges) {
         this.favorites = favorites; this.privileges = privileges;
     }
 

@@ -58,6 +58,8 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="oscarRx.renal.unavailable" var="msg_renalUnavailable"/>
+<fmt:message key="oscarRx.draftReviewRequired" var="msg_rxDraftReviewRequired"/>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 
 <%@ taglib uri="carlos" prefix="carlos" %>
@@ -2870,7 +2872,7 @@ function updateQty(element){
                            panel.innerHTML = transport.responseText;
                        } else {
                            // Clear stale guidance, including on an initial failure, and keep a retry.
-                           panel.innerHTML = '<div data-renal-dosing-unavailable><details open><summary>Renal dosing unavailable</summary><h3>Dosing Information <small><button type="button" class="btn btn-link">Refresh</button></small></h3><output>N/A</output></details></div>';
+                           panel.innerHTML = '<div data-renal-dosing-unavailable><details open><summary>${carlos:forJavaScript(msg_renalUnavailable)}</summary><h3>Dosing Information <small><button type="button" class="btn btn-link">Refresh</button></small></h3><output>N/A</output></details></div>';
                            panel.querySelector('button').onclick = function() {
                                getRenalDosingInformation(divId, atcCode);
                            };
@@ -3161,6 +3163,7 @@ function updateQty(element){
                     reportRefusedSave(transport);
                     return;
                 }
+                rxSaveNeedsReconciliation = false;
                 refreshDrugProfile();
                 clearStashDisplay();
             },
@@ -3212,7 +3215,11 @@ function updateQty(element){
      * @param {Object} transport the CarlosAjax transport of the failed or unconfirmed request
      */
     function reportRefusedSave(transport) {
-        if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_ALREADY_SAVED') {
+        if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_DRAFT_REVIEW_REQUIRED') {
+            rxSaveNeedsReconciliation = false;
+            alert('${carlos:forJavaScript(msg_rxDraftReviewRequired)}');
+            location.reload();
+        } else if (transport && transport.responseJSON && transport.responseJSON.error === 'RX_ALREADY_SAVED') {
             alert(jsMsg.alreadySaved);
             rxSaveNeedsReconciliation = false;
             refreshDrugProfile();

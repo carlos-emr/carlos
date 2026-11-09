@@ -211,7 +211,7 @@ public class CopyFavorites2Action extends ActionSupport {
             return failedOperation(e, "Favorites could not be validated. Nothing was copied.");
         }
         try {
-            SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxFavoriteCopyManager.class)
+            SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxFavoriteCopyService.class)
                     .copy(source, currentProvider(), selected);
         } catch (SecurityException denied) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);

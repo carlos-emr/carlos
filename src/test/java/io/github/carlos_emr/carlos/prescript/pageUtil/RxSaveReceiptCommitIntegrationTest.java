@@ -50,7 +50,7 @@ import static org.mockito.Mockito.*;
 class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
     @Autowired private DataSource source;
     @Autowired private PlatformTransactionManager transactions;
-    @Autowired private RxSubmissionReceiptManager receipts;
+    @Autowired private RxSubmissionReceiptService receipts;
     @Autowired private DrugDao drugs;
     @Autowired private PartialDateDao partialDates;
     @Autowired private OscarLogDao audit;
@@ -59,7 +59,7 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
 
     @BeforeEach void prepare() throws Exception {
         String sql = java.nio.file.Files.readString(java.nio.file.Path.of(
-                "database/mysql/migration/common/V1.0.59.34__rx_submission_receipts.sql"));
+                "database/mysql/migration/common/V1.0.59.36__rx_submission_receipts.sql"));
         try (var connection = source.getConnection()) {
             if (connection.getMetaData().getDatabaseProductName().contains("H2")) {
                 sql = sql.replace(" CHARACTER SET ascii COLLATE ascii_bin", "")
@@ -84,7 +84,7 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
         registerMock(DrugDao.class, drugs);
         registerMock(PartialDateDao.class, partialDates);
         registerMock(PlatformTransactionManager.class, transactions);
-        registerMock(RxSubmissionReceiptManager.class, receipts);
+        registerMock(RxSubmissionReceiptService.class, receipts);
     }
     @AfterEach void resetFault() { fault.remaining.set(0); fault.commitBeforeThrow = true; setAudit(null); }
 
@@ -96,9 +96,12 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"lost-ack", "audit-failure", "failed-commit"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"lost-ack", "audit-failure", "failed-commit", "intent-rollback", "intent-lost-ack", "begin-failure", "rollback-only"})
     void shouldRecoverReceiptAndAudit_whenAcknowledgementOrAuditFails(String scenario) throws Exception {
+        boolean intentFailure = scenario.startsWith("intent-");
+        boolean beginFailure = "begin-failure".equals(scenario);
         boolean auditFailure = "audit-failure".equals(scenario);
+        boolean rollbackOnly = "rollback-only".equals(scenario);
         boolean failedCommit = "failed-commit".equals(scenario);
         var bean = new RxSessionBean(); bean.setProviderNo("999998"); bean.setDemographicNo(1001);
         var card = new RxPrescriptionData.Prescription(0, "999998", 1001);
@@ -106,7 +109,7 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
         card.setSpecial("1 tab PO OD"); card.setRxDate(java.sql.Date.valueOf("2026-01-01"));
         bean.getStashList().add(card);
         String originalRevision = card.getDraftRevision();
-        String token = RxSubmissionReceiptManager.fingerprint(java.util.Map.of("123", originalRevision));
+        String token = RxSubmissionReceiptService.fingerprint(java.util.Map.of("123", originalRevision));
         var request = new MockHttpServletRequest("POST", "/rx/WriteScript");
         request.addParameter("demographicNo", "1001"); request.addParameter("draftRevision_123", originalRevision);
         var response = new MockHttpServletResponse();
@@ -126,20 +129,38 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             session.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(info);
             var action = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
-            if (auditFailure) {
+            if (beginFailure) {
+                var beginFault = mock(PlatformTransactionManager.class);
+                when(beginFault.getTransaction(any())).thenThrow(new org.springframework.transaction.CannotCreateTransactionException("Synthetic begin failure"));
+                registerMock(PlatformTransactionManager.class, beginFault);
+            } else if (auditFailure || rollbackOnly) {
                 var failingAudit = mock(OscarLogDao.class, org.mockito.AdditionalAnswers.delegatesTo(audit));
                 doAnswer(invocation -> {
                     OscarLog row = invocation.getArgument(0);
-                    if ("add".equals(row.getAction())) throw new IllegalStateException("Synthetic authoritative audit failure");
+                    if ("add".equals(row.getAction())) {
+                        if (auditFailure) throw new IllegalStateException("Synthetic authoritative audit failure");
+                        new TransactionTemplate(transactions).executeWithoutResult(status -> status.setRollbackOnly());
+                    }
                     audit.persist(row); return null;
                 }).when(failingAudit).persist(any(OscarLog.class));
                 setAudit(failingAudit);
             } else {
-                fault.commitBeforeThrow = !failedCommit;
-                fault.remaining.set(2); // Intent commits normally; clinical COMMIT then loses its acknowledgement.
+                fault.commitBeforeThrow = !failedCommit && !"intent-rollback".equals(scenario);
+                fault.remaining.set(intentFailure ? 1 : 2); // Intent commits normally; clinical COMMIT then loses its acknowledgement.
             }
             assertThatThrownBy(() -> action.persistStash(info, bean)).isInstanceOf(RxWriteScript2Action.PrescriptionSaveException.class);
-            if (auditFailure) {
+            if (intentFailure || beginFailure) {
+                assertThat(request.getAttribute("RX_SAVE_OUTCOME_UNKNOWN")).isNull();
+                assertThat(card.getPendingSubmission()).isNull();
+                assertThat(card.getDraftRevision()).isEqualTo(originalRevision);
+                assertThat(receipts.find("999998", 1001, token)).isNull();
+                assertThat(new JdbcTemplate(source).queryForObject("SELECT COUNT(*) FROM prescription", Long.class)).isZero();
+                registerMock(PlatformTransactionManager.class, transactions);
+                action.persistStash(info, bean);
+                assertThat(receipts.find("999998", 1001, token).outcome()).isEqualTo("SAVED");
+                return;
+            }
+            if (auditFailure || rollbackOnly) {
                 assertThat(request.getAttribute("RX_SAVE_OUTCOME_UNKNOWN")).isNull();
                 assertThat(card.getDraftRevision()).isEqualTo(originalRevision);
                 assertThat(receipts.find("999998", 1001, token)).isNull();
@@ -180,23 +201,49 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class)).isEqualTo(1L);
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM log WHERE action='add' AND content='prescription'", Long.class)).isEqualTo(1L);
             assertThat(receipts.find("999997", 1001, token)).isNull();
+            if (!auditFailure && !rollbackOnly) {
+                final var replayResponse = new org.springframework.mock.web.MockHttpServletResponse();
+                servlet.when(ServletActionContext::getResponse).thenReturn(replayResponse);
+                // Action retains its response field, so construct a new request-scoped action.
+                var replayAction = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
+                request.setParameter("draftRevision_123", card.getDraftRevision());
+                try (var resolver = mockStatic(RxSessionBeanResolver.class)) {
+                    resolver.when(() -> RxSessionBeanResolver.requestedDemographicNo(request)).thenReturn(1001);
+                    resolver.when(() -> RxSessionBeanResolver.resolve(request)).thenReturn(bean);
+                    resolver.when(() -> RxSessionBeanResolver.isRequestForBeanPatient(request, bean)).thenReturn(true);
+                    assertThat(replayAction.updateSaveAllDrugs()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+                    assertThat(bean.getStashSize()).isZero();
+                    assertThat(replayResponse.getContentAsString()).contains("RX_DRAFT_REVIEW_REQUIRED");
+                }
+                request.setParameter("draftRevision_123", originalRevision);
+            }
             // No Rx bean in this new request/session: replay is resolved from durable, ownership-scoped evidence.
             assertThat(action.updateSaveAllDrugs()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
             assertThat(response.getStatus()).isEqualTo(409);
             assertThat(response.getContentAsString()).contains("RX_ALREADY_SAVED");
+            var legacyResponse = new MockHttpServletResponse();
+            servlet.when(ServletActionContext::getResponse).thenReturn(legacyResponse);
+            var legacy = new RxWriteScript2Action(mock(PrescriptionSignatureStampService.class));
+            legacy.setAction("updateAndPrint");
+            assertThat(legacy.execute()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+            assertThat(legacyResponse.getStatus()).isEqualTo(409);
+            assertThat(legacyResponse.getContentType()).startsWith("text/html");
+            assertThat(legacyResponse.getContentAsString()).contains("already saved").doesNotContain("RX_ALREADY_SAVED");
             assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM drugs", Long.class)).isEqualTo(1L);
         }
     }
 
     @Test void shouldKeepPendingIntentAcrossNewManager_whenNoClinicalCommitWasConfirmed() {
-        String token = RxSubmissionReceiptManager.fingerprint(java.util.Map.of("1", java.util.UUID.randomUUID().toString()));
-        assertThat(receipts.start("999998", 1001, token)).isTrue();
-        assertThat(receipts.start("999998", 1001, token)).isFalse();
-        var reopened = new RxSubmissionReceiptManager(source);
+        String token = RxSubmissionReceiptService.fingerprint(java.util.Map.of("1", java.util.UUID.randomUUID().toString()));
+        assertThat(receipts.start("999998", 1001, token, "00000000-0000-0000-0000-000000000001", "127.0.0.1")).isTrue();
+        assertThat(receipts.start("999998", 1001, token, "00000000-0000-0000-0000-000000000001", "127.0.0.1")).isFalse();
+        var reopened = new RxSubmissionReceiptService(source);
         assertThat(reopened.find("999998", 1001, token).outcome()).isEqualTo("PENDING");
-        receipts.failed("999998", 1001, token);
+        receipts.failed("999998", 1001, token, "00000000-0000-0000-0000-000000000002");
+        assertThat(receipts.find("999998", 1001, token).outcome()).isEqualTo("PENDING");
+        receipts.failed("999998", 1001, token, "00000000-0000-0000-0000-000000000001");
         assertThat(receipts.find("999998", 1001, token)).isNull();
-        assertThat(receipts.start("999998", 1001, token)).isTrue();
+        assertThat(receipts.start("999998", 1001, token, "00000000-0000-0000-0000-000000000001", "127.0.0.1")).isTrue();
     }
 
     static class CommitFault {
@@ -238,7 +285,7 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
         @Bean FavoritesDao favorites() { return new FavoritesDaoImpl(); }
         @Bean FavoritesPrivilegeDao favoritePrivileges() { return new FavoritesPrivilegeDaoImpl(); }
         @Bean RxFavoriteCopyIntegrationTest.CopyFault copyFault() { return new RxFavoriteCopyIntegrationTest.CopyFault(); }
-        @Bean RxFavoriteCopyManager favoriteCopies(FavoritesDao favorites, FavoritesPrivilegeDao privileges,
+        @Bean RxFavoriteCopyService favoriteCopies(FavoritesDao favorites, FavoritesPrivilegeDao privileges,
                 RxFavoriteCopyIntegrationTest.CopyFault fault) {
             var observed = mock(FavoritesDao.class, org.mockito.AdditionalAnswers.delegatesTo(favorites));
             doAnswer(invocation -> {
@@ -247,9 +294,9 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
                 }
                 favorites.persist(invocation.getArgument(0)); return null;
             }).when(observed).persist(any(Favorites.class));
-            return new RxFavoriteCopyManager(observed, privileges);
+            return new RxFavoriteCopyService(observed, privileges);
         }
-        @Bean RxConcurrencyManager concurrency(DataSource source) { return new RxConcurrencyManager(source); }
-        @Bean RxSubmissionReceiptManager receipts(DataSource source) { return new RxSubmissionReceiptManager(source); }
+        @Bean RxSourceVersionValidator concurrency(DataSource source) { return new RxSourceVersionValidator(source); }
+        @Bean RxSubmissionReceiptService receipts(DataSource source) { return new RxSubmissionReceiptService(source); }
     }
 }

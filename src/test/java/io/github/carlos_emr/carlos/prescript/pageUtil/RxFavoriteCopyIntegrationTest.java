@@ -6,7 +6,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import io.github.carlos_emr.carlos.commn.model.Favorites;
 import io.github.carlos_emr.carlos.commn.model.FavoritesPrivilege;
-import io.github.carlos_emr.carlos.managers.RxFavoriteCopyManager;
+import io.github.carlos_emr.carlos.managers.RxFavoriteCopyService;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,7 +22,7 @@ import static org.assertj.core.api.Assertions.*;
 class RxFavoriteCopyIntegrationTest extends CarlosUnitTestBase {
     static class CopyFault { final AtomicInteger remaining = new AtomicInteger(); }
     @Autowired private CopyFault fault;
-    @Autowired private RxFavoriteCopyManager copies;
+    @Autowired private RxFavoriteCopyService copies;
     @Autowired private PlatformTransactionManager transactions;
     @PersistenceContext private EntityManager em;
     @AfterEach void reset() { fault.remaining.set(0); }

@@ -12,7 +12,7 @@ function setup() {
   const warning = { hidden: true };
   let disabled;
   let refreshes = 0;
-  const context = vm.createContext({ URL, Promise,
+  const context = vm.createContext({notesConflict: false, URL, Promise,
     window: { location: { href: 'https://127.0.0.1/carlos/rx/ViewScript2' } },
     document: { getElementById: () => warning },
     signatureAssociationSequence: 0, signatureAssociationQueue: Promise.resolve(),

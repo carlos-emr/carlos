@@ -135,9 +135,9 @@ class RxCorrectionSaveRollbackIntegrationTest extends CarlosUnitTestBase {
             drugDao.persist(row);
             return null;
         }).when(observedDrugs).persist(any(Drug.class));
-        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class);
-        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
-        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class, receipts);
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(UserPropertyDAO.class, mock(UserPropertyDAO.class));
         registerMock(PartialDateDao.class, partialDates);
@@ -221,9 +221,9 @@ class RxCorrectionSaveRollbackIntegrationTest extends CarlosUnitTestBase {
             drugDao.merge(row);
             return true;
         });
-        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class);
-        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
-        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptManager.class, receipts);
+        var receipts = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class);
+        org.mockito.Mockito.when(receipts.start(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any())).thenReturn(true);
+        registerMock(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class, receipts);
         registerMock(SecurityInfoManager.class, mock(SecurityInfoManager.class));
         registerMock(UserPropertyDAO.class, mock(UserPropertyDAO.class));
         registerMock(PartialDateDao.class, mock(PartialDateDao.class));

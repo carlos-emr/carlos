@@ -147,6 +147,7 @@ class DrugConverterUnitTest {
             Date archivedDate = new Date();
 
             DrugTo1 t = new DrugTo1();
+            t.setRowVersion(7L);
             t.setDemographicNo(1);
             t.setProviderNo("1");
             t.setGenericName("bangbar");
@@ -177,6 +178,7 @@ class DrugConverterUnitTest {
 
             Drug d = converter.getAsDomainObject(info, t);
 
+            assertThat(d.getRowVersion()).isEqualTo(7L);
             assertThat(d.getDemographicId()).isEqualTo(1);
             assertThat(d.getProviderNo()).isEqualTo("1");
             assertThat(d.getGenericName()).isEqualTo("bangbar");

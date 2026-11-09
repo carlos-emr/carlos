@@ -86,18 +86,22 @@ public final class ViewUpdateForm2Action extends ActionSupport {
                 drugDao.merge(drug);
             } else {
                 try {
-                    Long original = io.github.carlos_emr.carlos.managers.RxConcurrencyManager.originalVersion(request.getParameter("originalVersion"));
+                    Long original = io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.originalVersion(request.getParameter("originalVersion"));
                     if (form == null || form.length() > 50) throw new IllegalArgumentException();
-                    long version = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxConcurrencyManager.class)
+                    long version = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.class)
                             .updateForm(loggedInInfo.getLoggedInProviderNo(), drug.getDemographicId(), drug.getId(), original, form);
                     drug.setDrugForm(form);
                     drug.setRowVersion(version);
-                } catch (io.github.carlos_emr.carlos.managers.RxConcurrencyManager.Conflict conflict) {
+                } catch (io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.Conflict conflict) {
                     response.setStatus(HttpServletResponse.SC_CONFLICT);
                     request.setAttribute("drugFormConflict", Boolean.TRUE);
                     request.setAttribute("drugId", drug.getId());
-                    request.setAttribute("drugForm", form);
-                    request.setAttribute("drugFormVersion", request.getParameter("originalVersion"));
+                    var current = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.class)
+                            .currentForm(drug.getDemographicId(), drug.getId());
+                    if (current == null) { response.sendError(HttpServletResponse.SC_NOT_FOUND); return NONE; }
+                    request.setAttribute("rejectedDrugForm", form);
+                    request.setAttribute("drugForm", current.form());
+                    request.setAttribute("drugFormVersion", current.version());
                     return SUCCESS;
                 } catch (IllegalArgumentException invalid) {
                     response.sendError(HttpServletResponse.SC_BAD_REQUEST); return NONE;

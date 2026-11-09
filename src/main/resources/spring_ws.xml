@@ -207,8 +207,6 @@
 			<bean class="io.github.carlos_emr.carlos.webserv.rest.util.AccessDeniedExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.CdsMedicationCompatibilityExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.RxConcurrencyExceptionMapper"/>
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.RxOptimisticLockExceptionMapper"/>
-            <bean class="io.github.carlos_emr.carlos.webserv.rest.util.RxJpaOptimisticLockExceptionMapper"/>
             <bean class="io.github.carlos_emr.carlos.webserv.rest.util.CdsTemporalPrecisionExceptionMapper"/>
 		    <ref bean="jaxb"/>
 			<ref bean="jsonProvider"/>

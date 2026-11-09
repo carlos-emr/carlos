@@ -6,6 +6,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
+const digest = value => require('node:crypto').createHash('sha256').update(value).digest('hex');
+const acknowledged = value => ({ok: true, headers: {get: name => name === 'X-Carlos-Rx-Comment' ? 'written' : digest(value)}});
 
 // Execute the actual JSP's browser functions. No browser, server or duplicate
 // implementation is needed to exercise the delayed-save/click/event ordering.
@@ -47,6 +49,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     faxSubmissionUncertain: { hidden: true },
     faxSubmissionRecoveryText: { hidden: true, value: '' },
     faxPreviewChanged: { hidden: true },
+    rxPreviewLoading: {hidden: true},
     faxNumber: { selectedIndex: 0, options: [{ value: '5555555555' }] },
     preview: { contentWindow: { document: { getElementById: () => previewForm } } },
   };
@@ -76,7 +79,8 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     setTimeout: (fn) => { deferredTimeouts.push(fn); return deferredTimeouts.length; },
     clearTimeout: (id) => { clearedTimeouts.push(id); },
     faxScriptNo: '12345',
-    savedAdditionalNotes: 'original notes',
+    savedAdditionalNotesHash: digest('original notes'),
+    notesConflict: false,
     faxSubmissionPending: false,
     faxSubmissionUncertain: false,
     faxPreviewReloading: false,
@@ -101,7 +105,7 @@ function setup(priorReadOnly = false, priorSaveDisabled = false) {
     fetch: async (_url, options) => {
       savedBodies.push(options.body);
       await saveGate;
-      return { ok: true, headers: {get: () => 'written'} };
+      return acknowledged(new URLSearchParams(options.body).get('comment'));
     },
   });
   for (const [name, next] of [
@@ -131,7 +135,7 @@ test('a failed blur save is observed immediately, stays rejected for fax, and sh
   assert.equal(elements.additionalNotesSaveError.hidden, false);
   await assert.rejects(failedSave, /fixture save rejection/);
   assert.equal(context.pendingNotesSave, failedSave, 'the UI observer must not replace the rejected fax guard');
-  context.fetch = async () => ({ ok: true, headers: {get: () => 'written'} });
+  context.fetch = async () => acknowledged(context.document.getElementById('additionalNotes').value);
   context.addNotes();
   await context.pendingNotesSave;
   assert.equal(elements.additionalNotesSaveError.hidden, true);
@@ -507,7 +511,7 @@ for (const options of [{ script: '54321' }, { patient: '2' }, { missing: true }]
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(fixture.submissions(), 0);
     assert.equal(fixture.context.hasPreview, !!options.missing, 'a loading document must remain retryable after its form arrives');
-    assert.equal(fixture.elements.faxPreviewChanged.hidden, false);
+    assert.equal((options.missing ? fixture.elements.rxPreviewLoading : fixture.elements.faxPreviewChanged).hidden, false);
     assert.equal(fixture.context.faxSubmissionPending, false);
     if (!options.missing) assert.equal(fixture.elements.faxButton.disabled, true);
   });
@@ -665,19 +669,19 @@ for (const state of ['missing-frame', 'missing-document', 'missing-input', 'inac
     assert.equal(context.sendFax(false), false);
     assert.equal(context.faxSubmissionPending, false);
     assert.equal(context.window.onbeforeunload, unload);
-    assert.equal(elements.faxPreviewChanged.hidden, false);
+    assert.equal(elements.rxPreviewLoading.hidden, false);
   });
 }
 
-test('queued note edits submit the last confirmed original text rather than a stale common version', async () => {
+test('queued note edits submit the last confirmed digest without resending the original note', async () => {
   const {context, notes, releaseSave, savedBodies} = setup();
   notes.value = 'First edit'; context.addNotes();
   notes.value = 'Second edit'; context.addNotes();
   releaseSave(); await context.pendingNotesSave;
   assert.equal(savedBodies.length, 2);
-  assert.equal(new URLSearchParams(savedBodies[0]).get('originalComment'), 'original notes');
-  assert.equal(new URLSearchParams(savedBodies[1]).get('originalComment'), 'First edit');
-  assert.equal(context.savedAdditionalNotes, 'Second edit');
+  assert.equal(new URLSearchParams(savedBodies[0]).get('originalCommentHash'), digest('original notes'));
+  assert.equal(new URLSearchParams(savedBodies[1]).get('originalCommentHash'), digest('First edit'));
+  assert.equal(context.savedAdditionalNotesHash, digest('Second edit'));
 });
 
 test('a successful-looking notes response without a write acknowledgement remains visibly unconfirmed', async () => {
@@ -685,5 +689,24 @@ test('a successful-looking notes response without a write acknowledgement remain
   context.fetch = async () => ({ok: true, status: 200, headers: {get: () => null}});
   context.addNotes(); await assert.rejects(context.pendingNotesSave, /ViewAddRxComment/);
   assert.equal(elements.additionalNotesSaveError.hidden, false);
-  assert.equal(context.savedAdditionalNotes, 'original notes');
+  assert.equal(context.savedAdditionalNotesHash, digest('original notes'));
+});
+
+
+test('a note conflict blocks Print until an acknowledged retry and never resends original clinical prose', async () => {
+  const {context, notes, elements} = setup();
+  context.fetch = async () => ({ok: false, status: 409, headers: {get: () => null}});
+  context.addNotes(); await assert.rejects(context.pendingNotesSave, /ViewAddRxComment/);
+  assert.equal(context.notesConflict, true);
+  vm.runInContext(browserFunction('printIframe', 'printPaste2Parent'), context);
+  assert.equal(context.printIframe(), false);
+  assert.equal(elements.additionalNotesSaveError.hidden, false);
+  context.fetch = async (_url, options) => {
+    const body = new URLSearchParams(options.body);
+    assert.equal(body.has('originalComment'), false);
+    assert.match(body.get('originalCommentHash'), /^[a-f0-9]{64}$/);
+    return acknowledged(notes.value);
+  };
+  context.addNotes(); await context.pendingNotesSave;
+  assert.equal(context.notesConflict, false);
 });

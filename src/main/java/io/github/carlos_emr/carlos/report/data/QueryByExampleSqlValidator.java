@@ -74,7 +74,6 @@ public final class QueryByExampleSqlValidator {
      * {@code QueryByExampleReportingClassificationUnitTest} keeps the two in step (issue #3372).</p>
      */
     static final Set<String> SECURITY_SENSITIVE_TABLES = Set.of(
-            "rx_submission_receipt",
             "appdefinition",
             "appuser",
             "casemgmt_note_lock",
@@ -107,6 +106,7 @@ public final class QueryByExampleSqlValidator {
             "property",
             "publickeys",
             "report_date",
+            "rx_submission_receipt",
             "security",
             "securityarchive",
             "securitytoken",

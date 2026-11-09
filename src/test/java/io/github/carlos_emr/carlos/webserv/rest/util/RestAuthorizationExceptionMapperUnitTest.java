@@ -129,4 +129,12 @@ class RestAuthorizationExceptionMapperUnitTest {
         }
         throw new AssertionError("no jaxrs:server with address " + address + " in " + config);
     }
+    @org.junit.jupiter.api.Test
+    void shouldRegisterOnlyRxConflictMapper_onBothRestSurfaces() throws Exception {
+        for (String file : java.util.List.of("applicationContextREST.xml", "spring_ws.xml")) {
+            String xml = java.nio.file.Files.readString(java.nio.file.Path.of("src/main/resources", file));
+            org.assertj.core.api.Assertions.assertThat(xml).contains("RxConcurrencyExceptionMapper")
+                    .doesNotContain("RxOptimisticLockExceptionMapper", "RxJpaOptimisticLockExceptionMapper");
+        }
+    }
 }

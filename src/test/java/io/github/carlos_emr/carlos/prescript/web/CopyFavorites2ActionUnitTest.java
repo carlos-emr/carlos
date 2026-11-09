@@ -82,8 +82,8 @@ class CopyFavorites2ActionUnitTest extends CarlosUnitTestBase {
         registerMock(SecurityInfoManager.class, security);
         registerMock(FavoritesDao.class, favoritesDao);
         registerMock(FavoritesPrivilegeDao.class, privilegeDao);
-        registerMock(io.github.carlos_emr.carlos.managers.RxFavoriteCopyManager.class,
-                new io.github.carlos_emr.carlos.managers.RxFavoriteCopyManager(favoritesDao, privilegeDao));
+        registerMock(io.github.carlos_emr.carlos.managers.RxFavoriteCopyService.class,
+                new io.github.carlos_emr.carlos.managers.RxFavoriteCopyService(favoritesDao, privilegeDao));
         when(security.hasPrivilege(any(), eq("_rx"), eq("w"), isNull())).thenReturn(true);
         servletContext = mockStatic(ServletActionContext.class);
         servletContext.when(ServletActionContext::getRequest).thenReturn(request);

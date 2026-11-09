@@ -5,11 +5,9 @@ import javax.sql.DataSource;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityManagerFactory;
 import jakarta.persistence.PersistenceContext;
-import java.util.concurrent.Executors;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDaoImpl;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
-import io.github.carlos_emr.carlos.prescript.pageUtil.RxWriteScript2Action;
 import io.github.carlos_emr.carlos.test.base.IsolatedJpaTestDatabase;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.AfterEach;
@@ -32,10 +30,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /** Authoritative Rx audits bypass the async executor and commit in the clinical transaction. */
 @ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = RxAuditFallbackIntegrationTest.Config.class)
+@ContextConfiguration(classes = RxStrictAuditIntegrationTest.Config.class)
 @Tag("integration")
 @Tag("mariadb-native")
-class RxAuditFallbackIntegrationTest extends CarlosUnitTestBase {
+class RxStrictAuditIntegrationTest extends CarlosUnitTestBase {
     @Autowired private OscarLogDao logDao;
     @Autowired private PlatformTransactionManager transactions;
     @PersistenceContext private EntityManager entityManager;
@@ -47,7 +45,7 @@ class RxAuditFallbackIntegrationTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldCommitAuthoritativeAudit_whenExecutorIsUnavailable() throws Exception {
+    void shouldCommitAndRollbackAuthoritativeAudit_withClinicalTransaction() throws Exception {
         // The unit base deliberately silences audits; this regression must execute
         // the real logger and verify the physical row instead.
         logActionMock.close();
@@ -56,9 +54,6 @@ class RxAuditFallbackIntegrationTest extends CarlosUnitTestBase {
         registerMock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class,
                 org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO.class));
         LogAction.setOscarLogDaoForTesting(logDao);
-        var rejecting = Executors.newSingleThreadExecutor();
-        rejecting.shutdown();
-        LogAction.setExecutorServiceForTesting(rejecting);
         var transaction = new TransactionTemplate(transactions);
         transaction.executeWithoutResult(status -> {
             LogAction.addLogStrict("999998", "add", "prescription", "synthetic-commit", "127.0.0.1", "1001", "synthetic");
@@ -68,6 +63,21 @@ class RxAuditFallbackIntegrationTest extends CarlosUnitTestBase {
                 "select count(l) from OscarLog l where l.contentId = :id", Long.class)
                 .setParameter("id", "synthetic-commit").getSingleResult());
         assertThat(count).isEqualTo(1L);
+        transaction.executeWithoutResult(status -> {
+            LogAction.addLogStrict("999998", "add", "prescription", "synthetic-rollback", "127.0.0.1", "1001", "synthetic");
+            status.flush();
+            status.setRollbackOnly();
+        });
+        Long rolledBack = transaction.execute(status -> entityManager.createQuery(
+                "select count(l) from OscarLog l where l.contentId = :id", Long.class)
+                .setParameter("id", "synthetic-rollback").getSingleResult());
+        assertThat(rolledBack).isZero();
+        var brokenDao = org.mockito.Mockito.mock(OscarLogDao.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("synthetic audit failure")).when(brokenDao).persist(org.mockito.ArgumentMatchers.any());
+        LogAction.setOscarLogDaoForTesting(brokenDao);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> transaction.executeWithoutResult(status ->
+                LogAction.addLogStrict("999998", "add", "prescription", "synthetic-failure", "127.0.0.1", "1001", "synthetic")))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Configuration

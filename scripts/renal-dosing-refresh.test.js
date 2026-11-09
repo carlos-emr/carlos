@@ -88,3 +88,25 @@ for (const status of [200, 403, 500]) test(`only an explicit successful no-guida
   if (status === 200) assert.equal(h.panel.innerHTML, '');
   else assert.ok(h.panel.innerHTML.includes('data-renal-dosing-unavailable'));
 });
+
+
+test('legacy WriteScript distinguishes no guidance and unavailable responses', () => {
+  const legacy = fs.readFileSync('src/main/webapp/WEB-INF/jsp/rx/WriteScript.jsp', 'utf8');
+  const start = legacy.indexOf('function getRenalDosingInformation(');
+  const end = legacy.indexOf('getRenalDosingInformation();', start);
+  assert.ok(start >= 0 && end > start);
+  const code = legacy.slice(start, end).replace(/<%.*?%>/g, '/carlos');
+  for (const [transport, expected] of [
+    [{status: 200, responseJSON: {renalState: 'no-guidance'}}, ''],
+    [{status: 503, responseText: ''}, 'unavailable']
+  ]) {
+    const button = {};
+    const panel = {innerHTML: 'old guidance', querySelector: () => button};
+    const context = {document: {getElementById: () => panel, createElement: () => ({content: {querySelector: () => null}})},
+      CarlosAjax: {request: (_url, options) => options.onComplete(transport)}};
+    vm.runInNewContext(code, context);
+    context.getRenalDosingInformation();
+    if (expected === '') assert.equal(panel.innerHTML, '');
+    else { assert.match(panel.innerHTML, /role="status"/); assert.equal(typeof button.onclick, 'function'); }
+  }
+});
